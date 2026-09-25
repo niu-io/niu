@@ -11,6 +11,9 @@ pub struct ApiError {
 impl ApiError {
     pub fn from_store(error: niu_storage::StoreError) -> Self {
         match error {
+            niu_storage::StoreError::InvalidObservation => Self::invalid_request(
+                "Invalid execution record version, graph, identifiers or size",
+            ),
             niu_storage::StoreError::InvalidPrice => {
                 Self::invalid_request("Invalid price, currency or monetary amount")
             }
@@ -62,6 +65,14 @@ impl ApiError {
             status: StatusCode::BAD_REQUEST,
             kind: "invalid_request_error",
             message,
+        }
+    }
+
+    pub fn record_not_found() -> Self {
+        Self {
+            status: StatusCode::NOT_FOUND,
+            kind: "not_found_error",
+            message: "The record is not available in this project",
         }
     }
 

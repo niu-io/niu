@@ -428,6 +428,125 @@ paths:
           description: Administrator authentication required.
         '400':
           description: Invalid path or query parameter.
+  /admin/v1/organizations/{organization}/projects/{project}/execution-imports:
+    get:
+      operationId: listExecutionImports
+      summary: List scoped execution metadata summaries
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: organization
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: project
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: after
+          in: query
+          schema: { type: string, format: uuid }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        '200':
+          description: Data summaries with id, source, record_id, task_id and coverage, plus nullable next_cursor. Live traversal in ascending UUID order, not chronological or a fixed snapshot. Cache-Control is no-store.
+        '401':
+          description: Administrator authentication required.
+        '400':
+          description: Invalid query parameters.
+    post:
+      operationId: importExecution
+      summary: Import a validated metadata-only execution record
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: organization
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: project
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: ExecutionRecord v1 as defined in docs/architecture/execution-observation.md and the public typed contract; 1 MiB maximum. Unknown fields are rejected.
+      responses:
+        '200':
+          description: Stable id for a first import or identical replay.
+        '401':
+          description: Administrator authentication required.
+        '404':
+          description: Record absent from the project.
+        '409':
+          description: Source and record identity already has different content.
+        '400':
+          description: Invalid execution graph or record version.
+  /admin/v1/organizations/{organization}/projects/{project}/execution-imports/{id}:
+    get:
+      operationId: getExecutionImport
+      summary: Read an imported execution record
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: organization
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: project
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Scoped imported record with Cache-Control no-store.
+        '401':
+          description: Administrator authentication required.
+        '404':
+          description: Record absent from the project.
+        '409':
+          description: Source and record identity already has different content.
+        '400':
+          description: Invalid execution graph or record version.
+    delete:
+      operationId: deleteExecutionImport
+      summary: Delete imported execution metadata
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: organization
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: project
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Imported metadata removed; canonical accounting records unchanged.
+        '401':
+          description: Administrator authentication required.
+        '404':
+          description: Record absent from the project.
+        '409':
+          description: Source and record identity already has different content.
+        '400':
+          description: Invalid execution graph or record version.
 components:
   schemas:
     AccountInput:

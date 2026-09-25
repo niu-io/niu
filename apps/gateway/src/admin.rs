@@ -365,3 +365,108 @@ pub async fn create_budget(
         }})),
     ))
 }
+
+pub async fn import_execution(
+    State(state): State<AppState>,
+    Path((organization_id, project_id)): Path<(Uuid, Uuid)>,
+    headers: HeaderMap,
+    Json(record): Json<niu_execution::observation::ExecutionRecord>,
+) -> Result<Json<Value>, ApiError> {
+    authorize(&state, &headers)?;
+    let id = state
+        .store
+        .import_execution(
+            TenantScope {
+                organization_id,
+                project_id,
+            },
+            &record,
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    // 200 for both first import and identical replay; the ID is stable.
+    Ok(Json(json!({"id": id})))
+}
+
+pub async fn execution_import(
+    State(state): State<AppState>,
+    Path((organization_id, project_id, id)): Path<(Uuid, Uuid, Uuid)>,
+    headers: HeaderMap,
+) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {
+    authorize(&state, &headers)?;
+    let record = state
+        .store
+        .execution_import(
+            TenantScope {
+                organization_id,
+                project_id,
+            },
+            id,
+        )
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::record_not_found)?;
+    Ok((
+        [("cache-control", "no-store")],
+        Json(json!({"id": id, "data": record})),
+    ))
+}
+
+pub async fn delete_execution_import(
+    State(state): State<AppState>,
+    Path((organization_id, project_id, id)): Path<(Uuid, Uuid, Uuid)>,
+    headers: HeaderMap,
+) -> Result<StatusCode, ApiError> {
+    authorize(&state, &headers)?;
+    if !state
+        .store
+        .delete_execution_import(
+            TenantScope {
+                organization_id,
+                project_id,
+            },
+            id,
+        )
+        .await
+        .map_err(ApiError::from_store)?
+    {
+        return Err(ApiError::record_not_found());
+    }
+    Ok(StatusCode::NO_CONTENT)
+}
+
+pub async fn execution_imports(
+    State(state): State<AppState>,
+    Path((organization_id, project_id)): Path<(Uuid, Uuid)>,
+    headers: HeaderMap,
+    axum::extract::Query(query): axum::extract::Query<CostQuery>,
+) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {
+    authorize(&state, &headers)?;
+    let limit = query.limit.unwrap_or(50);
+    if !(1..=100).contains(&limit) {
+        return Err(ApiError::invalid_request("Limit must be between 1 and 100"));
+    }
+    let mut data = state
+        .store
+        .execution_imports(
+            TenantScope {
+                organization_id,
+                project_id,
+            },
+            query.after,
+            i64::from(limit) + 1,
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    let more = data.len() > usize::from(limit);
+    data.truncate(usize::from(limit));
+    let next_cursor = if more {
+        data.last().map(|r| r.id)
+    } else {
+        None
+    };
+    Ok((
+        [("cache-control", "no-store")],
+        Json(json!({"data":data,"next_cursor":next_cursor})),
+    ))
+}

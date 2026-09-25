@@ -61,6 +61,14 @@ pub fn router(state: AppState) -> Router {
             "/admin/v1/organizations/{organization}/projects/{project}/costs",
             get(crate::admin::costs),
         )
+        .route(
+            "/admin/v1/organizations/{organization}/projects/{project}/execution-imports",
+            get(crate::admin::execution_imports).post(crate::admin::import_execution),
+        )
+        .route(
+            "/admin/v1/organizations/{organization}/projects/{project}/execution-imports/{id}",
+            get(crate::admin::execution_import).delete(crate::admin::delete_execution_import),
+        )
         .route("/admin/v1/metrics", get(admin_metrics))
         .fallback_service(ServeDir::new(console_dir).fallback(ServeFile::new(index)))
         .layer(DefaultBodyLimit::max(1_048_576))
@@ -720,6 +728,175 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[sqlx::test(migrations = "../../crates/storage/migrations")]
+    #[ignore = "requires PostgreSQL"]
+    async fn execution_import_api_is_scoped_and_read_only(pool: sqlx::PgPool) {
+        let state = test_state(None, pool.clone());
+        let org = state.store.create_organization("imports").await.unwrap();
+        let a = state.store.create_project(org, "a").await.unwrap();
+        let b = state.store.create_project(org, "b").await.unwrap();
+        let key = state
+            .store
+            .issue_key(a, "client", &["fast".into()], 3600)
+            .await
+            .unwrap();
+        let app = router(state);
+        let base = format!(
+            "/admin/v1/organizations/{org}/projects/{}/execution-imports",
+            a.project_id
+        );
+        let fixture = include_str!("../../../contracts/fixtures/parallel-task.v1.json");
+        let mut id = None;
+        for (auth, expected) in [
+            (format!("Bearer {}", key.token), StatusCode::UNAUTHORIZED),
+            (
+                "Bearer niu-test-admin-token-that-is-long-1234".into(),
+                StatusCode::OK,
+            ),
+            (
+                "Bearer niu-test-admin-token-that-is-long-1234".into(),
+                StatusCode::OK,
+            ),
+        ] {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::post(&base)
+                        .header("authorization", auth)
+                        .header("content-type", "application/json")
+                        .body(axum::body::Body::from(fixture))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), expected);
+            if expected == StatusCode::OK {
+                let body: Value = serde_json::from_slice(
+                    &response.into_body().collect().await.unwrap().to_bytes(),
+                )
+                .unwrap();
+                if let Some(ref previous) = id {
+                    assert_eq!(previous, &body["id"]);
+                }
+                id = Some(body["id"].clone());
+            }
+        }
+        let id = id.unwrap();
+        for (auth, expected) in [
+            (format!("Bearer {}", key.token), StatusCode::UNAUTHORIZED),
+            (
+                "Bearer niu-test-admin-token-that-is-long-1234".into(),
+                StatusCode::OK,
+            ),
+        ] {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::get(format!("{base}?limit=1"))
+                        .header("authorization", auth)
+                        .body(axum::body::Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), expected);
+            if expected == StatusCode::OK {
+                assert_eq!(response.headers()["cache-control"], "no-store");
+                let body: Value = serde_json::from_slice(
+                    &response.into_body().collect().await.unwrap().to_bytes(),
+                )
+                .unwrap();
+                assert_eq!(body["data"][0]["id"], id);
+                assert_eq!(body["data"][0]["coverage"], "partial");
+                assert!(body["data"][0].get("spans").is_none());
+                assert!(body["next_cursor"].is_null());
+            }
+        }
+        let path = format!("{base}/{}", id.as_str().unwrap());
+        for (url, expected) in [
+            (path.clone(), StatusCode::OK),
+            (
+                format!(
+                    "/admin/v1/organizations/{org}/projects/{}/execution-imports/{}",
+                    b.project_id,
+                    id.as_str().unwrap()
+                ),
+                StatusCode::NOT_FOUND,
+            ),
+        ] {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::get(url)
+                        .header(
+                            "authorization",
+                            "Bearer niu-test-admin-token-that-is-long-1234",
+                        )
+                        .body(axum::body::Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), expected);
+            if expected == StatusCode::OK {
+                assert_eq!(response.headers()["cache-control"], "no-store");
+            }
+        }
+        let mut conflicting: Value = serde_json::from_str(fixture).unwrap();
+        conflicting["coverage"] = json!("unknown");
+        let response = app
+            .clone()
+            .oneshot(
+                Request::post(&base)
+                    .header(
+                        "authorization",
+                        "Bearer niu-test-admin-token-that-is-long-1234",
+                    )
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(conflicting.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::CONFLICT);
+        let response = app
+            .clone()
+            .oneshot(
+                Request::delete(&path)
+                    .header(
+                        "authorization",
+                        "Bearer niu-test-admin-token-that-is-long-1234",
+                    )
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::NO_CONTENT);
+        let response = app
+            .oneshot(
+                Request::get(path)
+                    .header(
+                        "authorization",
+                        "Bearer niu-test-admin-token-that-is-long-1234",
+                    )
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        let attempts: i64 = sqlx::query_scalar("SELECT count(*) FROM attempts")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        let charges: i64 = sqlx::query_scalar("SELECT count(*) FROM cost_entries")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!((attempts, charges), (0, 0));
     }
 
     #[sqlx::test(migrations = "../../crates/storage/migrations")]

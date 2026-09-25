@@ -35,3 +35,14 @@ Send `POST /admin/v1/organizations/{organization}/projects/{project}/budget` wit
 This creates a USD 100 lifetime budget. Amounts must be nonnegative decimal integer strings, with no exponent or fractional notation, within the signed 64-bit range. Currency is a three-letter uppercase code; no currency conversion is performed. Concurrent creation has one winner; an existing budget returns 409 without changing its limit, reservations or spend.
 
 **Current admission behavior:** creating a budget requires subsequent inference dispatch to hold a trusted cost reservation. Configure a supported route pricing schedule to create reservations automatically; routes without pricing remain blocked for that project. Existing dispatched attempts are not retroactively reserved. Use this API with that limitation in mind; budget editing and deletion are not yet exposed.
+
+## Standalone execution imports
+
+The metadata import API is independent of inference forwarding and account pooling. Use the versioned execution contract with a supported export or connector; the synthetic repository fixture is suitable for a local smoke check, not a real collector.
+
+- `GET /admin/v1/organizations/{organization}/projects/{project}/execution-imports?limit=50`: list metadata summaries and a nullable `next_cursor`; pass it as `after` to continue. Limits range from 1 to 100. UUID ordering is a live traversal, not chronological or a fixed snapshot.
+- `POST /admin/v1/organizations/{organization}/projects/{project}/execution-imports`: import a record, returning `{"id":"..."}` with status 200. Identical re-import returns the same ID; conflicting content for the same source/record identity returns 409.
+- `GET /admin/v1/organizations/{organization}/projects/{project}/execution-imports/{id}`: retrieve metadata. Responses are marked `Cache-Control: no-store`.
+- `DELETE /admin/v1/organizations/{organization}/projects/{project}/execution-imports/{id}`: remove the imported metadata row. Referenced canonical financial records remain governed by their own retention policy. Re-import after deletion creates a new stored record.
+
+All endpoints currently require an installation administrator token. Inference client keys cannot import, read or delete these records. Imports are capped at 1 MiB, reject unknown content fields and invalid graphs, and take their project scope from the authenticated API path. Imports neither execute work nor post ledger charges. There is no automatic retention expiry yet; deletion removes the live database record, while backups must follow the operator's retention policy.

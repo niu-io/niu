@@ -13,6 +13,7 @@ path = "src/main.rs"
 [dependencies]
 axum.workspace = true
 futures-util.workspace = true
+niu-execution = { path = "../../crates/execution" }
 niu-storage = { path = "../../crates/storage" }
 litellm-core = { path = "../../vendor/litellm-rust/crates/core" }
 reqwest.workspace = true
