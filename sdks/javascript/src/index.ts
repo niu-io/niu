@@ -187,5 +187,5 @@ async function* parseChatStream(body: ReadableStream<Uint8Array>): AsyncGenerato
   }
 }
 
-export { NiuAdminClient } from './admin.js';
-export type { NiuAdminOptions, TenantScope, SupplierAccountInput, SupplierAccount, QuotaObservation, QuotaWindow } from './admin.js';
+export { NiuAdminClient, NiuCollectorClient } from './admin.js';
+export type { NiuAdminOptions, NiuCollectorOptions, TenantScope, SupplierAccountInput, SupplierAccount, QuotaObservation, QuotaWindow } from './admin.js';

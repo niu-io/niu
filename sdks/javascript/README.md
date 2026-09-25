@@ -58,4 +58,24 @@ for (const account of accounts.data) {
 
 Use `createAccount(scope, input)` to register account metadata and an `env:` or `secret:` credential reference. Registration is not credential verification. Use `observeQuota(scope, accountId, observation)` with evidence obtained by an authorized collector. `remaining` and `maximum` are decimal strings or null, never floating-point values. Timestamps are safe-integer milliseconds. The server validates intervals, quantity bounds and tenant ownership. Identical observations may be explicitly resubmitted; conflicting evidence returns `NiuAPIError` with status 409. The SDK does not retry automatically and rejects redirects. Every method accepts an optional `{ signal }` for cancellation.
 
-The API reports capacity separately from monetary charges. Missing or stale quota evidence does not mean zero remaining capacity. Native provider collection and dedicated least-privilege collector credentials remain unfinished.
+The API reports capacity separately from monetary charges. Missing or stale quota evidence does not mean zero remaining capacity. Native provider collection remains unfinished. Project-scoped collector credentials are available for quota ingestion.
+
+## Quota-only collectors
+
+Provision a collector key using `admin.issueCollectorKey(scope, { name: 'quota collector', ttl_seconds: 86400 })`. Save its returned ID for `admin.revokeCollectorKey(scope, id)` and deliver its one-time token to the collector through your secret manager. Key issuance is an administrative operation; do not place the installation admin token in the collector.
+
+```ts
+import { NiuCollectorClient } from '@niu-io/sdk';
+
+const collector = new NiuCollectorClient({
+  collectorToken: process.env.NIU_COLLECTOR_TOKEN!,
+  scope: {
+    organizationId: process.env.NIU_ORGANIZATION_ID!,
+    projectId: process.env.NIU_PROJECT_ID!,
+  },
+});
+// providerObservation must come from your authorized provider integration.
+await collector.observeQuota(accountId, providerObservation);
+```
+
+The collector interface exposes only `observeQuota`. Its scope is copied at construction, and the server enforces project ownership, expiry and revocation on every ingestion. It cannot query quota or register accounts; use the admin client in the operator application for those operations. No retries, polling or credential refresh happen implicitly.

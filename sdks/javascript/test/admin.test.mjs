@@ -41,3 +41,32 @@ test('conflicts propagate without automatic resubmission', async () => {
   await assert.rejects(client.observeQuota(scope, id, observation), error => error instanceof NiuAPIError && error.status === 409);
   assert.equal(calls, 1);
 });
+
+test('collector is bound to a copied project scope and exposes only ingestion', async () => {
+  const { NiuCollectorClient } = await import('../dist/index.js');
+  const mutableScope = { ...scope };
+  let captured;
+  const collector = new NiuCollectorClient({ collectorToken: 'test-collector', scope: mutableScope, fetch: async (url, init) => {
+    captured = { url, init }; return Response.json({ id });
+  }});
+  mutableScope.projectId = '../other';
+  await collector.observeQuota(id, observation);
+  assert.equal(captured.url, `http://localhost:2555/admin/v1/organizations/${id}/projects/${id}/accounts/${id}/quota`);
+  assert.equal(captured.init.headers.authorization, 'Bearer test-collector');
+  assert.deepEqual(Object.getOwnPropertyNames(Object.getPrototypeOf(collector)), ['constructor', 'observeQuota']);
+});
+
+test('admin credential lifecycle sends explicit creation and deletion requests', async () => {
+  const calls = [];
+  const admin = new NiuAdminClient({ adminToken: 'test-admin', fetch: async (url, init) => {
+    calls.push({ url, init });
+    return init.method === 'DELETE' ? new Response(null, { status: 204 }) : Response.json({ id, token: 'test-collector' });
+  }});
+  assert.equal((await admin.issueCollectorKey(scope, { name: 'collector', ttl_seconds: 3600 })).id, id);
+  assert.equal(await admin.revokeCollectorKey(scope, id), undefined);
+  assert.equal(calls[1].init.method, 'DELETE');
+  assert.equal(calls[1].init.body, undefined);
+  assert.ok(calls[1].url.endsWith(`/collector-keys/${id}`));
+  assert.throws(() => admin.issueCollectorKey(scope, { name: 'collector', ttl_seconds: 0 }), /lifetime/);
+  assert.equal(calls.length, 2);
+});

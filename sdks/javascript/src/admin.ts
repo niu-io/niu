@@ -48,6 +48,17 @@ export class NiuAdminClient {
     this.requestFetch = options.fetch ?? globalThis.fetch.bind(globalThis);
   }
 
+  issueCollectorKey(scope: TenantScope, input: { name: string; ttl_seconds: number }, options?: RequestOptions): Promise<{ id: string; token: string }> {
+    if (!input.name.trim() || !Number.isSafeInteger(input.ttl_seconds) || input.ttl_seconds < 1 || input.ttl_seconds > 31_536_000) {
+      throw new Error('Collector key requires a name and a lifetime of 1 to 31536000 seconds');
+    }
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/collector-keys`, input, options);
+  }
+
+  revokeCollectorKey(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<void> {
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/collector-keys/${uuid(keyId)}`, undefined, options, 'DELETE');
+  }
+
   listAccounts(scope: TenantScope, options?: RequestOptions): Promise<{ data: SupplierAccount[] }> {
     return this.request(this.accountsPath(scope), undefined, options);
   }
@@ -76,9 +87,9 @@ export class NiuAdminClient {
     return `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/accounts`;
   }
 
-  private async request<T>(path: string, body?: unknown, options: RequestOptions = {}): Promise<T> {
+  private async request<T>(path: string, body?: unknown, options: RequestOptions = {}, method?: string): Promise<T> {
     const response = await this.requestFetch(`${this.base}${path}`, {
-      method: body === undefined ? 'GET' : 'POST',
+      method: method ?? (body === undefined ? 'GET' : 'POST'),
       headers: { authorization: `Bearer ${this.token}`, accept: 'application/json', ...(body === undefined ? {} : { 'content-type': 'application/json' }) },
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: options.signal,
@@ -95,4 +106,27 @@ export class NiuAdminClient {
 function uuid(value: string): string {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) throw new Error('Scope and account IDs must be UUIDs');
   return value;
+}
+
+export type NiuCollectorOptions = {
+  collectorToken: string;
+  scope: TenantScope;
+  baseURL?: string;
+  fetch?: typeof globalThis.fetch;
+};
+
+/** Quota writer bound to one project. Server authorization is authoritative. */
+export class NiuCollectorClient {
+  readonly #client: NiuAdminClient;
+  readonly #scope: TenantScope;
+
+  constructor(options: NiuCollectorOptions) {
+    if (!options.collectorToken.trim()) throw new Error('collectorToken is required');
+    this.#scope = { organizationId: uuid(options.scope.organizationId), projectId: uuid(options.scope.projectId) };
+    this.#client = new NiuAdminClient({ adminToken: options.collectorToken, baseURL: options.baseURL, fetch: options.fetch });
+  }
+
+  observeQuota(accountId: string, observation: QuotaObservation, options?: RequestOptions): Promise<{ id: string }> {
+    return this.#client.observeQuota(this.#scope, accountId, observation, options);
+  }
 }
