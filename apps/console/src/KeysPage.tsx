@@ -26,6 +26,7 @@ export default function KeysPage({ token, models }: { token: string; models: str
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const mutationRevision = useRef(0);
+  const setupTarget = useRef<{ organization_id: string; project_id: string } | null>(null);
 
   const request = useCallback(async <T,>(path: string, method = 'GET', body?: unknown, signal?: AbortSignal): Promise<T> => {
     const response = await fetch(path, { method, signal, headers: { authorization: `Bearer ${token}`, ...(body ? { 'content-type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined });
@@ -52,7 +53,15 @@ export default function KeysPage({ token, models }: { token: string; models: str
     const abort = new AbortController();
     const revision = mutationRevision.current;
     request<{ data: Named[] }>(projectPath, 'GET', undefined, abort.signal)
-      .then(value => { if (!abort.signal.aborted && revision === mutationRevision.current) setProjects(value.data); })
+      .then(value => {
+        if (!abort.signal.aborted && revision === mutationRevision.current) {
+          setProjects(value.data);
+          if (setupTarget.current?.organization_id === organization) {
+            setProject(setupTarget.current.project_id);
+            setupTarget.current = null;
+          }
+        }
+      })
       .catch(e => { if (!abort.signal.aborted && revision === mutationRevision.current) setError(String(e.message)); });
     return () => abort.abort();
   }, [organization, projectPath, request]);
@@ -80,6 +89,19 @@ export default function KeysPage({ token, models }: { token: string; models: str
   return <>
     <div className="page-heading"><div><p className="eyebrow">ACCESS CONTROL</p><h1>API keys</h1><p className="page-subtitle">Issue project-scoped keys with explicit model permissions and expiry.</p></div></div>
     {error && <p role="alert" className="error-text">{error}</p>}
+    <section className="panel keys-controls"><h2>Get started</h2><p>Use a default workspace and project, then choose the models your key can access. Task imports, benchmarks and budgets are optional unless configured by your administrator.</p>
+      <Button disabled={busy} onClick={() => void mutate(async () => {
+        const scope = await request<{ organization_id: string; project_id: string }>('/admin/v1/setup/default-workspace', 'POST');
+        setOrganizations((await request<{ data: Named[] }>('/admin/v1/organizations')).data);
+        if (organization === scope.organization_id) {
+          setProject(scope.project_id);
+        } else {
+          setupTarget.current = scope;
+          setOrganization(scope.organization_id);
+        }
+        setName('My first key');
+      })}>Use default workspace</Button>
+    </section>
     <section className="panel keys-controls">
       <div className="key-scope-grid">
         <Label htmlFor="organization">Organization<NativeSelect id="organization" disabled={busy} value={organization} onChange={e => { setOrganization(e.target.value); setProject(''); setKeys([]); setSecret(null); }}><NativeSelectOption value="">Select organization</NativeSelectOption>{organizations.map(x => <NativeSelectOption value={x.id} key={x.id}>{x.name}</NativeSelectOption>)}</NativeSelect></Label>

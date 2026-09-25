@@ -753,3 +753,37 @@ async fn execution_imports_are_scoped_idempotent_and_deletable(pool: PgPool) {
         .unwrap();
     assert_eq!((attempts, charges), (0, 0));
 }
+
+#[sqlx::test]
+#[ignore = "requires PostgreSQL with permission to create test databases"]
+async fn default_workspace_is_atomic_and_idempotent(pool: PgPool) {
+    MIGRATOR.run(&pool).await.unwrap();
+    let store = Store::from_pool(pool.clone());
+    let unrelated = store
+        .create_organization("Personal workspace")
+        .await
+        .unwrap();
+    let (a, b) = tokio::join!(store.default_workspace(), store.default_workspace());
+    let a = a.unwrap();
+    let b = b.unwrap();
+    assert_eq!(a.organization_id, b.organization_id);
+    assert_eq!(a.project_id, b.project_id);
+    assert_ne!(a.organization_id, unrelated);
+    let restarted = Store::from_pool(pool.clone())
+        .default_workspace()
+        .await
+        .unwrap();
+    assert_eq!(a.project_id, restarted.project_id);
+    let counts: (i64, i64) = sqlx::query_as(
+        "SELECT (SELECT count(*) FROM organizations), (SELECT count(*) FROM projects)",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(counts, (2, 1));
+    let keys: i64 = sqlx::query_scalar("SELECT count(*) FROM api_keys")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(keys, 0);
+}

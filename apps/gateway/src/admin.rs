@@ -34,6 +34,21 @@ fn validate_name(name: &str) -> Result<(), ApiError> {
     Ok(())
 }
 
+pub async fn default_workspace(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    authorize(&state, &headers)?;
+    let scope = state
+        .store
+        .default_workspace()
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(
+        json!({ "organization_id": scope.organization_id, "project_id": scope.project_id }),
+    ))
+}
+
 pub async fn organization(
     State(state): State<AppState>,
     headers: HeaderMap,

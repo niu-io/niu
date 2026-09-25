@@ -104,6 +104,46 @@ impl Store {
         Ok(sqlx::query_as("SELECT id,name FROM projects WHERE organization_id=$1 ORDER BY created_at,id LIMIT 1000").bind(organization_id).fetch_all(&self.pool).await?)
     }
 
+    /// Explicit installation-admin quick setup. Creates both ownership records
+    /// atomically and reuses only the designated default, never a name match.
+    pub async fn default_workspace(&self) -> Result<TenantScope, StoreError> {
+        let mut tx = self.pool.begin().await?;
+        sqlx::query("LOCK TABLE default_workspace IN EXCLUSIVE MODE")
+            .execute(&mut *tx)
+            .await?;
+        let existing: Option<(Uuid, Uuid)> = sqlx::query_as(
+            "SELECT organization_id, project_id FROM default_workspace WHERE singleton",
+        )
+        .fetch_optional(&mut *tx)
+        .await?;
+        let (organization_id, project_id) = match existing {
+            Some(scope) => scope,
+            None => {
+                let organization_id = Uuid::new_v4();
+                let project_id = Uuid::new_v4();
+                sqlx::query("INSERT INTO organizations (id,name) VALUES ($1,'Personal workspace')")
+                    .bind(organization_id)
+                    .execute(&mut *tx)
+                    .await?;
+                sqlx::query("INSERT INTO projects (id,organization_id,name) VALUES ($1,$2,'Default project')")
+                    .bind(project_id).bind(organization_id).execute(&mut *tx).await?;
+                sqlx::query(
+                    "INSERT INTO default_workspace (organization_id,project_id) VALUES ($1,$2)",
+                )
+                .bind(organization_id)
+                .bind(project_id)
+                .execute(&mut *tx)
+                .await?;
+                (organization_id, project_id)
+            }
+        };
+        tx.commit().await?;
+        Ok(TenantScope {
+            organization_id,
+            project_id,
+        })
+    }
+
     pub async fn create_organization(&self, name: &str) -> Result<Uuid, StoreError> {
         let id = Uuid::new_v4();
         sqlx::query("INSERT INTO organizations (id, name) VALUES ($1, $2)")

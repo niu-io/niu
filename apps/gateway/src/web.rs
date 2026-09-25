@@ -20,6 +20,10 @@ pub fn router(state: AppState) -> Router {
         env::var("NIU_CONSOLE_DIR").unwrap_or_else(|_| "apps/console/dist".to_owned());
     let index = format!("{console_dir}/index.html");
     Router::new()
+        .route(
+            "/admin/v1/setup/default-workspace",
+            axum::routing::post(crate::admin::default_workspace),
+        )
         .route("/healthz", get(health))
         .route("/readyz", get(ready))
         .route(
@@ -1457,6 +1461,57 @@ mod tests {
             .unwrap();
         assert_eq!(response.status(), StatusCode::CREATED);
         serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap()
+    }
+
+    #[sqlx::test(migrations = "../../crates/storage/migrations")]
+    #[ignore = "requires PostgreSQL"]
+    async fn quick_setup_requires_admin_and_reuses_default(pool: sqlx::PgPool) {
+        let state = test_state(None, pool.clone());
+        let scope = state.store.default_workspace().await.unwrap();
+        let key = state
+            .store
+            .issue_key(scope, "client", &["fast".into()], 3600)
+            .await
+            .unwrap();
+        let app = router(state);
+        let mut result = None;
+        for authorization in [
+            None,
+            Some(format!("Bearer {}", key.token)),
+            Some("Bearer niu-test-admin-token-that-is-long-1234".into()),
+            Some("Bearer niu-test-admin-token-that-is-long-1234".into()),
+        ] {
+            let allowed =
+                authorization.as_deref() == Some("Bearer niu-test-admin-token-that-is-long-1234");
+            let mut request = Request::post("/admin/v1/setup/default-workspace");
+            if let Some(value) = authorization {
+                request = request.header("authorization", value);
+            }
+            let response = app
+                .clone()
+                .oneshot(request.body(axum::body::Body::empty()).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(
+                response.status(),
+                if allowed {
+                    StatusCode::OK
+                } else {
+                    StatusCode::UNAUTHORIZED
+                }
+            );
+            if allowed {
+                let body: Value = serde_json::from_slice(
+                    &response.into_body().collect().await.unwrap().to_bytes(),
+                )
+                .unwrap();
+                assert_eq!(body["project_id"], scope.project_id.to_string());
+                if let Some(previous) = &result {
+                    assert_eq!(previous, &body);
+                }
+                result = Some(body);
+            }
+        }
     }
 
     #[sqlx::test(migrations = "../../crates/storage/migrations")]
