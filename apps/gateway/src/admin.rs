@@ -200,7 +200,8 @@ pub async fn quota(
         )
         .await
         .map_err(ApiError::from_store)?;
-    Ok(Json(json!({"data": windows})))
+    let data: Vec<Value> = windows.into_iter().map(quota_json).collect();
+    Ok(Json(json!({"data": data})))
 }
 
 pub async fn organizations(
@@ -498,4 +499,47 @@ pub async fn execution_imports(
         [("cache-control", "no-store")],
         Json(json!({"data":data,"next_cursor":next_cursor})),
     ))
+}
+
+fn quota_json(w: niu_storage::QuotaView) -> Value {
+    json!({
+        "window_key": w.window_key, "unit": w.unit,
+        "remaining": w.remaining.map(|v| v.to_string()),
+        "maximum": w.maximum.map(|v| v.to_string()),
+        "observed_at_ms": w.observed_at_ms, "valid_until_ms": w.valid_until_ms,
+        "resets_at_ms": w.resets_at_ms, "source": w.source, "fresh": w.fresh
+    })
+}
+
+#[cfg(test)]
+mod quota_tests {
+    #[test]
+    fn quota_quantities_preserve_precision_and_unknowns() {
+        let mut quota = niu_storage::QuotaView {
+            window_key: "monthly".into(),
+            unit: "tokens".into(),
+            remaining: Some(i64::MAX),
+            maximum: None,
+            observed_at_ms: 0,
+            valid_until_ms: 1,
+            resets_at_ms: 2,
+            source: "fixture".into(),
+            fresh: false,
+        };
+        let value = super::quota_json(quota);
+        assert_eq!(value["remaining"], i64::MAX.to_string());
+        assert!(value["maximum"].is_null());
+        quota = niu_storage::QuotaView {
+            window_key: "monthly".into(),
+            unit: "requests".into(),
+            remaining: Some(0),
+            maximum: Some(100),
+            observed_at_ms: 0,
+            valid_until_ms: 1,
+            resets_at_ms: 2,
+            source: "fixture".into(),
+            fresh: false,
+        };
+        assert_eq!(super::quota_json(quota)["remaining"], "0");
+    }
 }

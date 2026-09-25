@@ -1,6 +1,7 @@
 import TaskCharges, { type TaskChargeEvidence } from '@/TaskCharges';
 import { timelineAxis, timelinePosition } from '@/lib/timeline';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useRead } from '@/lib/useRead';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
@@ -11,20 +12,6 @@ type Named = { id: string; name: string };
 type Summary = { id: string; task_id: string; source: string; coverage: string };
 type Span = { id: string; kind: string; started_at_ms: number | null; ended_at_ms: number | null; requested_model: string | null; reported_model: string | null; charge_ref: string | null };
 type Record = { task_id: string; coverage: string; spans: Span[]; links: { from: string; to: string; kind: string }[]; outcomes: { span_id: string; evidence_id: string; authority: string; result: string }[] };
-
-function useRead<T>(token: string, path: string | null) {
-  const [state, setState] = useState<{ path: string | null; data?: T; error?: string }>({ path: null });
-  useEffect(() => {
-    const controller = new AbortController();
-    setState({ path });
-    if (path) void fetch(path, { headers: { authorization: `Bearer ${token}` }, signal: controller.signal })
-      .then(async response => { if (!response.ok) throw new Error(`Unable to load records (${response.status}).`); return response.json() as Promise<T>; })
-      .then(data => { if (!controller.signal.aborted) setState({ path, data }); })
-      .catch(error => { if (!controller.signal.aborted) setState({ path, error: error.message }); });
-    return () => controller.abort();
-  }, [token, path]);
-  return state.path === path ? state : { path };
-}
 
 export default function TasksPage({ token }: { token: string }) {
   const [organization, setOrganization] = useState('');
