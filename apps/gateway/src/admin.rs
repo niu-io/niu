@@ -202,7 +202,7 @@ pub async fn observe_quota(
     headers: HeaderMap,
     Json(input): Json<QuotaObservationInput>,
 ) -> Result<Json<Value>, ApiError> {
-    authorize(&state, &headers)?;
+    let is_admin = authorize(&state, &headers).is_ok();
     let quantity = |value: Option<String>| -> Result<Option<i64>, ApiError> {
         value
             .map(|v| {
@@ -227,18 +227,27 @@ pub async fn observe_quota(
         resets_at_ms: input.resets_at_ms,
         source: input.source,
     };
-    let id = state
-        .store
-        .observe_quota(
-            TenantScope {
-                organization_id,
-                project_id,
-            },
-            account,
-            &observation,
-        )
-        .await
-        .map_err(ApiError::from_store)?;
+    let scope = TenantScope {
+        organization_id,
+        project_id,
+    };
+    let id = if is_admin {
+        state
+            .store
+            .observe_quota(scope, account, &observation)
+            .await
+    } else {
+        let token = headers
+            .get("authorization")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.strip_prefix("Bearer "))
+            .ok_or_else(ApiError::unauthorized)?;
+        state
+            .store
+            .observe_quota_as_collector(token, scope, account, &observation)
+            .await
+    }
+    .map_err(ApiError::from_store)?;
     Ok(Json(json!({"id": id})))
 }
 
@@ -601,4 +610,56 @@ mod quota_tests {
         };
         assert_eq!(super::quota_json(quota)["remaining"], "0");
     }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CollectorKeyInput {
+    name: String,
+    ttl_seconds: i64,
+}
+
+pub async fn issue_collector_key(
+    State(state): State<AppState>,
+    Path((organization_id, project_id)): Path<(Uuid, Uuid)>,
+    headers: HeaderMap,
+    Json(input): Json<CollectorKeyInput>,
+) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {
+    authorize(&state, &headers)?;
+    let issued = state
+        .store
+        .issue_collector_key(
+            TenantScope {
+                organization_id,
+                project_id,
+            },
+            &input.name,
+            input.ttl_seconds,
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok((
+        [("cache-control", "no-store")],
+        Json(json!({"id": issued.id, "token": issued.token})),
+    ))
+}
+
+pub async fn revoke_collector_key(
+    State(state): State<AppState>,
+    Path((organization_id, project_id, id)): Path<(Uuid, Uuid, Uuid)>,
+    headers: HeaderMap,
+) -> Result<StatusCode, ApiError> {
+    authorize(&state, &headers)?;
+    state
+        .store
+        .revoke_collector_key(
+            TenantScope {
+                organization_id,
+                project_id,
+            },
+            id,
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(StatusCode::NO_CONTENT)
 }

@@ -24,6 +24,14 @@ pub fn router(state: AppState) -> Router {
             "/admin/v1/setup/default-workspace",
             axum::routing::post(crate::admin::default_workspace),
         )
+        .route(
+            "/admin/v1/organizations/{organization}/projects/{project}/collector-keys",
+            axum::routing::post(crate::admin::issue_collector_key),
+        )
+        .route(
+            "/admin/v1/organizations/{organization}/projects/{project}/collector-keys/{id}",
+            axum::routing::delete(crate::admin::revoke_collector_key),
+        )
         .route("/healthz", get(health))
         .route("/readyz", get(ready))
         .route(
@@ -764,6 +772,11 @@ mod tests {
             .issue_key(scope, "client", &["fast".into()], 3600)
             .await
             .unwrap();
+        let store = state.store.clone();
+        let collector = store
+            .issue_collector_key(scope, "collector", 3600)
+            .await
+            .unwrap();
         let app = router(state);
         let path = format!(
             "/admin/v1/organizations/{}/projects/{}/accounts/{account}/quota",
@@ -785,10 +798,22 @@ mod tests {
                 StatusCode::UNAUTHORIZED,
             ),
             (
-                wrong_path,
+                wrong_path.clone(),
                 admin.clone(),
                 body.clone(),
                 StatusCode::CONFLICT,
+            ),
+            (
+                path.clone(),
+                format!("Bearer {}", collector.token),
+                body.clone(),
+                StatusCode::OK,
+            ),
+            (
+                wrong_path.clone(),
+                format!("Bearer {}", collector.token),
+                body.clone(),
+                StatusCode::UNAUTHORIZED,
             ),
             (path.clone(), admin.clone(), body.clone(), StatusCode::OK),
             (path.clone(), admin.clone(), body.clone(), StatusCode::OK),
@@ -836,6 +861,60 @@ mod tests {
                 id = Some(response["id"].clone());
             }
         }
+        for url in [
+            "/v1/models".to_string(),
+            "/admin/v1/organizations".to_string(),
+            path.clone(),
+        ] {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::get(url)
+                        .header("authorization", format!("Bearer {}", collector.token))
+                        .body(axum::body::Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        }
+        store
+            .revoke_collector_key(scope, collector.id)
+            .await
+            .unwrap();
+        let response = app
+            .clone()
+            .oneshot(
+                Request::post(&path)
+                    .header("authorization", format!("Bearer {}", collector.token))
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        let expired = store
+            .issue_collector_key(scope, "expired", 3600)
+            .await
+            .unwrap();
+        sqlx::query("UPDATE collector_keys SET expires_at=now()-interval '1 second' WHERE id=$1")
+            .bind(expired.id)
+            .execute(&pool)
+            .await
+            .unwrap();
+        let response = app
+            .clone()
+            .oneshot(
+                Request::post(&path)
+                    .header("authorization", format!("Bearer {}", expired.token))
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
         let response = app
             .oneshot(
                 Request::get(path)

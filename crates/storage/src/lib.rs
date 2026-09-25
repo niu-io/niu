@@ -4,6 +4,7 @@ use sqlx::{PgPool, postgres::PgPoolOptions};
 use uuid::Uuid;
 mod accounting;
 mod accounts;
+mod collectors;
 mod observations;
 pub use accounts::{
     AccountHealth, AccountInput, AccountView, AuthMode, BillingMode, QuotaInput, QuotaUnit,
