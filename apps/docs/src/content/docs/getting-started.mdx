@@ -3,6 +3,27 @@ title: Getting started
 description: Set up the Niu monorepo for local development.
 ---
 
+## Just want to call a model?
+
+You do not need to define tasks, import agent traces, run benchmarks, configure subscriptions or enable pooling.
+
+1. Configure a provider and public model alias in `config/niu.example.toml`, and supply its provider credential on the server. The example alias is `fast`.
+2. Start the gateway using the [single-container guide](/deployment/single-container/), or the development steps below.
+3. Open the console at `http://localhost:2555`, connect using your installation's admin token, and choose **API keys**. Create an organization and project, then issue a key with access to `fast`.
+4. Use that client key with the standard chat API:
+
+```sh
+export NIU_API_KEY='your-issued-client-key'
+curl http://localhost:2555/v1/chat/completions \
+  -H "Authorization: Bearer $NIU_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"fast","messages":[{"role":"user","content":"Hello"}]}'
+```
+
+The base URL for compatible clients is `http://localhost:2555/v1`. Keep the admin token for administration; applications use scoped client keys.
+
+Pricing schedules and budgets are optional. If you enable a budget, its reservation requirements apply; see [model pricing](/configuration/models/#optional-text-route-pricing). Task observability and evaluation are separate workflows, not prerequisites for inference. The current early console still requires manual organization/project setup and server-side provider configuration.
+
 ## Requirements
 
 - Rust 1.98.0 for the current selected native runtime modules.

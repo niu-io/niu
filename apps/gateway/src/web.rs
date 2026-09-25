@@ -1139,7 +1139,7 @@ mod tests {
         let address = listener.local_addr().unwrap();
         tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
 
-        let state = test_state(Some(format!("http://{address}/v1")), pool);
+        let state = test_state(Some(format!("http://{address}/v1")), pool.clone());
         let org = state.store.create_organization("test").await.unwrap();
         let scope = state.store.create_project(org, "test").await.unwrap();
         let key = state
@@ -1183,6 +1183,19 @@ mod tests {
         assert_eq!(attempt.prompt_tokens, Some(2));
         assert_eq!(attempt.completion_tokens, Some(1));
         assert_eq!(attempt.settlement, "unresolved");
+        // Simple inference must not require observability imports, subscriptions,
+        // or an opt-in budget/pricing setup.
+        let imports: i64 = sqlx::query_scalar("SELECT count(*) FROM execution_imports")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        let accounts: i64 = sqlx::query_scalar("SELECT count(*) FROM supplier_accounts")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!((imports, accounts), (0, 0));
+        assert!(state.store.budget(scope).await.unwrap().is_none());
+
         let status = response.status();
         let payload = response.into_body().collect().await.unwrap().to_bytes();
         let payload_text = String::from_utf8_lossy(&payload);

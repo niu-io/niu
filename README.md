@@ -4,6 +4,10 @@ Niu is an open-source Agent Observability and Benchmark platform with an integra
 
 The product is intended to cover the practical gateway lifecycle: connect model providers, expose compatible APIs, route requests, enforce identity and policy, observe usage, account for cost, manage keys and model offers, and operate the deployment. The current code is an early implementation and does not yet provide feature parity with established gateways.
 
+## Simple model access
+
+Configure a provider, issue a client key, and call the standard model API on port 2555. No task definitions, agent telemetry, benchmarks, subscriptions or pooling are required. See the [quickstart](apps/docs/src/content/docs/getting-started.mdx). Advanced observation and evaluation are optional workflows in the same product.
+
 ## Current implementation
 
 The repository now has a monorepo layout. `apps/gateway` is the Rust application entry point, `apps/console` is the niu.io-branded TypeScript console, and `apps/docs` is the static developer documentation site. `contracts` owns the public API schema, `crates` contains the shared execution contract and selected cost calculation package, and `vendor/litellm-rust` contains selected provider and protocol modules with upstream provenance.
