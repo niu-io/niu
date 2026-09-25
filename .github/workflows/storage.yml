@@ -25,6 +25,8 @@ jobs:
       DATABASE_URL: postgres://niu_test:niu_test@localhost:5432/niu_test
     steps:
       - uses: actions/checkout@v4
+      - name: Verify metadata importer
+        run: python3 -m unittest discover -s scripts/tests -v
       - name: Install Rust
         run: rustup toolchain install 1.98.0 --profile minimal
       - name: Verify storage against PostgreSQL
