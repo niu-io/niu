@@ -6,6 +6,7 @@ import { LayoutDashboard, Boxes, KeyRound, ChartNoAxesCombined, Settings, Chevro
 import { useEffect, useState } from 'react';
 import KeysPage from './KeysPage';
 import CostsPage from './CostsPage';
+import TasksPage from './TasksPage';
 import logo from '../../../branding/assets/niu-mark.png';
 
 type Model = { id: string; provider: string; upstream_model: string };
@@ -16,6 +17,7 @@ const navigation = [
   { id: 'models', label: 'Models', icon: Boxes },
   { id: 'keys', label: 'API keys', icon: KeyRound },
   { id: 'usage', label: 'Usage & cost', icon: ChartNoAxesCombined },
+  { id: 'tasks', label: 'Tasks', icon: Network },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
@@ -135,6 +137,7 @@ export default function App() {
           {active === 'models' && <Page title="Models" subtitle="Review the provider routes exposed by this Niu gateway."><section className="panel"><div className="panel-heading"><div><h2>Configured routes</h2><p>Provider credentials stay on the server.</p></div><Button variant="outline" onClick={() => void refreshModels()} type="button"><RefreshCw size={14} /> <span>Refresh</span></Button></div>{token ? <ModelTable models={models} /> : <ConnectPrompt draft={draftToken} error={error} onChange={setDraftToken} onSubmit={connect} />}</section></Page>}
           {active === 'keys' && (token ? <KeysPage key={token} token={token} models={models.map(model => model.id)} /> : <Page title="API keys" subtitle="Connect to manage organizations, projects and client keys."><section className="panel"><ConnectPrompt draft={draftToken} error={error} onChange={setDraftToken} onSubmit={connect} /></section></Page>)}
           {active === 'usage' && (token ? <CostsPage key={token} token={token} /> : <Page title="Usage & cost" subtitle="Connect to inspect project accounting."><section className="panel"><ConnectPrompt draft={draftToken} error={error} onChange={setDraftToken} onSubmit={connect} /></section></Page>)}
+          {active === 'tasks' && (token ? <TasksPage key={token} token={token} /> : <Page title="Tasks" subtitle="Optional execution investigation."><section className="panel"><ConnectPrompt draft={draftToken} error={error} onChange={setDraftToken} onSubmit={connect} /></section></Page>)}
           {active === 'settings' && <Placeholder title="Settings" detail="Workspace identity, authentication, provider policy, and configuration publishing will be managed here." />}
         </div>
       </main>

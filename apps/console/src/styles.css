@@ -99,3 +99,5 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .budget-grid dd { margin: 8px 0 0; font-weight: 600; overflow-wrap: anywhere; }
 .price-revision { display: block; margin-top: 4px; }
 .ledger-pagination { display: flex; justify-content: flex-end; padding: 16px; }
+
+.trace-links { display: grid; gap: 12px; padding: 0; list-style: none; font-size: 12px; overflow-wrap: anywhere; }

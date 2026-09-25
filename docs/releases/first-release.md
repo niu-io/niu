@@ -147,3 +147,7 @@ Bootstrap administrators can create a project's lifetime cash budget using exact
 ### Priced inference checkpoint
 
 Optional OpenAI-compatible text route pricing now publishes/reuses an immutable scoped price, reserves configured token bounds before dispatch, and settles provider-reported usage. A PostgreSQL/local-provider integration test covers exact cash/API-equivalent charges, shared price revisions, injected output limits, rejected unsupported shapes and exhaustion preventing upstream calls. Earlier checkpoints describing entirely unwired pricing are superseded for this text subset. Input bounds remain operator-attested provider limits; richer billable dimensions, budget hierarchy, subscription fees and live provider qualification remain open.
+
+### Imported task console checkpoint
+
+The optional Tasks page lists scoped imports and displays spans, observed intervals, causal links, requested/reported model identity and separate outcome authorities. Browser verification with the synthetic parallel fixture confirms a 100 ms task interval, unknown actual model identity, shared charge references and a completion claim contradicted by validation. The CLI successfully imported that fixture into the local gateway before inspection. The console production build passes. A graphical timeline, resolved task costs, collector integrations and retention controls remain open.
