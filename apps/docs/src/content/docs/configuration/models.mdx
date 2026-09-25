@@ -1,0 +1,43 @@
+---
+title: Model routes
+description: How the gateway maps public model names to approved provider offers.
+---
+
+A model route maps a public model name to an upstream provider, provider model identifier, endpoint, and server-side credential reference. Clients select the public name. They cannot supply a provider secret or choose an unapproved upstream endpoint.
+
+The current development configuration is TOML. The example file is [`config/niu.example.toml`](https://github.com/niu-io/niu/blob/main/config/niu.example.toml). Credentials are referenced by environment variable name and resolved by the gateway at request time.
+
+```toml
+[models.fast]
+provider = "openai"
+upstream_model = "gpt-4.1-mini"
+api_base = "https://api.openai.com/v1"
+api_key_env = "OPENAI_API_KEY"
+```
+
+Model route administration and durable, revisioned configuration are still being implemented. Keep credentials out of TOML, source control, and browser configuration.
+
+## Optional text-route pricing
+
+OpenAI-compatible routes can reserve and settle a project's lifetime cash budget. Configure integer rates in **currency nanounits per million tokens**:
+
+```toml
+[models.fast.pricing]
+currency = "USD"
+api_prompt_rate = 1000000000
+api_completion_rate = 2000000000
+cash_prompt_rate = 1000000000
+cash_completion_rate = 2000000000
+max_input_tokens = 32768
+max_output_tokens = 4096
+```
+
+These illustrative rates mean USD 1 per million input tokens and USD 2 per million output tokens. Replace them with your provider's verified rates. The API-equivalent and cash schedules are independent. Create a matching-currency project budget before sending priced requests.
+
+The gateway reserves the full configured input and output bounds, not an estimated token count. The input bound is an operator assertion about the provider's maximum billable input for this route; it is not a locally verified tokenizer limit. Choose bounds from the actual provider/model contract. Understated bounds can incur an overrun: Niu records the full liability and flags the entry instead of hiding the excess. Provider contract validation remains required before production use.
+
+An omitted output limit is set to `max_output_tokens` using the upstream `max_completion_tokens` field. Explicit output limits must be positive and no larger than the configured bound. Providers must support that field. Pricing currently supports a single text completion with plain role/content messages, standard sampling controls and optional streaming. Tools, audio, images, multiple choices and other billing dimensions are rejected on priced routes. Unpriced routes keep their existing behavior.
+
+The immutable price revision includes the route configuration and pricing. Identical publications reuse a revision. Reservations happen before dispatch; insufficient funds or a missing matching budget prevent the upstream call. Complete provider usage settles cash and API-equivalent cost; missing usage, timeout and interrupted streams retain exposure. A recovery worker retries completed priced settlements without repeating inference.
+
+Priced streaming requests always request final usage via `stream_options.include_usage=true`. Missing usage or a missing terminal event still retains the reservation. PostgreSQL/provider-fixture tests cover complete usage, missing usage and truncation.

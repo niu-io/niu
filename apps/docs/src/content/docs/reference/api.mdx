@@ -1,0 +1,37 @@
+---
+title: API reference
+description: Public Niu gateway and management API contracts.
+---
+
+The versioned OpenAPI contract is maintained in [`contracts/openapi.yaml`](https://github.com/niu-io/niu/blob/main/contracts/openapi.yaml). The gateway is adding compatible inference routes first, followed by management APIs that expose model routes, API keys, usage, cost, and policy.
+
+The public API surface must preserve protocol-specific behavior. Unsupported parameters and event types are rejected or passed through according to the operation contract; they are not silently discarded.
+
+:::caution[Current status]
+The current gateway milestone is limited. This reference grows with tested endpoints; it does not claim parity with every LiteLLM operation or provider today.
+:::
+
+## Durable cost reporting
+
+Bootstrap administrators can read a project's persisted accounting records:
+
+- `GET /admin/v1/organizations/{organization}/projects/{project}/budget` returns `data` with currency, lifetime limit, reserved exposure and settled cash spend, or `null` when no budget exists.
+- `GET /admin/v1/organizations/{organization}/projects/{project}/costs?limit=50` returns settled entries and a nullable `next_cursor`. Pass that UUID as `after` to continue; limits range from 1 to 100.
+
+All monetary and token values in these responses are decimal strings to preserve 64-bit integer precision in browser clients. Monetary amounts use billionths of the named currency. Each entry retains its attempt and price revision, separate API-equivalent and cash costs, token evidence, and a flag for usage exceeding reserved bounds.
+
+Pages traverse ascending attempt UUIDs, not chronological order. This is a live view: newly settled entries may require a fresh traversal. Unsettled attempts are excluded; an empty page does **not** prove zero cost. Reserved exposure remains visible in the budget. Subscription fee allocations and capacity reports are not yet included.
+
+These endpoints currently use installation-wide bootstrap administration. The reporting endpoints do not create prices, settle attempts, or enable automatic gateway pricing.
+
+### Create a lifetime cash budget
+
+Send `POST /admin/v1/organizations/{organization}/projects/{project}/budget` with an administrator token and a body such as:
+
+```json
+{"currency": "USD", "limit_nanos": "100000000000"}
+```
+
+This creates a USD 100 lifetime budget. Amounts must be nonnegative decimal integer strings, with no exponent or fractional notation, within the signed 64-bit range. Currency is a three-letter uppercase code; no currency conversion is performed. Concurrent creation has one winner; an existing budget returns 409 without changing its limit, reservations or spend.
+
+**Current admission behavior:** creating a budget requires subsequent inference dispatch to hold a trusted cost reservation. Configure a supported route pricing schedule to create reservations automatically; routes without pricing remain blocked for that project. Existing dispatched attempts are not retroactively reserved. Use this API with that limitation in mind; budget editing and deletion are not yet exposed.

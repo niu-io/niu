@@ -1,0 +1,13 @@
+@import '../../../branding/tokens.css';
+
+:root {
+  --sl-color-accent-low: color-mix(in srgb, var(--accent) 65%, white);
+  --sl-color-accent: var(--primary);
+  --sl-color-accent-high: var(--foreground);
+}
+
+:root[data-theme='dark'] {
+  --sl-color-accent-low: color-mix(in srgb, var(--accent) 80%, black);
+  --sl-color-accent: var(--primary);
+  --sl-color-accent-high: var(--foreground);
+}

@@ -1,5 +1,7 @@
 [workspace]
-members = ["crates/cost"]
+members = ["apps/gateway", "crates/cost", "crates/execution", "crates/storage"]
+default-members = ["apps/gateway", "crates/cost", "crates/execution", "crates/storage"]
+exclude = ["vendor/litellm-rust"]
 resolver = "2"
 
 [workspace.package]
@@ -7,3 +9,20 @@ edition = "2024"
 license = "MIT"
 repository = "https://github.com/niu-io/niu"
 rust-version = "1.88"
+
+[workspace.dependencies]
+axum = { version = "0.8", features = ["json", "macros"] }
+futures-util = "0.3"
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+sha2 = "0.10"
+subtle = "2"
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
+toml = "0.9"
+tower-http = { version = "0.6", features = ["fs", "trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+url = "2.5"
+uuid = { version = "1", features = ["v4", "serde"] }

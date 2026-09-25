@@ -1,0 +1,18 @@
+---
+title: Security overview
+description: Security boundaries that underpin Niu's performance and cost goals.
+---
+
+Security is a product foundation. Performance and cost optimizations must preserve authorization, credential ownership, tenant separation, and any required policy decisions.
+
+## Credential ownership
+
+Provider credentials remain server-side. Public model names resolve through approved routes; requests cannot override provider, credential, or endpoint settings. Logs and browser responses must not contain secrets.
+
+## Authorization
+
+The target policy narrows permissions from organization to project, key, and request. Revoked identities must be rejected for new attempts after revocation commits. The implementation is being built in stages, so deployment guidance will identify which controls are available in each release.
+
+## Data handling
+
+Every protocol adapter must document what request and response data it transforms, buffers, records, or sends to a provider. Streaming behavior and output inspection need explicit limits and failure semantics.

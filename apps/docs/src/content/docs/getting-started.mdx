@@ -1,0 +1,29 @@
+---
+title: Getting started
+description: Set up the Niu monorepo for local development.
+---
+
+## Requirements
+
+- Rust 1.98.0 for the current selected native runtime modules.
+- Node.js 24 or newer and pnpm 11 for the console and documentation workspace.
+- PostgreSQL 17 for durable state.
+- A configured provider credential for live inference requests.
+
+## Install workspace dependencies
+
+From the repository root, install the JavaScript workspace and build the console and docs:
+
+```sh
+pnpm install
+pnpm build:console
+pnpm build:docs
+```
+
+Check the Rust workspace with:
+
+```sh
+cargo check --workspace
+```
+
+The gateway expects `NIU_DATABASE_URL`, an admin token, and a model configuration file. Create scoped client keys through the bootstrap administration API. Follow the deployment guide for the configuration format before starting the runtime.

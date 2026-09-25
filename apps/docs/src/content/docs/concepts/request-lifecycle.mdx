@@ -1,0 +1,12 @@
+---
+title: Request lifecycle
+description: The Niu-owned request coordination boundary.
+---
+
+One coordinator owns authorization, model resolution, routing, provider attempts, retry decisions, client delivery, and settlement. Provider adapters translate protocols and perform one upstream attempt; they do not silently add retries.
+
+Before dispatch, the coordinator validates tenant and key access, resolves an immutable configuration revision, checks revocation and safety policy, and reserves any applicable budget. Every attempt has a stable identity and a bounded deadline.
+
+Execution, response delivery, and financial settlement are tracked separately. After response headers are committed to the client, the initial policy does not replace the upstream attempt. If a provider may have executed but usage is unknown, accounting keeps the exposure pending reconciliation.
+
+This page describes the target contract. Each guarantee becomes a shipped capability only after its implementation and multi-replica failure behavior are tested.

@@ -1,0 +1,139 @@
+{
+  "source": "https://github.com/BerriAI/litellm",
+  "commit": "61953318bf4fd16393c4a2a60bf398d791cd1f19",
+  "license": "MIT",
+  "packages": [
+    {
+      "name": "core",
+      "path": "vendor/litellm-rust/crates/core",
+      "files": 42,
+      "sha256": "8e90c9d9ecf08731a29dfcc85ead6cfcf51fe476b6b6c164b5ca479efbeab3c4"
+    },
+    {
+      "name": "core-utils",
+      "path": "vendor/litellm-rust/crates/core-utils",
+      "files": 22,
+      "sha256": "9f19d575a234c31079a1860e31106061ab738470acdc057b5d6d5243a7895920"
+    },
+    {
+      "name": "types",
+      "path": "vendor/litellm-rust/crates/types",
+      "files": 10,
+      "sha256": "c94974d6480f5a29e55f67f5af3a2eb24b0b3b0102fb60a37725470e6517fd9a"
+    },
+    {
+      "name": "host",
+      "path": "vendor/litellm-rust/crates/host",
+      "files": 9,
+      "sha256": "3aaf29ed80462ac3f55ca5c980e858812f8f7bd40d3f417a29c203770b76ff30"
+    },
+    {
+      "name": "http",
+      "path": "vendor/litellm-rust/crates/http",
+      "files": 13,
+      "sha256": "43e408efc1d069fe1f1b8d7d63c670759dee087dcd533c4e4ad7e8294698a326"
+    },
+    {
+      "name": "llms",
+      "path": "vendor/litellm-rust/crates/llms",
+      "files": 73,
+      "sha256": "5836bcb8b8804cac4aa516c929d525294910fb9e71bdf0a29a0eb17e23047d9a"
+    },
+    {
+      "name": "framer",
+      "path": "vendor/litellm-rust/crates/framer",
+      "files": 10,
+      "sha256": "a2b792f366ca209ac980d1635fca7ebe676217b979fb85be1cf27f5c936593bc"
+    },
+    {
+      "name": "auth",
+      "path": "vendor/litellm-rust/crates/auth",
+      "files": 3,
+      "sha256": "6a9bf41b815d66ec89bacad819c9e8bc466657770235b39b8fb455b58fea746f"
+    },
+    {
+      "name": "auth-types",
+      "path": "vendor/litellm-rust/crates/auth-types",
+      "files": 8,
+      "sha256": "ccea092674184f3fa4fd0df75b389b7e3c6765469b2b159af24ba7633f3b72fd"
+    },
+    {
+      "name": "auth-aws",
+      "path": "vendor/litellm-rust/crates/auth-aws",
+      "files": 6,
+      "sha256": "87f5b325d7831c1bfdd22a921908c0b7e909e02b2a666bb5a71ec30e00e31b3e"
+    },
+    {
+      "name": "auth-azure",
+      "path": "vendor/litellm-rust/crates/auth-azure",
+      "files": 6,
+      "sha256": "b778051c5dbf15dd937bcaa2724538cea993f88f0502b86dc807e3ab1c336a5b"
+    },
+    {
+      "name": "auth-gcp",
+      "path": "vendor/litellm-rust/crates/auth-gcp",
+      "files": 3,
+      "sha256": "8168175847b14e0fd37d920f4a1753fe0ecccff29382646a6b63d5fb8fc7a968"
+    },
+    {
+      "name": "secrets",
+      "path": "vendor/litellm-rust/crates/secrets",
+      "files": 21,
+      "sha256": "a8010a95d08622786b64487a8460b8262fd24b729b88f1bf36d98c4a93cb2240"
+    },
+    {
+      "name": "secrets-types",
+      "path": "vendor/litellm-rust/crates/secrets-types",
+      "files": 12,
+      "sha256": "227f2ced5e0c9ece398a2439d16a2458fc5e499a642bea853d9eb6811a3f6fcc"
+    },
+    {
+      "name": "secrets-aws",
+      "path": "vendor/litellm-rust/crates/secrets-aws",
+      "files": 16,
+      "sha256": "792abe2df38f3aad8112ebb354f0783f2789d67a06d71ccaebfdc3315d65f61b"
+    },
+    {
+      "name": "secrets-azure",
+      "path": "vendor/litellm-rust/crates/secrets-azure",
+      "files": 8,
+      "sha256": "ac5b900d38dd561b8e05db7e8ae81518c2ca7c1ed3ed984227e697c2abfbf03b"
+    },
+    {
+      "name": "secrets-cyberark",
+      "path": "vendor/litellm-rust/crates/secrets-cyberark",
+      "files": 14,
+      "sha256": "ea674b28b6927a1cffde917e24f0fde5728e0a8946b8008fb83e2a58476e40f4"
+    },
+    {
+      "name": "secrets-google",
+      "path": "vendor/litellm-rust/crates/secrets-google",
+      "files": 9,
+      "sha256": "283af9742fb69eea708d6a35f36231517107f742f4763651a58c63647487abec"
+    },
+    {
+      "name": "secrets-hashicorp",
+      "path": "vendor/litellm-rust/crates/secrets-hashicorp",
+      "files": 16,
+      "sha256": "d2a04e08cb945667d18c94a819099c2bce642e61e3382c1bbef689fffaaf0e2c"
+    },
+    {
+      "name": "coroutine",
+      "path": "vendor/litellm-rust/crates/coroutine",
+      "files": 8,
+      "sha256": "822d1df79dd92fa7c6d93160cfaf0ca5c29cf570bed595f6a6a63d1a27b766ee"
+    },
+    {
+      "name": "tracing",
+      "path": "vendor/litellm-rust/crates/tracing",
+      "files": 6,
+      "sha256": "f8c10aa0e5c38ae8835ced5096b46c206f695c5bba2cbd21b77ac98ac1fd10ec"
+    },
+    {
+      "name": "python-compat",
+      "path": "vendor/litellm-rust/crates/python-compat",
+      "files": 18,
+      "sha256": "d3ace6f3ca8cbd15bcbaffab0df3020ee37cf270b477fb712c5c36f237f9c69c"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+name: Storage invariants
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: niu_test
+          POSTGRES_PASSWORD: niu_test
+          POSTGRES_DB: niu_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://niu_test:niu_test@localhost:5432/niu_test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        run: rustup toolchain install 1.98.0 --profile minimal
+      - name: Verify storage against PostgreSQL
+        run: cargo +1.98.0 test --locked -p niu-storage --test postgres -- --ignored
+      - name: Verify gateway against PostgreSQL
+        run: cargo +1.98.0 test --locked -p niu-gateway -- --ignored

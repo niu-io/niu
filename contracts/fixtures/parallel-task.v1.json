@@ -1,0 +1,179 @@
+{
+  "schema_version": 1,
+  "source": "synthetic",
+  "record_id": "parallel-fixture",
+  "task_id": "task",
+  "coverage": "partial",
+  "spans": [
+    {
+      "id": "task",
+      "kind": "task",
+      "started_at_ms": 0,
+      "ended_at_ms": 100,
+      "requested_model": null,
+      "reported_model": null,
+      "charge_ref": null
+    },
+    {
+      "id": "agent-a",
+      "kind": "agent",
+      "started_at_ms": 10,
+      "ended_at_ms": 80,
+      "requested_model": null,
+      "reported_model": null,
+      "charge_ref": null
+    },
+    {
+      "id": "agent-b",
+      "kind": "agent",
+      "started_at_ms": 10,
+      "ended_at_ms": 90,
+      "requested_model": null,
+      "reported_model": null,
+      "charge_ref": null
+    },
+    {
+      "id": "step",
+      "kind": "step",
+      "started_at_ms": 15,
+      "ended_at_ms": 70,
+      "requested_model": null,
+      "reported_model": null,
+      "charge_ref": null
+    },
+    {
+      "id": "model",
+      "kind": "model_invocation",
+      "started_at_ms": 20,
+      "ended_at_ms": 40,
+      "requested_model": "model-a",
+      "reported_model": null,
+      "charge_ref": "charge-1"
+    },
+    {
+      "id": "attempt",
+      "kind": "attempt",
+      "started_at_ms": 20,
+      "ended_at_ms": 40,
+      "requested_model": null,
+      "reported_model": null,
+      "charge_ref": "charge-1"
+    },
+    {
+      "id": "tool",
+      "kind": "tool_invocation",
+      "started_at_ms": 20,
+      "ended_at_ms": 60,
+      "requested_model": null,
+      "reported_model": null,
+      "charge_ref": null
+    },
+    {
+      "id": "checkpoint",
+      "kind": "checkpoint",
+      "started_at_ms": 60,
+      "ended_at_ms": 60,
+      "requested_model": null,
+      "reported_model": null,
+      "charge_ref": null
+    },
+    {
+      "id": "attempt-retry",
+      "kind": "attempt",
+      "started_at_ms": 65,
+      "ended_at_ms": 80,
+      "requested_model": null,
+      "reported_model": null,
+      "charge_ref": "charge-2"
+    },
+    {
+      "id": "human",
+      "kind": "human_intervention",
+      "started_at_ms": 80,
+      "ended_at_ms": 90,
+      "requested_model": null,
+      "reported_model": null,
+      "charge_ref": null
+    },
+    {
+      "id": "validation",
+      "kind": "validation",
+      "started_at_ms": 90,
+      "ended_at_ms": 100,
+      "requested_model": null,
+      "reported_model": null,
+      "charge_ref": null
+    }
+  ],
+  "links": [
+    {
+      "to": "agent-a",
+      "kind": "delegates",
+      "from": "task"
+    },
+    {
+      "to": "agent-b",
+      "kind": "delegates",
+      "from": "task"
+    },
+    {
+      "to": "step",
+      "kind": "contains",
+      "from": "agent-a"
+    },
+    {
+      "to": "model",
+      "kind": "contains",
+      "from": "step"
+    },
+    {
+      "to": "attempt",
+      "kind": "contains",
+      "from": "model"
+    },
+    {
+      "to": "tool",
+      "kind": "contains",
+      "from": "agent-b"
+    },
+    {
+      "to": "checkpoint",
+      "kind": "depends_on",
+      "from": "tool"
+    },
+    {
+      "to": "attempt-retry",
+      "kind": "resumes",
+      "from": "checkpoint"
+    },
+    {
+      "to": "attempt-retry",
+      "kind": "retries",
+      "from": "attempt"
+    },
+    {
+      "to": "human",
+      "kind": "depends_on",
+      "from": "attempt-retry"
+    },
+    {
+      "to": "validation",
+      "kind": "depends_on",
+      "from": "human"
+    }
+  ],
+  "outcomes": [
+    {
+      "span_id": "task",
+      "evidence_id": "claim-1",
+      "authority": "agent_claim",
+      "result": "accepted"
+    },
+    {
+      "span_id": "validation",
+      "evidence_id": "validation-1",
+      "authority": "deterministic_validator",
+      "result": "rejected"
+    }
+  ]
+}

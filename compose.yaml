@@ -1,0 +1,38 @@
+services:
+  niu:
+    build: .
+    image: niu-io/niu:local
+    ports:
+      - "2555:2555"
+    environment:
+      NIU_CONFIG_FILE: /etc/niu/niu.toml
+      NIU_DATABASE_URL: postgres://niu:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD to a URL-safe random password}@postgres:5432/niu
+      NIU_ADMIN_TOKENS: ${NIU_ADMIN_TOKENS:?Set NIU_ADMIN_TOKENS to a separate 32-byte-or-longer token}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?Set OPENAI_API_KEY for the example route}
+    volumes:
+      - ./config/niu.example.toml:/etc/niu/niu.toml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:2555/healthz"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: niu
+      POSTGRES_DB: niu
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+      - niu-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U niu -d niu"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+volumes:
+  niu-postgres:

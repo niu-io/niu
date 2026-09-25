@@ -1,0 +1,56 @@
+---
+title: Single-container deployment
+description: Niu's target deployment shape and current packaging status.
+---
+
+Niu's deployment target is one application container and one public port. The application owns inference APIs, management APIs, authentication, background recovery, and the static console. PostgreSQL stores tenants, scoped API keys, operations and attempt evidence. Compose starts it as the only supporting service.
+
+The Dockerfile builds the Rust gateway and compiled TypeScript console into one image. The docs site is built separately as static content and does not add a service to the inference deployment.
+
+:::caution[Current status]
+The current image is an evaluation build. Initial persistence and migrations are implemented. Budget reservations, financial settlement, operator roles, streaming evidence and recovery workers remain in progress. Container qualification is not complete. Do not use this image for production workloads.
+:::
+
+## Run the evaluation image
+
+Create a local environment file and replace every placeholder with a unique secret. Generate the Niu tokens with a cryptographically secure generator; keep the admin token separate from client API keys.
+
+```sh
+cp .env.example .env
+docker compose up --build
+```
+
+The gateway and console are available on port `2555`. The example route requires an OpenAI API key. Change `config/niu.example.toml` to add or edit model routes before starting the container.
+
+## Release requirements
+
+- One Niu image serves inference, management, health, and console assets on one listener.
+- PostgreSQL is the only required external service for durable state.
+- Provider credentials and bootstrap secrets are injected at runtime and never baked into images.
+- Image contents exclude private enterprise code, internal research, and development material.
+- Install, upgrade, rollback, backup, migration, and restart behavior are tested as a complete product.
+
+## Bootstrap an organization and client key
+
+`NIU_ADMIN_TOKENS` grants installation-wide administration. `NIU_DATABASE_URL` is mandatory for native startup; Compose supplies the internal database URL. Client keys are created through the management API, not supplied through `NIU_API_KEYS`.
+
+With the gateway running, use your admin bearer token to:
+
+1. `POST /admin/v1/organizations` with `{"name":"My organization"}`.
+2. `POST /admin/v1/organizations/{organization_id}/projects` with `{"name":"My project"}`.
+3. `POST /admin/v1/organizations/{organization_id}/projects/{project_id}/keys` with `{"name":"Application","allowed_models":["fast"],"ttl_seconds":86400}`.
+
+Each POST returns `201`. Use the returned IDs in the next path. The key response returns its `token` once; store it securely and use it as the bearer token for `/v1/models` and `/v1/chat/completions`. Every request requires `Content-Type: application/json` when sending a JSON body. Delete the key at the same keys path with `/{key_id}` appended to revoke it (`204`).
+
+Model listings are filtered by the key's explicit grants. Revocation and expiry are rechecked at dispatch admission. These bootstrap endpoints require the installation-wide admin token; project-operator sessions and role administration are still pending.
+
+Non-streaming responses include `x-niu-operation-id` and `x-niu-attempt-id` after dispatch, including provider errors. Streaming responses include these IDs on successful establishment. The OpenAI-compatible streaming adapter persists completion and valid usage at the terminal event. Request `stream_options: {"include_usage": true}` when supported by the provider; the JavaScript SDK does this automatically. Missing/conflicting usage stays unknown, and interrupted streams remain uncertain. SSE events larger than 64 KiB are rejected. `/readyz` checks database availability; `/healthz` reports process liveness.
+
+
+## Manage keys in the console
+
+Connect with the installation administrator token and open **API keys**. Create or select an organization and project, choose explicit model grants and an expiry, then issue a key. The secret appears once in the tab; dismiss it after saving. It is not stored in browser persistence.
+
+Keys can be rotated or revoked from the table. Rotation immediately revokes the old key and preserves its original permissions and absolute expiry. It is atomic: concurrent rotations produce only one replacement. A lost rotation response cannot reveal the replacement secret again; an administrator must revoke the inaccessible key and issue a new one. Key issuance, rotation and revocation append immutable audit events identifying the bootstrap-administrator actor class. Individual operator attribution still requires operator sessions.
+
+The equivalent APIs add `GET` to the organization, project and key collection paths, and `POST .../keys/{key_id}/rotate`. List responses exclude secrets and hashes and currently return at most 1,000 records; pagination remains pending.

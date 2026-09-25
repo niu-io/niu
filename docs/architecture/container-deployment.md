@@ -1,10 +1,10 @@
 # Single-container deployment
 
-Status: target deployment contract. No application image has been built yet.
+Status: an evaluation image now builds the Rust gateway and TypeScript console together. PostgreSQL-backed production release has not been completed.
 
 ## Default installation
 
-The target distribution is one Niu application container with one public port. It will provide inference APIs, the management API, the static console, authentication, health endpoints, and background recovery work. PostgreSQL remains a persistent external dependency. A minimal Compose file may start Niu and PostgreSQL together for local evaluation.
+The target distribution is one Niu application container with one public port. It will provide inference APIs, the management API, the TypeScript static console, authentication, health endpoints, and background recovery work. PostgreSQL is the only persistent external dependency. The current Compose profile includes PostgreSQL with a named volume; the gateway runs embedded migrations at startup. Identity and attempt storage are implemented, while budget accounting and recovery remain incomplete.
 
 Users should not need to assemble separate gateway, UI, proxy, and worker services for the initial installation. The container may contain runtime components required by its implementation. Avoid extra operational dependencies until measurements justify them.
 

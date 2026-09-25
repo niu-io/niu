@@ -7,7 +7,12 @@
 **/__pycache__/
 *.py[cod]
 node_modules/
+**/dist/
+*.tsbuildinfo
 .venv/
 .idea/
 .vscode/
 coverage/
+
+# Generated Astro types and content caches
+**/.astro/

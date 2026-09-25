@@ -1,0 +1,489 @@
+openapi: 3.1.0
+info:
+  title: Niu Gateway API
+  version: 0.1.0
+  description: Public inference, health, and initial management endpoints for Niu.
+servers:
+  - url: /
+paths:
+  /healthz:
+    get:
+      operationId: getHealth
+      summary: Check process health
+      responses:
+        '200':
+          description: The Niu process is serving requests.
+  /readyz:
+    get:
+      operationId: getReadiness
+      summary: Check gateway readiness
+      responses:
+        '200':
+          description: The gateway loaded its configuration and can accept requests.
+  /v1/models:
+    get:
+      operationId: listModels
+      summary: List models available to the configured API key
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Available public model names.
+        '401':
+          description: Missing or invalid gateway credentials.
+  /v1/chat/completions:
+    post:
+      operationId: createChatCompletion
+      summary: Create an OpenAI-compatible chat completion
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [model, messages]
+              properties:
+                model:
+                  type: string
+                messages:
+                  type: array
+                  items:
+                    type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: A normalized chat completion or compatible event stream.
+        '400':
+          description: Invalid request or unsupported operation.
+        '401':
+          description: Missing or invalid gateway credentials.
+        '502':
+          description: Provider request failed.
+      x-niu-status: Implemented for configured native provider routes; streaming is limited to OpenAI-compatible routes.
+  /admin/v1/models:
+    get:
+      operationId: adminListModels
+      summary: List configured model routes
+      security:
+        - adminBearerAuth: []
+      responses:
+        '200':
+          description: Public and upstream model names with provider identifiers.
+        '401':
+          description: Missing or invalid administrator credentials.
+  /admin/v1/metrics:
+    get:
+      operationId: adminGetMetrics
+      summary: Read in-process request and token counters
+      security:
+        - adminBearerAuth: []
+      responses:
+        '200':
+          description: Process-local counters. Token totals cover only complete provider-reported usage. Unknown attempts include missing or invalid usage, failures, cancellations, native adapter calls without usage provenance, and streams without trustworthy usage/termination evidence. Durable attempt evidence is stored separately; this metrics endpoint is process-local.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  requests_total:
+                    type: integer
+                  requests_failed:
+                    type: integer
+                  prompt_tokens:
+                    type: integer
+                  completion_tokens:
+                    type: integer
+                  usage:
+                    type: object
+                    properties:
+                      attempts_total:
+                        type: integer
+                      attempts_unknown:
+                        type: integer
+                      attempts_provider_reported:
+                        type: integer
+                      prompt_tokens:
+                        type: integer
+                      completion_tokens:
+                        type: integer
+  /admin/v1/organizations:
+    get:
+      operationId: listOrganizations
+      summary: List resource metadata (up to 1000 records)
+      security:
+        - adminBearerAuth: []
+      responses:
+        '200':
+          description: A data array of metadata, never token hashes or secrets.
+        '401':
+          description: Invalid administrator token.
+    post:
+      operationId: createOrganization
+      summary: Create an organization
+      security:
+        - adminBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NameInput'
+      responses:
+        '201':
+          description: Created. Key issuance returns id and token with Cache-Control no-store; other resources return id and name.
+        '401':
+          description: Invalid installation administrator token.
+  /admin/v1/organizations/{organization}/projects:
+    get:
+      operationId: listProjects
+      summary: List resource metadata (up to 1000 records)
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: organization
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: A data array of metadata, never token hashes or secrets.
+        '401':
+          description: Invalid administrator token.
+    post:
+      operationId: createProject
+      summary: Create a project
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: organization
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NameInput'
+      responses:
+        '201':
+          description: Created. Key issuance returns id and token with Cache-Control no-store; other resources return id and name.
+        '401':
+          description: Invalid installation administrator token.
+  /admin/v1/organizations/{organization}/projects/{project}/keys:
+    get:
+      operationId: listKeys
+      summary: List resource metadata (up to 1000 records)
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: organization
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: project
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: A data array of metadata, never token hashes or secrets.
+        '401':
+          description: Invalid administrator token.
+    post:
+      operationId: issueKey
+      summary: Issue a project key and return its secret once
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: organization
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: project
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KeyInput'
+      responses:
+        '201':
+          description: Created. Key issuance returns id and token with Cache-Control no-store; other resources return id and name.
+        '401':
+          description: Invalid installation administrator token.
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}:
+    delete:
+      operationId: revokeKey
+      summary: Revoke a project key
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: organization
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: project
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: key
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Key revoked, including an already revoked key.
+        '401':
+          description: Invalid installation administrator token.
+        '409':
+          description: Key does not exist in this project.
+  /admin/v1/organizations/{organization}/projects/{project}/accounts:
+    get:
+      operationId: listAccounts
+      summary: List account metadata without credential references
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: organization
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: project
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Account registered as unverified, or metadata returned. Registration does not activate inference.
+        '401':
+          description: Invalid administrator token.
+    post:
+      operationId: registerAccount
+      summary: Register an unverified account
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: organization
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: project
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountInput'
+      responses:
+        '201':
+          description: Account registered as unverified, or metadata returned. Registration does not activate inference.
+        '401':
+          description: Invalid administrator token.
+  /admin/v1/organizations/{organization}/projects/{project}/accounts/{account}/quota:
+    get:
+      operationId: getAccountQuota
+      summary: Read latest quota observations and freshness
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: organization
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: project
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: account
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Account registered as unverified, or metadata returned. Registration does not activate inference.
+        '401':
+          description: Invalid administrator token.
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/rotate:
+    post:
+      operationId: rotateKey
+      summary: Atomically replace a key while preserving its grants and expiry
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: organization
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: project
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: key
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '201':
+          description: Replacement id and one-time token. The old key is revoked. Cache-Control is no-store.
+        '401':
+          description: Invalid administrator token.
+        '409':
+          description: Key is absent, revoked, expired or concurrently rotated.
+  /admin/v1/organizations/{organization}/projects/{project}/budget:
+    post:
+      operationId: createProjectBudget
+      summary: Create a lifetime project cash budget
+      description: Fails with conflict if a budget exists. Previously dispatched work is not retroactively reserved. Further dispatch requires a trusted held reservation; configure pricing separately in the model route.
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: organization
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: project
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [currency, limit_nanos]
+              properties:
+                currency: { type: string, pattern: '^[A-Z]{3}$' }
+                limit_nanos:
+                  type: string
+                  pattern: '^[0-9]+$'
+                  description: Nonnegative integer billionths of currency, at most 9223372036854775807.
+      responses:
+        '201':
+          description: Created budget snapshot with decimal-string amounts and lifetime period.
+        '400':
+          description: Invalid currency or amount.
+        '401':
+          description: Administrator authentication required.
+        '409':
+          description: Budget already exists or the project is absent from the organization.
+        '422':
+          description: JSON does not match the required schema.
+    get:
+      operationId: getProjectBudget
+      summary: Read the project lifetime cash budget
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: organization
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: project
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Budget data or null. limit_nanos, reserved_nanos and spent_nanos are exact decimal strings in billionths of currency. A null budget is not a zero limit.
+        '401':
+          description: Administrator authentication required.
+        '400':
+          description: Invalid path or query parameter.
+  /admin/v1/organizations/{organization}/projects/{project}/costs:
+    get:
+      operationId: listProjectCosts
+      summary: Read settled per-attempt cost entries
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: organization
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: project
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: after
+          in: query
+          schema: { type: string, format: uuid }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        '200':
+          description: Data and nullable next_cursor. Monetary and token values are decimal strings. API-equivalent and cash charges remain distinct. Unsettled attempts are excluded; an empty page does not prove zero incurred cost. Traversal is a live view ordered by attempt UUID, not chronological or a snapshot.
+        '401':
+          description: Administrator authentication required.
+        '400':
+          description: Invalid path or query parameter.
+components:
+  schemas:
+    AccountInput:
+      type: object
+      required: [provider, plan, authentication_mode, billing_mode, credential_reference, concurrency_limit]
+      properties:
+        provider:
+          type: string
+          minLength: 1
+          maxLength: 100
+        plan:
+          type: string
+          minLength: 1
+          maxLength: 200
+        authentication_mode:
+          type: string
+          enum: [api_key, oauth_refresh]
+        billing_mode:
+          type: string
+          enum: [metered_api, subscription]
+        credential_reference:
+          type: string
+          description: Opaque env or secret reference, never the secret value.
+        concurrency_limit:
+          type: integer
+          minimum: 1
+          maximum: 10000
+    NameInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+    KeyInput:
+      type: object
+      required: [name, allowed_models, ttl_seconds]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        allowed_models:
+          type: array
+          minItems: 1
+          items:
+            type: string
+        ttl_seconds:
+          type: integer
+          minimum: 1
+          maximum: 31536000
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+    adminBearerAuth:
+      type: http
+      scheme: bearer
