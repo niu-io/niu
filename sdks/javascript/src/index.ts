@@ -186,3 +186,6 @@ async function* parseChatStream(body: ReadableStream<Uint8Array>): AsyncGenerato
     try { await reader.cancel(); } finally { reader.releaseLock(); }
   }
 }
+
+export { NiuAdminClient } from './admin.js';
+export type { NiuAdminOptions, TenantScope, SupplierAccountInput, SupplierAccount, QuotaObservation, QuotaWindow } from './admin.js';

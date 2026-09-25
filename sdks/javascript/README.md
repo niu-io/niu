@@ -32,3 +32,30 @@ for await (const chunk of client.chat.stream({
 ```
 
 The iterator requests provider usage events. Breaking the loop cancels the response body; `AbortSignal` also cancels the underlying fetch. Cancellation does not prove that the provider stopped execution or incurred no cost. Missing terminal events, invalid JSON and events exceeding the client's 65,536 UTF-16-unit buffer limit throw errors. The SDK does not retry or reconnect a stream automatically.
+
+## Server-side account and quota collection
+
+`NiuAdminClient` is separate from the inference client and requires an installation administrator token. Keep that token in the collector's server environment. These methods do not poll providers, refresh credentials or execute inference.
+
+```ts
+import { NiuAdminClient } from '@niu-io/sdk';
+
+const admin = new NiuAdminClient({
+  adminToken: process.env.NIU_ADMIN_TOKEN!,
+  baseURL: 'http://localhost:2555/admin/v1',
+});
+const scope = {
+  organizationId: process.env.NIU_ORGANIZATION_ID!,
+  projectId: process.env.NIU_PROJECT_ID!,
+};
+const accounts = await admin.listAccounts(scope);
+// Account listing currently returns at most 1,000 entries.
+for (const account of accounts.data) {
+  const evidence = await admin.quota(scope, account.id);
+  console.log(account.provider, account.billing_mode, evidence.data);
+}
+```
+
+Use `createAccount(scope, input)` to register account metadata and an `env:` or `secret:` credential reference. Registration is not credential verification. Use `observeQuota(scope, accountId, observation)` with evidence obtained by an authorized collector. `remaining` and `maximum` are decimal strings or null, never floating-point values. Timestamps are safe-integer milliseconds. The server validates intervals, quantity bounds and tenant ownership. Identical observations may be explicitly resubmitted; conflicting evidence returns `NiuAPIError` with status 409. The SDK does not retry automatically and rejects redirects. Every method accepts an optional `{ signal }` for cancellation.
+
+The API reports capacity separately from monetary charges. Missing or stale quota evidence does not mean zero remaining capacity. Native provider collection and dedicated least-privilege collector credentials remain unfinished.
