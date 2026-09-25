@@ -167,3 +167,13 @@ PostgreSQL tests cover concurrent creation, restart reuse and no implicit keys; 
 The optional Supplier accounts page lists registered metered and subscription accounts independently of inference traffic. It displays billing/authentication modes, observed account health, configured concurrency limits and on-demand quota evidence with source, units, observation time, expiry and reset time. Expired evidence becomes stale while the page remains open; missing evidence remains unknown. The account listing explicitly warns at its current 1,000-row cap. Registration and quota collection remain separate backend integration responsibilities; this view is not a connected native subscription collector.
 
 Quota API `remaining` and `maximum` now use nullable decimal strings, preserving signed 64-bit quantities without browser rounding. Consumers of the prerelease API must update from JSON numbers; timestamp fields remain numeric milliseconds. Tests cover exact large quantities, explicit zero and null. The console production build passes; live browser verification and a supported native collector remain open.
+
+### Browser workflow verification — 2026-09-26
+
+Verified the locally built console against the migrated gateway and PostgreSQL using synthetic data:
+
+- **Quick setup:** Use default workspace selected the designated organization/project and prefilled a key name. The model grant remained unchecked and Issue key remained disabled. This check did not issue a credential or call a real provider.
+- **Supplier evidence:** the built JavaScript SDK registered a synthetic subscription account and submitted fresh and historical quota observations to the live gateway. The browser showed separate authentication/billing modes, unverified health, configured concurrency, source and timestamps. It preserved `9223372036854775807` exactly and displayed null remaining capacity as Unknown alongside a Stale label. The desktop account table scrolls horizontally when required.
+- **Task investigation:** the parallel fixture rendered a common timeline, 100 ms task duration, overlapping 70/80 ms agent intervals and a zero-duration checkpoint. Its shared references resolved to two unique unresolved references, with Task total unknown and the absence of settled evidence clearly stated. Agent claims and deterministic validator results remained separate.
+
+These observations supersede pending browser checks for these specific paths. They do not qualify resolved monetary rows, mobile layouts, automatic freshness transitions, end-to-end provider onboarding, native collectors or the full release. No real provider requests were made during this verification.
