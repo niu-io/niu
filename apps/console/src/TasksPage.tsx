@@ -1,3 +1,4 @@
+import TaskCharges, { type TaskChargeEvidence } from '@/TaskCharges';
 import { timelineAxis, timelinePosition } from '@/lib/timeline';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -35,7 +36,7 @@ export default function TasksPage({ token }: { token: string }) {
   const projects = useRead<{ data: Named[] }>(token, organization ? `/admin/v1/organizations/${organization}/projects` : null);
   const base = organization && project ? `/admin/v1/organizations/${organization}/projects/${project}/execution-imports` : null;
   const records = useRead<{ data: Summary[]; next_cursor: string | null }>(token, base ? `${base}?limit=25&refresh=${revision}${cursor ? '&after=' + cursor : ''}` : null);
-  const detail = useRead<{ data: Record }>(token, base && selected ? `${base}/${selected}` : null);
+  const detail = useRead<{ data: Record; charges?: TaskChargeEvidence }>(token, base && selected ? `${base}/${selected}` : null);
   const record = detail.data?.data;
   const axis = record ? timelineAxis(record.spans) : null;
   const task = record?.spans.find(span => span.id === record.task_id);
@@ -56,7 +57,7 @@ export default function TasksPage({ token }: { token: string }) {
     </section>}
     {selected && !record && !detail.error && <p role="status">Loading execution details…</p>}
     {record && <>
-      <section className="panel keys-controls"><h2>{record.task_id}</h2><p>Observed wall-clock duration: {duration === null ? 'Unknown' : `${duration} ms`}. Coverage: {record.coverage}.</p><p>Costs are not resolved in this view. Shared charge references are shown as references, not additional charges.</p></section>
+      <section className="panel keys-controls"><h2>{record.task_id}</h2><p>Observed wall-clock duration: {duration === null ? 'Unknown' : `${duration} ms`}. Coverage: {record.coverage}.</p></section>
       <section className="panel keys-controls"><h2>Execution timeline</h2><p>Shared observed time axis. Overlapping bars indicate parallel intervals, not proven independent execution.</p>
         {axis && <p>{axis[0]} → {axis[1]} ms · observed range</p>}
         <div className="task-timeline">{record.spans.map(span => {
@@ -65,6 +66,7 @@ export default function TasksPage({ token }: { token: string }) {
         })}</div>
       </section>
       <section className="panel"><div className="panel-heading"><h2>Execution spans</h2></div><Table><TableHeader><TableRow><TableHead>SPAN / KIND</TableHead><TableHead>OBSERVED INTERVAL</TableHead><TableHead>REQUESTED / REPORTED MODEL</TableHead><TableHead>CHARGE REFERENCE</TableHead></TableRow></TableHeader><TableBody>{record.spans.map(span => <TableRow key={span.id}><TableCell>{span.id}<small className="price-revision">{span.kind}</small></TableCell><TableCell>{span.started_at_ms ?? 'Unknown'} → {span.ended_at_ms ?? 'Unknown'} ms</TableCell><TableCell>{span.requested_model ?? 'Unknown'} / {span.reported_model ?? 'Unknown'}</TableCell><TableCell>{span.charge_ref ?? 'Unknown'}</TableCell></TableRow>)}</TableBody></Table></section>
+      <TaskCharges charges={detail.data?.charges} />
       <section className="panel keys-controls"><h2>Causal relationships</h2><p>Relationships describe dependencies, not a sequential execution order. Intervals may overlap.</p><ul className="trace-links">{record.links.map((link, i) => <li key={i}><code>{link.from}</code> → <code>{link.to}</code> <Badge variant="outline">{link.kind}</Badge></li>)}</ul></section>
       <section className="panel keys-controls"><h2>Outcome evidence</h2><p>Agent claims are distinct from validator results and human acceptance.</p>{record.outcomes.length ? <ul className="trace-links">{record.outcomes.map(outcome => <li key={outcome.evidence_id}><Badge variant="outline">{outcome.authority}</Badge> {outcome.result} — {outcome.span_id} <small>({outcome.evidence_id})</small></li>)}</ul> : <p>No outcome evidence. Acceptance is unverified.</p>}</section>
     </>}
