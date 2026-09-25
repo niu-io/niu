@@ -262,6 +262,29 @@ async fn concurrent_budgets_idempotent_settlement_and_unknown_holds(pool: PgPool
         vec![first]
     );
     let first = store.settle_cost(scope, winner).await.unwrap();
+    let mut record: niu_execution::observation::ExecutionRecord = serde_json::from_str(
+        include_str!("../../../contracts/fixtures/parallel-task.v1.json"),
+    )
+    .unwrap();
+    for span in &mut record.spans {
+        if span.charge_ref.as_deref() == Some("charge-1") {
+            span.charge_ref = Some(format!("niu:attempt:{winner}"));
+        }
+    }
+    let charges = store.execution_charges(scope, &record).await.unwrap();
+    assert_eq!(
+        charges.entries,
+        vec![store.settle_cost(scope, winner).await.unwrap()]
+    );
+    assert_eq!(charges.unresolved, vec!["charge-2"]);
+    let isolated_scope = store.create_project(org, "isolated charges").await.unwrap();
+    let isolated = store
+        .execution_charges(isolated_scope, &record)
+        .await
+        .unwrap();
+    assert!(isolated.entries.is_empty());
+    assert_eq!(isolated.unresolved.len(), 2);
+
     assert!(
         store
             .cost_entries(scope, Some(winner), 1)

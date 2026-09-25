@@ -304,22 +304,21 @@ pub async fn costs(
     } else {
         None
     };
-    let data: Vec<Value> = entries
-        .into_iter()
-        .map(|e| {
-            json!({
-                "attempt_id": e.attempt_id,
-                "price_revision_id": e.price_revision_id,
-                "currency": e.currency,
-                "api_equivalent_nanos": e.api_equivalent_nanos.to_string(),
-                "cash_nanos": e.cash_nanos.to_string(),
-                "usage_prompt_tokens": e.usage_prompt_tokens.to_string(),
-                "usage_completion_tokens": e.usage_completion_tokens.to_string(),
-                "bound_exceeded": e.bound_exceeded
-            })
-        })
-        .collect();
+    let data: Vec<Value> = entries.into_iter().map(cost_entry_json).collect();
     Ok(Json(json!({"data": data, "next_cursor": next_cursor})))
+}
+
+fn cost_entry_json(e: niu_storage::CostEntry) -> Value {
+    json!({
+        "attempt_id": e.attempt_id,
+        "price_revision_id": e.price_revision_id,
+        "currency": e.currency,
+        "api_equivalent_nanos": e.api_equivalent_nanos.to_string(),
+        "cash_nanos": e.cash_nanos.to_string(),
+        "usage_prompt_tokens": e.usage_prompt_tokens.to_string(),
+        "usage_completion_tokens": e.usage_completion_tokens.to_string(),
+        "bound_exceeded": e.bound_exceeded
+    })
 }
 
 #[derive(Deserialize)]
@@ -406,9 +405,24 @@ pub async fn execution_import(
         .await
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::record_not_found)?;
+    let charges = state
+        .store
+        .execution_charges(
+            TenantScope {
+                organization_id,
+                project_id,
+            },
+            &record,
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    let entries: Vec<Value> = charges.entries.into_iter().map(cost_entry_json).collect();
     Ok((
         [("cache-control", "no-store")],
-        Json(json!({"id": id, "data": record})),
+        Json(json!({"id": id, "data": record, "charges": {
+            "entries": entries, "unresolved": charges.unresolved,
+            "attribution": "imported_reference", "task_total_complete": false
+        }})),
     ))
 }
 

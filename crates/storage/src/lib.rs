@@ -9,7 +9,7 @@ pub use accounts::{
     AccountHealth, AccountInput, AccountView, AuthMode, BillingMode, QuotaInput, QuotaUnit,
     QuotaView,
 };
-pub use observations::ExecutionImportSummary;
+pub use observations::{ExecutionCharges, ExecutionImportSummary};
 mod keys;
 mod pricing;
 pub use accounting::{BudgetSnapshot, CostEntry};

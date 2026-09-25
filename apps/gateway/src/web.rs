@@ -842,6 +842,17 @@ mod tests {
             assert_eq!(response.status(), expected);
             if expected == StatusCode::OK {
                 assert_eq!(response.headers()["cache-control"], "no-store");
+                let body: Value = serde_json::from_slice(
+                    &response.into_body().collect().await.unwrap().to_bytes(),
+                )
+                .unwrap();
+                assert_eq!(body["charges"]["entries"], json!([]));
+                assert_eq!(
+                    body["charges"]["unresolved"],
+                    json!(["charge-1", "charge-2"])
+                );
+                assert_eq!(body["charges"]["task_total_complete"], false);
+                assert_eq!(body["charges"]["attribution"], "imported_reference");
             }
         }
         let mut conflicting: Value = serde_json::from_str(fixture).unwrap();

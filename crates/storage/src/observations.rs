@@ -1,4 +1,4 @@
-use crate::{Store, StoreError, TenantScope};
+use crate::{CostEntry, Store, StoreError, TenantScope};
 use niu_execution::observation::ExecutionRecord;
 use uuid::Uuid;
 
@@ -11,7 +11,52 @@ pub struct ExecutionImportSummary {
     pub coverage: String,
 }
 
+/// Ledger evidence only: these entries are not a complete task cost estimate.
+#[derive(Debug)]
+pub struct ExecutionCharges {
+    pub entries: Vec<CostEntry>,
+    pub unresolved: Vec<String>,
+}
+
 impl Store {
+    /// Resolve explicit Niu attempt references only, with tenant isolation and
+    /// canonical UUID deduplication. External IDs never implicitly match ours.
+    pub async fn execution_charges(
+        &self,
+        scope: TenantScope,
+        record: &ExecutionRecord,
+    ) -> Result<ExecutionCharges, StoreError> {
+        record
+            .validate()
+            .map_err(|_| StoreError::InvalidObservation)?;
+        let refs = record.charge_references();
+        let parse = |reference: &str| {
+            reference
+                .strip_prefix("niu:attempt:")
+                .and_then(|id| Uuid::parse_str(id).ok())
+        };
+        let ids: Vec<Uuid> = refs
+            .iter()
+            .filter_map(|r| parse(r))
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        let entries: Vec<CostEntry> = sqlx::query_as("SELECT attempt_id, price_revision_id, currency, api_equivalent_nanos, cash_nanos, usage_prompt_tokens, usage_completion_tokens, bound_exceeded FROM cost_entries WHERE organization_id=$1 AND project_id=$2 AND attempt_id=ANY($3) ORDER BY attempt_id")
+            .bind(scope.organization_id).bind(scope.project_id).bind(&ids)
+            .fetch_all(&self.pool).await?;
+        let resolved: std::collections::BTreeSet<_> =
+            entries.iter().map(|e| e.attempt_id).collect();
+        let unresolved = refs
+            .into_iter()
+            .filter(|r| parse(r).is_none_or(|id| !resolved.contains(&id)))
+            .map(str::to_owned)
+            .collect();
+        Ok(ExecutionCharges {
+            entries,
+            unresolved,
+        })
+    }
+
     pub async fn execution_imports(
         &self,
         scope: TenantScope,

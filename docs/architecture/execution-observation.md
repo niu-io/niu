@@ -1,6 +1,6 @@
 # Execution observation contract v1
 
-Status: typed contract, validation fixture and scoped PostgreSQL import storage; authenticated HTTP import/read/delete endpoints are implemented; collectors and investigation UI remain pending.
+Status: typed contract, validation fixture and scoped PostgreSQL import storage; authenticated HTTP import/read/delete endpoints are implemented; an explicit file importer and task investigation console with a shared timeline are implemented. Native collectors remain pending.
 
 `niu_execution::observation::ExecutionRecord` is a metadata-only interchange record for one observed task. Schema version 1 is explicit. An ingestion service must obtain tenant scope from authentication, validate the record before persistence, and namespace record/span/charge identifiers by tenant and source. A payload cannot assign its own tenant. Matching source/record IDs with identical contents are a replay; conflicting contents must be rejected rather than silently merged. The storage import method validates the typed record and enforces these rules with a tenant/source/record uniqueness constraint and JSON equality. Concurrent identical imports return one ID; conflicting content returns a conflict. The record is capped at 1 MiB. The bootstrap admin HTTP API exposes import/read/delete operations.
 
@@ -17,3 +17,9 @@ The strict schema has no prompt, source-code, tool-output or credential fields a
 The synthetic `contracts/fixtures/parallel-task.v1.json` covers parallel agents, tool work, retry/resume links, human intervention, unknown actual model identity and a completion claim contradicted by validation. Shared charge references are counted once, and the task lasts 100 ms despite overlapping work. This is contract evidence only, not a connected collector, rendered timeline or complete benchmark.
 
 Storage tests also verify independent-connection reads, cross-project read/delete rejection and deletion isolation. Deleting an import removes its metadata row; referenced canonical accounting records are not deleted. Importing records creates neither inference attempts nor ledger charges. Automatic retention expiry and user-facing retention controls remain required; live-record deletion does not purge operator backups.
+
+## Resolving canonical charges
+
+The detail API includes `charges.entries`, `charges.unresolved`, and `task_total_complete: false`. An explicit `niu:attempt:<UUID>` reference resolves only to a settled ledger entry in the authenticated project. Bare IDs and external reference formats stay unresolved. Repeated references, including different UUID spellings, resolve to one canonical entry. Monetary nanounits and token counts are decimal strings; currencies remain separate. Resolution is read-only and never creates or settles charges.
+
+`attribution: imported_reference` means the importer asserted the relationship; matching a ledger entry does not prove that an attempt belongs to that task. Missing references, unpriced work, tool charges, subscription fees and allocations prevent a claim of complete task cost. Unresolved references do not disclose whether an attempt exists in another tenant. A later read may resolve previously unsettled entries; this is live ledger evidence, not a frozen invoice.
