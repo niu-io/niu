@@ -13,4 +13,4 @@ The public project is a full self-hosted product. It does not require a private 
 
 The default community deployment uses one application image and public port with external PostgreSQL. Repository boundaries do not require extra runtime containers. Enterprise deployment and hosted UI composition are maintained in the private repository.
 
-Reuse the NIU.IO brand assets and theme tokens under `branding/`. Each repository packages its required brand assets with its own release; builds do not reference another local checkout.
+Reuse the niu.io brand assets and theme tokens under `branding/`. Each repository packages its required brand assets with its own release; builds do not reference another local checkout.

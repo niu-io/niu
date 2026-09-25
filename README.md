@@ -20,7 +20,7 @@ The gateway service, management console, provider registry, database schema, and
 
 - `crates/cost`: selected pricing calculation component.
 - `docs/architecture`: English design specifications for the gateway, request lifecycle, cost accounting, and single-container deployment.
-- `branding`: NIU.IO assets, theme tokens, and asset provenance.
+- `branding`: niu.io assets, theme tokens, and asset provenance.
 
 ## Development
 

@@ -1,6 +1,6 @@
 # Niu public repository
 
-Write product documentation in English. Keep the NIU.IO brand assets and theme tokens.
+Write product documentation in English. Keep the niu.io brand assets and theme tokens.
 
 This repository contains only Niu's public project. Internal research, enterprise source, private issue URLs, local source paths, customer records, and secrets must not enter the public tree. Retain upstream copyright and license attribution for selectively reused code.
 
