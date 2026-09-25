@@ -55,7 +55,7 @@ pub fn router(state: AppState) -> Router {
         )
         .route(
             "/admin/v1/organizations/{organization}/projects/{project}/accounts/{account}/quota",
-            get(crate::admin::quota),
+            get(crate::admin::quota).post(crate::admin::observe_quota),
         )
         .route(
             "/admin/v1/organizations/{organization}/projects/{project}/budget",
@@ -732,6 +732,129 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[sqlx::test(migrations = "../../crates/storage/migrations")]
+    #[ignore = "requires PostgreSQL"]
+    async fn quota_import_is_authorized_idempotent_and_scoped(pool: sqlx::PgPool) {
+        let state = test_state(None, pool.clone());
+        let scope = state.store.default_workspace().await.unwrap();
+        let other = state
+            .store
+            .create_project(scope.organization_id, "other")
+            .await
+            .unwrap();
+        let account = state
+            .store
+            .create_account(
+                scope,
+                &niu_storage::AccountInput {
+                    provider: "fixture".into(),
+                    plan: "monthly".into(),
+                    authentication_mode: niu_storage::AuthMode::ApiKey,
+                    billing_mode: niu_storage::BillingMode::Subscription,
+                    credential_reference: "env:FIXTURE".into(),
+                    concurrency_limit: 1,
+                },
+            )
+            .await
+            .unwrap();
+        let key = state
+            .store
+            .issue_key(scope, "client", &["fast".into()], 3600)
+            .await
+            .unwrap();
+        let app = router(state);
+        let path = format!(
+            "/admin/v1/organizations/{}/projects/{}/accounts/{account}/quota",
+            scope.organization_id, scope.project_id
+        );
+        let wrong_path = format!(
+            "/admin/v1/organizations/{}/projects/{}/accounts/{account}/quota",
+            scope.organization_id, other.project_id
+        );
+        let body = json!({"window_key":"monthly", "unit":"tokens", "remaining":i64::MAX.to_string(), "maximum":null,
+            "observed_at_ms":1, "valid_until_ms":2, "resets_at_ms":3, "source":"fixture"});
+        let admin = "Bearer niu-test-admin-token-that-is-long-1234".to_string();
+        let mut id = None;
+        for (url, auth, payload, expected) in [
+            (
+                path.clone(),
+                format!("Bearer {}", key.token),
+                body.clone(),
+                StatusCode::UNAUTHORIZED,
+            ),
+            (
+                wrong_path,
+                admin.clone(),
+                body.clone(),
+                StatusCode::CONFLICT,
+            ),
+            (path.clone(), admin.clone(), body.clone(), StatusCode::OK),
+            (path.clone(), admin.clone(), body.clone(), StatusCode::OK),
+            (
+                path.clone(),
+                admin.clone(),
+                {
+                    let mut b = body.clone();
+                    b["remaining"] = json!("0");
+                    b
+                },
+                StatusCode::CONFLICT,
+            ),
+            (
+                path.clone(),
+                admin.clone(),
+                {
+                    let mut b = body.clone();
+                    b["remaining"] = json!("-1");
+                    b
+                },
+                StatusCode::BAD_REQUEST,
+            ),
+        ] {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::post(url)
+                        .header("authorization", auth)
+                        .header("content-type", "application/json")
+                        .body(axum::body::Body::from(payload.to_string()))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), expected);
+            if expected == StatusCode::OK {
+                let response: Value = serde_json::from_slice(
+                    &response.into_body().collect().await.unwrap().to_bytes(),
+                )
+                .unwrap();
+                if let Some(previous) = &id {
+                    assert_eq!(previous, &response["id"]);
+                }
+                id = Some(response["id"].clone());
+            }
+        }
+        let response = app
+            .oneshot(
+                Request::get(path)
+                    .header("authorization", admin)
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let response: Value =
+            serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes())
+                .unwrap();
+        assert_eq!(response["data"][0]["remaining"], i64::MAX.to_string());
+        assert_eq!(response["data"][0]["fresh"], false);
+        let count: i64 = sqlx::query_scalar("SELECT count(*) FROM quota_observations")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(count, 1);
     }
 
     #[sqlx::test(migrations = "../../crates/storage/migrations")]

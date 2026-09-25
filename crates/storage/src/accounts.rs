@@ -245,12 +245,23 @@ impl Store {
         {
             return Err(StoreError::InvalidAccount);
         }
-        let id = Uuid::new_v4();
-        let inserted = sqlx::query("INSERT INTO quota_observations (id,organization_id,project_id,account_id,window_key,unit,remaining,maximum,observed_at_ms,valid_until_ms,resets_at_ms,source) SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12 WHERE $9 <= floor(extract(epoch FROM clock_timestamp())*1000)::bigint")
-            .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(account).bind(&input.window_key).bind(input.unit.as_str()).bind(input.remaining).bind(input.maximum).bind(input.observed_at_ms).bind(input.valid_until_ms).bind(input.resets_at_ms).bind(&input.source).execute(&self.pool).await?.rows_affected();
-        if inserted != 1 {
+        let future: bool = sqlx::query_scalar(
+            "SELECT $1 > floor(extract(epoch FROM clock_timestamp())*1000)::bigint",
+        )
+        .bind(input.observed_at_ms)
+        .fetch_one(&self.pool)
+        .await?;
+        if future {
             return Err(StoreError::InvalidAccount);
         }
+        let id = Uuid::new_v4();
+        let inserted: Option<Uuid> = sqlx::query_scalar("INSERT INTO quota_observations (id,organization_id,project_id,account_id,window_key,unit,remaining,maximum,observed_at_ms,valid_until_ms,resets_at_ms,source) SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12 WHERE $9 <= floor(extract(epoch FROM clock_timestamp())*1000)::bigint AND EXISTS(SELECT 1 FROM supplier_accounts WHERE organization_id=$2 AND project_id=$3 AND id=$4) ON CONFLICT (account_id,window_key,observed_at_ms) DO NOTHING RETURNING id")
+            .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(account).bind(&input.window_key).bind(input.unit.as_str()).bind(input.remaining).bind(input.maximum).bind(input.observed_at_ms).bind(input.valid_until_ms).bind(input.resets_at_ms).bind(&input.source).fetch_optional(&self.pool).await?;
+        if let Some(id) = inserted {
+            return Ok(id);
+        }
+        let id = sqlx::query_scalar("SELECT id FROM quota_observations WHERE organization_id=$1 AND project_id=$2 AND account_id=$3 AND window_key=$4 AND observed_at_ms=$5 AND unit=$6 AND remaining IS NOT DISTINCT FROM $7 AND maximum IS NOT DISTINCT FROM $8 AND valid_until_ms=$9 AND resets_at_ms=$10 AND source=$11")
+            .bind(scope.organization_id).bind(scope.project_id).bind(account).bind(&input.window_key).bind(input.observed_at_ms).bind(input.unit.as_str()).bind(input.remaining).bind(input.maximum).bind(input.valid_until_ms).bind(input.resets_at_ms).bind(&input.source).fetch_optional(&self.pool).await?.ok_or(StoreError::Conflict)?;
         Ok(id)
     }
 

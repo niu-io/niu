@@ -183,6 +183,65 @@ pub async fn accounts(
     Ok(Json(json!({"data": accounts})))
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct QuotaObservationInput {
+    window_key: String,
+    unit: niu_storage::QuotaUnit,
+    remaining: Option<String>,
+    maximum: Option<String>,
+    observed_at_ms: i64,
+    valid_until_ms: i64,
+    resets_at_ms: i64,
+    source: String,
+}
+
+pub async fn observe_quota(
+    State(state): State<AppState>,
+    Path((organization_id, project_id, account)): Path<(Uuid, Uuid, Uuid)>,
+    headers: HeaderMap,
+    Json(input): Json<QuotaObservationInput>,
+) -> Result<Json<Value>, ApiError> {
+    authorize(&state, &headers)?;
+    let quantity = |value: Option<String>| -> Result<Option<i64>, ApiError> {
+        value
+            .map(|v| {
+                if v.is_empty() || !v.bytes().all(|c| c.is_ascii_digit()) {
+                    return Err(ApiError::invalid_request(
+                        "Quota quantities must be nonnegative decimal strings",
+                    ));
+                }
+                v.parse::<i64>().map_err(|_| {
+                    ApiError::invalid_request("Quota quantity exceeds signed 64-bit range")
+                })
+            })
+            .transpose()
+    };
+    let observation = niu_storage::QuotaInput {
+        window_key: input.window_key,
+        unit: input.unit,
+        remaining: quantity(input.remaining)?,
+        maximum: quantity(input.maximum)?,
+        observed_at_ms: input.observed_at_ms,
+        valid_until_ms: input.valid_until_ms,
+        resets_at_ms: input.resets_at_ms,
+        source: input.source,
+    };
+    let id = state
+        .store
+        .observe_quota(
+            TenantScope {
+                organization_id,
+                project_id,
+            },
+            account,
+            &observation,
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(json!({"id": id})))
+}
+
 pub async fn quota(
     State(state): State<AppState>,
     Path((organization_id, project_id, account)): Path<(Uuid, Uuid, Uuid)>,
