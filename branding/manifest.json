@@ -1,0 +1,29 @@
+{
+  "imported_on": "2026-09-25",
+  "files": [
+    {
+      "destination": "branding/assets/favicon.ico",
+      "sha256": "6f1f4589ab187882ef936780ecc9886aca289ceb8abbbeced4cb655390b749d0"
+    },
+    {
+      "destination": "branding/assets/niu-logo-dark.png",
+      "sha256": "f838ea02ac51e0ebe8b1d45a926a16bb4aec84a5bb438c8754f2acd80d9ba61b"
+    },
+    {
+      "destination": "branding/assets/niu-logo.jpg",
+      "sha256": "8164c1fd84275468fa89b3475853bc7041a61ed6f9fcfac41763b43b77f7e2a2"
+    },
+    {
+      "destination": "branding/assets/niu-mark.png",
+      "sha256": "b12a882324d9f4a0c91be5fee93fd23c0e74972d3e0fa7082d5cd7f0bc30966f"
+    },
+    {
+      "destination": "branding/reference/SOURCE-LICENSE.txt",
+      "sha256": "b170d6bf8e8835dd357e011681db028f4d51e2fb0ea892058f56e01fb39b8273"
+    },
+    {
+      "destination": "branding/tokens.css",
+      "sha256": "e4849a13ea05f96992f8536f6d069eed35d431fd51bc8ece78aff95d615bbcf1"
+    }
+  ]
+}

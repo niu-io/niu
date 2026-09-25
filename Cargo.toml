@@ -1,0 +1,9 @@
+[workspace]
+members = ["crates/cost"]
+resolver = "2"
+
+[workspace.package]
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/niu-io/niu"
+rust-version = "1.88"
