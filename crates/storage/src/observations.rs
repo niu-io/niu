@@ -2,7 +2,29 @@ use crate::{Store, StoreError, TenantScope};
 use niu_execution::observation::ExecutionRecord;
 use uuid::Uuid;
 
+#[derive(Debug, serde::Serialize, sqlx::FromRow)]
+pub struct ExecutionImportSummary {
+    pub id: Uuid,
+    pub source: String,
+    pub record_id: String,
+    pub task_id: String,
+    pub coverage: String,
+}
+
 impl Store {
+    pub async fn execution_imports(
+        &self,
+        scope: TenantScope,
+        after: Option<Uuid>,
+        limit: i64,
+    ) -> Result<Vec<ExecutionImportSummary>, StoreError> {
+        if !(1..=101).contains(&limit) {
+            return Err(StoreError::InvalidObservation);
+        }
+        Ok(sqlx::query_as("SELECT id, source, record_id, task_id, payload->>'coverage' AS coverage FROM execution_imports WHERE organization_id=$1 AND project_id=$2 AND ($3::uuid IS NULL OR id>$3) ORDER BY id LIMIT $4")
+            .bind(scope.organization_id).bind(scope.project_id).bind(after).bind(limit).fetch_all(&self.pool).await?)
+    }
+
     /// Authenticated callers supply tenant scope. Imported metadata cannot
     /// create attempts, execute work, or post financial entries.
     pub async fn import_execution(

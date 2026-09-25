@@ -674,6 +674,31 @@ async fn execution_imports_are_scoped_idempotent_and_deletable(pool: PgPool) {
     assert!(!store.delete_execution_import(b, id).await.unwrap());
     let independent = store.import_execution(b, &record).await.unwrap();
     assert_ne!(independent, id);
+    let mut second_record = record.clone();
+    second_record.record_id = "second-record".into();
+    let second = store.import_execution(a, &second_record).await.unwrap();
+    let mut expected = vec![id, second];
+    expected.sort();
+    let first_page = store.execution_imports(a, None, 1).await.unwrap();
+    assert_eq!(first_page[0].id, expected[0]);
+    assert_eq!(first_page[0].coverage, "partial");
+    let second_page = store
+        .execution_imports(a, Some(first_page[0].id), 1)
+        .await
+        .unwrap();
+    assert_eq!(second_page[0].id, expected[1]);
+    assert!(
+        store
+            .execution_imports(a, Some(second_page[0].id), 1)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    let isolated = store.execution_imports(b, None, 100).await.unwrap();
+    assert_eq!(isolated.len(), 1);
+    assert_eq!(isolated[0].id, independent);
+    assert!(store.execution_imports(a, None, 0).await.is_err());
+
     let mut conflict = record.clone();
     conflict.coverage = niu_execution::observation::Coverage::Unknown;
     assert!(matches!(
