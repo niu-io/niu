@@ -101,3 +101,10 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .ledger-pagination { display: flex; justify-content: flex-end; padding: 16px; }
 
 .trace-links { display: grid; gap: 12px; padding: 0; list-style: none; font-size: 12px; overflow-wrap: anywhere; }
+
+.task-timeline { display: grid; gap: 12px; overflow-x: auto; padding: 12px 3px; }
+.timeline-row { display: grid; grid-template-columns: 130px minmax(180px, 1fr) 90px; gap: 12px; align-items: center; font-size: 11px; }
+.timeline-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.timeline-track { position: relative; height: 20px; background: var(--muted); border-radius: 4px; }
+.timeline-bar { position: absolute; top: 4px; height: 12px; min-width: 2px; max-width: 100%; background: var(--primary); border-radius: 3px; }
+.timeline-unknown { color: var(--muted-foreground); padding-left: 8px; }
