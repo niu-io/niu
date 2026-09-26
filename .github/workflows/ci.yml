@@ -84,10 +84,10 @@ jobs:
         run: pnpm --filter @niu-io/docs check
       - name: Build documentation
         run: pnpm --filter @niu-io/docs build
-      - name: Check public site
-        run: pnpm check:site
-      - name: Build public site
-        run: pnpm build:site
+      - name: Check public catalog
+        run: pnpm check:catalog
+      - name: Build public catalog
+        run: pnpm build:catalog
       - name: Test JavaScript SDK
         run: pnpm --dir sdks/javascript run test
       - name: Check JavaScript SDK types
@@ -108,7 +108,7 @@ jobs:
       - name: Inspect runtime package contents
         run: |
           test "$(docker image inspect --format '{{.Config.User}}' niu-io/niu:ci)" = "10001:10001"
-          docker run --rm --entrypoint /bin/sh niu-io/niu:ci -c 'set -- /app/console/assets/*.js; test -x /usr/local/bin/niu-gateway && test -s /app/console/index.html && test -s "$1" && test -s /app/docs/index.html && test -s /app/docs/pagefind/pagefind.js && test -s /app/site/index.html && set -- /app/site/_astro/*.css && test -s "$1" && test -s /app/site/site-assets/brand/niu-mark.png && test -s /app/site/site-assets/models.js && test ! -e /app/Cargo.toml && test ! -e /app/node_modules'
+          docker run --rm --entrypoint /bin/sh niu-io/niu:ci -c 'set -- /app/console/assets/*.js; test -x /usr/local/bin/niu-gateway && test -s /app/console/index.html && test -s "$1" && test -s /app/docs/index.html && test -s /app/docs/pagefind/pagefind.js && test -s /app/catalog/models/index.html && set -- /app/catalog/_catalog/*.css && test -s "$1" && test -s /app/catalog/catalog-assets/brand/niu-mark.png && test -s /app/catalog/catalog-assets/models.js && test ! -e /app/Cargo.toml && test ! -e /app/node_modules'
       - name: Smoke test the packaged application with PostgreSQL
         env:
           NIU_IMAGE: niu-io/niu:ci

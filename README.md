@@ -14,11 +14,11 @@ Configure a provider, issue a client key, and call the standard model API on por
 
 ## Current implementation
 
-The repository is a mixed-language monorepo. `apps/gateway` is the Rust application entry point, `apps/site` contains the niu.io homepage and public model catalog, `apps/console` is the workspace console, and `apps/docs` is the static developer documentation site. `contracts` owns the public API schema, `crates` contains execution, benchmark, extension and cost components, and `vendor/litellm-rust` contains selected provider and protocol modules with upstream provenance.
+The repository is a mixed-language monorepo. `apps/gateway` is the Rust application entry point, `apps/catalog` contains the public model catalog, `apps/console` is the workspace console, and `apps/docs` is the static developer documentation site. `contracts` owns the public API schema, `crates` contains execution, benchmark, extension and cost components, and `vendor/litellm-rust` contains selected provider and protocol modules with upstream provenance.
 
 The first gateway slice serves health, model-list, admin model-list, process counters, and OpenAI-compatible chat completion routes from one Rust HTTP process. Requests use configured public model names; provider endpoints and credentials remain server-side. Niu owns the OpenAI-compatible pass-through adapter; selected, pinned LiteLLM Rust modules provide native Anthropic and Bedrock transformations. Streaming is currently supported for configured OpenAI-compatible routes.
 
-The Rust gateway serves the homepage at `/`, documentation at `/docs/`, the explicitly published model catalog at `/models/`, workspace UI under `/workspaces/:workspace/…`, and APIs from the same HTTP listener. Console, docs and site assets are built into one application image. The public catalog lists only routes whose operator enables `public_catalog`; its API omits provider names, upstream IDs, endpoints and credentials. PostgreSQL stores organizations, projects, scoped API keys and attempt evidence. Bootstrap management endpoints create and revoke keys; every dispatch rechecks permission and persists intent. Operator roles, durable financial accounting, budgets, route editing, the broader protocol surface, and production qualification remain in progress.
+The Rust gateway redirects `/` to the workspace and serves documentation at `/docs/`, the explicitly published model catalog at `/models/`, workspace UI under `/workspaces/:workspace/…`, and APIs from the same HTTP listener. Console, docs and catalog assets are built into one application image. The marketing homepage is maintained separately in `niu-io/website`; a hosted distribution supplies its pinned static artifact through `NIU_SITE_DIR` on the same domain. The public catalog lists only routes whose operator enables `public_catalog`; its API omits provider names, upstream IDs, endpoints and credentials. PostgreSQL stores organizations, projects, scoped API keys and attempt evidence. Bootstrap management endpoints create and revoke keys; every dispatch rechecks permission and persists intent. Operator roles, durable financial accounting, budgets, route editing, the broader protocol surface, and production qualification remain in progress.
 
 The public workspace also contains paired benchmark analysis and a versioned Rust extension API with a synthetic reference extension. The extension contract is tested independently, but the gateway does not load extensions yet. The API defines claim mapping rather than a full OIDC/SAML login flow, and the task adapter's required sandbox runner is not implemented.
 
@@ -35,7 +35,7 @@ The [first-release acceptance matrix](docs/releases/first-release.md) defines th
 ## Monorepo map
 
 - `apps/gateway`: single-process inference and management API, static product routes, and recovery workers.
-- `apps/site`: static product homepage and opt-in public model catalog.
+- `apps/catalog`: opt-in public model catalog.
 - `apps/console`: TypeScript management application, built as static assets.
 - `apps/docs`: Astro Starlight developer documentation.
 - `contracts`: versioned OpenAPI and shared protocol contracts.
@@ -54,7 +54,7 @@ The native gateway currently builds with Rust 1.98.0 or newer. The console and d
 pnpm install
 pnpm build:console
 pnpm build:docs
-pnpm build:site
+pnpm build:catalog
 cargo check --workspace
 ```
 

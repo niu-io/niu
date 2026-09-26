@@ -54,4 +54,4 @@ To remove imported history, delete one account window through `DELETE /admin/v1/
 
 ## Limits
 
-This is a versioned, manual import workflow. It does not call a provider, dispatch inference, refresh credentials, change a subscription, or reset an allowance. Account drill-down requires an explicit canonical attempt UUID in the trace; it does not automatically reconcile quota windows against attempt usage. The API is protected by the installation-wide bootstrap administrator token; project operator roles and native collectors remain future work.
+This is a versioned, manual import workflow. It does not call a provider, dispatch inference, refresh credentials, change a subscription, or reset an allowance. Account drill-down requires an explicit canonical attempt UUID in the trace; it does not automatically reconcile quota windows against attempt usage. Management APIs enforce organization/project-scoped operator permissions or accept installation bootstrap credentials. Quota ingestion additionally accepts scoped collector keys. Native collectors remain future work.

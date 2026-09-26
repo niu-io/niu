@@ -14,8 +14,8 @@ export default function ModelTable({ models }: { models: Model[] }) {
     <TableHeader><TableRow><TableHead>MODEL</TableHead><TableHead>PROVIDER</TableHead><TableHead>UPSTREAM MODEL</TableHead><TableHead>PUBLIC CATALOG</TableHead><TableHead>STATUS</TableHead></TableRow></TableHeader>
     <TableBody>{models.map(model => <TableRow key={model.id}>
       <TableCell><span className="model-mark"><Boxes size={16} /></span><strong>{model.id}</strong></TableCell>
-      <TableCell><Badge variant="outline">{model.provider}</Badge></TableCell>
-      <TableCell className="mono">{model.upstream_model}</TableCell>
+      <TableCell>{model.provider ? <Badge variant="outline">{model.provider}</Badge> : <span className="model-restricted">Restricted</span>}</TableCell>
+      <TableCell className={model.upstream_model ? 'mono' : ''}>{model.upstream_model ?? <span className="model-restricted">Restricted</span>}</TableCell>
       <TableCell><Badge variant={model.public_catalog ? 'default' : 'outline'}>{model.public_catalog ? 'Published' : 'Hidden'}</Badge></TableCell>
       <TableCell><span className="status-pill online"><span className="status-dot" />Configured</span></TableCell>
     </TableRow>)}</TableBody>

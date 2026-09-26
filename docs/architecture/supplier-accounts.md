@@ -22,7 +22,7 @@ Queries return the newest observed sample for each window, so delayed older samp
 
 ## Bootstrap API
 
-All endpoints below require the installation-wide administrator bearer token:
+The management endpoints below accept an installation bootstrap token or an operator session scoped to the target organization/project. Reads require read permission and mutations require write permission. Quota ingestion also accepts a scoped collector key:
 
 - `POST /admin/v1/organizations/{organization}/projects/{project}/accounts` registers an unverified account.
 - `GET` at the same path lists up to 1,000 account metadata records without credential references.

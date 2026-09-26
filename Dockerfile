@@ -6,16 +6,16 @@ RUN corepack enable && corepack prepare pnpm@11.25.0 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/console/package.json apps/console/package.json
 COPY apps/docs/package.json apps/docs/package.json
-COPY apps/site/package.json apps/site/package.json
+COPY apps/catalog/package.json apps/catalog/package.json
 COPY sdks/javascript/package.json sdks/javascript/package.json
 RUN pnpm install --frozen-lockfile
 COPY scripts/verify-js-licenses.mjs scripts/verify-js-licenses.mjs
 RUN node scripts/verify-js-licenses.mjs
 COPY apps/console apps/console
 COPY apps/docs apps/docs
-COPY apps/site apps/site
+COPY apps/catalog apps/catalog
 COPY branding branding
-RUN pnpm build:console && pnpm build:docs && pnpm build:site
+RUN pnpm build:console && pnpm build:docs && pnpm build:catalog
 
 FROM rust:1.98-bookworm AS gateway-build
 WORKDIR /workspace
@@ -28,7 +28,7 @@ COPY vendor/litellm-rust vendor/litellm-rust
 COPY config config
 COPY --from=console /workspace/apps/console/dist apps/console/dist
 COPY --from=console /workspace/apps/docs/dist apps/docs/dist
-COPY --from=console /workspace/apps/site/dist apps/site/dist
+COPY --from=console /workspace/apps/catalog/dist apps/catalog/dist
 RUN cargo build --release --locked -p niu-gateway
 
 FROM debian:bookworm-slim AS runtime
@@ -40,10 +40,10 @@ WORKDIR /app
 COPY --from=gateway-build /workspace/target/release/niu-gateway /usr/local/bin/niu-gateway
 COPY --from=gateway-build /workspace/apps/console/dist /app/console
 COPY --from=gateway-build /workspace/apps/docs/dist /app/docs
-COPY --from=gateway-build /workspace/apps/site/dist /app/site
+COPY --from=gateway-build /workspace/apps/catalog/dist /app/catalog
 ENV NIU_CONSOLE_DIR=/app/console \
     NIU_DOCS_DIR=/app/docs \
-    NIU_SITE_DIR=/app/site \
+    NIU_CATALOG_DIR=/app/catalog \
     RUST_LOG=info
 USER 10001:10001
 EXPOSE 2555 10000

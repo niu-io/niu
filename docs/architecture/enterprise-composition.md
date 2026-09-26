@@ -16,11 +16,15 @@ The public Niu repository owns the independently buildable open-source platform:
 
 The Enterprise repository owns private feature implementations and the Enterprise release composition. Each release pins one immutable public Niu commit and adds independently versioned private services. Enterprise does not keep a long-lived copy of the Niu core, import its private Rust internals, or read its database tables.
 
+The separate `niu-io/website` repository owns the marketing homepage and marketing assets. Enterprise release composition pins an immutable website commit alongside the public Niu commit and installs their independently built artifacts into separate directories. Marketing source is not copied into the public platform or private module source.
+
 The public Niu repository owns the stable integration contracts. Enterprise implements them and may use clients generated from them. Public code does not depend on an Enterprise package, source checkout, license service, or private build artifact.
 
 ## One product domain and runtime shape
 
 All browser, API, and inference traffic uses `niu.io`. The homepage is at `/`, documentation at `/docs/`, model catalog at `/models/`, the console at `/workspaces/{workspace}/…`, public APIs at `/v1/` and `/admin/v1/`, and Enterprise APIs under `/enterprise/api/v1/{module_id}/…`. Enterprise pages live under `/enterprise/` in the same site and console shell; there is no separate application subdomain.
+
+Repository boundaries do not create separate domains. The Gateway serves a separately built website artifact through `NIU_SITE_DIR` at `/`, `/site-assets/`, and `/_astro/`, plus `favicon.ico`, `robots.txt`, and `sitemap.xml`. Niu owns `/models/`, `/catalog-assets/`, and `/_catalog/` through `NIU_CATALOG_DIR`; documentation and console artifacts keep their own directories. The website artifact cannot override these product routes or API namespaces. Without `NIU_SITE_DIR`, the community root redirects to `/workspaces/default/` and builds without a website checkout. See [repository ownership](repository-ownership.md).
 
 The Enterprise image contains one pinned Niu Gateway, a supervisor, and the private services selected for that release. Only the Gateway binds the public listener. The supervisor starts each declared service with a private Unix socket. PostgreSQL is an external persistent data service; no database process or data directory belongs in the application image.
 
@@ -70,7 +74,7 @@ Enterprise services access platform features through the exact public HTTP/OpenA
 - Model operations use a project-scoped Niu API credential. The core applies that project's grants, admission controls, provider routing, attempt recording, and canonical usage/cost accounting.
 - Tenant administration uses Niu's scoped operator API. A module uses its own least-privilege operator credential scoped to the organization/project it serves; the human actor remains in the signed context and Enterprise-owned audit record. The core sees the module service principal for these API calls. If a feature later needs core-side audit to attribute a mutation to the human actor, Niu must first publish a separate delegated-credential contract; a module must never impersonate a user by forwarding that user's bearer token. Installation bootstrap credentials remain server-side and are restricted to provisioning.
 - Execution evidence uses the versioned `ExecutionRecordV1` import API. Imports are observational, metadata-only by default, and idempotent; they do not create inference attempts or charges.
-- The existing benchmark analyzer is installation-administrator authenticated and stateless; it has no tenant-scoped analyzer endpoint. An Enterprise service must not call it with an installation credential. A project-scoped analyzer API is a required Niu integration gap before Enterprise analysis can be enabled. The analyzer is not a task dispatcher, budget reservation, or experiment authorization mechanism.
+- The existing benchmark analyzer accepts the public `read` permission and is stateless; it does not bind a submitted dataset to the caller’s tenant scope or stored evidence. An Enterprise service must not call it with an installation credential. A project-scoped analyzer API is a required Niu integration gap before Enterprise analysis can be enabled. The analyzer is not a task dispatcher, budget reservation, or experiment authorization mechanism.
 
 Modules must not forward a user's long-lived bearer token or receive an installation-wide administrator secret. If a required platform operation lacks a public scoped API, it is an integration gap: add and qualify that API in Niu before enabling the Enterprise workflow.
 

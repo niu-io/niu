@@ -6,6 +6,7 @@ mod accounting;
 mod accounts;
 mod collectors;
 mod observations;
+mod operator_audit;
 mod operators;
 pub use accounts::{
     AccountHealth, AccountInput, AccountView, AuthMode, BillingMode, QuotaInput, QuotaUnit,
@@ -18,6 +19,7 @@ pub use observations::{
     ExecutionOutcomeEvidenceCounts, ExecutionTaskLink, ExecutionWorkCounts, ImportReceipt,
     NotImportedAccounting,
 };
+pub use operator_audit::{OperatorAuditActor, OperatorAuditEvent, OperatorAuditPage};
 pub use operators::{
     AdminPermission, IssuedOperatorSession, OperatorPrincipal, OperatorRole, OperatorScope,
     OperatorSessionView, OperatorView,
@@ -88,6 +90,8 @@ pub enum StoreError {
     AggregateOverflow,
     #[error("invalid operator name, role, or session lifetime")]
     InvalidOperator,
+    #[error("invalid operator audit cursor or page size")]
+    InvalidOperatorAuditQuery,
 }
 
 impl Store {

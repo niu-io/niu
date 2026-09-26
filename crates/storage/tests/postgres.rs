@@ -1,4 +1,4 @@
-use niu_storage::{MIGRATOR, OperatorScope, Store, StoreError, TenantScope};
+use niu_storage::{MIGRATOR, OperatorAuditActor, OperatorScope, Store, StoreError, TenantScope};
 use sqlx::PgPool;
 
 // Run explicitly with DATABASE_URL pointing to a disposable PostgreSQL server.
@@ -128,6 +128,7 @@ async fn operator_sessions_store_only_hashes_and_revocation_blocks_authenticatio
             "Read only",
             niu_storage::OperatorRole::Viewer,
             3600,
+            OperatorAuditActor::Installation,
         )
         .await
         .unwrap();
@@ -146,6 +147,7 @@ async fn operator_sessions_store_only_hashes_and_revocation_blocks_authenticatio
             "Organization owner",
             niu_storage::OperatorRole::Owner,
             3600,
+            OperatorAuditActor::Installation,
         )
         .await
         .unwrap();
@@ -158,6 +160,7 @@ async fn operator_sessions_store_only_hashes_and_revocation_blocks_authenticatio
             "Other project admin",
             niu_storage::OperatorRole::Admin,
             3600,
+            OperatorAuditActor::Installation,
         )
         .await
         .unwrap();
@@ -170,6 +173,7 @@ async fn operator_sessions_store_only_hashes_and_revocation_blocks_authenticatio
             "Other organization viewer",
             niu_storage::OperatorRole::Viewer,
             3600,
+            OperatorAuditActor::Installation,
         )
         .await
         .unwrap();
@@ -218,6 +222,7 @@ async fn operator_sessions_store_only_hashes_and_revocation_blocks_authenticatio
                 "Mismatched tenant",
                 niu_storage::OperatorRole::Viewer,
                 3600,
+                OperatorAuditActor::Installation,
             )
             .await
             .is_err()
@@ -237,19 +242,27 @@ async fn operator_sessions_store_only_hashes_and_revocation_blocks_authenticatio
     assert_ne!(stored_hash, issued.token.as_bytes());
 
     store
-        .revoke_operator_session(issued.operator_id, issued.session.id)
+        .revoke_operator_session(
+            issued.operator_id,
+            issued.session.id,
+            OperatorAuditActor::Installation,
+        )
         .await
         .unwrap();
     assert!(store.authenticate_operator(&issued.token).await.is_err());
     assert!(
         store
-            .revoke_operator_session(issued.operator_id, issued.session.id)
+            .revoke_operator_session(
+                issued.operator_id,
+                issued.session.id,
+                OperatorAuditActor::Installation,
+            )
             .await
             .is_err()
     );
 
     let replacement = store
-        .create_operator_session(issued.operator_id, 3600)
+        .create_operator_session(issued.operator_id, 3600, OperatorAuditActor::Installation)
         .await
         .unwrap();
     let replacement_principal = store
@@ -261,7 +274,10 @@ async fn operator_sessions_store_only_hashes_and_revocation_blocks_authenticatio
         niu_storage::OperatorRole::Viewer
     );
     assert_eq!(replacement_principal.scope, scoped_project);
-    store.revoke_operator(issued.operator_id).await.unwrap();
+    store
+        .revoke_operator(issued.operator_id, OperatorAuditActor::Installation)
+        .await
+        .unwrap();
     assert!(
         store
             .authenticate_operator(&replacement.token)
@@ -270,7 +286,7 @@ async fn operator_sessions_store_only_hashes_and_revocation_blocks_authenticatio
     );
     assert!(
         store
-            .create_operator_session(issued.operator_id, 3600)
+            .create_operator_session(issued.operator_id, 3600, OperatorAuditActor::Installation,)
             .await
             .is_err()
     );

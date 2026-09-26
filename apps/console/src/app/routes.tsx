@@ -12,6 +12,7 @@ export const appRoutes: RouteObject[] = [{
     { index: true, lazy: async () => ({ Component: (await import('@/features/overview/page')).default }) },
     { path: 'models', lazy: async () => ({ Component: (await import('@/features/models/page')).default }) },
     { path: 'keys', lazy: async () => ({ Component: (await import('@/features/keys/page')).default }) },
+    { path: 'operators', lazy: async () => ({ Component: (await import('@/features/operators/page')).default }) },
     { path: 'usage', lazy: async () => ({ Component: (await import('@/features/costs/page')).default }) },
     { path: 'executions', lazy: async () => ({ Component: (await import('@/features/executions/page')).default }) },
     { path: 'benchmarks', lazy: async () => ({ Component: (await import('@/features/benchmarks/page')).default }) },

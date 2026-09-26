@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import KeysView from '../../../../src/features/keys/components/KeysView';
 
@@ -47,7 +47,7 @@ it('creates a personal workspace, default project, and one-time scoped key from 
   }));
 
   const user = userEvent.setup();
-  render(<KeysView token="admin-token" models={['fast', 'careful']} />);
+  render(<KeysView token="admin-token" models={['fast', 'careful']} canWrite canCreateOrganization canCreateProject />);
 
   expect(await screen.findByRole('heading', { name: 'Create a workspace and your first key' })).toBeTruthy();
   expect(screen.getByRole('checkbox', { name: 'fast' }).getAttribute('aria-checked')).toBe('true');
@@ -69,4 +69,38 @@ it('creates a personal workspace, default project, and one-time scoped key from 
     allowed_models: ['fast'],
     ttl_seconds: 30 * 86400,
   });
+});
+
+it('keeps an operator viewer in read-only key administration', async () => {
+  const calls: Array<{ path: string; method: string }> = [];
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const path = String(input);
+    const method = init?.method ?? 'GET';
+    calls.push({ path, method });
+    const json = (value: unknown) => new Response(JSON.stringify(value), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+    if (path === '/admin/v1/organizations') return json({ data: [{ id: 'org-1', name: 'Workspace' }] });
+    if (path === '/admin/v1/organizations/org-1/projects') return json({ data: [{ id: 'project-1', name: 'Production' }] });
+    if (path.endsWith('/projects/project-1/keys')) return json({ data: [{
+      id: 'key-1', name: 'Frontend', allowed_models: ['fast'],
+      expires_at_ms: 2_000_000_000_000, revoked: false, expired: false,
+    }] });
+    return json({ data: [] });
+  }));
+  const user = userEvent.setup();
+  render(<KeysView token="viewer-token" models={['fast']} canWrite={false} canCreateOrganization={false} canCreateProject={false} />);
+
+  await user.selectOptions(await screen.findByLabelText('Organization'), 'org-1');
+  await waitFor(() => expect(screen.getByLabelText('Project').querySelector('option[value="project-1"]')).toBeTruthy());
+  await user.selectOptions(screen.getByLabelText('Project'), 'project-1');
+
+  expect(await screen.findByRole('heading', { name: 'Project keys' })).toBeTruthy();
+  expect(screen.getByText('Frontend')).toBeTruthy();
+  expect(screen.getByText('This session can review keys but does not have permission to create or revoke them.')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Issue key' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Create organization' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Create project' })).toBeNull();
+  expect(calls.some(call => call.method === 'POST' || call.method === 'DELETE')).toBe(false);
 });

@@ -3,7 +3,7 @@ title: API reference
 description: Public Niu gateway and management API contracts.
 ---
 
-The versioned OpenAPI contract is maintained in [`contracts/openapi.yaml`](https://github.com/niu-io/niu/blob/main/contracts/openapi.yaml). It describes the implemented inference routes and scoped management workflows. The management surface is still partial; the first-release matrix tracks the remaining workspace-scoped roles, route editing, audit, policy, and reconciliation work.
+The versioned OpenAPI contract is maintained in [`contracts/openapi.yaml`](https://github.com/niu-io/niu/blob/main/contracts/openapi.yaml). It describes the implemented inference routes and scoped management workflows. The management surface is still partial; the first-release matrix tracks remaining route editing, audit coverage, policy, and reconciliation work.
 
 The public API surface must preserve protocol-specific behavior. Unsupported parameters and event types are rejected or passed through according to the operation contract; they are not silently discarded.
 
@@ -15,7 +15,9 @@ The public API surface must preserve protocol-specific behavior. Unsupported par
 
 `NIU_ADMIN_TOKENS` remains the owner-level installation bootstrap credential. An owner can create persistent operators with `owner`, `admin`, or `viewer` roles through `POST /admin/v1/operators`, and issue additional expiring sessions through `POST /admin/v1/operators/{operator}/sessions`. Creation responses contain the bearer token once and include `Cache-Control: no-store`; list APIs return only identity, role, session IDs, expiry and revocation metadata. Delete an individual session or an operator to revoke access. A revoked or expired token fails the next administrative request.
 
-Owners can manage operators. Admins can read and write management resources but cannot manage operators. Viewers have read access only. These grants currently apply installation-wide; workspace path segments do not constrain operator authority. Token-based sessions are not a substitute for interactive identity federation or per-workspace membership.
+Operator and session creation/revocation also append immutable, metadata-only audit events in the same database transaction. Events record whether the actor was an installation bootstrap credential or a scoped operator, the actor operator ID when present, target operator/session IDs, tenant scope and timestamp. They never store bearer tokens, token hashes or request bodies. A scoped owner can page through one operator's events with `GET /admin/v1/operators/{operator}/events`; pages are ordered by timestamp and event ID, limited to 1–100 items, and use `next_cursor` for stable continuation.
+
+Owners can manage operators. Admins can read and write management resources but cannot manage operators. Viewers have read access only. Every operator has an `organization_id` and may have a `project_id` that restricts access to a single project. Owners cannot create or manage operators outside their own scope. Workspace URL slugs grant no authority. `GET /admin/v1/session` returns the caller's current identity, scope, and role permissions without exposing credentials. Interactive identity federation remains unimplemented.
 
 ## Provider capability matrix
 
@@ -80,7 +82,7 @@ Bootstrap administrators can register supplier account metadata and import provi
 - `DELETE .../accounts/{account}/quota?window_key=weekly` permanently removes all imported samples for that account window, including the comparison baseline. The response reports the number deleted; repeating the request is safe.
 - `GET .../accounts/{account}/executions` lists metadata-only tasks with charge references matching attempts assigned to the account, up to 100 records.
 
-The `Subscriptions` console page displays provider-reported units as reported and marks changes between snapshots as unattributed. It does not infer token amounts from percentages or claim that a quota delta was caused by one task. When an execution span's `charge_ref` exactly matches a Niu attempt UUID assigned to an account, task and account views link to each other without exposing execution payloads in the account index. Other charge namespaces remain unresolved. Latest and previous BIGINT quantities are decimal strings for exact browser display. Imports only persist observations: they do not refresh credentials, forward inference, change subscriptions, or reset provider allowances. Tenant operator roles and native provider collectors are not implemented; these endpoints still use the installation-wide bootstrap administrator token.
+The `Subscriptions` console page displays provider-reported units as reported and marks changes between snapshots as unattributed. It does not infer token amounts from percentages or claim that a quota delta was caused by one task. When an execution span's `charge_ref` exactly matches a Niu attempt UUID assigned to an account, task and account views link to each other without exposing execution payloads in the account index. Other charge namespaces remain unresolved. Latest and previous BIGINT quantities are decimal strings for exact browser display. Imports only persist observations: they do not refresh credentials, forward inference, change subscriptions, or reset provider allowances. These endpoints accept scoped operator credentials with the required read/write permission, or installation bootstrap credentials. Quota collection also accepts scoped collector keys; native provider collectors remain unimplemented.
 
 :::caution[Current status]
 The current gateway milestone is limited. This reference grows with tested endpoints; it does not claim parity with every LiteLLM operation or provider today.
@@ -97,7 +99,7 @@ All monetary and token values in these responses are decimal strings to preserve
 
 Pages traverse ascending attempt UUIDs, not chronological order. This is a live view: newly settled entries may require a fresh traversal. Unsettled attempts are excluded; an empty page does **not** prove zero cost. Reserved exposure remains visible in the budget. Subscription fee allocations and capacity reports are not yet included.
 
-These endpoints currently use installation-wide bootstrap administration. The reporting endpoints do not create prices, settle attempts, or enable automatic gateway pricing.
+Reporting accepts scoped operators with read permission or installation bootstrap credentials. The reporting endpoints do not create prices, settle attempts, or enable automatic gateway pricing.
 
 ### Create a lifetime cash budget
 

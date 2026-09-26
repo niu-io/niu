@@ -1,5 +1,10 @@
 //! Administrator endpoints. The configured token bootstraps installation ownership;
 //! durable operator sessions carry role-based access after setup.
+mod operator_audit;
+mod session;
+pub use operator_audit::operator_events;
+pub use session::current_session;
+
 use crate::{error::ApiError, state::AppState};
 use axum::{
     Json,
@@ -7,7 +12,7 @@ use axum::{
     http::{HeaderMap, StatusCode},
 };
 use niu_execution::observation::ExecutionRecord;
-use niu_storage::{AdminPermission, OperatorScope, TenantScope};
+use niu_storage::{AdminPermission, OperatorAuditActor, OperatorScope, TenantScope};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -55,6 +60,15 @@ async fn authorize(
             permission,
         )
         .await
+}
+
+fn audit_actor(authorization: crate::state::AdminAuthorization) -> OperatorAuditActor {
+    match authorization {
+        crate::state::AdminAuthorization::Installation => OperatorAuditActor::Installation,
+        crate::state::AdminAuthorization::Operator(operator) => {
+            OperatorAuditActor::Operator(operator.id)
+        }
+    }
 }
 
 async fn authorize_project(
@@ -445,14 +459,13 @@ pub async fn organizations(
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
     let authorization = authorize(&state, &headers, AdminPermission::Read).await?;
-    let mut organizations = state
-        .store
-        .organizations()
-        .await
-        .map_err(ApiError::from_store)?;
-    if let crate::state::AdminAuthorization::Operator(operator) = authorization {
-        organizations.retain(|organization| organization.id == operator.scope.organization_id);
+    let organizations = match authorization {
+        crate::state::AdminAuthorization::Installation => state.store.organizations().await,
+        crate::state::AdminAuthorization::Operator(operator) => {
+            state.store.organizations_for_scope(operator.scope).await
+        }
     }
+    .map_err(ApiError::from_store)?;
     Ok(Json(json!({"data": organizations})))
 }
 
@@ -480,15 +493,19 @@ pub async fn create_operator(
         organization_id: input.organization_id,
         project_id: input.project_id,
     };
-    if !authorize(&state, &headers, AdminPermission::ManageOperators)
-        .await?
-        .permits_operator_scope(scope)
-    {
+    let authorization = authorize(&state, &headers, AdminPermission::ManageOperators).await?;
+    if !authorization.permits_operator_scope(scope) {
         return Err(ApiError::not_found());
     }
     let issued = state
         .store
-        .create_operator(scope, &input.name, input.role, input.expires_in_seconds)
+        .create_operator(
+            scope,
+            &input.name,
+            input.role,
+            input.expires_in_seconds,
+            audit_actor(authorization),
+        )
         .await
         .map_err(ApiError::from_store)?;
     Ok((
@@ -526,10 +543,14 @@ pub async fn create_operator_session(
     headers: HeaderMap,
     Json(input): Json<OperatorSessionInput>,
 ) -> Result<(StatusCode, [(String, String); 1], Json<Value>), ApiError> {
-    authorize_operator_management(&state, &headers, operator_id).await?;
+    let authorization = authorize_operator_management(&state, &headers, operator_id).await?;
     let issued = state
         .store
-        .create_operator_session(operator_id, input.expires_in_seconds)
+        .create_operator_session(
+            operator_id,
+            input.expires_in_seconds,
+            audit_actor(authorization),
+        )
         .await
         .map_err(ApiError::from_store)?;
     Ok((
@@ -544,10 +565,10 @@ pub async fn revoke_operator_session(
     Path((operator_id, session_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<StatusCode, ApiError> {
-    authorize_operator_management(&state, &headers, operator_id).await?;
+    let authorization = authorize_operator_management(&state, &headers, operator_id).await?;
     state
         .store
-        .revoke_operator_session(operator_id, session_id)
+        .revoke_operator_session(operator_id, session_id, audit_actor(authorization))
         .await
         .map_err(ApiError::from_store)?;
     Ok(StatusCode::NO_CONTENT)
@@ -558,10 +579,10 @@ pub async fn revoke_operator(
     Path(operator_id): Path<Uuid>,
     headers: HeaderMap,
 ) -> Result<StatusCode, ApiError> {
-    authorize_operator_management(&state, &headers, operator_id).await?;
+    let authorization = authorize_operator_management(&state, &headers, operator_id).await?;
     state
         .store
-        .revoke_operator(operator_id)
+        .revoke_operator(operator_id, audit_actor(authorization))
         .await
         .map_err(ApiError::from_store)?;
     Ok(StatusCode::NO_CONTENT)
@@ -576,16 +597,13 @@ pub async fn projects(
     if !authorization.permits_organization(organization) {
         return Err(ApiError::not_found());
     }
-    let mut projects = state
-        .store
-        .projects(organization)
-        .await
-        .map_err(ApiError::from_store)?;
-    if let crate::state::AdminAuthorization::Operator(operator) = authorization
-        && let Some(project_id) = operator.scope.project_id
-    {
-        projects.retain(|project| project.id == project_id);
+    let projects = match authorization {
+        crate::state::AdminAuthorization::Installation => state.store.projects(organization).await,
+        crate::state::AdminAuthorization::Operator(operator) => {
+            state.store.projects_for_scope(operator.scope).await
+        }
     }
+    .map_err(ApiError::from_store)?;
     Ok(Json(json!({"data": projects})))
 }
 

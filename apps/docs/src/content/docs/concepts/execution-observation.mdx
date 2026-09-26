@@ -51,7 +51,7 @@ The console's **Executions** view lists project records, accepts JSON imports, a
 
 Version 1 has no prompt, response, source-code, tool-output or credential fields. Missing timestamps, reported model identity, lifecycle status, outcomes, or charge references remain unknown. A `charge_ref` points to canonical accounting evidence; it does not create a second charge. If it exactly matches an Niu attempt UUID assigned to a supplier account, the execution detail links to that account and the account's execution list links back to matching tasks. Other reference namespaces remain unresolved. Import summaries omit the record payload, which is fetched only when an authorized operator opens a record.
 
-Delete an imported record with `DELETE /admin/v1/organizations/{organization}/projects/{project}/executions/{execution}`. This removes that imported metadata record. It does not delete canonical inference attempts or financial ledger entries, which follow their own retention policy. The current API uses installation-wide bootstrap administrator credentials; project operator roles and per-source collector credentials are not implemented yet.
+Delete an imported record with `DELETE /admin/v1/organizations/{organization}/projects/{project}/executions/{execution}`. This removes that imported metadata record. It does not delete canonical inference attempts or financial ledger entries, which follow their own retention policy. The API accepts organization/project-scoped operator credentials or installation bootstrap credentials. Reading requires read permission; import and deletion require write permission. Per-source execution collector credentials are not implemented yet.
 
 ## Project cohort
 

@@ -42,6 +42,9 @@ impl ApiError {
             niu_storage::StoreError::InvalidOperator => {
                 Self::invalid_request("Invalid operator name, role, or session lifetime")
             }
+            niu_storage::StoreError::InvalidOperatorAuditQuery => {
+                Self::invalid_request("Invalid operator audit cursor or page size")
+            }
             niu_storage::StoreError::Conflict => Self {
                 status: StatusCode::CONFLICT,
                 kind: "conflict_error",

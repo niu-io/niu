@@ -1,0 +1,375 @@
+@import "../../../../branding/tokens.css";
+
+:root {
+  --brand-orange: #b9775a;
+  --brand-ink: #e0b396;
+  --page-width: 1184px;
+  --copy-color: color-mix(in oklab, var(--foreground) 74%, var(--background));
+  font-family:
+    "Geist Variable",
+    ui-sans-serif,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  color-scheme: dark;
+  background: var(--background);
+  color: var(--foreground);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+.dark {
+  color-scheme: dark;
+  --background: #171714;
+  --foreground: #eee9de;
+  --card: #20211d;
+  --card-foreground: #eee9de;
+  --popover: #292923;
+  --popover-foreground: #eee9de;
+  --primary: #e9e2d5;
+  --primary-foreground: #201b17;
+  --secondary: #2b2a24;
+  --secondary-foreground: #e8e2d7;
+  --muted: #2b2b25;
+  --muted-foreground: #b8b0a2;
+  --accent: #383229;
+  --accent-foreground: #f0e8da;
+  --destructive: #bb6655;
+  --destructive-foreground: #fff8ee;
+  --success: #a3ad83;
+  --success-foreground: #1d2119;
+  --warning: #d2a15d;
+  --warning-foreground: #221b14;
+  --info: #b9a38a;
+  --info-foreground: #1d1b18;
+  --border: #ffffff1c;
+  --input: #ffffff24;
+  --ring: #c58b67;
+  --chart-1: #c58b67;
+  --chart-2: #a3ad83;
+  --chart-3: #d2a15d;
+  --chart-4: #a99179;
+  --chart-5: #bb6655;
+  --sidebar: #1c1c18;
+  --sidebar-foreground: #eee9de;
+  --sidebar-primary: #e9e2d5;
+  --sidebar-primary-foreground: #201b17;
+  --sidebar-accent: #302e27;
+  --sidebar-accent-foreground: #eee9de;
+  --sidebar-border: #ffffff16;
+  --sidebar-ring: #c58b67;
+  --neutral-border: var(--border);
+  --logo-surface: #eee9de;
+  --oxhide: #171714;
+  --horn: #eee9de;
+  --russet: #b9775a;
+  --copper: #d7a17d;
+  --pasture: #a3ad83;
+  --straw: #d2a15d;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+a {
+  color: inherit;
+  text-decoration: none;
+}
+button {
+  font: inherit;
+}
+img {
+  max-width: 100%;
+  height: auto;
+}
+p,
+h1,
+h2,
+h3 {
+  margin: 0;
+}
+p {
+  color: var(--copy-color);
+  line-height: 1.7;
+}
+button,
+a,
+summary {
+  -webkit-tap-highlight-color: transparent;
+}
+a,
+button,
+summary {
+  touch-action: manipulation;
+}
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible {
+  outline: 3px solid var(--ring);
+  outline-offset: 5px;
+}
+::selection {
+  background: #b9775a4d;
+}
+.container {
+  width: min(var(--page-width), calc(100% - 64px));
+  margin-inline: auto;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.skip-link {
+  position: fixed;
+  top: -100px;
+  left: 16px;
+  z-index: 100;
+  background: var(--foreground);
+  color: var(--background);
+  padding: 14px;
+}
+.skip-link:focus {
+  top: 12px;
+}
+.site-header {
+  border-bottom: 1px solid var(--border);
+  background: var(--background);
+}
+.nav-row {
+  height: 86px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+.wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 27px;
+  font-weight: 680;
+  letter-spacing: -1.5px;
+}
+.wordmark-suffix {
+  color: var(--muted-foreground);
+  font-weight: 480;
+}
+.nav-row nav {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  font-size: 14px;
+  font-weight: 520;
+}
+.nav-row nav a:hover,
+.text-link:hover,
+.footer a:hover {
+  color: var(--brand-ink);
+}
+.nav-github {
+  border: 1px solid var(--border);
+  padding: 10px 16px;
+  border-radius: 6px;
+}
+.menu-toggle {
+  display: none;
+}
+.nav-workspace {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid color-mix(in oklab, var(--brand-ink) 48%, var(--border));
+  border-radius: 6px;
+  padding: 10px 13px;
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 560;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+.nav-workspace:hover {
+  border-color: var(--brand-ink);
+  background: color-mix(in oklab, var(--brand-orange) 10%, var(--card));
+}
+.nav-row nav {
+  margin-left: auto;
+}
+.footer {
+  padding-block: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 30px;
+}
+.footer p {
+  font-size: 14px;
+  margin-top: 12px;
+}
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  font-size: 14px;
+  color: var(--copy-color);
+}
+.catalog-main {
+  width: min(1040px, calc(100% - 64px));
+  min-height: calc(100vh - 220px);
+  margin-inline: auto;
+  padding: 48px 0 78px;
+}
+.back-link {
+  display: inline-block;
+  margin-bottom: 46px;
+  color: var(--muted-foreground);
+  font-size: 14px;
+}
+.catalog-main > .eyebrow {
+  margin-bottom: 16px;
+}
+.catalog-main h1 {
+  margin-bottom: 18px;
+  font-size: clamp(42px, 5vw, 62px);
+  line-height: 1.04;
+  letter-spacing: -0.05em;
+}
+.catalog-lede {
+  max-width: 620px;
+  margin-bottom: 38px;
+  font-size: 16px;
+}
+.catalog-surface {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: linear-gradient(145deg, color-mix(in oklab, var(--card) 94%, #3b332b), var(--card));
+  box-shadow: 0 24px 64px #0005;
+}
+.catalog-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 88px;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+}
+.catalog-kicker,
+.catalog-count {
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+.catalog-heading h2 {
+  margin: 6px 0 0;
+  font-size: 20px;
+  font-weight: 570;
+}
+.catalog-table-wrap {
+  overflow-x: auto;
+}
+.catalog-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+.catalog-table th,
+.catalog-table td {
+  padding: 17px 24px;
+  border-bottom: 1px solid var(--border);
+}
+.catalog-table thead th {
+  color: var(--muted-foreground);
+  font-size: 13px;
+  font-weight: 520;
+}
+.catalog-table tbody th {
+  color: var(--foreground);
+  font-size: 14px;
+  font-weight: 580;
+}
+.catalog-table tbody td {
+  color: var(--secondary-foreground);
+  font-size: 13px;
+}
+.catalog-table tbody tr:last-child th,
+.catalog-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.catalog-empty {
+  padding-block: 34px !important;
+  color: var(--muted-foreground) !important;
+}
+.capability-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+}
+.catalog-capability {
+  padding: 5px 8px;
+  border: 1px solid color-mix(in oklab, var(--pasture) 32%, transparent);
+  border-radius: 6px;
+  color: color-mix(in oklab, var(--pasture) 72%, var(--foreground));
+  font-size: 12px;
+  white-space: nowrap;
+}
+.catalog-action {
+  text-align: right;
+  white-space: nowrap;
+}
+.catalog-action a,
+.catalog-help a {
+  color: var(--brand-ink);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklab, var(--brand-ink) 42%, transparent);
+  text-underline-offset: 4px;
+}
+.catalog-footnote {
+  margin: 0;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+.catalog-help {
+  margin-top: 20px;
+  font-size: 14px;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.nav-row nav a[aria-current="page"] { color: var(--foreground); }
+.eyebrow { color: var(--brand-ink); font-size: 14px; }
+@media (max-width: 760px) {
+  .container, .catalog-main { width: calc(100% - 40px); }
+  .nav-row { height: auto; min-height: 76px; flex-wrap: wrap; padding-block: 18px; gap: 16px; }
+  .nav-row nav { width: 100%; margin: 0; gap: 18px; flex-wrap: wrap; }
+  .nav-workspace, .menu-toggle { display: none; }
+  .footer { align-items: flex-start; flex-direction: column; }
+  .catalog-main { padding: 34px 0 56px; }
+  .catalog-main h1 { font-size: clamp(40px, 10vw, 52px); }
+  .catalog-table th, .catalog-table td { padding: 14px; }
+}
+@media (max-width: 420px) {
+  .catalog-action { display: none; }
+  .catalog-table tbody th { min-width: 114px; }
+}

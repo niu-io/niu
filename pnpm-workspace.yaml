@@ -1,7 +1,7 @@
 packages:
   - apps/console
   - apps/docs
-  - apps/site
+  - apps/catalog
   - sdks/javascript
 allowBuilds:
   esbuild: true

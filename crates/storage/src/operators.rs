@@ -3,7 +3,10 @@ use sha2::{Digest, Sha256};
 use sqlx::FromRow;
 use uuid::Uuid;
 
-use crate::{Store, StoreError, TenantScope};
+use crate::{
+    NamedResource, OperatorAuditActor, Store, StoreError, TenantScope,
+    operator_audit::insert_operator_audit_event,
+};
 
 const MIN_SESSION_SECONDS: i64 = 60;
 const MAX_SESSION_SECONDS: i64 = 31_536_000;
@@ -150,6 +153,32 @@ impl From<SessionRow> for OperatorSessionView {
 }
 
 impl Store {
+    /// Apply tenant scope before list limits so unrelated tenants cannot hide the caller's resources.
+    pub async fn organizations_for_scope(
+        &self,
+        scope: OperatorScope,
+    ) -> Result<Vec<NamedResource>, StoreError> {
+        Ok(
+            sqlx::query_as("SELECT id,name FROM organizations WHERE id=$1")
+                .bind(scope.organization_id)
+                .fetch_all(&self.pool)
+                .await?,
+        )
+    }
+
+    pub async fn projects_for_scope(
+        &self,
+        scope: OperatorScope,
+    ) -> Result<Vec<NamedResource>, StoreError> {
+        Ok(sqlx::query_as(
+            "SELECT id,name FROM projects WHERE organization_id=$1 AND ($2::uuid IS NULL OR id=$2) ORDER BY created_at,id LIMIT 1000",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .fetch_all(&self.pool)
+        .await?)
+    }
+
     pub async fn authenticate_operator(
         &self,
         token: &str,
@@ -238,6 +267,7 @@ impl Store {
         name: &str,
         role: OperatorRole,
         expires_in_seconds: i64,
+        actor: OperatorAuditActor,
     ) -> Result<IssuedOperatorSession, StoreError> {
         validate_operator(name, expires_in_seconds)?;
         let mut tx = self.pool.begin().await?;
@@ -271,6 +301,17 @@ impl Store {
             .execute(&mut *tx)
             .await?;
         let issued = issue_session(&mut tx, operator_id, expires_in_seconds).await?;
+        insert_operator_audit_event(&mut tx, actor, "operator_created", operator_id, None, scope)
+            .await?;
+        insert_operator_audit_event(
+            &mut tx,
+            actor,
+            "session_created",
+            operator_id,
+            Some(issued.session.id),
+            scope,
+        )
+        .await?;
         tx.commit().await?;
         Ok(issued)
     }
@@ -279,20 +320,31 @@ impl Store {
         &self,
         operator_id: Uuid,
         expires_in_seconds: i64,
+        actor: OperatorAuditActor,
     ) -> Result<IssuedOperatorSession, StoreError> {
         validate_operator("operator", expires_in_seconds)?;
         let mut tx = self.pool.begin().await?;
-        let active: bool = sqlx::query_scalar(
-            "SELECT revoked_at IS NULL FROM admin_operators WHERE id=$1 FOR UPDATE",
+        let scope: Option<(Uuid, Option<Uuid>)> = sqlx::query_as(
+            "SELECT organization_id,project_id FROM admin_operators \
+             WHERE id=$1 AND revoked_at IS NULL FOR UPDATE",
         )
         .bind(operator_id)
         .fetch_optional(&mut *tx)
-        .await?
-        .ok_or(StoreError::Conflict)?;
-        if !active {
-            return Err(StoreError::Conflict);
-        }
+        .await?;
+        let (organization_id, project_id) = scope.ok_or(StoreError::Conflict)?;
         let issued = issue_session(&mut tx, operator_id, expires_in_seconds).await?;
+        insert_operator_audit_event(
+            &mut tx,
+            actor,
+            "session_created",
+            operator_id,
+            Some(issued.session.id),
+            OperatorScope {
+                organization_id,
+                project_id,
+            },
+        )
+        .await?;
         tx.commit().await?;
         Ok(issued)
     }
@@ -301,36 +353,68 @@ impl Store {
         &self,
         operator_id: Uuid,
         session_id: Uuid,
+        actor: OperatorAuditActor,
     ) -> Result<(), StoreError> {
-        let result = sqlx::query(
-            "UPDATE admin_sessions SET revoked_at=now() WHERE operator_id=$1 AND id=$2 AND revoked_at IS NULL",
+        let mut tx = self.pool.begin().await?;
+        let scope: Option<(Uuid, Option<Uuid>)> = sqlx::query_as(
+            "UPDATE admin_sessions s SET revoked_at=clock_timestamp() \
+             FROM admin_operators o \
+             WHERE s.operator_id=$1 AND s.id=$2 AND s.revoked_at IS NULL AND o.id=s.operator_id \
+             RETURNING o.organization_id,o.project_id",
         )
         .bind(operator_id)
         .bind(session_id)
-        .execute(&self.pool)
+        .fetch_optional(&mut *tx)
         .await?;
-        if result.rows_affected() != 1 {
-            return Err(StoreError::Conflict);
-        }
+        let (organization_id, project_id) = scope.ok_or(StoreError::Conflict)?;
+        insert_operator_audit_event(
+            &mut tx,
+            actor,
+            "session_revoked",
+            operator_id,
+            Some(session_id),
+            OperatorScope {
+                organization_id,
+                project_id,
+            },
+        )
+        .await?;
+        tx.commit().await?;
         Ok(())
     }
 
-    pub async fn revoke_operator(&self, operator_id: Uuid) -> Result<(), StoreError> {
+    pub async fn revoke_operator(
+        &self,
+        operator_id: Uuid,
+        actor: OperatorAuditActor,
+    ) -> Result<(), StoreError> {
         let mut tx = self.pool.begin().await?;
-        let result = sqlx::query(
-            "UPDATE admin_operators SET revoked_at=now() WHERE id=$1 AND revoked_at IS NULL",
+        let scope: Option<(Uuid, Option<Uuid>)> = sqlx::query_as(
+            "UPDATE admin_operators SET revoked_at=clock_timestamp() \
+             WHERE id=$1 AND revoked_at IS NULL RETURNING organization_id,project_id",
+        )
+        .bind(operator_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+        let (organization_id, project_id) = scope.ok_or(StoreError::Conflict)?;
+        sqlx::query(
+            "UPDATE admin_sessions SET revoked_at=clock_timestamp() \
+             WHERE operator_id=$1 AND revoked_at IS NULL",
         )
         .bind(operator_id)
         .execute(&mut *tx)
         .await?;
-        if result.rows_affected() != 1 {
-            return Err(StoreError::Conflict);
-        }
-        sqlx::query(
-            "UPDATE admin_sessions SET revoked_at=now() WHERE operator_id=$1 AND revoked_at IS NULL",
+        insert_operator_audit_event(
+            &mut tx,
+            actor,
+            "operator_revoked",
+            operator_id,
+            None,
+            OperatorScope {
+                organization_id,
+                project_id,
+            },
         )
-        .bind(operator_id)
-        .execute(&mut *tx)
         .await?;
         tx.commit().await?;
         Ok(())

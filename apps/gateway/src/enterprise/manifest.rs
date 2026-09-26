@@ -322,6 +322,8 @@ pub(super) const CORE_ROUTE_PREFIXES: &[&str] = &[
     "/workspaces",
     "/_astro",
     "/site-assets",
+    "/_catalog",
+    "/catalog-assets",
     "/assets",
     "/favicon.ico",
     "/robots.txt",

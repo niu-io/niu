@@ -11,7 +11,13 @@ type Named = { id: string; name: string };
 type Key = Named & { allowed_models: string[]; expires_at_ms: number; revoked: boolean; expired: boolean };
 type Issued = { id: string; token: string };
 
-export default function KeysView({ token, models }: { token: string; models: string[] }) {
+export default function KeysView({ token, models, canWrite, canCreateOrganization, canCreateProject }: {
+  token: string;
+  models: string[];
+  canWrite: boolean;
+  canCreateOrganization: boolean;
+  canCreateProject: boolean;
+}) {
   const [organizations, setOrganizations] = useState<Named[]>([]);
   const [projects, setProjects] = useState<Named[]>([]);
   const [organization, setOrganization] = useState('');
@@ -110,7 +116,7 @@ export default function KeysView({ token, models }: { token: string; models: str
   return <>
     <div className="page-heading"><div><p className="eyebrow">ACCESS CONTROL</p><h1>API keys</h1><p className="page-subtitle">Issue project-scoped keys with explicit model permissions and expiry.</p></div></div>
     {error && <p role="alert" className="error-text">{error}</p>}
-    {!organizationsLoading && organizations.length === 0 && models.length > 0 && <section className="panel first-key-card" aria-labelledby="first-key-title">
+    {!organizationsLoading && organizations.length === 0 && models.length > 0 && canWrite && canCreateOrganization && <section className="panel first-key-card" aria-labelledby="first-key-title">
       <div className="first-key-heading"><span className="first-key-icon"><KeyRound size={18} /></span><div><p className="eyebrow">FIRST RUN</p><h2 id="first-key-title">Create a workspace and your first key</h2><p>We’ll set up a personal workspace and default project, then issue a scoped key for your app.</p></div></div>
       <form onSubmit={event => submit(event, createFirstWorkspace)}>
         <div className="first-key-fields"><Label>Key name<Input required maxLength={200} value={firstKeyName} onChange={event => setFirstKeyName(event.target.value)} /></Label><div className="first-key-expiry"><span>Expiry</span><strong>30 days</strong><small>Change it later when issuing other keys.</small></div></div>
@@ -118,35 +124,39 @@ export default function KeysView({ token, models }: { token: string; models: str
         <div className="first-key-actions"><span>Secret shown once · provider credentials stay on the server</span><Button disabled={busy || !firstKeyName.trim() || !firstKeyModels.length} type="submit">{busy ? 'Creating…' : 'Create workspace and key'}</Button></div>
       </form>
     </section>}
+    {!organizationsLoading && organizations.length === 0 && models.length > 0 && (!canWrite || !canCreateOrganization) && <section className="panel keys-controls" role="status">
+      <h2>No organization is available</h2><p>An installation administrator must create an organization and project before this session can issue API keys.</p>
+    </section>}
     {(organizations.length > 0 || models.length === 0) && <section className="panel keys-controls">
       <div className="key-scope-grid">
         <Label htmlFor="organization">Organization<NativeSelect id="organization" disabled={busy} value={organization} onChange={e => { setOrganization(e.target.value); setProject(''); setKeys([]); setSecret(null); }}><NativeSelectOption value="">Select organization</NativeSelectOption>{organizations.map(x => <NativeSelectOption value={x.id} key={x.id}>{x.name}</NativeSelectOption>)}</NativeSelect></Label>
         <Label htmlFor="project">Project<NativeSelect id="project" disabled={busy || !organization} value={project} onChange={e => { setProject(e.target.value); setKeys([]); setSecret(null); }}><NativeSelectOption value="">Select project</NativeSelectOption>{projects.map(x => <NativeSelectOption value={x.id} key={x.id}>{x.name}</NativeSelectOption>)}</NativeSelect></Label>
       </div>
-      <div className="key-scope-grid">
-        <form onSubmit={e => submit(e, async () => {
+      {(canCreateOrganization || canCreateProject) && <div className="key-scope-grid">
+        {canCreateOrganization && <form onSubmit={e => submit(e, async () => {
           const created = await request<Named>('/admin/v1/organizations', 'POST', { name: organizationName });
           setOrganizations(previous => [...previous, created]); setOrganization(created.id); setOrganizationName('');
-        })}><Label>New organization<Input required maxLength={200} value={organizationName} onChange={e => setOrganizationName(e.target.value)} /></Label><Button variant="outline" disabled={busy || !organizationName.trim()}>Create organization</Button></form>
-        <form onSubmit={e => submit(e, async () => {
+        })}><Label>New organization<Input required maxLength={200} value={organizationName} onChange={e => setOrganizationName(e.target.value)} /></Label><Button variant="outline" disabled={busy || !organizationName.trim()}>Create organization</Button></form>}
+        {canCreateProject && <form onSubmit={e => submit(e, async () => {
           const created = await request<Named>(projectPath, 'POST', { name: projectName });
           setProjects(previous => [...previous, created]); setProject(created.id); setProjectName('');
-        })}><Label>New project<Input required maxLength={200} disabled={!organization} value={projectName} onChange={e => setProjectName(e.target.value)} /></Label><Button variant="outline" disabled={busy || !organization || !projectName.trim()}>Create project</Button></form>
-      </div>
+        })}><Label>New project<Input required maxLength={200} disabled={!organization} value={projectName} onChange={e => setProjectName(e.target.value)} /></Label><Button variant="outline" disabled={busy || !organization || !projectName.trim()}>Create project</Button></form>}
+      </div>}
+      {!canWrite && <p className="operator-read-only-note">This session can review keys but does not have permission to create or revoke them.</p>}
     </section>}
-    {project && <>
+    {canWrite && project && <>
       <section className="panel keys-controls"><h2>Issue a key</h2><form onSubmit={e => submit(e, async () => {
         const issued = await request<Issued>(keyPath, 'POST', { name, allowed_models: grants, ttl_seconds: days * 86400 });
         setSecret(issued); setName(''); await reloadKeys();
       })}>
         <div className="key-scope-grid"><Label>Key name<Input required maxLength={200} value={name} onChange={e => setName(e.target.value)} /></Label><Label>Expires in days<Input required type="number" min={1} max={365} step={1} value={days} onChange={e => setDays(Number(e.target.value))} /></Label></div>
-        <fieldset><legend>Allowed models</legend>{models.map(model => <Label className="model-grant" key={model} htmlFor={`grant-${model}`}><Checkbox id={`grant-${model}`} checked={grants.includes(model)} onCheckedChange={checked => setGrants(previous => checked === true ? [...previous, model] : previous.filter(x => x !== model))} />{model}</Label>)}</fieldset>
-        <Button  disabled={busy || !name.trim() || !grants.length}><KeyRound />Issue key</Button>
+        <fieldset><legend>Allowed models</legend>{models.map(model => <Label className="model-grant" key={model} htmlFor={'grant-' + model}><Checkbox id={'grant-' + model} checked={grants.includes(model)} onCheckedChange={checked => setGrants(previous => checked === true ? [...previous, model] : previous.filter(x => x !== model))} />{model}</Label>)}</fieldset>
+        <Button disabled={busy || !name.trim() || !grants.length}><KeyRound />Issue key</Button>
       </form></section>
       {secret && <section className="panel keys-controls" role="status"><h2>Save your key</h2><p>This secret is shown once and stays only in this tab. Dismiss it after saving.</p><Label>New API key<Input className="mono" readOnly value={secret.token} aria-label="New API key" onFocus={e => e.target.select()} /></Label><Button variant="outline" type="button" onClick={() => setSecret(null)}>Dismiss secret</Button></section>}
-      <section className="panel"><div className="panel-heading"><div><h2>Project keys</h2><p>Rotation revokes the old key immediately and preserves permissions and expiry.</p></div><Button type="button" variant="outline" disabled={busy} onClick={() => void mutate(reloadKeys)}><RefreshCw />Refresh</Button></div>
-        <div className="table-wrap"><Table><TableHeader><TableRow><TableHead>NAME</TableHead><TableHead>MODELS</TableHead><TableHead>EXPIRES</TableHead><TableHead>STATUS</TableHead><TableHead>ACTIONS</TableHead></TableRow></TableHeader><TableBody>{keys.map(key => <TableRow key={key.id}><TableCell>{key.name}</TableCell><TableCell>{key.allowed_models.join(', ')}</TableCell><TableCell>{new Date(key.expires_at_ms).toLocaleString()}</TableCell><TableCell>{key.revoked ? 'Revoked' : key.expired ? 'Expired' : 'Active'}</TableCell><TableCell className="key-actions"><Button type="button" variant="ghost" size="sm" disabled={busy || key.revoked || key.expired} onClick={() => void mutate(async () => { setSecret(await request<Issued>(`${keyPath}/${key.id}/rotate`, 'POST')); await reloadKeys(); })}><RotateCw />Rotate</Button><Button type="button" variant="ghost" size="sm" disabled={busy || key.revoked} onClick={() => void mutate(async () => { await request(`${keyPath}/${key.id}`, 'DELETE'); if (secret?.id === key.id) setSecret(null); await reloadKeys(); })}><Ban />Revoke</Button></TableCell></TableRow>)}</TableBody></Table>{keys.length === 0 && <p className="empty-state">No keys in this project.</p>}</div>
-      </section>
     </>}
+    {project && <section className="panel"><div className="panel-heading"><div><h2>Project keys</h2><p>Rotation revokes the old key immediately and preserves permissions and expiry.</p></div><Button type="button" variant="outline" disabled={busy} onClick={() => void mutate(reloadKeys)}><RefreshCw />Refresh</Button></div>
+      <div className="table-wrap"><Table><TableHeader><TableRow><TableHead>NAME</TableHead><TableHead>MODELS</TableHead><TableHead>EXPIRES</TableHead><TableHead>STATUS</TableHead><TableHead>ACTIONS</TableHead></TableRow></TableHeader><TableBody>{keys.map(key => <TableRow key={key.id}><TableCell>{key.name}</TableCell><TableCell>{key.allowed_models.join(', ')}</TableCell><TableCell>{new Date(key.expires_at_ms).toLocaleString()}</TableCell><TableCell>{key.revoked ? 'Revoked' : key.expired ? 'Expired' : 'Active'}</TableCell><TableCell className="key-actions">{canWrite ? <><Button type="button" variant="ghost" size="sm" disabled={busy || key.revoked || key.expired} onClick={() => void mutate(async () => { setSecret(await request<Issued>(keyPath + '/' + key.id + '/rotate', 'POST')); await reloadKeys(); })}><RotateCw />Rotate</Button><Button type="button" variant="ghost" size="sm" disabled={busy || key.revoked} onClick={() => void mutate(async () => { await request(keyPath + '/' + key.id, 'DELETE'); if (secret?.id === key.id) setSecret(null); await reloadKeys(); })}><Ban />Revoke</Button></> : <span className="operator-read-only-note">Read only</span>}</TableCell></TableRow>)}</TableBody></Table>{keys.length === 0 && <p className="empty-state">No keys in this project.</p>}</div>
+    </section>}
   </>;
 }

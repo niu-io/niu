@@ -1,0 +1,50 @@
+---
+import SiteLayout from "../../layouts/SiteLayout.astro";
+
+const description =
+  "Browse the model aliases an operator has explicitly published for public discovery on this Niu gateway.";
+---
+
+<SiteLayout title="Public model catalog — niu.io" description={description}>
+  <main id="main" class="catalog-main">
+    <a class="back-link" href="/">← niu.io home</a>
+    <p class="eyebrow">Public model catalog</p>
+    <h1>Routes published<br />by this Niu gateway.</h1>
+    <p class="catalog-lede">
+      Only aliases enabled for public listing appear here. Provider endpoints,
+      credentials, and private routes stay on the server.
+    </p>
+    <section class="catalog-surface" aria-labelledby="catalog-title">
+      <div class="catalog-heading">
+        <div>
+          <span class="catalog-kicker">Available routes</span>
+          <h2 id="catalog-title">Model access</h2>
+        </div>
+        <span class="catalog-count" data-model-count>Loading</span>
+      </div>
+      <div class="catalog-table-wrap">
+        <table class="catalog-table">
+          <thead>
+            <tr>
+              <th scope="col">Model alias</th>
+              <th scope="col">Capabilities</th>
+              <th scope="col"><span class="visually-hidden">Action</span></th>
+            </tr>
+          </thead>
+          <tbody data-model-rows>
+            <tr><td colspan="3" class="catalog-empty">Loading public routes…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="catalog-footnote" data-catalog-status aria-live="polite">
+        Catalog visibility is set by the gateway operator.
+      </p>
+    </section>
+    <p class="catalog-help">
+      Need an alias enabled for your key?
+      {" "}<a href="/workspaces/default/keys">Open the workspace</a>{" "}or{" "}
+      <a href="/docs/configuration/models/">read route configuration</a>.
+    </p>
+  </main>
+  <script src="/catalog-assets/models.js" defer></script>
+</SiteLayout>

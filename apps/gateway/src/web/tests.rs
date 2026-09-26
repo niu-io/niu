@@ -240,4 +240,6 @@ mod accounting;
 mod admin;
 mod executions;
 mod inference;
+mod operator_audit;
+mod operators;
 mod quota;

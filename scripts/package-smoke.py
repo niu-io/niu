@@ -576,30 +576,23 @@ def main():
 
     status, _, _ = request("GET", "/healthz")
     assert status == 200, f"liveness returned HTTP {status}"
-    status, html, content_type = request("GET", "/")
-    assert status == 200 and "text/html" in content_type
-    assert "The Agent Gateway" in html, "the packaged product homepage was not served"
-    assert 'href="https://niu.io/"' in html, "the homepage canonical URL was not on niu.io"
-    assert 'content="#171714"' in html, "the homepage omitted its dark oxhide theme color"
-    for destination in ("/docs/", "/models/", "/workspaces/default/"):
-        assert f'href="{destination}"' in html, f"the homepage omitted its {destination} route"
-    site_css_path = re.search(r'href="(/_astro/[^\"]+\.css)"', html)
-    assert site_css_path, "the Astro homepage omitted its stylesheet"
-    _, site_css, site_css_type = request("GET", site_css_path.group(1))
-    assert site_css_type.startswith("text/css") and "--oxhide" in site_css
-    _, site_mark, site_mark_type = request("GET", "/site-assets/brand/niu-mark.png")
-    assert site_mark_type.startswith("image/") and len(site_mark) > 100
-    sitemap_status, sitemap, sitemap_type = request("GET", "/sitemap.xml")
-    assert sitemap_status == 200 and "xml" in sitemap_type
-    assert "https://niu.io/models/" in sitemap
-    assert request("GET", "/robots.txt")[0] == 200
+    # Community root opens the workspace; the marketing artifact is optional.
+    with urllib.request.urlopen(f"{BASE_URL}/", timeout=5) as response:
+        assert response.url.endswith("/workspaces/default/")
+        assert "text/html" in response.headers.get("Content-Type", "")
 
     catalog_status, catalog_html, catalog_type = request("GET", "/models/")
     assert catalog_status == 200 and "text/html" in catalog_type
     assert "Public model catalog" in catalog_html
     assert 'href="https://niu.io/models/"' in catalog_html
-    assert "/site-assets/models.js" in catalog_html
-    _, catalog_script, _ = request("GET", "/site-assets/models.js")
+    assert "/catalog-assets/models.js" in catalog_html
+    catalog_css_path = re.search(r'href="(/_catalog/[^\"]+\.css)"', catalog_html)
+    assert catalog_css_path, "the public catalog omitted its stylesheet"
+    _, catalog_css, catalog_css_type = request("GET", catalog_css_path.group(1))
+    assert catalog_css_type.startswith("text/css") and "--oxhide" in catalog_css
+    _, catalog_mark, catalog_mark_type = request("GET", "/catalog-assets/brand/niu-mark.png")
+    assert catalog_mark_type.startswith("image/") and len(catalog_mark) > 100
+    _, catalog_script, _ = request("GET", "/catalog-assets/models.js")
     catalog_script_text = (
         catalog_script.decode("utf-8")
         if isinstance(catalog_script, bytes)
@@ -715,7 +708,7 @@ def main():
     if COMPOSE_MODE:
         print("Compose smoke passed: app and PostgreSQL restarts, backup/restore, graceful drain, migrations, and credential-free admin lists.")
     else:
-        print("Packaged image serves the homepage, docs, public catalog and nested workspace routes; API errors stay in their namespaces; streamed inference persists evidence across restart.")
+        print("Packaged image serves the workspace entry, docs, public catalog and nested workspace routes; API errors stay in their namespaces; streamed inference persists evidence across restart.")
 
 
 def cleanup():

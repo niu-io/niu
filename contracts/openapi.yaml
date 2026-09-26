@@ -170,6 +170,46 @@ paths:
           description: Public and upstream model names with provider identifiers and catalog visibility.
         '401':
           description: Missing or invalid administrator credentials.
+  /admin/v1/session:
+    get:
+      operationId: getAdminSessionIdentity
+      summary: Read the current administrator's scope and permissions
+      description: Revalidates the bearer credential on every request. Returns installation authority or the operator's current organization/project scope and role. Permissions are UI hints; every management operation independently enforces authorization. Responses contain no credentials and use Cache-Control no-store.
+      security:
+        - adminBearerAuth: []
+      responses:
+        '200':
+          description: Current identity and effective role permissions.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [kind, operator, permissions]
+                    properties:
+                      kind: { type: string, enum: [installation, operator] }
+                      operator:
+                        type: [object, 'null']
+                        required: [id, role, organization_id, project_id]
+                        properties:
+                          id: { type: string, format: uuid }
+                          role: { type: string, enum: [owner, admin, viewer] }
+                          organization_id: { type: string, format: uuid }
+                          project_id: { type: [string, 'null'], format: uuid }
+                      permissions:
+                        type: object
+                        required: [read, write, manage_operators]
+                        properties:
+                          read: { type: boolean }
+                          write: { type: boolean }
+                          manage_operators: { type: boolean }
+        '401':
+          description: Missing, invalid, expired or revoked administrator credential.
+        '503':
+          description: Operator storage is unavailable.
   /admin/v1/operators:
     get:
       operationId: adminListOperators
@@ -294,6 +334,40 @@ paths:
           description: The authenticated operator is not an owner.
         '409':
           description: Session was already revoked or does not exist.
+  /admin/v1/operators/{operator}/events:
+    get:
+      operationId: adminListOperatorAuditEvents
+      summary: Read immutable operator and session lifecycle events
+      description: Requires a scoped owner for the target operator or an installation bootstrap credential. Cursor UUIDs are accepted only when they belong to the requested target operator. Events include actor class/identity and target tenant metadata, never session tokens, token hashes or request bodies.
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: operator
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - name: cursor
+          in: query
+          description: UUID from next_cursor in the previous page for this same operator.
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Events in stable descending created_at/id order and a nullable next_cursor.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperatorAuditPage'
+        '400':
+          description: Page limit is outside 1–100 or cursor is absent from this operator's event stream.
+        '401':
+          description: Missing, invalid, expired or revoked credentials.
+        '403':
+          description: The authenticated operator is not an owner.
+        '404':
+          description: Target operator is absent or outside the caller's scope.
   /admin/v1/metrics:
     get:
       operationId: adminGetMetrics
@@ -333,7 +407,7 @@ paths:
     post:
       operationId: analyzePairedBenchmark
       summary: Analyze a matched, opt-in paired benchmark dataset
-      description: Stateless analysis of imported execution records and settled amounts. This operation never dispatches model work, reserves budget, or persists a report.
+      description: Stateless analysis of imported execution records and settled amounts. Accepts an installation administrator or a scoped operator with read permission. Submitted datasets are not bound to the caller's tenant or checked against stored evidence; this endpoint is not an Enterprise authorization boundary. This operation never dispatches model work, reserves budget, or persists a report.
       security:
         - adminBearerAuth: []
       requestBody:
@@ -356,7 +430,7 @@ paths:
         '400':
           description: Invalid dataset, mismatched trial, incomplete cost evidence, or budget limit exceeded.
         '401':
-          description: Invalid installation administrator token.
+          description: Invalid or expired administrator/operator credential.
   /admin/v1/organizations:
     get:
       operationId: listOrganizations
@@ -1120,6 +1194,30 @@ components:
       required: [expires_in_seconds]
       properties:
         expires_in_seconds: { type: integer, minimum: 60, maximum: 31536000 }
+    OperatorAuditPage:
+      type: object
+      additionalProperties: false
+      required: [data, next_cursor]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/OperatorAuditEvent'
+        next_cursor: { type: [string, 'null'], format: uuid }
+    OperatorAuditEvent:
+      type: object
+      additionalProperties: false
+      required: [id, action, actor_kind, actor_operator_id, target_operator_id, target_session_id, organization_id, project_id, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        action: { type: string, enum: [operator_created, session_created, session_revoked, operator_revoked] }
+        actor_kind: { type: string, enum: [installation, operator] }
+        actor_operator_id: { type: [string, 'null'], format: uuid, description: Null only for installation actors. }
+        target_operator_id: { type: string, format: uuid }
+        target_session_id: { type: [string, 'null'], format: uuid, description: Present for session_created and session_revoked. }
+        organization_id: { type: string, format: uuid }
+        project_id: { type: [string, 'null'], format: uuid }
+        created_at: { type: string, format: date-time }
     ChatFunctionTool:
       type: object
       required: [type, function]

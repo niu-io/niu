@@ -96,6 +96,7 @@ async fn module_route_requires_scoped_operator_session_and_permission(pool: sqlx
             "project owner",
             niu_storage::OperatorRole::Owner,
             3600,
+            niu_storage::OperatorAuditActor::Installation,
         )
         .await
         .unwrap();
@@ -106,6 +107,7 @@ async fn module_route_requires_scoped_operator_session_and_permission(pool: sqlx
             "project viewer",
             niu_storage::OperatorRole::Viewer,
             3600,
+            niu_storage::OperatorAuditActor::Installation,
         )
         .await
         .unwrap();

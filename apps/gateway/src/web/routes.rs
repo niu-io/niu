@@ -18,6 +18,7 @@ use super::inference::{bearer, chat, embeddings, responses};
 pub(crate) fn router(state: AppState) -> Router {
     let enterprise_enabled = state.enterprise.is_some();
     let app = Router::new()
+        .route("/admin/v1/session", get(crate::admin::current_session))
         .route(
             "/admin/v1/setup/default-workspace",
             axum::routing::post(crate::admin::default_workspace),
@@ -65,6 +66,10 @@ pub(crate) fn router(state: AppState) -> Router {
         .route(
             "/admin/v1/operators/{operator}/sessions",
             get(crate::admin::operator_sessions).post(crate::admin::create_operator_session),
+        )
+        .route(
+            "/admin/v1/operators/{operator}/events",
+            get(crate::admin::operator_events),
         )
         .route(
             "/admin/v1/operators/{operator}/sessions/{session}",
