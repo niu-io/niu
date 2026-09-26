@@ -506,3 +506,26 @@ async fn execution_import_api_is_idempotent_scoped_and_deletable(pool: sqlx::PgP
     // deletion must not create or charge additional work.
     assert_eq!((attempts, charges), (1, 0));
 }
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn execution_collector_is_ingest_only_scoped_and_revocable(pool: sqlx::PgPool) {
+    let state = test_state(None, pool);
+    let scope = state.store.default_workspace().await.unwrap();
+    let other = state.store.create_project(scope.organization_id, "other").await.unwrap();
+    let collector = state.store.issue_collector_key_for(scope,"execution",3600,"execution").await.unwrap();
+    let quota = state.store.issue_collector_key(scope,"quota",3600).await.unwrap();
+    let app = router(state.clone());
+    let record: Value = serde_json::from_str(include_str!("../../../../../contracts/fixtures/parallel-task.v1.json")).unwrap();
+    let base = format!("/admin/v1/organizations/{}/projects/{}/execution-imports",scope.organization_id,scope.project_id);
+    let post = |path: &str, token: &str| Request::post(path).header("authorization",format!("Bearer {token}")).header("content-type","application/json").body(axum::body::Body::from(record.to_string())).unwrap();
+    assert_eq!(app.clone().oneshot(post(&base,&quota.token)).await.unwrap().status(),StatusCode::UNAUTHORIZED);
+    assert_eq!(app.clone().oneshot(post(&base,&collector.token)).await.unwrap().status(),StatusCode::CREATED);
+    assert_eq!(app.clone().oneshot(post(&base,&collector.token)).await.unwrap().status(),StatusCode::OK);
+    let wrong = format!("/admin/v1/organizations/{}/projects/{}/execution-imports",scope.organization_id,other.project_id);
+    assert_eq!(app.clone().oneshot(post(&wrong,&collector.token)).await.unwrap().status(),StatusCode::UNAUTHORIZED);
+    let read = Request::get(&base).header("authorization",format!("Bearer {}",collector.token)).body(axum::body::Body::empty()).unwrap();
+    assert_eq!(app.clone().oneshot(read).await.unwrap().status(),StatusCode::UNAUTHORIZED);
+    state.store.revoke_collector_key(scope,collector.id).await.unwrap();
+    assert_eq!(app.clone().oneshot(post(&base,&collector.token)).await.unwrap().status(),StatusCode::UNAUTHORIZED);
+}

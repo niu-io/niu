@@ -51,7 +51,8 @@ pub(in crate::web) async fn embeddings(
     let timeout = Duration::from_secs(state.config.server.request_timeout_seconds);
     state.requests.fetch_add(1, Ordering::Relaxed);
 
-    let dispatch = begin_attempt(&state, &principal, &public_model, model, Some(0)).await?;
+    let task_id = request_task_id(&headers)?;
+    let dispatch = begin_attempt(&state, &principal, &public_model, model, Some(0), task_id.as_deref()).await?;
     let result = execute_embeddings(
         &state,
         EmbeddingExecution {

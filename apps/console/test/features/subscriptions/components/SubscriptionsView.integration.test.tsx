@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import SubscriptionsView from '../../../../src/features/subscriptions/components/SubscriptionsView';
 
@@ -12,7 +12,7 @@ function makeAccount(id = 'account-1') {
 function makeWindow(overrides: Record<string, unknown> = {}) {
   return {
     window_key: 'weekly', unit: 'tokens', remaining: '80', maximum: '100',
-    observed_at_ms: 1790400000000, valid_until_ms: 1790403600000, resets_at_ms: 1791000000000,
+    observed_at_ms: Date.now() - 1000, valid_until_ms: Date.now() + 3600000, resets_at_ms: Date.now() + 86400000,
     source: 'provider-export', previous_remaining: '100', previous_observed_at_ms: 1790300000000, fresh: true,
     ...overrides,
   };
@@ -69,6 +69,22 @@ async function chooseProject(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('subscription observations dashboard', () => {
+  it('expires a displayed observation without another network request', async () => {
+    const { calls } = mockGateway();
+    const user = userEvent.setup();
+    render(<SubscriptionsView token="admin-test-token" />);
+    await chooseProject(user);
+    expect(await screen.findByText('Fresh')).toBeTruthy();
+    const count = calls.length;
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(Date.now() + 86400001);
+      act(() => { window.dispatchEvent(new Event('focus')); });
+      expect(screen.queryByText('Fresh')).toBeNull();
+      expect(screen.getByText('Stale or unknown')).toBeTruthy();
+      expect(calls.length).toBe(count);
+    } finally { vi.useRealTimers(); }
+  });
   it('shows source, freshness, reset and unattributed changes without inventing task links', async () => {
     mockGateway();
     const user = userEvent.setup();

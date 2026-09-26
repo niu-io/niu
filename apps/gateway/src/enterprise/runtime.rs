@@ -62,7 +62,25 @@ impl EnterpriseRuntime {
     ) -> Result<Self, EnterpriseError> {
         let mut modules = Vec::with_capacity(manifest.modules.len());
         for declaration in manifest.modules {
-            let socket = PathBuf::from(&declaration.socket_path);
+            let mut socket = PathBuf::from(&declaration.socket_path);
+            if let Some(root) = std::env::var_os("NIU_DEV_RUNTIME_DIR") {
+                if !cfg!(debug_assertions) {
+                    return Err(EnterpriseError(
+                        "development socket paths require a debug build".into(),
+                    ));
+                }
+                let root = PathBuf::from(root);
+                if !root.is_absolute() {
+                    return Err(EnterpriseError(
+                        "development runtime directory must be absolute".into(),
+                    ));
+                }
+                socket = root.join("modules").join(
+                    socket
+                        .file_name()
+                        .ok_or_else(|| EnterpriseError("missing module socket name".into()))?,
+                );
+            }
             let http = reqwest::Client::builder()
                 .unix_socket(socket)
                 .redirect(reqwest::redirect::Policy::none())

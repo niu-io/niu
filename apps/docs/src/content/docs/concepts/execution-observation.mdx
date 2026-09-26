@@ -45,13 +45,13 @@ const record = trace.export();
 
 The recorder holds data locally. A trusted server-side collector imports it using the API above; keep installation administrator credentials out of agent workers and browsers. A missing `chargeRef` leaves cost attribution unresolved rather than creating a charge.
 
-The console's **Executions** view lists project records, accepts JSON imports, and displays spans, causal links, source-reported lifecycle status, model identity evidence, and outcome authority. Missing status remains unknown; Niu does not infer cancellation from an open interval. Task wall-clock is shown separately from invocation work, the sum of observed model and tool intervals. Enclosing task, agent, step and attempt spans are excluded from that sum; untimed calls stay unknown, and parallel invocation time can exceed wall-clock. Coverage is a collector assertion, not proof that every event was captured.
+The console's **Tasks** view lists project records, accepts metadata imports, and displays spans, causal links, source-reported lifecycle status, model identity evidence, and outcome authority. A task is the requested piece of work; an attempt is one pass at completing it; steps are model requests, tool calls and checks within an attempt. Missing status remains unknown; Niu does not infer cancellation from an open interval. Task wall-clock is shown separately from invocation work, the sum of observed model and tool intervals. Enclosing task, agent, step and attempt spans are excluded from that sum; untimed calls stay unknown, and parallel invocation time can exceed wall-clock. Coverage is a collector assertion, not proof that every event was captured.
 
 ## Privacy, attribution and deletion
 
 Version 1 has no prompt, response, source-code, tool-output or credential fields. Missing timestamps, reported model identity, lifecycle status, outcomes, or charge references remain unknown. A `charge_ref` points to canonical accounting evidence; it does not create a second charge. If it exactly matches an Niu attempt UUID assigned to a supplier account, the execution detail links to that account and the account's execution list links back to matching tasks. Other reference namespaces remain unresolved. Import summaries omit the record payload, which is fetched only when an authorized operator opens a record.
 
-Delete an imported record with `DELETE /admin/v1/organizations/{organization}/projects/{project}/executions/{execution}`. This removes that imported metadata record. It does not delete canonical inference attempts or financial ledger entries, which follow their own retention policy. The API accepts organization/project-scoped operator credentials or installation bootstrap credentials. Reading requires read permission; import and deletion require write permission. Per-source execution collector credentials are not implemented yet.
+Delete an imported record with `DELETE /admin/v1/organizations/{organization}/projects/{project}/executions/{execution}`. This removes that imported metadata record. It does not delete canonical inference attempts or financial ledger entries, which follow their own retention policy. The API accepts organization/project-scoped operator credentials or installation bootstrap credentials. Reading requires read permission; import and deletion require write permission. Dedicated project-scoped execution collector credentials can import metadata but cannot read, delete, manage accounts or dispatch inference. Existing quota collector keys cannot import executions. Source labels remain collector assertions, not verified provenance.
 
 ## Project cohort
 
@@ -64,3 +64,19 @@ Outcome counts are per imported record. Version 1 does not carry a canonical cro
 ## Version 1 limits
 
 The public contract supports task, agent, step, model and tool spans, attempts, validators, human intervention, checkpoints, source-reported cancellation, and containment, delegation, dependency, retry and resume links. Cross-clock uncertainty, provider-native subscription collectors, subscription-window reconciliation, an isolated paired experiment runner, and executable third-party task adapters remain future work. See [Subscription observations](/docs/concepts/subscription-observation/) for the separate account and quota snapshot workflow. [Paired benchmark analysis](/docs/concepts/benchmarking/) describes the current offline evaluator; it does not execute work or authorize spending.
+
+
+## Issue an ingest-only execution credential
+
+A project administrator can issue a collector key with `purpose: "execution"`
+through `POST /admin/v1/organizations/{organization}/projects/{project}/collector-keys`:
+
+```json
+{"name":"Task metadata collector","ttl_seconds":3600,"purpose":"execution"}
+```
+
+The token is returned once. Store it in the collector environment, then use the
+existing execution-import API or `scripts/import_execution.py --token-env NIU_COLLECTOR_TOKEN`.
+Omitting purpose preserves the quota-only default. Revoke through the existing
+collector-key DELETE endpoint. Revocation and ingestion share a database lock:
+after revocation commits, a later ingestion cannot commit using that key.

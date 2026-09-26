@@ -996,6 +996,7 @@ paths:
               properties:
                 name: { type: string, minLength: 1, maxLength: 200 }
                 ttl_seconds: { type: integer, minimum: 60, maximum: 31536000 }
+                purpose: { type: string, enum: [quota, execution], default: quota }
       responses:
         '200':
           description: Collector ID and one-time bearer token. Store the token securely; it is not returned again.

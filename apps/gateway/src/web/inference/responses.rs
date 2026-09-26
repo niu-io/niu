@@ -49,12 +49,14 @@ pub(in crate::web) async fn responses(
     let api_key = resolved.api_key;
     let timeout = Duration::from_secs(state.config.server.request_timeout_seconds);
     state.requests.fetch_add(1, Ordering::Relaxed);
+    let task_id = request_task_id(&headers)?;
     let dispatch = begin_attempt(
         &state,
         &principal,
         &public_model,
         model,
         bounds.max_output_tokens,
+        task_id.as_deref(),
     )
     .await?;
     let result = execute_responses(&state, &public_model, model, api_key, body, timeout).await;

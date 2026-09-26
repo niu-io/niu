@@ -209,6 +209,10 @@ impl Store {
         scope: TenantScope,
         record: &ExecutionRecord,
     ) -> Result<ImportReceipt, StoreError> {
+        self.import_execution_with_collector(scope, record, None).await
+    }
+
+    pub async fn import_execution_with_collector(&self, scope: TenantScope, record: &ExecutionRecord, collector: Option<&str>) -> Result<ImportReceipt, StoreError> {
         record
             .validate()
             .map_err(|_| StoreError::InvalidObservation)?;
@@ -217,6 +221,15 @@ impl Store {
             return Err(StoreError::InvalidObservation);
         }
         let mut tx = self.pool.begin().await?;
+        if let Some(token) = collector {
+            use sha2::{Digest, Sha256};
+            if token.len() != 78 || !token.starts_with("niu_collector_") { return Err(StoreError::Unauthorized); }
+            let hash = Sha256::digest(token.as_bytes()).to_vec();
+            let key: Option<Uuid> = sqlx::query_scalar("SELECT id FROM collector_keys WHERE purpose='execution' AND token_hash=$1 AND organization_id=$2 AND project_id=$3 AND revoked_at IS NULL AND expires_at>clock_timestamp() FOR SHARE")
+                .bind(hash).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut *tx).await?;
+            if key.is_none() { return Err(StoreError::Unauthorized); }
+        }
+
         let id = Uuid::new_v4();
         let inserted: Option<Uuid> = sqlx::query_scalar("INSERT INTO execution_imports (id, organization_id, project_id, source, record_id, task_id, schema_version, payload) VALUES ($1,$2,$3,$4,$5,$6,1,$7::jsonb) ON CONFLICT (organization_id, project_id, source, record_id) DO NOTHING RETURNING id")
             .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(&record.source).bind(&record.record_id).bind(&record.task_id).bind(&payload)

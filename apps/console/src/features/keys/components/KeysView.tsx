@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { RefreshCw, RotateCw, KeyRound, Ban } from "lucide-react";
 import { useCallback, useEffect, useState, useRef, type FormEvent } from 'react';
+import { Link } from 'react-router';
 
 type Named = { id: string; name: string };
 type Key = Named & { allowed_models: string[]; expires_at_ms: number; revoked: boolean; expired: boolean };
@@ -116,6 +117,11 @@ export default function KeysView({ token, models, canWrite, canCreateOrganizatio
   return <>
     <div className="page-heading"><div><p className="eyebrow">ACCESS CONTROL</p><h1>API keys</h1><p className="page-subtitle">Issue project-scoped keys with explicit model permissions and expiry.</p></div></div>
     {error && <p role="alert" className="error-text">{error}</p>}
+    {!organizationsLoading && models.length === 0 && <section className="panel keys-controls key-model-prerequisite" role="status">
+      <div><p className="eyebrow">NEXT STEP</p><h2>Connect a model before issuing a project key</h2><p>A project key grants access to model aliases configured on this gateway. Connect a provider and publish at least one alias first; provider credentials remain server-side.</p></div>
+      {canCreateOrganization && <Button asChild><Link to="../vendors">Connect a provider</Link></Button>}
+      {!canCreateOrganization && <p className="operator-read-only-note">Ask your installation administrator to connect a provider and publish a model alias.</p>}
+    </section>}
     {!organizationsLoading && organizations.length === 0 && models.length > 0 && canWrite && canCreateOrganization && <section className="panel first-key-card" aria-labelledby="first-key-title">
       <div className="first-key-heading"><span className="first-key-icon"><KeyRound size={18} /></span><div><p className="eyebrow">FIRST RUN</p><h2 id="first-key-title">Create a workspace and your first key</h2><p>We’ll set up a personal workspace and default project, then issue a scoped key for your app.</p></div></div>
       <form onSubmit={event => submit(event, createFirstWorkspace)}>
@@ -144,7 +150,7 @@ export default function KeysView({ token, models, canWrite, canCreateOrganizatio
       </div>}
       {!canWrite && <p className="operator-read-only-note">This session can review keys but does not have permission to create or revoke them.</p>}
     </section>}
-    {canWrite && project && <>
+    {canWrite && project && models.length > 0 && <>
       <section className="panel keys-controls"><h2>Issue a key</h2><form onSubmit={e => submit(e, async () => {
         const issued = await request<Issued>(keyPath, 'POST', { name, allowed_models: grants, ttl_seconds: days * 86400 });
         setSecret(issued); setName(''); await reloadKeys();

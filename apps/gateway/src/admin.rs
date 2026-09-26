@@ -731,6 +731,45 @@ pub async fn costs(
     Ok(Json(json!({"data": data, "next_cursor": next_cursor})))
 }
 
+#[derive(Deserialize)]
+pub struct GatewayActivityQuery {
+    limit: Option<u16>,
+}
+
+/// Read the request metadata that the gateway records automatically. Bodies,
+/// prompts and model responses are never included.
+pub async fn gateway_activity(
+    State(state): State<AppState>,
+    Path((organization_id, project_id)): Path<(Uuid, Uuid)>,
+    headers: HeaderMap,
+    Query(query): Query<GatewayActivityQuery>,
+) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {
+    authorize_project(
+        &state,
+        &headers,
+        AdminPermission::Read,
+        organization_id,
+        project_id,
+    )
+    .await?;
+    let limit = query.limit.unwrap_or(50);
+    if !(1..=100).contains(&limit) {
+        return Err(ApiError::invalid_request("Limit must be between 1 and 100"));
+    }
+    let data = state
+        .store
+        .gateway_activity(
+            TenantScope {
+                organization_id,
+                project_id,
+            },
+            i64::from(limit),
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(([("cache-control", "no-store")], Json(json!({"data": data}))))
+}
+
 fn cost_entry_json(e: niu_storage::CostEntry) -> Value {
     json!({
         "attempt_id": e.attempt_id,
@@ -757,25 +796,13 @@ pub async fn import_execution(
     headers: HeaderMap,
     Json(record): Json<ExecutionRecord>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
-    authorize_project(
-        &state,
-        &headers,
-        AdminPermission::Write,
-        organization_id,
-        project_id,
-    )
-    .await?;
-    let receipt = state
-        .store
-        .import_execution(
-            TenantScope {
-                organization_id,
-                project_id,
-            },
-            &record,
-        )
-        .await
-        .map_err(ApiError::from_store)?;
+    let scope = TenantScope { organization_id, project_id };
+    let token = headers.get("authorization").and_then(|v| v.to_str().ok()).and_then(|v| v.strip_prefix("Bearer ")).ok_or_else(ApiError::unauthorized)?;
+    let collector = !state.admin_tokens.matches(headers.get("authorization").and_then(|v| v.to_str().ok())) && token.starts_with("niu_collector_");
+    if !collector {
+        authorize_project(&state, &headers, AdminPermission::Write, organization_id, project_id).await?;
+    }
+    let receipt = state.store.import_execution_with_collector(scope, &record, collector.then_some(token)).await.map_err(ApiError::from_store)?;
     let status = if receipt.created {
         StatusCode::CREATED
     } else {
@@ -988,9 +1015,13 @@ pub async fn create_budget(
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CollectorKeyInput {
+    #[serde(default = "default_collector_purpose")]
+    purpose: String,
     name: String,
     ttl_seconds: i64,
 }
+
+fn default_collector_purpose() -> String { "quota".into() }
 
 pub async fn issue_collector_key(
     State(state): State<AppState>,
@@ -1008,13 +1039,14 @@ pub async fn issue_collector_key(
     .await?;
     let issued = state
         .store
-        .issue_collector_key(
+        .issue_collector_key_for(
             TenantScope {
                 organization_id,
                 project_id,
             },
             &input.name,
             input.ttl_seconds,
+            &input.purpose,
         )
         .await
         .map_err(ApiError::from_store)?;

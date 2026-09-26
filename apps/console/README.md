@@ -1,6 +1,6 @@
 # Niu console
 
-React and Vite console served by the Niu gateway on port 2555. Run `pnpm build:console` from the repository root to build its static assets.
+React and Vite console served by the Niu gateway in production. Run `pnpm build:console` from the repository root to build its static assets.
 
 Use the shared shadcn/ui primitives in `src/components/ui` for controls and `lucide-react` for icons. `components.json` configures the official registry and local aliases. Tailwind theme values map to the approved niu.io tokens in `branding/tokens.css`; preserve these tokens when adding components. Layout styles remain in `src/styles.css`. Workspace pages are nested under `/workspaces/:workspace/…`; the path is a UI selector and does not grant access. Server APIs remain responsible for authorization.
 
@@ -16,4 +16,4 @@ Keep route modules, feature UI, and shared code in separate places:
 
 Use the `@/` alias for imports from `src`. Navigation is URL-backed, and cross-feature drill-down context is encoded in query parameters so deep links and reloads preserve the selected scope. Keep product behavior and API contracts in Niu-owned modules; the feature-local grouping follows the dashboard organization used by LiteLLM.
 
-Run `pnpm dev:console` for Vite development; API requests proxy to the gateway on port 2555. Admin credentials stay in memory for the current tab.
+The root `pnpm dev` command serves the hot-reloading console and proxies API requests through one browser origin at `http://127.0.0.1:2555`. Admin credentials stay in the local dev server and never enter browser storage or the bundle.

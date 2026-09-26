@@ -22,11 +22,62 @@ pub struct CostEntry {
     pub bound_exceeded: bool,
 }
 
+/// Automatically retained metadata for one request admitted by the gateway.
+/// Request and response bodies are deliberately not part of this record.
+#[derive(Debug, sqlx::FromRow, serde::Serialize)]
+pub struct GatewayActivityEntry {
+    pub attempt_id: Uuid,
+    pub operation_id: Uuid,
+    pub task_id: Option<String>,
+    pub model: String,
+    pub created_at: String,
+    pub dispatched_at: Option<String>,
+    pub completed_at: Option<String>,
+    pub duration_ms: Option<i64>,
+    pub execution: String,
+    pub usage_confidence: String,
+    pub prompt_tokens: Option<String>,
+    pub completion_tokens: Option<String>,
+    pub currency: Option<String>,
+    pub cash_nanos: Option<String>,
+    pub api_equivalent_nanos: Option<String>,
+}
+
 fn currency_valid(currency: &str) -> bool {
     currency.len() == 3 && currency.bytes().all(|b| b.is_ascii_uppercase())
 }
 
 impl Store {
+    /// Recent model requests recorded by the gateway itself, optionally grouped
+    /// later by their caller-supplied task identifier.
+    pub async fn gateway_activity(
+        &self,
+        scope: TenantScope,
+        limit: i64,
+    ) -> Result<Vec<GatewayActivityEntry>, StoreError> {
+        if !(1..=100).contains(&limit) {
+            return Err(StoreError::InvalidPrice);
+        }
+        Ok(sqlx::query_as(
+            "SELECT a.id AS attempt_id, a.operation_id, o.task_id, o.model_alias AS model, \
+             to_char(a.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') AS created_at, \
+             CASE WHEN a.dispatched_at IS NULL THEN NULL ELSE to_char(a.dispatched_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') END AS dispatched_at, \
+             CASE WHEN a.completed_at IS NULL THEN NULL ELSE to_char(a.completed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') END AS completed_at, \
+             CASE WHEN a.dispatched_at IS NULL OR a.completed_at IS NULL THEN NULL ELSE GREATEST(0, round(extract(epoch FROM (a.completed_at - a.dispatched_at)) * 1000))::bigint END AS duration_ms, \
+             a.execution, a.usage_confidence, a.prompt_tokens::text AS prompt_tokens, a.completion_tokens::text AS completion_tokens, \
+             c.currency, c.cash_nanos::text AS cash_nanos, c.api_equivalent_nanos::text AS api_equivalent_nanos \
+             FROM attempts a JOIN operations o ON o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.id=a.operation_id \
+             LEFT JOIN cost_entries c ON c.organization_id=a.organization_id AND c.project_id=a.project_id AND c.attempt_id=a.id \
+             WHERE a.organization_id=$1 AND a.project_id=$2 \
+             ORDER BY a.created_at DESC, a.id DESC LIMIT $3",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?)
+    }
+
     /// Persist completion first so settlement failure never loses usage evidence.
     /// Unknown usage and attempts without a trusted price reservation stay open.
     pub async fn complete_and_settle(

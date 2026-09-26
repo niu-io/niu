@@ -48,7 +48,7 @@ export class NiuAdminClient {
     this.requestFetch = options.fetch ?? globalThis.fetch.bind(globalThis);
   }
 
-  issueCollectorKey(scope: TenantScope, input: { name: string; ttl_seconds: number }, options?: RequestOptions): Promise<{ id: string; token: string }> {
+  issueCollectorKey(scope: TenantScope, input: { name: string; ttl_seconds: number; purpose?: 'quota' | 'execution' }, options?: RequestOptions): Promise<{ id: string; token: string }> {
     if (!input.name.trim() || !Number.isSafeInteger(input.ttl_seconds) || input.ttl_seconds < 1 || input.ttl_seconds > 31_536_000) {
       throw new Error('Collector key requires a name and a lifetime of 1 to 31536000 seconds');
     }

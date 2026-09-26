@@ -30,7 +30,7 @@ pub use vendors::{
 };
 mod keys;
 mod pricing;
-pub use accounting::{BudgetSnapshot, CostEntry};
+pub use accounting::{BudgetSnapshot, CostEntry, GatewayActivityEntry};
 pub use keys::{IssuedKey, KeyView, Principal};
 pub use pricing::{PriceInput, TokenRates};
 
@@ -203,9 +203,18 @@ impl Store {
         scope: TenantScope,
         model: &str,
     ) -> Result<Uuid, StoreError> {
+        self.create_operation_for_task(scope, model, None).await
+    }
+
+    pub async fn create_operation_for_task(
+        &self,
+        scope: TenantScope,
+        model: &str,
+        task_id: Option<&str>,
+    ) -> Result<Uuid, StoreError> {
         let id = Uuid::new_v4();
-        sqlx::query("INSERT INTO operations (id, organization_id, project_id, model_alias) VALUES ($1, $2, $3, $4)")
-            .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(model).execute(&self.pool).await?;
+        sqlx::query("INSERT INTO operations (id, organization_id, project_id, model_alias, task_id) VALUES ($1, $2, $3, $4, $5)")
+            .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(model).bind(task_id).execute(&self.pool).await?;
         Ok(id)
     }
 

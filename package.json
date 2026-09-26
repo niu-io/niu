@@ -14,6 +14,8 @@
     "test:sdk:js": "pnpm --filter @niu-io/sdk test",
     "dev:console": "pnpm --filter @niu-io/console dev",
     "dev:docs": "pnpm --filter @niu-io/docs dev",
-    "dev:catalog": "pnpm --filter @niu-io/catalog dev"
+    "dev:catalog": "pnpm --filter @niu-io/catalog dev",
+    "dev": "python3 scripts/dev.py",
+    "dev:stop": "python3 scripts/dev.py --stop"
   }
 }

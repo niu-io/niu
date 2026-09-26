@@ -12,12 +12,12 @@ export default function ConnectPrompt({ draft, error, onChange, onSubmit }: {
   return <div className="connect-panel">
     <div className="empty-icon"><KeyRound size={18} /></div>
     <div>
-      <strong>Connect to the gateway admin API</strong>
-      <p>Enter the admin token configured for this Niu instance. It stays in this browser tab.</p>
+      <strong>Administrator access required</strong>
+      <p>Sign in with the bootstrap token for this self-hosted Niu installation. Your application should use a scoped API key.</p>
       {error && <p className="error-text" role="alert">{error}</p>}
       <form onSubmit={onSubmit}>
-        <Input aria-label="Admin token" autoComplete="off" onChange={event => onChange(event.target.value)} placeholder="Admin token" type="password" value={draft} />
-        <Button type="submit">Connect</Button>
+        <Input aria-label="Installation admin token" autoComplete="off" onChange={event => onChange(event.target.value)} placeholder="Installation admin token" type="password" value={draft} />
+        <Button type="submit">Sign in</Button>
       </form>
     </div>
   </div>;

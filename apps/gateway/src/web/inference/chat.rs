@@ -103,7 +103,8 @@ pub(in crate::web) async fn chat(
     let api_key = resolved.api_key;
     let timeout = Duration::from_secs(state.config.server.request_timeout_seconds);
     state.requests.fetch_add(1, Ordering::Relaxed);
-    let dispatch = begin_attempt(&state, &principal, &public_model, model, None).await?;
+    let task_id = request_task_id(&headers)?;
+    let dispatch = begin_attempt(&state, &principal, &public_model, model, None, task_id.as_deref()).await?;
     let result = execute_chat(
         &state,
         ChatExecution {

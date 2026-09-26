@@ -4,6 +4,6 @@ export default defineConfig({
   site: "https://niu.io",
   output: "static",
   build: { assets: "_catalog" },
-  trailingSlash: "always",
+  trailingSlash: process.env.NIU_DEV_GATEWAY_URL ? "ignore" : "always",
   devToolbar: { enabled: false },
 });

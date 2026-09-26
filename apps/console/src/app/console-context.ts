@@ -27,7 +27,6 @@ export type ConsoleContext = {
   connect: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   refreshModels: () => Promise<void>;
   refreshWorkspace: () => Promise<void>;
-  disconnect: () => void;
 };
 
 export function useConsoleContext() {

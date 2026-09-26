@@ -11,8 +11,9 @@ import TraceRow from '@/features/executions/components/TraceRow';
 import { formatDate, kindLabel, projectPath, request, type Named, type Page, type ScopeFocus, type Summary } from '@/features/executions/api';
 import TaskCharges, { type TaskChargeEvidence } from './TaskCharges';
 
-export default function ExecutionWorkspace({ token, initialScope, onOpenSubscription }: {
+export default function ExecutionWorkspace({ token, initialScope, onOpenSubscription, embedded = false }: {
   token: string;
+  embedded?: boolean;
   initialScope?: ScopeFocus | null;
   onOpenSubscription?: (organizationId: string, projectId: string, accountId: string) => void;
 }) {
@@ -139,7 +140,7 @@ export default function ExecutionWorkspace({ token, initialScope, onOpenSubscrip
         method: 'POST', body: JSON.stringify(record),
       });
       setDraft(''); setImportOpen(false); setCursor(''); setRevision(n => n + 1);
-      setNotice(result.created ? 'Execution imported.' : 'This execution was already imported.');
+      setNotice(result.created ? 'Task evidence imported.' : 'This task record was already imported.');
     } catch (e) { setError((e as Error).message); }
   }
 
@@ -166,10 +167,10 @@ export default function ExecutionWorkspace({ token, initialScope, onOpenSubscrip
   const conflictingResults = metrics?.hasConflictingResults ?? false;
   return <>
     <div className="page-heading execution-page-heading">
-      <div><p className="eyebrow">OBSERVABILITY</p><h1>Executions</h1><p className="page-subtitle">Follow agent work from delegation through validation.</p></div>
+      <div><p className="eyebrow">TASK COST ANALYSIS</p>{embedded ? <h2>Your task evidence</h2> : <h1>Tasks</h1>}<p className="page-subtitle">See how attempts, model calls and tool work add up to each task’s time and cost.</p></div>
       <div className="execution-page-actions">
         <Button variant="outline" disabled={!project || loading} onClick={() => { setCursor(''); setRevision(n => n + 1); }}><RefreshCw />Refresh</Button>
-        <Button disabled={!project} onClick={() => { setImportOpen(true); setError(''); setNotice(''); }}><Upload />Import JSON</Button>
+        <Button disabled={!project} onClick={() => { setImportOpen(true); setError(''); setNotice(''); }}><Upload />Add task evidence</Button>
       </div>
     </div>
 
@@ -182,7 +183,12 @@ export default function ExecutionWorkspace({ token, initialScope, onOpenSubscrip
           <NativeSelectOption value="">Select project</NativeSelectOption>{projects.map(x => <NativeSelectOption key={x.id} value={x.id}>{x.name}</NativeSelectOption>)}
         </NativeSelect></Label>
       </div>
-      {!project && <p className="execution-scope-note">Choose a project to inspect task runs. Imported records contain metadata only.</p>}
+      {!project && <p className="execution-scope-note">Choose a project to see its tasks. A task is a piece of work you asked an agent to complete; an attempt is one pass at completing it. Each attempt can contain many model and tool steps.</p>}
+    </section>
+
+    <section className="execution-definition panel" aria-label="How task evidence works">
+      <p><strong>Task</strong> The complete piece of work, such as “prepare a customer-ready slide deck.” <strong>Attempt</strong> One pass by an agent; retries and revisions remain part of the same task. <strong>Steps</strong> The model requests, tool calls and checks inside an attempt.</p>
+      <p>Niu links this evidence so you can compare accepted outcomes by total time and cost, including extra work from retries. Missing measurements stay unknown.</p>
     </section>
 
     {project && <ExecutionCohortPanel cohort={cohort} loading={cohortLoading} error={cohortError} />}
@@ -191,15 +197,15 @@ export default function ExecutionWorkspace({ token, initialScope, onOpenSubscrip
     {notice && <p role="status" className="success-text execution-feedback">{notice}</p>}
 
     {project && <div className="execution-workbench">
-      <aside className="execution-explorer panel" aria-label="Execution runs">
+      <aside className="execution-explorer panel" aria-label="Task records">
         <div className="execution-explorer-head">
-          <div><h2>Runs</h2><span>{records.length}{nextCursor ? '+' : ''} in this page</span></div>
+          <div><h2>Task records</h2><span>{records.length}{nextCursor ? '+' : ''} on this page</span></div>
           <span className="execution-stream-mark"><Activity size={17} /></span>
         </div>
         <label className="execution-search" htmlFor="execution-search">
-          <Search size={15} aria-hidden="true" /><Input id="execution-search" aria-label="Filter runs" value={search} onChange={e => setSearch(e.target.value)} placeholder="Filter this page" />
+          <Search size={15} aria-hidden="true" /><Input id="execution-search" aria-label="Search task records" value={search} onChange={e => setSearch(e.target.value)} placeholder="Task, source, or record ID" />
         </label>
-        {loading && <p role="status" className="execution-loading">Loading runs…</p>}
+        {loading && <p role="status" className="execution-loading">Loading task records…</p>}
         <div className="execution-run-list">
           {filteredRecords.map(item => <button type="button" key={item.id} className="execution-run" aria-current={selected?.id === item.id ? 'true' : undefined} onClick={() => void openRecord(item)}>
             <span className="execution-run-top"><strong>{item.task_id}</strong><Badge variant={item.coverage === 'complete' ? 'secondary' : 'outline'}>{item.coverage}</Badge></span>
@@ -207,7 +213,7 @@ export default function ExecutionWorkspace({ token, initialScope, onOpenSubscrip
             <span className="execution-run-id">{item.record_id}</span>
           </button>)}
         </div>
-        {!loading && filteredRecords.length === 0 && <div className="execution-empty-list"><Activity size={20} /><strong>{search ? 'No matching runs' : 'No executions yet'}</strong><span>{search ? 'Try another task, source, or record ID.' : 'Import a run to start tracing agent activity.'}</span>{!search && <Button variant="outline" size="sm" disabled={!project} onClick={() => setImportOpen(true)}><Upload />Import a run</Button>}</div>}
+        {!loading && filteredRecords.length === 0 && <div className="execution-empty-list"><Activity size={20} /><strong>{search ? 'No matching task records' : 'No task evidence yet'}</strong><span>{search ? 'Try another task, source, or record ID.' : 'Add a task record to inspect its attempts, model and tool steps, observed time, and outcome evidence.'}</span>{!search && <Button variant="outline" size="sm" disabled={!project} onClick={() => setImportOpen(true)}><Upload />Add task evidence</Button>}</div>}
         {nextCursor && <div className="execution-pagination"><Button variant="outline" disabled={loading} onClick={() => setCursor(nextCursor)}>Load more<ArrowRight /></Button></div>}
         <p className="execution-order-note">Pages use a stable record ID order.</p>
       </aside>
@@ -216,13 +222,13 @@ export default function ExecutionWorkspace({ token, initialScope, onOpenSubscrip
         {!selected && <section className="execution-welcome panel">
           <div className="execution-welcome-mark"><Activity size={20} /></div>
           <p className="eyebrow">TASK INVESTIGATION</p><h2>See how the work unfolded.</h2>
-          <p>Choose a run to follow agent branches, model and tool calls, retries, and outcome evidence.</p>
+          <p>Select a task record to see what happened: its agent attempts, parallel branches, model requests, tool calls, retries, and acceptance evidence.</p>
         </section>}
         {selected && !detail && <section className="panel execution-welcome"><p role={detailLoading ? 'status' : 'alert'}>{detailLoading ? 'Loading task evidence…' : 'Trace could not be loaded.'}</p></section>}
         {selected && detail && metrics && <>
           <section className="execution-task-head panel">
             <div className="execution-task-title">
-              <div><p className="eyebrow">TASK RUN</p><h2>{detail.task_id}</h2><p>{detail.source} <span aria-hidden="true">/</span> {detail.record_id} <span aria-hidden="true">/</span> {formatDate(selected.imported_at)}</p></div>
+              <div><p className="eyebrow">TASK</p><h2>{detail.task_id}</h2><p>{detail.source} <span aria-hidden="true">/</span> {detail.record_id} <span aria-hidden="true">/</span> {formatDate(selected.imported_at)}</p></div>
               <div className="execution-task-actions"><Badge variant="outline">{detail.coverage} coverage</Badge>{conflictingResults && <Badge variant="outline" className="execution-evidence-diff">Evidence differs</Badge>}<Button aria-label="Delete imported record" title="Delete imported record" variant="ghost" size="icon" onClick={() => void deleteRecord()}><Trash2 /></Button></div>
             </div>
             {conflictingResults && <div className="execution-evidence-alert"><span>!</span><p><strong>Outcome evidence differs.</strong> At least one source accepted the task and another rejected it. Niu keeps both records visible and does not infer a final result.</p></div>}
@@ -279,8 +285,8 @@ export default function ExecutionWorkspace({ token, initialScope, onOpenSubscrip
 
     <dialog ref={dialogRef} id="execution-import-dialog" className="execution-import-dialog" aria-labelledby="execution-import-title" onCancel={event => { event.preventDefault(); setImportOpen(false); }} onClose={() => setImportOpen(false)}>
       <form className="execution-import-form" onSubmit={event => void importRecord(event)}>
-        <div className="execution-import-head"><div><p className="eyebrow">METADATA ONLY</p><h2 id="execution-import-title">Import an execution</h2><p>Use a version 1 record to add a task trace to this project.</p></div><Button type="button" variant="ghost" size="icon" aria-label="Close import dialog" onClick={() => setImportOpen(false)}>×</Button></div>
-        <Label htmlFor="execution-json">Execution JSON<textarea id="execution-json" rows={15} value={draft} onChange={e => setDraft(e.target.value)} placeholder={'Paste an ExecutionRecordV1 JSON document'} required autoFocus /></Label>
+        <div className="execution-import-head"><div><p className="eyebrow">TASK METADATA</p><h2 id="execution-import-title">Add task evidence</h2><p>Import one task record in Niu’s version 1 metadata format.</p></div><Button type="button" variant="ghost" size="icon" aria-label="Close import dialog" onClick={() => setImportOpen(false)}>×</Button></div>
+        <Label htmlFor="execution-json">Task record JSON<textarea id="execution-json" rows={15} value={draft} onChange={e => setDraft(e.target.value)} placeholder={'Paste one task record from Niu’s v1 metadata contract'} required autoFocus /></Label>
         <p className="execution-import-privacy">Prompts, responses, code, tool output, and credentials are not accepted. Replaying identical source and record IDs is safe.</p>
         {error && importOpen && <p role="alert" className="error-text">{error}</p>}
         <div className="execution-import-actions"><Button type="button" variant="outline" onClick={() => setImportOpen(false)}>Cancel</Button><Button type="submit" disabled={!draft.trim()}><Upload />Import execution</Button></div>

@@ -3,7 +3,7 @@ import AppLayout from './AppLayout';
 import AppError from './route-error';
 import RouterPending from './RouterPending';
 
-export const appRoutes: RouteObject[] = [{
+export const appRoutes: RouteObject[] = [{ path: 'preview', lazy: async () => ({ Component: (await import('@/features/prototype/page')).default }) }, {
   path: 'workspaces/:workspace',
   element: <AppLayout />,
   errorElement: <AppError />,

@@ -52,6 +52,18 @@ The [first-release acceptance matrix](docs/releases/first-release.md) defines th
 
 ## Development
 
+Start the native open-source development stack (no Docker):
+
+```sh
+pnpm dev
+```
+
+This starts an isolated local PostgreSQL cluster, the Gateway, and the console,
+docs and catalog dev servers. Frontends hot reload; Rust changes rebuild and
+restart the Gateway. Stop with Ctrl-C or `pnpm dev:stop`. See
+[scripts/DEV.md](scripts/DEV.md) for prerequisites, URLs, credentials and logs.
+
+
 The native gateway currently builds with Rust 1.98.0 or newer. The console and docs use Node.js 24 or newer with pnpm 11.
 
 ```sh
@@ -67,3 +79,9 @@ The gateway reads a TOML model configuration and runtime secrets from the enviro
 ## License
 
 Niu-owned code is released under the MIT License. Reused code keeps its original copyright, license, pinned source, and checksums in [third-party notices](THIRD-PARTY-NOTICES.md) and [the source manifest](vendor/litellm-rust/SOURCE-MANIFEST.json).
+
+Local console sign-in is automatic when started with `pnpm dev`. The loopback-only
+Vite proxy uses `NIU_ADMIN_TOKENS` from the development environment and gives the
+browser a temporary proxy credential, including after refresh. The real admin token
+is never included in the console build. This shortcut is unavailable in production
+and for remote or cross-origin requests; deployed consoles still require sign-in.

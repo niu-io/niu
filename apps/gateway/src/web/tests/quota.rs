@@ -443,3 +443,47 @@ async fn quota_collector_fallback_does_not_hide_operator_storage_failures(pool: 
 
     assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
 }
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn quota_comparison_stops_at_reset_or_measurement_boundary(pool: sqlx::PgPool) {
+    let state = test_state(None, pool.clone());
+    let scope = state.store.default_workspace().await.unwrap();
+    let app = router(state.clone());
+    let accounts = format!("/admin/v1/organizations/{}/projects/{}/accounts", scope.organization_id, scope.project_id);
+    let account = admin_call(&app, &accounts, json!({
+        "provider":"fixture", "plan":"weekly", "authentication_mode":"api_key",
+        "billing_mode":"subscription", "credential_reference":"env:FIXTURE", "concurrency_limit":1
+    })).await;
+    let id = Uuid::parse_str(account["id"].as_str().unwrap()).unwrap();
+    let path = format!("{accounts}/{id}/quota");
+    let now: i64 = sqlx::query_scalar("SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint")
+        .fetch_one(&pool).await.unwrap();
+    let base = json!({"schema_version":1,"window_key":"weekly","unit":"tokens",
+        "remaining":800,"maximum":1000,"observed_at_ms":now-10000,
+        "valid_until_ms":now+60000,"resets_at_ms":now+3600000,"source":"fixture"});
+    for (field, replacement) in [
+        ("resets_at_ms", json!(now+7200000)),
+        ("unit", json!("requests")),
+        ("maximum", json!(2000)),
+        ("source", json!("different-source")),
+    ] {
+        sqlx::query("DELETE FROM quota_observations WHERE account_id=$1").bind(id).execute(&pool).await.unwrap();
+        admin_call(&app, &path, base.clone()).await;
+        let mut middle = base.clone();
+        middle["observed_at_ms"] = json!(now-9000);
+        middle[field] = replacement;
+        admin_call(&app, &path, middle).await;
+        let windows = state.store.quota(scope, id).await.unwrap();
+        assert_eq!(windows[0].previous_remaining, None, "boundary: {field}");
+        // Returning to the old definition must not skip the intervening boundary.
+        let mut latest = base.clone();
+        latest["observed_at_ms"] = json!(now-8000);
+        admin_call(&app, &path, latest.clone()).await;
+        assert_eq!(state.store.quota(scope,id).await.unwrap()[0].previous_remaining, None);
+        latest["observed_at_ms"] = json!(now-7000);
+        latest["remaining"] = json!(700);
+        admin_call(&app, &path, latest).await;
+        assert_eq!(state.store.quota(scope,id).await.unwrap()[0].previous_remaining.as_deref(), Some("800"));
+    }
+}

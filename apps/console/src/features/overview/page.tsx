@@ -1,56 +1,34 @@
 import { Link } from 'react-router';
-import {
-  Activity,
-  ArrowRight,
-  Boxes,
-  Bot,
-  CheckCircle2,
-  FlaskConical,
-  GitBranch,
-  Network,
-  RefreshCw,
-  Wrench,
-} from 'lucide-react';
+import { Activity, ArrowRight, Boxes, ChartNoAxesCombined, FlaskConical, Network } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ConnectPrompt from '@/components/ConnectPrompt';
 import WorkflowCard from './components/WorkflowCard';
+import GatewayActivity from '@/features/executions/components/GatewayActivity';
 import { useConsoleContext } from '@/app/console-context';
 
 export default function OverviewRoute() {
-  const { token, draftToken, setDraftToken, models, health, gatewayStatus, error, connect, refreshWorkspace } = useConsoleContext();
-
+  const { token, session, draftToken, setDraftToken, models, health, error, connect } = useConsoleContext();
+  const scope = session?.operator?.project_id ? { organizationId: session.operator.organization_id, projectId: session.operator.project_id } : null;
   return <>
-    <div className="page-heading overview-heading">
-      <div><p className="eyebrow">Agent observability</p><h1>See the work behind agent runs.</h1><p className="page-subtitle">Inspect a task across agents, model and tool calls, outcome evidence, and observed cost.</p></div>
-      <Button variant="outline" onClick={() => void refreshWorkspace()} type="button"><RefreshCw size={14} /> <span>Refresh</span></Button>
+    <div className="page-heading cost-home-heading"><div>
+      <h1>Better outcomes.<br/>Less time. Lower cost.</h1>
+      <p className="page-subtitle">Understand the cost of completing a task. Compare models against the same quality bar, then decide where to spend and where to save.</p>
+    </div></div>
+    <div className="cost-workflow" aria-label="Cost optimization workflow">
+      <WorkflowCard icon={Activity} title="Understand the work" detail="Inspect a task, its agent attempts, model and tool steps, and the evidence behind its time and cost." action="Inspect tasks" to="executions" />
+      <WorkflowCard icon={FlaskConical} title="Compare the outcomes" detail="Compare matched task evidence by quality, latency and cost per accepted result—not just token price." action="Open benchmarks" to="benchmarks" />
+      <WorkflowCard icon={ChartNoAxesCombined} title="Control the spend" detail="Review recorded project charges and budgets. Keep actual charges separate from estimates and unknown costs." action="Open usage & cost" to="usage" />
     </div>
-    <section className="overview-gateway panel" aria-label="Gateway connection">
-      <div className="overview-gateway-summary">
-        <span className={`overview-gateway-mark ${gatewayStatus}`}><Network size={17} /></span>
-        <div className="overview-gateway-copy"><strong>Niu gateway</strong><span>{gatewayStatus === 'online' ? 'Ready to serve configured model routes' : gatewayStatus === 'checking' ? 'Checking the health endpoint' : 'The health endpoint could not be reached'}</span></div>
-      </div>
-      <div className="overview-gateway-count"><span>Configured routes</span><strong>{token ? models.length : health?.model_count ?? '—'}</strong></div>
-      {token
-        ? <Button asChild variant="outline"><Link to="models">Review models <ArrowRight size={14} /></Link></Button>
-        : <ConnectPrompt draft={draftToken} error={error} onChange={setDraftToken} onSubmit={connect} />}
+    <section className="cost-workbench" aria-label="Task cost investigation">
+      {token ? <GatewayActivity key={token} token={token} models={models.map(model => model.id)} initialScope={scope}/> : <div className="cost-connect panel">
+        <div><h2>Sign in to see gateway activity.</h2><p>Niu records model usage, latency and cost for requests sent through its gateway. Configure a provider and issue a project key to get started.</p></div>
+        <ConnectPrompt draft={draftToken} error={error} onChange={setDraftToken} onSubmit={connect}/>
+      </div>}
     </section>
-    <section className="overview-trace panel" aria-labelledby="overview-trace-title">
-      <div className="overview-trace-heading"><div><p className="eyebrow">One task, connected evidence</p><h2 id="overview-trace-title">Follow a run from intent to outcome</h2></div><GitBranch size={19} aria-hidden="true" /></div>
-      <div className="overview-trace-flow" aria-label="Example execution structure">
-        <div className="overview-trace-node task-node"><span><Activity size={16} /></span><div><strong>Task</strong><small>One accepted outcome</small></div></div>
-        <span className="overview-trace-link" aria-hidden="true" />
-        <div className="overview-trace-node agent-node"><span><Bot size={16} /></span><div><strong>Agents</strong><small>Delegation and parallel work</small></div></div>
-        <span className="overview-trace-link" aria-hidden="true" />
-        <div className="overview-trace-node calls-node"><span><Wrench size={16} /></span><div><strong>Model &amp; tool calls</strong><small>Attempts, retries and charges</small></div></div>
-        <span className="overview-trace-link" aria-hidden="true" />
-        <div className="overview-trace-node outcome-node"><span><CheckCircle2 size={16} /></span><div><strong>Outcome</strong><small>Claims, validation and review</small></div></div>
-      </div>
-      <p className="overview-trace-note">Illustrative structure. Imported records keep unknown activity and cost visible instead of filling gaps.</p>
+    <section className="cost-foundation" aria-label="Gateway foundation">
+      <div className="foundation-heading"><Network size={22}/><div><h2>The gateway behind the work</h2><p>Model access, provider connections and scoped keys support every cost decision.</p></div></div>
+      <div className="foundation-actions"><span>{token ? models.length : health?.model_count ?? '—'} configured model routes</span><Button asChild variant="ghost"><Link to="models"><Boxes size={17}/>Models<ArrowRight size={16}/></Link></Button>{session?.kind === 'installation' && <Button asChild variant="ghost"><Link to="vendors">Manage vendors<ArrowRight size={16}/></Link></Button>}<Button asChild variant="ghost"><Link to="keys">API keys<ArrowRight size={16}/></Link></Button></div>
     </section>
-    <div className="overview-workflows">
-      <WorkflowCard icon={Activity} title="Inspect agent runs" detail="Import metadata-only traces and review agents, tool calls, retries, and outcome evidence." action="Open executions" to="executions" />
-      <WorkflowCard icon={FlaskConical} title="Compare task evidence" detail="Pair matching task runs and compare quality, latency, failures, and total observed cost." action="Open benchmarks" to="benchmarks" />
-      <WorkflowCard icon={Boxes} title="Review model routes" detail="See the public aliases and provider models configured for this gateway." action="Open models" to="models" />
-    </div>
+      <p className="cost-roadmap">For multi-call coding-agent tasks, the agent connector adds task identity and tool/outcome events. The gateway already captures every model request automatically.</p>
   </>;
 }

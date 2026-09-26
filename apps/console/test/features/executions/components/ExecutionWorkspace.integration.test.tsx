@@ -158,7 +158,7 @@ describe('execution dashboard', () => {
 
     await user.click(screen.getByRole('button', { name: /Load more/ }));
     expect(await screen.findByRole('button', { name: /task-02/ })).toBeTruthy();
-    expect(within(screen.getByRole('complementary', { name: 'Execution runs' })).getByRole('button', { name: /task-01/ })).toBeTruthy();
+    expect(within(screen.getByRole('complementary', { name: 'Task records' })).getByRole('button', { name: /task-01/ })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'task-01' })).toBeTruthy();
     expect(gateway.calls.some(call => call.path.includes('after=obs-01'))).toBe(true);
     expect(gateway.calls.filter(call => call.path === basePath + '/obs-01')).toHaveLength(1);
@@ -206,8 +206,8 @@ describe('execution dashboard', () => {
     expect(await screen.findByRole('heading', { name: 'attempt-cancelled' })).toBeTruthy();
     expect(screen.getAllByText('cancelled').length).toBeGreaterThan(0);
 
-    await user.type(screen.getByRole('textbox', { name: 'Filter runs' }), 'missing-task');
-    expect(screen.getByText('No matching runs')).toBeTruthy();
+    await user.type(screen.getByRole('textbox', { name: 'Search task records' }), 'missing-task');
+    expect(screen.getByText('No matching task records')).toBeTruthy();
     expect(gateway.calls.some(call => call.path === basePath + '/obs-01')).toBe(true);
   });
 
@@ -342,7 +342,7 @@ describe('execution dashboard', () => {
     const user = userEvent.setup();
     render(<ExecutionWorkspace token="admin-test-token" />);
     await chooseProject(user);
-    await user.click(screen.getByRole('button', { name: 'Import JSON' }));
+    await user.click(screen.getByRole('button', { name: 'Add task evidence' }));
     const textarea = screen.getByRole('textbox', { name: 'Execution JSON' });
 
     fireEvent.change(textarea, { target: { value: '{invalid' } });
@@ -361,7 +361,7 @@ describe('execution dashboard', () => {
     expect(posted?.init?.headers).toBeInstanceOf(Headers);
     expect((posted?.init?.headers as Headers).get('authorization')).toBe('Bearer admin-test-token');
 
-    await user.click(screen.getByRole('button', { name: 'Import JSON' }));
+    await user.click(screen.getByRole('button', { name: 'Add task evidence' }));
     fireEvent.change(screen.getByRole('textbox', { name: 'Execution JSON' }), { target: { value: JSON.stringify(imported) } });
     await user.click(screen.getByRole('button', { name: 'Import execution' }));
     expect(await screen.findByText('This execution was already imported.', { selector: '[role="status"]' })).toBeTruthy();
@@ -380,7 +380,7 @@ describe('execution dashboard', () => {
 
     expect(window.confirm).toHaveBeenCalledWith('Delete imported metadata for task task-01?');
     expect(await screen.findByText('Imported metadata deleted.', { selector: '[role="status"]' })).toBeTruthy();
-    expect(screen.getByText('No executions yet')).toBeTruthy();
+    expect(screen.getByText('No task evidence yet')).toBeTruthy();
     expect(gateway.calls.some(call => call.path === basePath + '/obs-01' && call.init?.method === 'DELETE')).toBe(true);
   });
 });

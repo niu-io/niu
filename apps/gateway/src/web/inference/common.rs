@@ -27,11 +27,12 @@ pub(super) async fn begin_attempt(
     public_model: &str,
     model: &crate::config::ModelConfig,
     completion_bound: Option<i64>,
+    task_id: Option<&str>,
 ) -> Result<DispatchContext, ApiError> {
     let scope = principal.scope();
     let operation = state
         .store
-        .create_operation(scope, public_model)
+        .create_operation_for_task(scope, public_model, task_id)
         .await
         .map_err(ApiError::from_store)?;
     let revision = route_revision(model);
@@ -86,6 +87,23 @@ pub(super) async fn begin_attempt(
         operation,
         attempt,
     })
+}
+
+/// An optional opaque correlation key lets an agent group all of its model
+/// requests for one task. It is metadata only and is never forwarded upstream.
+pub(super) fn request_task_id(headers: &HeaderMap) -> Result<Option<String>, ApiError> {
+    let Some(value) = headers.get("x-niu-task-id") else {
+        return Ok(None);
+    };
+    let value = value
+        .to_str()
+        .map_err(|_| ApiError::invalid_request("x-niu-task-id must be printable ASCII"))?;
+    if value.is_empty() || value.len() > 200 || !value.bytes().all(|byte| byte.is_ascii_graphic()) {
+        return Err(ApiError::invalid_request(
+            "x-niu-task-id must contain 1 to 200 printable ASCII characters",
+        ));
+    }
+    Ok(Some(value.to_owned()))
 }
 
 pub(super) fn route_revision(model: &crate::config::ModelConfig) -> String {

@@ -57,7 +57,7 @@ function quantity(value: string | null, unit: string) {
 
 function changeLabel(window: QuotaWindow) {
   if (window.remaining == null) return 'Change unknown';
-  if (window.previous_remaining == null) return 'No earlier sample';
+  if (window.previous_remaining == null) return 'No comparable earlier sample';
   try {
     const change = BigInt(window.previous_remaining) - BigInt(window.remaining);
     if (change === 0n) return 'No change since prior sample';
@@ -80,6 +80,14 @@ export default function SubscriptionsView({ token, initialScope, onOpenExecution
   initialScope?: ScopeFocus | null;
   onOpenExecution?: (organizationId: string, projectId: string, executionId: string) => void;
 }) {
+  const [clock, setClock] = useState(Date.now);
+  useEffect(() => {
+    const tick = () => setClock(Date.now());
+    const timer = window.setInterval(tick, 1000);
+    window.addEventListener('focus', tick);
+    return () => { window.clearInterval(timer); window.removeEventListener('focus', tick); };
+  }, []);
+  const isFresh = (sample: QuotaWindow) => sample.fresh && sample.remaining != null && clock < sample.valid_until_ms && clock < sample.resets_at_ms;
   const [organizations, setOrganizations] = useState<Named[]>([]);
   const [projects, setProjects] = useState<Named[]>([]);
   const [organization, setOrganization] = useState(initialScope?.organizationId ?? '');
@@ -160,7 +168,7 @@ export default function SubscriptionsView({ token, initialScope, onOpenExecution
   }, [quotaAccount]);
 
   const windows = useMemo(() => data.flatMap(({ account, windows }) => windows.map(window => ({ account, window }))), [data]);
-  const freshCount = windows.filter(item => item.window.fresh).length;
+  const freshCount = windows.filter(item => isFresh(item.window)).length;
   const unlinkedChanges = windows.filter(({ window }) => window.previous_remaining != null && window.remaining != null && window.previous_remaining !== window.remaining).length;
   const subscriptionAccounts = data.filter(item => item.account.billing_mode === 'subscription').length;
   const accountForImport = data.find(item => item.account.id === quotaAccount)?.account;
@@ -255,7 +263,7 @@ export default function SubscriptionsView({ token, initialScope, onOpenExecution
             const percent = capacityPercent(window);
             return <article className="subscription-window" key={account.id + ':' + window.window_key}>
               <div className="subscription-window-account"><span className="subscription-provider-mark"><WalletCards size={16} /></span><div><strong>{account.provider} <span>·</span> {account.plan}</strong><small>{account.billing_mode.replace('_', ' ')} <span aria-hidden="true">/</span> {window.window_key} <span aria-hidden="true">/</span> {window.source}</small></div></div>
-              <div className="subscription-window-capacity"><div className="subscription-capacity-heading"><span>Remaining capacity</span><Badge variant={window.fresh ? 'secondary' : 'destructive'}>{window.fresh ? 'Fresh' : 'Stale or unknown'}</Badge></div><strong>{quantity(window.remaining, window.unit)}{window.maximum != null && window.unit !== 'millionths_of_window' ? <small> of {quantity(window.maximum, window.unit)}</small> : null}</strong>{percent != null && <div className="subscription-meter" role="meter" aria-label="Remaining capacity" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}><span style={{ width: `${percent}%` }} /></div>}</div>
+              <div className="subscription-window-capacity"><div className="subscription-capacity-heading"><span>Remaining capacity</span><Badge variant={isFresh(window) ? 'secondary' : 'destructive'}>{isFresh(window) ? 'Fresh' : 'Stale or unknown'}</Badge></div><strong>{quantity(window.remaining, window.unit)}{window.maximum != null && window.unit !== 'millionths_of_window' ? <small> of {quantity(window.maximum, window.unit)}</small> : null}</strong>{percent != null && <div className="subscription-meter" role="meter" aria-label="Remaining capacity" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}><span style={{ width: `${percent}%` }} /></div>}</div>
               <div className="subscription-window-times"><span>Observed<strong>{instant(window.observed_at_ms)}</strong></span><span>Resets<strong>{instant(window.resets_at_ms)}</strong></span><span className="subscription-window-change">Change<strong>{changeLabel(window)}</strong></span></div>
               <div className="subscription-window-action"><Button variant="outline" size="sm" onClick={() => openQuota(account.id)}><Upload />Import update</Button><Button variant="ghost" size="icon" aria-label={`Delete quota history for ${window.window_key}`} title="Delete all snapshots for this window" onClick={() => void deleteQuotaHistory(account.id, window.window_key)}><Trash2 /></Button></div>
             </article>;

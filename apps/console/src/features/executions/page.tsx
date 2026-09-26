@@ -1,29 +1,25 @@
-import { useNavigate, useSearchParams } from 'react-router';
+import { useSearchParams } from 'react-router';
 import ConnectGate from '@/app/ConnectGate';
 import type { ScopeFocus } from './api';
-import ExecutionWorkspace from './components/ExecutionWorkspace';
+import GatewayActivity from './components/GatewayActivity';
 
 function readScope(params: URLSearchParams): ScopeFocus | null {
   const organizationId = params.get('organizationId');
   const projectId = params.get('projectId');
   if (!organizationId || !projectId) return null;
-  return { organizationId, projectId, executionId: params.get('executionId') ?? undefined };
+  return { organizationId, projectId };
 }
 
 export default function ExecutionsRoute() {
-  const navigate = useNavigate();
   const [params] = useSearchParams();
   const initialScope = readScope(params);
 
-  return <ConnectGate title="Executions" subtitle="Connect to import and inspect task execution metadata.">
-    {({ token }) => <ExecutionWorkspace
+  return <ConnectGate title="Tasks" subtitle="Niu automatically captures model usage and cost for every request routed through the gateway.">
+    {({ token, models }) => <GatewayActivity
       key={token}
       token={token}
+      models={models.map(model => model.id)}
       initialScope={initialScope}
-      onOpenSubscription={(organizationId, projectId, accountId) => {
-        const query = new URLSearchParams({ organizationId, projectId, accountId });
-        void navigate(`/subscriptions?${query.toString()}`);
-      }}
     />}
   </ConnectGate>;
 }

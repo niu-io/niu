@@ -10,6 +10,11 @@ impl Store {
         name: &str,
         ttl_seconds: i64,
     ) -> Result<IssuedKey, StoreError> {
+        self.issue_collector_key_for(scope, name, ttl_seconds, "quota").await
+    }
+
+    pub async fn issue_collector_key_for(&self, scope: TenantScope, name: &str, ttl_seconds: i64, purpose: &str) -> Result<IssuedKey, StoreError> {
+        if !matches!(purpose, "quota" | "execution") { return Err(StoreError::InvalidKey); }
         if name.trim().is_empty() || name.len() > 200 || !(1..=31_536_000).contains(&ttl_seconds) {
             return Err(StoreError::InvalidKey);
         }
@@ -20,8 +25,8 @@ impl Store {
             Uuid::new_v4().simple()
         );
         let hash = Sha256::digest(token.as_bytes()).to_vec();
-        sqlx::query("INSERT INTO collector_keys(id,organization_id,project_id,name,token_hash,expires_at) VALUES($1,$2,$3,$4,$5,clock_timestamp()+$6*interval '1 second')")
-            .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(name).bind(hash).bind(ttl_seconds as f64).execute(&self.pool).await?;
+        sqlx::query("INSERT INTO collector_keys(id,organization_id,project_id,name,token_hash,expires_at,purpose) VALUES($1,$2,$3,$4,$5,clock_timestamp()+$6*interval '1 second',$7)")
+            .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(name).bind(hash).bind(ttl_seconds as f64).bind(purpose).execute(&self.pool).await?;
         Ok(IssuedKey { id, token })
     }
 
@@ -52,7 +57,7 @@ impl Store {
         }
         let hash = Sha256::digest(token.as_bytes()).to_vec();
         let mut tx = self.pool.begin().await?;
-        let key: Option<Uuid> = sqlx::query_scalar("SELECT id FROM collector_keys WHERE token_hash=$1 AND organization_id=$2 AND project_id=$3 AND revoked_at IS NULL AND expires_at>clock_timestamp() FOR SHARE")
+        let key: Option<Uuid> = sqlx::query_scalar("SELECT id FROM collector_keys WHERE purpose='quota' AND token_hash=$1 AND organization_id=$2 AND project_id=$3 AND revoked_at IS NULL AND expires_at>clock_timestamp() FOR SHARE")
             .bind(hash).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut *tx).await?;
         if key.is_none() {
             return Err(StoreError::Unauthorized);

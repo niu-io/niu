@@ -107,6 +107,10 @@ pub(crate) fn router(state: AppState) -> Router {
             get(crate::admin::costs),
         )
         .route(
+            "/admin/v1/organizations/{organization}/projects/{project}/requests",
+            get(crate::admin::gateway_activity),
+        )
+        .route(
             "/admin/v1/organizations/{organization}/projects/{project}/execution-imports",
             get(crate::admin::execution_imports).post(crate::admin::import_execution),
         )
