@@ -181,15 +181,29 @@ async fn ready(State(state): State<AppState>) -> Result<Json<Value>, ApiError> {
     Ok(Json(json!({"status": "ok"})))
 }
 
-async fn enterprise_ready(State(state): State<AppState>) -> (StatusCode, Json<Value>) {
+async fn enterprise_ready(
+    State(state): State<AppState>,
+) -> (
+    StatusCode,
+    [(axum::http::HeaderName, &'static str); 1],
+    Json<Value>,
+) {
+    let no_store = [(CACHE_CONTROL, "no-store")];
     let Some(enterprise) = state.enterprise.as_deref() else {
-        return (StatusCode::OK, Json(json!({"status":"disabled"})));
+        return (StatusCode::OK, no_store, Json(json!({"status":"disabled"})));
     };
-    if enterprise.ready().await {
-        (StatusCode::OK, Json(json!({"status":"ok"})))
+    let ready = tokio::time::timeout(std::time::Duration::from_secs(3), async {
+        let (core, modules) = tokio::join!(state.store.ready(), enterprise.ready());
+        core.is_ok() && modules
+    })
+    .await
+    .unwrap_or(false);
+    if ready {
+        (StatusCode::OK, no_store, Json(json!({"status":"ok"})))
     } else {
         (
             StatusCode::SERVICE_UNAVAILABLE,
+            no_store,
             Json(json!({"status":"unavailable"})),
         )
     }

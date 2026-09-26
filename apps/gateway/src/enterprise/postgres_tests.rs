@@ -17,6 +17,7 @@ use tokio::{
     sync::oneshot,
     task::JoinHandle,
 };
+use tower::ServiceExt;
 use uuid::Uuid;
 
 use super::{EnterpriseRuntime, manifest::ReleaseManifest, proxy::handle};
@@ -65,7 +66,7 @@ async fn module_route_requires_scoped_operator_session_and_permission(pool: sqlx
     .unwrap();
     let installation_tokens =
         TokenSet::parse("NIU_ADMIN_TOKENS", INSTALLATION_TOKEN.into()).unwrap();
-    let store = niu_storage::Store::from_pool(pool);
+    let store = niu_storage::Store::from_pool(pool.clone());
     let mut state = AppState::new(
         config,
         store,
@@ -143,6 +144,39 @@ async fn module_route_requires_scoped_operator_session_and_permission(pool: sqlx
         1,
         "valid project-scoped operator session reaches the module"
     );
+
+    let app = crate::web::router(state.clone());
+    let response = app
+        .clone()
+        .oneshot(
+            Request::get("/enterprise/readyz")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    pool.close().await;
+    let response = app
+        .clone()
+        .oneshot(
+            Request::get("/enterprise/readyz")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        response.status(),
+        StatusCode::SERVICE_UNAVAILABLE,
+        "healthy modules cannot mask a failed core database"
+    );
+    assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+    let response = app
+        .oneshot(Request::get("/healthz").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
 
     let _ = stop.send(());
     module_task.await.unwrap();
