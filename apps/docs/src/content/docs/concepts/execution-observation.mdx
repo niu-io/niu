@@ -1,0 +1,66 @@
+---
+title: Execution observation
+description: Import metadata-only task traces and inspect execution evidence.
+---
+
+Niu accepts versioned metadata records for tasks observed by an external runner. Importing a record does not call a model, alter a subscription, or create a cost entry. An installation can therefore use the execution view without routing inference through Niu.
+
+## Import a record
+
+Use the administrator API to post one `ExecutionRecordV1` to the project that owns the data:
+
+```sh
+curl -X POST "$NIU_URL/admin/v1/organizations/$ORG/projects/$PROJECT/executions" \
+  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data-binary @execution.v1.json
+```
+
+The record schema and link types are defined in the [OpenAPI contract](/docs/reference/api/). `source` and `record_id` form an idempotency key inside the authenticated project. Replaying identical content returns the existing ID; reusing that identity with changed content returns `409 Conflict`. Records must use schema version 1, fit within 1 MiB, and pass identifier, interval and acyclic graph validation. Unknown fields are rejected. Tenant scope comes from the URL and administrator authorization, never the imported payload.
+
+## Collect metadata with the JavaScript SDK
+
+`@niu-io/sdk` exports `NiuExecutionRecorder` for recording tasks in an agent application without routing inference through Niu. It creates task, agent, step, model, tool, attempt, validation, intervention and checkpoint spans, plus explicit causal links and outcome evidence. Its default coverage is `unknown`; collectors set `complete` only when they can account for the full task. The recorder has no prompt, response, source-code, tool-argument or tool-output fields, and it never estimates charges.
+
+```ts
+import { NiuExecutionRecorder } from '@niu-io/sdk';
+
+const trace = new NiuExecutionRecorder({ source: 'my-agent' });
+const agentId = trace.startSpan('agent');
+await trace.withSpan('model_invocation', {
+  parentId: agentId,
+  requestedModel: 'fast',
+  chargeRef: 'canonical-ledger-attempt-id',
+}, async () => runYourModelCall());
+trace.endSpan(agentId);
+trace.addOutcome({
+  span_id: trace.export().task_id,
+  evidence_id: 'validator-result-1',
+  authority: 'deterministic_validator',
+  result: 'accepted',
+});
+trace.finish();
+const record = trace.export();
+```
+
+The recorder holds data locally. A trusted server-side collector imports it using the API above; keep installation administrator credentials out of agent workers and browsers. A missing `chargeRef` leaves cost attribution unresolved rather than creating a charge.
+
+The console's **Executions** view lists project records, accepts JSON imports, and displays spans, causal links, source-reported lifecycle status, model identity evidence, and outcome authority. Missing status remains unknown; Niu does not infer cancellation from an open interval. Task wall-clock is shown separately from invocation work, the sum of observed model and tool intervals. Enclosing task, agent, step and attempt spans are excluded from that sum; untimed calls stay unknown, and parallel invocation time can exceed wall-clock. Coverage is a collector assertion, not proof that every event was captured.
+
+## Privacy, attribution and deletion
+
+Version 1 has no prompt, response, source-code, tool-output or credential fields. Missing timestamps, reported model identity, lifecycle status, outcomes, or charge references remain unknown. A `charge_ref` points to canonical accounting evidence; it does not create a second charge. If it exactly matches an Niu attempt UUID assigned to a supplier account, the execution detail links to that account and the account's execution list links back to matching tasks. Other reference namespaces remain unresolved. Import summaries omit the record payload, which is fetched only when an authorized operator opens a record.
+
+Delete an imported record with `DELETE /admin/v1/organizations/{organization}/projects/{project}/executions/{execution}`. This removes that imported metadata record. It does not delete canonical inference attempts or financial ledger entries, which follow their own retention policy. The current API uses installation-wide bootstrap administrator credentials; project operator roles and per-source collector credentials are not implemented yet.
+
+## Project cohort
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/executions/cohort` summarizes up to 10,000 imported records in stable UUID order. The console shows per-record outcome classifications, separate agent-claim, deterministic-validator and human-acceptance evidence counts, observed work counts, linked settled costs and quota sample count. Accepted completion requires deterministic validator or human acceptance and no conflicting evidence. Agent claims alone remain unverified. Canonical attempt UUID references are deduplicated across records, so a shared or nested reference does not multiply the ledger amount. Costs linked to failed and rejected work remain in cohort spend.
+
+The report keeps API-equivalent cost and configured-rate cash in separate currency totals. Cash is calculated from Niu's configured price schedule and is not a supplier invoice. Invoice cash and subscription fee allocations are marked `not_imported`. Quota samples are capacity observations with task attribution marked unavailable. Missing or unrecognized references, unmatched attempts, unsettled ledger entries, partial source coverage and a truncated scan keep cost evidence incomplete. Per-accepted-completion ratios are returned only with complete evidence and at least one accepted completion. If no completion was accepted, successful-task cost is undefined rather than zero.
+
+Outcome counts are per imported record. Version 1 does not carry a canonical cross-source task identity, so records from independent collectors that describe one real-world task are not merged. The query is a live view rather than a database snapshot.
+
+## Version 1 limits
+
+The public contract supports task, agent, step, model and tool spans, attempts, validators, human intervention, checkpoints, source-reported cancellation, and containment, delegation, dependency, retry and resume links. Cross-clock uncertainty, provider-native subscription collectors, subscription-window reconciliation, an isolated paired experiment runner, and executable third-party task adapters remain future work. See [Subscription observations](/docs/concepts/subscription-observation/) for the separate account and quota snapshot workflow. [Paired benchmark analysis](/docs/concepts/benchmarking/) describes the current offline evaluator; it does not execute work or authorize spending.

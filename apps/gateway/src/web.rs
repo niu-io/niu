@@ -1,24 +1,24 @@
-use std::{env, time::Duration};
+use std::time::Duration;
 
 use axum::{
     Json, Router,
     extract::{DefaultBodyLimit, State},
     http::{HeaderMap, HeaderValue, StatusCode, header},
     response::{IntoResponse, Response},
-    routing::get,
+    routing::{any, get},
 };
-use litellm_core::chat_completions::{chat_completions, types::ChatCompletionsRequest};
+use litellm_core::chat_completions::{
+    chat_completions, chat_completions_decline_reason, types::ChatCompletionsRequest,
+};
 use serde_json::{Value, json};
 use std::sync::atomic::Ordering;
-use tower_http::services::{ServeDir, ServeFile};
 use uuid::Uuid;
 
 use crate::{error::ApiError, state::AppState};
 
+mod static_site;
+
 pub fn router(state: AppState) -> Router {
-    let console_dir =
-        env::var("NIU_CONSOLE_DIR").unwrap_or_else(|_| "apps/console/dist".to_owned());
-    let index = format!("{console_dir}/index.html");
     Router::new()
         .route(
             "/admin/v1/setup/default-workspace",
@@ -32,6 +32,7 @@ pub fn router(state: AppState) -> Router {
             "/admin/v1/organizations/{organization}/projects/{project}/collector-keys/{id}",
             axum::routing::delete(crate::admin::revoke_collector_key),
         )
+        .merge(static_site::router())
         .route("/healthz", get(health))
         .route("/readyz", get(ready))
         .route(
@@ -54,8 +55,27 @@ pub fn router(state: AppState) -> Router {
             "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/rotate",
             axum::routing::post(crate::admin::rotate_key),
         )
+        .route(
+            "/admin/v1/operators",
+            get(crate::admin::operators).post(crate::admin::create_operator),
+        )
+        .route(
+            "/admin/v1/operators/{operator}",
+            axum::routing::delete(crate::admin::revoke_operator),
+        )
+        .route(
+            "/admin/v1/operators/{operator}/sessions",
+            get(crate::admin::operator_sessions).post(crate::admin::create_operator_session),
+        )
+        .route(
+            "/admin/v1/operators/{operator}/sessions/{session}",
+            axum::routing::delete(crate::admin::revoke_operator_session),
+        )
+        .route("/catalog/v1/models", get(catalog_models))
         .route("/v1/models", get(public_models))
         .route("/v1/chat/completions", axum::routing::post(chat))
+        .route("/v1/responses", axum::routing::post(responses))
+        .route("/v1/embeddings", axum::routing::post(embeddings))
         .route("/admin/v1/models", get(admin_models))
         .route(
             "/admin/v1/organizations/{organization}/projects/{project}/accounts",
@@ -63,7 +83,13 @@ pub fn router(state: AppState) -> Router {
         )
         .route(
             "/admin/v1/organizations/{organization}/projects/{project}/accounts/{account}/quota",
-            get(crate::admin::quota).post(crate::admin::observe_quota),
+            get(crate::admin::quota)
+                .post(crate::admin::observe_quota)
+                .delete(crate::admin::delete_quota_window),
+        )
+        .route(
+            "/admin/v1/organizations/{organization}/projects/{project}/accounts/{account}/executions",
+            get(crate::admin::account_executions),
         )
         .route(
             "/admin/v1/organizations/{organization}/projects/{project}/budget",
@@ -78,13 +104,40 @@ pub fn router(state: AppState) -> Router {
             get(crate::admin::execution_imports).post(crate::admin::import_execution),
         )
         .route(
-            "/admin/v1/organizations/{organization}/projects/{project}/execution-imports/{id}",
+            "/admin/v1/organizations/{organization}/projects/{project}/execution-imports/{execution}",
+            get(crate::admin::execution_import).delete(crate::admin::delete_execution_import),
+        )
+        // The concise aliases are used by the console. The explicit
+        // execution-imports paths remain available for API and SDK clients.
+        .route(
+            "/admin/v1/organizations/{organization}/projects/{project}/executions",
+            get(crate::admin::execution_imports).post(crate::admin::import_execution),
+        )
+        .route(
+            "/admin/v1/organizations/{organization}/projects/{project}/executions/cohort",
+            get(crate::admin::execution_cohort),
+        )
+        .route(
+            "/admin/v1/organizations/{organization}/projects/{project}/executions/{execution}",
             get(crate::admin::execution_import).delete(crate::admin::delete_execution_import),
         )
         .route("/admin/v1/metrics", get(admin_metrics))
-        .fallback_service(ServeDir::new(console_dir).fallback(ServeFile::new(index)))
+        .route(
+            "/admin/v1/benchmarks/compare",
+            axum::routing::post(crate::admin::compare_benchmark),
+        )
+        .route("/v1", any(api_not_found))
+        .route("/v1/{*path}", any(api_not_found))
+        .route("/catalog/v1", any(api_not_found))
+        .route("/catalog/v1/{*path}", any(api_not_found))
+        .route("/admin/v1", any(api_not_found))
+        .route("/admin/v1/{*path}", any(api_not_found))
         .layer(DefaultBodyLimit::max(1_048_576))
         .with_state(state)
+}
+
+async fn api_not_found() -> ApiError {
+    ApiError::not_found()
 }
 
 async fn health(State(state): State<AppState>) -> Json<Value> {
@@ -115,11 +168,36 @@ async fn public_models(
     Ok(Json(json!({"object": "list", "data": data})))
 }
 
+async fn catalog_models(State(state): State<AppState>) -> Json<Value> {
+    let data: Vec<_> = state
+        .config
+        .models
+        .iter()
+        .filter(|(_, model)| model.public_catalog)
+        .map(|(name, model)| {
+            json!({
+                "id": name,
+                "object": "model",
+                "owned_by": "niu",
+                "capabilities": {
+                    "chat_completions": true,
+                    "streaming": model.provider == "openai",
+                    "embeddings": model.supports_embeddings,
+                    "responses": model.supports_responses
+                }
+            })
+        })
+        .collect();
+    Json(json!({"object": "list", "data": data}))
+}
+
 async fn admin_models(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
-    state.authorize_admin(bearer(&headers))?;
+    state
+        .authorize_admin(bearer(&headers), niu_storage::AdminPermission::Read)
+        .await?;
     let data: Vec<_> = state
         .config
         .models
@@ -128,7 +206,15 @@ async fn admin_models(
             json!({
                 "id": name,
                 "provider": model.provider,
-                "upstream_model": model.upstream_model
+                "upstream_model": model.upstream_model,
+                "public_catalog": model.public_catalog,
+                "supports_embeddings": model.supports_embeddings,
+                "supports_embedding_dimensions": model.supports_embedding_dimensions,
+                "supports_embedding_base64": model.supports_embedding_base64,
+                "supports_tool_calls": model.supports_tool_calls,
+                "supports_streaming_tool_calls": model.supports_streaming_tool_calls,
+                "supports_structured_output": model.supports_structured_output,
+                "supports_responses": model.supports_responses
             })
         })
         .collect();
@@ -139,7 +225,9 @@ async fn admin_metrics(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
-    state.authorize_admin(bearer(&headers))?;
+    state
+        .authorize_admin(bearer(&headers), niu_storage::AdminPermission::Read)
+        .await?;
     let usage = state.usage.snapshot();
     Ok(Json(json!({
         "requests_total": state.requests.load(Ordering::Relaxed),
@@ -185,13 +273,6 @@ async fn chat(
             "messages must contain at least one message",
         ));
     }
-    let api_key = state
-        .provider_key(&model.api_key_env)
-        .ok_or_else(ApiError::unavailable)?
-        .to_owned();
-    let timeout = Duration::from_secs(state.config.server.request_timeout_seconds);
-    state.requests.fetch_add(1, Ordering::Relaxed);
-
     if stream && model.provider != "openai" {
         return Err(ApiError::unsupported());
     }
@@ -200,32 +281,382 @@ async fn chat(
             "Provider is not supported by this gateway",
         ));
     }
+    validate_chat_capabilities(&body, model, stream)?;
     if let Some(price) = &model.pricing {
         validate_priced_request(&mut body, price)?;
     }
+    let native_optional_params = if model.provider == "openai" {
+        None
+    } else {
+        let optional_params = map_native_chat_params(&body, &model.provider)?;
+        if chat_completions_decline_reason(
+            &model.upstream_model,
+            Some(&model.provider),
+            messages.clone(),
+            &optional_params,
+        )
+        .is_some()
+        {
+            return Err(ApiError::unsupported());
+        }
+        Some(optional_params)
+    };
+    let api_key = state
+        .provider_key(&model.api_key_env)
+        .ok_or_else(ApiError::unavailable)?
+        .to_owned();
+    let timeout = Duration::from_secs(state.config.server.request_timeout_seconds);
+    state.requests.fetch_add(1, Ordering::Relaxed);
+    let dispatch = begin_attempt(&state, &principal, &public_model, model, None).await?;
+    let result = execute_chat(
+        &state,
+        ChatExecution {
+            public_model: &public_model,
+            model,
+            api_key,
+            body,
+            messages,
+            native_optional_params,
+            stream,
+            timeout,
+            scope: dispatch.scope,
+            attempt: dispatch.attempt,
+        },
+    )
+    .await;
+    Ok(finalize_response(&state, dispatch, result).await)
+}
+
+#[derive(Clone, Copy)]
+struct ResponsesRequestBounds {
+    input_bytes: usize,
+    max_output_tokens: Option<i64>,
+}
+
+async fn responses(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(mut body): Json<Value>,
+) -> Result<Response, ApiError> {
+    let principal = state.authorize_api(bearer(&headers)).await?;
+    let public_model = body
+        .get("model")
+        .and_then(Value::as_str)
+        .filter(|model| !model.is_empty())
+        .ok_or_else(|| ApiError::invalid_request("A model name is required"))?
+        .to_owned();
+    if !principal.allows_model(&public_model) {
+        return Err(ApiError::not_found());
+    }
+    let model = state
+        .config
+        .models
+        .get(&public_model)
+        .ok_or_else(ApiError::not_found)?;
+    let bounds = validate_responses_request(&mut body, model.pricing.as_ref())?;
+    if model.provider != "openai" || !model.supports_responses {
+        return Err(ApiError::unsupported());
+    }
+    if let Some(price) = &model.pricing
+        && bounds.input_bytes > price.max_input_tokens as usize
+    {
+        return Err(ApiError::invalid_request(
+            "Responses input exceeds the priced route's conservative UTF-8 byte bound",
+        ));
+    }
+    let api_key = state
+        .provider_key(&model.api_key_env)
+        .ok_or_else(ApiError::unavailable)?
+        .to_owned();
+    let timeout = Duration::from_secs(state.config.server.request_timeout_seconds);
+    state.requests.fetch_add(1, Ordering::Relaxed);
+    let dispatch = begin_attempt(
+        &state,
+        &principal,
+        &public_model,
+        model,
+        bounds.max_output_tokens,
+    )
+    .await?;
+    let result = execute_responses(&state, &public_model, model, api_key, body, timeout).await;
+    Ok(finalize_response(&state, dispatch, result).await)
+}
+
+fn validate_responses_request(
+    body: &mut Value,
+    price: Option<&crate::config::RoutePricing>,
+) -> Result<ResponsesRequestBounds, ApiError> {
+    let object = body
+        .as_object_mut()
+        .ok_or_else(|| ApiError::invalid_request("The request body must be a JSON object"))?;
+    const ALLOWED: &[&str] = &[
+        "model",
+        "input",
+        "instructions",
+        "max_output_tokens",
+        "temperature",
+        "top_p",
+        "metadata",
+        "user",
+        "stream",
+    ];
+    if object.keys().any(|key| !ALLOWED.contains(&key.as_str())) {
+        return Err(ApiError::invalid_request(
+            "Unsupported field in Responses request",
+        ));
+    }
+    match object.get("stream") {
+        None | Some(Value::Bool(false)) => {}
+        Some(Value::Bool(true)) => return Err(ApiError::unsupported()),
+        _ => return Err(ApiError::invalid_request("stream must be a boolean")),
+    }
+    let input_bytes = object
+        .get("input")
+        .and_then(Value::as_str)
+        .filter(|input| !input.is_empty())
+        .map(str::len)
+        .ok_or_else(|| ApiError::invalid_request("input must be a non-empty text string"))?;
+    let instructions_bytes = match object.get("instructions") {
+        None => 0,
+        Some(Value::String(instructions)) => instructions.len(),
+        _ => return Err(ApiError::invalid_request("instructions must be a string")),
+    };
+    let input_bytes = input_bytes
+        .checked_add(instructions_bytes)
+        .ok_or_else(|| ApiError::invalid_request("Responses input is too large"))?;
+    if object
+        .get("user")
+        .is_some_and(|user| user.as_str().is_none_or(|user| user.len() > 512))
+    {
+        return Err(ApiError::invalid_request(
+            "user must be a string of at most 512 bytes",
+        ));
+    }
+    if object.get("metadata").is_some_and(|metadata| {
+        metadata.as_object().is_none_or(|metadata| {
+            metadata.len() > 16
+                || metadata.iter().any(|(key, value)| {
+                    key.len() > 64 || value.as_str().is_none_or(|value| value.len() > 512)
+                })
+        })
+    }) {
+        return Err(ApiError::invalid_request(
+            "metadata must contain at most 16 string values with bounded keys and values",
+        ));
+    }
+    for (name, minimum, maximum) in [("temperature", 0.0, 2.0), ("top_p", 0.0, 1.0)] {
+        if object.get(name).is_some_and(|value| {
+            value
+                .as_f64()
+                .is_none_or(|value| !(minimum..=maximum).contains(&value))
+        }) {
+            return Err(ApiError::invalid_request(
+                "temperature or top_p is outside its supported range",
+            ));
+        }
+    }
+
+    let mut max_output_tokens = match object.get("max_output_tokens") {
+        None => None,
+        Some(value) => Some(
+            value
+                .as_i64()
+                .filter(|value| (1..=1_000_000).contains(value))
+                .ok_or_else(|| {
+                    ApiError::invalid_request(
+                        "max_output_tokens must be an integer from 1 to 1000000",
+                    )
+                })?,
+        ),
+    };
+    if let Some(price) = price {
+        if let Some(output) = max_output_tokens {
+            if output > price.max_output_tokens {
+                return Err(ApiError::invalid_request(
+                    "Output limit exceeds the priced route bound",
+                ));
+            }
+        } else {
+            max_output_tokens = Some(price.max_output_tokens);
+            object.insert("max_output_tokens".into(), json!(price.max_output_tokens));
+        }
+    }
+    Ok(ResponsesRequestBounds {
+        input_bytes,
+        max_output_tokens,
+    })
+}
+
+#[derive(Clone, Copy)]
+struct EmbeddingInputBounds {
+    item_count: usize,
+    utf8_bytes: usize,
+    dimensions: Option<usize>,
+    encoding_format: &'static str,
+}
+
+async fn embeddings(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    let principal = state.authorize_api(bearer(&headers)).await?;
+    let public_model = body
+        .get("model")
+        .and_then(Value::as_str)
+        .filter(|model| !model.is_empty())
+        .ok_or_else(|| ApiError::invalid_request("A model name is required"))?
+        .to_owned();
+    if !principal.allows_model(&public_model) {
+        return Err(ApiError::not_found());
+    }
+    let model = state
+        .config
+        .models
+        .get(&public_model)
+        .ok_or_else(ApiError::not_found)?;
+    // Only OpenAI-compatible embedding routes are implemented. Reject before
+    // creating an operation or dispatch attempt for other providers.
+    if model.provider != "openai" {
+        return Err(ApiError::unsupported());
+    }
+    let input_bounds = validate_embedding_request(&body)?;
+    if !model.supports_embeddings
+        || (input_bounds.dimensions.is_some() && !model.supports_embedding_dimensions)
+        || (input_bounds.encoding_format == "base64" && !model.supports_embedding_base64)
+    {
+        return Err(ApiError::unsupported());
+    }
+    if let Some(price) = &model.pricing
+        && input_bounds.utf8_bytes > price.max_input_tokens as usize
+    {
+        return Err(ApiError::invalid_request(
+            "Embedding input exceeds the priced route's conservative UTF-8 byte bound",
+        ));
+    }
+    let api_key = state
+        .provider_key(&model.api_key_env)
+        .ok_or_else(ApiError::unavailable)?
+        .to_owned();
+    let timeout = Duration::from_secs(state.config.server.request_timeout_seconds);
+    state.requests.fetch_add(1, Ordering::Relaxed);
+
+    let dispatch = begin_attempt(&state, &principal, &public_model, model, Some(0)).await?;
+    let result = execute_embeddings(
+        &state,
+        EmbeddingExecution {
+            public_model: &public_model,
+            model,
+            api_key,
+            body,
+            input_bounds,
+            timeout,
+        },
+    )
+    .await;
+    Ok(finalize_response(&state, dispatch, result).await)
+}
+
+fn validate_embedding_request(body: &Value) -> Result<EmbeddingInputBounds, ApiError> {
+    let object = body
+        .as_object()
+        .ok_or_else(|| ApiError::invalid_request("The request body must be a JSON object"))?;
+    const ALLOWED: &[&str] = &["model", "input", "encoding_format", "dimensions", "user"];
+    if object.keys().any(|key| !ALLOWED.contains(&key.as_str())) {
+        return Err(ApiError::invalid_request(
+            "Unsupported field in embeddings request",
+        ));
+    }
+    let input = object
+        .get("input")
+        .ok_or_else(|| ApiError::invalid_request("input is required"))?;
+    let (item_count, utf8_bytes) = match input {
+        Value::String(text) if !text.is_empty() => (1, text.len()),
+        Value::Array(items) if !items.is_empty() && items.len() <= 2048 => {
+            let mut total_bytes = 0_usize;
+            for item in items {
+                let Some(text) = item.as_str().filter(|text| !text.is_empty()) else {
+                    return Err(ApiError::invalid_request(
+                        "input arrays must contain non-empty strings",
+                    ));
+                };
+                total_bytes = total_bytes
+                    .checked_add(text.len())
+                    .ok_or_else(|| ApiError::invalid_request("input is too large"))?;
+            }
+            (items.len(), total_bytes)
+        }
+        Value::Array(_) => {
+            return Err(ApiError::invalid_request(
+                "input must contain between 1 and 2048 strings",
+            ));
+        }
+        _ => {
+            return Err(ApiError::invalid_request(
+                "input must be a non-empty string or array of strings",
+            ));
+        }
+    };
+    let dimensions = match object.get("dimensions") {
+        None => None,
+        Some(value) => Some(
+            value
+                .as_u64()
+                .filter(|value| (1..=65_536).contains(value))
+                .ok_or_else(|| {
+                    ApiError::invalid_request("dimensions must be an integer from 1 to 65536")
+                })? as usize,
+        ),
+    };
+    let encoding_format = match object.get("encoding_format") {
+        None => "float",
+        Some(Value::String(value)) if value == "float" => "float",
+        Some(Value::String(value)) if value == "base64" => "base64",
+        _ => {
+            return Err(ApiError::invalid_request(
+                "encoding_format must be float or base64",
+            ));
+        }
+    };
+    if let Some(user) = object.get("user")
+        && !user.as_str().is_some_and(|value| value.len() <= 512)
+    {
+        return Err(ApiError::invalid_request(
+            "user must be a string up to 512 bytes",
+        ));
+    }
+    Ok(EmbeddingInputBounds {
+        item_count,
+        utf8_bytes,
+        dimensions,
+        encoding_format,
+    })
+}
+
+#[derive(Clone, Copy)]
+struct DispatchContext {
+    scope: niu_storage::TenantScope,
+    operation: Uuid,
+    attempt: Uuid,
+}
+
+async fn begin_attempt(
+    state: &AppState,
+    principal: &niu_storage::Principal,
+    public_model: &str,
+    model: &crate::config::ModelConfig,
+    completion_bound: Option<i64>,
+) -> Result<DispatchContext, ApiError> {
     let scope = principal.scope();
     let operation = state
         .store
-        .create_operation(scope, &public_model)
+        .create_operation(scope, public_model)
         .await
         .map_err(ApiError::from_store)?;
-    // Hash the routing configuration, never its secret. Durable configuration
-    // publication will replace this startup revision in the management slice.
-    use sha2::{Digest, Sha256};
-    let revision = format!(
-        "{:x}",
-        Sha256::digest(
-            serde_json::to_vec(&json!({
-                "provider": model.provider, "model": model.upstream_model,
-                "endpoint": model.api_base, "credential_reference": model.api_key_env,
-                "pricing": model.pricing
-            }))
-            .expect("route serialization")
-        )
-    );
+    let revision = route_revision(model);
     let attempt = state
         .store
-        .prepare_attempt(scope, operation, &public_model, &revision)
+        .prepare_attempt(scope, operation, public_model, &revision)
         .await
         .map_err(ApiError::from_store)?;
     if let Some(price) = &model.pricing {
@@ -234,7 +665,7 @@ async fn chat(
             .publish_price(
                 scope,
                 niu_storage::PriceInput {
-                    resource_id: &public_model,
+                    resource_id: public_model,
                     offer_revision: &revision,
                     currency: &price.currency,
                     api_equivalent: niu_storage::TokenRates {
@@ -256,12 +687,12 @@ async fn chat(
                 attempt,
                 price_id,
                 price.max_input_tokens,
-                price.max_output_tokens,
+                completion_bound.unwrap_or(price.max_output_tokens),
             )
             .await
             .map_err(ApiError::from_store)?;
     }
-    if let Err(error) = state.store.mark_dispatched(&principal, attempt).await {
+    if let Err(error) = state.store.mark_dispatched(principal, attempt).await {
         if model.pricing.is_some() {
             // A lost commit acknowledgement must not release a dispatched hold.
             // The storage transition proves not_sent before releasing anything.
@@ -269,46 +700,66 @@ async fn chat(
         }
         return Err(ApiError::from_store(error));
     }
-    let result = execute_chat(
-        &state,
-        &public_model,
-        model,
-        api_key,
-        body,
-        messages,
-        stream,
-        timeout,
+    Ok(DispatchContext {
         scope,
+        operation,
         attempt,
+    })
+}
+
+fn route_revision(model: &crate::config::ModelConfig) -> String {
+    use sha2::{Digest, Sha256};
+    format!(
+        "{:x}",
+        Sha256::digest(
+            serde_json::to_vec(&json!({
+                "provider": model.provider,
+                "model": model.upstream_model,
+                "endpoint": model.api_base,
+                "credential_reference": model.api_key_env,
+                "supports_embeddings": model.supports_embeddings,
+                "supports_embedding_dimensions": model.supports_embedding_dimensions,
+                "supports_embedding_base64": model.supports_embedding_base64,
+                "supports_tool_calls": model.supports_tool_calls,
+                "supports_streaming_tool_calls": model.supports_streaming_tool_calls,
+                "supports_structured_output": model.supports_structured_output,
+                "supports_responses": model.supports_responses,
+                "pricing": model.pricing
+            }))
+            .expect("route serialization")
+        )
     )
-    .await;
+}
+
+async fn finalize_response(
+    state: &AppState,
+    dispatch: DispatchContext,
+    result: Result<ProviderResponse, ApiError>,
+) -> Response {
     let mut response = match result {
-        Ok(result) => {
-            if result.completed {
-                if let Err(error) = state
-                    .store
-                    .complete_and_settle(scope, attempt, result.usage)
-                    .await
-                {
-                    ApiError::from_store(error).into_response()
-                } else {
-                    result.response
-                }
+        Ok(result) if result.completed => {
+            if let Err(error) = state
+                .store
+                .complete_and_settle(dispatch.scope, dispatch.attempt, result.usage)
+                .await
+            {
+                ApiError::from_store(error).into_response()
             } else {
                 result.response
             }
         }
+        Ok(result) => result.response,
         Err(error) => error.into_response(),
     };
     response.headers_mut().insert(
         "x-niu-operation-id",
-        HeaderValue::from_str(&operation.to_string()).unwrap(),
+        HeaderValue::from_str(&dispatch.operation.to_string()).unwrap(),
     );
     response.headers_mut().insert(
         "x-niu-attempt-id",
-        HeaderValue::from_str(&attempt.to_string()).unwrap(),
+        HeaderValue::from_str(&dispatch.attempt.to_string()).unwrap(),
     );
-    Ok(response)
+    response
 }
 
 fn validate_priced_request(
@@ -404,52 +855,308 @@ struct ProviderResponse {
     usage: Option<(u64, u64)>,
 }
 
-async fn execute_chat(
+struct EmbeddingExecution<'a> {
+    public_model: &'a str,
+    model: &'a crate::config::ModelConfig,
+    api_key: String,
+    body: Value,
+    input_bounds: EmbeddingInputBounds,
+    timeout: Duration,
+}
+
+async fn execute_embeddings(
+    state: &AppState,
+    execution: EmbeddingExecution<'_>,
+) -> Result<ProviderResponse, ApiError> {
+    let EmbeddingExecution {
+        public_model,
+        model,
+        api_key,
+        mut body,
+        input_bounds,
+        timeout,
+    } = execution;
+    let base = model
+        .api_base
+        .as_deref()
+        .unwrap_or("https://api.openai.com/v1");
+    let endpoint = format!("{}/embeddings", base.trim_end_matches('/'));
+    let object = body
+        .as_object_mut()
+        .ok_or_else(|| ApiError::invalid_request("The request body must be a JSON object"))?;
+    object.insert("model".to_owned(), json!(model.upstream_model));
+    strip_server_control_fields(object);
+
+    let usage_attempt = state.usage.begin();
+    let upstream = state
+        .http
+        .post(endpoint)
+        .bearer_auth(api_key)
+        .timeout(timeout)
+        .json(&body)
+        .send()
+        .await
+        .map_err(|_| {
+            state.failures.fetch_add(1, Ordering::Relaxed);
+            ApiError::upstream()
+        })?;
+    if !upstream.status().is_success() {
+        state.failures.fetch_add(1, Ordering::Relaxed);
+        return Err(ApiError::upstream());
+    }
+    let mut value: Value = upstream.json().await.map_err(|_| {
+        state.failures.fetch_add(1, Ordering::Relaxed);
+        ApiError::upstream()
+    })?;
+    let valid_data = value
+        .get("data")
+        .and_then(Value::as_array)
+        .is_some_and(|data| {
+            data.len() == input_bounds.item_count
+                && data.iter().enumerate().all(|(index, item)| {
+                    let object_is_valid = item
+                        .get("object")
+                        .is_none_or(|object| object.as_str() == Some("embedding"));
+                    let index_is_valid = item
+                        .get("index")
+                        .is_none_or(|value| value.as_u64() == Some(index as u64));
+                    object_is_valid && index_is_valid && {
+                        let Some(embedding) = item.get("embedding") else {
+                            return false;
+                        };
+                        match input_bounds.encoding_format {
+                            "float" => embedding.as_array().is_some_and(|values| {
+                                input_bounds
+                                    .dimensions
+                                    .is_none_or(|dimensions| values.len() == dimensions)
+                                    && values.iter().all(Value::is_number)
+                            }),
+                            "base64" => embedding.as_str().is_some(),
+                            _ => false,
+                        }
+                    }
+                })
+        });
+    if !valid_data {
+        state.failures.fetch_add(1, Ordering::Relaxed);
+        return Err(ApiError::upstream());
+    }
+    let usage = value["usage"]["prompt_tokens"]
+        .as_u64()
+        .map(|prompt_tokens| {
+            // Embedding requests produce no completion tokens; that zero follows
+            // from the operation contract rather than missing provider evidence.
+            usage_attempt.report(&json!({
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": 0
+            }));
+            (prompt_tokens, 0)
+        });
+    if let Some(object) = value.as_object_mut() {
+        object.insert("object".to_owned(), json!("list"));
+        object.insert("model".to_owned(), json!(public_model));
+    }
+    Ok(ProviderResponse {
+        response: Json(value).into_response(),
+        completed: true,
+        usage,
+    })
+}
+
+async fn execute_responses(
     state: &AppState,
     public_model: &str,
     model: &crate::config::ModelConfig,
     api_key: String,
+    mut body: Value,
+    timeout: Duration,
+) -> Result<ProviderResponse, ApiError> {
+    let base = model
+        .api_base
+        .as_deref()
+        .unwrap_or("https://api.openai.com/v1");
+    let endpoint = format!("{}/responses", base.trim_end_matches('/'));
+    let object = body
+        .as_object_mut()
+        .ok_or_else(|| ApiError::invalid_request("The request body must be a JSON object"))?;
+    object.insert("model".to_owned(), json!(model.upstream_model));
+    strip_server_control_fields(object);
+
+    let usage_attempt = state.usage.begin();
+    let upstream = state
+        .http
+        .post(endpoint)
+        .bearer_auth(api_key)
+        .timeout(timeout)
+        .json(&body)
+        .send()
+        .await
+        .map_err(|_| {
+            state.failures.fetch_add(1, Ordering::Relaxed);
+            ApiError::upstream()
+        })?;
+    if !upstream.status().is_success() {
+        state.failures.fetch_add(1, Ordering::Relaxed);
+        return Err(ApiError::upstream());
+    }
+    let mut value: Value = upstream.json().await.map_err(|_| {
+        state.failures.fetch_add(1, Ordering::Relaxed);
+        ApiError::upstream()
+    })?;
+    if !valid_responses_response(&value) {
+        state.failures.fetch_add(1, Ordering::Relaxed);
+        return Err(ApiError::upstream());
+    }
+    let usage = responses_usage(&value);
+    if let Some((input_tokens, output_tokens)) = usage {
+        usage_attempt.report(&json!({
+            "prompt_tokens": input_tokens,
+            "completion_tokens": output_tokens
+        }));
+    }
+    if let Some(object) = value.as_object_mut() {
+        object.insert("model".to_owned(), json!(public_model));
+    }
+    Ok(ProviderResponse {
+        response: Json(value).into_response(),
+        completed: true,
+        usage,
+    })
+}
+
+fn valid_responses_response(response: &Value) -> bool {
+    if response
+        .get("id")
+        .and_then(Value::as_str)
+        .is_none_or(str::is_empty)
+        || response.get("object").and_then(Value::as_str) != Some("response")
+        || !matches!(
+            response.get("status").and_then(Value::as_str),
+            Some("completed" | "incomplete")
+        )
+    {
+        return false;
+    }
+    let Some(output) = response.get("output").and_then(Value::as_array) else {
+        return false;
+    };
+    if output.is_empty() {
+        return false;
+    }
+    let mut has_text_message = false;
+    for item in output {
+        match item.get("type").and_then(Value::as_str) {
+            Some("reasoning") => {}
+            Some("message") if item.get("role").and_then(Value::as_str) == Some("assistant") => {
+                let Some(content) = item.get("content").and_then(Value::as_array) else {
+                    return false;
+                };
+                if content.is_empty() {
+                    return false;
+                }
+                for part in content {
+                    match part.get("type").and_then(Value::as_str) {
+                        Some("output_text")
+                            if part.get("text").and_then(Value::as_str).is_some() =>
+                        {
+                            has_text_message = true;
+                        }
+                        Some("refusal")
+                            if part.get("refusal").and_then(Value::as_str).is_some() =>
+                        {
+                            has_text_message = true;
+                        }
+                        _ => return false,
+                    }
+                }
+            }
+            _ => return false,
+        }
+    }
+    has_text_message
+}
+
+fn responses_usage(response: &Value) -> Option<(u64, u64)> {
+    response
+        .get("usage")
+        .and_then(|usage| {
+            usage
+                .get("input_tokens")
+                .and_then(Value::as_u64)
+                .zip(usage.get("output_tokens").and_then(Value::as_u64))
+        })
+        .filter(|(input, output)| *input <= i64::MAX as u64 && *output <= i64::MAX as u64)
+}
+
+struct ChatExecution<'a> {
+    public_model: &'a str,
+    model: &'a crate::config::ModelConfig,
+    api_key: String,
     body: Value,
     messages: Value,
+    native_optional_params: Option<serde_json::Map<String, Value>>,
     stream: bool,
     timeout: Duration,
     scope: niu_storage::TenantScope,
     attempt: Uuid,
+}
+
+struct StreamExecution<'a> {
+    public_model: &'a str,
+    model: &'a crate::config::ModelConfig,
+    api_key: String,
+    body: Value,
+    timeout: Duration,
+    scope: niu_storage::TenantScope,
+    attempt: Uuid,
+}
+
+async fn execute_chat(
+    state: &AppState,
+    execution: ChatExecution<'_>,
 ) -> Result<ProviderResponse, ApiError> {
+    let ChatExecution {
+        public_model,
+        model,
+        api_key,
+        body,
+        messages,
+        native_optional_params,
+        stream,
+        timeout,
+        scope,
+        attempt,
+    } = execution;
     if stream {
         if model.provider != "openai" {
             state.failures.fetch_add(1, Ordering::Relaxed);
             return Err(ApiError::unsupported());
         }
         return stream_openai(
-            &state,
-            &public_model,
-            model,
-            api_key,
-            body,
-            timeout,
-            scope,
-            attempt,
+            state,
+            StreamExecution {
+                public_model,
+                model,
+                api_key,
+                body,
+                timeout,
+                scope,
+                attempt,
+            },
         )
         .await;
     }
 
     if model.provider == "openai" {
-        return complete_openai(&state, &public_model, model, api_key, body, timeout).await;
+        return complete_openai(state, public_model, model, api_key, body, timeout).await;
     }
 
-    let mut optional_params = body
-        .as_object()
-        .cloned()
-        .ok_or_else(|| ApiError::invalid_request("The request body must be a JSON object"))?;
-    optional_params.remove("model");
-    optional_params.remove("messages");
-    optional_params.remove("stream");
-    strip_server_control_fields(&mut optional_params);
+    let optional_params = native_optional_params.ok_or_else(ApiError::unsupported)?;
 
-    // The native adapter normalizes absent usage to zero, so its usage is not
-    // provider evidence until that provenance is preserved by the adapter.
-    let _usage_attempt = state.usage.begin();
+    // The native adapter normalizes absent usage fields to zero. Treat only
+    // complete, positive token counts as evidence until the adapter exposes
+    // raw-field provenance; a missing counter must never become billable zero.
+    let usage_attempt = state.usage.begin();
     let result = chat_completions(ChatCompletionsRequest {
         model: &model.upstream_model,
         messages,
@@ -469,6 +1176,13 @@ async fn execute_chat(
         }
     };
     let mut value = serde_json::to_value(response).map_err(|_| ApiError::upstream())?;
+    let usage = validated_native_chat_usage(&value["usage"]);
+    if let Some((prompt, completion)) = usage {
+        usage_attempt.report(&json!({
+            "prompt_tokens": prompt,
+            "completion_tokens": completion
+        }));
+    }
     if let Some(object) = value.as_object_mut() {
         object.insert(
             "id".to_owned(),
@@ -480,8 +1194,27 @@ async fn execute_chat(
     Ok(ProviderResponse {
         response: Json(value).into_response(),
         completed: true,
-        usage: None,
+        usage,
     })
+}
+
+fn validated_native_chat_usage(usage: &Value) -> Option<(u64, u64)> {
+    let prompt = usage.get("prompt_tokens")?.as_u64()?;
+    let completion = usage.get("completion_tokens")?.as_u64()?;
+    let total = usage.get("total_tokens")?.as_u64()?;
+    let input_text = usage
+        .pointer("/prompt_tokens_details/text_tokens")?
+        .as_u64()?;
+    if prompt == 0
+        || completion == 0
+        || input_text == 0
+        || prompt.checked_add(completion)? != total
+        || prompt > i64::MAX as u64
+        || completion > i64::MAX as u64
+    {
+        return None;
+    }
+    Some((prompt, completion))
 }
 
 async fn complete_openai(
@@ -526,7 +1259,9 @@ async fn complete_openai(
         state.failures.fetch_add(1, Ordering::Relaxed);
         ApiError::upstream()
     })?;
-    if !value.get("choices").is_some_and(Value::is_array) {
+    if !value.get("choices").is_some_and(Value::is_array)
+        || !valid_chat_completion_features(&value, &body)
+    {
         state.failures.fetch_add(1, Ordering::Relaxed);
         return Err(ApiError::upstream());
     }
@@ -550,14 +1285,17 @@ async fn complete_openai(
 
 async fn stream_openai(
     state: &AppState,
-    public_model: &str,
-    model: &crate::config::ModelConfig,
-    api_key: String,
-    mut body: Value,
-    timeout: Duration,
-    scope: niu_storage::TenantScope,
-    attempt: Uuid,
+    execution: StreamExecution<'_>,
 ) -> Result<ProviderResponse, ApiError> {
+    let StreamExecution {
+        public_model,
+        model,
+        api_key,
+        mut body,
+        timeout,
+        scope,
+        attempt,
+    } = execution;
     let base = model
         .api_base
         .as_deref()
@@ -646,6 +1384,330 @@ fn strip_server_control_fields(body: &mut serde_json::Map<String, Value>) {
     });
 }
 
+fn map_native_chat_params(
+    body: &Value,
+    provider: &str,
+) -> Result<serde_json::Map<String, Value>, ApiError> {
+    let mappings: &[(&str, &str)] = match provider {
+        "anthropic" => &[
+            ("max_tokens", "max_tokens"),
+            ("temperature", "temperature"),
+            ("top_p", "top_p"),
+            ("stop", "stop_sequences"),
+        ],
+        "bedrock" => &[
+            ("max_tokens", "maxTokens"),
+            ("temperature", "temperature"),
+            ("top_p", "topP"),
+            ("stop", "stopSequences"),
+        ],
+        _ => return Err(ApiError::unsupported()),
+    };
+    let mut params = body
+        .as_object()
+        .cloned()
+        .ok_or_else(|| ApiError::invalid_request("The request body must be a JSON object"))?;
+    for field in ["model", "messages", "stream", "stream_options"] {
+        params.remove(field);
+    }
+    strip_server_control_fields(&mut params);
+
+    let mut mapped = serde_json::Map::new();
+    for (name, value) in params {
+        let target = mappings
+            .iter()
+            .find_map(|(source, target)| (*source == name).then_some(*target))
+            .ok_or_else(ApiError::unsupported)?;
+        let value = match name.as_str() {
+            "max_tokens"
+                if value
+                    .as_u64()
+                    .is_some_and(|tokens| (1..=1_000_000).contains(&tokens)) =>
+            {
+                value
+            }
+            "temperature"
+                if value
+                    .as_f64()
+                    .is_some_and(|temperature| (0.0..=1.0).contains(&temperature)) =>
+            {
+                value
+            }
+            "top_p"
+                if value
+                    .as_f64()
+                    .is_some_and(|top_p| (0.0..=1.0).contains(&top_p)) =>
+            {
+                value
+            }
+            "stop" => {
+                let stops = match value {
+                    Value::String(stop) if !stop.is_empty() && stop.len() <= 1000 => {
+                        vec![Value::String(stop)]
+                    }
+                    Value::Array(stops)
+                        if !stops.is_empty()
+                            && stops.len() <= 4
+                            && stops.iter().all(|stop| {
+                                stop.as_str()
+                                    .is_some_and(|stop| !stop.is_empty() && stop.len() <= 1000)
+                            }) =>
+                    {
+                        stops
+                    }
+                    _ => return Err(ApiError::invalid_request("stop is invalid for this route")),
+                };
+                Value::Array(stops)
+            }
+            _ => {
+                return Err(ApiError::invalid_request(
+                    "A native chat parameter is invalid",
+                ));
+            }
+        };
+        mapped.insert(target.to_owned(), value);
+    }
+    Ok(mapped)
+}
+
+fn validate_chat_capabilities(
+    body: &Value,
+    model: &crate::config::ModelConfig,
+    stream: bool,
+) -> Result<(), ApiError> {
+    let object = body
+        .as_object()
+        .ok_or_else(|| ApiError::invalid_request("The request body must be a JSON object"))?;
+
+    let tool_names = if let Some(tools) = object.get("tools") {
+        let Some(tools) = tools
+            .as_array()
+            .filter(|tools| !tools.is_empty() && tools.len() <= 128)
+        else {
+            return Err(ApiError::invalid_request(
+                "tools must contain between 1 and 128 function definitions",
+            ));
+        };
+        let mut names = std::collections::HashSet::with_capacity(tools.len());
+        for tool in tools {
+            let function = tool
+                .get("function")
+                .filter(|_| tool.get("type").and_then(Value::as_str) == Some("function"))
+                .ok_or_else(|| ApiError::invalid_request("Each tool must be a function tool"))?;
+            let name = function
+                .get("name")
+                .and_then(Value::as_str)
+                .filter(|name| {
+                    !name.is_empty()
+                        && name.len() <= 64
+                        && name
+                            .bytes()
+                            .all(|byte| byte.is_ascii_alphanumeric() || b"_-".contains(&byte))
+                })
+                .ok_or_else(|| {
+                    ApiError::invalid_request("Each function tool needs a valid name")
+                })?;
+            if !names.insert(name) {
+                return Err(ApiError::invalid_request(
+                    "Function tool names must be unique",
+                ));
+            }
+            if let Some(parameters) = function.get("parameters")
+                && !parameters.is_object()
+            {
+                return Err(ApiError::invalid_request(
+                    "Function tool parameters must be a JSON Schema object",
+                ));
+            }
+            if function
+                .get("strict")
+                .is_some_and(|strict| !strict.is_boolean())
+            {
+                return Err(ApiError::invalid_request("Tool strict must be a boolean"));
+            }
+        }
+        Some(names)
+    } else {
+        None
+    };
+
+    if let Some(choice) = object.get("tool_choice") {
+        match choice {
+            Value::String(choice) if matches!(choice.as_str(), "none" | "auto" | "required") => {
+                if choice != "none" && tool_names.is_none() {
+                    return Err(ApiError::invalid_request(
+                        "tool_choice requires a tools array",
+                    ));
+                }
+            }
+            Value::Object(choice)
+                if choice.get("type").and_then(Value::as_str) == Some("function") =>
+            {
+                let name = choice
+                    .get("function")
+                    .and_then(|function| function.get("name"))
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| {
+                        ApiError::invalid_request("tool_choice needs a function name")
+                    })?;
+                if !tool_names
+                    .as_ref()
+                    .is_some_and(|names| names.contains(name))
+                {
+                    return Err(ApiError::invalid_request(
+                        "tool_choice must name one of the declared tools",
+                    ));
+                }
+            }
+            _ => return Err(ApiError::invalid_request("Invalid tool_choice")),
+        }
+    }
+
+    let has_tool_semantics = tool_names.is_some()
+        || object
+            .get("messages")
+            .and_then(Value::as_array)
+            .is_some_and(|messages| {
+                messages.iter().any(|message| {
+                    message.get("role").and_then(Value::as_str) == Some("tool")
+                        || message.get("tool_calls").is_some()
+                })
+            });
+    if has_tool_semantics {
+        if !model.supports_tool_calls {
+            return Err(ApiError::unsupported());
+        }
+        if stream && !model.supports_streaming_tool_calls {
+            return Err(ApiError::unsupported());
+        }
+    }
+
+    if let Some(format) = object.get("response_format") {
+        let format = format
+            .as_object()
+            .ok_or_else(|| ApiError::invalid_request("response_format must be an object"))?;
+        match format.get("type").and_then(Value::as_str) {
+            Some("text") => {}
+            Some("json_object") => {
+                if !model.supports_structured_output || stream {
+                    return Err(ApiError::unsupported());
+                }
+            }
+            Some("json_schema") => {
+                let schema = format
+                    .get("json_schema")
+                    .and_then(Value::as_object)
+                    .ok_or_else(|| {
+                        ApiError::invalid_request("json_schema response format is required")
+                    })?;
+                if schema
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .is_none_or(|name| name.is_empty() || name.len() > 64)
+                    || !schema.get("schema").is_some_and(Value::is_object)
+                    || schema
+                        .get("strict")
+                        .is_some_and(|strict| !strict.is_boolean())
+                {
+                    return Err(ApiError::invalid_request(
+                        "json_schema requires a name and JSON Schema object",
+                    ));
+                }
+                if !model.supports_structured_output || stream {
+                    return Err(ApiError::unsupported());
+                }
+            }
+            _ => {
+                return Err(ApiError::invalid_request(
+                    "Unsupported response_format type",
+                ));
+            }
+        }
+    }
+
+    if has_tool_semantics
+        && matches!(
+            body.pointer("/response_format/type")
+                .and_then(Value::as_str),
+            Some("json_object" | "json_schema")
+        )
+    {
+        return Err(ApiError::unsupported());
+    }
+
+    Ok(())
+}
+
+fn valid_chat_completion_features(response: &Value, request: &Value) -> bool {
+    let Some(choices) = response.get("choices").and_then(Value::as_array) else {
+        return false;
+    };
+    let tool_names: std::collections::HashSet<&str> = request
+        .get("tools")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|tool| tool.pointer("/function/name").and_then(Value::as_str))
+        .collect();
+    let json_mode = matches!(
+        request
+            .pointer("/response_format/type")
+            .and_then(Value::as_str),
+        Some("json_object" | "json_schema")
+    );
+
+    choices.iter().all(|choice| {
+        let Some(message) = choice.get("message").filter(|value| value.is_object()) else {
+            return false;
+        };
+        let calls = match message.get("tool_calls") {
+            None | Some(Value::Null) => None,
+            Some(Value::Array(calls)) if !calls.is_empty() => Some(calls),
+            _ => return false,
+        };
+        if choice.get("finish_reason").and_then(Value::as_str) == Some("tool_calls")
+            && calls.is_none()
+        {
+            return false;
+        }
+        if let Some(calls) = calls {
+            if tool_names.is_empty()
+                || choice.get("finish_reason").and_then(Value::as_str) != Some("tool_calls")
+            {
+                return false;
+            }
+            for call in calls {
+                let Some(name) = call.pointer("/function/name").and_then(Value::as_str) else {
+                    return false;
+                };
+                if call.get("type").and_then(Value::as_str) != Some("function")
+                    || call
+                        .get("id")
+                        .and_then(Value::as_str)
+                        .is_none_or(str::is_empty)
+                    || !tool_names.contains(name)
+                    || call
+                        .pointer("/function/arguments")
+                        .and_then(Value::as_str)
+                        .and_then(|arguments| serde_json::from_str::<Value>(arguments).ok())
+                        .is_none_or(|arguments| !arguments.is_object())
+                {
+                    return false;
+                }
+            }
+        }
+        if json_mode && message.get("refusal").and_then(Value::as_str).is_none() {
+            let Some(content) = message.get("content").and_then(Value::as_str) else {
+                return false;
+            };
+            if serde_json::from_str::<Value>(content).is_err() {
+                return false;
+            }
+        }
+        true
+    })
+}
+
 fn bearer(headers: &HeaderMap) -> Option<&str> {
     headers
         .get(header::AUTHORIZATION)
@@ -667,15 +1729,20 @@ mod tests {
     };
     use http_body_util::BodyExt;
     use serde_json::{Value, json};
+    use sqlx::PgPool;
     use tokio::net::TcpListener;
     use tower::ServiceExt;
+    use uuid::Uuid;
 
     use crate::{
         config::AppConfig,
         state::{AppState, TokenSet},
     };
 
-    use super::router;
+    use super::{
+        responses_usage, router, valid_chat_completion_features, valid_responses_response,
+        validate_chat_capabilities, validate_embedding_request, validate_responses_request,
+    };
 
     #[derive(Clone, Default)]
     struct Captured(Arc<Mutex<Option<(HeaderMap, Value)>>>);
@@ -699,6 +1766,144 @@ mod tests {
         }))
     }
 
+    async fn tool_provider(
+        State(captured): State<Captured>,
+        headers: HeaderMap,
+        Json(body): Json<Value>,
+    ) -> Json<Value> {
+        let response = if body.get("response_format").is_some() {
+            let content =
+                if body.pointer("/response_format/json_schema/name") == Some(&json!("invalid")) {
+                    "not-json"
+                } else {
+                    "{\"answer\":42}"
+                };
+            json!({
+                "id": "upstream-structured-response",
+                "model": "provider-secret-model",
+                "choices": [{
+                    "index": 0,
+                    "message": {"role": "assistant", "content": content},
+                    "finish_reason": "stop"
+                }],
+                "usage": {"prompt_tokens": 11, "completion_tokens": 3, "total_tokens": 14}
+            })
+        } else {
+            json!({
+                "id": "upstream-tool-response",
+                "model": "provider-secret-model",
+                "choices": [{
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": null,
+                        "tool_calls": [{
+                            "id": "call_weather_1",
+                            "type": "function",
+                            "function": {
+                                "name": "lookup_weather",
+                                "arguments": "{\"city\":\"Paris\"}"
+                            }
+                        }]
+                    },
+                    "finish_reason": "tool_calls"
+                }],
+                "usage": {"prompt_tokens": 19, "completion_tokens": 8, "total_tokens": 27}
+            })
+        };
+        *captured.0.lock().expect("capture mutex") = Some((headers, body));
+        Json(response)
+    }
+
+    fn tool_stream_payload() -> Vec<u8> {
+        let events = [
+            json!({"choices":[{"index":0,"delta":{"role":"assistant","tool_calls":[{"index":0,"id":"call_weather_1","type":"function","function":{"name":"lookup_weather","arguments":"{\"city\":"}}]}}]}),
+            json!({"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\"Paris\"}"}}]},"finish_reason":null}]}),
+            json!({"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}),
+            json!({"choices":[],"usage":{"prompt_tokens":19,"completion_tokens":8,"total_tokens":27}}),
+        ];
+        let mut payload = events
+            .iter()
+            .map(|event| format!("data: {event}\n\n"))
+            .collect::<String>();
+        payload.push_str("data: [DONE]\n\n");
+        payload.into_bytes()
+    }
+
+    async fn streaming_tool_provider(
+        State(captured): State<Captured>,
+        headers: HeaderMap,
+        Json(body): Json<Value>,
+    ) -> (
+        [(axum::http::header::HeaderName, &'static str); 1],
+        axum::body::Body,
+    ) {
+        *captured.0.lock().expect("capture mutex") = Some((headers, body));
+        let payload = tool_stream_payload();
+        let chunks = payload
+            .chunks(17)
+            .map(|chunk| Ok::<_, std::io::Error>(axum::body::Bytes::copy_from_slice(chunk)))
+            .collect::<Vec<_>>();
+        (
+            [(axum::http::header::CONTENT_TYPE, "text/event-stream")],
+            axum::body::Body::from_stream(futures_util::stream::iter(chunks)),
+        )
+    }
+
+    async fn responses_provider(
+        State(captured): State<Captured>,
+        headers: HeaderMap,
+        Json(body): Json<Value>,
+    ) -> Json<Value> {
+        let output = if body.get("input").and_then(Value::as_str) == Some("broken") {
+            json!([{
+                "id":"call_1","type":"function_call","call_id":"call_1",
+                "name":"unconfigured_tool","arguments":"{}"
+            }])
+        } else {
+            json!([{
+                "id":"msg_1","type":"message","status":"completed","role":"assistant",
+                "content":[{"type":"output_text","text":"Hello from Responses","annotations":[]}]
+            }])
+        };
+        *captured.0.lock().expect("capture mutex") = Some((headers, body));
+        Json(json!({
+            "id":"resp_test_1","object":"response","status":"completed",
+            "created_at":1750000000,"model":"provider-secret-model","output":output,
+            "usage":{"input_tokens":4,"output_tokens":2,"total_tokens":6}
+        }))
+    }
+
+    async fn embedding_provider(
+        State(captured): State<Captured>,
+        headers: HeaderMap,
+        Json(body): Json<Value>,
+    ) -> Json<Value> {
+        let item_count = match body.get("input") {
+            Some(Value::Array(items)) => items.len(),
+            Some(Value::String(_)) => 1,
+            _ => 0,
+        };
+        let dimensions = body.get("dimensions").and_then(Value::as_u64).unwrap_or(2) as usize;
+        let base64 = body.get("encoding_format").and_then(Value::as_str) == Some("base64");
+        let data = (0..item_count)
+            .map(|index| {
+                json!({
+                    "object": "embedding",
+                    "index": index,
+                    "embedding": if base64 { json!("AA==") } else { json!(vec![0.1; dimensions]) }
+                })
+            })
+            .collect::<Vec<_>>();
+        *captured.0.lock().expect("capture mutex") = Some((headers, body));
+        Json(json!({
+            "object": "list",
+            "data": data,
+            "model": "provider-secret-model",
+            "usage": {"prompt_tokens": 5, "total_tokens": 5}
+        }))
+    }
+
     fn test_state(api_base: Option<String>, pool: sqlx::PgPool) -> AppState {
         let mut config: AppConfig = toml::from_str(
             r#"
@@ -706,6 +1911,9 @@ mod tests {
                 provider = "openai"
                 upstream_model = "provider-secret-model"
                 api_key_env = "PROVIDER_KEY"
+                supports_embeddings = true
+                supports_embedding_dimensions = true
+                supports_embedding_base64 = true
             "#,
         )
         .expect("valid test config");
@@ -724,6 +1932,811 @@ mod tests {
         )
     }
 
+    #[test]
+    fn chat_feature_contracts_validate_input_and_provider_output() {
+        let mut config: crate::config::AppConfig = toml::from_str(
+            r#"
+                [models.fast]
+                provider = "openai"
+                upstream_model = "provider-model"
+                api_key_env = "PROVIDER_KEY"
+                supports_tool_calls = true
+                supports_streaming_tool_calls = true
+                supports_structured_output = true
+            "#,
+        )
+        .unwrap();
+        let model = config.models.get_mut("fast").unwrap();
+        let tools = json!({
+            "model": "fast",
+            "messages": [{"role":"user","content":"Weather in Paris?"}],
+            "tools": [{
+                "type": "function",
+                "function": {"name":"lookup_weather","parameters":{"type":"object"}}
+            }],
+            "tool_choice": {"type":"function","function":{"name":"lookup_weather"}}
+        });
+        assert!(validate_chat_capabilities(&tools, model, false).is_ok());
+        assert!(validate_chat_capabilities(&tools, model, true).is_ok());
+
+        let tool_response = json!({"choices":[{
+            "message":{"role":"assistant","content":null,"tool_calls":[{
+                "id":"call_weather_1","type":"function","function":{
+                    "name":"lookup_weather","arguments":"{\"city\":\"Paris\"}"
+                }
+            }]},"finish_reason":"tool_calls"
+        }]});
+        assert!(valid_chat_completion_features(&tool_response, &tools));
+
+        let mut unknown_tool = tool_response.clone();
+        unknown_tool["choices"][0]["message"]["tool_calls"][0]["function"]["name"] =
+            json!("send_secret");
+        assert!(!valid_chat_completion_features(&unknown_tool, &tools));
+        let mut invalid_arguments = tool_response.clone();
+        invalid_arguments["choices"][0]["message"]["tool_calls"][0]["function"]["arguments"] =
+            json!("not-json");
+        assert!(!valid_chat_completion_features(&invalid_arguments, &tools));
+
+        let structured = json!({
+            "model":"fast",
+            "messages":[{"role":"user","content":"Return a JSON object"}],
+            "response_format":{"type":"json_schema","json_schema":{
+                "name":"answer","schema":{"type":"object","required":["answer"]},"strict":true
+            }}
+        });
+        assert!(validate_chat_capabilities(&structured, model, false).is_ok());
+        assert!(validate_chat_capabilities(&structured, model, true).is_err());
+        assert!(valid_chat_completion_features(
+            &json!({"choices":[{"message":{"content":"{\"answer\":42}"}}]}),
+            &structured
+        ));
+        assert!(!valid_chat_completion_features(
+            &json!({"choices":[{"message":{"content":"not-json"}}]}),
+            &structured
+        ));
+
+        let duplicate_tools = json!({
+            "model":"fast","messages":[{"role":"user","content":"hi"}],
+            "tools":[
+                {"type":"function","function":{"name":"same"}},
+                {"type":"function","function":{"name":"same"}}
+            ]
+        });
+        assert!(validate_chat_capabilities(&duplicate_tools, model, false).is_err());
+        let unknown_choice = json!({
+            "model":"fast","messages":[{"role":"user","content":"hi"}],
+            "tools":[{"type":"function","function":{"name":"known"}}],
+            "tool_choice":{"type":"function","function":{"name":"unknown"}}
+        });
+        assert!(validate_chat_capabilities(&unknown_choice, model, false).is_err());
+
+        model.supports_tool_calls = false;
+        assert!(validate_chat_capabilities(&tools, model, false).is_err());
+        model.supports_tool_calls = true;
+        model.supports_streaming_tool_calls = false;
+        assert!(validate_chat_capabilities(&tools, model, true).is_err());
+    }
+
+    #[test]
+    fn responses_contract_bounds_text_inputs_and_validates_output_items() {
+        let price = crate::config::RoutePricing {
+            currency: "USD".into(),
+            api_prompt_rate: 1_000_000,
+            api_completion_rate: 1_000_000,
+            cash_prompt_rate: 1_000_000,
+            cash_completion_rate: 1_000_000,
+            max_input_tokens: 20,
+            max_output_tokens: 10,
+        };
+        let mut body = json!({
+            "model":"fast","input":"hi","instructions":"Be terse",
+            "temperature":0.5,"top_p":0.9,
+            "metadata":{"source":"test"},"user":"account-1"
+        });
+        let bounds = validate_responses_request(&mut body, Some(&price)).unwrap();
+        assert_eq!(bounds.input_bytes, 10);
+        assert_eq!(bounds.max_output_tokens, Some(10));
+        assert_eq!(body["max_output_tokens"], 10);
+
+        let response = json!({
+            "id":"resp_1","object":"response","status":"completed",
+            "output":[
+                {"id":"reasoning_1","type":"reasoning","summary":[]},
+                {"id":"msg_1","type":"message","role":"assistant","content":[
+                    {"type":"output_text","text":"hello","annotations":[]}
+                ]}
+            ],
+            "usage":{"input_tokens":3,"output_tokens":2,"total_tokens":5}
+        });
+        assert!(valid_responses_response(&response));
+        assert_eq!(responses_usage(&response), Some((3, 2)));
+        let mut invalid_output = response.clone();
+        invalid_output["output"][0]["type"] = json!("function_call");
+        assert!(!valid_responses_response(&invalid_output));
+        let mut invalid_text = response.clone();
+        invalid_text["output"][1]["content"][0]["text"] = json!(false);
+        assert!(!valid_responses_response(&invalid_text));
+
+        for invalid in [
+            json!({"model":"fast","input":[{"role":"user","content":"hi"}]}),
+            json!({"model":"fast","input":"hi","stream":true}),
+            json!({"model":"fast","input":"hi","max_output_tokens":11}),
+            json!({"model":"fast","input":"hi","tools":[]}),
+            json!({"model":"fast","input":"hi","temperature":3}),
+            json!({"model":"fast","input":"hi","metadata":{"bad":["value"]}}),
+        ] {
+            let mut invalid = invalid;
+            assert!(
+                validate_responses_request(&mut invalid, Some(&price)).is_err(),
+                "accepted {invalid}"
+            );
+        }
+    }
+
+    #[sqlx::test(migrations = "../../crates/storage/migrations")]
+    #[ignore = "requires PostgreSQL"]
+    async fn tool_calls_require_route_opt_in_and_persist_provider_usage(pool: PgPool) {
+        let captured = Captured::default();
+        let upstream = Router::new()
+            .route("/v1/chat/completions", post(tool_provider))
+            .with_state(captured.clone());
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let task = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
+        let mut state = test_state(Some(format!("http://{address}/v1")), pool.clone());
+        let route = Arc::make_mut(&mut state.config)
+            .models
+            .get_mut("fast")
+            .unwrap();
+        route.supports_tool_calls = true;
+        route.supports_structured_output = true;
+        let organization = state.store.create_organization("tool calls").await.unwrap();
+        let scope = state
+            .store
+            .create_project(organization, "project")
+            .await
+            .unwrap();
+        let key = state
+            .store
+            .issue_key(scope, "client", &["fast".into()], 3600)
+            .await
+            .unwrap();
+        let request = json!({
+            "model":"fast",
+            "messages":[{"role":"user","content":"What is the weather in Paris?"}],
+            "tools":[{"type":"function","function":{
+                "name":"lookup_weather","description":"Look up current weather",
+                "parameters":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}
+            }}],
+            "tool_choice":"required"
+        });
+        let response = router(state.clone())
+            .oneshot(
+                Request::post("/v1/chat/completions")
+                    .header("authorization", format!("Bearer {}", key.token))
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(request.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let attempt_id: Uuid = response.headers()["x-niu-attempt-id"]
+            .to_str()
+            .unwrap()
+            .parse()
+            .unwrap();
+        let body: Value =
+            serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes())
+                .unwrap();
+        assert_eq!(body["model"], "fast");
+        assert_eq!(body["choices"][0]["finish_reason"], "tool_calls");
+        assert_eq!(
+            body["choices"][0]["message"]["tool_calls"][0]["function"]["name"],
+            "lookup_weather"
+        );
+
+        let (headers, forwarded) = captured.0.lock().unwrap().take().unwrap();
+        assert_eq!(headers["authorization"], "Bearer provider-secret-token");
+        assert_eq!(forwarded["model"], "provider-secret-model");
+        assert_eq!(forwarded["tools"], request["tools"]);
+        assert_eq!(forwarded["tool_choice"], "required");
+        let attempt = state
+            .store
+            .attempt(scope, attempt_id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(attempt.execution, "confirmed_completed");
+        assert_eq!(attempt.usage_confidence, "provider_reported");
+        assert_eq!(
+            (attempt.prompt_tokens, attempt.completion_tokens),
+            (Some(19), Some(8))
+        );
+
+        let structured_request = json!({
+            "model":"fast",
+            "messages":[{"role":"user","content":"Return the answer as JSON"}],
+            "response_format":{"type":"json_schema","json_schema":{
+                "name":"answer","schema":{"type":"object","required":["answer"]},"strict":true
+            }}
+        });
+        let structured = router(state.clone())
+            .oneshot(
+                Request::post("/v1/chat/completions")
+                    .header("authorization", format!("Bearer {}", key.token))
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(structured_request.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(structured.status(), StatusCode::OK);
+        let structured_attempt: Uuid = structured.headers()["x-niu-attempt-id"]
+            .to_str()
+            .unwrap()
+            .parse()
+            .unwrap();
+        let structured_body: Value =
+            serde_json::from_slice(&structured.into_body().collect().await.unwrap().to_bytes())
+                .unwrap();
+        assert_eq!(
+            structured_body["choices"][0]["message"]["content"],
+            "{\"answer\":42}"
+        );
+        let (_, forwarded_schema) = captured.0.lock().unwrap().take().unwrap();
+        assert_eq!(forwarded_schema["model"], "provider-secret-model");
+        assert_eq!(
+            forwarded_schema["response_format"],
+            structured_request["response_format"]
+        );
+        let structured_persisted = state
+            .store
+            .attempt(scope, structured_attempt)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(structured_persisted.execution, "confirmed_completed");
+        assert_eq!(structured_persisted.prompt_tokens, Some(11));
+
+        let mut malformed_schema_request = structured_request;
+        malformed_schema_request["response_format"]["json_schema"]["name"] = json!("invalid");
+        let malformed = router(state.clone())
+            .oneshot(
+                Request::post("/v1/chat/completions")
+                    .header("authorization", format!("Bearer {}", key.token))
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(malformed_schema_request.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(malformed.status(), StatusCode::BAD_GATEWAY);
+        let unknown_attempts: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM attempts WHERE execution = 'may_have_executed' AND usage_confidence = 'unknown'",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(unknown_attempts, 1);
+        let (_, malformed_forwarded) = captured.0.lock().unwrap().take().unwrap();
+        assert_eq!(
+            malformed_forwarded["response_format"]["json_schema"]["name"],
+            "invalid"
+        );
+
+        Arc::make_mut(&mut state.config)
+            .models
+            .get_mut("fast")
+            .unwrap()
+            .supports_tool_calls = false;
+        let gated = router(state.clone())
+            .oneshot(
+                Request::post("/v1/chat/completions")
+                    .header("authorization", format!("Bearer {}", key.token))
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(request.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(gated.status(), StatusCode::NOT_IMPLEMENTED);
+        let attempts: i64 = sqlx::query_scalar("SELECT count(*) FROM attempts")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(attempts, 3);
+        assert!(captured.0.lock().unwrap().is_none());
+        task.abort();
+    }
+
+    #[sqlx::test(migrations = "../../crates/storage/migrations")]
+    #[ignore = "requires PostgreSQL"]
+    async fn streaming_tool_deltas_preserve_wire_bytes_and_terminal_usage(pool: PgPool) {
+        let captured = Captured::default();
+        let upstream = Router::new()
+            .route("/v1/chat/completions", post(streaming_tool_provider))
+            .with_state(captured.clone());
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let task = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
+        let mut state = test_state(Some(format!("http://{address}/v1")), pool);
+        let route = Arc::make_mut(&mut state.config)
+            .models
+            .get_mut("fast")
+            .unwrap();
+        route.supports_tool_calls = true;
+        route.supports_streaming_tool_calls = true;
+        let organization = state
+            .store
+            .create_organization("streaming tools")
+            .await
+            .unwrap();
+        let scope = state
+            .store
+            .create_project(organization, "project")
+            .await
+            .unwrap();
+        let key = state
+            .store
+            .issue_key(scope, "client", &["fast".into()], 3600)
+            .await
+            .unwrap();
+        let request = json!({
+            "model":"fast","stream":true,"stream_options":{"include_usage":true},
+            "messages":[{"role":"user","content":"What is the weather in Paris?"}],
+            "tools":[{"type":"function","function":{
+                "name":"lookup_weather","parameters":{"type":"object"}
+            }}],
+            "tool_choice":"required"
+        });
+        let response = router(state.clone())
+            .oneshot(
+                Request::post("/v1/chat/completions")
+                    .header("authorization", format!("Bearer {}", key.token))
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(request.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers()["content-type"], "text/event-stream");
+        let attempt_id: Uuid = response.headers()["x-niu-attempt-id"]
+            .to_str()
+            .unwrap()
+            .parse()
+            .unwrap();
+        let output = response.into_body().collect().await.unwrap().to_bytes();
+        assert_eq!(output.as_ref(), tool_stream_payload().as_slice());
+
+        let (headers, forwarded) = captured.0.lock().unwrap().take().unwrap();
+        assert_eq!(headers["authorization"], "Bearer provider-secret-token");
+        assert_eq!(forwarded["model"], "provider-secret-model");
+        assert_eq!(forwarded["tools"], request["tools"]);
+        assert_eq!(forwarded["stream_options"]["include_usage"], true);
+        let attempt = state
+            .store
+            .attempt(scope, attempt_id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(attempt.execution, "confirmed_completed");
+        assert_eq!(attempt.usage_confidence, "provider_reported");
+        assert_eq!(
+            (attempt.prompt_tokens, attempt.completion_tokens),
+            (Some(19), Some(8))
+        );
+        task.abort();
+    }
+
+    #[sqlx::test(migrations = "../../crates/storage/migrations")]
+    #[ignore = "requires PostgreSQL"]
+    async fn responses_are_opt_in_text_only_and_persist_reported_usage(pool: PgPool) {
+        let captured = Captured::default();
+        let upstream = Router::new()
+            .route("/v1/responses", post(responses_provider))
+            .with_state(captured.clone());
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let task = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
+        let mut state = test_state(Some(format!("http://{address}/v1")), pool.clone());
+        let route = Arc::make_mut(&mut state.config)
+            .models
+            .get_mut("fast")
+            .unwrap();
+        route.supports_responses = true;
+        route.pricing = Some(crate::config::RoutePricing {
+            currency: "USD".into(),
+            api_prompt_rate: 1_000_000,
+            api_completion_rate: 1_000_000,
+            cash_prompt_rate: 1_000_000,
+            cash_completion_rate: 1_000_000,
+            max_input_tokens: 32,
+            max_output_tokens: 10,
+        });
+        let organization = state.store.create_organization("responses").await.unwrap();
+        let scope = state
+            .store
+            .create_project(organization, "project")
+            .await
+            .unwrap();
+        state.store.create_budget(scope, "USD", 100).await.unwrap();
+        let key = state
+            .store
+            .issue_key(scope, "client", &["fast".into()], 3600)
+            .await
+            .unwrap();
+        let request = json!({
+            "model":"fast","input":"hi","instructions":"Be helpful",
+            "metadata":{"source":"integration-test"}
+        });
+        let response = router(state.clone())
+            .oneshot(
+                Request::post("/v1/responses")
+                    .header("authorization", format!("Bearer {}", key.token))
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(request.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let attempt_id: Uuid = response.headers()["x-niu-attempt-id"]
+            .to_str()
+            .unwrap()
+            .parse()
+            .unwrap();
+        let body: Value =
+            serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes())
+                .unwrap();
+        assert_eq!(body["model"], "fast");
+        assert_eq!(
+            body["output"][0]["content"][0]["text"],
+            "Hello from Responses"
+        );
+        assert_eq!(body["usage"]["input_tokens"], 4);
+        let (headers, forwarded) = captured.0.lock().unwrap().take().unwrap();
+        assert_eq!(headers["authorization"], "Bearer provider-secret-token");
+        assert_eq!(forwarded["model"], "provider-secret-model");
+        assert_eq!(forwarded["input"], "hi");
+        assert_eq!(forwarded["max_output_tokens"], 10);
+        let attempt = state
+            .store
+            .attempt(scope, attempt_id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(attempt.execution, "confirmed_completed");
+        assert_eq!(attempt.usage_confidence, "provider_reported");
+        assert_eq!(
+            (attempt.prompt_tokens, attempt.completion_tokens),
+            (Some(4), Some(2))
+        );
+        let budget = state.store.budget(scope).await.unwrap().unwrap();
+        assert_eq!((budget.spent_nanos, budget.reserved_nanos), (6, 0));
+
+        let invalid_output = router(state.clone())
+            .oneshot(
+                Request::post("/v1/responses")
+                    .header("authorization", format!("Bearer {}", key.token))
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(
+                        json!({"model":"fast","input":"broken"}).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(invalid_output.status(), StatusCode::BAD_GATEWAY);
+        let malformed_attempt: Uuid = invalid_output.headers()["x-niu-attempt-id"]
+            .to_str()
+            .unwrap()
+            .parse()
+            .unwrap();
+        let unresolved = state
+            .store
+            .attempt(scope, malformed_attempt)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(unresolved.execution, "may_have_executed");
+        assert_eq!(unresolved.usage_confidence, "unknown");
+        let (_, malformed_forwarded) = captured.0.lock().unwrap().take().unwrap();
+        assert_eq!(malformed_forwarded["input"], "broken");
+
+        let streaming = router(state.clone())
+            .oneshot(
+                Request::post("/v1/responses")
+                    .header("authorization", format!("Bearer {}", key.token))
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(
+                        json!({"model":"fast","input":"hi","stream":true}).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(streaming.status(), StatusCode::NOT_IMPLEMENTED);
+        Arc::make_mut(&mut state.config)
+            .models
+            .get_mut("fast")
+            .unwrap()
+            .supports_responses = false;
+        let disabled = router(state.clone())
+            .oneshot(
+                Request::post("/v1/responses")
+                    .header("authorization", format!("Bearer {}", key.token))
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(
+                        json!({"model":"fast","input":"hi"}).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(disabled.status(), StatusCode::NOT_IMPLEMENTED);
+        let attempts: i64 = sqlx::query_scalar("SELECT count(*) FROM attempts")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(attempts, 2);
+        task.abort();
+    }
+
+    #[test]
+    fn embedding_request_validation_rejects_unsupported_shapes() {
+        for body in [
+            json!({"model":"fast"}),
+            json!({"model":"fast","input":[]}),
+            json!({"model":"fast","input":["hello",[1,2,3]]}),
+            json!({"model":"fast","input":"hello","encoding_format":"binary"}),
+            json!({"model":"fast","input":"hello","dimensions":0}),
+            json!({"model":"fast","input":"hello","stream":true}),
+        ] {
+            assert!(
+                validate_embedding_request(&body).is_err(),
+                "accepted {body}"
+            );
+        }
+        let bounds = validate_embedding_request(&json!({
+            "model":"fast","input":["hello","你好"],"dimensions":3,"encoding_format":"float"
+        }))
+        .unwrap();
+        assert_eq!(bounds.item_count, 2);
+        assert_eq!(bounds.utf8_bytes, 11);
+        assert_eq!(bounds.dimensions, Some(3));
+        assert_eq!(bounds.encoding_format, "float");
+    }
+
+    #[sqlx::test(migrations = "../../crates/storage/migrations")]
+    #[ignore = "requires PostgreSQL"]
+    async fn embeddings_use_scoped_admission_and_settle_input_usage(pool: PgPool) {
+        let captured = Captured::default();
+        let upstream = Router::new()
+            .route("/v1/embeddings", post(embedding_provider))
+            .with_state(captured.clone());
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let task = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
+        let mut state = test_state(Some(format!("http://{address}/v1")), pool.clone());
+        Arc::make_mut(&mut state.config)
+            .models
+            .get_mut("fast")
+            .unwrap()
+            .pricing = Some(crate::config::RoutePricing {
+            currency: "USD".into(),
+            api_prompt_rate: 3_000_000,
+            api_completion_rate: 4_000_000,
+            cash_prompt_rate: 1_000_000,
+            cash_completion_rate: 2_000_000,
+            max_input_tokens: 10,
+            max_output_tokens: 8,
+        });
+        let org = state.store.create_organization("embeddings").await.unwrap();
+        let scope = state.store.create_project(org, "embeddings").await.unwrap();
+        state.store.create_budget(scope, "USD", 20).await.unwrap();
+        let key = state
+            .store
+            .issue_key(scope, "client", &["fast".into()], 3600)
+            .await
+            .unwrap();
+        let app = router(state.clone());
+        let response = app
+            .clone()
+            .oneshot(
+                Request::post("/v1/embeddings")
+                    .header("authorization", format!("Bearer {}", key.token))
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(
+                        json!({"model":"fast","input":"hello","dimensions":2}).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let attempt_id: Uuid = response.headers()["x-niu-attempt-id"]
+            .to_str()
+            .unwrap()
+            .parse()
+            .unwrap();
+        let output: Value =
+            serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes())
+                .unwrap();
+        assert_eq!(output["model"], "fast");
+        assert_eq!(output["data"][0]["embedding"], json!([0.1, 0.1]));
+        assert_eq!(output["usage"]["prompt_tokens"], 5);
+
+        let (headers, upstream_body) = captured.0.lock().unwrap().take().unwrap();
+        assert_eq!(headers["authorization"], "Bearer provider-secret-token");
+        assert_eq!(upstream_body["model"], "provider-secret-model");
+        assert_eq!(upstream_body["input"], "hello");
+        assert_eq!(upstream_body["dimensions"], 2);
+
+        let batch = app
+            .oneshot(
+                Request::post("/v1/embeddings")
+                    .header("authorization", format!("Bearer {}", key.token))
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(
+                        json!({
+                            "model":"fast",
+                            "input":["hi", "there"],
+                            "encoding_format":"base64"
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(batch.status(), StatusCode::OK);
+        let batch_output: Value =
+            serde_json::from_slice(&batch.into_body().collect().await.unwrap().to_bytes()).unwrap();
+        assert_eq!(batch_output["data"].as_array().unwrap().len(), 2);
+        assert_eq!(batch_output["data"][1]["index"], 1);
+        assert_eq!(batch_output["data"][1]["embedding"], "AA==");
+        let (_, batch_body) = captured.0.lock().unwrap().take().unwrap();
+        assert_eq!(batch_body["input"], json!(["hi", "there"]));
+        assert_eq!(batch_body["encoding_format"], "base64");
+
+        let attempt = state
+            .store
+            .attempt(scope, attempt_id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(attempt.execution, "confirmed_completed");
+        assert_eq!(attempt.usage_confidence, "provider_reported");
+        assert_eq!(
+            (attempt.prompt_tokens, attempt.completion_tokens),
+            (Some(5), Some(0))
+        );
+        let budget = state.store.budget(scope).await.unwrap().unwrap();
+        assert_eq!((budget.spent_nanos, budget.reserved_nanos), (10, 0));
+        let entries = state.store.cost_entries(scope, None, 10).await.unwrap();
+        assert_eq!(entries.len(), 2);
+        assert!(entries.iter().all(|entry| {
+            (entry.cash_nanos, entry.api_equivalent_nanos) == (5, 15)
+                && (entry.usage_prompt_tokens, entry.usage_completion_tokens) == (5, 0)
+        }));
+        task.abort();
+    }
+
+    #[sqlx::test(migrations = "../../crates/storage/migrations")]
+    #[ignore = "requires PostgreSQL"]
+    async fn embeddings_require_declared_openai_capability_before_creating_attempt(pool: PgPool) {
+        let mut state = test_state(None, pool.clone());
+        Arc::make_mut(&mut state.config)
+            .models
+            .get_mut("fast")
+            .unwrap()
+            .supports_embeddings = false;
+        let org = state
+            .store
+            .create_organization("unsupported embeddings")
+            .await
+            .unwrap();
+        let scope = state
+            .store
+            .create_project(org, "unsupported")
+            .await
+            .unwrap();
+        let key = state
+            .store
+            .issue_key(scope, "client", &["fast".into()], 3600)
+            .await
+            .unwrap();
+        let response = router(state.clone())
+            .oneshot(
+                Request::post("/v1/embeddings")
+                    .header("authorization", format!("Bearer {}", key.token))
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(
+                        json!({"model":"fast","input":"hello"}).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::NOT_IMPLEMENTED);
+        {
+            let route = Arc::make_mut(&mut state.config)
+                .models
+                .get_mut("fast")
+                .unwrap();
+            route.supports_embeddings = true;
+            route.supports_embedding_dimensions = false;
+        }
+        let unsupported_dimensions = router(state.clone())
+            .oneshot(
+                Request::post("/v1/embeddings")
+                    .header("authorization", format!("Bearer {}", key.token))
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(
+                        json!({"model":"fast","input":"hello","dimensions":2}).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(unsupported_dimensions.status(), StatusCode::NOT_IMPLEMENTED);
+        {
+            let route = Arc::make_mut(&mut state.config)
+                .models
+                .get_mut("fast")
+                .unwrap();
+            route.supports_embedding_dimensions = true;
+            route.supports_embedding_base64 = false;
+        }
+        let unsupported_encoding = router(state.clone())
+            .oneshot(
+                Request::post("/v1/embeddings")
+                    .header("authorization", format!("Bearer {}", key.token))
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(
+                        json!({"model":"fast","input":"hello","encoding_format":"base64"})
+                            .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(unsupported_encoding.status(), StatusCode::NOT_IMPLEMENTED);
+        {
+            let route = Arc::make_mut(&mut state.config)
+                .models
+                .get_mut("fast")
+                .unwrap();
+            route.supports_embedding_base64 = true;
+            route.provider = "anthropic".into();
+        }
+        let unsupported_provider = router(state.clone())
+            .oneshot(
+                Request::post("/v1/embeddings")
+                    .header("authorization", format!("Bearer {}", key.token))
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(
+                        json!({"model":"fast","input":"hello"}).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(unsupported_provider.status(), StatusCode::NOT_IMPLEMENTED);
+        assert_eq!(state.requests.load(std::sync::atomic::Ordering::Relaxed), 0);
+        let operations: i64 = sqlx::query_scalar("SELECT count(*) FROM operations")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        let attempts: i64 = sqlx::query_scalar("SELECT count(*) FROM attempts")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!((operations, attempts), (0, 0));
+    }
+
     #[tokio::test]
     async fn model_routes_require_a_valid_client_token() {
         let response = router(test_state(
@@ -740,6 +2753,67 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn benchmark_analysis_is_admin_only_and_does_not_dispatch_work() {
+        let app = router(test_state(
+            None,
+            sqlx::postgres::PgPoolOptions::new()
+                .connect_lazy("postgres://localhost/unused")
+                .unwrap(),
+        ));
+        let fixture = include_str!("../../../contracts/fixtures/paired-experiment.v1.json");
+        let unauthorized = app
+            .clone()
+            .oneshot(
+                Request::post("/admin/v1/benchmarks/compare")
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(fixture.to_owned()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(unauthorized.status(), StatusCode::UNAUTHORIZED);
+
+        let response = app
+            .clone()
+            .oneshot(
+                Request::post("/admin/v1/benchmarks/compare")
+                    .header(
+                        "authorization",
+                        "Bearer niu-test-admin-token-that-is-long-1234",
+                    )
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(fixture.to_owned()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let report: Value =
+            serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes())
+                .unwrap();
+        assert_eq!(report["data"]["evidence_kind"], "paired_experiment");
+        assert_eq!(report["data"]["total_cash_nanos"], "630");
+        assert_eq!(report["data"]["pairs"].as_array().unwrap().len(), 3);
+
+        let mut invalid: Value = serde_json::from_str(fixture).unwrap();
+        invalid["opt_in"] = Value::Bool(false);
+        let rejected = app
+            .oneshot(
+                Request::post("/admin/v1/benchmarks/compare")
+                    .header(
+                        "authorization",
+                        "Bearer niu-test-admin-token-that-is-long-1234",
+                    )
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(invalid.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(rejected.status(), StatusCode::BAD_REQUEST);
     }
 
     #[sqlx::test(migrations = "../../crates/storage/migrations")]
@@ -786,7 +2860,7 @@ mod tests {
             "/admin/v1/organizations/{}/projects/{}/accounts/{account}/quota",
             scope.organization_id, other.project_id
         );
-        let body = json!({"window_key":"monthly", "unit":"tokens", "remaining":i64::MAX.to_string(), "maximum":null,
+        let body = json!({"schema_version":1, "window_key":"monthly", "unit":"tokens", "remaining":i64::MAX, "maximum":null,
             "observed_at_ms":1, "valid_until_ms":2, "resets_at_ms":3, "source":"fixture"});
         let admin = "Bearer niu-test-admin-token-that-is-long-1234".to_string();
         let mut id = None;
@@ -807,7 +2881,7 @@ mod tests {
                 path.clone(),
                 format!("Bearer {}", collector.token),
                 body.clone(),
-                StatusCode::OK,
+                StatusCode::CREATED,
             ),
             (
                 wrong_path.clone(),
@@ -815,14 +2889,24 @@ mod tests {
                 body.clone(),
                 StatusCode::UNAUTHORIZED,
             ),
-            (path.clone(), admin.clone(), body.clone(), StatusCode::OK),
-            (path.clone(), admin.clone(), body.clone(), StatusCode::OK),
+            (
+                path.clone(),
+                admin.clone(),
+                body.clone(),
+                StatusCode::CREATED,
+            ),
+            (
+                path.clone(),
+                admin.clone(),
+                body.clone(),
+                StatusCode::CREATED,
+            ),
             (
                 path.clone(),
                 admin.clone(),
                 {
                     let mut b = body.clone();
-                    b["remaining"] = json!("0");
+                    b["remaining"] = json!(0);
                     b
                 },
                 StatusCode::CONFLICT,
@@ -832,7 +2916,7 @@ mod tests {
                 admin.clone(),
                 {
                     let mut b = body.clone();
-                    b["remaining"] = json!("-1");
+                    b["remaining"] = json!(-1);
                     b
                 },
                 StatusCode::BAD_REQUEST,
@@ -850,7 +2934,7 @@ mod tests {
                 .await
                 .unwrap();
             assert_eq!(response.status(), expected);
-            if expected == StatusCode::OK {
+            if expected == StatusCode::CREATED {
                 let response: Value = serde_json::from_slice(
                     &response.into_body().collect().await.unwrap().to_bytes(),
                 )
@@ -959,7 +3043,7 @@ mod tests {
             (format!("Bearer {}", key.token), StatusCode::UNAUTHORIZED),
             (
                 "Bearer niu-test-admin-token-that-is-long-1234".into(),
-                StatusCode::OK,
+                StatusCode::CREATED,
             ),
             (
                 "Bearer niu-test-admin-token-that-is-long-1234".into(),
@@ -978,7 +3062,7 @@ mod tests {
                 .await
                 .unwrap();
             assert_eq!(response.status(), expected);
-            if expected == StatusCode::OK {
+            if matches!(expected, StatusCode::CREATED | StatusCode::OK) {
                 let body: Value = serde_json::from_slice(
                     &response.into_body().collect().await.unwrap().to_bytes(),
                 )
@@ -1844,6 +3928,190 @@ mod tests {
             .unwrap();
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
     }
+
+    #[sqlx::test(migrations = "../../crates/storage/migrations")]
+    #[ignore = "requires PostgreSQL"]
+    async fn quota_import_is_versioned_idempotent_and_read_only(pool: sqlx::PgPool) {
+        let state = test_state(None, pool.clone());
+        let organization = state.store.create_organization("quota").await.unwrap();
+        let scope = state
+            .store
+            .create_project(organization, "project")
+            .await
+            .unwrap();
+        let app = router(state.clone());
+        let accounts = format!(
+            "/admin/v1/organizations/{}/projects/{}/accounts",
+            scope.organization_id, scope.project_id
+        );
+        let account = admin_call(
+            &app,
+            &accounts,
+            json!({
+                "provider": "fixture", "plan": "weekly", "authentication_mode": "oauth_refresh",
+                "billing_mode": "subscription", "credential_reference": "env:FIXTURE_ACCOUNT",
+                "concurrency_limit": 2
+            }),
+        )
+        .await;
+        let account_id = account["id"].as_str().unwrap();
+        let quota = format!("{accounts}/{account_id}/quota");
+        let now: i64 =
+            sqlx::query_scalar("SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        let observation = json!({
+            "schema_version": 1, "window_key": "weekly", "unit": "tokens",
+            "remaining": 800, "maximum": 1000, "observed_at_ms": now - 1,
+            "valid_until_ms": now + 60000, "resets_at_ms": now + 3600000,
+            "source": "provider-header"
+        });
+        let post = |body: Value| {
+            Request::post(&quota)
+                .header(
+                    "authorization",
+                    "Bearer niu-test-admin-token-that-is-long-1234",
+                )
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(body.to_string()))
+                .unwrap()
+        };
+        let unauthorized = app
+            .clone()
+            .oneshot(
+                Request::post(&quota)
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(observation.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(unauthorized.status(), StatusCode::UNAUTHORIZED);
+
+        let first = app
+            .clone()
+            .oneshot(post(observation.clone()))
+            .await
+            .unwrap();
+        assert_eq!(first.status(), StatusCode::CREATED);
+        let first_body: Value =
+            serde_json::from_slice(&first.into_body().collect().await.unwrap().to_bytes()).unwrap();
+        let replay = app
+            .clone()
+            .oneshot(post(observation.clone()))
+            .await
+            .unwrap();
+        assert_eq!(replay.status(), StatusCode::CREATED);
+        let replay_body: Value =
+            serde_json::from_slice(&replay.into_body().collect().await.unwrap().to_bytes())
+                .unwrap();
+        assert_eq!(first_body["id"], replay_body["id"]);
+
+        let mut unsupported_version = observation.clone();
+        unsupported_version["schema_version"] = json!(2);
+        let invalid = app
+            .clone()
+            .oneshot(post(unsupported_version))
+            .await
+            .unwrap();
+        assert_eq!(invalid.status(), StatusCode::BAD_REQUEST);
+
+        let mut conflicting = observation.clone();
+        conflicting["remaining"] = json!(700);
+        let response = app.clone().oneshot(post(conflicting)).await.unwrap();
+        assert_eq!(response.status(), StatusCode::CONFLICT);
+        let read = app
+            .clone()
+            .oneshot(
+                Request::get(&quota)
+                    .header(
+                        "authorization",
+                        "Bearer niu-test-admin-token-that-is-long-1234",
+                    )
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(read.status(), StatusCode::OK);
+        let body: Value =
+            serde_json::from_slice(&read.into_body().collect().await.unwrap().to_bytes()).unwrap();
+        assert_eq!(body["data"][0]["remaining"], "800");
+        assert_eq!(body["data"][0]["unit"], "tokens");
+        assert_eq!(body["data"][0]["fresh"], true);
+        assert!(body["data"][0].get("credential_reference").is_none());
+        // Import/report operations do not dispatch inference or mutate account health.
+        assert_eq!(
+            state.store.accounts(scope).await.unwrap()[0].health,
+            "unverified"
+        );
+        assert_eq!(state.usage.snapshot().attempts_total, 0);
+        let reopened_pool = PgPool::connect_with((*pool.connect_options()).clone())
+            .await
+            .unwrap();
+        let reopened = niu_storage::Store::from_pool(reopened_pool.clone());
+        let persisted = reopened
+            .quota(scope, Uuid::parse_str(account_id).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(persisted.len(), 1);
+        assert_eq!(persisted[0].remaining.as_deref(), Some("800"));
+        assert_eq!(persisted[0].previous_remaining, None);
+        reopened_pool.close().await;
+
+        let delete_path = format!("{quota}?window_key=weekly");
+        let unauthorized_delete = app
+            .clone()
+            .oneshot(
+                Request::delete(&delete_path)
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(unauthorized_delete.status(), StatusCode::UNAUTHORIZED);
+        let deleted = app
+            .clone()
+            .oneshot(
+                Request::delete(&delete_path)
+                    .header(
+                        "authorization",
+                        "Bearer niu-test-admin-token-that-is-long-1234",
+                    )
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(deleted.status(), StatusCode::OK);
+        let deleted_body: Value =
+            serde_json::from_slice(&deleted.into_body().collect().await.unwrap().to_bytes())
+                .unwrap();
+        assert_eq!(deleted_body["window_key"], "weekly");
+        assert_eq!(deleted_body["deleted_count"], 1);
+        let empty = app
+            .clone()
+            .oneshot(
+                Request::get(&quota)
+                    .header(
+                        "authorization",
+                        "Bearer niu-test-admin-token-that-is-long-1234",
+                    )
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let empty_body: Value =
+            serde_json::from_slice(&empty.into_body().collect().await.unwrap().to_bytes()).unwrap();
+        assert!(empty_body["data"].as_array().unwrap().is_empty());
+        assert_eq!(
+            state.store.accounts(scope).await.unwrap()[0].health,
+            "unverified"
+        );
+        assert_eq!(state.usage.snapshot().attempts_total, 0);
+    }
     #[sqlx::test(migrations = "../../crates/storage/migrations")]
     #[ignore = "requires PostgreSQL"]
     async fn missing_usage_and_provider_failures_remain_unsettled(pool: sqlx::PgPool) {
@@ -2011,5 +4279,337 @@ mod tests {
             );
             server.abort();
         }
+    }
+
+    #[sqlx::test(migrations = "../../crates/storage/migrations")]
+    #[ignore = "requires PostgreSQL"]
+    async fn execution_import_api_is_idempotent_scoped_and_deletable(pool: sqlx::PgPool) {
+        let state = test_state(None, pool.clone());
+        let organization = state
+            .store
+            .create_organization("observations")
+            .await
+            .unwrap();
+        let scope = state
+            .store
+            .create_project(organization, "project")
+            .await
+            .unwrap();
+        let other = state
+            .store
+            .create_project(organization, "other")
+            .await
+            .unwrap();
+        let account = state
+            .store
+            .create_account(
+                scope,
+                &niu_storage::AccountInput {
+                    provider: "fixture".into(),
+                    plan: "subscription".into(),
+                    authentication_mode: niu_storage::AuthMode::OAuthRefresh,
+                    billing_mode: niu_storage::BillingMode::Subscription,
+                    credential_reference: "env:FIXTURE_ACCOUNT".into(),
+                    concurrency_limit: 2,
+                },
+            )
+            .await
+            .unwrap();
+        state
+            .store
+            .set_account_health(scope, account, niu_storage::AccountHealth::Ready)
+            .await
+            .unwrap();
+        let operation = state
+            .store
+            .create_operation(scope, "model-a")
+            .await
+            .unwrap();
+        let attempt = state
+            .store
+            .prepare_account_attempt(scope, operation, "fixture-account", "v1", account)
+            .await
+            .unwrap();
+        let base = format!(
+            "/admin/v1/organizations/{}/projects/{}/executions",
+            scope.organization_id, scope.project_id
+        );
+        let mut record: Value = serde_json::from_str(include_str!(
+            "../../../contracts/fixtures/parallel-task.v1.json"
+        ))
+        .unwrap();
+        for span in record["spans"].as_array_mut().unwrap() {
+            if matches!(span["id"].as_str(), Some("model" | "attempt")) {
+                span["charge_ref"] = json!(attempt.to_string());
+            }
+        }
+        let app = router(state);
+        let unauthorized = app
+            .clone()
+            .oneshot(Request::get(&base).body(axum::body::Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(unauthorized.status(), StatusCode::UNAUTHORIZED);
+
+        let post = |body: Value| {
+            Request::post(&base)
+                .header(
+                    "authorization",
+                    "Bearer niu-test-admin-token-that-is-long-1234",
+                )
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(body.to_string()))
+                .unwrap()
+        };
+        let first = app.clone().oneshot(post(record.clone())).await.unwrap();
+        assert_eq!(first.status(), StatusCode::CREATED);
+        let first_body: Value =
+            serde_json::from_slice(&first.into_body().collect().await.unwrap().to_bytes()).unwrap();
+        assert_eq!(first_body["created"], true);
+        let id = first_body["id"].as_str().unwrap().to_owned();
+
+        let mut second_record = record.clone();
+        second_record["record_id"] = json!("parallel-fixture-2");
+        let second = app.clone().oneshot(post(second_record)).await.unwrap();
+        assert_eq!(second.status(), StatusCode::CREATED);
+
+        let cohort_path = format!("{base}/cohort");
+        let cohort_unauthorized = app
+            .clone()
+            .oneshot(
+                Request::get(&cohort_path)
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(cohort_unauthorized.status(), StatusCode::UNAUTHORIZED);
+        let cohort_response = app
+            .clone()
+            .oneshot(
+                Request::get(&cohort_path)
+                    .header(
+                        "authorization",
+                        "Bearer niu-test-admin-token-that-is-long-1234",
+                    )
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(cohort_response.status(), StatusCode::OK);
+        let cohort_body: Value = serde_json::from_slice(
+            &cohort_response
+                .into_body()
+                .collect()
+                .await
+                .unwrap()
+                .to_bytes(),
+        )
+        .unwrap();
+        assert_eq!(cohort_body["data"]["records_scanned"], 2);
+        assert_eq!(cohort_body["data"]["outcomes"]["conflicting"], 2);
+        assert_eq!(
+            cohort_body["data"]["cost_evidence"]["unique_charge_references"],
+            2
+        );
+        assert_eq!(
+            cohort_body["data"]["cost_evidence"]["unresolved_references"],
+            1
+        );
+        assert_eq!(
+            cohort_body["data"]["cost_evidence"]["attempts_without_cost_entries"],
+            1
+        );
+        assert_eq!(cohort_body["data"]["cost_evidence"]["complete"], false);
+        assert_eq!(cohort_body["data"]["invoice_cash"]["state"], "not_imported");
+
+        let replay = app.clone().oneshot(post(record.clone())).await.unwrap();
+        assert_eq!(replay.status(), StatusCode::OK);
+        let replay_body: Value =
+            serde_json::from_slice(&replay.into_body().collect().await.unwrap().to_bytes())
+                .unwrap();
+        assert_eq!(replay_body["id"], id);
+        assert_eq!(replay_body["created"], false);
+
+        let list = app
+            .clone()
+            .oneshot(
+                Request::get(format!("{base}?task_id=task&limit=1"))
+                    .header(
+                        "authorization",
+                        "Bearer niu-test-admin-token-that-is-long-1234",
+                    )
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(list.status(), StatusCode::OK);
+        let list_body: Value =
+            serde_json::from_slice(&list.into_body().collect().await.unwrap().to_bytes()).unwrap();
+        assert_eq!(list_body["data"].as_array().unwrap().len(), 1);
+        assert!(list_body["next_cursor"].as_str().is_some());
+        assert!(list_body["data"][0].get("spans").is_none());
+        let first_page_id = list_body["data"][0]["id"].clone();
+        let next = app
+            .clone()
+            .oneshot(
+                Request::get(format!(
+                    "{base}?task_id=task&limit=1&after={}",
+                    list_body["next_cursor"].as_str().unwrap()
+                ))
+                .header(
+                    "authorization",
+                    "Bearer niu-test-admin-token-that-is-long-1234",
+                )
+                .body(axum::body::Body::empty())
+                .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(next.status(), StatusCode::OK);
+        let next_body: Value =
+            serde_json::from_slice(&next.into_body().collect().await.unwrap().to_bytes()).unwrap();
+        assert_eq!(next_body["data"].as_array().unwrap().len(), 1);
+        assert_ne!(next_body["data"][0]["id"], first_page_id);
+
+        let detail_path = format!("{base}/{id}");
+        let detail = app
+            .clone()
+            .oneshot(
+                Request::get(&detail_path)
+                    .header(
+                        "authorization",
+                        "Bearer niu-test-admin-token-that-is-long-1234",
+                    )
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(detail.status(), StatusCode::OK);
+        let detail_body: Value =
+            serde_json::from_slice(&detail.into_body().collect().await.unwrap().to_bytes())
+                .unwrap();
+        assert_eq!(detail_body["record"], record);
+        let account_links = detail_body["linked_accounts"].as_array().unwrap();
+        assert_eq!(account_links.len(), 2);
+        assert!(
+            account_links
+                .iter()
+                .all(|link| link["account_id"] == account.to_string())
+        );
+        assert!(account_links.iter().any(|link| link["span_id"] == "model"));
+
+        let account_executions_path = format!(
+            "/admin/v1/organizations/{}/projects/{}/accounts/{}/executions",
+            scope.organization_id, scope.project_id, account
+        );
+        let account_executions = app
+            .clone()
+            .oneshot(
+                Request::get(&account_executions_path)
+                    .header(
+                        "authorization",
+                        "Bearer niu-test-admin-token-that-is-long-1234",
+                    )
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(account_executions.status(), StatusCode::OK);
+        let account_execution_body: Value = serde_json::from_slice(
+            &account_executions
+                .into_body()
+                .collect()
+                .await
+                .unwrap()
+                .to_bytes(),
+        )
+        .unwrap();
+        assert_eq!(account_execution_body["data"].as_array().unwrap().len(), 2);
+        assert_eq!(account_execution_body["data"][0]["task_id"], "task");
+
+        let reopened_pool = PgPool::connect_with((*pool.connect_options()).clone())
+            .await
+            .unwrap();
+        let reopened = niu_storage::Store::from_pool(reopened_pool.clone());
+        let persisted = reopened
+            .execution_import(scope, Uuid::parse_str(&id).unwrap())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(serde_json::to_value(persisted).unwrap(), record);
+        reopened_pool.close().await;
+
+        let other_path = format!(
+            "/admin/v1/organizations/{}/projects/{}/executions/{id}",
+            other.organization_id, other.project_id
+        );
+        let cross_scope = app
+            .clone()
+            .oneshot(
+                Request::get(&other_path)
+                    .header(
+                        "authorization",
+                        "Bearer niu-test-admin-token-that-is-long-1234",
+                    )
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(cross_scope.status(), StatusCode::NOT_FOUND);
+
+        let mut changed = record.clone();
+        changed["coverage"] = json!("unknown");
+        let conflict = app.clone().oneshot(post(changed)).await.unwrap();
+        assert_eq!(conflict.status(), StatusCode::CONFLICT);
+        let mut unsupported = record.clone();
+        unsupported["schema_version"] = json!(2);
+        let invalid = app.clone().oneshot(post(unsupported)).await.unwrap();
+        assert_eq!(invalid.status(), StatusCode::BAD_REQUEST);
+
+        let deleted = app
+            .clone()
+            .oneshot(
+                Request::delete(&detail_path)
+                    .header(
+                        "authorization",
+                        "Bearer niu-test-admin-token-that-is-long-1234",
+                    )
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(deleted.status(), StatusCode::NO_CONTENT);
+        let absent = app
+            .oneshot(
+                Request::get(&detail_path)
+                    .header(
+                        "authorization",
+                        "Bearer niu-test-admin-token-that-is-long-1234",
+                    )
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(absent.status(), StatusCode::NOT_FOUND);
+
+        let attempts: i64 = sqlx::query_scalar("SELECT count(*) FROM attempts")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        let charges: i64 = sqlx::query_scalar("SELECT count(*) FROM cost_entries")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        // The assigned attempt was created before import; metadata import and
+        // deletion must not create or charge additional work.
+        assert_eq!((attempts, charges), (1, 0));
     }
 }

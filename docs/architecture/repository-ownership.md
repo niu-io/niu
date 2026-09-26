@@ -1,16 +1,5 @@
 # Repository ownership
 
-The Niu project uses four repositories so community code, enterprise implementation, marketing, and organization information have clear owners.
+This repository owns Niu's public self-hosted product. It contains the Rust gateway, TypeScript console, public site, API contracts, SDKs, documentation, tests, and community container image.
 
-| Repository | Responsibility |
-| --- | --- |
-| `niu-io/.github` | Public organization introduction, community defaults, and project links |
-| `niu-io/niu` | Complete open-source gateway, console, contracts, documentation, tests, and community release |
-| `niu-io/enterprise` | Enterprise implementation, release center, and hosted `app.niu.io` code |
-| `niu-io/website` | Landing pages for `niu.io` and public product information |
-
-The public project is a full self-hosted product delivered from a mixed-language monorepo. It includes the Rust gateway, TypeScript console, shared API contracts, SDKs, docs, tests, and community image. It does not require a private package, private API, hosted account, or hosted database. Enterprise uses a pinned public release and versioned public contracts.
-
-The default community deployment uses one application image and public port with external PostgreSQL. Repository boundaries do not require extra runtime containers. Enterprise deployment and hosted UI composition are maintained in the private repository.
-
-Reuse the niu.io brand assets and theme tokens under `branding/`. The console builds those assets into its static output. Each repository packages its required brand assets with its own release; builds do not reference another local checkout.
+The public product builds from this checkout. Its application image serves the site, docs, console, and APIs from one listener, with PostgreSQL as an external service. Builds use the checked-in brand assets and theme tokens under `branding/`; they do not depend on another local checkout.

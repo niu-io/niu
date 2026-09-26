@@ -1,0 +1,36 @@
+# Public Render Blueprint for the Niu gateway.
+# Sync only in the Render workspace you intend to manage.
+previews:
+  generation: "off"
+
+services:
+  - type: web
+    name: niu-public-gateway
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: 0.5c-512mb
+    # Button-created instances only deploy new commits when triggered manually.
+    autoDeployTrigger: "off"
+    healthCheckPath: /readyz
+    envVars:
+      - key: NIU_DATABASE_URL
+        fromDatabase:
+          name: niu-public-postgres
+          property: connectionString
+      # Generate the root admin credential privately in the Render workspace.
+      - key: NIU_ADMIN_TOKENS
+        generateValue: true
+      # The value is entered into Render during Blueprint creation, not Git.
+      - key: OPENAI_API_KEY
+        sync: false
+
+databases:
+  - name: niu-public-postgres
+    databaseName: niu
+    user: niu
+    # A paid plan keeps production data beyond Render's 30-day free database limit.
+    plan: 0.5c-1g
+    postgresMajorVersion: "17"
+    # The gateway connects over Render's private network.
+    ipAllowList: []

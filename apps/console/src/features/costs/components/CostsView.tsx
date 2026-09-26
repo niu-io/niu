@@ -1,7 +1,8 @@
-import { money } from '@/lib/money';
-import { useEffect, useState } from 'react';
+import { amountToNanos, money } from '@/lib/money';
+import { useEffect, useState, type FormEvent } from 'react';
 import { RefreshCw, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
@@ -16,7 +17,7 @@ type Entry = {
 };
 type Report = { budget: Budget | null; data: Entry[]; next_cursor: string | null };
 
-export default function CostsPage({ token }: { token: string }) {
+export default function CostsView({ token }: { token: string }) {
   const [organizations, setOrganizations] = useState<Named[]>([]);
   const [projects, setProjects] = useState<Named[]>([]);
   const [organization, setOrganization] = useState('');
@@ -25,6 +26,11 @@ export default function CostsPage({ token }: { token: string }) {
   const [revision, setRevision] = useState(0);
   const [report, setReport] = useState<Report | null>(null);
   const [error, setError] = useState('');
+  const [budgetCurrency, setBudgetCurrency] = useState('USD');
+  const [budgetAmount, setBudgetAmount] = useState('100.00');
+  const [budgetError, setBudgetError] = useState('');
+  const [budgetNotice, setBudgetNotice] = useState('');
+  const [savingBudget, setSavingBudget] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -61,6 +67,36 @@ export default function CostsPage({ token }: { token: string }) {
     return () => controller.abort();
   }, [token, organization, project, cursor, revision]);
 
+  async function createBudget(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBudgetError(''); setBudgetNotice('');
+    const currency = budgetCurrency.trim().toUpperCase();
+    if (!/^[A-Z]{3}$/.test(currency)) {
+      setBudgetError('Enter a 3-letter currency code, such as USD.');
+      return;
+    }
+    let limitNanos: string;
+    try { limitNanos = amountToNanos(budgetAmount); }
+    catch (cause) { setBudgetError((cause as Error).message); return; }
+
+    setSavingBudget(true);
+    try {
+      const response = await fetch(`/admin/v1/organizations/${organization}/projects/${project}/budget`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ currency, limit_nanos: limitNanos }),
+      });
+      const body = await response.json().catch(() => null) as { error?: { message?: string } } | null;
+      if (!response.ok) throw new Error(body?.error?.message ?? 'Unable to save this budget. Try again.');
+      setBudgetNotice('Lifetime project budget saved.');
+      setRevision(value => value + 1);
+    } catch (cause) {
+      setBudgetError((cause as Error).message);
+    } finally {
+      setSavingBudget(false);
+    }
+  }
+
   return <>
     <div className="page-heading"><div><p className="eyebrow">COST MANAGEMENT</p><h1>Usage & cost</h1><p className="page-subtitle">Durable project budgets and settled per-attempt charges.</p></div>
       <Button variant="outline" disabled={!project || loading} onClick={() => { setCursor(null); setRevision(x => x + 1); }}><RefreshCw />Refresh</Button>
@@ -77,14 +113,23 @@ export default function CostsPage({ token }: { token: string }) {
       <p>Settled charges only. Unsettled attempts may still incur cost. Subscription fee allocations and capacity reports are not included yet.</p>
     </section>
     {error && <p role="alert" className="error-text">{error}</p>}
+    {budgetNotice && <p role="status" className="success-text">{budgetNotice}</p>}
     {loading && <p role="status">Loading accounting records…</p>}
     {!project && <p className="page-subtitle">Select a project to inspect its accounting records.</p>}
     {report && <>
-      <section className="panel keys-controls"><h2>Lifetime cash budget</h2>
+      <section className="panel keys-controls budget-panel"><div className="budget-panel-heading"><div><h2>Lifetime cash budget</h2><p>Project-level cash limit</p></div>{report.budget && <Badge variant="secondary">Configured</Badge>}</div>
         {report.budget ? <dl className="budget-grid">
           {([['Limit', report.budget.limit_nanos], ['Reserved exposure', report.budget.reserved_nanos], ['Settled cash spend', report.budget.spent_nanos]] as const).map(([label, value]) =>
             <div key={label}><dt>{label}</dt><dd>{money(value, report.budget!.currency)}</dd></div>)}
-        </dl> : <p>No cash budget configured. This does not mean a zero spending limit.</p>}
+        </dl> : <>
+          <form className="budget-setup-form" onSubmit={createBudget}>
+            <Label htmlFor="budget-amount">Cash limit<Input id="budget-amount" inputMode="decimal" autoComplete="off" required value={budgetAmount} onChange={event => setBudgetAmount(event.target.value)} /></Label>
+            <Label htmlFor="budget-currency">Currency code<Input id="budget-currency" autoComplete="off" maxLength={3} required value={budgetCurrency} onChange={event => setBudgetCurrency(event.target.value.toUpperCase())} /></Label>
+            <Button type="submit" disabled={savingBudget || loading}>{savingBudget ? 'Saving…' : 'Set lifetime budget'}</Button>
+          </form>
+          {budgetError && <p role="alert" className="error-text budget-form-error">{budgetError}</p>}
+          <p className="budget-policy-note">Enforcement requires a model route with configured pricing and operator-attested token bounds. Unpriced routes are not capped by this budget.</p>
+        </>}
       </section>
       <section className="panel"><div className="panel-heading"><div><h2>Settled attempts</h2><p>Live ledger ordered by attempt ID. Refresh to restart traversal.</p></div></div>
         <Table><TableHeader><TableRow><TableHead>ATTEMPT</TableHead><TableHead>CASH COST</TableHead><TableHead>API-EQUIVALENT</TableHead><TableHead>INPUT / OUTPUT TOKENS</TableHead><TableHead>BOUND</TableHead></TableRow></TableHeader>

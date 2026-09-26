@@ -30,6 +30,22 @@ pub struct ModelConfig {
     pub upstream_model: String,
     pub api_key_env: String,
     #[serde(default)]
+    pub public_catalog: bool,
+    #[serde(default)]
+    pub supports_embeddings: bool,
+    #[serde(default)]
+    pub supports_embedding_dimensions: bool,
+    #[serde(default)]
+    pub supports_embedding_base64: bool,
+    #[serde(default)]
+    pub supports_tool_calls: bool,
+    #[serde(default)]
+    pub supports_streaming_tool_calls: bool,
+    #[serde(default)]
+    pub supports_structured_output: bool,
+    #[serde(default)]
+    pub supports_responses: bool,
+    #[serde(default)]
     pub api_base: Option<String>,
     #[serde(default)]
     pub pricing: Option<RoutePricing>,
@@ -118,6 +134,33 @@ impl AppConfig {
             {
                 return Err(ConfigError::Invalid(format!(
                     "model route {name} must set provider, upstream_model, and api_key_env"
+                )));
+            }
+            if model.supports_embeddings && model.provider != "openai" {
+                return Err(ConfigError::Invalid(format!(
+                    "embedding route {name} currently requires the openai-compatible provider"
+                )));
+            }
+            if (model.supports_embedding_dimensions || model.supports_embedding_base64)
+                && !model.supports_embeddings
+            {
+                return Err(ConfigError::Invalid(format!(
+                    "embedding option capabilities on route {name} require supports_embeddings"
+                )));
+            }
+            if (model.supports_tool_calls
+                || model.supports_streaming_tool_calls
+                || model.supports_structured_output
+                || model.supports_responses)
+                && model.provider != "openai"
+            {
+                return Err(ConfigError::Invalid(format!(
+                    "tool-call and structured-output capabilities on route {name} currently require an OpenAI-compatible provider"
+                )));
+            }
+            if model.supports_streaming_tool_calls && !model.supports_tool_calls {
+                return Err(ConfigError::Invalid(format!(
+                    "streaming tool-call capability on route {name} requires supports_tool_calls"
                 )));
             }
             if let Some(price) = &model.pricing {
@@ -218,5 +261,65 @@ mod tests {
             .expect("configuration shape should parse");
             assert!(config.validate().is_err(), "accepted unsafe URL {api_base}");
         }
+    }
+
+    #[test]
+    fn embedding_capabilities_require_an_openai_compatible_embedding_route() {
+        for route in [
+            "provider = \"anthropic\"\nsupports_embeddings = true",
+            "provider = \"openai\"\nsupports_embedding_dimensions = true",
+            "provider = \"openai\"\nsupports_embedding_base64 = true",
+        ] {
+            let config: AppConfig = toml::from_str(&format!(
+                "[models.fast]\n{route}\nupstream_model = \"model-a\"\napi_key_env = \"PROVIDER_KEY\""
+            ))
+            .expect("configuration shape should parse");
+            assert!(config.validate().is_err(), "accepted {route}");
+        }
+
+        let config: AppConfig = toml::from_str(
+            r#"
+                [models.embedding]
+                provider = "openai"
+                upstream_model = "embedding-model"
+                api_key_env = "PROVIDER_KEY"
+                supports_embeddings = true
+                supports_embedding_dimensions = true
+                supports_embedding_base64 = true
+            "#,
+        )
+        .expect("configuration shape should parse");
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn tool_and_structured_output_capabilities_require_an_openai_compatible_route() {
+        for route in [
+            "provider = \"anthropic\"\nsupports_tool_calls = true",
+            "provider = \"bedrock\"\nsupports_structured_output = true",
+            "provider = \"openai\"\nsupports_streaming_tool_calls = true",
+            "provider = \"anthropic\"\nsupports_responses = true",
+        ] {
+            let config: AppConfig = toml::from_str(&format!(
+                "[models.fast]\n{route}\nupstream_model = \"model-a\"\napi_key_env = \"PROVIDER_KEY\""
+            ))
+            .expect("configuration shape should parse");
+            assert!(config.validate().is_err(), "accepted {route}");
+        }
+
+        let config: AppConfig = toml::from_str(
+            r#"
+                [models.fast]
+                provider = "openai"
+                upstream_model = "model-a"
+                api_key_env = "PROVIDER_KEY"
+                supports_tool_calls = true
+                supports_streaming_tool_calls = true
+                supports_structured_output = true
+                supports_responses = true
+            "#,
+        )
+        .expect("configuration shape should parse");
+        assert!(config.validate().is_ok());
     }
 }

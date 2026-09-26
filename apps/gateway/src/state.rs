@@ -94,11 +94,26 @@ impl AppState {
             .map_err(ApiError::from_store)
     }
 
-    pub fn authorize_admin(&self, header: Option<&str>) -> Result<(), ApiError> {
+    pub async fn authorize_admin(
+        &self,
+        header: Option<&str>,
+        permission: niu_storage::AdminPermission,
+    ) -> Result<(), ApiError> {
         if self.admin_tokens.matches(header) {
+            return Ok(());
+        }
+        let token = header
+            .and_then(|value| value.strip_prefix("Bearer "))
+            .ok_or_else(ApiError::unauthorized)?;
+        let role = self
+            .store
+            .authenticate_operator(token)
+            .await
+            .map_err(ApiError::from_store)?;
+        if role.permits(permission) {
             Ok(())
         } else {
-            Err(ApiError::unauthorized())
+            Err(ApiError::forbidden())
         }
     }
 }
@@ -145,6 +160,7 @@ fn hash(token: &str) -> [u8; 32] {
 #[cfg(test)]
 mod tests {
     use super::TokenSet;
+    use niu_storage::{AdminPermission, OperatorRole};
 
     #[test]
     fn bearer_auth_requires_a_configured_full_token() {
@@ -165,5 +181,23 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn operator_roles_grant_only_their_declared_admin_permissions() {
+        for role in [
+            OperatorRole::Owner,
+            OperatorRole::Admin,
+            OperatorRole::Viewer,
+        ] {
+            assert!(role.permits(AdminPermission::Read));
+        }
+        for role in [OperatorRole::Owner, OperatorRole::Admin] {
+            assert!(role.permits(AdminPermission::Write));
+        }
+        assert!(!OperatorRole::Viewer.permits(AdminPermission::Write));
+        assert!(OperatorRole::Owner.permits(AdminPermission::ManageOperators));
+        assert!(!OperatorRole::Admin.permits(AdminPermission::ManageOperators));
+        assert!(!OperatorRole::Viewer.permits(AdminPermission::ManageOperators));
     }
 }

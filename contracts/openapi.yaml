@@ -31,6 +31,14 @@ paths:
           description: Available public model names.
         '401':
           description: Missing or invalid gateway credentials.
+  /catalog/v1/models:
+    get:
+      operationId: listPublicCatalogModels
+      summary: List model aliases explicitly published by the gateway operator
+      description: Returns only aliases with public_catalog enabled. Provider names, upstream identifiers, endpoints, credentials and prices are omitted.
+      responses:
+        '200':
+          description: Public model aliases and declared capabilities.
   /v1/chat/completions:
     post:
       operationId: createChatCompletion
@@ -51,6 +59,16 @@ paths:
                   type: array
                   items:
                     type: object
+                tools:
+                  type: array
+                  minItems: 1
+                  maxItems: 128
+                  items:
+                    $ref: '#/components/schemas/ChatFunctionTool'
+                tool_choice:
+                  $ref: '#/components/schemas/ChatToolChoice'
+                response_format:
+                  $ref: '#/components/schemas/ChatResponseFormat'
               additionalProperties: true
       responses:
         '200':
@@ -59,9 +77,77 @@ paths:
           description: Invalid request or unsupported operation.
         '401':
           description: Missing or invalid gateway credentials.
+        '501':
+          description: The requested tool or structured-output capability is disabled for this route.
         '502':
           description: Provider request failed.
-      x-niu-status: Implemented for configured native provider routes; streaming is limited to OpenAI-compatible routes.
+      x-niu-status: Basic chat is implemented for configured native provider routes. Function tools, streaming tool deltas, and structured JSON are opt-in on OpenAI-compatible routes only. Niu validates tool-call shape and JSON output, but does not execute tools or validate JSON Schema semantics. Structured JSON streaming and priced tool calls are unsupported.
+  /v1/embeddings:
+    post:
+      operationId: createEmbedding
+      summary: Create OpenAI-compatible text embeddings
+      description: The configured route must use provider openai and explicitly declare embedding support. Optional dimensions and base64 output require separate route capabilities. These declarations are operator assertions, not provider conformance evidence. Unsupported providers or capabilities are rejected before durable operation and attempt creation.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmbeddingRequest'
+      responses:
+        '200':
+          description: One validated embedding per input item; the configured upstream model is replaced with the public model alias.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmbeddingResponse'
+        '400':
+          description: Invalid body, unsupported field, or invalid input shape.
+        '413':
+          description: Request body exceeds the gateway's configured body limit.
+        '401':
+          description: Missing or invalid gateway credentials.
+        '404':
+          description: Model alias does not exist or is unavailable to this key.
+        '501':
+          description: Configured provider or declared route capability does not support this operation.
+        '502':
+          description: Provider request failed or returned an invalid embedding response.
+        '422':
+          description: Request body is not valid JSON.
+      x-niu-status: OpenAI-compatible text inputs and float/base64 response vectors; no token-ID arrays, multimodal inputs, or streaming.
+  /v1/responses:
+    post:
+      operationId: createResponse
+      summary: Create a non-streaming text response
+      description: The route must be an OpenAI-compatible provider route with supports_responses enabled. This public subset accepts a single text input and optional text instructions, output limit, sampling values, metadata and user identifier. Streaming, multimodal input, tools, prior-response state and other fields are rejected.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResponsesRequest'
+      responses:
+        '200':
+          description: A validated Responses API text response with the public model alias.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponsesResponse'
+        '400':
+          description: Invalid body, unsupported field or invalid request shape.
+        '401':
+          description: Missing or invalid gateway credentials.
+        '404':
+          description: Model alias does not exist or is unavailable to this key.
+        '501':
+          description: Responses support is disabled for the route or streaming was requested.
+        '502':
+          description: Provider request failed or returned an invalid text response.
+      x-niu-status: Non-streaming, text-only subset on explicitly configured OpenAI-compatible routes. The gateway validates response item types and usage shape. Tool, multimodal, streaming and stateful conversation semantics are not implemented.
   /admin/v1/models:
     get:
       operationId: adminListModels
@@ -70,9 +156,133 @@ paths:
         - adminBearerAuth: []
       responses:
         '200':
-          description: Public and upstream model names with provider identifiers.
+          description: Public and upstream model names with provider identifiers and catalog visibility.
         '401':
           description: Missing or invalid administrator credentials.
+  /admin/v1/operators:
+    get:
+      operationId: adminListOperators
+      summary: List operator identities without session credentials
+      description: Requires the owner role or a configured bootstrap administrator token. List responses contain session identifiers and expiry metadata but never token hashes or bearer tokens.
+      security:
+        - adminBearerAuth: []
+      responses:
+        '200':
+          description: Persistent operator identities and assigned roles.
+        '401':
+          description: Missing, invalid, expired or revoked credentials.
+        '403':
+          description: The authenticated operator is not an owner.
+    post:
+      operationId: adminCreateOperator
+      summary: Create an operator and issue its first session token
+      description: Requires the owner role or a configured bootstrap administrator token. The bearer token is returned once and is never retrievable from list APIs.
+      security:
+        - adminBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OperatorInput'
+      responses:
+        '201':
+          description: Operator and session created; response includes Cache-Control no-store.
+        '400':
+          description: Invalid role, name or session lifetime.
+        '401':
+          description: Missing, invalid, expired or revoked credentials.
+        '403':
+          description: The authenticated operator is not an owner.
+  /admin/v1/operators/{operator}:
+    delete:
+      operationId: adminRevokeOperator
+      summary: Revoke an operator and all of its sessions
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: operator
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Operator and active sessions revoked.
+        '401':
+          description: Missing, invalid, expired or revoked credentials.
+        '403':
+          description: The authenticated operator is not an owner.
+        '409':
+          description: Operator was already revoked or does not exist.
+  /admin/v1/operators/{operator}/sessions:
+    get:
+      operationId: adminListOperatorSessions
+      summary: List session expiry and revocation metadata
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: operator
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Session identifiers and expiry metadata; credentials are never returned.
+        '401':
+          description: Missing, invalid, expired or revoked credentials.
+        '403':
+          description: The authenticated operator is not an owner.
+    post:
+      operationId: adminIssueOperatorSession
+      summary: Issue an additional one-time operator session token
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: operator
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OperatorSessionInput'
+      responses:
+        '201':
+          description: Session created; response includes Cache-Control no-store and the token is shown once.
+        '400':
+          description: Session lifetime is outside the supported range.
+        '401':
+          description: Missing, invalid, expired or revoked credentials.
+        '403':
+          description: The authenticated operator is not an owner.
+        '409':
+          description: Operator is unavailable.
+  /admin/v1/operators/{operator}/sessions/{session}:
+    delete:
+      operationId: adminRevokeOperatorSession
+      summary: Revoke one operator session
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: operator
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: session
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Session revoked.
+        '401':
+          description: Missing, invalid, expired or revoked credentials.
+        '403':
+          description: The authenticated operator is not an owner.
+        '409':
+          description: Session was already revoked or does not exist.
   /admin/v1/metrics:
     get:
       operationId: adminGetMetrics
@@ -108,6 +318,34 @@ paths:
                         type: integer
                       completion_tokens:
                         type: integer
+  /admin/v1/benchmarks/compare:
+    post:
+      operationId: analyzePairedBenchmark
+      summary: Analyze a matched, opt-in paired benchmark dataset
+      description: Stateless analysis of imported execution records and settled amounts. This operation never dispatches model work, reserves budget, or persists a report.
+      security:
+        - adminBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PairedExperimentV1'
+      responses:
+        '200':
+          description: Paired outcome, exact cost, coverage and uncertainty report.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PairedExperimentReportV1'
+        '400':
+          description: Invalid dataset, mismatched trial, incomplete cost evidence, or budget limit exceeded.
+        '401':
+          description: Invalid installation administrator token.
   /admin/v1/organizations:
     get:
       operationId: listOrganizations
@@ -309,9 +547,127 @@ paths:
           schema: { type: string, format: uuid }
       responses:
         '200':
-          description: Account registered as unverified, or metadata returned. Registration does not activate inference.
+          description: Latest quota sample for each provider window. Freshness and reset timestamps remain explicit; BIGINT quantities are decimal strings for JavaScript precision.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/QuotaWindowViewV1' }
         '401':
           description: Invalid administrator token.
+    post:
+      operationId: importAccountQuotaObservation
+      summary: Import a versioned provider quota window observation
+      description: Records an observation only. It does not call the provider, dispatch inference, or reset provider allowance. Exact replay returns the original ID; a different payload for the same account, window, and observation timestamp returns 409.
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: organization
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: project
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: account
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/QuotaObservationV1' }
+      responses:
+        '201':
+          description: Observation persisted.
+        '400':
+          description: Invalid or future observation.
+        '401':
+          description: Invalid administrator token.
+        '409':
+          description: Duplicate observation for this provider window and timestamp.
+    delete:
+      operationId: deleteAccountQuotaWindowHistory
+      summary: Delete imported samples for one provider quota window
+      description: Permanently removes every imported sample for the selected account window, including its comparison baseline. It does not call the provider, change account state, alter inference attempts, or modify the cost ledger.
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: organization
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: project
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: account
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: window_key
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 200 }
+      responses:
+        '200':
+          description: Window history removed. The response includes the number of samples deleted; repeating the same request deletes zero additional samples.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [window_key, deleted_count]
+                properties:
+                  window_key: { type: string }
+                  deleted_count: { type: integer, minimum: 0 }
+        '400':
+          description: Missing or invalid window key.
+        '401':
+          description: Invalid administrator token.
+        '409':
+          description: Supplier account is not in the requested project.
+  /admin/v1/organizations/{organization}/projects/{project}/accounts/{account}/executions:
+    get:
+      operationId: listExecutionsForAccount
+      summary: Find imported tasks linked to an account's assigned attempts
+      description: Returns bounded metadata-only execution summaries whose span charge_ref matches an attempt UUID assigned to this account. Other reference namespaces remain unlinked.
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: organization
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: project
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: account
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Up to 100 metadata-only task links, newest import first.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/ExecutionTaskLinkV1' }
+        '401':
+          description: Invalid administrator token.
+        '409':
+          description: Account is not available in this project.
   /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/rotate:
     post:
       operationId: rotateKey
@@ -428,37 +784,21 @@ paths:
           description: Administrator authentication required.
         '400':
           description: Invalid path or query parameter.
-  /admin/v1/organizations/{organization}/projects/{project}/execution-imports:
-    get:
-      operationId: listExecutionImports
-      summary: List scoped execution metadata summaries
+  /admin/v1/setup/default-workspace:
+    post:
+      operationId: getOrCreateDefaultWorkspace
+      summary: Get or create the installation's default workspace
       security:
         - adminBearerAuth: []
-      parameters:
-        - name: organization
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-        - name: project
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-        - name: after
-          in: query
-          schema: { type: string, format: uuid }
-        - name: limit
-          in: query
-          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
       responses:
         '200':
-          description: Data summaries with id, source, record_id, task_id and coverage, plus nullable next_cursor. Live traversal in ascending UUID order, not chronological or a fixed snapshot. Cache-Control is no-store.
+          description: Stable default organization and project IDs. No API keys are created.
         '401':
           description: Administrator authentication required.
-        '400':
-          description: Invalid query parameters.
+  /admin/v1/organizations/{organization}/projects/{project}/collector-keys:
     post:
-      operationId: importExecution
-      summary: Import a validated metadata-only execution record
+      operationId: issueCollectorKey
+      summary: Issue a scoped quota-observation collector credential
       security:
         - adminBearerAuth: []
       parameters:
@@ -476,22 +816,106 @@ paths:
           application/json:
             schema:
               type: object
-              description: ExecutionRecord v1 as defined in docs/architecture/execution-observation.md and the public typed contract; 1 MiB maximum. Unknown fields are rejected.
+              additionalProperties: false
+              required: [name, ttl_seconds]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 200 }
+                ttl_seconds: { type: integer, minimum: 60, maximum: 31536000 }
       responses:
         '200':
-          description: Stable id for a first import or identical replay.
+          description: Collector ID and one-time bearer token. Store the token securely; it is not returned again.
         '401':
           description: Administrator authentication required.
-        '404':
-          description: Record absent from the project.
+  /admin/v1/organizations/{organization}/projects/{project}/collector-keys/{id}:
+    delete:
+      operationId: revokeCollectorKey
+      summary: Revoke a scoped collector credential
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: organization
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: project
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Collector credential revoked.
+        '401':
+          description: Administrator authentication required.
+  /admin/v1/organizations/{organization}/projects/{project}/execution-imports:
+    get:
+      operationId: listExecutionImports
+      summary: List scoped execution metadata summaries
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: organization
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: project
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: task_id
+          in: query
+          schema: { type: string, maxLength: 200 }
+        - name: after
+          in: query
+          schema: { type: string, format: uuid }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        '200':
+          description: Data summaries and nullable next_cursor in stable UUID order. This live traversal is not chronological or a fixed snapshot.
+        '400':
+          description: Invalid query parameters.
+        '401':
+          description: Administrator authentication required.
+    post:
+      operationId: importExecution
+      summary: Import a validated metadata-only execution record
+      description: Imports are idempotent by tenant, source and record_id. Identical JSON returns the existing ID; conflicting content returns 409. Importing does not execute work or create financial entries.
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: organization
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: project
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ExecutionRecordV1' }
+      responses:
+        '201':
+          description: Record imported for the first time.
+        '200':
+          description: Identical record already existed; the ID is unchanged.
+        '400':
+          description: Invalid record, size, interval, reference, or graph.
+        '401':
+          description: Administrator authentication required.
         '409':
           description: Source and record identity already has different content.
-        '400':
-          description: Invalid execution graph or record version.
   /admin/v1/organizations/{organization}/projects/{project}/execution-imports/{id}:
     get:
       operationId: getExecutionImport
-      summary: Read an imported execution record
+      summary: Read one imported execution record and resolved evidence
       security:
         - adminBearerAuth: []
       parameters:
@@ -509,15 +933,11 @@ paths:
           schema: { type: string, format: uuid }
       responses:
         '200':
-          description: Scoped imported record with Cache-Control no-store.
+          description: Metadata record, scoped account links, and explicitly referenced settled charges. The task total is always marked incomplete; cache control is no-store.
         '401':
           description: Administrator authentication required.
         '404':
-          description: Record absent from the project.
-        '409':
-          description: Source and record identity already has different content.
-        '400':
-          description: Invalid execution graph or record version.
+          description: Record absent from this project.
     delete:
       operationId: deleteExecutionImport
       summary: Delete imported execution metadata
@@ -538,17 +958,697 @@ paths:
           schema: { type: string, format: uuid }
       responses:
         '204':
-          description: Imported metadata removed; canonical accounting records unchanged.
+          description: Metadata record deleted; canonical accounting records are unchanged.
         '401':
           description: Administrator authentication required.
         '404':
-          description: Record absent from the project.
-        '409':
-          description: Source and record identity already has different content.
-        '400':
-          description: Invalid execution graph or record version.
+          description: Record absent from this project.
+  /admin/v1/organizations/{organization}/projects/{project}/executions/cohort:
+    get:
+      operationId: getExecutionCohort
+      summary: Summarize observed task outcomes and linked canonical costs
+      description: Scans at most 10,000 imported records in UUID order. This is a live view, not a snapshot. Cost references resolve only to scoped attempt UUIDs; invoice cash and subscription allocation cash are not imported, and quota samples have no task attribution.
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: organization
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: project
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Bounded cohort outcome, work, accounting-evidence and capacity summary.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/ExecutionCohortV1' }
+        '401':
+          description: Administrator authentication required.
+  /admin/v1/organizations/{organization}/projects/{project}/executions:
+    get:
+      operationId: listExecutionsAlias
+      summary: Alias for listing execution imports
+      description: Uses the same cursor and filter contract as execution-imports.
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: organization
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: project
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: task_id
+          in: query
+          schema: { type: string, maxLength: 200 }
+        - name: after
+          in: query
+          schema: { type: string, format: uuid }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        '200':
+          description: Data summaries and nullable next_cursor.
+        '401':
+          description: Administrator authentication required.
+    post:
+      operationId: createExecutionAlias
+      summary: Alias for importing an execution record
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: organization
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: project
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ExecutionRecordV1' }
+      responses:
+        '200': { description: Identical record already existed. }
+        '201': { description: Record imported for the first time. }
+  /admin/v1/organizations/{organization}/projects/{project}/executions/{execution}:
+    get:
+      operationId: getExecutionAlias
+      summary: Alias for reading one imported execution
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: organization
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: project
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: execution
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Record, account links and resolved referenced charges.
+        '401':
+          description: Administrator authentication required.
+        '404':
+          description: Record absent from this project.
+    delete:
+      operationId: deleteExecutionAlias
+      summary: Alias for deleting imported execution metadata
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: organization
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: project
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: execution
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204': { description: Metadata record deleted. }
+        '401': { description: Administrator authentication required. }
+        '404': { description: Record absent from this project. }
 components:
   schemas:
+    OperatorInput:
+      type: object
+      additionalProperties: false
+      required: [name, role, expires_in_seconds]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        role: { type: string, enum: [owner, admin, viewer] }
+        expires_in_seconds: { type: integer, minimum: 60, maximum: 31536000 }
+    OperatorSessionInput:
+      type: object
+      additionalProperties: false
+      required: [expires_in_seconds]
+      properties:
+        expires_in_seconds: { type: integer, minimum: 60, maximum: 31536000 }
+    ChatFunctionTool:
+      type: object
+      required: [type, function]
+      properties:
+        type: { type: string, const: function }
+        function:
+          type: object
+          required: [name]
+          properties:
+            name:
+              type: string
+              minLength: 1
+              maxLength: 64
+              pattern: '^[A-Za-z0-9_-]+$'
+            description: { type: string }
+            parameters:
+              type: object
+              description: JSON Schema object forwarded to the configured provider.
+              additionalProperties: true
+            strict: { type: boolean }
+          additionalProperties: true
+      additionalProperties: true
+    ChatToolChoice:
+      oneOf:
+        - type: string
+          enum: [none, auto, required]
+        - type: object
+          required: [type, function]
+          properties:
+            type: { type: string, const: function }
+            function:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 64 }
+          additionalProperties: true
+    ChatResponseFormat:
+      oneOf:
+        - type: object
+          required: [type]
+          properties:
+            type: { type: string, const: text }
+          additionalProperties: true
+        - type: object
+          required: [type]
+          properties:
+            type: { type: string, const: json_object }
+          additionalProperties: true
+        - type: object
+          required: [type, json_schema]
+          properties:
+            type: { type: string, const: json_schema }
+            json_schema:
+              type: object
+              required: [name, schema]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 64 }
+                description: { type: string }
+                strict: { type: boolean }
+                schema: { type: object, additionalProperties: true }
+              additionalProperties: true
+          additionalProperties: true
+    ResponsesRequest:
+      type: object
+      additionalProperties: false
+      required: [model, input]
+      properties:
+        model: { type: string, minLength: 1 }
+        input: { type: string, minLength: 1 }
+        instructions: { type: string }
+        max_output_tokens: { type: integer, minimum: 1, maximum: 1000000 }
+        temperature: { type: number, minimum: 0, maximum: 2 }
+        top_p: { type: number, minimum: 0, maximum: 1 }
+        metadata:
+          type: object
+          maxProperties: 16
+          additionalProperties: { type: string, maxLength: 512 }
+        user: { type: string, maxLength: 512 }
+        stream: { type: boolean, const: false, default: false }
+    ResponsesOutputText:
+      type: object
+      required: [type, text]
+      properties:
+        type: { type: string, const: output_text }
+        text: { type: string }
+        annotations: { type: array, items: { type: object } }
+      additionalProperties: true
+    ResponsesRefusal:
+      type: object
+      required: [type, refusal]
+      properties:
+        type: { type: string, const: refusal }
+        refusal: { type: string }
+      additionalProperties: true
+    ResponsesMessage:
+      type: object
+      required: [type, role, content]
+      properties:
+        id: { type: string }
+        type: { type: string, const: message }
+        role: { type: string, const: assistant }
+        status: { type: string }
+        content:
+          type: array
+          minItems: 1
+          items:
+            oneOf:
+              - $ref: '#/components/schemas/ResponsesOutputText'
+              - $ref: '#/components/schemas/ResponsesRefusal'
+      additionalProperties: true
+    ResponsesReasoning:
+      type: object
+      required: [type]
+      properties:
+        id: { type: string }
+        type: { type: string, const: reasoning }
+        summary: { type: array }
+        encrypted_content: { type: string }
+      additionalProperties: true
+    ResponsesResponse:
+      type: object
+      required: [id, object, status, model, output]
+      properties:
+        id: { type: string, minLength: 1 }
+        object: { type: string, const: response }
+        status:
+          type: string
+          enum: [completed, incomplete]
+        model: { type: string }
+        output:
+          type: array
+          minItems: 1
+          items:
+            oneOf:
+              - $ref: '#/components/schemas/ResponsesMessage'
+              - $ref: '#/components/schemas/ResponsesReasoning'
+        usage:
+          type: object
+          required: [input_tokens, output_tokens]
+          properties:
+            input_tokens: { type: integer, minimum: 0 }
+            output_tokens: { type: integer, minimum: 0 }
+            total_tokens: { type: integer, minimum: 0 }
+          additionalProperties: true
+      additionalProperties: true
+    EmbeddingRequest:
+      type: object
+      additionalProperties: false
+      required: [model, input]
+      properties:
+        model: { type: string, minLength: 1 }
+        input:
+          oneOf:
+            - type: string
+              minLength: 1
+            - type: array
+              minItems: 1
+              maxItems: 2048
+              items: { type: string, minLength: 1 }
+        encoding_format:
+          type: string
+          enum: [float, base64]
+          default: float
+        dimensions: { type: integer, minimum: 1, maximum: 65536 }
+        user: { type: string, maxLength: 512 }
+    EmbeddingResponse:
+      type: object
+      required: [object, data, model]
+      properties:
+        object: { type: string, const: list }
+        data:
+          type: array
+          items:
+            type: object
+            required: [embedding]
+            properties:
+              object: { type: string, const: embedding }
+              index: { type: integer, minimum: 0 }
+              embedding:
+                oneOf:
+                  - type: array
+                    items: { type: number }
+                  - type: string
+            additionalProperties: true
+        model: { type: string }
+        usage:
+          type: object
+          properties:
+            prompt_tokens: { type: integer, minimum: 0 }
+            total_tokens: { type: integer, minimum: 0 }
+          additionalProperties: true
+      additionalProperties: true
+    PairedExperimentV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, mode, opt_in, authorization_ref, candidates, tasks, repetitions, acceptance, cash_budget, trials]
+      properties:
+        schema_version: { type: integer, const: 1 }
+        mode: { type: string, const: paired_experiment }
+        opt_in: { type: boolean, const: true }
+        authorization_ref: { type: string, minLength: 1 }
+        candidates:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items: { $ref: '#/components/schemas/BenchmarkCandidateV1' }
+        tasks:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/BenchmarkTaskSnapshotV1' }
+        repetitions: { type: integer, minimum: 1, maximum: 100 }
+        acceptance: { $ref: '#/components/schemas/BenchmarkAcceptanceV1' }
+        cash_budget: { $ref: '#/components/schemas/BenchmarkBudgetV1' }
+        trials:
+          type: array
+          minItems: 2
+          maxItems: 10000
+          items: { $ref: '#/components/schemas/BenchmarkTrialV1' }
+    BenchmarkCandidateV1:
+      type: object
+      additionalProperties: false
+      required: [id, model_alias, offer_revision]
+      properties:
+        id: { type: string, minLength: 1 }
+        model_alias: { type: string, minLength: 1 }
+        offer_revision: { type: string, minLength: 1 }
+    BenchmarkTaskSnapshotV1:
+      type: object
+      additionalProperties: false
+      required: [id, snapshot_sha256, tools_sha256, permissions_sha256, acceptance_sha256]
+      properties:
+        id: { type: string, minLength: 1 }
+        snapshot_sha256: { type: string, pattern: '^[A-Fa-f0-9]{64}$' }
+        tools_sha256: { type: string, pattern: '^[A-Fa-f0-9]{64}$' }
+        permissions_sha256: { type: string, pattern: '^[A-Fa-f0-9]{64}$' }
+        acceptance_sha256: { type: string, pattern: '^[A-Fa-f0-9]{64}$' }
+    BenchmarkAcceptanceV1:
+      type: object
+      additionalProperties: false
+      required: [max_latency_ms, min_quality_basis_points]
+      properties:
+        max_latency_ms: { type: integer, minimum: 0 }
+        min_quality_basis_points: { type: integer, minimum: 0, maximum: 10000 }
+    BenchmarkBudgetV1:
+      type: object
+      additionalProperties: false
+      required: [currency, limit_nanos]
+      properties:
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        limit_nanos: { type: string, pattern: '^[0-9]+$' }
+    BenchmarkTrialV1:
+      type: object
+      additionalProperties: false
+      required: [task_snapshot_id, candidate_id, offer_revision, repetition, execution, costs]
+      properties:
+        task_snapshot_id: { type: string, minLength: 1 }
+        candidate_id: { type: string, minLength: 1 }
+        offer_revision: { type: string, minLength: 1 }
+        repetition: { type: integer, minimum: 1 }
+        execution: { $ref: '#/components/schemas/ExecutionRecordV1' }
+        quality_basis_points: { type: [integer, 'null'], minimum: 0, maximum: 10000 }
+        costs: { $ref: '#/components/schemas/BenchmarkTrialCostsV1' }
+    BenchmarkTrialCostsV1:
+      type: object
+      additionalProperties: false
+      required: [currency, api_equivalent_nanos, evaluator_api_equivalent_nanos, cash_nanos, evaluator_cash_nanos, complete]
+      properties:
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        api_equivalent_nanos: { type: string, pattern: '^[0-9]+$' }
+        evaluator_api_equivalent_nanos: { type: string, pattern: '^[0-9]+$' }
+        cash_nanos: { type: string, pattern: '^[0-9]+$' }
+        evaluator_cash_nanos: { type: string, pattern: '^[0-9]+$' }
+        complete: { type: boolean, const: true }
+    PairedExperimentReportV1:
+      type: object
+      required: [schema_version, evidence_kind, authorization_ref, currency, cash_budget_nanos, total_cash_nanos, api_equivalent_nanos, candidates, pairs, paired_uncertainty_95, diagnostics, limits]
+      properties:
+        schema_version: { type: integer, const: 1 }
+        evidence_kind: { type: string, const: paired_experiment }
+        authorization_ref: { type: string }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        cash_budget_nanos: { type: string, pattern: '^[0-9]+$' }
+        total_cash_nanos: { type: string, pattern: '^[0-9]+$' }
+        api_equivalent_nanos: { type: string, pattern: '^[0-9]+$' }
+        candidates:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items: { $ref: '#/components/schemas/BenchmarkCandidateReportV1' }
+        pairs:
+          type: array
+          items: { $ref: '#/components/schemas/BenchmarkPairResultV1' }
+        paired_uncertainty_95: { $ref: '#/components/schemas/BenchmarkWilsonIntervalV1' }
+        diagnostics: { type: array, items: { $ref: '#/components/schemas/BenchmarkDiagnosticV1' } }
+        limits: { type: array, items: { type: string } }
+    BenchmarkCandidateReportV1:
+      type: object
+      required: [candidate_id, model_alias, offer_revision, runs, complete_coverage_runs, source_accepted_runs, qualified_completions, qualification_rate_basis_points, api_equivalent_per_qualified_completion, cash_per_qualified_completion, api_equivalent_nanos, evaluator_api_equivalent_nanos, total_api_equivalent_nanos, cash_nanos, evaluator_cash_nanos, total_cash_nanos, observed_latency_p50_ms, observed_latency_p95_ms]
+      properties:
+        candidate_id: { type: string }
+        model_alias: { type: string }
+        offer_revision: { type: string }
+        runs: { type: integer }
+        complete_coverage_runs: { type: integer }
+        source_accepted_runs: { type: integer }
+        qualified_completions: { type: integer }
+        qualification_rate_basis_points: { type: integer }
+        api_equivalent_per_qualified_completion: { oneOf: [{ $ref: '#/components/schemas/BenchmarkExactRatioV1' }, { type: 'null' }] }
+        cash_per_qualified_completion: { oneOf: [{ $ref: '#/components/schemas/BenchmarkExactRatioV1' }, { type: 'null' }] }
+        api_equivalent_nanos: { type: string, pattern: '^[0-9]+$' }
+        evaluator_api_equivalent_nanos: { type: string, pattern: '^[0-9]+$' }
+        total_api_equivalent_nanos: { type: string, pattern: '^[0-9]+$' }
+        cash_nanos: { type: string, pattern: '^[0-9]+$' }
+        evaluator_cash_nanos: { type: string, pattern: '^[0-9]+$' }
+        total_cash_nanos: { type: string, pattern: '^[0-9]+$' }
+        observed_latency_p50_ms: { type: [integer, 'null'], minimum: 0 }
+        observed_latency_p95_ms: { type: [integer, 'null'], minimum: 0 }
+    BenchmarkExactRatioV1:
+      type: object
+      required: [numerator_nanos, denominator]
+      properties:
+        numerator_nanos: { type: string, pattern: '^[0-9]+$' }
+        denominator: { type: integer, minimum: 1 }
+    BenchmarkPairResultV1:
+      type: object
+      required: [task_snapshot_id, repetition, result]
+      properties:
+        task_snapshot_id: { type: string }
+        repetition: { type: integer, minimum: 1 }
+        result: { type: string, enum: [candidate_a_wins, candidate_b_wins, tie, both_fail_acceptance] }
+    BenchmarkWilsonIntervalV1:
+      type: object
+      required: [wins, losses, ties, both_failed, evaluated_pairs, lower_95, upper_95]
+      properties:
+        wins: { type: integer, minimum: 0 }
+        losses: { type: integer, minimum: 0 }
+        ties: { type: integer, minimum: 0 }
+        both_failed: { type: integer, minimum: 0 }
+        evaluated_pairs: { type: integer, minimum: 0 }
+        lower_95: { type: [number, 'null'], minimum: 0, maximum: 1 }
+        upper_95: { type: [number, 'null'], minimum: 0, maximum: 1 }
+    BenchmarkDiagnosticV1:
+      type: object
+      required: [label, rule, summary, evidence]
+      properties:
+        label: { type: string, const: heuristic }
+        rule: { type: string }
+        summary: { type: string }
+        evidence:
+          type: array
+          items: { $ref: '#/components/schemas/BenchmarkEvidenceLinkV1' }
+    BenchmarkEvidenceLinkV1:
+      type: object
+      required: [candidate_id, task_snapshot_id, record_id, span_ids]
+      properties:
+        candidate_id: { type: string }
+        task_snapshot_id: { type: string }
+        record_id: { type: string }
+        span_ids: { type: array, items: { type: string } }
+    ExecutionCohortV1:
+      type: object
+      required: [records_scanned, record_limit, truncated, coverage, outcomes, outcome_evidence, accepted_completions, work, cost_evidence, api_equivalent_by_currency, configured_rate_cash_by_currency, api_equivalent_per_accepted_completion, configured_rate_cash_per_accepted_completion, invoice_cash, subscription_allocation_cash, capacity]
+      properties:
+        records_scanned: { type: integer, minimum: 0 }
+        record_limit: { type: integer, const: 10000 }
+        truncated: { type: boolean, description: True when more records exist beyond the scan limit. }
+        coverage: { $ref: '#/components/schemas/ExecutionCoverageCountsV1' }
+        outcomes: { $ref: '#/components/schemas/ExecutionOutcomeCountsV1' }
+        outcome_evidence: { $ref: '#/components/schemas/ExecutionOutcomeEvidenceCountsV1' }
+        accepted_completions: { type: integer, minimum: 0, description: Requires deterministic validator or human acceptance evidence and no conflicting outcome evidence. }
+        work: { $ref: '#/components/schemas/ExecutionWorkCountsV1' }
+        cost_evidence: { $ref: '#/components/schemas/ExecutionCostEvidenceV1' }
+        api_equivalent_by_currency:
+          type: array
+          items: { $ref: '#/components/schemas/CurrencyAmountV1' }
+        configured_rate_cash_by_currency:
+          type: array
+          description: Niu configured-rate settlement amounts; not supplier invoice amounts.
+          items: { $ref: '#/components/schemas/CurrencyAmountV1' }
+        api_equivalent_per_accepted_completion:
+          type: array
+          items: { $ref: '#/components/schemas/CostPerAcceptedCompletionV1' }
+        configured_rate_cash_per_accepted_completion:
+          type: array
+          items: { $ref: '#/components/schemas/CostPerAcceptedCompletionV1' }
+        invoice_cash: { $ref: '#/components/schemas/NotImportedAccountingV1' }
+        subscription_allocation_cash: { $ref: '#/components/schemas/NotImportedAccountingV1' }
+        capacity: { $ref: '#/components/schemas/ExecutionCapacityV1' }
+    ExecutionCoverageCountsV1:
+      type: object
+      required: [complete, partial, unknown]
+      properties:
+        complete: { type: integer, minimum: 0 }
+        partial: { type: integer, minimum: 0 }
+        unknown: { type: integer, minimum: 0 }
+    ExecutionOutcomeCountsV1:
+      type: object
+      required: [accepted, rejected, inconclusive, conflicting, unverified]
+      properties:
+        accepted: { type: integer, minimum: 0 }
+        rejected: { type: integer, minimum: 0 }
+        inconclusive: { type: integer, minimum: 0 }
+        conflicting: { type: integer, minimum: 0 }
+        unverified: { type: integer, minimum: 0 }
+    ExecutionOutcomeEvidenceCountsV1:
+      type: object
+      required: [agent_claim, deterministic_validator, human_acceptance]
+      properties:
+        agent_claim: { $ref: '#/components/schemas/AuthorityEvidenceCountsV1' }
+        deterministic_validator: { $ref: '#/components/schemas/AuthorityEvidenceCountsV1' }
+        human_acceptance: { $ref: '#/components/schemas/AuthorityEvidenceCountsV1' }
+    AuthorityEvidenceCountsV1:
+      type: object
+      required: [absent, accepted, rejected, inconclusive, conflicting, evidence_events]
+      properties:
+        absent: { type: integer, minimum: 0 }
+        accepted: { type: integer, minimum: 0 }
+        rejected: { type: integer, minimum: 0 }
+        inconclusive: { type: integer, minimum: 0 }
+        conflicting: { type: integer, minimum: 0 }
+        evidence_events: { type: integer, minimum: 0 }
+    ExecutionWorkCountsV1:
+      type: object
+      required: [model_invocations, tool_invocations, attempts, validation_spans, human_interventions, failed_spans, cancelled_spans, retry_links, billable_roots_without_charge_references]
+      properties:
+        model_invocations: { type: integer, minimum: 0 }
+        tool_invocations: { type: integer, minimum: 0 }
+        attempts: { type: integer, minimum: 0 }
+        validation_spans: { type: integer, minimum: 0 }
+        human_interventions: { type: integer, minimum: 0 }
+        failed_spans: { type: integer, minimum: 0 }
+        cancelled_spans: { type: integer, minimum: 0 }
+        retry_links: { type: integer, minimum: 0 }
+        billable_roots_without_charge_references: { type: integer, minimum: 0 }
+    ExecutionCostEvidenceV1:
+      type: object
+      required: [unique_charge_references, unique_attempt_references, resolved_attempts, unresolved_references, attempts_without_cost_entries, settled_cost_entries, complete]
+      properties:
+        unique_charge_references: { type: integer, minimum: 0 }
+        unique_attempt_references: { type: integer, minimum: 0 }
+        resolved_attempts: { type: integer, minimum: 0 }
+        unresolved_references: { type: integer, minimum: 0 }
+        attempts_without_cost_entries: { type: integer, minimum: 0 }
+        settled_cost_entries: { type: integer, minimum: 0 }
+        complete: { type: boolean, description: True only when all scanned records have complete coverage, every billable root and charge reference resolves to a settled scoped ledger entry, and the scan was not truncated. }
+    CurrencyAmountV1:
+      type: object
+      required: [currency, amount_nanos]
+      properties:
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        amount_nanos: { type: string, pattern: '^[0-9]+$' }
+    CostPerAcceptedCompletionV1:
+      type: object
+      required: [currency, numerator_nanos, denominator, evidence_complete]
+      properties:
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        numerator_nanos: { type: string, pattern: '^[0-9]+$' }
+        denominator: { type: integer, minimum: 1 }
+        evidence_complete: { type: boolean, const: true }
+    NotImportedAccountingV1:
+      type: object
+      required: [state, totals_by_currency]
+      properties:
+        state: { type: string, const: not_imported }
+        totals_by_currency: { type: array, maxItems: 0 }
+    ExecutionCapacityV1:
+      type: object
+      required: [quota_observations, task_attribution]
+      properties:
+        quota_observations: { type: integer, minimum: 0 }
+        task_attribution: { type: string, const: unavailable }
+    ExecutionRecordV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, source, record_id, task_id, coverage, spans, links, outcomes]
+      properties:
+        schema_version: { type: integer, const: 1 }
+        source: { type: string, minLength: 1, maxLength: 200 }
+        record_id: { type: string, minLength: 1, maxLength: 200 }
+        task_id: { type: string, minLength: 1, maxLength: 200 }
+        coverage: { type: string, enum: [complete, partial, unknown] }
+        spans:
+          type: array
+          minItems: 1
+          maxItems: 10000
+          items: { $ref: '#/components/schemas/ExecutionSpanV1' }
+        links:
+          type: array
+          maxItems: 50000
+          items: { $ref: '#/components/schemas/ExecutionLinkV1' }
+        outcomes:
+          type: array
+          maxItems: 10000
+          items: { $ref: '#/components/schemas/ExecutionOutcomeV1' }
+    ExecutionSpanV1:
+      type: object
+      additionalProperties: false
+      required: [id, kind]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 200 }
+        kind: { type: string, enum: [task, agent, step, model_invocation, tool_invocation, attempt, validation, human_intervention, checkpoint] }
+        status: { type: [string, 'null'], enum: [running, completed, failed, cancelled, unknown, null], description: Source-reported lifecycle status. Missing or null means unknown; Niu does not infer cancellation from a missing end time. }
+        started_at_ms: { type: [integer, 'null'], minimum: 0 }
+        ended_at_ms: { type: [integer, 'null'], minimum: 0 }
+        requested_model: { type: [string, 'null'], maxLength: 200 }
+        reported_model: { type: [string, 'null'], maxLength: 200, description: Provider-reported actual identity; absent means unknown. }
+        charge_ref: { type: [string, 'null'], maxLength: 200, description: Reference to canonical accounting evidence; does not create another charge. An attempt UUID can resolve to an assigned supplier account. }
+    ExecutionLinkV1:
+      type: object
+      additionalProperties: false
+      required: [from, to, kind]
+      properties:
+        from: { type: string, minLength: 1, maxLength: 200 }
+        to: { type: string, minLength: 1, maxLength: 200 }
+        kind: { type: string, enum: [contains, delegates, depends_on, retries, resumes] }
+    ExecutionOutcomeV1:
+      type: object
+      additionalProperties: false
+      required: [span_id, evidence_id, authority, result]
+      properties:
+        span_id: { type: string, minLength: 1, maxLength: 200 }
+        evidence_id: { type: string, minLength: 1, maxLength: 200 }
+        authority: { type: string, enum: [agent_claim, deterministic_validator, human_acceptance] }
+        result: { type: string, enum: [accepted, rejected, inconclusive] }
+    ExecutionAccountLinkV1:
+      type: object
+      required: [span_id, attempt_id, account_id, provider, plan]
+      properties:
+        span_id: { type: string }
+        attempt_id: { type: string, format: uuid }
+        account_id: { type: string, format: uuid }
+        provider: { type: string }
+        plan: { type: string }
+    ExecutionTaskLinkV1:
+      type: object
+      required: [id, task_id, source, record_id, imported_at]
+      properties:
+        id: { type: string, format: uuid }
+        task_id: { type: string }
+        source: { type: string }
+        record_id: { type: string }
+        imported_at: { type: string, format: date-time }
     AccountInput:
       type: object
       required: [provider, plan, authentication_mode, billing_mode, credential_reference, concurrency_limit]
@@ -574,6 +1674,35 @@ components:
           type: integer
           minimum: 1
           maximum: 10000
+    QuotaObservationV1:
+      type: object
+      additionalProperties: false
+      required: [schema_version, window_key, unit, observed_at_ms, valid_until_ms, resets_at_ms, source]
+      properties:
+        schema_version: { type: integer, const: 1 }
+        window_key: { type: string, minLength: 1, maxLength: 200 }
+        unit: { type: string, enum: [tokens, requests, millionths_of_window] }
+        remaining: { type: [integer, 'null'], minimum: 0 }
+        maximum: { type: [integer, 'null'], minimum: 0 }
+        observed_at_ms: { type: integer, minimum: 0 }
+        valid_until_ms: { type: integer, minimum: 1 }
+        resets_at_ms: { type: integer, minimum: 1 }
+        source: { type: string, minLength: 1, maxLength: 200 }
+    QuotaWindowViewV1:
+      type: object
+      required: [window_key, unit, remaining, maximum, observed_at_ms, valid_until_ms, resets_at_ms, source, previous_remaining, previous_observed_at_ms, fresh]
+      properties:
+        window_key: { type: string }
+        unit: { type: string, enum: [tokens, requests, millionths_of_window] }
+        remaining: { type: [string, 'null'], pattern: '^[0-9]+$' }
+        maximum: { type: [string, 'null'], pattern: '^[0-9]+$' }
+        observed_at_ms: { type: integer }
+        valid_until_ms: { type: integer }
+        resets_at_ms: { type: integer }
+        source: { type: string }
+        previous_remaining: { type: [string, 'null'], pattern: '^[0-9]+$' }
+        previous_observed_at_ms: { type: [integer, 'null'] }
+        fresh: { type: boolean }
     NameInput:
       type: object
       required: [name]

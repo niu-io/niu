@@ -80,6 +80,7 @@
     {
       "id": "attempt-retry",
       "kind": "attempt",
+      "status": "cancelled",
       "started_at_ms": 65,
       "ended_at_ms": 80,
       "requested_model": null,

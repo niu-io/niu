@@ -15,6 +15,7 @@ axum.workspace = true
 futures-util.workspace = true
 niu-execution = { path = "../../crates/execution" }
 niu-storage = { path = "../../crates/storage" }
+niu-benchmark = { path = "../../crates/benchmark" }
 litellm-core = { path = "../../vendor/litellm-rust/crates/core" }
 reqwest.workspace = true
 serde.workspace = true

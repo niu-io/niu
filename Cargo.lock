@@ -2254,6 +2254,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "niu-benchmark"
+version = "0.1.0"
+dependencies = [
+ "niu-execution",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "niu-cost"
 version = "0.1.0"
 
@@ -2266,6 +2276,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "niu-extension-api"
+version = "0.1.0"
+dependencies = [
+ "niu-execution",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror 2.0.21",
+ "uuid",
+]
+
+[[package]]
 name = "niu-gateway"
 version = "0.1.0"
 dependencies = [
@@ -2273,6 +2295,7 @@ dependencies = [
  "futures-util",
  "http-body-util",
  "litellm-core",
+ "niu-benchmark",
  "niu-execution",
  "niu-storage",
  "reqwest 0.12.28",
@@ -2289,6 +2312,17 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "url",
+ "uuid",
+]
+
+[[package]]
+name = "niu-reference-extension"
+version = "0.1.0"
+dependencies = [
+ "niu-execution",
+ "niu-extension-api",
+ "serde_json",
+ "tokio",
  "uuid",
 ]
 

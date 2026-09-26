@@ -6,11 +6,21 @@ mod accounting;
 mod accounts;
 mod collectors;
 mod observations;
+mod operators;
 pub use accounts::{
     AccountHealth, AccountInput, AccountView, AuthMode, BillingMode, QuotaInput, QuotaUnit,
     QuotaView,
 };
-pub use observations::{ExecutionCharges, ExecutionImportSummary};
+pub use observations::{
+    AuthorityEvidenceCounts, CostEvidenceCounts, CostPerAcceptedCompletion, CurrencyAmount,
+    ExecutionAccountLink, ExecutionCapacitySummary, ExecutionCharges, ExecutionCohortReport,
+    ExecutionCoverageCounts, ExecutionImportSummary, ExecutionOutcomeCounts,
+    ExecutionOutcomeEvidenceCounts, ExecutionTaskLink, ExecutionWorkCounts, ImportReceipt,
+    NotImportedAccounting,
+};
+pub use operators::{
+    AdminPermission, IssuedOperatorSession, OperatorRole, OperatorSessionView, OperatorView,
+};
 mod keys;
 mod pricing;
 pub use accounting::{BudgetSnapshot, CostEntry};
@@ -73,6 +83,10 @@ pub enum StoreError {
     InvalidAccount,
     #[error("account is unavailable or at its concurrency limit")]
     AccountUnavailable,
+    #[error("aggregate exceeds the supported numeric range")]
+    AggregateOverflow,
+    #[error("invalid operator name, role, or session lifetime")]
+    InvalidOperator,
 }
 
 impl Store {

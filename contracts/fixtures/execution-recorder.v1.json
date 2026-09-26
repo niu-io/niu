@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "source": "sample-agent",
+  "record_id": "run-1",
+  "task_id": "task-1",
+  "coverage": "complete",
+  "spans": [
+    {"id":"task-1","kind":"task","status":"completed","started_at_ms":0,"ended_at_ms":9,"requested_model":null,"reported_model":null,"charge_ref":null},
+    {"id":"agent-generated-1","kind":"agent","status":"completed","started_at_ms":1,"ended_at_ms":8,"requested_model":null,"reported_model":null,"charge_ref":null},
+    {"id":"step-generated-2","kind":"step","status":"completed","started_at_ms":2,"ended_at_ms":7,"requested_model":null,"reported_model":null,"charge_ref":null},
+    {"id":"model-invocation-generated-3","kind":"model_invocation","status":"completed","started_at_ms":3,"ended_at_ms":5,"requested_model":"fast","reported_model":"provider-fast","charge_ref":"attempt-01"},
+    {"id":"tool-invocation-generated-4","kind":"tool_invocation","status":"completed","started_at_ms":4,"ended_at_ms":6,"requested_model":null,"reported_model":null,"charge_ref":null}
+  ],
+  "links": [
+    {"from":"task-1","to":"agent-generated-1","kind":"contains"},
+    {"from":"agent-generated-1","to":"step-generated-2","kind":"contains"},
+    {"from":"step-generated-2","to":"model-invocation-generated-3","kind":"contains"},
+    {"from":"step-generated-2","to":"tool-invocation-generated-4","kind":"contains"},
+    {"from":"model-invocation-generated-3","to":"tool-invocation-generated-4","kind":"depends_on"}
+  ],
+  "outcomes": [
+    {"span_id":"task-1","evidence_id":"validator-1","authority":"deterministic_validator","result":"accepted"}
+  ]
+}

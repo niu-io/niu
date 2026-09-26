@@ -38,8 +38,10 @@ pub struct AccountView {
     pub refreshing: bool,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct QuotaInput {
+    pub schema_version: u16,
     pub window_key: String,
     pub unit: QuotaUnit,
     pub remaining: Option<i64>,
@@ -54,12 +56,17 @@ pub struct QuotaInput {
 pub struct QuotaView {
     pub window_key: String,
     pub unit: String,
-    pub remaining: Option<i64>,
-    pub maximum: Option<i64>,
+    /// Decimal strings preserve exact PostgreSQL BIGINT values in JavaScript.
+    pub remaining: Option<String>,
+    pub maximum: Option<String>,
     pub observed_at_ms: i64,
     pub valid_until_ms: i64,
     pub resets_at_ms: i64,
     pub source: String,
+    /// Previous snapshot is a capacity baseline, not a claim that executions
+    /// in the interval have been attributed to the provider's quota change.
+    pub previous_remaining: Option<String>,
+    pub previous_observed_at_ms: Option<i64>,
     pub fresh: bool,
 }
 
@@ -228,6 +235,9 @@ impl Store {
         account: Uuid,
         input: &QuotaInput,
     ) -> Result<Uuid, StoreError> {
+        if input.schema_version != 1 {
+            return Err(StoreError::InvalidAccount);
+        }
         let mut connection = self.pool.acquire().await?;
         persist_quota(&mut connection, scope, account, input).await
     }
@@ -237,8 +247,46 @@ impl Store {
         scope: TenantScope,
         account: Uuid,
     ) -> Result<Vec<QuotaView>, StoreError> {
-        Ok(sqlx::query_as("SELECT DISTINCT ON (window_key) window_key,unit,remaining,maximum,observed_at_ms,valid_until_ms,resets_at_ms,source,(remaining IS NOT NULL AND valid_until_ms > floor(extract(epoch FROM clock_timestamp())*1000)::bigint AND resets_at_ms > floor(extract(epoch FROM clock_timestamp())*1000)::bigint) AS fresh FROM quota_observations WHERE organization_id=$1 AND project_id=$2 AND account_id=$3 ORDER BY window_key,observed_at_ms DESC")
+        Ok(sqlx::query_as("WITH latest AS (SELECT DISTINCT ON (window_key) window_key,unit,remaining,maximum,observed_at_ms,valid_until_ms,resets_at_ms,source FROM quota_observations WHERE organization_id=$1 AND project_id=$2 AND account_id=$3 ORDER BY window_key,observed_at_ms DESC) SELECT latest.window_key,latest.unit,latest.remaining::text AS remaining,latest.maximum::text AS maximum,latest.observed_at_ms,latest.valid_until_ms,latest.resets_at_ms,latest.source,previous.remaining::text AS previous_remaining,previous.observed_at_ms AS previous_observed_at_ms,(latest.remaining IS NOT NULL AND latest.valid_until_ms > floor(extract(epoch FROM clock_timestamp())*1000)::bigint AND latest.resets_at_ms > floor(extract(epoch FROM clock_timestamp())*1000)::bigint) AS fresh FROM latest LEFT JOIN LATERAL (SELECT remaining,observed_at_ms FROM quota_observations WHERE organization_id=$1 AND project_id=$2 AND account_id=$3 AND window_key=latest.window_key AND observed_at_ms<latest.observed_at_ms ORDER BY observed_at_ms DESC LIMIT 1) previous ON TRUE ORDER BY latest.window_key")
             .bind(scope.organization_id).bind(scope.project_id).bind(account).fetch_all(&self.pool).await?)
+    }
+
+    /// Permanently remove every imported sample for one provider window.
+    /// The account ownership check keeps a miss indistinguishable across
+    /// tenants while allowing callers to purge a window's full history.
+    pub async fn delete_quota_window(
+        &self,
+        scope: TenantScope,
+        account: Uuid,
+        window_key: &str,
+    ) -> Result<u64, StoreError> {
+        if !label_valid(window_key, 200) {
+            return Err(StoreError::InvalidAccount);
+        }
+        let mut tx = self.pool.begin().await?;
+        let owned: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM supplier_accounts WHERE organization_id=$1 AND project_id=$2 AND id=$3)",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(account)
+        .fetch_one(&mut *tx)
+        .await?;
+        if !owned {
+            return Err(StoreError::Conflict);
+        }
+        let deleted = sqlx::query(
+            "DELETE FROM quota_observations WHERE organization_id=$1 AND project_id=$2 AND account_id=$3 AND window_key=$4",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(account)
+        .bind(window_key)
+        .execute(&mut *tx)
+        .await?
+        .rows_affected();
+        tx.commit().await?;
+        Ok(deleted)
     }
 }
 
@@ -248,7 +296,8 @@ pub(crate) async fn persist_quota(
     account: Uuid,
     input: &QuotaInput,
 ) -> Result<Uuid, StoreError> {
-    if !label_valid(&input.window_key, 200)
+    if input.schema_version != 1
+        || !label_valid(&input.window_key, 200)
         || !label_valid(&input.source, 200)
         || input.observed_at_ms < 0
         || input.valid_until_ms <= input.observed_at_ms

@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "provider": "bedrock",
+  "upstream_model": "bedrock/us-east-1/anthropic.claude-fixture-model",
+  "request": {
+    "messages": [
+      { "role": "system", "content": "Be concise." },
+      { "role": "user", "content": "Hello" }
+    ],
+    "max_tokens": 32,
+    "temperature": 0.2
+  },
+  "upstream": {
+    "path": "/model/anthropic.claude-fixture-model/converse",
+    "body": {
+      "inferenceConfig": {
+        "maxTokens": 32,
+        "temperature": 0.2
+      },
+      "system": [{ "text": "Be concise." }],
+      "messages": [
+        {
+          "role": "user",
+          "content": [{ "text": "Hello" }]
+        }
+      ]
+    },
+    "response": {
+      "output": {
+        "message": {
+          "role": "assistant",
+          "content": [{ "text": "Hello from Bedrock" }]
+        }
+      },
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 4,
+        "outputTokens": 3,
+        "totalTokens": 7
+      }
+    }
+  },
+  "expected": {
+    "assistant_text": "Hello from Bedrock",
+    "prompt_tokens": 4,
+    "completion_tokens": 3
+  }
+}

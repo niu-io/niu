@@ -4,9 +4,66 @@ export type ChatMessage = {
   [key: string]: unknown;
 };
 
+export type ChatFunctionTool = {
+  type: 'function';
+  function: {
+    name: string;
+    description?: string;
+    parameters?: Record<string, unknown>;
+    strict?: boolean;
+  };
+};
+
+export type ChatToolChoice = 'none' | 'auto' | 'required' | {
+  type: 'function';
+  function: { name: string };
+};
+
+export type ChatResponseFormat =
+  | { type: 'text' }
+  | { type: 'json_object' }
+  | { type: 'json_schema'; json_schema: { name: string; schema: Record<string, unknown>; strict?: boolean; description?: string } };
+
+export type ChatToolCall = {
+  id: string;
+  type: 'function';
+  function: { name: string; arguments: string };
+};
+
+export type ChatCompletionResponse = {
+  id: string;
+  object: string;
+  model: string;
+  choices: Array<{
+    index: number;
+    message: ChatMessage & { tool_calls?: ChatToolCall[]; refusal?: string | null };
+    finish_reason: string | null;
+  }>;
+  usage?: { prompt_tokens: number; completion_tokens: number; total_tokens?: number };
+};
+
+export { NiuExecutionRecorder } from './execution.js';
+export type {
+  ExecutionCoverage,
+  ExecutionLinkKind,
+  ExecutionLinkV1,
+  ExecutionOutcomeAuthority,
+  ExecutionOutcomeResult,
+  ExecutionOutcomeV1,
+  ExecutionRecordV1,
+  ExecutionRecorderOptions,
+  ExecutionSpanKind,
+  ExecutionSpanStatus,
+  ExecutionSpanV1,
+  StartExecutionSpanOptions,
+} from './execution.js';
+
 export type ChatCompletionRequest = {
   model: string;
   messages: ChatMessage[];
+  tools?: ChatFunctionTool[];
+  tool_choice?: ChatToolChoice;
+  response_format?: ChatResponseFormat;
   stream?: false;
   [key: string]: unknown;
 };
@@ -26,6 +83,73 @@ export type Model = {
 export type ModelList = {
   object?: 'list' | string;
   data: Model[];
+};
+
+export type EmbeddingRequest = {
+  model: string;
+  input: string | string[];
+  encoding_format?: 'float' | 'base64';
+  dimensions?: number;
+  user?: string;
+};
+
+export type EmbeddingResponse = {
+  object: 'list' | string;
+  data: Array<{
+    object?: 'embedding' | string;
+    embedding: number[] | string;
+    index?: number;
+  }>;
+  model: string;
+  usage?: {
+    prompt_tokens: number;
+    total_tokens?: number;
+    completion_tokens?: number;
+  };
+};
+
+export type ResponsesRequest = {
+  model: string;
+  input: string;
+  instructions?: string;
+  max_output_tokens?: number;
+  temperature?: number;
+  top_p?: number;
+  metadata?: Record<string, string>;
+  user?: string;
+  stream?: false;
+};
+
+export type ResponsesOutputText = {
+  type: 'output_text';
+  text: string;
+  annotations?: unknown[];
+} | {
+  type: 'refusal';
+  refusal: string;
+};
+
+export type ResponsesMessage = {
+  id?: string;
+  type: 'message';
+  role: 'assistant';
+  status?: string;
+  content: ResponsesOutputText[];
+};
+
+export type ResponsesReasoning = {
+  id?: string;
+  type: 'reasoning';
+  summary?: unknown[];
+};
+
+export type ResponsesResponse = {
+  id: string;
+  object: 'response';
+  status: 'completed' | 'incomplete';
+  model: string;
+  output: Array<ResponsesMessage | ResponsesReasoning>;
+  usage?: { input_tokens: number; output_tokens: number; total_tokens?: number };
 };
 
 export type NiuClientOptions = {
@@ -51,8 +175,10 @@ export class NiuAPIError extends Error {
 
 export class NiuClient {
   readonly models: { list: (options?: RequestOptions) => Promise<ModelList> };
+  readonly embeddings: { create: (request: EmbeddingRequest, options?: RequestOptions) => Promise<EmbeddingResponse> };
+  readonly responses: { create: (request: ResponsesRequest, options?: RequestOptions) => Promise<ResponsesResponse> };
   readonly chat: {
-    completions: (request: ChatCompletionRequest, options?: RequestOptions) => Promise<unknown>;
+    completions: (request: ChatCompletionRequest, options?: RequestOptions) => Promise<ChatCompletionResponse>;
     stream: (request: ChatStreamRequest, options?: RequestOptions) => AsyncGenerator<unknown>;
   };
 
@@ -69,6 +195,12 @@ export class NiuClient {
     this.defaultHeaders = options.defaultHeaders ?? {};
 
     this.models = { list: (requestOptions) => this.request('/models', undefined, requestOptions) };
+    this.embeddings = {
+      create: (request, requestOptions) => this.request('/embeddings', request, requestOptions),
+    };
+    this.responses = {
+      create: (request, requestOptions) => this.request('/responses', request, requestOptions),
+    };
     this.chat = {
       stream: (request, requestOptions) => this.streamChat(request, requestOptions),
       completions: async (request, requestOptions) => {

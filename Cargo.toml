@@ -1,6 +1,14 @@
 [workspace]
-members = ["apps/gateway", "crates/cost", "crates/execution", "crates/storage"]
-default-members = ["apps/gateway", "crates/cost", "crates/execution", "crates/storage"]
+members = ["apps/gateway", "crates/benchmark", "crates/cost", "crates/execution", "crates/extension-api", "crates/storage", "tests/extensions/reference-extension"]
+default-members = [
+    "apps/gateway",
+    "crates/benchmark",
+    "crates/cost",
+    "crates/execution",
+    "crates/extension-api",
+    "crates/storage",
+    "tests/extensions/reference-extension",
+]
 exclude = ["vendor/litellm-rust"]
 resolver = "2"
 

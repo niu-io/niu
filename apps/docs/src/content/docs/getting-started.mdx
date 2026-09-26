@@ -8,8 +8,8 @@ description: Set up the Niu monorepo for local development.
 You do not need to define tasks, import agent traces, run benchmarks, configure subscriptions or enable pooling.
 
 1. Configure a provider and public model alias in `config/niu.example.toml`, and supply its provider credential on the server. The example alias is `fast`.
-2. Start the gateway using the [single-container guide](/deployment/single-container/), or the development steps below.
-3. Open the console at `http://localhost:2555`, connect using your installation's admin token, and choose **API keys**. Create an organization and project, then issue a key with access to `fast`.
+2. Start the gateway using the [single-container guide](/docs/deployment/single-container/), or the development steps below.
+3. Open the console at `http://localhost:2555/workspaces/default/`, connect using your installation's admin token, and choose **API keys**. On a new installation, select the model aliases your app may use and choose **Create workspace and key**. Niu creates a personal workspace and default project, then issues a 30-day key shown once. Existing workspaces can use the full organization and project controls below the first-run flow.
 4. Use that client key with the standard chat API:
 
 ```sh
@@ -22,7 +22,7 @@ curl http://localhost:2555/v1/chat/completions \
 
 The base URL for compatible clients is `http://localhost:2555/v1`. Keep the admin token for administration; applications use scoped client keys.
 
-Pricing schedules and budgets are optional. If you enable a budget, its reservation requirements apply; see [model pricing](/configuration/models/#optional-text-route-pricing). Task observability and evaluation are separate workflows, not prerequisites for inference. The current early console still requires manual organization/project setup and server-side provider configuration.
+Pricing schedules and budgets are optional. If you enable a budget, its reservation requirements apply; see [model pricing](/docs/configuration/models/#optional-text-route-pricing). Task observability and evaluation are separate workflows, not prerequisites for inference. Provider and model routes still use server-side configuration; the first-run console flow handles workspace and client-key setup.
 
 ## Requirements
 
@@ -39,6 +39,7 @@ From the repository root, install the JavaScript workspace and build the console
 pnpm install
 pnpm build:console
 pnpm build:docs
+pnpm build:site
 ```
 
 Check the Rust workspace with:

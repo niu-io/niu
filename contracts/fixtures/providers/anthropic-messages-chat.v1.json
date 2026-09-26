@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "provider": "anthropic",
+  "upstream_model": "claude-fixture-model",
+  "request": {
+    "messages": [
+      { "role": "system", "content": "Be concise." },
+      { "role": "user", "content": "Hello" }
+    ],
+    "max_tokens": 32,
+    "temperature": 0.2
+  },
+  "upstream": {
+    "path": "/v1/messages",
+    "body": {
+      "model": "claude-fixture-model",
+      "max_tokens": 32,
+      "temperature": 0.2,
+      "system": [{ "type": "text", "text": "Be concise." }],
+      "messages": [
+        {
+          "role": "user",
+          "content": [{ "type": "text", "text": "Hello" }]
+        }
+      ]
+    },
+    "response": {
+      "id": "msg_fixture_01",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-fixture-model",
+      "content": [{ "type": "text", "text": "Hello from Anthropic" }],
+      "stop_reason": "end_turn",
+      "usage": {
+        "input_tokens": 4,
+        "cache_read_input_tokens": 1,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": 3
+      }
+    }
+  },
+  "expected": {
+    "assistant_text": "Hello from Anthropic",
+    "prompt_tokens": 5,
+    "completion_tokens": 3
+  }
+}

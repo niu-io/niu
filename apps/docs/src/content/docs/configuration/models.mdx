@@ -7,6 +7,8 @@ A model route maps a public model name to an upstream provider, provider model i
 
 The current development configuration is TOML. The example file is [`config/niu.example.toml`](https://github.com/niu-io/niu/blob/main/config/niu.example.toml). Credentials are referenced by environment variable name and resolved by the gateway at request time.
 
+Set `public_catalog = true` on a route to publish its alias and declared capabilities at `/models/` and `GET /catalog/v1/models`. This is an explicit public disclosure. The catalog omits provider names, upstream model identifiers, endpoints, credentials and pricing. Routes default to hidden.
+
 ```toml
 [models.fast]
 provider = "openai"
@@ -16,6 +18,65 @@ api_key_env = "OPENAI_API_KEY"
 ```
 
 Model route administration and durable, revisioned configuration are still being implemented. Keep credentials out of TOML, source control, and browser configuration.
+
+## Function tools and structured JSON
+
+Function tools and structured output are disabled by default. They are currently supported only on OpenAI-compatible routes that have been verified by the operator:
+
+```toml
+[models.fast]
+provider = "openai"
+upstream_model = "gpt-4.1-mini"
+api_base = "https://api.openai.com/v1"
+api_key_env = "OPENAI_API_KEY"
+supports_tool_calls = true
+supports_streaming_tool_calls = true
+supports_structured_output = true
+```
+
+`supports_tool_calls` enables non-streaming function definitions and tool-call responses. `supports_streaming_tool_calls` separately enables incremental tool-call deltas and requires `supports_tool_calls`. Niu forwards these declarations to the configured provider; it does not run the requested functions. Keep tool execution and authorization in your application.
+
+`supports_structured_output` enables `response_format` with `json_object` or `json_schema` for non-streaming requests. Niu requires JSON output and rejects malformed JSON, but does not evaluate the output against the schema. Schema enforcement depends on the configured endpoint and model, so verify that behavior before enabling the flag. Structured-output streaming, priced tool calls, and native Anthropic/Bedrock tool or structured-output routes are not supported by this contract.
+
+## Responses API text subset
+
+The gateway implements a non-streaming, text-only subset of `POST /v1/responses` for routes that explicitly declare Responses support:
+
+```toml
+[models.fast]
+provider = "openai"
+upstream_model = "gpt-4.1-mini"
+api_base = "https://api.openai.com/v1"
+api_key_env = "OPENAI_API_KEY"
+supports_responses = true
+```
+
+Requests accept one non-empty string in `input`, plus optional string `instructions`, `max_output_tokens`, `temperature`, `top_p`, string-valued `metadata`, and `user`. Responses are forwarded to the configured `/responses` endpoint with the upstream model name, then returned with Niu's public alias. Niu validates text-message, reasoning and refusal output items and keeps provider-reported `input_tokens` and `output_tokens` as the attempt's prompt/completion usage. Missing usage remains unknown.
+
+Input arrays, images and audio, function tools, streaming, previous-response/conversation state, prompt templates and other fields are not supported. Unknown fields receive `400`; requesting Responses on a route without `supports_responses`, or asking for streaming, receives `501` before an attempt is created. This flag is an operator declaration, not provider conformance evidence. Native Anthropic/Bedrock routes cannot declare it.
+
+Invalid request shapes receive `400`. A valid feature request for a route without the corresponding capability receives `501` before an operation or attempt is recorded. Enabled route capabilities participate in the immutable route revision used for attempt evidence. Request-level tool definitions and schemas are forwarded as part of each request.
+
+## Text embeddings
+
+The gateway implements `POST /v1/embeddings` for routes whose provider is `openai`. Embeddings are disabled by default; declare support on a dedicated model route only after verifying that the configured upstream endpoint and model implement the requested behavior:
+
+```toml
+[models.embedding]
+provider = "openai"
+upstream_model = "text-embedding-3-small"
+api_base = "https://api.openai.com/v1"
+api_key_env = "OPENAI_API_KEY"
+supports_embeddings = true
+supports_embedding_dimensions = true
+supports_embedding_base64 = true
+```
+
+The last two flags independently enable the optional `dimensions` and `encoding_format = "base64"` request fields. They default to `false`. These flags are operator declarations, not provider conformance evidence. Routes using another provider, or routes without the required declared capability, receive `501` before an operation or attempt is recorded. Chat completion capability does not imply embedding support.
+
+Requests accept one non-empty text string or an array of 1–2048 non-empty strings. `encoding_format` is `float` by default and may be `base64`; `dimensions` must be an integer from 1 to 65536. Token-ID arrays, nested input, multimodal input, streaming, and unknown request fields are not supported. The gateway maps the configured upstream model, validates the response item count and vector shape, then returns the public model alias. Provider usage is required for settled usage accounting; missing usage leaves the attempt unsettled. When pricing is configured, the total UTF-8 input byte count must fit `max_input_tokens`, the full configured input bound is reserved before dispatch, and only reported prompt tokens are settled (completion tokens are zero by contract).
+
+The optional route is shown commented out in [`config/niu.example.toml`](https://github.com/niu-io/niu/blob/main/config/niu.example.toml). No provider-specific conformance suite is implied by enabling it.
 
 ## Optional text-route pricing
 
@@ -36,7 +97,7 @@ These illustrative rates mean USD 1 per million input tokens and USD 2 per milli
 
 The gateway reserves the full configured input and output bounds, not an estimated token count. The input bound is an operator assertion about the provider's maximum billable input for this route; it is not a locally verified tokenizer limit. Choose bounds from the actual provider/model contract. Understated bounds can incur an overrun: Niu records the full liability and flags the entry instead of hiding the excess. Provider contract validation remains required before production use.
 
-An omitted output limit is set to `max_output_tokens` using the upstream `max_completion_tokens` field. Explicit output limits must be positive and no larger than the configured bound. Providers must support that field. Pricing currently supports a single text completion with plain role/content messages, standard sampling controls and optional streaming. Tools, audio, images, multiple choices and other billing dimensions are rejected on priced routes. Unpriced routes keep their existing behavior.
+An omitted output limit is set to `max_output_tokens` using the upstream `max_completion_tokens` field. Explicit output limits must be positive and no larger than the configured bound. Providers must support that field. Pricing supports one text chat completion, including optional streaming, the text-only Responses subset above, or text embeddings. Chat pricing rejects tools, audio, images, multiple choices and other billing dimensions. On a priced Responses request, the gateway compares the combined UTF-8 byte length of `input` and `instructions` with `max_input_tokens`, injects the configured output bound when omitted, and reserves both limits before dispatch. Priced embeddings compare total input bytes with `max_input_tokens`, reserve input capacity only, and settle provider-reported prompt usage. These bounds remain operator assertions, not tokenizer measurements. Unpriced routes keep their existing behavior.
 
 The immutable price revision includes the route configuration and pricing. Identical publications reuse a revision. Reservations happen before dispatch; insufficient funds or a missing matching budget prevent the upstream call. Complete provider usage settles cash and API-equivalent cost; missing usage, timeout and interrupted streams retain exposure. A recovery worker retries completed priced settlements without repeating inference.
 

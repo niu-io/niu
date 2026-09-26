@@ -6,3 +6,22 @@ provider = "openai"
 upstream_model = "gpt-4.1-mini"
 api_base = "https://api.openai.com/v1"
 api_key_env = "OPENAI_API_KEY"
+# Publish this alias in the unauthenticated catalog at /models/.
+public_catalog = true
+# Optional protocol features are disabled by default. Enable them only after
+# verifying the configured endpoint and model support each declared behavior.
+# supports_tool_calls = true
+# supports_streaming_tool_calls = true
+# supports_structured_output = true
+# supports_responses = true
+
+# Optional separate route for OpenAI-compatible text embeddings. The capability
+# flags are operator declarations; verify the selected endpoint/model yourself.
+# [models.embedding]
+# provider = "openai"
+# upstream_model = "text-embedding-3-small"
+# api_base = "https://api.openai.com/v1"
+# api_key_env = "OPENAI_API_KEY"
+# supports_embeddings = true
+# supports_embedding_dimensions = true
+# supports_embedding_base64 = true

@@ -3,9 +3,9 @@ title: Single-container deployment
 description: Niu's target deployment shape and current packaging status.
 ---
 
-Niu's deployment target is one application container and one public port. The application owns inference APIs, management APIs, authentication, background recovery, and the static console. PostgreSQL stores tenants, scoped API keys, operations and attempt evidence. Compose starts it as the only supporting service.
+Niu serves its product homepage, documentation, public model catalog, workspace console, inference API and management API under `niu.io`. One Rust gateway owns the HTTP listener and serves the built static sites; PostgreSQL stores tenants, scoped API keys, operations and attempt evidence. The application image exposes one public port. Compose starts it with PostgreSQL as the only supporting service.
 
-The Dockerfile builds the Rust gateway and compiled TypeScript console into one image. The docs site is built separately as static content and does not add a service to the inference deployment.
+The Dockerfile builds the Rust gateway, TypeScript console and Astro documentation, and packages the static homepage and model catalog into one image. The product URLs are `/`, `/docs/`, `/models/`, `/workspaces/default/`, `/v1/…` and `/admin/v1/…`.
 
 :::caution[Current status]
 The current image is an evaluation build. Initial persistence and migrations are implemented. Budget reservations, financial settlement, operator roles, streaming evidence and recovery workers remain in progress. Container qualification is not complete. Do not use this image for production workloads.
@@ -20,7 +20,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-The gateway and console are available on port `2555`. The example route requires an OpenAI API key. Change `config/niu.example.toml` to add or edit model routes before starting the container.
+The product is available on port `2555`. Open `http://localhost:2555/` for the homepage, `/docs/` for documentation, `/models/` for the public catalog, and `/workspaces/default/` for the console. The example route requires an OpenAI API key. Change `config/niu.example.toml` to add or edit model routes before starting the container. Only routes with `public_catalog = true` appear in the public catalog.
 
 ## Release requirements
 
@@ -29,6 +29,16 @@ The gateway and console are available on port `2555`. The example route requires
 - Provider credentials and bootstrap secrets are injected at runtime and never baked into images.
 - Image contents exclude private enterprise code, internal research, and development material.
 - Install, upgrade, rollback, backup, migration, and restart behavior are tested as a complete product.
+
+## One-domain routing
+
+All product pages and APIs use the same origin. The workspace name in `/workspaces/:workspace/…` selects a UI route; it does not grant access. Each management and inference request still requires server-validated credentials. Current community setup uses an installation administrator token for management and scoped API keys for inference. Operator sessions and per-workspace roles are a separate release requirement.
+
+The gateway serves HTTP. Terminate HTTPS at the hosting platform's TLS edge and forward requests to the single application port. A unified hostname does not provide TLS by itself. Keep browser API requests same-origin so credentials and logout stay on `niu.io`.
+
+When migrating existing hosts, configure permanent redirects at the TLS edge: `docs.niu.io/<path>` should map to `niu.io/docs/<path>`. Redirect the old console root to `/workspaces/default/` and map prior console sections such as `/keys` and `/usage` to `/workspaces/default/keys` and `/workspaces/default/usage`. In the unified product, `/models/` is the public catalog; the workspace route editor belongs under `/workspaces/default/models`.
+
+The static documentation tree is mounted separately from the console. Missing documentation paths return 404, and unknown `/v1/`, `/catalog/v1/` and `/admin/v1/` endpoints return JSON API errors. Nested workspace links can be opened or refreshed directly. Static routes do not buffer inference responses; streaming remains on the gateway's inference handler.
 
 ## Bootstrap an organization and client key
 

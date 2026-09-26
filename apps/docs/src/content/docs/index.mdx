@@ -1,12 +1,12 @@
 ---
 title: Niu AI Gateway
-description: A complete, self-hosted gateway and management platform for model APIs.
+description: A self-hosted gateway and management platform for model APIs.
 template: splash
 hero:
   tagline: One gateway for performance, cost, and security.
   actions:
     - text: Get started
-      link: /getting-started/
+      link: /docs/getting-started/
       icon: right-arrow
     - text: View on GitHub
       link: https://github.com/niu-io/niu
@@ -18,8 +18,8 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 
 Niu brings model providers, compatible APIs, routing, access control, usage, and cost management into one self-hosted product. It is designed as a mixed-language monorepo and ships as one application container with one public entry point.
 
-:::caution[Implementation status]
-The monorepo and gateway are under active development. The first runtime slice is being assembled from selected, pinned provider and protocol modules. Pages describe the intended product only where they are clearly marked as design goals.
+:::caution[Pre-release status]
+Niu is under active development, and the first feature-complete release has not been qualified. Guides distinguish implemented behavior from design goals and document unsupported protocol paths and operational gaps.
 :::
 
 ## What Niu is building
@@ -41,7 +41,7 @@ The monorepo and gateway are under active development. The first runtime slice i
 
 ## Explore the docs
 
-- [Get started](/getting-started/) with the current development workspace.
-- [Configure model routes](/configuration/models/) and provider credentials.
-- [Deploy the application](/deployment/single-container/) as the runtime matures.
-- Review the [API reference](/reference/api/) for implemented public routes.
+- [Get started](/docs/getting-started/) with the current development workspace.
+- [Configure model routes](/docs/configuration/models/) and provider credentials.
+- [Deploy the application](/docs/deployment/single-container/) as the runtime matures.
+- Review the [API reference](/docs/reference/api/) for implemented public routes.

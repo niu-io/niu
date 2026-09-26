@@ -2,7 +2,8 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 
 export default defineConfig({
-  site: 'https://docs.niu.io',
+  site: 'https://niu.io',
+  base: '/docs',
   integrations: [
     starlight({
       title: 'Niu Documentation',
@@ -28,7 +29,7 @@ export default defineConfig({
         },
         {
           label: 'Concepts',
-          items: ['concepts/performance-and-cost', 'concepts/request-lifecycle'],
+          items: ['concepts/performance-and-cost', 'concepts/request-lifecycle', 'concepts/execution-observation', 'concepts/subscription-observation'],
         },
         { label: 'Reference', items: ['reference/api'] },
       ],

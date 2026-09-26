@@ -15,15 +15,29 @@ const completion = await niu.chat.completions({
   model: 'fast',
   messages: [{ role: 'user', content: 'Summarize this report.' }],
 });
+const response = await niu.responses.create({
+  model: 'fast',
+  input: 'Summarize this report.',
+});
+const embeddings = await niu.embeddings.create({
+  model: 'embedding',
+  input: ['A short text to embed.'],
+});
 ```
 
-The gateway is still an early implementation. Streaming response ergonomics and a stable typed completion schema will be added as the public API contract matures.
+Embedding calls use the configured OpenAI-compatible route and are available only when that route explicitly enables embeddings. Optional dimensions and base64 output must also be enabled on the route. The SDK does not add retries.
+
+`chat.completions()` types OpenAI-compatible function tools, tool choices, JSON response formats, tool-call results, and usage. The selected route must enable the matching server-side capability. Niu returns tool requests to the client; the application remains responsible for reviewing and executing them. Structured JSON is checked for valid JSON syntax, not against the supplied schema.
+
+`responses.create()` supports the documented non-streaming text subset of the OpenAI Responses API when the selected route enables `supports_responses`. It accepts a string `input`; multimodal inputs, tool calls, conversation state and streaming are not included in this subset. The SDK passes `AbortSignal` through to the request.
+
+The SDK also provides a metadata-only task recorder. It is independent of the inference client and does not capture prompts, model responses, source code, tool arguments, or tool output.
 
 Use `chat.completions()` for a JSON response and `chat.stream()` for SSE:
 
 ```ts
 const controller = new AbortController();
-for await (const chunk of client.chat.stream({
+for await (const chunk of niu.chat.stream({
   model: 'fast',
   messages: [{ role: 'user', content: 'Hello' }],
 }, { signal: controller.signal })) {
@@ -79,3 +93,35 @@ await collector.observeQuota(accountId, providerObservation);
 ```
 
 The collector interface exposes only `observeQuota`. Its scope is copied at construction, and the server enforces project ownership, expiry and revocation on every ingestion. It cannot query quota or register accounts; use the admin client in the operator application for those operations. No retries, polling or credential refresh happen implicitly.
+## Record agent execution metadata
+
+```ts
+import { NiuExecutionRecorder } from '@niu-io/sdk';
+
+const trace = new NiuExecutionRecorder({
+  source: 'my-agent',
+  coverage: 'complete', // Use only when your collector observed the full task.
+});
+
+const agent = trace.startSpan('agent');
+await trace.withSpan('model_invocation', {
+  parentId: agent,
+  requestedModel: 'fast',
+  reportedModel: 'provider-model-id',
+  chargeRef: 'canonical-ledger-attempt-id',
+}, async () => {
+  // Run the operation in your application. The recorder sees no payload.
+});
+trace.endSpan(agent);
+trace.addOutcome({
+  span_id: trace.export().task_id,
+  evidence_id: 'validator-result-1',
+  authority: 'deterministic_validator',
+  result: 'accepted',
+});
+trace.finish();
+
+const metadata = trace.export(); // ExecutionRecordV1; safe to serialize for your collector.
+```
+
+The recorder emits only the version 1 execution metadata contract. `coverage` defaults to `unknown`; mark it `complete` only when your instrumentation can support that claim. Supply a `chargeRef` only when it refers to canonical accounting evidence. The SDK does not upload records or give application processes administrator credentials. Import records through a trusted server-side collector using the documented admin API.

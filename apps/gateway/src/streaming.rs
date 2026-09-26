@@ -200,10 +200,10 @@ where
                     ))
                 }
             };
-            if output.is_err() {
-                if let Some(context) = attempt.take() {
-                    context.failures.fetch_add(1, Ordering::Relaxed);
-                }
+            if output.is_err()
+                && let Some(context) = attempt.take()
+            {
+                context.failures.fetch_add(1, Ordering::Relaxed);
             }
             Some((output, (upstream, evidence, attempt, stopped)))
         },

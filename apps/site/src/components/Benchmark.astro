@@ -1,0 +1,327 @@
+---
+import { benchmarkExamples, totalCents, dollars } from "../content/benchmarks";
+import { links } from "../content/landing";
+---
+
+<section
+  class="benchmark-section container"
+  id="benchmark"
+  aria-labelledby="benchmark-title"
+>
+  <div class="benchmark-heading">
+    <div>
+      <p class="eyebrow">One example: a coding task</p>
+      <h2 id="benchmark-title">
+        Which model gets the code right
+        <br />
+        for less?
+      </h2>
+    </div>
+    <p>
+      The cheapest tokens can produce the most expensive result when retries
+      pile up. This coding example holds the task and tests constant, then
+      compares the full cost of getting an accepted outcome.
+    </p>
+  </div>
+  <ol class="benchmark-steps">
+    <li>
+      <span>01</span>
+      <div>
+        <strong>Hold the task constant</strong>
+        <p>Same repo snapshot, agent, prompt and tools.</p>
+      </div>
+    </li>
+    <li>
+      <span>02</span>
+      <div>
+        <strong>Check the result</strong>
+        <p>Same tests, acceptance rules and time limit.</p>
+      </div>
+    </li>
+    <li>
+      <span>03</span>
+      <div>
+        <strong>Count the whole run</strong>
+        <p>Include failed runs, repairs and validation.</p>
+      </div>
+    </li>
+  </ol>
+  <div class="benchmark-demo">
+    <div class="benchmark-toolbar">
+      <span class="sample-label">
+        INTERACTIVE EXAMPLE · ALL NUMBERS ARE HYPOTHETICAL
+      </span>
+      <span class="benchmark-status">Benchmark workflow planned</span>
+    </div>
+    <div
+      class="benchmark-tabs"
+      role="tablist"
+      aria-label="Choose a coding task"
+    >
+      {benchmarkExamples.map((example, i) => (
+        <button
+          type="button"
+          role="tab"
+          id={`benchmark-tab-${example.id}`}
+          aria-controls={`benchmark-panel-${example.id}`}
+          aria-selected={i === 0 ? "true" : "false"}
+          tabindex={i === 0 ? 0 : -1}
+        >
+          {example.label}
+        </button>
+      ))}
+    </div>
+    {benchmarkExamples.map((example, i) => {
+      const eligible = example.models.filter(
+        (model) => model.accepted === 10 && model.slowest <= 10,
+      );
+      const winner = eligible.reduce((best, model) =>
+        totalCents(model) / model.accepted < totalCents(best) / best.accepted
+          ? model
+          : best,
+      );
+      const baseline = example.models[0];
+      const saving = Math.round(
+        (1 - totalCents(winner) / totalCents(baseline)) * 100,
+      );
+
+      return (
+        <div
+          class="benchmark-panel"
+          role="tabpanel"
+          id={`benchmark-panel-${example.id}`}
+          aria-labelledby={`benchmark-tab-${example.id}`}
+          hidden={i !== 0}
+          tabindex="0"
+        >
+          <div class="benchmark-task">
+            <div>
+              <span class="small-label">
+                SAME TASK · 10 INDEPENDENT RUNS PER MODEL
+              </span>
+              <h3>{example.task}</h3>
+              <p>{example.checks}</p>
+            </div>
+            <div class="acceptance-rule">
+              <strong>Acceptance bar</strong>
+              <span>10 / 10 passes · each run ≤ 10 min</span>
+            </div>
+          </div>
+          <div
+            class="comparison-scroll"
+            role="region"
+            aria-label="Model comparison"
+            tabindex="0"
+          >
+            <table class="comparison-matrix benchmark-matrix">
+              <caption class="sr-only">
+                Compare models for {example.task}. All numbers are hypothetical.
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Compare by</th>
+                  {example.models.map((model) => (
+                    <th
+                      scope="col"
+                      class:list={{ "matrix-selected": model === winner }}
+                    >
+                      <strong>{model.name}</strong>
+                      <small>{model.tier}</small>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="matrix-key">
+                  <th scope="row">Cost per accepted result</th>
+                  {example.models.map((model) => (
+                    <td class:list={{ "matrix-selected": model === winner }}>
+                      <strong>
+                        {model.accepted
+                          ? dollars(totalCents(model) / model.accepted)
+                          : "Undefined"}
+                      </strong>
+                      <small>
+                        {dollars(totalCents(model))} ÷ {model.accepted} accepted
+                      </small>
+                    </td>
+                  ))}
+                </tr>
+                <tr>
+                  <th scope="row">Accepted runs</th>
+                  {example.models.map((model) => (
+                    <td class:list={{ "matrix-selected": model === winner }}>
+                      {model.accepted} / 10
+                    </td>
+                  ))}
+                </tr>
+                <tr>
+                  <th scope="row">Slowest run</th>
+                  {example.models.map((model) => (
+                    <td class:list={{ "matrix-selected": model === winner }}>
+                      {model.slowest} min
+                    </td>
+                  ))}
+                </tr>
+                <tr>
+                  <th scope="row">Initial work</th>
+                  {example.models.map((model) => (
+                    <td class:list={{ "matrix-selected": model === winner }}>
+                      {dollars(model.initial)}
+                    </td>
+                  ))}
+                </tr>
+                <tr>
+                  <th scope="row">Repairs & retries</th>
+                  {example.models.map((model) => (
+                    <td class:list={{ "matrix-selected": model === winner }}>
+                      {dollars(model.repair)}
+                    </td>
+                  ))}
+                </tr>
+                <tr>
+                  <th scope="row">Tools & validation</th>
+                  {example.models.map((model) => (
+                    <td class:list={{ "matrix-selected": model === winner }}>
+                      {dollars(model.checks)}
+                    </td>
+                  ))}
+                </tr>
+                <tr>
+                  <th scope="row">Total cohort spend</th>
+                  {example.models.map((model) => (
+                    <td class:list={{ "matrix-selected": model === winner }}>
+                      {dollars(totalCents(model))}
+                    </td>
+                  ))}
+                </tr>
+                <tr class="matrix-decision">
+                  <th scope="row">Decision</th>
+                  {example.models.map((model) => (
+                    <td class:list={{ "matrix-selected": model === winner }}>
+                      {model === winner
+                        ? "Best eligible"
+                        : model.accepted < 10
+                          ? "Below quality bar"
+                          : "Meets quality bar"}
+                    </td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="benchmark-verdict">
+            <div class="verdict-number">
+              <strong>{saving ? `${saving}%` : "Keep A"}</strong>
+              <span>
+                {saving
+                  ? "lower cost in this example"
+                  : "no qualifying cheaper option"}
+              </span>
+            </div>
+            <div>
+              <h4>
+                {saving
+                  ? "Use Model B for this kind of task."
+                  : "A cheaper token isn’t always a cheaper fix."}
+              </h4>
+              <p>{example.explanation}</p>
+            </div>
+          </div>
+        </div>
+      );
+    })}
+    <div class="benchmark-method">
+      <p>
+        <strong>The decision:</strong> total spend across all runs ÷ accepted
+        results, subject to your quality and latency requirements.
+      </p>
+      <p>
+        These invented cohorts explain the method, not expected savings or real
+        model rankings. Modeled spend includes model calls, retries, tools and
+        validation; human review is excluded. Ten illustrative runs do not
+        establish reliability. Real comparisons need representative tasks,
+        repeated trials, cost coverage and uncertainty.
+      </p>
+    </div>
+  </div>
+  <div class="benchmark-next">
+    <p>
+      <strong>The lesson: choose for the task, not the token price.</strong>
+      Switch examples to see when a cheaper model wins—and when keeping the
+      stronger model makes more sense. These are hypothetical comparisons, not
+      measured savings.
+    </p>
+    <a class="text-link" href={links.release}>
+      Follow the benchmark roadmap <span aria-hidden="true">↗</span>
+    </a>
+  </div>
+  <div class="fusion-story">
+    <div>
+      <p class="eyebrow">MODEL FUSION · PLANNED METHODOLOGY</p>
+      <h3>
+        The right model for each part.
+        <br />
+        One acceptance bar for the task.
+      </h3>
+      <p>
+        A stronger model can plan or review while a cheaper model handles
+        routine work. The goal is an accepted result within your budget and
+        deadline. Test the complete task to find out whether the mix helps.
+      </p>
+    </div>
+    <ol>
+      <li>
+        <strong>Understand the task</strong>
+        <span>Inspect token usage, elapsed time and retries at each step.</span>
+      </li>
+      <li>
+        <strong>Test a model mix</strong>
+        <span>
+          For example: a stronger model for planning, a lower-cost model for
+          routine edits, and escalation where needed.
+        </span>
+      </li>
+      <li>
+        <strong>Validate the whole result</strong>
+        <span>
+          Run the same acceptance checks. Include handoffs, repeated context,
+          failures and validation in total task cost.
+        </span>
+      </li>
+    </ol>
+  </div>
+</section>
+<script>
+  const benchmarkTabs = Array.from(
+    document.querySelectorAll<HTMLButtonElement>(
+      '.benchmark-tabs [role="tab"]',
+    ),
+  );
+  const selectBenchmark = (tab: HTMLButtonElement) => {
+    benchmarkTabs.forEach((item) => {
+      const selected = item === tab;
+      item.setAttribute("aria-selected", String(selected));
+      item.tabIndex = selected ? 0 : -1;
+      const panel = document.getElementById(
+        item.getAttribute("aria-controls") || "",
+      );
+      if (panel) panel.hidden = !selected;
+    });
+  };
+  benchmarkTabs.forEach((tab, index) => {
+    tab.addEventListener("click", () => selectBenchmark(tab));
+    tab.addEventListener("keydown", (event) => {
+      let next = index;
+      if (event.key === "ArrowRight") next = (index + 1) % benchmarkTabs.length;
+      else if (event.key === "ArrowLeft")
+        next = (index - 1 + benchmarkTabs.length) % benchmarkTabs.length;
+      else if (event.key === "Home") next = 0;
+      else if (event.key === "End") next = benchmarkTabs.length - 1;
+      else return;
+      event.preventDefault();
+      selectBenchmark(benchmarkTabs[next]);
+      benchmarkTabs[next].focus();
+    });
+  });
+</script>

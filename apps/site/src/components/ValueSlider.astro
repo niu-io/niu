@@ -1,0 +1,178 @@
+---
+import ValueMockup from "./ValueMockup.astro";
+const values = [
+  {
+    name: "Simple",
+    title: "Simple to use.",
+    detail:
+      "Ready-to-use models. Easy integration with your agents. Our goal: preserve your existing workflow and subscriptions while adding more model choices.",
+    link: "Start with model access",
+    href: "#gateway",
+  },
+  {
+    name: "Transparent",
+    title: "Clear to understand.",
+    detail:
+      "See every iteration, step and token. Understand how retries add to your wait and spend, and where the task can improve.",
+    link: "Follow the execution",
+    href: "#product",
+  },
+  {
+    name: "Cost-effective",
+    title: "Cheaper to run.",
+    detail:
+      "Find the right balance of time and cost. Test a mix of cheaper and stronger models to meet your quality standards within your budget and deadline.",
+    link: "Explore the benchmark example",
+    href: "#benchmark",
+  },
+];
+---
+
+<section
+  class="value-slider container"
+  aria-label="Three Niu values"
+  aria-roledescription="carousel"
+>
+  <div class="value-controls">
+    <div class="value-selectors" role="group" aria-label="Choose a value">
+      {values.map((value, i) => (
+        <button
+          type="button"
+          data-value-index={i}
+          aria-pressed={i === 0 ? "true" : "false"}
+          aria-controls="value-track"
+        >
+          {value.name}
+        </button>
+      ))}
+    </div>
+  </div>
+  <div
+    class="value-track"
+    id="value-track"
+    tabindex="0"
+    aria-label="Value slides. Use left and right arrow keys to navigate."
+  >
+    {values.map((value, i) => (
+      <div
+        class="value-slide"
+        role="group"
+        aria-roledescription="slide"
+        aria-label={`${i + 1} of 3: ${value.name}`}
+      >
+        <div class="value-copy">
+          <h2>{value.title}</h2>
+          <p>{value.detail}</p>
+          <a class="text-link" href={value.href}>
+            {value.link}
+            <span aria-hidden="true">→</span>
+          </a>
+        </div>
+        <ValueMockup index={i} />
+      </div>
+    ))}
+  </div>
+  <div class="value-bottom">
+    <span class="value-position" aria-live="polite" aria-atomic="true">
+      01 / 03 — Simple
+    </span>
+    <div>
+      <button type="button" class="value-prev" aria-label="Previous value">
+        ←
+      </button>
+      <button type="button" class="value-next" aria-label="Next value">
+        →
+      </button>
+    </div>
+  </div>
+</section>
+<script>
+  const slider = document.querySelector<HTMLElement>(".value-slider");
+  const track = slider?.querySelector<HTMLElement>(".value-track");
+  const selectors = Array.from(
+    slider?.querySelectorAll<HTMLButtonElement>("[data-value-index]") || [],
+  );
+  const position = slider?.querySelector<HTMLElement>(".value-position");
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const slides = Array.from(
+    track?.querySelectorAll<HTMLElement>(".value-slide") || [],
+  );
+  let current = 0;
+  let requested = 0;
+  let lastWidth = track?.clientWidth || 0;
+  const fitHeight = () => {
+    if (track && slides[current])
+      track.style.height = `${slides[current].offsetHeight}px`;
+  };
+  const update = (index: number) => {
+    current = index;
+    selectors.forEach((button, i) =>
+      button.setAttribute("aria-pressed", String(i === index)),
+    );
+    slides.forEach((slide, i) => {
+      slide.inert = i !== index;
+    });
+    if (position)
+      position.textContent = `0${index + 1} / 03 — ${selectors[index]?.textContent?.trim()}`;
+    fitHeight();
+  };
+  const go = (index: number) => {
+    if (!track) return;
+    requested = (index + selectors.length) % selectors.length;
+    track.scrollTo({
+      left: requested * track.clientWidth,
+      behavior: reducedMotion.matches ? "instant" : "smooth",
+    });
+  };
+  selectors.forEach((button, index) =>
+    button.addEventListener("click", () => go(index)),
+  );
+  slider
+    ?.querySelector(".value-prev")
+    ?.addEventListener("click", () => go(requested - 1));
+  slider
+    ?.querySelector(".value-next")
+    ?.addEventListener("click", () => go(requested + 1));
+  slider?.addEventListener("keydown", (event) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    go(
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? selectors.length - 1
+          : requested + (event.key === "ArrowRight" ? 1 : -1),
+    );
+  });
+  track?.addEventListener(
+    "scroll",
+    () => {
+      if (!track.clientWidth) return;
+      const index = Math.max(
+        0,
+        Math.min(
+          selectors.length - 1,
+          Math.round(track.scrollLeft / track.clientWidth),
+        ),
+      );
+      if (index !== current) update(index);
+    },
+    { passive: true },
+  );
+  track?.addEventListener("scrollend", () => {
+    requested = current;
+  });
+  if (track) {
+    const resize = new ResizeObserver(() => {
+      if (track.clientWidth !== lastWidth) {
+        lastWidth = track.clientWidth;
+        requested = current;
+        track.scrollTo({ left: current * lastWidth, behavior: "instant" });
+      }
+      fitHeight();
+    });
+    resize.observe(track);
+    slides.forEach((slide) => resize.observe(slide));
+    update(0);
+  }
+</script>

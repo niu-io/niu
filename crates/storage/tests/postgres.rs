@@ -101,6 +101,83 @@ async fn tenant_boundaries_dispatch_races_and_restart(pool: PgPool) {
 
 #[sqlx::test]
 #[ignore = "requires PostgreSQL with permission to create test databases"]
+async fn operator_sessions_store_only_hashes_and_revocation_blocks_authentication(pool: PgPool) {
+    MIGRATOR.run(&pool).await.unwrap();
+    let store = Store::from_pool(pool.clone());
+    let issued = store
+        .create_operator("Read only", niu_storage::OperatorRole::Viewer, 3600)
+        .await
+        .unwrap();
+    assert_eq!(
+        store.authenticate_operator(&issued.token).await.unwrap(),
+        niu_storage::OperatorRole::Viewer
+    );
+    assert!(store.authenticate_operator("short").await.is_err());
+
+    let operator = store
+        .operators()
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|operator| operator.id == issued.operator_id)
+        .unwrap();
+    assert_eq!(operator.name, "Read only");
+    assert_eq!(operator.role, niu_storage::OperatorRole::Viewer);
+    assert!(!operator.revoked);
+    let sessions = store.operator_sessions(issued.operator_id).await.unwrap();
+    assert_eq!(sessions.len(), 1);
+    assert_eq!(sessions[0].id, issued.session.id);
+    assert!(!sessions[0].revoked);
+
+    let stored_hash: Vec<u8> =
+        sqlx::query_scalar("SELECT token_hash FROM admin_sessions WHERE id=$1")
+            .bind(issued.session.id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(stored_hash.len(), 32);
+    assert_ne!(stored_hash, issued.token.as_bytes());
+
+    store
+        .revoke_operator_session(issued.operator_id, issued.session.id)
+        .await
+        .unwrap();
+    assert!(store.authenticate_operator(&issued.token).await.is_err());
+    assert!(
+        store
+            .revoke_operator_session(issued.operator_id, issued.session.id)
+            .await
+            .is_err()
+    );
+
+    let replacement = store
+        .create_operator_session(issued.operator_id, 3600)
+        .await
+        .unwrap();
+    assert_eq!(
+        store
+            .authenticate_operator(&replacement.token)
+            .await
+            .unwrap(),
+        niu_storage::OperatorRole::Viewer
+    );
+    store.revoke_operator(issued.operator_id).await.unwrap();
+    assert!(
+        store
+            .authenticate_operator(&replacement.token)
+            .await
+            .is_err()
+    );
+    assert!(
+        store
+            .create_operator_session(issued.operator_id, 3600)
+            .await
+            .is_err()
+    );
+}
+
+#[sqlx::test]
+#[ignore = "requires PostgreSQL with permission to create test databases"]
 async fn key_permissions_expiry_and_revocation_are_rechecked(pool: PgPool) {
     let store = Store::from_pool(pool.clone());
     let org = store.create_organization("keys").await.unwrap();
@@ -570,6 +647,7 @@ async fn quota_observations_preserve_units_freshness_and_tenant_boundaries(pool:
             .await
             .unwrap();
     let mut input = QuotaInput {
+        schema_version: 1,
         window_key: "short".into(),
         unit: QuotaUnit::MillionthsOfWindow,
         remaining: Some(250_000),
@@ -580,14 +658,28 @@ async fn quota_observations_preserve_units_freshness_and_tenant_boundaries(pool:
         source: "provider-header".into(),
     };
     assert!(store.observe_quota(other, account, &input).await.is_err());
-    store.observe_quota(scope, account, &input).await.unwrap();
+    let observation_id = store.observe_quota(scope, account, &input).await.unwrap();
+    // An exact collector replay is safe and returns the original record.
+    assert_eq!(
+        store.observe_quota(scope, account, &input).await.unwrap(),
+        observation_id
+    );
+    let mut conflicting_replay = input.clone();
+    conflicting_replay.remaining = Some(200_000);
+    assert!(matches!(
+        store
+            .observe_quota(scope, account, &conflicting_replay)
+            .await,
+        Err(StoreError::Conflict)
+    ));
     // A delayed older observation must not replace the newer value.
     input.observed_at_ms = now - 2000;
     input.remaining = Some(900_000);
     store.observe_quota(scope, account, &input).await.unwrap();
     let windows = store.quota(scope, account).await.unwrap();
     assert_eq!(windows.len(), 1);
-    assert_eq!(windows[0].remaining, Some(250_000));
+    assert_eq!(windows[0].remaining.as_deref(), Some("250000"));
+    assert_eq!(windows[0].previous_remaining.as_deref(), Some("900000"));
     assert_eq!(windows[0].unit, "millionths_of_window");
     assert!(windows[0].fresh);
     assert!(store.quota(other, account).await.unwrap().is_empty());
@@ -612,13 +704,31 @@ async fn quota_observations_preserve_units_freshness_and_tenant_boundaries(pool:
         store.observe_quota(scope, account, &input).await,
         Err(StoreError::InvalidAccount)
     ));
-    assert!(
-        sqlx::query("DELETE FROM quota_observations WHERE account_id=$1")
-            .bind(account)
-            .execute(&pool)
+    assert!(matches!(
+        store.delete_quota_window(other, account, "short").await,
+        Err(StoreError::Conflict)
+    ));
+    assert_eq!(
+        store
+            .delete_quota_window(scope, account, "short")
             .await
-            .is_err()
+            .unwrap(),
+        2
     );
+    assert_eq!(
+        store
+            .delete_quota_window(scope, account, "short")
+            .await
+            .unwrap(),
+        0
+    );
+    let remaining_windows = store.quota(scope, account).await.unwrap();
+    assert!(
+        !remaining_windows
+            .iter()
+            .any(|window| window.window_key == "short")
+    );
+    assert_eq!(remaining_windows.len(), 3);
 }
 
 #[sqlx::test]
@@ -684,8 +794,11 @@ async fn execution_imports_are_scoped_idempotent_and_deletable(pool: PgPool) {
         store.import_execution(a, &record),
         store.import_execution(a, &record)
     );
-    let id = left.unwrap();
-    assert_eq!(id, right.unwrap());
+    let left = left.unwrap();
+    let right = right.unwrap();
+    assert_ne!(left.created, right.created);
+    let id = left.id;
+    assert_eq!(id, right.id);
     assert_eq!(
         Store::from_pool(pool.clone())
             .execution_import(a, id)
@@ -695,32 +808,32 @@ async fn execution_imports_are_scoped_idempotent_and_deletable(pool: PgPool) {
     );
     assert!(store.execution_import(b, id).await.unwrap().is_none());
     assert!(!store.delete_execution_import(b, id).await.unwrap());
-    let independent = store.import_execution(b, &record).await.unwrap();
+    let independent = store.import_execution(b, &record).await.unwrap().id;
     assert_ne!(independent, id);
     let mut second_record = record.clone();
     second_record.record_id = "second-record".into();
-    let second = store.import_execution(a, &second_record).await.unwrap();
-    let mut expected = vec![id, second];
+    let second = store.import_execution(a, &second_record).await.unwrap().id;
+    let mut expected = [id, second];
     expected.sort();
-    let first_page = store.execution_imports(a, None, 1).await.unwrap();
+    let first_page = store.execution_imports(a, None, None, 1).await.unwrap();
     assert_eq!(first_page[0].id, expected[0]);
     assert_eq!(first_page[0].coverage, "partial");
     let second_page = store
-        .execution_imports(a, Some(first_page[0].id), 1)
+        .execution_imports(a, Some(first_page[0].id), None, 1)
         .await
         .unwrap();
     assert_eq!(second_page[0].id, expected[1]);
     assert!(
         store
-            .execution_imports(a, Some(second_page[0].id), 1)
+            .execution_imports(a, Some(second_page[0].id), None, 1)
             .await
             .unwrap()
             .is_empty()
     );
-    let isolated = store.execution_imports(b, None, 100).await.unwrap();
+    let isolated = store.execution_imports(b, None, None, 100).await.unwrap();
     assert_eq!(isolated.len(), 1);
     assert_eq!(isolated[0].id, independent);
-    assert!(store.execution_imports(a, None, 0).await.is_err());
+    assert!(store.execution_imports(a, None, None, 0).await.is_err());
 
     let mut conflict = record.clone();
     conflict.coverage = niu_execution::observation::Coverage::Unknown;
@@ -786,4 +899,225 @@ async fn default_workspace_is_atomic_and_idempotent(pool: PgPool) {
         .await
         .unwrap();
     assert_eq!(keys, 0);
+}
+
+#[sqlx::test]
+#[ignore = "requires PostgreSQL with permission to create test databases"]
+async fn execution_cohort_deduplicates_scoped_costs_and_keeps_unknowns_explicit(pool: PgPool) {
+    use niu_execution::observation::{
+        Coverage, ExecutionRecord, Outcome, OutcomeAuthority, OutcomeResult, SpanKind, SpanStatus,
+    };
+    use niu_storage::{PriceInput, TokenRates};
+    use uuid::Uuid;
+
+    MIGRATOR.run(&pool).await.unwrap();
+    let store = Store::from_pool(pool.clone());
+    let organization = store.create_organization("cohort").await.unwrap();
+    let scope = store
+        .create_project(organization, "observed")
+        .await
+        .unwrap();
+    let key = store
+        .issue_key(scope, "cohort-client", &["fast".into()], 3600)
+        .await
+        .unwrap();
+    let principal = store.authenticate(&key.token).await.unwrap();
+    store.create_budget(scope, "USD", 1_000).await.unwrap();
+    let price = store
+        .publish_price(
+            scope,
+            PriceInput {
+                resource_id: "fast",
+                offer_revision: "cohort-v1",
+                currency: "USD",
+                api_equivalent: TokenRates {
+                    prompt: 2_000_000,
+                    completion: 4_000_000,
+                },
+                cash: TokenRates {
+                    prompt: 1_000_000,
+                    completion: 2_000_000,
+                },
+            },
+        )
+        .await
+        .unwrap();
+    let operation = store.create_operation(scope, "fast").await.unwrap();
+    let mut attempt_ids = Vec::new();
+    for usage in [(20, 10), (10, 0)] {
+        let attempt = store
+            .prepare_attempt(scope, operation, "fast", "cohort-v1")
+            .await
+            .unwrap();
+        store
+            .reserve_cost(scope, attempt, price, 20, 10)
+            .await
+            .unwrap();
+        store.mark_dispatched(&principal, attempt).await.unwrap();
+        store
+            .complete_and_settle(scope, attempt, Some(usage))
+            .await
+            .unwrap();
+        attempt_ids.push(attempt);
+    }
+
+    fn observed_record(record_id: &str, attempt_id: Uuid, accepted: bool) -> ExecutionRecord {
+        let mut record: ExecutionRecord = serde_json::from_str(include_str!(
+            "../../../contracts/fixtures/parallel-task.v1.json"
+        ))
+        .unwrap();
+        record.record_id = record_id.into();
+        record.coverage = Coverage::Complete;
+        for span in &mut record.spans {
+            if matches!(
+                span.kind,
+                SpanKind::ModelInvocation | SpanKind::ToolInvocation | SpanKind::Attempt
+            ) {
+                span.charge_ref = Some(attempt_id.to_string());
+            }
+        }
+        record
+            .outcomes
+            .retain(|outcome| outcome.authority == OutcomeAuthority::DeterministicValidator);
+        record.outcomes[0].evidence_id = format!("validator-{record_id}");
+        record.outcomes[0].result = if accepted {
+            OutcomeResult::Accepted
+        } else {
+            OutcomeResult::Rejected
+        };
+        if accepted {
+            record.outcomes.push(Outcome {
+                span_id: "task".into(),
+                evidence_id: format!("agent-{record_id}"),
+                authority: OutcomeAuthority::AgentClaim,
+                result: OutcomeResult::Accepted,
+            });
+        }
+        record
+    }
+
+    let accepted = observed_record("accepted", attempt_ids[0], true);
+    let duplicate_reference = observed_record("retry-observation", attempt_ids[0], false);
+    let mut failed_attempt = observed_record("failed-work", attempt_ids[1], false);
+    failed_attempt
+        .spans
+        .iter_mut()
+        .find(|span| span.id == "tool")
+        .unwrap()
+        .status = Some(SpanStatus::Failed);
+    for record in [&accepted, &duplicate_reference, &failed_attempt] {
+        store.import_execution(scope, record).await.unwrap();
+    }
+
+    let account_id = Uuid::new_v4();
+    sqlx::query("INSERT INTO supplier_accounts (id,organization_id,project_id,provider,plan,authentication_mode,billing_mode,credential_reference,concurrency_limit) VALUES ($1,$2,$3,'Aster','Team','api_key','subscription','env:COHORT_TEST',1)")
+        .bind(account_id)
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO quota_observations (id,organization_id,project_id,account_id,window_key,unit,remaining,maximum,observed_at_ms,valid_until_ms,resets_at_ms,source) VALUES ($1,$2,$3,$4,'weekly','requests',7,10,1,100,200,'cohort-test')")
+        .bind(Uuid::new_v4())
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(account_id)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let report = store.execution_cohort(scope).await.unwrap();
+    assert_eq!(report.records_scanned, 3);
+    assert_eq!(report.coverage.complete, 3);
+    assert_eq!((report.outcomes.accepted, report.outcomes.rejected), (1, 2));
+    assert_eq!(report.outcome_evidence.agent_claim.accepted, 1);
+    assert_eq!(report.outcome_evidence.deterministic_validator.accepted, 1);
+    assert_eq!(report.outcome_evidence.deterministic_validator.rejected, 2);
+    assert_eq!(report.outcome_evidence.human_acceptance.absent, 3);
+    assert_eq!(report.accepted_completions, 1);
+    assert_eq!(report.work.failed_spans, 1);
+    assert_eq!(report.work.billable_roots_without_charge_references, 0);
+    assert_eq!(report.cost_evidence.unique_charge_references, 2);
+    assert_eq!(report.cost_evidence.unique_attempt_references, 2);
+    assert_eq!(report.cost_evidence.resolved_attempts, 2);
+    assert_eq!(report.cost_evidence.settled_cost_entries, 2);
+    assert!(report.cost_evidence.complete);
+    assert_eq!(report.api_equivalent_by_currency[0].amount_nanos, "100");
+    assert_eq!(
+        report.configured_rate_cash_by_currency[0].amount_nanos,
+        "50"
+    );
+    assert_eq!(
+        report.api_equivalent_per_accepted_completion[0].numerator_nanos,
+        "100"
+    );
+    assert_eq!(
+        report.api_equivalent_per_accepted_completion[0].denominator,
+        1
+    );
+    assert_eq!(report.capacity.quota_observations, 1);
+    assert_eq!(report.capacity.task_attribution, "unavailable");
+    assert_eq!(report.invoice_cash.state, "not_imported");
+    assert!(report.invoice_cash.totals_by_currency.is_empty());
+    assert_eq!(report.subscription_allocation_cash.state, "not_imported");
+    assert!(
+        report
+            .subscription_allocation_cash
+            .totals_by_currency
+            .is_empty()
+    );
+
+    let mut partial = observed_record("partial-coverage", Uuid::new_v4(), true);
+    partial.coverage = Coverage::Partial;
+    partial
+        .spans
+        .iter_mut()
+        .find(|span| span.id == "attempt")
+        .unwrap()
+        .charge_ref = Some("provider-ledger-reference".into());
+    store.import_execution(scope, &partial).await.unwrap();
+    let incomplete = store.execution_cohort(scope).await.unwrap();
+    assert_eq!(incomplete.accepted_completions, 2);
+    // One UUID has no scoped attempt row and one provider-native namespace is
+    // intentionally not guessed to be a canonical ledger identifier.
+    assert_eq!(incomplete.cost_evidence.unresolved_references, 2);
+    assert!(!incomplete.cost_evidence.complete);
+    assert!(incomplete.api_equivalent_per_accepted_completion.is_empty());
+    assert_eq!(incomplete.api_equivalent_by_currency[0].amount_nanos, "100");
+
+    let empty_cost_scope = store
+        .create_project(organization, "zero accepted")
+        .await
+        .unwrap();
+    let no_acceptance: ExecutionRecord = serde_json::from_value(serde_json::json!({
+        "schema_version": 1,
+        "source": "cohort-test",
+        "record_id": "rejected-only",
+        "task_id": "task",
+        "coverage": "complete",
+        "spans": [{"id":"task","kind":"task"},{"id":"validation","kind":"validation"}],
+        "links": [{"from":"task","to":"validation","kind":"contains"}],
+        "outcomes": [{"span_id":"task","evidence_id":"rejected","authority":"deterministic_validator","result":"rejected"}]
+    }))
+    .unwrap();
+    store
+        .import_execution(empty_cost_scope, &no_acceptance)
+        .await
+        .unwrap();
+    let zero = store.execution_cohort(empty_cost_scope).await.unwrap();
+    assert_eq!(zero.accepted_completions, 0);
+    assert!(zero.cost_evidence.complete);
+    assert!(zero.api_equivalent_per_accepted_completion.is_empty());
+    assert!(zero.configured_rate_cash_per_accepted_completion.is_empty());
+    assert!(zero.api_equivalent_by_currency.is_empty());
+
+    let wrong_tenant = TenantScope {
+        organization_id: Uuid::new_v4(),
+        project_id: scope.project_id,
+    };
+    let isolated = store.execution_cohort(wrong_tenant).await.unwrap();
+    assert_eq!(isolated.records_scanned, 0);
+    assert!(isolated.api_equivalent_by_currency.is_empty());
+    assert_eq!(isolated.capacity.quota_observations, 0);
+    assert!(!isolated.cost_evidence.complete);
 }

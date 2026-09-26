@@ -3,9 +3,84 @@ title: API reference
 description: Public Niu gateway and management API contracts.
 ---
 
-The versioned OpenAPI contract is maintained in [`contracts/openapi.yaml`](https://github.com/niu-io/niu/blob/main/contracts/openapi.yaml). The gateway is adding compatible inference routes first, followed by management APIs that expose model routes, API keys, usage, cost, and policy.
+The versioned OpenAPI contract is maintained in [`contracts/openapi.yaml`](https://github.com/niu-io/niu/blob/main/contracts/openapi.yaml). It describes the implemented inference routes and scoped management workflows. The management surface is still partial; the first-release matrix tracks the remaining workspace-scoped roles, route editing, audit, policy, and reconciliation work.
 
 The public API surface must preserve protocol-specific behavior. Unsupported parameters and event types are rejected or passed through according to the operation contract; they are not silently discarded.
+
+## Public model catalog
+
+`GET /catalog/v1/models` and the `/models/` page list aliases an operator explicitly marks with `public_catalog = true`. The response contains the alias and declared capabilities only; it omits provider names, upstream identifiers, endpoints, credentials and prices. Catalog visibility does not authorize inference. Applications still use scoped keys with `/v1/models` and the inference endpoints.
+
+## Operator roles and sessions
+
+`NIU_ADMIN_TOKENS` remains the owner-level installation bootstrap credential. An owner can create persistent operators with `owner`, `admin`, or `viewer` roles through `POST /admin/v1/operators`, and issue additional expiring sessions through `POST /admin/v1/operators/{operator}/sessions`. Creation responses contain the bearer token once and include `Cache-Control: no-store`; list APIs return only identity, role, session IDs, expiry and revocation metadata. Delete an individual session or an operator to revoke access. A revoked or expired token fails the next administrative request.
+
+Owners can manage operators. Admins can read and write management resources but cannot manage operators. Viewers have read access only. These grants currently apply installation-wide; workspace path segments do not constrain operator authority. Token-based sessions are not a substitute for interactive identity federation or per-workspace membership.
+
+## Provider capability matrix
+
+Capabilities are route-specific. Flags in `config/niu.toml` declare operator-verified behavior; they do not mean Niu has qualified every provider model or endpoint. A request for an unsupported combination is rejected before an attempt is created where the contract below marks it unavailable.
+
+| Operation | OpenAI-compatible route (`provider = "openai"`) | Native Anthropic route | Native Bedrock route |
+| --- | --- | --- | --- |
+| Chat completion, non-streaming | Supported; tool and structured-output subsets require separate route flags | Basic non-streaming adapter path | Basic non-streaming adapter path |
+| Chat completion, streaming | Supported; tool deltas need `supports_streaming_tool_calls` | Not implemented | Not implemented |
+| Function tools | Non-streaming tool-call pass-through with `supports_tool_calls`; Niu does not execute tools | Not implemented | Not implemented |
+| Structured JSON output | Non-streaming `json_object` and `json_schema` pass-through with `supports_structured_output`; schema semantics are not checked | Not implemented | Not implemented |
+| Text embeddings | Supported only with `supports_embeddings`; dimensions and base64 output require their own flags | Not implemented | Not implemented |
+| Responses | Non-streaming text subset with `supports_responses` | Not implemented | Not implemented |
+
+The native Anthropic and Bedrock entries describe the current non-streaming chat adapter path, not provider conformance qualification. Niu has no provider-specific conformance fixtures for those routes yet. Tool and structured-output capabilities are deliberately restricted to OpenAI-compatible routes. Pricing applies to bounded text chat, Responses and embeddings; embeddings reserve input capacity only and settle provider-reported prompt usage. Tool calls are rejected on priced chat routes. See [Model routes](/docs/configuration/models/) for the exact route flags and pricing limits.
+
+## Chat function tools and structured output
+
+`POST /v1/chat/completions` accepts OpenAI-compatible function tool definitions, `tool_choice`, and `response_format` values `json_object` or `json_schema` only when the configured OpenAI-compatible route explicitly enables the corresponding capability. Streaming tool-call deltas require the separate `supports_streaming_tool_calls` flag. Requests for disabled capabilities return `501` before an operation or attempt is recorded. Malformed tool definitions, choices, and schemas receive `400`.
+
+Niu forwards tool definitions and structured-output schemas to the provider. It does not execute tools. Non-streaming tool-call responses must reference a declared function and contain JSON-object arguments; structured-output responses must contain valid JSON, but Niu does not perform JSON Schema validation. Provider support must be independently verified by the operator. These features are not enabled on native Anthropic or Bedrock routes, priced tool calls are rejected, and structured JSON streaming is unsupported. This subset does not close R04; full Responses compatibility, broader protocol conformance, and provider-specific test fixtures remain release work.
+
+## Responses API text subset
+
+`POST /v1/responses` accepts a non-empty string `input` and optional string `instructions`, `max_output_tokens`, `temperature`, `top_p`, string-valued `metadata`, and `user`. The model route must set `supports_responses = true`; Niu rewrites the model to the configured upstream name and maps the returned model back to the public alias. Only non-streaming text messages, reasoning items and refusal content are accepted. Usage maps from Responses `input_tokens`/`output_tokens` into durable prompt/completion fields.
+
+Input arrays, images, audio, tools, streaming and conversation state are outside this subset. Unsupported fields or malformed shapes return `400`; a disabled route capability or `stream: true` returns `501` before creating an attempt. When route pricing is enabled, `input` plus `instructions` must fit the configured conservative UTF-8 byte bound and `max_output_tokens` is reserved before dispatch. See [Model routes](/docs/configuration/models/) for current limits. This adapter subset does not imply provider-specific conformance.
+
+## OpenAI-compatible text embeddings
+
+`POST /v1/embeddings` accepts a model alias and one non-empty string or an array of 1–2048 non-empty strings. It optionally accepts `dimensions` (1–65536), `encoding_format` (`float` or `base64`), and a `user` string up to 512 bytes. Token-ID arrays, nested inputs, multimodal input, streaming and extra fields are rejected. The configured route must use provider `openai` and explicitly declare embedding support; dimension and base64 support are separate opt-in route declarations. A missing declaration or unsupported provider returns `501` before durable operation and attempt creation. A successful response uses the public model alias and must include one correctly shaped embedding for each input item. See [Model routes](/docs/configuration/models/) for setup and pricing bounds.
+
+This contract covers the implemented OpenAI-compatible text embedding operation only. The declared route flags are configuration assertions, not conformance results; native Anthropic and Bedrock embeddings, provider-specific conformance suites, and other input modalities are not implemented.
+
+## Execution observation imports
+
+Bootstrap administrators can import and inspect metadata-only task records for a project:
+
+- `POST /admin/v1/organizations/{organization}/projects/{project}/executions` accepts one version 1 record. The response is `201` for a new record and `200` for an identical replay; conflicting content for the same source and record ID returns `409`.
+- `GET /admin/v1/organizations/{organization}/projects/{project}/executions?limit=50` lists metadata rows. Optional `task_id` filters the list; `after` continues a stable UUID cursor. Limits range from 1 to 100.
+- `GET .../executions/cohort` aggregates up to 10,000 records in UUID order. It classifies accepted outcomes only when a deterministic validator or human accepts and no conflicting evidence exists; agent claims alone are unverified. Canonical attempt UUID charge references are deduplicated across imported records and resolved only inside this project.
+- `GET .../executions/{execution}` retrieves one record and account links resolved from charge references that match Niu attempt UUIDs assigned to supplier accounts.
+- `DELETE .../executions/{execution}` removes only that imported metadata record.
+
+See [Execution observation](/docs/concepts/execution-observation/) for the schema, privacy rules and current limits. Imports cannot dispatch inference or create ledger entries.
+
+The cohort report includes per-authority agent-claim, deterministic-validator and human-acceptance evidence counts. It includes all resolved settled costs, including failed or rejected work, and provides API-equivalent totals separately from Niu's configured-rate cash calculation. Amounts are integer billionths encoded as decimal strings. Per-accepted-completion ratios are emitted only when the bounded import scan, source-reported coverage, billable-work references and scoped settlements are complete; zero accepted completions has no ratio. Unresolved namespaces, unmatched attempt UUIDs and unsettled attempts remain visible as incomplete evidence. Invoice cash and subscription fee allocations return `not_imported`; quota sample count is reported without task attribution. Counts are per imported record because schema v1 has no canonical identity for merging the same real-world task across independent sources. This is a live view, not a snapshot.
+
+## Paired benchmark analysis
+
+`POST /admin/v1/benchmarks/compare` accepts a `PairedExperimentV1` dataset and returns a stateless comparison report. Candidate trials must reference the same declared task snapshot, tool, permission and acceptance-policy hashes and match the pinned route revision. The evaluator requires explicit opt-in metadata, complete trace coverage to qualify a completion, settled cost evidence for every billable invocation, and reported cash under the declared cap. It includes evaluator cost and unsuccessful work when calculating totals.
+
+The endpoint only analyzes supplied records. It does not dispatch requests, enforce the approval metadata, reserve budget, persist reports, isolate task tools, or authenticate the evidence source. The `opt_in` and `authorization_ref` fields are assertions, not security controls. See [paired benchmark analysis](/docs/concepts/benchmarking/) for the CLI, fixture and limits. No real paired experiment has been run by this feature.
+
+## Subscription quota observations
+
+Bootstrap administrators can register supplier account metadata and import provider-reported quota snapshots without proxying inference:
+
+- `POST /admin/v1/organizations/{organization}/projects/{project}/accounts` registers a project-scoped account. Provide an opaque `env:` or `secret:` credential reference; the account starts unverified and registration does not enable inference.
+- `POST /admin/v1/organizations/{organization}/projects/{project}/accounts/{account}/quota` accepts a version 1 `QuotaObservationV1` sample. An exact replay returns the original observation ID; a conflicting payload for the same account, window, and timestamp returns `409`.
+- `GET .../accounts` lists account metadata without returning credential references. `GET .../accounts/{account}/quota` returns the latest sample per provider window, including its freshness, validity deadline, reset time, and previous sample baseline.
+- `DELETE .../accounts/{account}/quota?window_key=weekly` permanently removes all imported samples for that account window, including the comparison baseline. The response reports the number deleted; repeating the request is safe.
+- `GET .../accounts/{account}/executions` lists metadata-only tasks with charge references matching attempts assigned to the account, up to 100 records.
+
+The `Subscriptions` console page displays provider-reported units as reported and marks changes between snapshots as unattributed. It does not infer token amounts from percentages or claim that a quota delta was caused by one task. When an execution span's `charge_ref` exactly matches a Niu attempt UUID assigned to an account, task and account views link to each other without exposing execution payloads in the account index. Other charge namespaces remain unresolved. Latest and previous BIGINT quantities are decimal strings for exact browser display. Imports only persist observations: they do not refresh credentials, forward inference, change subscriptions, or reset provider allowances. Tenant operator roles and native provider collectors are not implemented; these endpoints still use the installation-wide bootstrap administrator token.
 
 :::caution[Current status]
 The current gateway milestone is limited. This reference grows with tested endpoints; it does not claim parity with every LiteLLM operation or provider today.
@@ -34,15 +109,16 @@ Send `POST /admin/v1/organizations/{organization}/projects/{project}/budget` wit
 
 This creates a USD 100 lifetime budget. Amounts must be nonnegative decimal integer strings, with no exponent or fractional notation, within the signed 64-bit range. Currency is a three-letter uppercase code; no currency conversion is performed. Concurrent creation has one winner; an existing budget returns 409 without changing its limit, reservations or spend.
 
-**Current admission behavior:** creating a budget requires subsequent inference dispatch to hold a trusted cost reservation. Configure a supported route pricing schedule to create reservations automatically; routes without pricing remain blocked for that project. Existing dispatched attempts are not retroactively reserved. Use this API with that limitation in mind; budget editing and deletion are not yet exposed.
+**Current admission behavior:** priced OpenAI-compatible text routes reserve configured token bounds before dispatch; insufficient funds or a missing matching-currency project budget blocks those priced requests. Routes without pricing are not capped by the budget, so a project budget is not a strict spending limit unless every reachable route has a supported price and defensible bounds. Existing dispatched attempts are not retroactively reserved. The console's **Usage & cost** page can create a lifetime project budget; editing and deletion are not yet exposed.
 
 ## Standalone execution imports
 
-The metadata import API is independent of inference forwarding and account pooling. Use the versioned execution contract with a supported export or connector; the synthetic repository fixture is suitable for a local smoke check, not a real collector.
+The metadata import API is independent of inference forwarding and account pooling. Use the versioned execution contract with an authorized export or connector; the synthetic repository fixture is suitable for local checks, not a real collector.
 
-- `GET /admin/v1/organizations/{organization}/projects/{project}/execution-imports?limit=50`: list metadata summaries and a nullable `next_cursor`; pass it as `after` to continue. Limits range from 1 to 100. UUID ordering is a live traversal, not chronological or a fixed snapshot.
-- `POST /admin/v1/organizations/{organization}/projects/{project}/execution-imports`: import a record, returning `{"id":"..."}` with status 200. Identical re-import returns the same ID; conflicting content for the same source/record identity returns 409.
-- `GET /admin/v1/organizations/{organization}/projects/{project}/execution-imports/{id}`: retrieve metadata. Responses are marked `Cache-Control: no-store`.
+- `GET /admin/v1/organizations/{organization}/projects/{project}/execution-imports?limit=50`: list metadata summaries and a nullable `next_cursor`; pass it as `after` to continue. Limits range from 1 to 100. A `task_id` filter is available. UUID ordering is a live traversal, not chronological or a fixed snapshot.
+- `POST /admin/v1/organizations/{organization}/projects/{project}/execution-imports`: import a record. A first import returns 201; an identical replay returns 200 with the same ID; conflicting content for the same source/record identity returns 409. `/executions` is a console-compatible alias.
+- `GET /admin/v1/organizations/{organization}/projects/{project}/execution-imports/{id}`: retrieve the metadata record, scoped account links and explicitly referenced settled charges. The response is marked `Cache-Control: no-store`; the task total is always incomplete.
 - `DELETE /admin/v1/organizations/{organization}/projects/{project}/execution-imports/{id}`: remove the imported metadata row. Referenced canonical financial records remain governed by their own retention policy. Re-import after deletion creates a new stored record.
+- `GET /admin/v1/organizations/{organization}/projects/{project}/executions/cohort`: read a bounded project rollup of outcome and cost evidence. It is a live view, scans at most 10,000 records, and does not infer task-level quota attribution or invoice/subscription allocation costs.
 
-All endpoints currently require an installation administrator token. Inference client keys cannot import, read or delete these records. Imports are capped at 1 MiB, reject unknown content fields and invalid graphs, and take their project scope from the authenticated API path. Imports neither execute work nor post ledger charges. There is no automatic retention expiry yet; deletion removes the live database record, while backups must follow the operator's retention policy.
+All execution import and read endpoints require administrator authorization. Inference client keys and quota-only collector credentials cannot access these records. Imports are capped at 1 MiB, reject unknown content fields and invalid graphs, and take project scope from the authenticated API path. Imports neither execute work nor post ledger charges. There is no automatic retention expiry yet; deletion removes the live database record, while backups must follow the operator's retention policy.

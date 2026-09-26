@@ -1,0 +1,57 @@
+---
+title: Subscription observations
+description: Import and inspect provider-reported quota windows without routing inference through Niu.
+---
+
+Supplier account metadata and quota observations are independent of inference forwarding. They support an initial capacity report for installations that want to inspect subscription use before enabling a provider route.
+
+## Register an account
+
+Register provider, plan, authentication mode, billing mode, concurrency limit, and an opaque credential reference on a project:
+
+```sh
+curl -X POST "$NIU_URL/admin/v1/organizations/$ORG/projects/$PROJECT/accounts" \
+  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data '{"provider":"provider-name","plan":"team","authentication_mode":"oauth_refresh","billing_mode":"subscription","credential_reference":"env:PROVIDER_ACCOUNT","concurrency_limit":2}'
+```
+
+Never put the credential itself in the request. Registration does not validate or refresh provider credentials and leaves the account unverified. Account metadata reads do not return the credential reference.
+
+## Import a quota window
+
+Import an authorized observation for the registered account:
+
+```sh
+OBSERVED_AT_MS=$(( $(date +%s) * 1000 ))
+cat > quota-observation.v1.json <<JSON
+{
+  "schema_version": 1,
+  "window_key": "weekly",
+  "unit": "tokens",
+  "remaining": 820000,
+  "maximum": 1000000,
+  "observed_at_ms": $OBSERVED_AT_MS,
+  "valid_until_ms": $((OBSERVED_AT_MS + 3600000)),
+  "resets_at_ms": $((OBSERVED_AT_MS + 604800000)),
+  "source": "provider-export"
+}
+JSON
+
+curl -X POST "$NIU_URL/admin/v1/organizations/$ORG/projects/$PROJECT/accounts/$ACCOUNT/quota" \
+  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data-binary @quota-observation.v1.json
+```
+
+Units are `tokens`, `requests`, or `millionths_of_window`. A ratio is retained as a ratio; Niu does not convert it to a token balance. Include provider observation, validity, and reset timestamps. Samples observed in the future are rejected. The latest sample is fresh only while it has a known remaining amount and is before both its validity deadline and reset time.
+
+Exact replays return the existing observation ID. If another payload uses the same project account, provider window key, and observation timestamp, Niu returns `409 Conflict`. Older samples are retained for comparison but cannot replace the latest sample.
+
+The **Subscriptions** console lists current account windows, their source and reset, freshness, and change since the preceding snapshot. Changes are labeled unattributed: this release does not reconcile quota deltas to canonical per-attempt usage. If an imported execution span's `charge_ref` is the UUID of an Niu attempt assigned to the account, the account lists that task and the span links back to the account. Other charge references remain unlinked. BIGINT quantities are returned as decimal strings so browser clients do not round them.
+
+To remove imported history, delete one account window through `DELETE /admin/v1/organizations/{organization}/projects/{project}/accounts/{account}/quota?window_key=weekly`. Niu permanently removes all stored samples for that account and window, including the previous-sample baseline. Other windows, provider state, inference attempts and ledger entries are unaffected. The deletion is manual; an automatic retention schedule is not implemented.
+
+## Limits
+
+This is a versioned, manual import workflow. It does not call a provider, dispatch inference, refresh credentials, change a subscription, or reset an allowance. Account drill-down requires an explicit canonical attempt UUID in the trace; it does not automatically reconcile quota windows against attempt usage. The API is protected by the installation-wide bootstrap administrator token; project operator roles and native collectors remain future work.

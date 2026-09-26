@@ -5,12 +5,15 @@
   "scripts": {
     "build:console": "pnpm --filter @niu-io/console build",
     "build:docs": "pnpm --filter @niu-io/docs build",
+    "build:site": "pnpm --filter @niu-io/site build",
+    "check:site": "pnpm --filter @niu-io/site check",
     "check:console": "pnpm --filter @niu-io/console check",
     "check:docs": "pnpm --filter @niu-io/docs check",
     "build:sdk:js": "pnpm --filter @niu-io/sdk build",
     "check:sdk:js": "pnpm --filter @niu-io/sdk check",
     "test:sdk:js": "pnpm --filter @niu-io/sdk test",
     "dev:console": "pnpm --filter @niu-io/console dev",
-    "dev:docs": "pnpm --filter @niu-io/docs dev"
+    "dev:docs": "pnpm --filter @niu-io/docs dev",
+    "dev:site": "pnpm --filter @niu-io/site dev"
   }
 }

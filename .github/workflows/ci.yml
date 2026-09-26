@@ -1,0 +1,119 @@
+name: Public release qualification
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: niu_test
+          POSTGRES_PASSWORD: niu_test
+          POSTGRES_DB: niu_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U niu_test -d niu_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        run: rustup toolchain install 1.98.0 --profile minimal --component rustfmt --component clippy
+      - name: Check formatting
+        run: cargo +1.98.0 fmt --all -- --check
+      - name: Verify selective upstream imports and checksums
+        run: python3 scripts/verify-imports.py
+      - name: Install pinned Cargo license auditor
+        run: cargo +1.98.0 install cargo-deny --version 0.20.2 --locked
+      - name: Check Rust dependency licenses
+        run: cargo deny check licenses
+      - name: Test workspace
+        run: cargo +1.98.0 test --locked --workspace
+      - name: Test PostgreSQL storage integration
+        env:
+          DATABASE_URL: postgres://niu_test:niu_test@127.0.0.1:5432/niu_test
+        run: cargo +1.98.0 test --locked -p niu-storage --test postgres -- --ignored
+      - name: Test PostgreSQL gateway integration
+        env:
+          DATABASE_URL: postgres://niu_test:niu_test@127.0.0.1:5432/niu_test
+        run: cargo +1.98.0 test --locked -p niu-gateway -- --ignored
+      - name: Lint workspace
+        run: cargo +1.98.0 clippy --locked --workspace --all-targets -- -D warnings
+      - name: Run paired benchmark fixture
+        run: cargo +1.98.0 run --locked -p niu-benchmark -- compare contracts/fixtures/paired-experiment.v1.json
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install JavaScript workspace
+        run: pnpm install --frozen-lockfile
+      - name: Check JavaScript dependency licenses
+        env:
+          NIU_JS_LICENSE_REPORT: ${{ runner.temp }}/niu-js-license-report.json
+        run: node scripts/verify-js-licenses.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: javascript-license-report
+          path: ${{ runner.temp }}/niu-js-license-report.json
+          if-no-files-found: ignore
+      - name: Test console
+        run: pnpm --filter @niu-io/console test
+      - name: Check console types
+        run: pnpm --filter @niu-io/console check
+      - name: Build console
+        run: pnpm --filter @niu-io/console build
+      - name: Check documentation
+        run: pnpm --filter @niu-io/docs check
+      - name: Build documentation
+        run: pnpm --filter @niu-io/docs build
+      - name: Check public site
+        run: pnpm check:site
+      - name: Build public site
+        run: pnpm build:site
+      - name: Test JavaScript SDK
+        run: pnpm --dir sdks/javascript run test
+      - name: Check JavaScript SDK types
+        run: pnpm --dir sdks/javascript run check
+      - name: Build JavaScript SDK
+        run: pnpm --dir sdks/javascript run build
+
+  package:
+    runs-on: ubuntu-latest
+    needs:
+      - rust
+      - web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build single-container product
+        run: docker buildx build --load --tag niu-io/niu:ci .
+      - name: Inspect runtime package contents
+        run: |
+          test "$(docker image inspect --format '{{.Config.User}}' niu-io/niu:ci)" = "10001:10001"
+          docker run --rm --entrypoint /bin/sh niu-io/niu:ci -c 'set -- /app/console/assets/*.js; test -x /usr/local/bin/niu-gateway && test -s /app/console/index.html && test -s "$1" && test -s /app/docs/index.html && test -s /app/docs/pagefind/pagefind.js && test -s /app/site/index.html && set -- /app/site/_astro/*.css && test -s "$1" && test -s /app/site/site-assets/brand/niu-mark.png && test -s /app/site/site-assets/models.js && test ! -e /app/Cargo.toml && test ! -e /app/node_modules'
+      - name: Smoke test the packaged application with PostgreSQL
+        env:
+          NIU_IMAGE: niu-io/niu:ci
+        run: python3 scripts/package-smoke.py
+      - name: Smoke test Compose persistence and PostgreSQL backup/restore
+        env:
+          NIU_IMAGE: niu-io/niu:ci
+        run: python3 scripts/package-smoke.py --compose

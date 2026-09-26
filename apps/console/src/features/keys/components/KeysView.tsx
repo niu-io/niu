@@ -11,7 +11,7 @@ type Named = { id: string; name: string };
 type Key = Named & { allowed_models: string[]; expires_at_ms: number; revoked: boolean; expired: boolean };
 type Issued = { id: string; token: string };
 
-export default function KeysPage({ token, models }: { token: string; models: string[] }) {
+export default function KeysView({ token, models }: { token: string; models: string[] }) {
   const [organizations, setOrganizations] = useState<Named[]>([]);
   const [projects, setProjects] = useState<Named[]>([]);
   const [organization, setOrganization] = useState('');
@@ -21,12 +21,14 @@ export default function KeysPage({ token, models }: { token: string; models: str
   const [projectName, setProjectName] = useState('');
   const [name, setName] = useState('');
   const [grants, setGrants] = useState<string[]>([]);
+  const [firstKeyName, setFirstKeyName] = useState('My application');
+  const [firstKeyModels, setFirstKeyModels] = useState<string[]>(() => models[0] ? [models[0]] : []);
+  const [organizationsLoading, setOrganizationsLoading] = useState(true);
   const [days, setDays] = useState(30);
   const [secret, setSecret] = useState<Issued | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const mutationRevision = useRef(0);
-  const setupTarget = useRef<{ organization_id: string; project_id: string } | null>(null);
 
   const request = useCallback(async <T,>(path: string, method = 'GET', body?: unknown, signal?: AbortSignal): Promise<T> => {
     const response = await fetch(path, { method, signal, headers: { authorization: `Bearer ${token}`, ...(body ? { 'content-type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined });
@@ -44,29 +46,20 @@ export default function KeysPage({ token, models }: { token: string; models: str
     const revision = mutationRevision.current;
     request<{ data: Named[] }>('/admin/v1/organizations', 'GET', undefined, abort.signal)
       .then(value => { if (!abort.signal.aborted && revision === mutationRevision.current) setOrganizations(value.data); })
-      .catch(e => { if (!abort.signal.aborted && revision === mutationRevision.current) setError(String(e.message)); });
+      .catch(e => { if (!abort.signal.aborted && revision === mutationRevision.current) setError(String(e.message)); })
+      .finally(() => { if (!abort.signal.aborted && revision === mutationRevision.current) setOrganizationsLoading(false); });
     return () => abort.abort();
   }, [request]);
   useEffect(() => {
-    setProjects([]); setProject(''); setKeys([]); setSecret(null);
     if (!organization) return;
     const abort = new AbortController();
     const revision = mutationRevision.current;
     request<{ data: Named[] }>(projectPath, 'GET', undefined, abort.signal)
-      .then(value => {
-        if (!abort.signal.aborted && revision === mutationRevision.current) {
-          setProjects(value.data);
-          if (setupTarget.current?.organization_id === organization) {
-            setProject(setupTarget.current.project_id);
-            setupTarget.current = null;
-          }
-        }
-      })
+      .then(value => { if (!abort.signal.aborted && revision === mutationRevision.current) setProjects(value.data); })
       .catch(e => { if (!abort.signal.aborted && revision === mutationRevision.current) setError(String(e.message)); });
     return () => abort.abort();
   }, [organization, projectPath, request]);
   useEffect(() => {
-    setKeys([]); setSecret(null);
     if (!project) return;
     const abort = new AbortController();
     const revision = mutationRevision.current;
@@ -86,23 +79,46 @@ export default function KeysPage({ token, models }: { token: string; models: str
   function submit(event: FormEvent, action: () => Promise<void>) { event.preventDefault(); void mutate(action); }
   async function reloadKeys() { setKeys((await request<{ data: Key[] }>(keyPath)).data); }
 
+  async function createFirstWorkspace() {
+    const createdOrganization = await request<Named>('/admin/v1/organizations', 'POST', { name: 'Personal workspace' });
+    setOrganizations(previous => [...previous, createdOrganization]);
+    setOrganization(createdOrganization.id);
+    mutationRevision.current += 1;
+
+    const createdProject = await request<Named>(
+      `/admin/v1/organizations/${createdOrganization.id}/projects`,
+      'POST',
+      { name: 'Default project' },
+    );
+    mutationRevision.current += 1;
+    setProjects([createdProject]);
+    setProject(createdProject.id);
+
+    const firstKeyPath = `/admin/v1/organizations/${createdOrganization.id}/projects/${createdProject.id}/keys`;
+    const issued = await request<Issued>(firstKeyPath, 'POST', {
+      name: firstKeyName.trim(),
+      allowed_models: firstKeyModels,
+      ttl_seconds: 30 * 86400,
+    });
+    mutationRevision.current += 1;
+    setSecret(issued);
+    setName('');
+    const listed = await request<{ data: Key[] }>(firstKeyPath).catch(() => null);
+    if (listed) setKeys(listed.data);
+  }
+
   return <>
     <div className="page-heading"><div><p className="eyebrow">ACCESS CONTROL</p><h1>API keys</h1><p className="page-subtitle">Issue project-scoped keys with explicit model permissions and expiry.</p></div></div>
     {error && <p role="alert" className="error-text">{error}</p>}
-    <section className="panel keys-controls"><h2>Get started</h2><p>Use a default workspace and project, then choose the models your key can access. Task imports, benchmarks and budgets are optional unless configured by your administrator.</p>
-      <Button disabled={busy} onClick={() => void mutate(async () => {
-        const scope = await request<{ organization_id: string; project_id: string }>('/admin/v1/setup/default-workspace', 'POST');
-        setOrganizations((await request<{ data: Named[] }>('/admin/v1/organizations')).data);
-        if (organization === scope.organization_id) {
-          setProject(scope.project_id);
-        } else {
-          setupTarget.current = scope;
-          setOrganization(scope.organization_id);
-        }
-        setName('My first key');
-      })}>Use default workspace</Button>
-    </section>
-    <section className="panel keys-controls">
+    {!organizationsLoading && organizations.length === 0 && models.length > 0 && <section className="panel first-key-card" aria-labelledby="first-key-title">
+      <div className="first-key-heading"><span className="first-key-icon"><KeyRound size={18} /></span><div><p className="eyebrow">FIRST RUN</p><h2 id="first-key-title">Create a workspace and your first key</h2><p>We’ll set up a personal workspace and default project, then issue a scoped key for your app.</p></div></div>
+      <form onSubmit={event => submit(event, createFirstWorkspace)}>
+        <div className="first-key-fields"><Label>Key name<Input required maxLength={200} value={firstKeyName} onChange={event => setFirstKeyName(event.target.value)} /></Label><div className="first-key-expiry"><span>Expiry</span><strong>30 days</strong><small>Change it later when issuing other keys.</small></div></div>
+        <fieldset className="first-key-models"><legend>Allow this key to use</legend>{models.map(model => <Label className="model-grant" key={model} htmlFor={`first-grant-${model}`}><Checkbox id={`first-grant-${model}`} checked={firstKeyModels.includes(model)} onCheckedChange={checked => setFirstKeyModels(previous => checked === true ? [...previous, model] : previous.filter(value => value !== model))} />{model}</Label>)}</fieldset>
+        <div className="first-key-actions"><span>Secret shown once · provider credentials stay on the server</span><Button disabled={busy || !firstKeyName.trim() || !firstKeyModels.length} type="submit">{busy ? 'Creating…' : 'Create workspace and key'}</Button></div>
+      </form>
+    </section>}
+    {(organizations.length > 0 || models.length === 0) && <section className="panel keys-controls">
       <div className="key-scope-grid">
         <Label htmlFor="organization">Organization<NativeSelect id="organization" disabled={busy} value={organization} onChange={e => { setOrganization(e.target.value); setProject(''); setKeys([]); setSecret(null); }}><NativeSelectOption value="">Select organization</NativeSelectOption>{organizations.map(x => <NativeSelectOption value={x.id} key={x.id}>{x.name}</NativeSelectOption>)}</NativeSelect></Label>
         <Label htmlFor="project">Project<NativeSelect id="project" disabled={busy || !organization} value={project} onChange={e => { setProject(e.target.value); setKeys([]); setSecret(null); }}><NativeSelectOption value="">Select project</NativeSelectOption>{projects.map(x => <NativeSelectOption value={x.id} key={x.id}>{x.name}</NativeSelectOption>)}</NativeSelect></Label>
@@ -117,7 +133,7 @@ export default function KeysPage({ token, models }: { token: string; models: str
           setProjects(previous => [...previous, created]); setProject(created.id); setProjectName('');
         })}><Label>New project<Input required maxLength={200} disabled={!organization} value={projectName} onChange={e => setProjectName(e.target.value)} /></Label><Button variant="outline" disabled={busy || !organization || !projectName.trim()}>Create project</Button></form>
       </div>
-    </section>
+    </section>}
     {project && <>
       <section className="panel keys-controls"><h2>Issue a key</h2><form onSubmit={e => submit(e, async () => {
         const issued = await request<Issued>(keyPath, 'POST', { name, allowed_models: grants, ttl_seconds: days * 86400 });

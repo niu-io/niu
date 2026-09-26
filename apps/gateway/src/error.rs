@@ -39,6 +39,9 @@ impl ApiError {
             niu_storage::StoreError::InvalidKey => {
                 Self::invalid_request("Invalid key name, model permissions, or lifetime")
             }
+            niu_storage::StoreError::InvalidOperator => {
+                Self::invalid_request("Invalid operator name, role, or session lifetime")
+            }
             niu_storage::StoreError::Conflict => Self {
                 status: StatusCode::CONFLICT,
                 kind: "conflict_error",
@@ -60,6 +63,14 @@ impl ApiError {
         }
     }
 
+    pub fn forbidden() -> Self {
+        Self {
+            status: StatusCode::FORBIDDEN,
+            kind: "permission_denied",
+            message: "This administrator role cannot perform the requested action",
+        }
+    }
+
     pub fn invalid_request(message: &'static str) -> Self {
         Self {
             status: StatusCode::BAD_REQUEST,
@@ -68,19 +79,11 @@ impl ApiError {
         }
     }
 
-    pub fn record_not_found() -> Self {
-        Self {
-            status: StatusCode::NOT_FOUND,
-            kind: "not_found_error",
-            message: "The record is not available in this project",
-        }
-    }
-
     pub fn not_found() -> Self {
         Self {
             status: StatusCode::NOT_FOUND,
             kind: "not_found_error",
-            message: "The requested model is not available",
+            message: "The requested resource is not available",
         }
     }
 
@@ -104,7 +107,7 @@ impl ApiError {
         Self {
             status: StatusCode::NOT_IMPLEMENTED,
             kind: "unsupported_operation_error",
-            message: "Streaming is not available for this provider route yet",
+            message: "The requested operation is not supported for this provider route",
         }
     }
 }
