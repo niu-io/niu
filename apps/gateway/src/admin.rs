@@ -207,11 +207,8 @@ pub async fn issue_key(
         project_id,
     )
     .await?;
-    if input
-        .allowed_models
-        .iter()
-        .any(|m| !state.config.models.contains_key(m))
-    {
+    let models = crate::vendors::effective_models(&state).await?;
+    if input.allowed_models.iter().any(|m| !models.contains_key(m)) {
         return Err(ApiError::invalid_request("Every granted model must exist"));
     }
     let issued = state

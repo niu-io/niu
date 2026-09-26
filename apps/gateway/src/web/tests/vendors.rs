@@ -5,6 +5,90 @@ use niu_storage::{OperatorAuditActor, OperatorRole, OperatorScope};
 const ADMIN: &str = "niu-test-admin-token-that-is-long-1234";
 const MASTER: &str = "vendor-test-master-secret-at-least-32-characters";
 
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn key_creation_uses_active_database_and_static_models(pool: PgPool) {
+    let mut state = test_state(None, pool);
+    state.vendor_cipher = Some(Arc::new(
+        crate::vendors::crypto::CredentialCipher::new(MASTER).unwrap(),
+    ));
+    let scope = state.store.default_workspace().await.unwrap();
+    let app = router(state);
+    let key_path = format!(
+        "/admin/v1/organizations/{}/projects/{}/keys",
+        scope.organization_id, scope.project_id
+    );
+    let key_input =
+        |alias: &str| json!({"name":"client", "allowed_models":[alias], "ttl_seconds":3600});
+    assert_eq!(
+        call(&app, Method::POST, &key_path, ADMIN, key_input("fast"))
+            .await
+            .0,
+        StatusCode::CREATED
+    );
+    let (status, vendor) = call(&app, Method::POST, "/admin/v1/vendors", ADMIN,
+        json!({"name":"Managed", "adapter":"openrouter", "api_base":"https://openrouter.ai/api/v1", "api_key":"test-vendor-credential"})).await;
+    assert_eq!(status, StatusCode::CREATED);
+    let id = vendor["data"]["id"].as_str().unwrap();
+    let model_path = format!("/admin/v1/vendors/{id}/models");
+    for (alias, enabled) in [("managed-only", true), ("disabled", false), ("fast", false)] {
+        assert_eq!(
+            call(
+                &app,
+                Method::POST,
+                &model_path,
+                ADMIN,
+                json!({"alias":alias, "upstream_model":"maker/model", "enabled":enabled})
+            )
+            .await
+            .0,
+            StatusCode::OK
+        );
+    }
+    let (status, key) = call(
+        &app,
+        Method::POST,
+        &key_path,
+        ADMIN,
+        key_input("managed-only"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    let (status, models) = call(
+        &app,
+        Method::GET,
+        "/v1/models",
+        key["token"].as_str().unwrap(),
+        Value::Null,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(models["data"][0]["id"], "managed-only");
+    // Disabled database aliases shadow static routes for new grants too.
+    for alias in ["disabled", "fast", "missing"] {
+        assert_eq!(
+            call(&app, Method::POST, &key_path, ADMIN, key_input(alias))
+                .await
+                .0,
+            StatusCode::BAD_REQUEST
+        );
+    }
+    assert_eq!(call(&app, Method::PUT, &format!("/admin/v1/vendors/{id}"), ADMIN,
+        json!({"name":"Managed", "api_base":"https://openrouter.ai/api/v1", "enabled":false, "expected_revision":vendor["data"]["revision"]})).await.0, StatusCode::OK);
+    assert_eq!(
+        call(
+            &app,
+            Method::POST,
+            &key_path,
+            ADMIN,
+            key_input("managed-only")
+        )
+        .await
+        .0,
+        StatusCode::BAD_REQUEST
+    );
+}
+
 async fn call(
     app: &Router,
     method: Method,
