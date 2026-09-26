@@ -46,7 +46,8 @@
   --logo-surface: oklch(0.985 0.002 255);
 }
 
-.dark {
+.dark,
+:root[data-theme='dark'] {
   --shadow-overlay: 0 12px 48px oklch(0 0 0 / 32%);
   --background: oklch(0.16 0.006 255);
   --foreground: oklch(0.94 0.004 255);

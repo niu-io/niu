@@ -6,11 +6,11 @@ export default defineConfig({
   base: '/docs',
   integrations: [
     starlight({
-      title: 'Niu Documentation',
+      title: 'niu.io',
       description: 'Build and operate the Niu AI gateway.',
       logo: {
-        light: './src/assets/niu-logo-dark.png',
-        dark: './src/assets/niu-logo-dark.png',
+        src: '../../branding/assets/niu-mark.png',
+        alt: '',
       },
       favicon: '/favicon.ico',
       social: [

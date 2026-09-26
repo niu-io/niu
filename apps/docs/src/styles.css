@@ -1,13 +1,122 @@
 @import '../../../branding/tokens.css';
 
+/* Adapt the shared Niu palette to Starlight in both theme modes. */
 :root {
-  --sl-color-accent-low: color-mix(in srgb, var(--accent) 65%, white);
+  --sl-color-white: var(--foreground);
+  --sl-color-gray-1: var(--foreground);
+  --sl-color-gray-2: color-mix(in srgb, var(--foreground) 82%, var(--background));
+  --sl-color-gray-3: var(--muted-foreground);
+  --sl-color-gray-4: var(--muted-foreground);
+  --sl-color-gray-5: var(--border);
+  --sl-color-gray-6: var(--muted);
+  --sl-color-black: var(--background);
+  --sl-color-accent-low: var(--accent);
   --sl-color-accent: var(--primary);
   --sl-color-accent-high: var(--foreground);
+  --sl-color-text: var(--sl-color-gray-2);
+  --sl-color-text-accent: var(--primary);
+  --sl-color-text-invert: var(--primary-foreground);
+  --sl-color-bg: var(--background);
+  --sl-color-bg-nav: var(--background);
+  --sl-color-bg-sidebar: var(--background);
+  --sl-color-bg-inline-code: var(--muted);
+  --sl-color-bg-accent: var(--primary);
+  --sl-color-hairline: var(--border);
+  --sl-color-hairline-light: var(--border);
+  --sl-color-hairline-shade: var(--border);
+  --sl-sidebar-width: 16.5rem;
+  --sl-content-width: 48rem;
+  --sl-text-h1: clamp(2rem, 3vw, 2.5rem);
+  --sl-text-h2: clamp(1.4rem, 2vw, 1.75rem);
+  --sl-text-h3: 1.25rem;
+  --sl-text-h4: 1.125rem;
+  --sl-line-height: 1.75;
 }
 
-:root[data-theme='dark'] {
-  --sl-color-accent-low: color-mix(in srgb, var(--accent) 80%, black);
-  --sl-color-accent: var(--primary);
-  --sl-color-accent-high: var(--foreground);
+.site-title {
+  gap: 0.75rem;
+  font-size: 1rem;
+  color: var(--foreground);
+}
+
+.site-title img {
+  height: 1.75rem;
+  width: 1.75rem;
+}
+
+.site-title span {
+  padding-inline-start: 0.75rem;
+  border-inline-start: 1px solid var(--border);
+}
+
+.sidebar-content a {
+  border-radius: 0.375rem;
+  padding-block: 0.375rem;
+  font-size: 0.875rem;
+}
+
+.sidebar-content a[aria-current='page'] {
+  background: var(--accent);
+  color: var(--accent-foreground);
+  font-weight: 600;
+}
+
+.sidebar-content .large {
+  font-size: 0.8125rem;
+  font-weight: 650;
+}
+
+.sl-markdown-content :is(h1, h2, h3, h4) {
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+.sl-markdown-content :not(pre) > code {
+  border: 1px solid var(--border);
+  border-radius: 0.3rem;
+  padding: 0.1em 0.3em;
+  font-size: 0.85em;
+  overflow-wrap: anywhere;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.sl-markdown-content pre {
+  border-radius: var(--radius);
+  border-color: var(--border);
+}
+
+.pagination-links a {
+  padding: 1rem 1.125rem;
+  border-color: var(--border);
+  border-radius: var(--radius);
+  box-shadow: none;
+  font-size: 0.8125rem;
+  background: var(--card);
+}
+
+.pagination-links a:hover {
+  background: var(--muted);
+  border-color: var(--muted-foreground);
+}
+
+.pagination-links .link-title {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.right-sidebar-panel h2 {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+starlight-toc a {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
 }
