@@ -1,0 +1,27 @@
+openapi: 3.1.0
+info:
+  title: Niu Enterprise module health protocol
+  version: 1.0.0
+  description: Private HTTP health protocol used over a service's Unix socket by a pinned Niu Gateway.
+servers:
+  - url: http://niu-module
+security: []
+paths:
+  /_niu/enterprise/v1/health/live:
+    get:
+      operationId: getEnterpriseModuleLiveness
+      summary: Check whether the module process is alive
+      responses:
+        '200':
+          description: The process is alive.
+        '503':
+          description: The process cannot serve.
+  /_niu/enterprise/v1/health/ready:
+    get:
+      operationId: getEnterpriseModuleReadiness
+      summary: Check whether this module can serve its declared routes
+      responses:
+        '200':
+          description: Module dependencies and migrations are ready.
+        '503':
+          description: The module cannot serve its declared routes.

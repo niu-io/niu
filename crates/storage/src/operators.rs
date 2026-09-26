@@ -3,7 +3,7 @@ use sha2::{Digest, Sha256};
 use sqlx::FromRow;
 use uuid::Uuid;
 
-use crate::{Store, StoreError};
+use crate::{Store, StoreError, TenantScope};
 
 const MIN_SESSION_SECONDS: i64 = 60;
 const MAX_SESSION_SECONDS: i64 = 31_536_000;
@@ -14,6 +14,28 @@ pub enum OperatorRole {
     Owner,
     Admin,
     Viewer,
+}
+
+/// The tenant boundary an operator session may access. A missing project ID
+/// grants access to every project in the organization.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+pub struct OperatorScope {
+    pub organization_id: Uuid,
+    pub project_id: Option<Uuid>,
+}
+
+impl OperatorScope {
+    pub fn permits_project(self, project: TenantScope) -> bool {
+        self.organization_id == project.organization_id
+            && self.project_id.is_none_or(|id| id == project.project_id)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct OperatorPrincipal {
+    pub id: Uuid,
+    pub role: OperatorRole,
+    pub scope: OperatorScope,
 }
 
 impl OperatorRole {
@@ -55,6 +77,8 @@ pub struct OperatorView {
     pub id: Uuid,
     pub name: String,
     pub role: OperatorRole,
+    pub organization_id: Option<Uuid>,
+    pub project_id: Option<Uuid>,
     pub revoked: bool,
 }
 
@@ -78,6 +102,8 @@ struct OperatorRow {
     id: Uuid,
     name: String,
     role: String,
+    organization_id: Option<Uuid>,
+    project_id: Option<Uuid>,
     revoked: bool,
 }
 
@@ -89,9 +115,19 @@ impl TryFrom<OperatorRow> for OperatorView {
             id: row.id,
             name: row.name,
             role: OperatorRole::parse(&row.role)?,
+            organization_id: row.organization_id,
+            project_id: row.project_id,
             revoked: row.revoked,
         })
     }
+}
+
+#[derive(FromRow)]
+struct PrincipalRow {
+    id: Uuid,
+    role: String,
+    organization_id: Uuid,
+    project_id: Option<Uuid>,
 }
 
 #[derive(FromRow)]
@@ -114,27 +150,69 @@ impl From<SessionRow> for OperatorSessionView {
 }
 
 impl Store {
-    pub async fn authenticate_operator(&self, token: &str) -> Result<OperatorRole, StoreError> {
+    pub async fn authenticate_operator(
+        &self,
+        token: &str,
+    ) -> Result<OperatorPrincipal, StoreError> {
         if token.len() < 32 {
             return Err(StoreError::Unauthorized);
         }
         let digest = token_hash(token);
-        let role: Option<String> = sqlx::query_scalar(
-            "SELECT o.role FROM admin_sessions s JOIN admin_operators o ON o.id=s.operator_id \
+        let principal: Option<PrincipalRow> = sqlx::query_as(
+            "SELECT o.id, o.role, o.organization_id, o.project_id \
+             FROM admin_sessions s JOIN admin_operators o ON o.id=s.operator_id \
              WHERE s.token_hash=$1 AND s.expires_at_unix > extract(epoch FROM now())::bigint \
                AND s.revoked_at IS NULL AND o.revoked_at IS NULL",
         )
         .bind(digest.as_slice())
         .fetch_optional(&self.pool)
         .await?;
-        OperatorRole::parse(role.as_deref().ok_or(StoreError::Unauthorized)?)
+        let principal = principal.ok_or(StoreError::Unauthorized)?;
+        Ok(OperatorPrincipal {
+            id: principal.id,
+            role: OperatorRole::parse(&principal.role)?,
+            scope: OperatorScope {
+                organization_id: principal.organization_id,
+                project_id: principal.project_id,
+            },
+        })
     }
 
+    pub async fn operator(&self, id: Uuid) -> Result<Option<OperatorView>, StoreError> {
+        let row: Option<OperatorRow> = sqlx::query_as(
+            "SELECT id, name, role, organization_id, project_id, revoked_at IS NOT NULL AS revoked \
+             FROM admin_operators WHERE id=$1",
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+        row.map(OperatorView::try_from).transpose()
+    }
+
+    /// List operators for installation administrators. Tenant-scoped callers
+    /// must use `operators_for_scope` so records from other tenants stay hidden.
     pub async fn operators(&self) -> Result<Vec<OperatorView>, StoreError> {
         let rows: Vec<OperatorRow> = sqlx::query_as(
-            "SELECT id, name, role, revoked_at IS NOT NULL AS revoked \
+            "SELECT id, name, role, organization_id, project_id, revoked_at IS NOT NULL AS revoked \
              FROM admin_operators ORDER BY created_at, id LIMIT 1000",
         )
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter().map(OperatorView::try_from).collect()
+    }
+
+    pub async fn operators_for_scope(
+        &self,
+        scope: OperatorScope,
+    ) -> Result<Vec<OperatorView>, StoreError> {
+        let rows: Vec<OperatorRow> = sqlx::query_as(
+            "SELECT id, name, role, organization_id, project_id, revoked_at IS NOT NULL AS revoked \
+             FROM admin_operators \
+             WHERE organization_id=$1 AND ($2::uuid IS NULL OR project_id=$2) \
+             ORDER BY created_at, id LIMIT 1000",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
         .fetch_all(&self.pool)
         .await?;
         rows.into_iter().map(OperatorView::try_from).collect()
@@ -156,17 +234,40 @@ impl Store {
 
     pub async fn create_operator(
         &self,
+        scope: OperatorScope,
         name: &str,
         role: OperatorRole,
         expires_in_seconds: i64,
     ) -> Result<IssuedOperatorSession, StoreError> {
         validate_operator(name, expires_in_seconds)?;
         let mut tx = self.pool.begin().await?;
+        let organization_exists: Option<Uuid> =
+            sqlx::query_scalar("SELECT id FROM organizations WHERE id=$1 FOR SHARE")
+                .bind(scope.organization_id)
+                .fetch_optional(&mut *tx)
+                .await?;
+        if organization_exists.is_none() {
+            return Err(StoreError::Conflict);
+        }
+        if let Some(project_id) = scope.project_id {
+            let project_exists: Option<Uuid> = sqlx::query_scalar(
+                "SELECT id FROM projects WHERE organization_id=$1 AND id=$2 FOR SHARE",
+            )
+            .bind(scope.organization_id)
+            .bind(project_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+            if project_exists.is_none() {
+                return Err(StoreError::Conflict);
+            }
+        }
         let operator_id = Uuid::new_v4();
-        sqlx::query("INSERT INTO admin_operators (id, name, role) VALUES ($1, $2, $3)")
+        sqlx::query("INSERT INTO admin_operators (id, name, role, organization_id, project_id) VALUES ($1, $2, $3, $4, $5)")
             .bind(operator_id)
             .bind(name.trim())
             .bind(role.as_str())
+            .bind(scope.organization_id)
+            .bind(scope.project_id)
             .execute(&mut *tx)
             .await?;
         let issued = issue_session(&mut tx, operator_id, expires_in_seconds).await?;
@@ -283,4 +384,53 @@ fn validate_operator(name: &str, ttl: i64) -> Result<(), StoreError> {
 
 fn token_hash(token: &str) -> [u8; 32] {
     Sha256::digest(token.as_bytes()).into()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::OperatorScope;
+    use crate::TenantScope;
+    use uuid::Uuid;
+
+    #[test]
+    fn organization_scope_permits_only_projects_in_its_organization() {
+        let organization_id = Uuid::new_v4();
+        let other_organization_id = Uuid::new_v4();
+        let scope = OperatorScope {
+            organization_id,
+            project_id: None,
+        };
+
+        assert!(scope.permits_project(TenantScope {
+            organization_id,
+            project_id: Uuid::new_v4(),
+        }));
+        assert!(!scope.permits_project(TenantScope {
+            organization_id: other_organization_id,
+            project_id: Uuid::new_v4(),
+        }));
+    }
+
+    #[test]
+    fn project_scope_permits_only_its_exact_tenant() {
+        let organization_id = Uuid::new_v4();
+        let project_id = Uuid::new_v4();
+        let scope = OperatorScope {
+            organization_id,
+            project_id: Some(project_id),
+        };
+
+        assert!(scope.permits_project(TenantScope {
+            organization_id,
+            project_id,
+        }));
+        assert!(!scope.permits_project(TenantScope {
+            organization_id,
+            project_id: Uuid::new_v4(),
+        }));
+        assert!(!scope.permits_project(TenantScope {
+            organization_id: Uuid::new_v4(),
+            project_id,
+        }));
+    }
 }

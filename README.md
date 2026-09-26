@@ -22,6 +22,8 @@ The Rust gateway serves the homepage at `/`, documentation at `/docs/`, the expl
 
 The public workspace also contains paired benchmark analysis and a versioned Rust extension API with a synthetic reference extension. The extension contract is tested independently, but the gateway does not load extensions yet. The API defines claim mapping rather than a full OIDC/SAML login flow, and the task adapter's required sandbox runner is not implemented.
 
+The [Enterprise composition architecture](docs/architecture/enterprise-composition.md) defines how a pinned public Niu release is combined with private Enterprise services on the same `niu.io` domain, including module registration, service authentication, health, tenant context, and platform API ownership. The public Gateway includes an optional manifest-validated Unix-socket adapter, disabled when no Enterprise manifest is configured. Enterprise owns the service supervisor, verification-key distribution, private modules, and assembled Enterprise image.
+
 The [first-release acceptance matrix](docs/releases/first-release.md) defines the complete product scope, enterprise extension boundary, implementation milestones, and required release evidence.
 
 ## Product goals

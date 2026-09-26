@@ -1,5 +1,6 @@
 mod admin;
 mod config;
+mod enterprise;
 mod error;
 mod state;
 mod streaming;

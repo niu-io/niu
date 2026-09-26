@@ -19,7 +19,8 @@ pub use observations::{
     NotImportedAccounting,
 };
 pub use operators::{
-    AdminPermission, IssuedOperatorSession, OperatorRole, OperatorSessionView, OperatorView,
+    AdminPermission, IssuedOperatorSession, OperatorPrincipal, OperatorRole, OperatorScope,
+    OperatorSessionView, OperatorView,
 };
 mod keys;
 mod pricing;

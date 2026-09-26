@@ -17,9 +17,20 @@ paths:
     get:
       operationId: getReadiness
       summary: Check gateway readiness
+      description: Reports Niu core readiness only. Private Enterprise module failures are reported by /enterprise/readyz and do not make healthy core routes unready.
       responses:
         '200':
           description: The gateway loaded its configuration and can accept requests.
+  /enterprise/readyz:
+    get:
+      operationId: getEnterpriseReadiness
+      summary: Check Enterprise module readiness
+      description: In an Enterprise distribution, reports whether all required private modules are healthy. Community builds without a release manifest report disabled readiness. This endpoint does not affect Niu core readiness.
+      responses:
+        '200':
+          description: Enterprise modules are ready, or no Enterprise modules are configured.
+        '503':
+          description: At least one required Enterprise module is unavailable or incompatible.
   /v1/models:
     get:
       operationId: listModels
@@ -163,7 +174,7 @@ paths:
     get:
       operationId: adminListOperators
       summary: List operator identities without session credentials
-      description: Requires the owner role or a configured bootstrap administrator token. List responses contain session identifiers and expiry metadata but never token hashes or bearer tokens.
+      description: Requires a workspace owner or a configured bootstrap administrator token. Results are limited to the caller's organization/project unless the caller uses installation bootstrap credentials. Responses contain session identifiers and expiry metadata but never token hashes or bearer tokens.
       security:
         - adminBearerAuth: []
       responses:
@@ -176,7 +187,7 @@ paths:
     post:
       operationId: adminCreateOperator
       summary: Create an operator and issue its first session token
-      description: Requires the owner role or a configured bootstrap administrator token. The bearer token is returned once and is never retrievable from list APIs.
+      description: Requires a workspace owner or a configured bootstrap administrator token. Every operator must be bound to an organization and may optionally be limited to one project. The bearer token is returned once and is never retrievable from list APIs.
       security:
         - adminBearerAuth: []
       requestBody:
@@ -1096,8 +1107,10 @@ components:
     OperatorInput:
       type: object
       additionalProperties: false
-      required: [name, role, expires_in_seconds]
+      required: [organization_id, name, role, expires_in_seconds]
       properties:
+        organization_id: { type: string, format: uuid }
+        project_id: { type: string, format: uuid, description: Optional project-level restriction within the organization. }
         name: { type: string, minLength: 1, maxLength: 200 }
         role: { type: string, enum: [owner, admin, viewer] }
         expires_in_seconds: { type: integer, minimum: 60, maximum: 31536000 }

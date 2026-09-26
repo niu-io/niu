@@ -1,4 +1,4 @@
-use niu_storage::{MIGRATOR, Store, StoreError, TenantScope};
+use niu_storage::{MIGRATOR, OperatorScope, Store, StoreError, TenantScope};
 use sqlx::PgPool;
 
 // Run explicitly with DATABASE_URL pointing to a disposable PostgreSQL server.
@@ -104,26 +104,124 @@ async fn tenant_boundaries_dispatch_races_and_restart(pool: PgPool) {
 async fn operator_sessions_store_only_hashes_and_revocation_blocks_authentication(pool: PgPool) {
     MIGRATOR.run(&pool).await.unwrap();
     let store = Store::from_pool(pool.clone());
-    let issued = store
-        .create_operator("Read only", niu_storage::OperatorRole::Viewer, 3600)
+    let org_a = store.create_organization("Operator org A").await.unwrap();
+    let org_b = store.create_organization("Operator org B").await.unwrap();
+    let project_a = store
+        .create_project(org_a, "Operator project A")
         .await
         .unwrap();
-    assert_eq!(
-        store.authenticate_operator(&issued.token).await.unwrap(),
-        niu_storage::OperatorRole::Viewer
-    );
+    let project_a2 = store
+        .create_project(org_a, "Operator project A2")
+        .await
+        .unwrap();
+    let project_b = store
+        .create_project(org_b, "Operator project B")
+        .await
+        .unwrap();
+    let scoped_project = OperatorScope {
+        organization_id: org_a,
+        project_id: Some(project_a.project_id),
+    };
+    let issued = store
+        .create_operator(
+            scoped_project,
+            "Read only",
+            niu_storage::OperatorRole::Viewer,
+            3600,
+        )
+        .await
+        .unwrap();
+    let principal = store.authenticate_operator(&issued.token).await.unwrap();
+    assert_eq!(principal.id, issued.operator_id);
+    assert_eq!(principal.role, niu_storage::OperatorRole::Viewer);
+    assert_eq!(principal.scope, scoped_project);
     assert!(store.authenticate_operator("short").await.is_err());
 
-    let operator = store
-        .operators()
+    let org_wide = store
+        .create_operator(
+            OperatorScope {
+                organization_id: org_a,
+                project_id: None,
+            },
+            "Organization owner",
+            niu_storage::OperatorRole::Owner,
+            3600,
+        )
         .await
-        .unwrap()
-        .into_iter()
-        .find(|operator| operator.id == issued.operator_id)
         .unwrap();
+    store
+        .create_operator(
+            OperatorScope {
+                organization_id: org_a,
+                project_id: Some(project_a2.project_id),
+            },
+            "Other project admin",
+            niu_storage::OperatorRole::Admin,
+            3600,
+        )
+        .await
+        .unwrap();
+    store
+        .create_operator(
+            OperatorScope {
+                organization_id: org_b,
+                project_id: Some(project_b.project_id),
+            },
+            "Other organization viewer",
+            niu_storage::OperatorRole::Viewer,
+            3600,
+        )
+        .await
+        .unwrap();
+
+    let operator = store.operator(issued.operator_id).await.unwrap().unwrap();
     assert_eq!(operator.name, "Read only");
     assert_eq!(operator.role, niu_storage::OperatorRole::Viewer);
+    assert_eq!(operator.organization_id, Some(org_a));
+    assert_eq!(operator.project_id, Some(project_a.project_id));
     assert!(!operator.revoked);
+    let organization_operators = store
+        .operators_for_scope(OperatorScope {
+            organization_id: org_a,
+            project_id: None,
+        })
+        .await
+        .unwrap();
+    assert_eq!(organization_operators.len(), 3);
+    assert!(
+        organization_operators
+            .iter()
+            .any(|item| item.id == org_wide.operator_id)
+    );
+    assert!(
+        organization_operators
+            .iter()
+            .all(|item| item.organization_id == Some(org_a))
+    );
+    let project_operators = store.operators_for_scope(scoped_project).await.unwrap();
+    assert_eq!(project_operators.len(), 1);
+    assert_eq!(project_operators[0].id, issued.operator_id);
+    let installation_operators = store.operators().await.unwrap();
+    assert_eq!(installation_operators.len(), 4);
+    assert!(
+        installation_operators
+            .iter()
+            .any(|item| item.organization_id == Some(org_b))
+    );
+    assert!(
+        store
+            .create_operator(
+                OperatorScope {
+                    organization_id: org_b,
+                    project_id: Some(project_a.project_id),
+                },
+                "Mismatched tenant",
+                niu_storage::OperatorRole::Viewer,
+                3600,
+            )
+            .await
+            .is_err()
+    );
     let sessions = store.operator_sessions(issued.operator_id).await.unwrap();
     assert_eq!(sessions.len(), 1);
     assert_eq!(sessions[0].id, issued.session.id);
@@ -154,13 +252,15 @@ async fn operator_sessions_store_only_hashes_and_revocation_blocks_authenticatio
         .create_operator_session(issued.operator_id, 3600)
         .await
         .unwrap();
+    let replacement_principal = store
+        .authenticate_operator(&replacement.token)
+        .await
+        .unwrap();
     assert_eq!(
-        store
-            .authenticate_operator(&replacement.token)
-            .await
-            .unwrap(),
+        replacement_principal.role,
         niu_storage::OperatorRole::Viewer
     );
+    assert_eq!(replacement_principal.scope, scoped_project);
     store.revoke_operator(issued.operator_id).await.unwrap();
     assert!(
         store
@@ -174,6 +274,95 @@ async fn operator_sessions_store_only_hashes_and_revocation_blocks_authenticatio
             .await
             .is_err()
     );
+}
+
+#[sqlx::test]
+#[ignore = "requires PostgreSQL with permission to create test databases"]
+async fn operator_scope_migration_revokes_legacy_credentials(pool: PgPool) {
+    use uuid::Uuid;
+
+    let organization = Uuid::new_v4();
+    let legacy_operator = Uuid::new_v4();
+    let legacy_session = Uuid::new_v4();
+    let schema = format!("niu_migration_{}", Uuid::new_v4().simple());
+    sqlx::query(&format!("CREATE SCHEMA {schema}"))
+        .execute(&pool)
+        .await
+        .unwrap();
+    let mut connection = pool.acquire().await.unwrap();
+    sqlx::query("SELECT set_config('search_path', $1, false)")
+        .bind(&schema)
+        .execute(&mut *connection)
+        .await
+        .unwrap();
+    sqlx::raw_sql(
+        "CREATE TABLE organizations (id UUID PRIMARY KEY); \
+         CREATE TABLE projects (organization_id UUID NOT NULL REFERENCES organizations(id), \
+             id UUID NOT NULL, PRIMARY KEY (organization_id, id));",
+    )
+    .execute(&mut *connection)
+    .await
+    .unwrap();
+    sqlx::raw_sql(include_str!("../migrations/0010_operator_sessions.sql"))
+        .execute(&mut *connection)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO organizations (id) VALUES ($1)")
+        .bind(organization)
+        .execute(&mut *connection)
+        .await
+        .unwrap();
+    sqlx::query(
+        "INSERT INTO admin_operators (id, name, role) VALUES ($1, 'legacy owner', 'owner')",
+    )
+    .bind(legacy_operator)
+    .execute(&mut *connection)
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO admin_sessions (id, operator_id, token_hash, expires_at_unix) \
+         VALUES ($1, $2, $3, extract(epoch FROM now())::bigint + 3600)",
+    )
+    .bind(legacy_session)
+    .bind(legacy_operator)
+    .bind([7_u8; 32].as_slice())
+    .execute(&mut *connection)
+    .await
+    .unwrap();
+
+    sqlx::raw_sql(include_str!("../migrations/0011_operator_scopes.sql"))
+        .execute(&mut *connection)
+        .await
+        .unwrap();
+
+    let revoked: (bool, bool) = sqlx::query_as(
+        "SELECT o.revoked_at IS NOT NULL, s.revoked_at IS NOT NULL \
+         FROM admin_operators o JOIN admin_sessions s ON s.operator_id=o.id \
+         WHERE o.id=$1 AND s.id=$2",
+    )
+    .bind(legacy_operator)
+    .bind(legacy_session)
+    .fetch_one(&mut *connection)
+    .await
+    .unwrap();
+    assert_eq!(revoked, (true, true));
+
+    let unscoped_insert = sqlx::query(
+        "INSERT INTO admin_operators (id, name, role) VALUES ($1, 'unscoped owner', 'owner')",
+    )
+    .bind(Uuid::new_v4())
+    .execute(&mut *connection)
+    .await;
+    assert!(unscoped_insert.is_err());
+
+    sqlx::query("SELECT set_config('search_path', 'public', false)")
+        .execute(&mut *connection)
+        .await
+        .unwrap();
+    sqlx::query(&format!("DROP SCHEMA {schema} CASCADE"))
+        .execute(&mut *connection)
+        .await
+        .unwrap();
 }
 
 #[sqlx::test]

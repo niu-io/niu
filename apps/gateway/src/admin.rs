@@ -7,7 +7,7 @@ use axum::{
     http::{HeaderMap, StatusCode},
 };
 use niu_execution::observation::ExecutionRecord;
-use niu_storage::{AdminPermission, TenantScope};
+use niu_storage::{AdminPermission, OperatorScope, TenantScope};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -26,6 +26,8 @@ pub struct KeyInput {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OperatorInput {
+    organization_id: Uuid,
+    project_id: Option<Uuid>,
     name: String,
     role: niu_storage::OperatorRole,
     expires_in_seconds: i64,
@@ -46,13 +48,60 @@ async fn authorize(
     state: &AppState,
     headers: &HeaderMap,
     permission: AdminPermission,
-) -> Result<(), ApiError> {
+) -> Result<crate::state::AdminAuthorization, ApiError> {
     state
         .authorize_admin(
             headers.get("authorization").and_then(|h| h.to_str().ok()),
             permission,
         )
         .await
+}
+
+async fn authorize_project(
+    state: &AppState,
+    headers: &HeaderMap,
+    permission: AdminPermission,
+    organization_id: Uuid,
+    project_id: Uuid,
+) -> Result<crate::state::AdminAuthorization, ApiError> {
+    let authorization = authorize(state, headers, permission).await?;
+    if authorization.permits_project(TenantScope {
+        organization_id,
+        project_id,
+    }) {
+        Ok(authorization)
+    } else {
+        Err(ApiError::not_found())
+    }
+}
+
+async fn authorize_operator_management(
+    state: &AppState,
+    headers: &HeaderMap,
+    operator_id: Uuid,
+) -> Result<crate::state::AdminAuthorization, ApiError> {
+    let authorization = authorize(state, headers, AdminPermission::ManageOperators).await?;
+    if authorization.is_installation() {
+        return Ok(authorization);
+    }
+    let operator = state
+        .store
+        .operator(operator_id)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    let Some(organization_id) = operator.organization_id else {
+        return Err(ApiError::not_found());
+    };
+    let scope = OperatorScope {
+        organization_id,
+        project_id: operator.project_id,
+    };
+    if authorization.permits_operator_scope(scope) {
+        Ok(authorization)
+    } else {
+        Err(ApiError::not_found())
+    }
 }
 fn validate_name(name: &str) -> Result<(), ApiError> {
     if name.trim().is_empty() || name.len() > 200 {
@@ -67,7 +116,12 @@ pub async fn default_workspace(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
-    authorize(&state, &headers, AdminPermission::Write).await?;
+    if !authorize(&state, &headers, AdminPermission::Write)
+        .await?
+        .is_installation()
+    {
+        return Err(ApiError::forbidden());
+    }
     let scope = state
         .store
         .default_workspace()
@@ -83,7 +137,12 @@ pub async fn organization(
     headers: HeaderMap,
     Json(input): Json<Name>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
-    authorize(&state, &headers, AdminPermission::Write).await?;
+    if !authorize(&state, &headers, AdminPermission::Write)
+        .await?
+        .is_installation()
+    {
+        return Err(ApiError::forbidden());
+    }
     validate_name(&input.name)?;
     let id = state
         .store
@@ -102,7 +161,10 @@ pub async fn project(
     headers: HeaderMap,
     Json(input): Json<Name>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
-    authorize(&state, &headers, AdminPermission::Write).await?;
+    let authorization = authorize(&state, &headers, AdminPermission::Write).await?;
+    if !authorization.permits_project_creation(organization_id) {
+        return Err(ApiError::not_found());
+    }
     validate_name(&input.name)?;
     let scope = state
         .store
@@ -123,7 +185,14 @@ pub async fn issue_key(
     headers: HeaderMap,
     Json(input): Json<KeyInput>,
 ) -> Result<(StatusCode, [(String, String); 1], Json<Value>), ApiError> {
-    authorize(&state, &headers, AdminPermission::Write).await?;
+    authorize_project(
+        &state,
+        &headers,
+        AdminPermission::Write,
+        organization_id,
+        project_id,
+    )
+    .await?;
     if input
         .allowed_models
         .iter()
@@ -156,7 +225,14 @@ pub async fn revoke_key(
     Path((organization_id, project_id, key_id)): Path<(Uuid, Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<StatusCode, ApiError> {
-    authorize(&state, &headers, AdminPermission::Write).await?;
+    authorize_project(
+        &state,
+        &headers,
+        AdminPermission::Write,
+        organization_id,
+        project_id,
+    )
+    .await?;
     state
         .store
         .revoke_key(
@@ -177,7 +253,14 @@ pub async fn create_account(
     headers: HeaderMap,
     Json(input): Json<niu_storage::AccountInput>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
-    authorize(&state, &headers, AdminPermission::Write).await?;
+    authorize_project(
+        &state,
+        &headers,
+        AdminPermission::Write,
+        organization_id,
+        project_id,
+    )
+    .await?;
     let id = state
         .store
         .create_account(
@@ -200,7 +283,14 @@ pub async fn accounts(
     Path((organization_id, project_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
-    authorize(&state, &headers, AdminPermission::Read).await?;
+    authorize_project(
+        &state,
+        &headers,
+        AdminPermission::Read,
+        organization_id,
+        project_id,
+    )
+    .await?;
     let accounts = state
         .store
         .accounts(TenantScope {
@@ -217,7 +307,14 @@ pub async fn quota(
     Path((organization_id, project_id, account)): Path<(Uuid, Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
-    authorize(&state, &headers, AdminPermission::Read).await?;
+    authorize_project(
+        &state,
+        &headers,
+        AdminPermission::Read,
+        organization_id,
+        project_id,
+    )
+    .await?;
     let windows = state
         .store
         .quota(
@@ -237,7 +334,14 @@ pub async fn account_executions(
     Path((organization_id, project_id, account)): Path<(Uuid, Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
-    authorize(&state, &headers, AdminPermission::Read).await?;
+    authorize_project(
+        &state,
+        &headers,
+        AdminPermission::Read,
+        organization_id,
+        project_id,
+    )
+    .await?;
     let executions = state
         .store
         .executions_for_account(
@@ -270,22 +374,32 @@ pub async fn observe_quota(
     let token = header
         .and_then(|value| value.strip_prefix("Bearer "))
         .ok_or_else(ApiError::unauthorized)?;
-    let Json(input) =
-        body.map_err(|_| ApiError::invalid_request("Invalid quota observation JSON"))?;
     let result = if state.admin_tokens.matches(header) {
+        let Json(input) =
+            body.map_err(|_| ApiError::invalid_request("Invalid quota observation JSON"))?;
         state.store.observe_quota(scope, account, &input).await
     } else {
         match state.store.authenticate_operator(token).await {
-            Ok(role) if role.permits(AdminPermission::Write) => {
+            Ok(operator) => {
+                if !operator.scope.permits_project(scope) {
+                    return Err(ApiError::not_found());
+                }
+                if !operator.role.permits(AdminPermission::Write) {
+                    return Err(ApiError::forbidden());
+                }
+                let Json(input) =
+                    body.map_err(|_| ApiError::invalid_request("Invalid quota observation JSON"))?;
                 state.store.observe_quota(scope, account, &input).await
             }
-            Ok(_) => return Err(ApiError::forbidden()),
-            Err(_) => {
+            Err(niu_storage::StoreError::Unauthorized) => {
+                let Json(input) =
+                    body.map_err(|_| ApiError::invalid_request("Invalid quota observation JSON"))?;
                 state
                     .store
                     .observe_quota_as_collector(token, scope, account, &input)
                     .await
             }
+            Err(error) => return Err(ApiError::from_store(error)),
         }
     };
     let id = result.map_err(ApiError::from_store)?;
@@ -300,7 +414,14 @@ pub async fn delete_quota_window(
     Query(query): Query<QuotaWindowQuery>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
-    authorize(&state, &headers, AdminPermission::Write).await?;
+    authorize_project(
+        &state,
+        &headers,
+        AdminPermission::Write,
+        organization_id,
+        project_id,
+    )
+    .await?;
     let deleted_count = state
         .store
         .delete_quota_window(
@@ -323,20 +444,31 @@ pub async fn organizations(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
-    authorize(&state, &headers, AdminPermission::Read).await?;
-    Ok(Json(
-        json!({"data":state.store.organizations().await.map_err(ApiError::from_store)?}),
-    ))
+    let authorization = authorize(&state, &headers, AdminPermission::Read).await?;
+    let mut organizations = state
+        .store
+        .organizations()
+        .await
+        .map_err(ApiError::from_store)?;
+    if let crate::state::AdminAuthorization::Operator(operator) = authorization {
+        organizations.retain(|organization| organization.id == operator.scope.organization_id);
+    }
+    Ok(Json(json!({"data": organizations})))
 }
 
 pub async fn operators(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
-    authorize(&state, &headers, AdminPermission::ManageOperators).await?;
-    Ok(Json(
-        json!({"data": state.store.operators().await.map_err(ApiError::from_store)?}),
-    ))
+    let authorization = authorize(&state, &headers, AdminPermission::ManageOperators).await?;
+    let operators = match authorization {
+        crate::state::AdminAuthorization::Installation => state.store.operators().await,
+        crate::state::AdminAuthorization::Operator(operator) => {
+            state.store.operators_for_scope(operator.scope).await
+        }
+    }
+    .map_err(ApiError::from_store)?;
+    Ok(Json(json!({"data": operators})))
 }
 
 pub async fn create_operator(
@@ -344,10 +476,19 @@ pub async fn create_operator(
     headers: HeaderMap,
     Json(input): Json<OperatorInput>,
 ) -> Result<(StatusCode, [(String, String); 1], Json<Value>), ApiError> {
-    authorize(&state, &headers, AdminPermission::ManageOperators).await?;
+    let scope = OperatorScope {
+        organization_id: input.organization_id,
+        project_id: input.project_id,
+    };
+    if !authorize(&state, &headers, AdminPermission::ManageOperators)
+        .await?
+        .permits_operator_scope(scope)
+    {
+        return Err(ApiError::not_found());
+    }
     let issued = state
         .store
-        .create_operator(&input.name, input.role, input.expires_in_seconds)
+        .create_operator(scope, &input.name, input.role, input.expires_in_seconds)
         .await
         .map_err(ApiError::from_store)?;
     Ok((
@@ -358,6 +499,8 @@ pub async fn create_operator(
                 "id": issued.operator_id,
                 "name": input.name.trim(),
                 "role": input.role,
+                "organization_id": scope.organization_id,
+                "project_id": scope.project_id,
                 "revoked": false
             },
             "session": issued.session,
@@ -371,7 +514,7 @@ pub async fn operator_sessions(
     Path(operator_id): Path<Uuid>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
-    authorize(&state, &headers, AdminPermission::ManageOperators).await?;
+    authorize_operator_management(&state, &headers, operator_id).await?;
     Ok(Json(json!({
         "data": state.store.operator_sessions(operator_id).await.map_err(ApiError::from_store)?
     })))
@@ -383,7 +526,7 @@ pub async fn create_operator_session(
     headers: HeaderMap,
     Json(input): Json<OperatorSessionInput>,
 ) -> Result<(StatusCode, [(String, String); 1], Json<Value>), ApiError> {
-    authorize(&state, &headers, AdminPermission::ManageOperators).await?;
+    authorize_operator_management(&state, &headers, operator_id).await?;
     let issued = state
         .store
         .create_operator_session(operator_id, input.expires_in_seconds)
@@ -401,7 +544,7 @@ pub async fn revoke_operator_session(
     Path((operator_id, session_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<StatusCode, ApiError> {
-    authorize(&state, &headers, AdminPermission::ManageOperators).await?;
+    authorize_operator_management(&state, &headers, operator_id).await?;
     state
         .store
         .revoke_operator_session(operator_id, session_id)
@@ -415,7 +558,7 @@ pub async fn revoke_operator(
     Path(operator_id): Path<Uuid>,
     headers: HeaderMap,
 ) -> Result<StatusCode, ApiError> {
-    authorize(&state, &headers, AdminPermission::ManageOperators).await?;
+    authorize_operator_management(&state, &headers, operator_id).await?;
     state
         .store
         .revoke_operator(operator_id)
@@ -429,10 +572,21 @@ pub async fn projects(
     Path(organization): Path<Uuid>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
-    authorize(&state, &headers, AdminPermission::Read).await?;
-    Ok(Json(
-        json!({"data":state.store.projects(organization).await.map_err(ApiError::from_store)?}),
-    ))
+    let authorization = authorize(&state, &headers, AdminPermission::Read).await?;
+    if !authorization.permits_organization(organization) {
+        return Err(ApiError::not_found());
+    }
+    let mut projects = state
+        .store
+        .projects(organization)
+        .await
+        .map_err(ApiError::from_store)?;
+    if let crate::state::AdminAuthorization::Operator(operator) = authorization
+        && let Some(project_id) = operator.scope.project_id
+    {
+        projects.retain(|project| project.id == project_id);
+    }
+    Ok(Json(json!({"data": projects})))
 }
 
 pub async fn keys(
@@ -440,7 +594,14 @@ pub async fn keys(
     Path((organization_id, project_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
-    authorize(&state, &headers, AdminPermission::Read).await?;
+    authorize_project(
+        &state,
+        &headers,
+        AdminPermission::Read,
+        organization_id,
+        project_id,
+    )
+    .await?;
     Ok(Json(
         json!({"data":state.store.list_keys(TenantScope { organization_id, project_id }).await.map_err(ApiError::from_store)?}),
     ))
@@ -451,7 +612,14 @@ pub async fn rotate_key(
     Path((organization_id, project_id, key_id)): Path<(Uuid, Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<(StatusCode, [(String, String); 1], Json<Value>), ApiError> {
-    authorize(&state, &headers, AdminPermission::Write).await?;
+    authorize_project(
+        &state,
+        &headers,
+        AdminPermission::Write,
+        organization_id,
+        project_id,
+    )
+    .await?;
     let issued = state
         .store
         .rotate_key(
@@ -476,7 +644,14 @@ pub async fn budget(
     Path((organization_id, project_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
-    authorize(&state, &headers, AdminPermission::Read).await?;
+    authorize_project(
+        &state,
+        &headers,
+        AdminPermission::Read,
+        organization_id,
+        project_id,
+    )
+    .await?;
     let budget = state
         .store
         .budget(TenantScope {
@@ -506,7 +681,14 @@ pub async fn costs(
     headers: HeaderMap,
     axum::extract::Query(query): axum::extract::Query<CostQuery>,
 ) -> Result<Json<Value>, ApiError> {
-    authorize(&state, &headers, AdminPermission::Read).await?;
+    authorize_project(
+        &state,
+        &headers,
+        AdminPermission::Read,
+        organization_id,
+        project_id,
+    )
+    .await?;
     let limit = query.limit.unwrap_or(50);
     if !(1..=100).contains(&limit) {
         return Err(ApiError::invalid_request("Limit must be between 1 and 100"));
@@ -560,7 +742,14 @@ pub async fn import_execution(
     headers: HeaderMap,
     Json(record): Json<ExecutionRecord>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
-    authorize(&state, &headers, AdminPermission::Write).await?;
+    authorize_project(
+        &state,
+        &headers,
+        AdminPermission::Write,
+        organization_id,
+        project_id,
+    )
+    .await?;
     let receipt = state
         .store
         .import_execution(
@@ -589,7 +778,14 @@ pub async fn execution_imports(
     headers: HeaderMap,
     Query(query): Query<ExecutionImportQuery>,
 ) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {
-    authorize(&state, &headers, AdminPermission::Read).await?;
+    authorize_project(
+        &state,
+        &headers,
+        AdminPermission::Read,
+        organization_id,
+        project_id,
+    )
+    .await?;
     let limit = query.limit.unwrap_or(50);
     if !(1..=100).contains(&limit) {
         return Err(ApiError::invalid_request("Limit must be between 1 and 100"));
@@ -623,7 +819,14 @@ pub async fn execution_cohort(
     Path((organization_id, project_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
-    authorize(&state, &headers, AdminPermission::Read).await?;
+    authorize_project(
+        &state,
+        &headers,
+        AdminPermission::Read,
+        organization_id,
+        project_id,
+    )
+    .await?;
     let report = state
         .store
         .execution_cohort(TenantScope {
@@ -640,7 +843,14 @@ pub async fn execution_import(
     Path((organization_id, project_id, execution_id)): Path<(Uuid, Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {
-    authorize(&state, &headers, AdminPermission::Read).await?;
+    authorize_project(
+        &state,
+        &headers,
+        AdminPermission::Read,
+        organization_id,
+        project_id,
+    )
+    .await?;
     let scope = TenantScope {
         organization_id,
         project_id,
@@ -684,7 +894,14 @@ pub async fn delete_execution_import(
     Path((organization_id, project_id, execution_id)): Path<(Uuid, Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<StatusCode, ApiError> {
-    authorize(&state, &headers, AdminPermission::Write).await?;
+    authorize_project(
+        &state,
+        &headers,
+        AdminPermission::Write,
+        organization_id,
+        project_id,
+    )
+    .await?;
     let deleted = state
         .store
         .delete_execution_import(
@@ -715,7 +932,14 @@ pub async fn create_budget(
     headers: HeaderMap,
     Json(input): Json<BudgetInput>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
-    authorize(&state, &headers, AdminPermission::Write).await?;
+    authorize_project(
+        &state,
+        &headers,
+        AdminPermission::Write,
+        organization_id,
+        project_id,
+    )
+    .await?;
     // No float, exponent, signed or whitespace-coerced financial inputs.
     if input.limit_nanos.is_empty() || !input.limit_nanos.bytes().all(|b| b.is_ascii_digit()) {
         return Err(ApiError::invalid_request(
@@ -759,7 +983,14 @@ pub async fn issue_collector_key(
     headers: HeaderMap,
     Json(input): Json<CollectorKeyInput>,
 ) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {
-    authorize(&state, &headers, AdminPermission::Write).await?;
+    authorize_project(
+        &state,
+        &headers,
+        AdminPermission::Write,
+        organization_id,
+        project_id,
+    )
+    .await?;
     let issued = state
         .store
         .issue_collector_key(
@@ -783,7 +1014,14 @@ pub async fn revoke_collector_key(
     Path((organization_id, project_id, id)): Path<(Uuid, Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<StatusCode, ApiError> {
-    authorize(&state, &headers, AdminPermission::Write).await?;
+    authorize_project(
+        &state,
+        &headers,
+        AdminPermission::Write,
+        organization_id,
+        project_id,
+    )
+    .await?;
     state
         .store
         .revoke_collector_key(

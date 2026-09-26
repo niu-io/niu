@@ -2292,6 +2292,7 @@ name = "niu-gateway"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "base64 0.22.1",
  "futures-util",
  "http-body-util",
  "litellm-core",
@@ -2299,6 +2300,8 @@ dependencies = [
  "niu-execution",
  "niu-storage",
  "reqwest 0.12.28",
+ "ring",
+ "semver",
  "serde",
  "serde_json",
  "sha2 0.10.9",

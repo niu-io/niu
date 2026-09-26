@@ -13,6 +13,7 @@ use crate::{config::AppConfig, error::ApiError};
 #[derive(Clone)]
 pub struct AppState {
     pub config: Arc<AppConfig>,
+    pub enterprise: Option<Arc<crate::enterprise::EnterpriseRuntime>>,
     provider_keys: Arc<HashMap<String, String>>,
     pub store: niu_storage::Store,
     pub admin_tokens: Arc<TokenSet>,
@@ -25,6 +26,7 @@ pub struct AppState {
 impl AppState {
     pub async fn load_from_env() -> Result<Self, Box<dyn std::error::Error>> {
         let config = AppConfig::load()?;
+        let enterprise = crate::enterprise::EnterpriseRuntime::from_env().await?;
         let database_url =
             env::var("NIU_DATABASE_URL").map_err(|_| "NIU_DATABASE_URL is required")?;
         let store = niu_storage::Store::connect(&database_url).await?;
@@ -55,7 +57,7 @@ impl AppState {
             .connect_timeout(Duration::from_secs(10))
             .redirect(reqwest::redirect::Policy::none())
             .build()?;
-        Ok(Self::new(config, store, admin_tokens, http, provider_keys))
+        Ok(Self::new(config, store, admin_tokens, http, provider_keys).with_enterprise(enterprise))
     }
 
     pub(crate) fn new(
@@ -67,6 +69,7 @@ impl AppState {
     ) -> Self {
         Self {
             config: Arc::new(config),
+            enterprise: None,
             provider_keys: Arc::new(provider_keys),
             store,
             admin_tokens: Arc::new(admin_tokens),
@@ -75,6 +78,14 @@ impl AppState {
             failures: Arc::new(AtomicU64::new(0)),
             usage: Arc::new(crate::usage::UsageMetrics::default()),
         }
+    }
+
+    fn with_enterprise(
+        mut self,
+        enterprise: Option<Arc<crate::enterprise::EnterpriseRuntime>>,
+    ) -> Self {
+        self.enterprise = enterprise;
+        self
     }
 
     pub fn provider_key(&self, name: &str) -> Option<&str> {
@@ -98,22 +109,75 @@ impl AppState {
         &self,
         header: Option<&str>,
         permission: niu_storage::AdminPermission,
-    ) -> Result<(), ApiError> {
+    ) -> Result<AdminAuthorization, ApiError> {
         if self.admin_tokens.matches(header) {
-            return Ok(());
+            return Ok(AdminAuthorization::Installation);
         }
         let token = header
             .and_then(|value| value.strip_prefix("Bearer "))
             .ok_or_else(ApiError::unauthorized)?;
-        let role = self
+        let operator = self
             .store
             .authenticate_operator(token)
             .await
             .map_err(ApiError::from_store)?;
-        if role.permits(permission) {
-            Ok(())
+        if operator.role.permits(permission) {
+            Ok(AdminAuthorization::Operator(operator))
         } else {
             Err(ApiError::forbidden())
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum AdminAuthorization {
+    /// Installation credentials may administer all tenants and provision the
+    /// first workspace-scoped operators.
+    Installation,
+    /// Durable operator sessions are limited to their configured tenant scope.
+    Operator(niu_storage::OperatorPrincipal),
+}
+
+impl AdminAuthorization {
+    pub fn is_installation(self) -> bool {
+        matches!(self, Self::Installation)
+    }
+
+    pub fn permits_organization(self, organization_id: uuid::Uuid) -> bool {
+        match self {
+            Self::Installation => true,
+            Self::Operator(operator) => operator.scope.organization_id == organization_id,
+        }
+    }
+
+    pub fn permits_project(self, scope: niu_storage::TenantScope) -> bool {
+        match self {
+            Self::Installation => true,
+            Self::Operator(operator) => operator.scope.permits_project(scope),
+        }
+    }
+
+    pub fn permits_project_creation(self, organization_id: uuid::Uuid) -> bool {
+        match self {
+            Self::Installation => true,
+            Self::Operator(operator) => {
+                operator.scope.organization_id == organization_id
+                    && operator.scope.project_id.is_none()
+            }
+        }
+    }
+
+    pub fn permits_operator_scope(self, scope: niu_storage::OperatorScope) -> bool {
+        match self {
+            Self::Installation => true,
+            Self::Operator(operator) => {
+                operator.role == niu_storage::OperatorRole::Owner
+                    && operator.scope.organization_id == scope.organization_id
+                    && operator
+                        .scope
+                        .project_id
+                        .is_none_or(|project_id| scope.project_id == Some(project_id))
+            }
         }
     }
 }
@@ -159,8 +223,11 @@ fn hash(token: &str) -> [u8; 32] {
 
 #[cfg(test)]
 mod tests {
-    use super::TokenSet;
-    use niu_storage::{AdminPermission, OperatorRole};
+    use super::{AdminAuthorization, TokenSet};
+    use niu_storage::{
+        AdminPermission, OperatorPrincipal, OperatorRole, OperatorScope, TenantScope,
+    };
+    use uuid::Uuid;
 
     #[test]
     fn bearer_auth_requires_a_configured_full_token() {
@@ -199,5 +266,101 @@ mod tests {
         assert!(OperatorRole::Owner.permits(AdminPermission::ManageOperators));
         assert!(!OperatorRole::Admin.permits(AdminPermission::ManageOperators));
         assert!(!OperatorRole::Viewer.permits(AdminPermission::ManageOperators));
+    }
+
+    #[test]
+    fn installation_authorization_covers_any_tenant_and_bootstrap_action() {
+        let authorization = AdminAuthorization::Installation;
+        let organization_id = Uuid::new_v4();
+        let project_id = Uuid::new_v4();
+
+        assert!(authorization.permits_organization(organization_id));
+        assert!(authorization.permits_project(TenantScope {
+            organization_id,
+            project_id,
+        }));
+        assert!(authorization.permits_project_creation(organization_id));
+        assert!(authorization.permits_operator_scope(OperatorScope {
+            organization_id,
+            project_id: Some(project_id),
+        }));
+    }
+
+    #[test]
+    fn organization_owner_is_limited_to_its_organization() {
+        let organization_id = Uuid::new_v4();
+        let other_organization_id = Uuid::new_v4();
+        let authorization = operator_authorization(organization_id, None, OperatorRole::Owner);
+
+        assert!(authorization.permits_organization(organization_id));
+        assert!(!authorization.permits_organization(other_organization_id));
+        assert!(authorization.permits_project(TenantScope {
+            organization_id,
+            project_id: Uuid::new_v4(),
+        }));
+        assert!(authorization.permits_project_creation(organization_id));
+        assert!(!authorization.permits_project_creation(other_organization_id));
+        assert!(authorization.permits_operator_scope(OperatorScope {
+            organization_id,
+            project_id: Some(Uuid::new_v4()),
+        }));
+        assert!(!authorization.permits_operator_scope(OperatorScope {
+            organization_id: other_organization_id,
+            project_id: None,
+        }));
+    }
+
+    #[test]
+    fn project_owner_cannot_expand_operator_or_project_scope() {
+        let organization_id = Uuid::new_v4();
+        let project_id = Uuid::new_v4();
+        let authorization =
+            operator_authorization(organization_id, Some(project_id), OperatorRole::Owner);
+
+        assert!(authorization.permits_organization(organization_id));
+        assert!(!authorization.permits_project_creation(organization_id));
+        assert!(authorization.permits_project(TenantScope {
+            organization_id,
+            project_id,
+        }));
+        assert!(!authorization.permits_project(TenantScope {
+            organization_id,
+            project_id: Uuid::new_v4(),
+        }));
+        assert!(authorization.permits_operator_scope(OperatorScope {
+            organization_id,
+            project_id: Some(project_id),
+        }));
+        assert!(!authorization.permits_operator_scope(OperatorScope {
+            organization_id,
+            project_id: None,
+        }));
+    }
+
+    #[test]
+    fn non_owner_roles_cannot_manage_operator_credentials() {
+        let organization_id = Uuid::new_v4();
+        for role in [OperatorRole::Admin, OperatorRole::Viewer] {
+            let authorization = operator_authorization(organization_id, None, role);
+            assert!(!authorization.permits_operator_scope(OperatorScope {
+                organization_id,
+                project_id: None,
+            }));
+        }
+    }
+
+    fn operator_authorization(
+        organization_id: Uuid,
+        project_id: Option<Uuid>,
+        role: OperatorRole,
+    ) -> AdminAuthorization {
+        AdminAuthorization::Operator(OperatorPrincipal {
+            id: Uuid::new_v4(),
+            role,
+            scope: OperatorScope {
+                organization_id,
+                project_id,
+            },
+        })
     }
 }
