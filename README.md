@@ -6,11 +6,15 @@ The product is intended to cover the practical gateway lifecycle: connect model 
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/niu-io/niu)
 
-The [Render Blueprint](render.yaml) provisions the gateway and a separate managed PostgreSQL database in your Render workspace. It uses paid compute plans; check [Render pricing](https://render.com/pricing) before deploying. You provide the OpenAI API key privately during setup, and Render generates the admin token. Automatic deploys are off for button-created instances; trigger updates manually from Render.
+The [Render Blueprint](render.yaml) provisions the gateway and a separate managed PostgreSQL database in your Render workspace. It uses paid compute plans; check [Render pricing](https://render.com/pricing) before deploying. You provide the OpenRouter API key privately during setup, and Render generates the admin token and vendor encryption key. Automatic deploys are off for button-created instances; trigger updates manually from Render.
 
 ## Simple model access
 
 Configure a provider, issue a client key, and call the standard model API on port 2555. No task definitions, agent telemetry, benchmarks, subscriptions or pooling are required. See the [quickstart](apps/docs/src/content/docs/getting-started.mdx). Advanced observation and evaluation are optional workflows in the same product.
+
+## Managed upstream vendors
+
+Installation administrators can manage vendors such as OpenRouter and their model mappings in the console. Configuration persists in PostgreSQL; new requests use current enabled state and routing. Provider credentials are encrypted with a separate `NIU_VENDOR_ENCRYPTION_KEY` deployment secret and are never returned by the API. Back up that key separately from the database. See [vendor architecture](docs/architecture/vendors.md) for access boundaries, static-route precedence and bootstrap semantics.
 
 ## Current implementation
 
@@ -18,7 +22,7 @@ The repository is a mixed-language monorepo. `apps/gateway` is the Rust applicat
 
 The first gateway slice serves health, model-list, admin model-list, process counters, and OpenAI-compatible chat completion routes from one Rust HTTP process. Requests use configured public model names; provider endpoints and credentials remain server-side. Niu owns the OpenAI-compatible pass-through adapter; selected, pinned LiteLLM Rust modules provide native Anthropic and Bedrock transformations. Streaming is currently supported for configured OpenAI-compatible routes.
 
-The Rust gateway redirects `/` to the workspace and serves documentation at `/docs/`, the explicitly published model catalog at `/models/`, workspace UI under `/workspaces/:workspace/…`, and APIs from the same HTTP listener. Console, docs and catalog assets are built into one application image. The marketing homepage is maintained separately in `niu-io/website`; a hosted distribution supplies its pinned static artifact through `NIU_SITE_DIR` on the same domain. The public catalog lists only routes whose operator enables `public_catalog`; its API omits provider names, upstream IDs, endpoints and credentials. PostgreSQL stores organizations, projects, scoped API keys and attempt evidence. Bootstrap management endpoints create and revoke keys; every dispatch rechecks permission and persists intent. Operator roles, durable financial accounting, budgets, route editing, the broader protocol surface, and production qualification remain in progress.
+The Rust gateway redirects `/` to the workspace and serves documentation at `/docs/`, the explicitly published model catalog at `/models/`, workspace UI under `/workspaces/:workspace/…`, and APIs from the same HTTP listener. Console, docs and catalog assets are built into one application image. The marketing homepage is maintained separately in `niu-io/website`; a hosted distribution supplies its pinned static artifact through `NIU_SITE_DIR` on the same domain. The public catalog lists only routes whose operator enables `public_catalog`; its API omits provider names, upstream IDs, endpoints and credentials. PostgreSQL stores organizations, projects, scoped API keys, operator sessions, managed vendors and routes, accounting records, and attempt evidence. Management endpoints create, rotate and revoke credentials; every dispatch rechecks permission and persists intent. Operator roles enforce tenant scope. Broader routing, provider conformance, subscription inference and production qualification remain in progress.
 
 The public workspace also contains paired benchmark analysis and a versioned Rust extension API with a synthetic reference extension. The extension contract is tested independently, but the gateway does not load extensions yet. The API defines claim mapping rather than a full OIDC/SAML login flow, and the task adapter's required sandbox runner is not implemented.
 

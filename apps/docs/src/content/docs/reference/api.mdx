@@ -23,7 +23,7 @@ Owners can manage operators. Admins can read and write management resources but 
 
 Capabilities are route-specific. Flags in `config/niu.toml` declare operator-verified behavior; they do not mean Niu has qualified every provider model or endpoint. A request for an unsupported combination is rejected before an attempt is created where the contract below marks it unavailable.
 
-| Operation | OpenAI-compatible route (`provider = "openai"`) | Native Anthropic route | Native Bedrock route |
+| Operation | OpenAI-compatible route (`provider = "openai"` or `"openrouter"`) | Native Anthropic route | Native Bedrock route |
 | --- | --- | --- | --- |
 | Chat completion, non-streaming | Supported; tool and structured-output subsets require separate route flags | Basic non-streaming adapter path | Basic non-streaming adapter path |
 | Chat completion, streaming | Supported; tool deltas need `supports_streaming_tool_calls` | Not implemented | Not implemented |
@@ -48,7 +48,7 @@ Input arrays, images, audio, tools, streaming and conversation state are outside
 
 ## OpenAI-compatible text embeddings
 
-`POST /v1/embeddings` accepts a model alias and one non-empty string or an array of 1–2048 non-empty strings. It optionally accepts `dimensions` (1–65536), `encoding_format` (`float` or `base64`), and a `user` string up to 512 bytes. Token-ID arrays, nested inputs, multimodal input, streaming and extra fields are rejected. The configured route must use provider `openai` and explicitly declare embedding support; dimension and base64 support are separate opt-in route declarations. A missing declaration or unsupported provider returns `501` before durable operation and attempt creation. A successful response uses the public model alias and must include one correctly shaped embedding for each input item. See [Model routes](/docs/configuration/models/) for setup and pricing bounds.
+`POST /v1/embeddings` accepts a model alias and one non-empty string or an array of 1–2048 non-empty strings. It optionally accepts `dimensions` (1–65536), `encoding_format` (`float` or `base64`), and a `user` string up to 512 bytes. Token-ID arrays, nested inputs, multimodal input, streaming and extra fields are rejected. The configured route must use provider `openai` or `openrouter` and explicitly declare embedding support; dimension and base64 support are separate opt-in route declarations. OpenRouter embeddings are not inferred from chat support. A missing declaration or unsupported provider returns `501` before durable operation and attempt creation. A successful response uses the public model alias and must include one correctly shaped embedding for each input item. See [Model routes](/docs/configuration/models/) for setup and pricing bounds.
 
 This contract covers the implemented OpenAI-compatible text embedding operation only. The declared route flags are configuration assertions, not conformance results; native Anthropic and Bedrock embeddings, provider-specific conformance suites, and other input modalities are not implemented.
 
@@ -124,3 +124,15 @@ The metadata import API is independent of inference forwarding and account pooli
 - `GET /admin/v1/organizations/{organization}/projects/{project}/executions/cohort`: read a bounded project rollup of outcome and cost evidence. It is a live view, scans at most 10,000 records, and does not infer task-level quota attribution or invoice/subscription allocation costs.
 
 All execution import and read endpoints require administrator authorization. Inference client keys and quota-only collector credentials cannot access these records. Imports are capped at 1 MiB, reject unknown content fields and invalid graphs, and take project scope from the authenticated API path. Imports neither execute work nor post ledger charges. There is no automatic retention expiry yet; deletion removes the live database record, while backups must follow the operator's retention policy.
+
+## Installation vendors
+
+Shared upstream connections persist in PostgreSQL and are managed only with an installation administrator credential:
+
+- `GET /admin/v1/vendors` lists metadata without credentials.
+- `POST /admin/v1/vendors` creates a vendor with a write-only `api_key`.
+- `PUT /admin/v1/vendors/{id}` updates metadata, enabled state or the credential using `expected_revision`.
+- `GET /admin/v1/vendors/{id}/models` lists the vendor's mappings.
+- `POST /admin/v1/vendors/{id}/models` creates a mapping without a revision or updates it using the current `expected_revision`.
+
+On a model update, omitting `pricing` preserves its exact stored value; explicit `null` clears it. Stale updates return `409`. Responses use `Cache-Control: no-store`. Organization and project operators cannot administer these installation-wide resources. See [Model routes](/docs/configuration/models/) for encryption, precedence and bootstrap behavior.

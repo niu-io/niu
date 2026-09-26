@@ -33,13 +33,10 @@ pub(in crate::web) async fn responses(
     if !principal.allows_model(&public_model) {
         return Err(ApiError::not_found());
     }
-    let model = state
-        .config
-        .models
-        .get(&public_model)
-        .ok_or_else(ApiError::not_found)?;
+    let resolved = crate::vendors::resolve_model(&state, &public_model).await?;
+    let model = &resolved.model;
     let bounds = validate_responses_request(&mut body, model.pricing.as_ref())?;
-    if model.provider != "openai" || !model.supports_responses {
+    if !model.protocol().is_openai_compatible() || !model.supports_responses {
         return Err(ApiError::unsupported());
     }
     if let Some(price) = &model.pricing
@@ -49,10 +46,7 @@ pub(in crate::web) async fn responses(
             "Responses input exceeds the priced route's conservative UTF-8 byte bound",
         ));
     }
-    let api_key = state
-        .provider_key(&model.api_key_env)
-        .ok_or_else(ApiError::unavailable)?
-        .to_owned();
+    let api_key = resolved.api_key;
     let timeout = Duration::from_secs(state.config.server.request_timeout_seconds);
     state.requests.fetch_add(1, Ordering::Relaxed);
     let dispatch = begin_attempt(
@@ -180,10 +174,7 @@ async fn execute_responses(
     mut body: Value,
     timeout: Duration,
 ) -> Result<ProviderResponse, ApiError> {
-    let base = model
-        .api_base
-        .as_deref()
-        .unwrap_or("https://api.openai.com/v1");
+    let base = model.endpoint_base().ok_or_else(ApiError::unavailable)?;
     let endpoint = format!("{}/responses", base.trim_end_matches('/'));
     let object = body
         .as_object_mut()

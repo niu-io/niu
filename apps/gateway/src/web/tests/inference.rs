@@ -1,4 +1,89 @@
 use super::*;
+use axum::response::{IntoResponse, Response};
+
+#[derive(Clone, Default)]
+struct OpenRouterCaptured(Arc<Mutex<Vec<OpenRouterRequest>>>);
+
+struct OpenRouterRequest {
+    path: String,
+    headers: HeaderMap,
+    body: Value,
+}
+
+async fn openrouter_provider(
+    State(captured): State<OpenRouterCaptured>,
+    uri: axum::http::Uri,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    captured.0.lock().unwrap().push(OpenRouterRequest {
+        path: uri.path().to_owned(),
+        headers,
+        body: body.clone(),
+    });
+
+    if body.pointer("/messages/0/content").and_then(Value::as_str) == Some("trigger-upstream-error")
+    {
+        return (
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(json!({"error":{"message":"private upstream failure detail"}})),
+        )
+            .into_response();
+    }
+
+    if body.get("stream") == Some(&json!(true)) {
+        // OpenRouter can put usage on a final chunk that still has a choice.
+        let events = [
+            json!({
+                "id":"openrouter-stream",
+                "choices":[{"index":0,"delta":{"content":"ok"},"finish_reason":null}]
+            }),
+            json!({
+                "id":"openrouter-stream",
+                "choices":[{"index":0,"delta":{},"finish_reason":"stop"}],
+                "usage":{"prompt_tokens":7,"completion_tokens":2,"total_tokens":9}
+            }),
+        ];
+        let mut payload = events
+            .iter()
+            .map(|event| format!("data: {event}\n\n"))
+            .collect::<String>();
+        payload.push_str("data: [DONE]\n\n");
+        return Response::builder()
+            .header("content-type", "text/event-stream")
+            .body(axum::body::Body::from(payload))
+            .unwrap();
+    }
+
+    let (message, finish_reason) = if body.get("response_format").is_some() {
+        (
+            json!({"role":"assistant","content":"{\"answer\":42}"}),
+            "stop",
+        )
+    } else if let Some(name) = body
+        .pointer("/tools/0/function/name")
+        .and_then(Value::as_str)
+    {
+        (
+            json!({
+                "role":"assistant","content":null,"tool_calls":[{
+                    "id":"call_openrouter_1","type":"function",
+                    "function":{"name":name,"arguments":"{}"}
+                }]
+            }),
+            "tool_calls",
+        )
+    } else {
+        (json!({"role":"assistant","content":"ok"}), "stop")
+    };
+    Json(json!({
+        "id":"openrouter-chat",
+        "model":"openai/gpt-4.1-mini",
+        "choices":[{"index":0,"message":message,"finish_reason":finish_reason}],
+        "usage":{"prompt_tokens":5,"completion_tokens":2,"total_tokens":7}
+    }))
+    .into_response()
+}
 
 #[test]
 fn chat_feature_contracts_validate_input_and_provider_output() {
@@ -394,6 +479,204 @@ async fn streaming_tool_deltas_preserve_wire_bytes_and_terminal_usage(pool: PgPo
         (attempt.prompt_tokens, attempt.completion_tokens),
         (Some(19), Some(8))
     );
+    task.abort();
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn openrouter_uses_compatible_chat_route_and_preserves_openrouter_usage_streams(
+    pool: PgPool,
+) {
+    let captured = OpenRouterCaptured::default();
+    let upstream = Router::new()
+        .route("/api/v1/chat/completions", post(openrouter_provider))
+        .with_state(captured.clone());
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let task = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
+
+    let mut state = test_state(None, pool.clone());
+    let model = Arc::make_mut(&mut state.config)
+        .models
+        .get_mut("fast")
+        .unwrap();
+    model.provider = "openrouter".into();
+    model.upstream_model = "openai/gpt-4.1-mini".into();
+    model.api_key_env = "OPENROUTER_API_KEY".into();
+    model.api_base = Some(format!("http://{address}/api/v1"));
+    model.supports_tool_calls = true;
+    model.supports_streaming_tool_calls = true;
+    model.supports_structured_output = true;
+
+    let organization = state.store.create_organization("openrouter").await.unwrap();
+    let scope = state
+        .store
+        .create_project(organization, "project")
+        .await
+        .unwrap();
+    let key = state
+        .store
+        .issue_key(scope, "client", &["fast".into()], 3600)
+        .await
+        .unwrap();
+
+    let tools_request = json!({
+        "model":"fast",
+        "messages":[{"role":"user","content":"Look up the weather"}],
+        "tools":[{"type":"function","function":{
+            "name":"lookup_weather","parameters":{"type":"object","properties":{}}
+        }}],
+        "tool_choice":"required"
+    });
+    let tool_response = router(state.clone())
+        .oneshot(
+            Request::post("/v1/chat/completions")
+                .header("authorization", format!("Bearer {}", key.token))
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(tools_request.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(tool_response.status(), StatusCode::OK);
+    let tool_body: Value = serde_json::from_slice(
+        &tool_response
+            .into_body()
+            .collect()
+            .await
+            .unwrap()
+            .to_bytes(),
+    )
+    .unwrap();
+    assert_eq!(tool_body["model"], "fast");
+    assert_eq!(tool_body["choices"][0]["finish_reason"], "tool_calls");
+    {
+        let requests = captured.0.lock().unwrap();
+        assert_eq!(requests[0].path, "/api/v1/chat/completions");
+        assert_eq!(
+            requests[0].headers["authorization"],
+            "Bearer openrouter-test-key-only"
+        );
+        assert_eq!(requests[0].body["model"], "openai/gpt-4.1-mini");
+        assert_eq!(requests[0].body["tools"], tools_request["tools"]);
+        assert_eq!(requests[0].body["tool_choice"], "required");
+    }
+
+    let structured_request = json!({
+        "model":"fast",
+        "messages":[{"role":"user","content":"Return JSON"}],
+        "response_format":{"type":"json_schema","json_schema":{
+            "name":"answer","schema":{"type":"object","required":["answer"]},"strict":true
+        }}
+    });
+    let structured_response = router(state.clone())
+        .oneshot(
+            Request::post("/v1/chat/completions")
+                .header("authorization", format!("Bearer {}", key.token))
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(structured_request.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(structured_response.status(), StatusCode::OK);
+    let structured_body: Value = serde_json::from_slice(
+        &structured_response
+            .into_body()
+            .collect()
+            .await
+            .unwrap()
+            .to_bytes(),
+    )
+    .unwrap();
+    assert_eq!(
+        structured_body["choices"][0]["message"]["content"],
+        "{\"answer\":42}"
+    );
+    assert_eq!(
+        captured.0.lock().unwrap()[1].body["response_format"],
+        structured_request["response_format"]
+    );
+
+    let stream_request = json!({
+        "model":"fast","stream":true,
+        "messages":[{"role":"user","content":"Stream a short answer"}]
+    });
+    let stream_response = router(state.clone())
+        .oneshot(
+            Request::post("/v1/chat/completions")
+                .header("authorization", format!("Bearer {}", key.token))
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(stream_request.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(stream_response.status(), StatusCode::OK);
+    let stream_attempt: Uuid = stream_response.headers()["x-niu-attempt-id"]
+        .to_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let stream_body = stream_response
+        .into_body()
+        .collect()
+        .await
+        .unwrap()
+        .to_bytes();
+    let stream_body = String::from_utf8(stream_body.to_vec()).unwrap();
+    assert!(stream_body.contains("\"finish_reason\":\"stop\""));
+    assert!(stream_body.contains("\"prompt_tokens\":7"));
+    assert!(
+        stream_body.contains("\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]")
+    );
+    let stream_attempt = state
+        .store
+        .attempt(scope, stream_attempt)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(stream_attempt.execution, "confirmed_completed");
+    assert_eq!(stream_attempt.usage_confidence, "provider_reported");
+    assert_eq!(
+        (
+            stream_attempt.prompt_tokens,
+            stream_attempt.completion_tokens
+        ),
+        (Some(7), Some(2))
+    );
+    assert_eq!(
+        captured.0.lock().unwrap()[2].path,
+        "/api/v1/chat/completions"
+    );
+
+    let error_response = router(state.clone())
+        .oneshot(
+            Request::post("/v1/chat/completions")
+                .header("authorization", format!("Bearer {}", key.token))
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(
+                    json!({
+                        "model":"fast",
+                        "messages":[{"role":"user","content":"trigger-upstream-error"}]
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(error_response.status(), StatusCode::BAD_GATEWAY);
+    let error_body = error_response
+        .into_body()
+        .collect()
+        .await
+        .unwrap()
+        .to_bytes();
+    let error_body = String::from_utf8(error_body.to_vec()).unwrap();
+    assert!(!error_body.contains("private upstream failure detail"));
+    assert!(!error_body.contains("openrouter-test-key-only"));
+    assert_eq!(captured.0.lock().unwrap().len(), 4);
     task.abort();
 }
 

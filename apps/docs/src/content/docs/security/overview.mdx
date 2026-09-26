@@ -7,7 +7,7 @@ Security is a product foundation. Performance and cost optimizations must preser
 
 ## Credential ownership
 
-Provider credentials remain server-side. Public model names resolve through approved routes; requests cannot override provider, credential, or endpoint settings. Logs and browser responses must not contain secrets.
+Provider credentials remain server-side. Managed vendor credentials are encrypted in PostgreSQL with AES-256-GCM using `NIU_VENDOR_ENCRYPTION_KEY`, held separately in the deployment secret store. Only installation administrators can manage these shared connections; organization/project operators cannot. Management APIs never return provider credentials. Back up the encryption secret separately from database backups; automatic master-key rotation is not implemented. Public model names resolve through approved routes; requests cannot override provider, credential, or endpoint settings. Logs and browser responses must not contain secrets.
 
 ## Authorization
 

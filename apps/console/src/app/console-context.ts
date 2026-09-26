@@ -2,7 +2,7 @@ import { useOutletContext } from 'react-router';
 import type { FormEvent } from 'react';
 
 export type Model = { id: string; provider?: string; upstream_model?: string; public_catalog: boolean };
-export type Health = { status: string; model_count: number };
+export type Health = { status: string; model_count?: number };
 export type GatewayStatus = 'online' | 'offline' | 'checking';
 export type AdminSession = {
   kind: 'installation' | 'operator';

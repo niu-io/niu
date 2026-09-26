@@ -5,30 +5,40 @@ description: How the gateway maps public model names to approved provider offers
 
 A model route maps a public model name to an upstream provider, provider model identifier, endpoint, and server-side credential reference. Clients select the public name. They cannot supply a provider secret or choose an unapproved upstream endpoint.
 
-The current development configuration is TOML. The example file is [`config/niu.example.toml`](https://github.com/niu-io/niu/blob/main/config/niu.example.toml). Credentials are referenced by environment variable name and resolved by the gateway at request time.
+The current development configuration is TOML. The example file is [`config/niu.example.toml`](https://github.com/niu-io/niu/blob/main/config/niu.example.toml). Static credentials are referenced by environment variable name and loaded at startup.
 
 Set `public_catalog = true` on a route to publish its alias and declared capabilities at `/models/` and `GET /catalog/v1/models`. This is an explicit public disclosure. The catalog omits provider names, upstream model identifiers, endpoints, credentials and pricing. Routes default to hidden.
 
 ```toml
 [models.fast]
-provider = "openai"
-upstream_model = "gpt-4.1-mini"
-api_base = "https://api.openai.com/v1"
-api_key_env = "OPENAI_API_KEY"
+provider = "openrouter"
+upstream_model = "openai/gpt-4.1-mini"
+api_key_env = "OPENROUTER_API_KEY"
 ```
 
-Model route administration and durable, revisioned configuration are still being implemented. Keep credentials out of TOML, source control, and browser configuration.
+`openrouter` uses OpenAI-compatible chat completions at `https://openrouter.ai/api/v1` when `api_base` is omitted. OpenAI remains supported with its own default endpoint. Provider names remain distinct in administration and route records.
+
+## Managed vendors
+
+Installation administrators can manage shared vendors and their model routes in the console or through `/admin/v1/vendors`. OpenRouter is one vendor; the model makers offered through it do not require separate Niu credentials. Vendor records, enabled state, model mappings and revisions persist in PostgreSQL. Updates apply to new requests. Organization and project operators cannot manage shared upstream connections.
+
+Set `NIU_VENDOR_ENCRYPTION_KEY` to a separate, high-entropy secret of at least 32 characters before storing a vendor credential. Niu encrypts credentials using AES-256-GCM; API responses never return them. Keep the encryption key in your deployment secret store and back it up separately from PostgreSQL. Changing it without re-encrypting stored credentials makes them unreadable; automatic master-key rotation is not implemented.
+
+A database model alias overrides the same alias in TOML, including when the database route is disabled. A configuration with an empty `[models]` section can use only managed routes. Static file routes remain supported.
+
+Deployment operators may set `NIU_VENDOR_BOOTSTRAP_FILE` to a JSON seed file. It contains vendor metadata, model routes, and the name of the environment variable holding the initial credential. It must contain no secret values. The seed runs once per bootstrap vendor identity and preserves later edits, renames, credential rotations and disabled state.
+
+Keep credentials out of TOML, source control, browser storage and public catalog responses.
 
 ## Function tools and structured JSON
 
-Function tools and structured output are disabled by default. They are currently supported only on OpenAI-compatible routes that have been verified by the operator:
+Function tools and structured output are disabled by default. They are supported only on OpenAI-compatible routes that have been verified by the operator. OpenRouter routes must declare each capability explicitly:
 
 ```toml
 [models.fast]
-provider = "openai"
-upstream_model = "gpt-4.1-mini"
-api_base = "https://api.openai.com/v1"
-api_key_env = "OPENAI_API_KEY"
+provider = "openrouter"
+upstream_model = "openai/gpt-4.1-mini"
+api_key_env = "OPENROUTER_API_KEY"
 supports_tool_calls = true
 supports_streaming_tool_calls = true
 supports_structured_output = true
@@ -40,7 +50,7 @@ supports_structured_output = true
 
 ## Responses API text subset
 
-The gateway implements a non-streaming, text-only subset of `POST /v1/responses` for routes that explicitly declare Responses support:
+The gateway implements a non-streaming, text-only subset of `POST /v1/responses` for routes that explicitly declare Responses support. This is disabled by default on OpenRouter and must be enabled only after verifying the selected model and upstream endpoint:
 
 ```toml
 [models.fast]
@@ -59,7 +69,7 @@ Invalid request shapes receive `400`. A valid feature request for a route withou
 
 ## Text embeddings
 
-The gateway implements `POST /v1/embeddings` for routes whose provider is `openai`. Embeddings are disabled by default; declare support on a dedicated model route only after verifying that the configured upstream endpoint and model implement the requested behavior:
+The gateway implements `POST /v1/embeddings` for OpenAI-compatible routes (`openai` or `openrouter`). Embeddings are disabled by default, including on OpenRouter; declare support on a dedicated model route only after verifying that the configured upstream endpoint and model implement the requested behavior:
 
 ```toml
 [models.embedding]
@@ -72,7 +82,7 @@ supports_embedding_dimensions = true
 supports_embedding_base64 = true
 ```
 
-The last two flags independently enable the optional `dimensions` and `encoding_format = "base64"` request fields. They default to `false`. These flags are operator declarations, not provider conformance evidence. Routes using another provider, or routes without the required declared capability, receive `501` before an operation or attempt is recorded. Chat completion capability does not imply embedding support.
+The last two flags independently enable the optional `dimensions` and `encoding_format = "base64"` request fields. They default to `false`. For an OpenRouter route, set `provider = "openrouter"`, use an OpenRouter model ID, and verify embedding support before setting `supports_embeddings = true`. These flags are operator declarations, not provider conformance evidence. Routes using another provider, or routes without the required declared capability, receive `501` before an operation or attempt is recorded. Chat completion capability does not imply embedding support.
 
 Requests accept one non-empty text string or an array of 1–2048 non-empty strings. `encoding_format` is `float` by default and may be `base64`; `dimensions` must be an integer from 1 to 65536. Token-ID arrays, nested input, multimodal input, streaming, and unknown request fields are not supported. The gateway maps the configured upstream model, validates the response item count and vector shape, then returns the public model alias. Provider usage is required for settled usage accounting; missing usage leaves the attempt unsettled. When pricing is configured, the total UTF-8 input byte count must fit `max_input_tokens`, the full configured input bound is reserved before dispatch, and only reported prompt tokens are settled (completion tokens are zero by contract).
 

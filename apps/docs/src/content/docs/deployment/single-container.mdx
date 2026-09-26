@@ -20,7 +20,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-The product is available on port `2555`. Open `http://localhost:2555/` for the workspace, `/docs/` for documentation, `/models/` for the public catalog, and `/workspaces/default/` for the console. The example route requires an OpenAI API key. Change `config/niu.example.toml` to add or edit model routes before starting the container. Only routes with `public_catalog = true` appear in the public catalog.
+The product is available on port `2555`. Open `http://localhost:2555/` for the workspace, `/docs/` for documentation, `/models/` for the public catalog, and `/workspaces/default/` for the console. The example route requires an OpenRouter API key in `OPENROUTER_API_KEY`. Change `config/niu.example.toml` to add or edit model routes before starting the container. Only routes with `public_catalog = true` appear in the public catalog.
 
 ## Release requirements
 

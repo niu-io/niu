@@ -8,6 +8,7 @@ mod collectors;
 mod observations;
 mod operator_audit;
 mod operators;
+mod vendors;
 pub use accounts::{
     AccountHealth, AccountInput, AccountView, AuthMode, BillingMode, QuotaInput, QuotaUnit,
     QuotaView,
@@ -23,6 +24,9 @@ pub use operator_audit::{OperatorAuditActor, OperatorAuditEvent, OperatorAuditPa
 pub use operators::{
     AdminPermission, IssuedOperatorSession, OperatorPrincipal, OperatorRole, OperatorScope,
     OperatorSessionView, OperatorView,
+};
+pub use vendors::{
+    VendorInput, VendorModelInput, VendorModelView, VendorRoute, VendorUpdate, VendorView,
 };
 mod keys;
 mod pricing;
@@ -92,6 +96,8 @@ pub enum StoreError {
     InvalidOperator,
     #[error("invalid operator audit cursor or page size")]
     InvalidOperatorAuditQuery,
+    #[error("invalid vendor or model configuration")]
+    InvalidVendor,
 }
 
 impl Store {

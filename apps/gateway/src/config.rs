@@ -7,6 +7,7 @@ use serde::Deserialize;
 pub struct AppConfig {
     #[serde(default)]
     pub server: ServerConfig,
+    #[serde(default)]
     pub models: BTreeMap<String, ModelConfig>,
 }
 
@@ -49,6 +50,47 @@ pub struct ModelConfig {
     pub api_base: Option<String>,
     #[serde(default)]
     pub pricing: Option<RoutePricing>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ModelProtocol {
+    OpenAiCompatible,
+    Anthropic,
+    Bedrock,
+    Unsupported,
+}
+
+impl ModelProtocol {
+    pub fn supports_chat_completions(self) -> bool {
+        self != Self::Unsupported
+    }
+
+    pub fn supports_streaming(self) -> bool {
+        self == Self::OpenAiCompatible
+    }
+
+    pub fn is_openai_compatible(self) -> bool {
+        self == Self::OpenAiCompatible
+    }
+}
+
+impl ModelConfig {
+    pub fn protocol(&self) -> ModelProtocol {
+        match self.provider.as_str() {
+            "openai" | "openrouter" => ModelProtocol::OpenAiCompatible,
+            "anthropic" => ModelProtocol::Anthropic,
+            "bedrock" => ModelProtocol::Bedrock,
+            _ => ModelProtocol::Unsupported,
+        }
+    }
+
+    pub fn endpoint_base(&self) -> Option<&str> {
+        self.api_base.as_deref().or(match self.provider.as_str() {
+            "openai" => Some("https://api.openai.com/v1"),
+            "openrouter" => Some("https://openrouter.ai/api/v1"),
+            _ => None,
+        })
+    }
 }
 
 /// Operator-attested provider bounds; these are not token estimates.
@@ -107,12 +149,7 @@ impl AppConfig {
         Ok(config)
     }
 
-    fn validate(&self) -> Result<(), ConfigError> {
-        if self.models.is_empty() {
-            return Err(ConfigError::Invalid(
-                "at least one model route is required".into(),
-            ));
-        }
+    pub(crate) fn validate(&self) -> Result<(), ConfigError> {
         if self.server.request_timeout_seconds == 0 || self.server.request_timeout_seconds > 3600 {
             return Err(ConfigError::Invalid(
                 "request_timeout_seconds must be between 1 and 3600".into(),
@@ -136,7 +173,7 @@ impl AppConfig {
                     "model route {name} must set provider, upstream_model, and api_key_env"
                 )));
             }
-            if model.supports_embeddings && model.provider != "openai" {
+            if model.supports_embeddings && !model.protocol().is_openai_compatible() {
                 return Err(ConfigError::Invalid(format!(
                     "embedding route {name} currently requires the openai-compatible provider"
                 )));
@@ -152,7 +189,7 @@ impl AppConfig {
                 || model.supports_streaming_tool_calls
                 || model.supports_structured_output
                 || model.supports_responses)
-                && model.provider != "openai"
+                && !model.protocol().is_openai_compatible()
             {
                 return Err(ConfigError::Invalid(format!(
                     "tool-call and structured-output capabilities on route {name} currently require an OpenAI-compatible provider"
@@ -165,7 +202,7 @@ impl AppConfig {
             }
             if let Some(price) = &model.pricing {
                 price.validate()?;
-                if model.provider != "openai" {
+                if !model.protocol().is_openai_compatible() {
                     return Err(ConfigError::Invalid(
                         "priced routes currently require OpenAI-compatible text usage".into(),
                     ));
@@ -215,6 +252,13 @@ pub enum ConfigError {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn empty_file_routes_allow_database_vendor_configuration() {
+        let config: super::AppConfig = toml::from_str("[models]").unwrap();
+        assert!(config.models.is_empty());
+        config.validate().unwrap();
+    }
+
     use super::AppConfig;
 
     #[test]
@@ -242,6 +286,49 @@ mod tests {
                 upstream_model = "model-a"
                 api_key_env = "PROVIDER_KEY"
                 api_base = "https://api.example.test/v1"
+            "#,
+        )
+        .expect("configuration shape should parse");
+
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn openrouter_uses_openai_compatible_chat_with_conservative_optional_capabilities() {
+        let config: AppConfig = toml::from_str(
+            r#"
+                [models.fast]
+                provider = "openrouter"
+                upstream_model = "openai/gpt-4.1-mini"
+                api_key_env = "OPENROUTER_API_KEY"
+            "#,
+        )
+        .expect("configuration shape should parse");
+        let model = &config.models["fast"];
+
+        assert!(config.validate().is_ok());
+        assert_eq!(model.protocol(), super::ModelProtocol::OpenAiCompatible);
+        assert_eq!(model.endpoint_base(), Some("https://openrouter.ai/api/v1"));
+        assert!(!model.supports_embeddings);
+        assert!(!model.supports_responses);
+        assert!(!model.supports_tool_calls);
+        assert!(!model.supports_streaming_tool_calls);
+        assert!(!model.supports_structured_output);
+    }
+
+    #[test]
+    fn openrouter_optional_features_require_explicit_route_qualification() {
+        let config: AppConfig = toml::from_str(
+            r#"
+                [models.fast]
+                provider = "openrouter"
+                upstream_model = "openai/gpt-4.1-mini"
+                api_key_env = "OPENROUTER_API_KEY"
+                supports_embeddings = true
+                supports_tool_calls = true
+                supports_streaming_tool_calls = true
+                supports_structured_output = true
+                supports_responses = true
             "#,
         )
         .expect("configuration shape should parse");

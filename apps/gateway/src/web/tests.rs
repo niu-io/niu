@@ -213,7 +213,13 @@ fn test_state(api_base: Option<String>, pool: sqlx::PgPool) -> AppState {
         niu_storage::Store::from_pool(pool),
         admin_tokens,
         reqwest::Client::new(),
-        HashMap::from([("PROVIDER_KEY".into(), "provider-secret-token".into())]),
+        HashMap::from([
+            ("PROVIDER_KEY".into(), "provider-secret-token".into()),
+            (
+                "OPENROUTER_API_KEY".into(),
+                "openrouter-test-key-only".into(),
+            ),
+        ]),
     )
 }
 
@@ -243,3 +249,5 @@ mod inference;
 mod operator_audit;
 mod operators;
 mod quota;
+
+mod vendors;

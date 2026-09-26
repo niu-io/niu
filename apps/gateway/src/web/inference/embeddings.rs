@@ -26,14 +26,11 @@ pub(in crate::web) async fn embeddings(
     if !principal.allows_model(&public_model) {
         return Err(ApiError::not_found());
     }
-    let model = state
-        .config
-        .models
-        .get(&public_model)
-        .ok_or_else(ApiError::not_found)?;
+    let resolved = crate::vendors::resolve_model(&state, &public_model).await?;
+    let model = &resolved.model;
     // Only OpenAI-compatible embedding routes are implemented. Reject before
     // creating an operation or dispatch attempt for other providers.
-    if model.provider != "openai" {
+    if !model.protocol().is_openai_compatible() {
         return Err(ApiError::unsupported());
     }
     let input_bounds = validate_embedding_request(&body)?;
@@ -50,10 +47,7 @@ pub(in crate::web) async fn embeddings(
             "Embedding input exceeds the priced route's conservative UTF-8 byte bound",
         ));
     }
-    let api_key = state
-        .provider_key(&model.api_key_env)
-        .ok_or_else(ApiError::unavailable)?
-        .to_owned();
+    let api_key = resolved.api_key;
     let timeout = Duration::from_secs(state.config.server.request_timeout_seconds);
     state.requests.fetch_add(1, Ordering::Relaxed);
 
@@ -180,10 +174,7 @@ async fn execute_embeddings(
         input_bounds,
         timeout,
     } = execution;
-    let base = model
-        .api_base
-        .as_deref()
-        .unwrap_or("https://api.openai.com/v1");
+    let base = model.endpoint_base().ok_or_else(ApiError::unavailable)?;
     let endpoint = format!("{}/embeddings", base.trim_end_matches('/'));
     let object = body
         .as_object_mut()

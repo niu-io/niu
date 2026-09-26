@@ -81,6 +81,9 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/v1/responses", axum::routing::post(responses))
         .route("/v1/embeddings", axum::routing::post(embeddings))
         .route("/admin/v1/models", get(admin_models))
+        .route("/admin/v1/vendors", get(crate::vendors::list).post(crate::vendors::create))
+        .route("/admin/v1/vendors/{id}", axum::routing::put(crate::vendors::update))
+        .route("/admin/v1/vendors/{id}/models", get(crate::vendors::list_models).post(crate::vendors::upsert_model))
         .route(
             "/admin/v1/organizations/{organization}/projects/{project}/accounts",
             get(crate::admin::accounts).post(crate::admin::create_account),
@@ -168,11 +171,10 @@ async fn api_not_found() -> ApiError {
     ApiError::not_found()
 }
 
-async fn health(State(state): State<AppState>) -> Json<Value> {
+async fn health() -> Json<Value> {
     Json(json!({
         "status": "ok",
-        "service": "niu",
-        "model_count": state.config.models.len()
+        "service": "niu"
     }))
 }
 
@@ -214,9 +216,8 @@ async fn public_models(
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
     let principal = state.authorize_api(bearer(&headers)).await?;
-    let data: Vec<_> = state
-        .config
-        .models
+    let models = crate::vendors::effective_models(&state).await?;
+    let data: Vec<_> = models
         .keys()
         .filter(|model| principal.allows_model(model))
         .map(|model| json!({"id": model, "object": "model", "owned_by": "niu"}))
@@ -224,10 +225,9 @@ async fn public_models(
     Ok(Json(json!({"object": "list", "data": data})))
 }
 
-async fn catalog_models(State(state): State<AppState>) -> Json<Value> {
-    let data: Vec<_> = state
-        .config
-        .models
+async fn catalog_models(State(state): State<AppState>) -> Result<Json<Value>, ApiError> {
+    let models = crate::vendors::effective_models(&state).await?;
+    let data: Vec<_> = models
         .iter()
         .filter(|(_, model)| model.public_catalog)
         .map(|(name, model)| {
@@ -237,14 +237,14 @@ async fn catalog_models(State(state): State<AppState>) -> Json<Value> {
                 "owned_by": "niu",
                 "capabilities": {
                     "chat_completions": true,
-                    "streaming": model.provider == "openai",
+                    "streaming": model.protocol().supports_streaming(),
                     "embeddings": model.supports_embeddings,
                     "responses": model.supports_responses
                 }
             })
         })
         .collect();
-    Json(json!({"object": "list", "data": data}))
+    Ok(Json(json!({"object": "list", "data": data})))
 }
 
 async fn admin_models(
@@ -254,9 +254,8 @@ async fn admin_models(
     let authorization = state
         .authorize_admin(bearer(&headers), niu_storage::AdminPermission::Read)
         .await?;
-    let data: Vec<_> = state
-        .config
-        .models
+    let models = crate::vendors::effective_models(&state).await?;
+    let data: Vec<_> = models
         .iter()
         .map(|(name, model)| {
             let capabilities = json!({

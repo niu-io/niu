@@ -5,6 +5,7 @@ import {
   FlaskConical,
   KeyRound,
   LayoutDashboard,
+  Network,
   WalletCards,
   UsersRound,
   type LucideIcon,
@@ -13,6 +14,7 @@ import {
 export const navigation: Array<{ to: string; label: string; icon: LucideIcon }> = [
   { to: '.', label: 'Overview', icon: LayoutDashboard },
   { to: 'models', label: 'Models', icon: Boxes },
+  { to: 'vendors', label: 'Vendors', icon: Network },
   { to: 'keys', label: 'API keys', icon: KeyRound },
   { to: 'operators', label: 'Operators', icon: UsersRound },
   { to: 'usage', label: 'Usage & cost', icon: ChartNoAxesCombined },

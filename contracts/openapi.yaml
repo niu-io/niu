@@ -25,7 +25,7 @@ paths:
     get:
       operationId: getEnterpriseReadiness
       summary: Check Enterprise module readiness
-      description: In an Enterprise distribution, reports whether all required private modules are healthy. Community builds without a release manifest report disabled readiness. This endpoint does not affect Niu core readiness.
+      description: In an Enterprise distribution, reports whether the core database and all required private modules are healthy within a three-second deadline. Community builds without a release manifest report disabled readiness. This endpoint does not affect Niu core readiness.
       responses:
         '200':
           description: Enterprise modules are ready, or no Enterprise modules are configured.
@@ -170,6 +170,96 @@ paths:
           description: Public and upstream model names with provider identifiers and catalog visibility.
         '401':
           description: Missing or invalid administrator credentials.
+  /admin/v1/vendors:
+    get:
+      operationId: listVendors
+      summary: List installation vendor metadata without credentials
+      security: [{ adminBearerAuth: [] }]
+      responses:
+        '200':
+          description: Vendor metadata. All management responses use Cache-Control no-store.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Vendor' } }
+        '403': { description: Installation administrator required. }
+    post:
+      operationId: createVendor
+      summary: Create an installation vendor with an encrypted credential
+      security: [{ adminBearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VendorCreate' }
+      responses:
+        '201': { description: Created vendor metadata wrapped in data. The credential is never returned. }
+        '400': { description: Invalid vendor configuration. }
+        '403': { description: Installation administrator required. }
+        '409': { description: Vendor name already exists. }
+        '503': { description: Storage or credential encryption unavailable. }
+  /admin/v1/vendors/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      operationId: updateVendor
+      summary: Update metadata or rotate a vendor credential
+      description: Adapter is immutable. Changes affect new requests; already dispatched work can finish using its original configuration.
+      security: [{ adminBearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VendorUpdate' }
+      responses:
+        '200': { description: Updated vendor metadata wrapped in data. }
+        '400': { description: Invalid configuration or credential. }
+        '403': { description: Installation administrator required. }
+        '404': { description: Vendor does not exist. }
+        '409': { description: Stale revision or conflicting name. }
+  /admin/v1/vendors/{id}/models:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: listVendorModels
+      summary: List model mappings for an installation vendor
+      security: [{ adminBearerAuth: [] }]
+      responses:
+        '200':
+          description: Model mappings wrapped in data.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/VendorModel' } }
+        '403': { description: Installation administrator required. }
+        '404': { description: Vendor does not exist. }
+    post:
+      operationId: upsertVendorModel
+      summary: Create or update a model mapping with optimistic revision checks
+      description: Omit expected_revision to create; provide the current revision to update. Aliases cannot be reassigned to another vendor. Disabled mappings still override static file aliases.
+      security: [{ adminBearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VendorModelInput' }
+      responses:
+        '200': { description: Persisted model mapping wrapped in data. }
+        '400': { description: Invalid alias, capabilities or pricing. }
+        '403': { description: Installation administrator required. }
+        '404': { description: Vendor does not exist. }
+        '409': { description: Stale revision, existing alias or different vendor ownership. }
   /admin/v1/session:
     get:
       operationId: getAdminSessionIdentity
@@ -1178,6 +1268,73 @@ paths:
         '404': { description: Record absent from this project. }
 components:
   schemas:
+    Vendor:
+      type: object
+      additionalProperties: false
+      required: [id, name, adapter, api_base, enabled, revision, has_credential]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        adapter: { type: string, enum: [openrouter, openai] }
+        api_base: { type: string, format: uri }
+        enabled: { type: boolean }
+        revision: { type: integer, minimum: 1 }
+        has_credential: { type: boolean }
+    VendorCreate:
+      type: object
+      additionalProperties: false
+      required: [name, adapter, api_base, api_key]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        adapter: { type: string, enum: [openrouter, openai] }
+        api_base: { type: string, format: uri, maxLength: 2048, description: HTTPS endpoint or HTTP loopback endpoint without URL credentials or query parameters. }
+        api_key: { type: string, writeOnly: true, minLength: 1, maxLength: 8192 }
+        enabled: { type: boolean, default: true }
+    VendorUpdate:
+      type: object
+      additionalProperties: false
+      required: [name, api_base, enabled, expected_revision]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        api_base: { type: string, format: uri, maxLength: 2048 }
+        api_key: { type: string, writeOnly: true, minLength: 1, maxLength: 8192, description: Omit to retain the current credential. }
+        enabled: { type: boolean }
+        expected_revision: { type: integer, minimum: 1 }
+    VendorCapabilities:
+      type: object
+      additionalProperties: false
+      properties:
+        supports_tool_calls: { type: boolean, default: false }
+        supports_streaming_tool_calls: { type: boolean, default: false }
+        supports_structured_output: { type: boolean, default: false }
+        supports_embeddings: { type: boolean, default: false }
+        supports_embedding_dimensions: { type: boolean, default: false }
+        supports_embedding_base64: { type: boolean, default: false }
+        supports_responses: { type: boolean, default: false }
+    VendorModelInput:
+      type: object
+      additionalProperties: false
+      required: [alias, upstream_model]
+      properties:
+        alias: { type: string, minLength: 1, maxLength: 200, pattern: '^[A-Za-z0-9._/-]+$' }
+        upstream_model: { type: string, minLength: 1, maxLength: 200 }
+        enabled: { type: boolean, default: true }
+        public_catalog: { type: boolean, default: false }
+        capabilities: { $ref: '#/components/schemas/VendorCapabilities' }
+        pricing: { type: [object, 'null'], description: Optional validated route pricing. Null clears pricing; omission preserves existing pricing on updates and leaves cost unknown on creates. }
+        expected_revision: { type: [integer, 'null'], minimum: 1 }
+    VendorModel:
+      type: object
+      required: [alias, vendor_id, upstream_model, enabled, public_catalog, capabilities, pricing, revision]
+      properties:
+        alias: { type: string }
+        vendor_id: { type: string, format: uuid }
+        upstream_model: { type: string }
+        enabled: { type: boolean }
+        public_catalog: { type: boolean }
+        capabilities: { $ref: '#/components/schemas/VendorCapabilities' }
+        pricing: { type: [object, 'null'] }
+        revision: { type: integer, minimum: 1 }
     OperatorInput:
       type: object
       additionalProperties: false

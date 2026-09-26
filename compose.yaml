@@ -8,7 +8,8 @@ services:
       NIU_CONFIG_FILE: /etc/niu/niu.toml
       NIU_DATABASE_URL: postgres://niu:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD to a URL-safe random password}@postgres:5432/niu
       NIU_ADMIN_TOKENS: ${NIU_ADMIN_TOKENS:?Set NIU_ADMIN_TOKENS to a separate 32-byte-or-longer token}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:?Set OPENAI_API_KEY for the example route}
+      NIU_VENDOR_ENCRYPTION_KEY: ${NIU_VENDOR_ENCRYPTION_KEY:?Set NIU_VENDOR_ENCRYPTION_KEY to a separate random secret of at least 32 characters}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?Set OPENROUTER_API_KEY for the example route}
     volumes:
       - ./config/niu.example.toml:/etc/niu/niu.toml:ro
     depends_on:

@@ -21,8 +21,10 @@ services:
       # Generate the root admin credential privately in the Render workspace.
       - key: NIU_ADMIN_TOKENS
         generateValue: true
+      - key: NIU_VENDOR_ENCRYPTION_KEY
+        generateValue: true
       # The value is entered into Render during Blueprint creation, not Git.
-      - key: OPENAI_API_KEY
+      - key: OPENROUTER_API_KEY
         sync: false
 
 databases:

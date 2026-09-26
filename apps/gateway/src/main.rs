@@ -5,6 +5,7 @@ mod error;
 mod state;
 mod streaming;
 mod usage;
+mod vendors;
 mod web;
 
 use std::{env, net::SocketAddr};

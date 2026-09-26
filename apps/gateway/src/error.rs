@@ -11,6 +11,9 @@ pub struct ApiError {
 impl ApiError {
     pub fn from_store(error: niu_storage::StoreError) -> Self {
         match error {
+            niu_storage::StoreError::InvalidVendor => {
+                Self::invalid_request("Invalid vendor or model configuration")
+            }
             niu_storage::StoreError::InvalidObservation => Self::invalid_request(
                 "Invalid execution record version, graph, identifiers or size",
             ),

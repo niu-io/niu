@@ -2,10 +2,10 @@
 request_timeout_seconds = 300
 
 [models.fast]
-provider = "openai"
-upstream_model = "gpt-4.1-mini"
-api_base = "https://api.openai.com/v1"
-api_key_env = "OPENAI_API_KEY"
+provider = "openrouter"
+upstream_model = "openai/gpt-4.1-mini"
+# Defaults to https://openrouter.ai/api/v1 when omitted.
+api_key_env = "OPENROUTER_API_KEY"
 # Publish this alias in the unauthenticated catalog at /models/.
 public_catalog = true
 # Optional protocol features are disabled by default. Enable them only after

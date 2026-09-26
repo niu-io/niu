@@ -13,6 +13,7 @@ use crate::{config::AppConfig, error::ApiError};
 #[derive(Clone)]
 pub struct AppState {
     pub config: Arc<AppConfig>,
+    pub(crate) vendor_cipher: Option<Arc<crate::vendors::crypto::CredentialCipher>>,
     pub enterprise: Option<Arc<crate::enterprise::EnterpriseRuntime>>,
     provider_keys: Arc<HashMap<String, String>>,
     pub store: niu_storage::Store,
@@ -29,13 +30,48 @@ impl AppState {
         let enterprise = crate::enterprise::EnterpriseRuntime::from_env().await?;
         let database_url =
             env::var("NIU_DATABASE_URL").map_err(|_| "NIU_DATABASE_URL is required")?;
-        let store = niu_storage::Store::connect(&database_url).await?;
+        let store = niu_storage::Store::connect(&database_url)
+            .await
+            .map_err(|_| "Cannot initialize gateway database")?;
+        let vendor_cipher = env::var("NIU_VENDOR_ENCRYPTION_KEY")
+            .ok()
+            .map(|key| crate::vendors::crypto::CredentialCipher::new(&key))
+            .transpose()?
+            .map(Arc::new);
+        crate::vendors::seed_from_env(&store, vendor_cipher.as_deref()).await?;
+        if !store
+            .vendors()
+            .await
+            .map_err(|_| "Cannot read vendor registry")?
+            .is_empty()
+            && vendor_cipher.is_none()
+        {
+            return Err("NIU_VENDOR_ENCRYPTION_KEY is required for persisted vendors".into());
+        }
+        if let Some(cipher) = &vendor_cipher {
+            for route in store
+                .all_vendor_routes()
+                .await
+                .map_err(|_| "Cannot read vendor registry")?
+            {
+                cipher.open(route.vendor.id, &route.credential_ciphertext)
+                    .map_err(|_| "Cannot decrypt persisted vendor credentials with the configured encryption key")?;
+            }
+        }
         let admin_tokens = TokenSet::parse(
             "NIU_ADMIN_TOKENS",
             env::var("NIU_ADMIN_TOKENS").unwrap_or_default(),
         )?;
         let mut provider_keys = HashMap::new();
-        for model in config.models.values() {
+        for (alias, model) in &config.models {
+            if store
+                .vendor_route(alias)
+                .await
+                .map_err(|_| "Cannot read vendor registry")?
+                .is_some()
+            {
+                continue;
+            }
             if !provider_keys.contains_key(&model.api_key_env) {
                 let secret = env::var(&model.api_key_env).map_err(|_| {
                     format!(
@@ -57,7 +93,10 @@ impl AppState {
             .connect_timeout(Duration::from_secs(10))
             .redirect(reqwest::redirect::Policy::none())
             .build()?;
-        Ok(Self::new(config, store, admin_tokens, http, provider_keys).with_enterprise(enterprise))
+        let mut state =
+            Self::new(config, store, admin_tokens, http, provider_keys).with_enterprise(enterprise);
+        state.vendor_cipher = vendor_cipher;
+        Ok(state)
     }
 
     pub(crate) fn new(
@@ -70,6 +109,7 @@ impl AppState {
         Self {
             config: Arc::new(config),
             enterprise: None,
+            vendor_cipher: None,
             provider_keys: Arc::new(provider_keys),
             store,
             admin_tokens: Arc::new(admin_tokens),

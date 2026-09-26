@@ -54,11 +54,8 @@ pub(in crate::web) async fn chat(
     if !principal.allows_model(&public_model) {
         return Err(ApiError::not_found());
     }
-    let model = state
-        .config
-        .models
-        .get(&public_model)
-        .ok_or_else(ApiError::not_found)?;
+    let resolved = crate::vendors::resolve_model(&state, &public_model).await?;
+    let model = &resolved.model;
     let stream = match body.get("stream") {
         None => false,
         Some(Value::Bool(value)) => *value,
@@ -74,10 +71,11 @@ pub(in crate::web) async fn chat(
             "messages must contain at least one message",
         ));
     }
-    if stream && model.provider != "openai" {
+    let protocol = model.protocol();
+    if stream && !protocol.supports_streaming() {
         return Err(ApiError::unsupported());
     }
-    if !matches!(model.provider.as_str(), "openai" | "anthropic" | "bedrock") {
+    if !protocol.supports_chat_completions() {
         return Err(ApiError::invalid_request(
             "Provider is not supported by this gateway",
         ));
@@ -86,7 +84,7 @@ pub(in crate::web) async fn chat(
     if let Some(price) = &model.pricing {
         validate_priced_request(&mut body, price)?;
     }
-    let native_optional_params = if model.provider == "openai" {
+    let native_optional_params = if protocol.is_openai_compatible() {
         None
     } else {
         let optional_params = map_native_chat_params(&body, &model.provider)?;
@@ -102,10 +100,7 @@ pub(in crate::web) async fn chat(
         }
         Some(optional_params)
     };
-    let api_key = state
-        .provider_key(&model.api_key_env)
-        .ok_or_else(ApiError::unavailable)?
-        .to_owned();
+    let api_key = resolved.api_key;
     let timeout = Duration::from_secs(state.config.server.request_timeout_seconds);
     state.requests.fetch_add(1, Ordering::Relaxed);
     let dispatch = begin_attempt(&state, &principal, &public_model, model, None).await?;
@@ -145,11 +140,7 @@ async fn execute_chat(
         attempt,
     } = execution;
     if stream {
-        if model.provider != "openai" {
-            state.failures.fetch_add(1, Ordering::Relaxed);
-            return Err(ApiError::unsupported());
-        }
-        return stream_openai(
+        return stream_openai_compatible(
             state,
             StreamExecution {
                 public_model,
@@ -164,8 +155,9 @@ async fn execute_chat(
         .await;
     }
 
-    if model.provider == "openai" {
-        return complete_openai(state, public_model, model, api_key, body, timeout).await;
+    if model.protocol().is_openai_compatible() {
+        return complete_openai_compatible(state, public_model, model, api_key, body, timeout)
+            .await;
     }
 
     let optional_params = native_optional_params.ok_or_else(ApiError::unsupported)?;
@@ -179,7 +171,7 @@ async fn execute_chat(
         messages,
         optional_params,
         api_key: Some(&api_key),
-        api_base: model.api_base.as_deref(),
+        api_base: model.endpoint_base(),
         custom_llm_provider: Some(&model.provider),
         extra_headers: None,
         timeout: Some(timeout),
@@ -234,7 +226,7 @@ fn validated_native_chat_usage(usage: &Value) -> Option<(u64, u64)> {
     Some((prompt, completion))
 }
 
-async fn complete_openai(
+async fn complete_openai_compatible(
     state: &AppState,
     public_model: &str,
     model: &crate::config::ModelConfig,
@@ -242,10 +234,7 @@ async fn complete_openai(
     mut body: Value,
     timeout: Duration,
 ) -> Result<ProviderResponse, ApiError> {
-    let base = model
-        .api_base
-        .as_deref()
-        .unwrap_or("https://api.openai.com/v1");
+    let base = model.endpoint_base().ok_or_else(ApiError::unavailable)?;
     let endpoint = format!("{}/chat/completions", base.trim_end_matches('/'));
     let Some(object) = body.as_object_mut() else {
         return Err(ApiError::invalid_request(
@@ -300,7 +289,7 @@ async fn complete_openai(
     })
 }
 
-async fn stream_openai(
+async fn stream_openai_compatible(
     state: &AppState,
     execution: StreamExecution<'_>,
 ) -> Result<ProviderResponse, ApiError> {
@@ -313,10 +302,7 @@ async fn stream_openai(
         scope,
         attempt,
     } = execution;
-    let base = model
-        .api_base
-        .as_deref()
-        .unwrap_or("https://api.openai.com/v1");
+    let base = model.endpoint_base().ok_or_else(ApiError::unavailable)?;
     let endpoint = format!("{}/chat/completions", base.trim_end_matches('/'));
     if let Some(object) = body.as_object_mut() {
         object.insert("model".to_owned(), json!(model.upstream_model));
