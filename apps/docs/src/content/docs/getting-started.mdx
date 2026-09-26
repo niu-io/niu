@@ -7,10 +7,10 @@ description: Set up the Niu monorepo for local development.
 
 You do not need to define tasks, import agent traces, run benchmarks, configure subscriptions or enable pooling.
 
-1. Configure a provider and public model alias in `config/niu.example.toml`, and supply its provider credential on the server. The example alias is `fast`.
-2. Start the gateway using the [single-container guide](/docs/deployment/single-container/), or the development steps below.
-3. Open the console at `http://localhost:2555/workspaces/default/`, connect using your installation's admin token, and choose **API keys**. On a new installation, select the model aliases your app may use and choose **Create workspace and key**. Niu creates a personal workspace and default project, then issues a 30-day key shown once. Existing workspaces can use the full organization and project controls below the first-run flow.
-4. Use that client key with the standard chat API:
+1. Start the gateway using the [single-container guide](/docs/deployment/single-container/), or the development steps below.
+2. Open the console at `http://localhost:2555/workspaces/default/` and use the installation admin session to connect a provider, add its credential, and publish a model alias. For file-managed deployments, configure the same route in `config/niu.example.toml`; the console reports configuration it cannot edit. The example alias is `fast`.
+3. Choose **API keys**, select the model alias your app may use, and create a project key. On a new installation, choose **Create workspace and key** to create the default project and a 30-day key shown once. The installation admin credential is for setup; applications use this scoped client key.
+4. Point your client to Niu's base URL and make a standard chat request:
 
 ```sh
 export NIU_API_KEY='your-issued-client-key'
@@ -20,9 +20,13 @@ curl http://localhost:2555/v1/chat/completions \
   -d '{"model":"fast","messages":[{"role":"user","content":"Hello"}]}'
 ```
 
-The base URL for compatible clients is `http://localhost:2555/v1`. Keep the admin token for administration; applications use scoped client keys.
+The base URL for compatible clients is `http://localhost:2555/v1`. The gateway
+automatically records request metadata, timing and reported usage. Open **Tasks**
+in the console to see the request; no run-log export or import is needed. When a
+price is configured, the console also shows known cash and API-equivalent cost.
+Keep the admin token for administration; applications use scoped client keys.
 
-Pricing schedules and budgets are optional. If you enable a budget, its reservation requirements apply; see [model pricing](/docs/configuration/models/#optional-text-route-pricing). Task observability and evaluation are separate workflows, not prerequisites for inference. Provider and model routes still use server-side configuration; the first-run console flow handles workspace and client-key setup.
+Pricing schedules and budgets are optional. If you enable a budget, its reservation requirements apply; see [model pricing](/docs/configuration/models/#optional-text-route-pricing). Task grouping and benchmarking are progressive workflows, not prerequisites for inference or automatic request capture. Provider and model routes still use server-side configuration; the first-run console flow handles workspace and client-key setup.
 
 ## Requirements
 

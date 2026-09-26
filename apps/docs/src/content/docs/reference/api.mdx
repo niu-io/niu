@@ -52,7 +52,41 @@ Input arrays, images, audio, tools, streaming and conversation state are outside
 
 This contract covers the implemented OpenAI-compatible text embedding operation only. The declared route flags are configuration assertions, not conformance results; native Anthropic and Bedrock embeddings, provider-specific conformance suites, and other input modalities are not implemented.
 
-## Execution observation imports
+## Automatic gateway activity and task correlation
+
+Every model request admitted to a supported Niu inference route is recorded
+automatically with its operation and attempt, public model alias, execution
+status, timing, usage confidence, provider-reported token counts and any known
+settled cost. Request and response bodies, prompts, completions, source code,
+tool arguments and tool output are excluded. Missing usage or cost remains
+unknown. This is the default source for request activity; a user does not need
+to export or import gateway logs.
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/requests?limit=50`
+returns the newest gateway attempts first. Limits range from 1 to 100, and the
+endpoint currently returns only that bounded recent window without pagination.
+It requires project read permission or an installation administrator
+credential. Each record includes `attempt_id`, `operation_id`, optional
+`task_id`, `model`, `created_at`, `dispatched_at`, `completed_at`,
+`duration_ms`, `execution`, `usage_confidence`, nullable prompt/completion token
+counts, and nullable currency, cash and API-equivalent amounts. Token and money
+quantities are exact decimal strings. Unsettled or unpriced requests can have
+unknown cost; their absence from a cost ledger does not mean zero spend.
+
+An application or agent adapter can send the same optional `X-Niu-Task-ID`
+header on every inference call belonging to one task. Chat completions,
+Responses and embeddings accept 1–200 printable ASCII characters. Niu stores
+the value as opaque operation metadata and never forwards it to the provider.
+Activity without this header is still retained and remains visible as
+individual model requests. The header only groups model calls: local tool work,
+validation and acceptance need separate adapter events and are not inferred
+from gateway traffic.
+
+## Supplemental execution observation imports
+
+Versioned execution imports are an advanced migration, testing and external
+source path. They supplement automatically retained gateway activity and are
+not required to view requests made through Niu.
 
 Bootstrap administrators can import and inspect metadata-only task records for a project:
 
@@ -113,9 +147,16 @@ This creates a USD 100 lifetime budget. Amounts must be nonnegative decimal inte
 
 **Current admission behavior:** priced OpenAI-compatible text routes reserve configured token bounds before dispatch; insufficient funds or a missing matching-currency project budget blocks those priced requests. Routes without pricing are not capped by the budget, so a project budget is not a strict spending limit unless every reachable route has a supported price and defensible bounds. Existing dispatched attempts are not retroactively reserved. The console's **Usage & cost** page can create a lifetime project budget; editing and deletion are not yet exposed.
 
-## Standalone execution imports
+## Supplemental execution import APIs
 
-The metadata import API is independent of inference forwarding and account pooling. Use the versioned execution contract with an authorized export or connector; the synthetic repository fixture is suitable for local checks, not a real collector.
+These versioned endpoints provide the same supplemental metadata-import
+workflow for migrations, tests and authorized external sources. They are not a
+request-log ingestion requirement for applications using the gateway.
+
+These endpoints store externally produced task metadata; they do not route
+inference or replace the automatically retained gateway request feed. Use the
+versioned contract for an authorized export or connector. The synthetic
+repository fixture is suitable for local checks, not a real collector.
 
 - `GET /admin/v1/organizations/{organization}/projects/{project}/execution-imports?limit=50`: list metadata summaries and a nullable `next_cursor`; pass it as `after` to continue. Limits range from 1 to 100. A `task_id` filter is available. UUID ordering is a live traversal, not chronological or a fixed snapshot.
 - `POST /admin/v1/organizations/{organization}/projects/{project}/execution-imports`: import a record. A first import returns 201; an identical replay returns 200 with the same ID; conflicting content for the same source/record identity returns 409. `/executions` is a console-compatible alias.

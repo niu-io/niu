@@ -3,7 +3,17 @@ title: Paired benchmark analysis
 description: Analyze matched task observations without treating heuristics as measured savings.
 ---
 
-Niu's paired benchmark evaluator consumes the same metadata-only `ExecutionRecordV1` format used by the execution import workflow. Each candidate result points to a declared task snapshot and pinned route revision. Paired records must use identical task, tool, permission, and acceptance-policy hashes. The evaluator keeps observed outcomes, heuristic diagnoses, cost evidence, and uncertainty visible.
+Niu's paired benchmark evaluator is an offline analysis component built around
+the metadata-only `ExecutionRecordV1` format. Its current CLI consumes a
+versioned dataset; it does not yet join live gateway activity and agent-adapter
+events automatically. The intended product workflow uses gateway-owned request
+and cost evidence, with an adapter supplying task, tool and outcome context.
+Manual datasets remain useful for controlled experiments, migrations and local
+checks, not as the way users submit ordinary Niu traffic. Each candidate result
+points to a declared task snapshot and pinned route revision. Paired records
+must use identical task, tool, permission, and acceptance-policy hashes. The
+evaluator keeps observed outcomes, heuristic diagnoses, cost evidence, and
+uncertainty visible.
 
 ## Analyze a paired dataset
 
@@ -19,6 +29,15 @@ Reference diagnostics such as observed retries, incomplete coverage, or unknown 
 
 ## Limits
 
-The current command analyzes imported results only. It does not run model or task adapters, reserve budget, enforce operator approval, isolate tools or permissions, persist report history, or authenticate the source of imported costs. `opt_in` and `authorization_ref` in a file are assertions for an eventual caller, not authorization controls. All trials must already have settled model and evaluator amounts; any unreferenced billable span is rejected. No real paired experiment has been run by this tool, so its synthetic fixture is not evidence of model quality or cost improvement.
+The current command analyzes supplied results only. It does not read the live
+gateway request ledger, run model or task adapters, reserve budget, enforce
+operator approval, isolate tools or permissions, persist report history, or
+authenticate the source of supplied costs. `opt_in` and `authorization_ref` in
+a file are assertions for an eventual caller, not authorization controls. All
+trials must already have settled model and evaluator amounts; any unreferenced
+billable span is rejected. No real paired experiment has been run by this tool,
+so its synthetic fixture is not evidence of model quality or cost improvement.
 
-See [execution observation](/docs/concepts/execution-observation/) for the shared trace schema and its metadata-only import behavior.
+See [execution observation](/docs/concepts/execution-observation/) for the
+gateway-first collection model, optional task correlation and supplemental
+metadata schema.

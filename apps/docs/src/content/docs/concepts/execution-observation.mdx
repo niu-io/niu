@@ -1,11 +1,41 @@
 ---
 title: Execution observation
-description: Import metadata-only task traces and inspect execution evidence.
+description: Inspect gateway-captured model activity and enrich it with optional agent task evidence.
 ---
 
-Niu accepts versioned metadata records for tasks observed by an external runner. Importing a record does not call a model, alter a subscription, or create a cost entry. An installation can therefore use the execution view without routing inference through Niu.
+## Gateway activity is automatic
 
-## Import a record
+Supported model requests sent through Niu are recorded by the gateway as part of
+the request lifecycle. Project activity includes the model alias, attempt and
+operation IDs, timing, execution status, usage confidence, provider-reported
+token counts, and any known settled API-equivalent and cash cost. Niu does not
+put prompts, responses, source code, tool arguments or tool output in this
+activity record. Missing usage or cost remains unknown. See [Automatic gateway
+activity in the API reference](/docs/reference/api/#automatic-gateway-activity-and-task-correlation)
+for the read endpoint and fields.
+
+Route every supported model call through Niu, whether it comes from a custom
+application or a coding agent. A request without task metadata still appears as
+an individual model request. To group calls for one agent task, send the same
+optional `X-Niu-Task-ID` header on each request. It is stored as an opaque
+correlation value and is not forwarded to the provider.
+
+Gateway traffic alone cannot reveal local tool actions, retries that never
+reach the model, validation, or whether a person accepted the result. A
+first-party agent adapter can add those events while keeping model requests on
+Niu. The JavaScript recorder described below currently records metadata locally;
+it is not itself an adapter that configures an agent, sends calls through Niu,
+or automatically joins events to gateway requests.
+
+## Supplemental metadata imports
+
+The versioned execution-record API is an advanced path for migration, tests,
+and authorized external sources that cannot use a supported adapter. It is not
+needed for gateway request visibility and must not be the normal setup flow.
+Importing a record does not call a model, alter a subscription, or create a
+cost entry.
+
+### Import a record
 
 Use the administrator API to post one `ExecutionRecordV1` to the project that owns the data:
 
@@ -18,9 +48,14 @@ curl -X POST "$NIU_URL/admin/v1/organizations/$ORG/projects/$PROJECT/executions"
 
 The record schema and link types are defined in the [OpenAPI contract](/docs/reference/api/). `source` and `record_id` form an idempotency key inside the authenticated project. Replaying identical content returns the existing ID; reusing that identity with changed content returns `409 Conflict`. Records must use schema version 1, fit within 1 MiB, and pass identifier, interval and acyclic graph validation. Unknown fields are rejected. Tenant scope comes from the URL and administrator authorization, never the imported payload.
 
-## Collect metadata with the JavaScript SDK
+### Record task metadata with the JavaScript SDK
 
-`@niu-io/sdk` exports `NiuExecutionRecorder` for recording tasks in an agent application without routing inference through Niu. It creates task, agent, step, model, tool, attempt, validation, intervention and checkpoint spans, plus explicit causal links and outcome evidence. Its default coverage is `unknown`; collectors set `complete` only when they can account for the full task. The recorder has no prompt, response, source-code, tool-argument or tool-output fields, and it never estimates charges.
+`@niu-io/sdk` exports `NiuExecutionRecorder` for applications that need to
+record task, agent, step, model, tool, attempt, validation, intervention and
+checkpoint spans, plus explicit causal links and outcome evidence. Its default
+coverage is `unknown`; collectors set `complete` only when they can account for
+the full task. The recorder has no prompt, response, source-code, tool-argument
+or tool-output fields, and it never estimates charges.
 
 ```ts
 import { NiuExecutionRecorder } from '@niu-io/sdk';
@@ -43,9 +78,25 @@ trace.finish();
 const record = trace.export();
 ```
 
-The recorder holds data locally. A trusted server-side collector imports it using the API above; keep installation administrator credentials out of agent workers and browsers. A missing `chargeRef` leaves cost attribution unresolved rather than creating a charge.
+The recorder holds data locally. A trusted server-side collector may import it
+using the supplemental API above; keep installation administrator credentials
+out of agent workers and browsers. A missing `chargeRef` leaves cost attribution
+unresolved rather than creating a charge. A production agent adapter still
+needs to route model calls through Niu, set the task ID, and join its local
+events to gateway attempts.
 
-The console's **Tasks** view lists project records, accepts metadata imports, and displays spans, causal links, source-reported lifecycle status, model identity evidence, and outcome authority. A task is the requested piece of work; an attempt is one pass at completing it; steps are model requests, tool calls and checks within an attempt. Missing status remains unknown; Niu does not infer cancellation from an open interval. Task wall-clock is shown separately from invocation work, the sum of observed model and tool intervals. Enclosing task, agent, step and attempt spans are excluded from that sum; untimed calls stay unknown, and parallel invocation time can exceed wall-clock. Coverage is a collector assertion, not proof that every event was captured.
+The console's **Tasks** view starts with recent gateway-captured model
+activity. Requests sharing a task ID can be grouped; requests without one
+remain visible individually. Imported execution records are supplemental and
+display their spans, causal links, source-reported lifecycle status, model
+identity evidence, and outcome authority. A task is the requested piece of
+work; an attempt is one pass at completing it; steps are model requests, tool
+calls and checks within an attempt. Missing status remains unknown; Niu does
+not infer cancellation from an open interval. Task wall-clock is shown
+separately from invocation work, the sum of observed model and tool intervals.
+Enclosing task, agent, step and attempt spans are excluded from that sum; untimed
+calls stay unknown, and parallel invocation time can exceed wall-clock. Coverage
+is a collector assertion, not proof that every event was captured.
 
 ## Privacy, attribution and deletion
 

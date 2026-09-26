@@ -56,6 +56,12 @@ paths:
       summary: Create an OpenAI-compatible chat completion
       security:
         - bearerAuth: []
+      parameters:
+        - name: X-Niu-Task-ID
+          in: header
+          required: false
+          description: Optional opaque task correlation key. Requests with the same value can be grouped in project activity. Niu stores the value as metadata and does not forward it to the provider.
+          schema: { type: string, minLength: 1, maxLength: 200, pattern: '^[!-~]{1,200}$' }
       requestBody:
         required: true
         content:
@@ -100,6 +106,12 @@ paths:
       description: The configured route must use provider openai and explicitly declare embedding support. Optional dimensions and base64 output require separate route capabilities. These declarations are operator assertions, not provider conformance evidence. Unsupported providers or capabilities are rejected before durable operation and attempt creation.
       security:
         - bearerAuth: []
+      parameters:
+        - name: X-Niu-Task-ID
+          in: header
+          required: false
+          description: Optional opaque task correlation key. Requests with the same value can be grouped in project activity. Niu stores the value as metadata and does not forward it to the provider.
+          schema: { type: string, minLength: 1, maxLength: 200, pattern: '^[!-~]{1,200}$' }
       requestBody:
         required: true
         content:
@@ -135,6 +147,12 @@ paths:
       description: The route must be an OpenAI-compatible provider route with supports_responses enabled. This public subset accepts a single text input and optional text instructions, output limit, sampling values, metadata and user identifier. Streaming, multimodal input, tools, prior-response state and other fields are rejected.
       security:
         - bearerAuth: []
+      parameters:
+        - name: X-Niu-Task-ID
+          in: header
+          required: false
+          description: Optional opaque task correlation key. Requests with the same value can be grouped in project activity. Niu stores the value as metadata and does not forward it to the provider.
+          schema: { type: string, minLength: 1, maxLength: 200, pattern: '^[!-~]{1,200}$' }
       requestBody:
         required: true
         content:
@@ -959,6 +977,42 @@ paths:
           description: Administrator authentication required.
         '400':
           description: Invalid path or query parameter.
+  /admin/v1/organizations/{organization}/projects/{project}/requests:
+    get:
+      operationId: listProjectGatewayActivity
+      summary: Read automatically retained gateway request activity
+      description: Returns metadata for recent model attempts admitted by Niu. Request and response bodies, prompts and completions are not included. The result is newest first and bounded to at most 100 entries; it has no pagination. An absent task_id means the caller did not supply X-Niu-Task-ID. Missing usage or cost fields remain unknown.
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: organization
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: project
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        '200':
+          description: Recent gateway activity wrapped in data. Each entry includes attempt_id, operation_id, optional task_id, public model alias, creation/dispatch/completion times, duration_ms, execution status, usage confidence, nullable prompt/completion token counts, and nullable currency/cash/API-equivalent amounts. Integer quantities and amounts are decimal strings.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GatewayActivity'
+        '401':
+          description: Administrator authentication required.
+        '400':
+          description: Invalid path or query parameter.
   /admin/v1/setup/default-workspace:
     post:
       operationId: getOrCreateDefaultWorkspace
@@ -1269,6 +1323,26 @@ paths:
         '404': { description: Record absent from this project. }
 components:
   schemas:
+    GatewayActivity:
+      type: object
+      additionalProperties: false
+      required: [attempt_id, operation_id, model, created_at, execution, usage_confidence]
+      properties:
+        attempt_id: { type: string, format: uuid }
+        operation_id: { type: string, format: uuid }
+        task_id: { type: [string, 'null'], maxLength: 200 }
+        model: { type: string, description: Public model alias requested through Niu. }
+        created_at: { type: string, format: date-time }
+        dispatched_at: { type: [string, 'null'], format: date-time }
+        completed_at: { type: [string, 'null'], format: date-time }
+        duration_ms: { type: [integer, 'null'], minimum: 0 }
+        execution: { type: string }
+        usage_confidence: { type: string }
+        prompt_tokens: { type: [string, 'null'], pattern: '^[0-9]+$' }
+        completion_tokens: { type: [string, 'null'], pattern: '^[0-9]+$' }
+        currency: { type: [string, 'null'], pattern: '^[A-Z]{3}$' }
+        cash_nanos: { type: [string, 'null'], pattern: '^-?[0-9]+$' }
+        api_equivalent_nanos: { type: [string, 'null'], pattern: '^-?[0-9]+$' }
     Vendor:
       type: object
       additionalProperties: false
