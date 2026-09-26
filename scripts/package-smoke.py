@@ -25,6 +25,7 @@ PROVIDER = ""
 ADMIN_TOKEN = secrets.token_urlsafe(48)
 DATABASE_PASSWORD = secrets.token_urlsafe(32)
 PROVIDER_KEY = secrets.token_urlsafe(32)
+VENDOR_ENCRYPTION_KEY = secrets.token_urlsafe(48)
 CONFIG_PATH = None
 MOCK_PROVIDER_PORT = 24678
 BASE_URL = "http://127.0.0.1:2555"
@@ -133,7 +134,8 @@ def setup_compose():
     with env_file:
         env_file.write(f"POSTGRES_PASSWORD={DATABASE_PASSWORD}\n")
         env_file.write(f"NIU_ADMIN_TOKENS={ADMIN_TOKEN}\n")
-        env_file.write(f"OPENAI_API_KEY={PROVIDER_KEY}\n")
+        env_file.write(f"NIU_VENDOR_ENCRYPTION_KEY={VENDOR_ENCRYPTION_KEY}\n")
+        env_file.write(f"OPENROUTER_API_KEY={PROVIDER_KEY}\n")
 
     existing = subprocess.run(
         ["docker", "image", "inspect", "--format", "{{.Id}}", "niu-io/niu:local"],
