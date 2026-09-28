@@ -4,6 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Activity, AlertTriangle, ArrowRight, CheckCircle2, Clock3, FileUp, FlaskConical, Gauge, ReceiptText } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { money } from "@/lib/money";
+import { missingPairedEvidence } from "../readiness";
 
 type Ratio = { numerator_nanos: string; denominator: number };
 type CandidateReport = {
@@ -68,24 +69,32 @@ export default function BenchmarksView({ token }: { token: string }) {
   const [report, setReport] = useState<BenchmarkReport | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [missingEvidence, setMissingEvidence] = useState<string[]>([]);
 
   async function loadFile(file?: File) {
     if (!file) return;
     setFileName(file.name);
     setDataset(await file.text());
     setError("");
+    setMissingEvidence([]);
     setReport(null);
   }
 
   async function analyze(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setMissingEvidence([]);
     setReport(null);
     let parsed: unknown;
     try {
       parsed = JSON.parse(dataset);
     } catch {
       setError("The dataset must be valid JSON.");
+      return;
+    }
+    const missing = missingPairedEvidence(parsed);
+    if (missing.length > 0) {
+      setMissingEvidence(missing);
       return;
     }
     setBusy(true);
@@ -109,19 +118,20 @@ export default function BenchmarksView({ token }: { token: string }) {
   }
 
   return <>
-    <div className="page-heading">
-      <div><p className="eyebrow">EVALUATION</p><h1>Benchmarks</h1><p className="page-subtitle">Compare matched task outcomes against the same tools and acceptance criteria.</p></div>
+    <div className="page-heading benchmark-page-heading">
+      <div><p className="page-subtitle">Compare matched task outcomes against the same tools and acceptance criteria.</p></div>
       <span className="benchmark-mode"><span /> Offline analysis</span>
     </div>
 
     <div className="benchmark-safety-note" role="note"><FlaskConical size={17} /><p><strong>Analysis only.</strong> Niu evaluates the dataset you provide. It does not send model requests, run task tools, or spend your budget.</p></div>
 
     <section className="panel benchmark-input-panel">
-      <div className="panel-heading"><div><h2>Analyze a paired dataset</h2><p>Provide the version 1 JSON emitted by your authorized evaluator.</p></div><span className="benchmark-schema">PAIRED DATASET · V1</span></div>
+      <div className="panel-heading"><div><h2>Analyze a paired dataset</h2><p>Provide version 1 JSON from your authorized evaluator. <a href={`${import.meta.env.BASE_URL}docs/concepts/benchmarking/`}>Review the matching and evidence requirements.</a></p></div><span className="benchmark-schema">PAIRED DATASET · V1</span></div>
       <form onSubmit={analyze} className="benchmark-form">
         <Label htmlFor="benchmark-file" className="benchmark-file-control"><FileUp size={15} />{fileName || "Choose JSON file"}<Input id="benchmark-file" aria-label="Choose JSON file" type="file" accept="application/json,.json" onChange={event => void loadFile(event.target.files?.[0])} /></Label>
-        <Label htmlFor="benchmark-dataset">Dataset JSON<textarea id="benchmark-dataset" aria-label="Dataset JSON" className="benchmark-json-input" placeholder={'Paste a paired experiment dataset, or analyze the synthetic fixture:\ncargo run --locked -p niu-benchmark -- compare contracts/fixtures/paired-experiment.v1.json'} value={dataset} onChange={event => setDataset(event.target.value)} spellCheck={false} /></Label>
+        <Label htmlFor="benchmark-dataset">Dataset JSON<textarea id="benchmark-dataset" aria-label="Dataset JSON" className="benchmark-json-input" placeholder={'Paste a paired experiment dataset, or analyze the synthetic fixture:\ncargo run --locked -p niu-benchmark -- compare contracts/fixtures/paired-experiment.v1.json'} value={dataset} onChange={event => { setDataset(event.target.value); setError(""); setMissingEvidence([]); setReport(null); }} spellCheck={false} /></Label>
         {error && <p className="error-text" role="alert">{error}</p>}
+        {missingEvidence.length > 0 && <section className="benchmark-readiness" role="alert" aria-labelledby="benchmark-readiness-title"><h3 id="benchmark-readiness-title">Missing evidence</h3><ul>{missingEvidence.map(item => <li key={item}>{item}</li>)}</ul></section>}
         <div className="benchmark-form-footer"><p>Inputs are processed in memory for this request. Reports are not saved. Unknown costs or unlinked billable spans are rejected.</p><Button type="submit" disabled={busy || !dataset.trim()}>{busy ? <Activity className="benchmark-spin" /> : <Gauge size={15} />}{busy ? "Analyzing" : "Analyze dataset"}<ArrowRight size={14} /></Button></div>
       </form>
     </section>

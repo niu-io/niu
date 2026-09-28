@@ -3,7 +3,7 @@
 export type ExecutionCoverage = 'complete' | 'partial' | 'unknown';
 export type ExecutionSpanKind = 'task' | 'agent' | 'step' | 'model_invocation' | 'tool_invocation' | 'attempt' | 'validation' | 'human_intervention' | 'checkpoint';
 export type ExecutionSpanStatus = 'running' | 'completed' | 'failed' | 'cancelled' | 'unknown';
-export type ExecutionLinkKind = 'contains' | 'delegates' | 'depends_on' | 'retries' | 'resumes';
+export type ExecutionLinkKind = 'contains' | 'delegates' | 'depends_on' | 'fallbacks' | 'retries' | 'resumes';
 export type ExecutionOutcomeAuthority = 'agent_claim' | 'deterministic_validator' | 'human_acceptance';
 export type ExecutionOutcomeResult = 'accepted' | 'rejected' | 'inconclusive';
 
@@ -26,6 +26,19 @@ export type ExecutionOutcomeV1 = {
   result: ExecutionOutcomeResult;
 };
 
+export type ExternalUsageV1 = {
+  authority: 'agent_reported_estimate';
+  agent_version: string | null;
+  request_count: number;
+  retry_count: number;
+  input_tokens: string | null;
+  output_tokens: string | null;
+  cache_read_tokens: string | null;
+  cache_creation_tokens: string | null;
+  cost_nanos: string | null;
+  currency: string | null;
+};
+
 export type ExecutionRecordV1 = {
   schema_version: 1;
   source: string;
@@ -35,6 +48,7 @@ export type ExecutionRecordV1 = {
   spans: ExecutionSpanV1[];
   links: ExecutionLinkV1[];
   outcomes: ExecutionOutcomeV1[];
+  external_usage?: ExternalUsageV1;
 };
 
 export type ExecutionRecorderOptions = {
@@ -49,6 +63,8 @@ export type ExecutionRecorderOptions = {
 
 export type StartExecutionSpanOptions = {
   parentId?: string;
+  /** Optional stable ID for correlating this span with later causal events. */
+  id?: string;
   requestedModel?: string;
   reportedModel?: string;
   /** A canonical ledger reference. The recorder never estimates or creates charges. */
@@ -56,11 +72,17 @@ export type StartExecutionSpanOptions = {
   cause?: { from: string; kind: Exclude<ExecutionLinkKind, 'contains'> };
 };
 
+export type ModelExecutionEvidence = {
+  reportedModel?: string;
+  /** Canonical Niu attempt UUID, usually from x-niu-attempt-id. */
+  chargeRef?: string;
+};
+
 const spanKinds = new Set<Exclude<ExecutionSpanKind, 'task'>>([
   'agent', 'step', 'model_invocation', 'tool_invocation', 'attempt', 'validation', 'human_intervention', 'checkpoint',
 ]);
-const linkKinds = new Set<ExecutionLinkKind>(['contains', 'delegates', 'depends_on', 'retries', 'resumes']);
-const causalLinkKinds = new Set<Exclude<ExecutionLinkKind, 'contains'>>(['delegates', 'depends_on', 'retries', 'resumes']);
+const linkKinds = new Set<ExecutionLinkKind>(['contains', 'delegates', 'depends_on', 'fallbacks', 'retries', 'resumes']);
+const causalLinkKinds = new Set<Exclude<ExecutionLinkKind, 'contains'>>(['delegates', 'depends_on', 'fallbacks', 'retries', 'resumes']);
 const coverageKinds = new Set<ExecutionCoverage>(['complete', 'partial', 'unknown']);
 const outcomeAuthorities = new Set<ExecutionOutcomeAuthority>(['agent_claim', 'deterministic_validator', 'human_acceptance']);
 const outcomeResults = new Set<ExecutionOutcomeResult>(['accepted', 'rejected', 'inconclusive']);
@@ -74,7 +96,7 @@ export class NiuExecutionRecorder {
   private finished = false;
 
   constructor(options: ExecutionRecorderOptions) {
-    this.nowSource = options.now ?? (() => globalThis.performance?.now() ?? Date.now());
+    this.nowSource = options.now ?? Date.now;
     this.createId = options.createId ?? defaultId;
     const taskId = options.taskId ?? this.uniqueId('task');
     const recordId = options.recordId ?? this.uniqueId('record');
@@ -118,13 +140,21 @@ export class NiuExecutionRecorder {
     if (!this.record.spans.some(span => span.id === parentId)) throw new Error(`Unknown parent span: ${parentId}`);
     if (options.cause && !causalLinkKinds.has(options.cause.kind)) throw new Error('Causal links cannot use containment');
     if (options.cause && !this.hasSpan(options.cause.from)) throw new Error(`Unknown causal span: ${options.cause.from}`);
+    if (options.cause?.kind === 'fallbacks') {
+      const source = this.record.spans.find(span => span.id === options.cause!.from);
+      if (kind !== 'model_invocation' || source?.kind !== 'model_invocation') {
+        throw new Error('Fallback links must connect model invocation spans');
+      }
+    }
     if (kind !== 'model_invocation' && (options.requestedModel !== undefined || options.reportedModel !== undefined)) {
       throw new Error('Model identity can only be attached to a model invocation');
     }
     if (options.requestedModel !== undefined) assertIdentifier(options.requestedModel, 'requestedModel');
     if (options.reportedModel !== undefined) assertIdentifier(options.reportedModel, 'reportedModel');
     if (options.chargeRef !== undefined) assertIdentifier(options.chargeRef, 'chargeRef');
-    const id = this.uniqueId(kind.replaceAll('_', '-'));
+    const id = options.id ?? this.uniqueId(kind.replaceAll('_', '-'));
+    assertIdentifier(id, 'id');
+    if (this.hasSpan(id)) throw new Error(`Duplicate span ID: ${id}`);
     const startedAt = this.timestamp();
     this.record.spans.push({
       id,
@@ -152,6 +182,28 @@ export class NiuExecutionRecorder {
     span.ended_at_ms = Math.max(span.started_at_ms ?? 0, this.timestamp());
   }
 
+  setModelEvidence(spanId: string, evidence: ModelExecutionEvidence): void {
+    this.assertOpen();
+    const span = this.record.spans.find(item => item.id === spanId);
+    if (!span || span.kind !== 'model_invocation' || span.status !== 'running') {
+      throw new Error('Model evidence requires an open model invocation span');
+    }
+    if (evidence.reportedModel !== undefined) {
+      assertIdentifier(evidence.reportedModel, 'reportedModel');
+      if (span.reported_model && span.reported_model !== evidence.reportedModel) {
+        throw new Error('Reported model evidence cannot be replaced');
+      }
+      span.reported_model = evidence.reportedModel;
+    }
+    if (evidence.chargeRef !== undefined) {
+      assertIdentifier(evidence.chargeRef, 'chargeRef');
+      if (span.charge_ref && span.charge_ref !== evidence.chargeRef) {
+        throw new Error('Charge reference evidence cannot be replaced');
+      }
+      span.charge_ref = evidence.chargeRef;
+    }
+  }
+
   async withSpan<T>(
     kind: Exclude<ExecutionSpanKind, 'task'>,
     options: StartExecutionSpanOptions,
@@ -173,6 +225,13 @@ export class NiuExecutionRecorder {
     if (!linkKinds.has(kind)) throw new Error('Unsupported execution link kind');
     if (this.record.links.length >= 50_000) throw new RangeError('Execution record link limit exceeded');
     if (from === to || !this.hasSpan(from) || !this.hasSpan(to)) throw new Error('Execution link must reference two distinct known spans');
+    if (kind === 'fallbacks') {
+      const source = this.record.spans.find(span => span.id === from);
+      const target = this.record.spans.find(span => span.id === to);
+      if (source?.kind !== 'model_invocation' || target?.kind !== 'model_invocation') {
+        throw new Error('Fallback links must connect model invocation spans');
+      }
+    }
     if (this.record.links.some(link => link.from === from && link.to === to && link.kind === kind)) {
       throw new Error('Execution link already exists');
     }

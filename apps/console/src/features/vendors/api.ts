@@ -31,6 +31,31 @@ export type VendorModel = {
   revision: number;
 };
 
+export type ProviderCatalogModel = {
+  id: string;
+  name: string;
+  context_length: number | null;
+};
+
+export type ProviderModelCheck = {
+  status:
+    | 'connected'
+    | 'credentials_rejected'
+    | 'endpoint_unavailable'
+    | 'private_endpoint_blocked'
+    | 'invalid_endpoint'
+    | 'redirect_blocked'
+    | 'provider_rate_limited'
+    | 'provider_error'
+    | 'model_catalog_unavailable'
+    | 'model_catalog_too_large'
+    | 'invalid_model_catalog';
+  model: 'listed' | 'not_listed' | 'unknown';
+  http_status: number | null;
+  duration_ms: number;
+  checked_at_ms: number;
+};
+
 export type VendorWrite = {
   name: string;
   api_base: string;

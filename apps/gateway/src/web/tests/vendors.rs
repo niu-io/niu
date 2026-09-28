@@ -360,3 +360,238 @@ async fn metadata_updates_preserve_exact_prices_without_browser_roundtripping(po
     assert_eq!(status, StatusCode::OK);
     assert!(cleared["data"]["pricing"].is_null());
 }
+
+#[derive(Clone, Default)]
+struct CatalogFixture {
+    response: Arc<Mutex<Option<(StatusCode, Value, Option<String>)>>>,
+    authorization: Arc<Mutex<Option<String>>>,
+    redirect_hits: Arc<std::sync::atomic::AtomicUsize>,
+}
+
+async fn fixture_model_catalog(
+    State(fixture): State<CatalogFixture>,
+    headers: HeaderMap,
+) -> axum::response::Response {
+    *fixture.authorization.lock().unwrap() = headers
+        .get("authorization")
+        .and_then(|header| header.to_str().ok())
+        .map(str::to_owned);
+    let (status, body, location) = fixture.response.lock().unwrap().clone().unwrap_or((
+        StatusCode::OK,
+        json!({"data":[]}),
+        None,
+    ));
+    let mut response = axum::response::Response::builder()
+        .status(status)
+        .header("content-type", "application/json");
+    if let Some(location) = location {
+        response = response.header("location", location);
+    }
+    response
+        .body(axum::body::Body::from(body.to_string()))
+        .unwrap()
+}
+
+async fn fixture_redirect_target(State(fixture): State<CatalogFixture>) -> Json<Value> {
+    fixture
+        .redirect_hits
+        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    Json(json!({"data":[]}))
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn provider_model_check_is_bounded_sanitized_and_does_not_follow_redirects(pool: PgPool) {
+    let fixture = CatalogFixture::default();
+    *fixture.response.lock().unwrap() = Some((
+        StatusCode::OK,
+        json!({"data":[{"id":"maker/model","name":"Fixture model","context_length":8192,"api_key":"private-provider-data"}],"extra":"not returned"}),
+        None,
+    ));
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let upstream = Router::new()
+        .route("/api/v1/models", axum::routing::get(fixture_model_catalog))
+        .route(
+            "/redirect-target",
+            axum::routing::get(fixture_redirect_target),
+        )
+        .with_state(fixture.clone());
+    let server = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
+
+    let mut state = test_state(None, pool);
+    state.vendor_cipher = Some(Arc::new(
+        crate::vendors::crypto::CredentialCipher::new(MASTER).unwrap(),
+    ));
+    let app = router(state);
+    let (status, vendor) = call(
+        &app,
+        Method::POST,
+        "/admin/v1/vendors",
+        ADMIN,
+        json!({
+            "name":"Fixture",
+            "adapter":"openrouter",
+            "api_base":format!("http://{address}/api/v1"),
+            "api_key":"vendor-check-secret"
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    let vendor_id = vendor["data"]["id"].as_str().unwrap();
+    let catalog_path = format!("/admin/v1/vendors/{vendor_id}/catalog");
+    assert_eq!(
+        call(&app, Method::GET, &catalog_path, "invalid", Value::Null)
+            .await
+            .0,
+        StatusCode::UNAUTHORIZED
+    );
+    let (status, catalog) = call(&app, Method::GET, &catalog_path, ADMIN, Value::Null).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(catalog["data"][0]["id"], "maker/model");
+    assert_eq!(catalog["data"][0]["name"], "Fixture model");
+    assert_eq!(catalog["data"][0]["context_length"], 8192);
+    assert!(!catalog.to_string().contains("private-provider-data"));
+    assert!(!catalog.to_string().contains("not returned"));
+    assert_eq!(
+        fixture.authorization.lock().unwrap().as_deref(),
+        Some("Bearer vendor-check-secret")
+    );
+    let models_path = format!("/admin/v1/vendors/{vendor_id}/models");
+    assert_eq!(
+        call(
+            &app,
+            Method::POST,
+            &models_path,
+            ADMIN,
+            json!({"alias":"fast","upstream_model":"maker/model","capabilities":{}}),
+        )
+        .await
+        .0,
+        StatusCode::OK
+    );
+    let check_path = format!("/admin/v1/vendors/{vendor_id}/check");
+    let (status, result) = call(
+        &app,
+        Method::POST,
+        &check_path,
+        ADMIN,
+        json!({"alias":"fast"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(result["data"]["status"], "connected");
+    assert_eq!(result["data"]["model"], "listed");
+    assert_eq!(
+        fixture.authorization.lock().unwrap().as_deref(),
+        Some("Bearer vendor-check-secret")
+    );
+    assert!(!result.to_string().contains("vendor-check-secret"));
+
+    *fixture.response.lock().unwrap() = Some((
+        StatusCode::OK,
+        json!({"data":[],"extra":"x".repeat(3 * 1024 * 1024)}),
+        None,
+    ));
+    let (status, oversized) = call(
+        &app,
+        Method::POST,
+        &check_path,
+        ADMIN,
+        json!({"alias":"fast"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(oversized["data"]["status"], "model_catalog_too_large");
+    assert!(!oversized.to_string().contains('x'));
+
+    *fixture.response.lock().unwrap() = Some((
+        StatusCode::UNAUTHORIZED,
+        json!({"error":{"message":"private provider response body"}}),
+        None,
+    ));
+    let (status, rejected) = call(
+        &app,
+        Method::POST,
+        &check_path,
+        ADMIN,
+        json!({"alias":"fast"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(rejected["data"]["status"], "credentials_rejected");
+    assert!(
+        !rejected
+            .to_string()
+            .contains("private provider response body")
+    );
+
+    *fixture.response.lock().unwrap() = Some((
+        StatusCode::FOUND,
+        json!({"error":"redirect"}),
+        Some(format!("http://{address}/redirect-target")),
+    ));
+    let (status, redirected) = call(
+        &app,
+        Method::POST,
+        &check_path,
+        ADMIN,
+        json!({"alias":"fast"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(redirected["data"]["status"], "redirect_blocked");
+    assert_eq!(
+        fixture
+            .redirect_hits
+            .load(std::sync::atomic::Ordering::Relaxed),
+        0
+    );
+    server.abort();
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn private_provider_destination_is_rejected_before_creating_an_operation(pool: PgPool) {
+    let state = test_state(Some("https://10.0.0.1/v1".into()), pool.clone());
+    let organization = state
+        .store
+        .create_organization("private endpoint")
+        .await
+        .unwrap();
+    let scope = state
+        .store
+        .create_project(organization, "private endpoint")
+        .await
+        .unwrap();
+    let key = state
+        .store
+        .issue_key(scope, "client", &["fast".into()], 3600)
+        .await
+        .unwrap();
+    let response = router(state.clone())
+        .oneshot(
+            Request::post("/v1/chat/completions")
+                .header("authorization", format!("Bearer {}", key.token))
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(
+                    json!({"model":"fast","messages":[{"role":"user","content":"hello"}]})
+                        .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert!(!response.headers().contains_key("x-niu-attempt-id"));
+    assert_eq!(state.requests.load(std::sync::atomic::Ordering::Relaxed), 0);
+    let operations: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM operations WHERE organization_id=$1 AND project_id=$2",
+    )
+    .bind(scope.organization_id)
+    .bind(scope.project_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(operations, 0);
+}

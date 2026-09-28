@@ -13,6 +13,7 @@ pub use accounts::{
     AccountHealth, AccountInput, AccountView, AuthMode, BillingMode, QuotaInput, QuotaUnit,
     QuotaView,
 };
+pub use collectors::CollectorKeyView;
 pub use observations::{
     AuthorityEvidenceCounts, CostEvidenceCounts, CostPerAcceptedCompletion, CurrencyAmount,
     ExecutionAccountLink, ExecutionCapacitySummary, ExecutionCharges, ExecutionCohortReport,
@@ -30,7 +31,10 @@ pub use vendors::{
 };
 mod keys;
 mod pricing;
-pub use accounting::{BudgetSnapshot, CostEntry, GatewayActivityEntry};
+pub use accounting::{
+    BudgetSnapshot, CostEntry, GatewayActivityCostSummary, GatewayActivityEntry,
+    GatewayActivityFilter, GatewayActivitySummary,
+};
 pub use keys::{IssuedKey, KeyView, Principal};
 pub use pricing::{PriceInput, TokenRates};
 
@@ -53,12 +57,21 @@ pub struct NamedResource {
     pub name: String,
 }
 
+#[derive(sqlx::FromRow, serde::Serialize)]
+pub struct WorkspaceResource {
+    pub id: Uuid,
+    pub name: String,
+    pub organization_id: Uuid,
+    pub organization_name: String,
+}
+
 #[derive(Debug, sqlx::FromRow)]
 pub struct Attempt {
     pub id: Uuid,
     pub operation_id: Uuid,
     pub execution: String,
     pub usage_confidence: String,
+    pub provider_model: Option<String>,
     pub prompt_tokens: Option<i64>,
     pub completion_tokens: Option<i64>,
     pub settlement: String,
@@ -128,6 +141,32 @@ impl Store {
     }
     pub async fn projects(&self, organization_id: Uuid) -> Result<Vec<NamedResource>, StoreError> {
         Ok(sqlx::query_as("SELECT id,name FROM projects WHERE organization_id=$1 ORDER BY created_at,id LIMIT 1000").bind(organization_id).fetch_all(&self.pool).await?)
+    }
+
+    pub async fn organization_name(
+        &self,
+        organization_id: Uuid,
+    ) -> Result<Option<String>, StoreError> {
+        Ok(
+            sqlx::query_scalar("SELECT name FROM organizations WHERE id=$1")
+                .bind(organization_id)
+                .fetch_optional(&self.pool)
+                .await?,
+        )
+    }
+
+    pub async fn workspaces(
+        &self,
+        organization_id: Option<Uuid>,
+        project_id: Option<Uuid>,
+    ) -> Result<Vec<WorkspaceResource>, StoreError> {
+        Ok(sqlx::query_as(
+            "SELECT p.id,p.name,o.id AS organization_id,o.name AS organization_name FROM projects p JOIN organizations o ON o.id=p.organization_id WHERE ($1::uuid IS NULL OR o.id=$1) AND ($2::uuid IS NULL OR p.id=$2) ORDER BY o.created_at,o.id,p.created_at,p.id LIMIT 1000",
+        )
+        .bind(organization_id)
+        .bind(project_id)
+        .fetch_all(&self.pool)
+        .await?)
     }
 
     /// Explicit installation-admin quick setup. Creates both ownership records
@@ -240,6 +279,17 @@ impl Store {
         id: Uuid,
         usage: Option<(u64, u64)>,
     ) -> Result<(), StoreError> {
+        self.complete_with_provider_model(scope, id, usage, None)
+            .await
+    }
+
+    pub async fn complete_with_provider_model(
+        &self,
+        scope: TenantScope,
+        id: Uuid,
+        usage: Option<(u64, u64)>,
+        provider_model: Option<&str>,
+    ) -> Result<(), StoreError> {
         let usage = usage
             .map(|(a, b)| {
                 Ok::<_, StoreError>((
@@ -254,8 +304,13 @@ impl Store {
         } else {
             "unknown"
         };
-        let changed = sqlx::query("UPDATE attempts SET execution = 'confirmed_completed', completed_at = now(), usage_confidence = $4, prompt_tokens = $5, completion_tokens = $6, settlement = CASE WHEN $4 = 'unknown' THEN 'reconciliation_required' ELSE settlement END WHERE organization_id = $1 AND project_id = $2 AND id = $3 AND execution = 'may_have_executed'")
-            .bind(scope.organization_id).bind(scope.project_id).bind(id).bind(confidence).bind(prompt).bind(completion)
+        let provider_model = provider_model.map(str::trim).filter(|model| {
+            !model.is_empty()
+                && model.len() <= 200
+                && model.chars().all(|character| !character.is_control())
+        });
+        let changed = sqlx::query("UPDATE attempts SET execution = 'confirmed_completed', completed_at = now(), usage_confidence = $4, prompt_tokens = $5, completion_tokens = $6, provider_model = $7, settlement = CASE WHEN $4 = 'unknown' THEN 'reconciliation_required' ELSE settlement END WHERE organization_id = $1 AND project_id = $2 AND id = $3 AND execution = 'may_have_executed'")
+            .bind(scope.organization_id).bind(scope.project_id).bind(id).bind(confidence).bind(prompt).bind(completion).bind(provider_model)
             .execute(&self.pool).await?.rows_affected();
         if changed != 1 {
             return Err(StoreError::Conflict);
@@ -268,7 +323,7 @@ impl Store {
         scope: TenantScope,
         id: Uuid,
     ) -> Result<Option<Attempt>, StoreError> {
-        Ok(sqlx::query_as("SELECT id, operation_id, execution, usage_confidence, prompt_tokens, completion_tokens, settlement FROM attempts WHERE organization_id = $1 AND project_id = $2 AND id = $3")
+        Ok(sqlx::query_as("SELECT id, operation_id, execution, usage_confidence, provider_model, prompt_tokens, completion_tokens, settlement FROM attempts WHERE organization_id = $1 AND project_id = $2 AND id = $3")
             .bind(scope.organization_id).bind(scope.project_id).bind(id).fetch_optional(&self.pool).await?)
     }
 }

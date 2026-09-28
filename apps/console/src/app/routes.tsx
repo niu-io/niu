@@ -16,12 +16,15 @@ export const appRoutes: RouteObject[] = [{ path: 'preview', lazy: async () => ({
     { path: 'operators', lazy: async () => ({ Component: (await import('@/features/operators/page')).default }) },
     { path: 'usage', lazy: async () => ({ Component: (await import('@/features/costs/page')).default }) },
     { path: 'executions', lazy: async () => ({ Component: (await import('@/features/executions/page')).default }) },
+    { path: 'tasks', lazy: async () => ({ Component: (await import('@/features/tasks/page')).default }) },
+    { path: 'playground', lazy: async () => ({ Component: (await import('@/features/playground/page')).default }) },
     { path: 'benchmarks', lazy: async () => ({ Component: (await import('@/features/benchmarks/page')).default }) },
-    { path: 'subscriptions', lazy: async () => ({ Component: (await import('@/features/subscriptions/page')).default }) },
+    { path: 'subscriptions', lazy: async () => ({ Component: (await import('@/features/provider-accounts/page')).default }) },
     { path: '*', lazy: async () => ({ Component: (await import('@/features/not-found/page')).default }) },
   ],
 }];
 
 export function createConsoleRouter() {
-  return createBrowserRouter(appRoutes);
+  const basename = import.meta.env.BASE_URL.replace(/\/+$/, '') || '/';
+  return createBrowserRouter(appRoutes, { basename });
 }

@@ -53,20 +53,25 @@ test('collector is bound to a copied project scope and exposes only ingestion', 
   await collector.observeQuota(id, observation);
   assert.equal(captured.url, `http://localhost:2555/admin/v1/organizations/${id}/projects/${id}/accounts/${id}/quota`);
   assert.equal(captured.init.headers.authorization, 'Bearer test-collector');
-  assert.deepEqual(Object.getOwnPropertyNames(Object.getPrototypeOf(collector)), ['constructor', 'observeQuota']);
+  assert.deepEqual(Object.getOwnPropertyNames(Object.getPrototypeOf(collector)), ['constructor', 'observeQuota', 'reportExecution']);
 });
 
 test('admin credential lifecycle sends explicit creation and deletion requests', async () => {
   const calls = [];
   const admin = new NiuAdminClient({ adminToken: 'test-admin', fetch: async (url, init) => {
     calls.push({ url, init });
-    return init.method === 'DELETE' ? new Response(null, { status: 204 }) : Response.json({ id, token: 'test-collector' });
+    if (init.method === 'DELETE') return new Response(null, { status: 204 });
+    if (init.method === 'GET') return Response.json({ data: [{ id, purpose: 'execution', revoked: false }] });
+    return Response.json({ id, token: 'test-collector' });
   }});
   assert.equal((await admin.issueCollectorKey(scope, { name: 'collector', ttl_seconds: 3600 })).id, id);
+  assert.equal((await admin.listCollectorKeys(scope, 'execution')).data[0].purpose, 'execution');
   assert.equal(await admin.revokeCollectorKey(scope, id), undefined);
-  assert.equal(calls[1].init.method, 'DELETE');
-  assert.equal(calls[1].init.body, undefined);
-  assert.ok(calls[1].url.endsWith(`/collector-keys/${id}`));
+  assert.equal(calls[1].init.method, 'GET');
+  assert.ok(calls[1].url.endsWith('/collector-keys?purpose=execution'));
+  assert.equal(calls[2].init.method, 'DELETE');
+  assert.equal(calls[2].init.body, undefined);
+  assert.ok(calls[2].url.endsWith(`/collector-keys/${id}`));
   assert.throws(() => admin.issueCollectorKey(scope, { name: 'collector', ttl_seconds: 0 }), /lifetime/);
-  assert.equal(calls.length, 2);
+  assert.equal(calls.length, 3);
 });

@@ -4,11 +4,9 @@ import { RefreshCw, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 
-type Named = { id: string; name: string };
 type Budget = { currency: string; limit_nanos: string; reserved_nanos: string; spent_nanos: string };
 type Entry = {
   attempt_id: string; price_revision_id: string; currency: string;
@@ -17,11 +15,9 @@ type Entry = {
 };
 type Report = { budget: Budget | null; data: Entry[]; next_cursor: string | null };
 
-export default function CostsView({ token }: { token: string }) {
-  const [organizations, setOrganizations] = useState<Named[]>([]);
-  const [projects, setProjects] = useState<Named[]>([]);
-  const [organization, setOrganization] = useState('');
-  const [project, setProject] = useState('');
+export default function CostsView({ token, initialScope }: { token: string; initialScope: { organizationId: string; projectId: string } | null }) {
+  const organization = initialScope?.organizationId ?? '';
+  const project = initialScope?.projectId ?? '';
   const [cursor, setCursor] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
   const [report, setReport] = useState<Report | null>(null);
@@ -32,22 +28,6 @@ export default function CostsView({ token }: { token: string }) {
   const [budgetNotice, setBudgetNotice] = useState('');
   const [savingBudget, setSavingBudget] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    setError(''); setProjects([]); setReport(null);
-    async function load() {
-      const url = organization ? `/admin/v1/organizations/${organization}/projects` : '/admin/v1/organizations';
-      const response = await fetch(url, { headers: { authorization: `Bearer ${token}` }, signal: controller.signal });
-      if (!response.ok) throw new Error('Unable to load project scopes.');
-      const result = await response.json() as { data: Named[] };
-      if (!controller.signal.aborted) {
-        if (organization) setProjects(result.data); else setOrganizations(result.data);
-      }
-    }
-    void load().catch(e => { if (!controller.signal.aborted) setError(e.message); });
-    return () => controller.abort();
-  }, [token, organization]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -98,24 +78,14 @@ export default function CostsView({ token }: { token: string }) {
   }
 
   return <>
-    <div className="page-heading"><div><p className="eyebrow">COST MANAGEMENT</p><h1>Usage & cost</h1><p className="page-subtitle">Durable project budgets and settled per-attempt charges.</p></div>
+    <div className="page-heading"><div><p className="page-subtitle">Durable project budgets and settled per-attempt charges.</p></div>
       <Button variant="outline" disabled={!project || loading} onClick={() => { setCursor(null); setRevision(x => x + 1); }}><RefreshCw />Refresh</Button>
     </div>
-    <section className="panel keys-controls">
-      <div className="key-scope-grid">
-        <Label htmlFor="cost-organization">Organization<NativeSelect id="cost-organization" value={organization} onChange={e => { setOrganization(e.target.value); setProject(''); setCursor(null); setReport(null); }}>
-          <NativeSelectOption value="">Select organization</NativeSelectOption>{organizations.map(x => <NativeSelectOption key={x.id} value={x.id}>{x.name}</NativeSelectOption>)}
-        </NativeSelect></Label>
-        <Label htmlFor="cost-project">Project<NativeSelect id="cost-project" disabled={!organization} value={project} onChange={e => { setProject(e.target.value); setCursor(null); setReport(null); }}>
-          <NativeSelectOption value="">Select project</NativeSelectOption>{projects.map(x => <NativeSelectOption key={x.id} value={x.id}>{x.name}</NativeSelectOption>)}
-        </NativeSelect></Label>
-      </div>
-      <p>Settled charges only. Unsettled attempts may still incur cost. Subscription fee allocations and capacity reports are not included yet.</p>
-    </section>
+    <p className="scope-notice">{project ? 'Showing settled charges and budgets for the selected workspace.' : 'Create or select a workspace from the navigation to inspect its accounting records.'} Unsettled attempts may still incur cost; subscription fees are not included.</p>
     {error && <p role="alert" className="error-text">{error}</p>}
     {budgetNotice && <p role="status" className="success-text">{budgetNotice}</p>}
     {loading && <p role="status">Loading accounting records…</p>}
-    {!project && <p className="page-subtitle">Select a project to inspect its accounting records.</p>}
+    {!project && <p className="page-subtitle">No workspace selected.</p>}
     {report && <>
       <section className="panel keys-controls budget-panel"><div className="budget-panel-heading"><div><h2>Lifetime cash budget</h2><p>Project-level cash limit</p></div>{report.budget && <Badge variant="secondary">Configured</Badge>}</div>
         {report.budget ? <dl className="budget-grid">

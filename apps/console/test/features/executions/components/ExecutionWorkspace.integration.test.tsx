@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { ComponentProps } from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ExecutionWorkspace from '../../../../src/features/executions/components/ExecutionWorkspace';
-import type { ExecutionCohort, ExecutionRecordV1 } from '../../../../src/features/executions/utils';
+import { aggregateExternalUsage, type ExecutionCohort, type ExecutionRecordV1 } from '../../../../src/features/executions/utils';
 import parallelFixture from '../../../../../../contracts/fixtures/parallel-task.v1.json';
 
 const basePath = '/admin/v1/organizations/org-1/projects/project-1/executions';
@@ -37,13 +38,39 @@ function makeRecord(taskId = 'task-01', recordId = 'record-01'): ExecutionRecord
   };
 }
 
+function makeClaudeSummary(id: string, recordId: string) {
+  return { ...makeSummary(id, 'claude-task-01', recordId), source: 'claude-code-otel' };
+}
+
+function makeClaudeRecord(recordId: string, eventId: string, start: number, input: string, output: string, cost: string | null): ExecutionRecordV1 {
+  const taskId = 'claude-task-01';
+  return {
+    schema_version: 1,
+    source: 'claude-code-otel',
+    record_id: recordId,
+    task_id: taskId,
+    coverage: 'partial',
+    spans: [
+      { id: taskId, kind: 'task', started_at_ms: start, ended_at_ms: start + 300 },
+      { id: 'model-' + eventId, kind: 'model_invocation', started_at_ms: start + 20, ended_at_ms: start + 250, reported_model: 'claude-test' },
+    ],
+    links: [{ from: taskId, to: 'model-' + eventId, kind: 'contains' }],
+    outcomes: [],
+    external_usage: {
+      authority: 'agent_reported_estimate', agent_version: '2.1.211', request_count: 1, retry_count: 0,
+      input_tokens: input, output_tokens: output, cache_read_tokens: '0', cache_creation_tokens: '0',
+      cost_nanos: cost, currency: cost == null ? null : 'USD',
+    },
+  };
+}
+
 function makeSummary(id = 'obs-01', taskId = 'task-01', recordId = 'record-01') {
   return { id, source: 'agent-harness', record_id: recordId, task_id: taskId, coverage: 'partial' as const, imported_at: '2026-09-26T08:00:00Z' };
 }
 
 function makeCohort(overrides: Partial<ExecutionCohort> = {}): ExecutionCohort {
   return {
-    records_scanned: 0, record_limit: 10000, truncated: false,
+    records_scanned: 0, tasks_scanned: 0, record_limit: 10000, truncated: false,
     coverage: { complete: 0, partial: 0, unknown: 0 },
     outcomes: { accepted: 0, rejected: 0, inconclusive: 0, conflicting: 0, unverified: 0 },
     outcome_evidence: {
@@ -63,10 +90,11 @@ function makeCohort(overrides: Partial<ExecutionCohort> = {}): ExecutionCohort {
   };
 }
 
-function mockGateway(initialSummaries: ReturnType<typeof makeSummary>[] = [], failFirstDetail = false, linkedAccounts: Array<{ span_id: string; attempt_id: string; account_id: string; provider: string; plan: string }> = [], initialRecord?: ExecutionRecordV1, cohort = makeCohort()) {
+function mockGateway(initialSummaries: ReturnType<typeof makeSummary>[] = [], failFirstDetail = false, linkedAccounts: Array<{ span_id: string; attempt_id: string; account_id: string; provider: string; plan: string }> = [], initialRecord?: ExecutionRecordV1, cohort = makeCohort(), recordOverrides: Array<{ id: string; record: ExecutionRecordV1 }> = []) {
   let summaries = [...initialSummaries];
   let shouldFailDetail = failFirstDetail;
   const records = new Map(summaries.map(item => [item.id, initialRecord ?? makeRecord(item.task_id, item.record_id)]));
+  for (const item of recordOverrides) records.set(item.id, item.record);
   const calls: Array<{ path: string; init?: RequestInit }> = [];
   const fetcher = vi.fn<typeof fetch>(async (input, init) => {
     const path = String(input);
@@ -81,9 +109,13 @@ function mockGateway(initialSummaries: ReturnType<typeof makeSummary>[] = [], fa
     if (path === '/admin/v1/organizations/org-1/projects') return ok({ data: [{ id: 'project-1', name: 'Agent platform' }] });
     if (path === basePath + '/cohort') return ok({ data: cohort });
     if (path.startsWith(basePath + '?')) {
-      const after = new URL(path, 'http://niu.test').searchParams.get('after');
-      const page = after ? summaries.slice(1, 2) : summaries.slice(0, 1);
-      return ok({ data: page, next_cursor: after || summaries.length < 2 ? null : summaries[0].id });
+      const query = new URL(path, 'http://niu.test').searchParams;
+      const taskId = query.get('task_id');
+      const matching = taskId ? summaries.filter(item => item.task_id === taskId) : summaries;
+      const after = query.get('after');
+      const afterIndex = after ? matching.findIndex(item => item.id === after) + 1 : 0;
+      const page = matching.slice(afterIndex, afterIndex + 1);
+      return ok({ data: page, next_cursor: afterIndex + page.length < matching.length ? page.at(-1)?.id ?? null : null });
     }
     if (path === basePath && method === 'POST') {
       const imported = JSON.parse(String(init?.body)) as ExecutionRecordV1;
@@ -112,19 +144,25 @@ function mockGateway(initialSummaries: ReturnType<typeof makeSummary>[] = [], fa
   return { calls, fetcher, summaries: () => summaries };
 }
 
-async function chooseProject(user: ReturnType<typeof userEvent.setup>) {
-  await screen.findByRole('option', { name: 'Niu workspace' });
-  await user.selectOptions(screen.getByRole('combobox', { name: 'Organization' }), 'org-1');
-  await screen.findByRole('option', { name: 'Agent platform' });
-  await user.selectOptions(screen.getByRole('combobox', { name: 'Project' }), 'project-1');
+function renderExecutionWorkspace(props: Partial<ComponentProps<typeof ExecutionWorkspace>> = {}) {
+  return render(<ExecutionWorkspace token="admin-test-token" initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} {...props} />);
 }
 
 describe('execution dashboard', () => {
+  it('opens a selected trace directly from a gateway task link', async () => {
+    const gateway = mockGateway([makeSummary('execution-01')]);
+    renderExecutionWorkspace({ embedded: true, initialScope: { organizationId: 'org-1', projectId: 'project-1', executionId: 'execution-01' } });
+
+    expect(await screen.findByRole('heading', { name: 'task-01' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Activity timeline' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /tool-01/ })).toBeTruthy();
+    expect(gateway.calls.some(call => call.path === `${basePath}/execution-01`)).toBe(true);
+  });
+
   it('shows a failed detail load clearly and lets the operator retry it', async () => {
     mockGateway([makeSummary()], true);
     const user = userEvent.setup();
-    render(<ExecutionWorkspace token="admin-test-token" />);
-    await chooseProject(user);
+    renderExecutionWorkspace();
     const run = await screen.findByRole('button', { name: /task-01/ });
     await user.click(run);
     expect(await screen.findByText('Trace could not be loaded.')).toBeTruthy();
@@ -139,8 +177,7 @@ describe('execution dashboard', () => {
     mockGateway([makeSummary()], false, [{ span_id: 'model-01', attempt_id: 'attempt-01', account_id: 'account-01', provider: 'Aster', plan: 'Team' }]);
     const onOpenSubscription = vi.fn();
     const user = userEvent.setup();
-    render(<ExecutionWorkspace token="admin-test-token" onOpenSubscription={onOpenSubscription} />);
-    await chooseProject(user);
+    renderExecutionWorkspace({ onOpenSubscription });
     await user.click(await screen.findByRole('button', { name: /task-01/ }));
     await user.click(await screen.findByRole('button', { name: /model-01/ }));
     expect(await screen.findByText('Aster · Team')).toBeTruthy();
@@ -151,8 +188,7 @@ describe('execution dashboard', () => {
   it('appends the next page without losing the selected task investigation', async () => {
     const gateway = mockGateway([makeSummary(), makeSummary('obs-02', 'task-02', 'record-02')]);
     const user = userEvent.setup();
-    render(<ExecutionWorkspace token="admin-test-token" />);
-    await chooseProject(user);
+    renderExecutionWorkspace();
     await user.click(await screen.findByRole('button', { name: /task-01/ }));
     expect(await screen.findByRole('heading', { name: 'task-01' })).toBeTruthy();
 
@@ -167,8 +203,7 @@ describe('execution dashboard', () => {
   it('loads a task trace with observed timing, conflicting outcomes, costs and causal links', async () => {
     const gateway = mockGateway([makeSummary()]);
     const user = userEvent.setup();
-    render(<ExecutionWorkspace token="admin-test-token" />);
-    await chooseProject(user);
+    renderExecutionWorkspace();
 
     const run = await screen.findByRole('button', { name: /task-01/ });
     await user.click(run);
@@ -207,13 +242,52 @@ describe('execution dashboard', () => {
     expect(screen.getAllByText('cancelled').length).toBeGreaterThan(0);
 
     await user.type(screen.getByRole('textbox', { name: 'Search task records' }), 'missing-task');
-    expect(screen.getByText('No matching task records')).toBeTruthy();
+    expect(screen.getByText('No matching tasks')).toBeTruthy();
     expect(gateway.calls.some(call => call.path === basePath + '/obs-01')).toBe(true);
+  });
+
+  it('groups collector event records by task and totals the reported usage', async () => {
+    const first = makeClaudeSummary('collector-01', 'event-01');
+    const second = makeClaudeSummary('collector-02', 'event-02');
+    const firstRecord = makeClaudeRecord('event-01', '01', 1000, '10', '4', '100000000');
+    const secondRecord = makeClaudeRecord('event-02', '02', 1300, '20', '8', '200000000');
+    const gateway = mockGateway([first, second], false, [], undefined, makeCohort(), [
+      { id: first.id, record: firstRecord }, { id: second.id, record: secondRecord },
+    ]);
+    const user = userEvent.setup();
+    renderExecutionWorkspace();
+
+    const task = await screen.findByRole('button', { name: /Claude Code/ });
+    expect(task.textContent).toContain('1 event loaded');
+    await user.click(task);
+
+    expect(await screen.findByText(/2 event records/)).toBeTruthy();
+    const metrics = await screen.findByLabelText('Execution summary');
+    expect(metrics.textContent).toContain('Task wall-clock600 ms');
+    expect(metrics.textContent).toContain('Model calls2');
+    const usage = screen.getByLabelText('Agent-reported usage estimate');
+    expect(usage.textContent).toContain('Requests2');
+    expect(usage.textContent).toContain('Input tokens30');
+    expect(usage.textContent).toContain('Output tokens12');
+    expect(usage.textContent).toContain('USD 0.3');
+    expect(usage.textContent).toContain('not a settled Niu charge');
+    expect(screen.getByText('No outcome evidence was reported.')).toBeTruthy();
+    expect(gateway.calls.some(call => call.path.includes('task_id=claude-task-01'))).toBe(true);
+  });
+
+  it('leaves aggregate cost unknown when any observed request has no reported cost', () => {
+    const usage = aggregateExternalUsage([
+      makeClaudeRecord('event-01', '01', 1000, '10', '4', '100000000'),
+      makeClaudeRecord('event-02', '02', 1300, '20', '8', null),
+    ]);
+    expect(usage?.input_tokens).toBe('30');
+    expect(usage?.cost_nanos).toBeNull();
+    expect(usage?.currency).toBeNull();
   });
 
   it('shows a project cohort with exact settled totals and accepted-task cost ratios', async () => {
     const report = makeCohort({
-      records_scanned: 2,
+      records_scanned: 2, tasks_scanned: 2,
       coverage: { complete: 2, partial: 0, unknown: 0 },
       outcomes: { accepted: 1, rejected: 1, inconclusive: 0, conflicting: 0, unverified: 0 },
       outcome_evidence: {
@@ -231,14 +305,14 @@ describe('execution dashboard', () => {
     });
     const gateway = mockGateway([], false, [], undefined, report);
     const user = userEvent.setup();
-    render(<ExecutionWorkspace token="admin-test-token" />);
-    await chooseProject(user);
+    renderExecutionWorkspace();
 
     expect(await screen.findByRole('heading', { name: 'Cohort outcomes' })).toBeTruthy();
     expect(screen.getByText('Evidence complete')).toBeTruthy();
     const cohort = screen.getByLabelText('Cohort outcomes');
-    expect(cohort.textContent).toContain('Imported task records2');
-    expect(cohort.textContent).toContain('Accepted completions1');
+    expect(cohort.textContent).toContain('Evidence records2');
+    expect(cohort.textContent).toContain('2 tasks');
+    expect(cohort.textContent).toContain('Accepted tasks1');
     expect(cohort.textContent).toContain('USD 10.00');
     expect(cohort.textContent).toContain('USD 5.00');
     expect(cohort.textContent).toContain('÷ 1 accepted tasks');
@@ -261,15 +335,14 @@ describe('execution dashboard', () => {
     });
     mockGateway([], false, [], undefined, report);
     const user = userEvent.setup();
-    render(<ExecutionWorkspace token="admin-test-token" />);
-    await chooseProject(user);
+    renderExecutionWorkspace();
 
     expect(await screen.findByText('Evidence incomplete')).toBeTruthy();
     const cohort = screen.getByLabelText('Cohort outcomes');
     expect(cohort.textContent).toContain('known settled entries');
     expect(cohort.textContent).toContain('Unavailable while evidence is incomplete');
     expect(cohort.textContent).toContain('1 unresolved refs');
-    expect(cohort.textContent).toContain('Invoice cash and subscription allocations are not imported');
+    expect(cohort.textContent).toContain('invoice and subscription totals are not imported');
   });
 
   it('marks successful-task cost undefined when the complete cohort has no accepted completions', async () => {
@@ -281,13 +354,12 @@ describe('execution dashboard', () => {
     });
     mockGateway([], false, [], undefined, report);
     const user = userEvent.setup();
-    render(<ExecutionWorkspace token="admin-test-token" />);
-    await chooseProject(user);
+    renderExecutionWorkspace();
 
     const cohort = screen.getByLabelText('Cohort outcomes');
     expect(await within(cohort).findByText('Evidence complete')).toBeTruthy();
     expect(cohort.textContent).toContain('Undefined with zero accepted tasks');
-    expect(cohort.textContent).toContain('Invoice cash and subscription allocations are not imported');
+    expect(cohort.textContent).toContain('invoice and subscription totals are not imported');
   });
 
   it('does not invent a currency total for an accepted cohort with no settled currency entries', async () => {
@@ -300,8 +372,7 @@ describe('execution dashboard', () => {
     });
     mockGateway([], false, [], undefined, report);
     const user = userEvent.setup();
-    render(<ExecutionWorkspace token="admin-test-token" />);
-    await chooseProject(user);
+    renderExecutionWorkspace();
 
     const cohort = screen.getByLabelText('Cohort outcomes');
     expect(await within(cohort).findByText('Evidence complete')).toBeTruthy();
@@ -312,8 +383,7 @@ describe('execution dashboard', () => {
   it('renders the shared parallel-task fixture with summed invocation work and reported cancellation', async () => {
     mockGateway([makeSummary('fixture-obs', 'task', 'parallel-fixture')], false, [], parallelFixture as unknown as ExecutionRecordV1);
     const user = userEvent.setup();
-    render(<ExecutionWorkspace token="admin-test-token" />);
-    await chooseProject(user);
+    renderExecutionWorkspace();
     await user.click(await screen.findByRole('button', { name: /^task/ }));
 
     expect(await screen.findByRole('heading', { name: 'task' })).toBeTruthy();
@@ -321,29 +391,32 @@ describe('execution dashboard', () => {
     expect(screen.getByText('Evidence differs')).toBeTruthy();
     const metrics = screen.getByLabelText('Execution summary');
     expect(metrics.textContent).toContain('Task wall-clock100 ms');
-    expect(metrics.textContent).toContain('Invocation work60 ms');
+    expect(metrics.textContent).toContain('Invocation work73 ms');
     expect(screen.getByRole('button', { name: /agent-a/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /agent-b/ })).toBeTruthy();
 
     await user.click(screen.getByRole('button', { name: /attempt-retry/ }));
     expect(screen.getByText('cancelled', { selector: 'dd' })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: /model-fallback/ }));
+    expect(screen.getByText('model-b', { selector: 'dd' })).toBeTruthy();
+    expect(screen.getByText('Reported model').nextElementSibling?.textContent).toBe('Unknown');
     const causalSummary = screen.getByText('Causal links').closest('summary');
     expect(causalSummary).not.toBeNull();
     await user.click(causalSummary!);
     expect(screen.getByText('resumes')).toBeTruthy();
+    expect(screen.getByText('fallbacks')).toBeTruthy();
     expect(screen.getByText('retries')).toBeTruthy();
     expect(screen.getAllByText('delegates')).toHaveLength(2);
-    expect(screen.getAllByText('contains')).toHaveLength(4);
+    expect(screen.getAllByText('contains')).toHaveLength(5);
     expect(screen.getAllByText('depends on')).toHaveLength(3);
   });
 
   it('validates and imports a record, then presents an idempotent replay clearly', async () => {
     const gateway = mockGateway();
     const user = userEvent.setup();
-    render(<ExecutionWorkspace token="admin-test-token" />);
-    await chooseProject(user);
-    await user.click(screen.getByRole('button', { name: 'Add task evidence' }));
-    const textarea = screen.getByRole('textbox', { name: 'Execution JSON' });
+    renderExecutionWorkspace();
+    await user.click(screen.getAllByRole('button', { name: 'Add task evidence' })[0]);
+    const textarea = screen.getByRole('textbox', { name: 'Task record JSON' });
 
     fireEvent.change(textarea, { target: { value: '{invalid' } });
     await user.click(screen.getByRole('button', { name: 'Import execution' }));
@@ -352,7 +425,7 @@ describe('execution dashboard', () => {
     const imported = makeRecord('task-02', 'record-02');
     fireEvent.change(textarea, { target: { value: JSON.stringify(imported) } });
     await user.click(screen.getByRole('button', { name: 'Import execution' }));
-    expect(await screen.findByText('Execution imported.', { selector: '[role="status"]' })).toBeTruthy();
+    expect(await screen.findByText('Task evidence imported.', { selector: '[role="status"]' })).toBeTruthy();
     expect(await screen.findByRole('button', { name: /task-02/ })).toBeTruthy();
 
     const posted = gateway.calls.find(call => call.path === basePath && call.init?.method === 'POST');
@@ -362,9 +435,9 @@ describe('execution dashboard', () => {
     expect((posted?.init?.headers as Headers).get('authorization')).toBe('Bearer admin-test-token');
 
     await user.click(screen.getByRole('button', { name: 'Add task evidence' }));
-    fireEvent.change(screen.getByRole('textbox', { name: 'Execution JSON' }), { target: { value: JSON.stringify(imported) } });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Task record JSON' }), { target: { value: JSON.stringify(imported) } });
     await user.click(screen.getByRole('button', { name: 'Import execution' }));
-    expect(await screen.findByText('This execution was already imported.', { selector: '[role="status"]' })).toBeTruthy();
+    expect(await screen.findByText('This task record was already imported.', { selector: '[role="status"]' })).toBeTruthy();
     expect(gateway.summaries()).toHaveLength(1);
   });
 
@@ -372,14 +445,13 @@ describe('execution dashboard', () => {
     const gateway = mockGateway([makeSummary()]);
     const user = userEvent.setup();
     vi.spyOn(window, 'confirm').mockReturnValue(true);
-    render(<ExecutionWorkspace token="admin-test-token" />);
-    await chooseProject(user);
+    renderExecutionWorkspace();
     await user.click(await screen.findByRole('button', { name: /task-01/ }));
     await screen.findByRole('heading', { name: 'task-01' });
-    await user.click(screen.getByRole('button', { name: 'Delete imported record' }));
+    await user.click(screen.getByRole('button', { name: 'Delete task evidence' }));
 
     expect(window.confirm).toHaveBeenCalledWith('Delete imported metadata for task task-01?');
-    expect(await screen.findByText('Imported metadata deleted.', { selector: '[role="status"]' })).toBeTruthy();
+    expect(await screen.findByText('Task evidence deleted.', { selector: '[role="status"]' })).toBeTruthy();
     expect(screen.getByText('No task evidence yet')).toBeTruthy();
     expect(gateway.calls.some(call => call.path === basePath + '/obs-01' && call.init?.method === 'DELETE')).toBe(true);
   });

@@ -67,13 +67,7 @@ async fn module_route_requires_scoped_operator_session_and_permission(pool: sqlx
     let installation_tokens =
         TokenSet::parse("NIU_ADMIN_TOKENS", INSTALLATION_TOKEN.into()).unwrap();
     let store = niu_storage::Store::from_pool(pool.clone());
-    let mut state = AppState::new(
-        config,
-        store,
-        installation_tokens,
-        reqwest::Client::new(),
-        HashMap::new(),
-    );
+    let mut state = AppState::new(config, store, installation_tokens, HashMap::new());
     state.enterprise = Some(runtime);
 
     let organization_id = state

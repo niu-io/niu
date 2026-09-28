@@ -3,7 +3,7 @@ services:
     build: .
     image: niu-io/niu:local
     ports:
-      - "2555:2555"
+      - "${NIU_HOST_PORT:-2555}:2555"
     environment:
       NIU_CONFIG_FILE: /etc/niu/niu.toml
       NIU_DATABASE_URL: postgres://niu:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD to a URL-safe random password}@postgres:5432/niu

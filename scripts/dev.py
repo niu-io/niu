@@ -126,6 +126,13 @@ def main():
     if STATE.stat().st_uid != os.getuid():
         raise RuntimeError('Runtime directory is owned by another user')
     os.chmod(STATE, 0o700)
+    dev_password_path = STATE / 'dev-password'
+    if not dev_password_path.exists():
+        dev_password_path.write_text(secrets.token_hex(18))
+        dev_password_path.chmod(0o600)
+    dev_password = dev_password_path.read_text().strip()
+    if len(dev_password) < 32:
+        raise RuntimeError('The local console password must contain at least 32 characters')
     import fcntl
     lock = open(STATE / 'launcher.lock', 'w')
     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -203,6 +210,9 @@ def main():
         frontend_env = dict(ui_env)
         if name == 'console':
             frontend_env['NIU_ADMIN_TOKENS'] = env['NIU_ADMIN_TOKENS']
+            frontend_env['NIU_DEV_BASE'] = '/niu/'
+            frontend_env['NIU_DEV_USERNAME'] = 'niu'
+            frontend_env['NIU_DEV_PASSWORD'] = dev_password
         spawn(name, ['pnpm', 'exec', command, 'dev' if command == 'astro' else '--strictPort', *(['--ignore-lock'] if command == 'astro' else []), '--host', '127.0.0.1', '--port', str(PORTS[name])], folder, frontend_env)
     deadline = time.time() + 90
     while time.time() < deadline and not stopping:
@@ -211,21 +221,23 @@ def main():
             raise RuntimeError(f"Service exited: {', '.join(failed)}; inspect its log")
         try:
             for name, port in PORTS.items():
-                suffix = '/readyz' if name == 'gateway' else '/docs/' if name == 'docs' else '/models/' if name == 'catalog' else '/'
+                suffix = '/readyz' if name == 'gateway' else '/docs/' if name == 'docs' else '/models/' if name == 'catalog' else '/niu/' if name == 'console' else '/'
                 urllib.request.urlopen(f'http://127.0.0.1:{port}{suffix}', timeout=2).close()
-            for port in (2555, 4325):
-                urllib.request.urlopen(f'http://127.0.0.1:{port}/catalog/v1/models', timeout=2).close()
+            # The model catalog is a static Astro page at /models/. Its API is
+            # served through the console's gateway proxy, so probe that route
+            # only through Vite's local /niu/ base path.
+            urllib.request.urlopen('http://127.0.0.1:2555/niu/catalog/v1/models', timeout=2).close()
             break
         except Exception:
             time.sleep(1)
     else:
         raise RuntimeError('Startup did not complete; inspect runtime logs')
     print('\nDevelopment stack ready:', flush=True)
-    print('  console: http://127.0.0.1:2555/workspaces/default/ (single browser entry; hot reload; local sign-in enabled)', flush=True)
+    print('  console: http://127.0.0.1:2555/niu/workspaces/default/ (single browser entry; hot reload; local sign-in enabled)', flush=True)
     print('  Gateway API is proxied through the console.', flush=True)
     print('  docs: http://127.0.0.1:4324/docs/', flush=True)
     print('  catalog: http://127.0.0.1:4325/models/', flush=True)
-    print('Local admin sign-in is automatic; no token needs to be pasted.', flush=True)
+    print(f'Console login username: niu (private password file: {STATE / "dev-password"})', flush=True)
     print('Ctrl-C stops this stack; database data is retained.', flush=True)
     stamp = source_stamp()
     while not stopping:

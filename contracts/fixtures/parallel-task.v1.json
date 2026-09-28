@@ -47,7 +47,7 @@
       "started_at_ms": 20,
       "ended_at_ms": 40,
       "requested_model": "model-a",
-      "reported_model": null,
+      "reported_model": "provider/model-a",
       "charge_ref": "charge-1"
     },
     {
@@ -58,6 +58,15 @@
       "requested_model": null,
       "reported_model": null,
       "charge_ref": "charge-1"
+    },
+    {
+      "id": "model-fallback",
+      "kind": "model_invocation",
+      "started_at_ms": 42,
+      "ended_at_ms": 55,
+      "requested_model": "model-b",
+      "reported_model": null,
+      "charge_ref": "charge-3"
     },
     {
       "id": "tool",
@@ -130,6 +139,16 @@
     {
       "to": "attempt",
       "kind": "contains",
+      "from": "model"
+    },
+    {
+      "to": "model-fallback",
+      "kind": "contains",
+      "from": "step"
+    },
+    {
+      "to": "model-fallback",
+      "kind": "fallbacks",
       "from": "model"
     },
     {

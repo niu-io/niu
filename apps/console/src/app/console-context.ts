@@ -4,6 +4,8 @@ import type { FormEvent } from 'react';
 export type Model = { id: string; provider?: string; upstream_model?: string; public_catalog: boolean };
 export type Health = { status: string; model_count?: number };
 export type GatewayStatus = 'online' | 'offline' | 'checking';
+export type Organization = { id: string; name: string };
+export type Workspace = { id: string; name: string; organization_id: string; organization_name: string };
 export type AdminSession = {
   kind: 'installation' | 'operator';
   operator: null | {
@@ -18,6 +20,13 @@ export type AdminSession = {
 export type ConsoleContext = {
   token: string;
   session: AdminSession | null;
+  organizations: Organization[];
+  workspaces: Workspace[];
+  workspace: Workspace | null;
+  workspaceLoading: boolean;
+  workspaceError: string;
+  selectWorkspace: (workspace: Workspace) => void;
+  createWorkspace: (name: string, organizationId?: string) => Promise<Workspace>;
   draftToken: string;
   setDraftToken: (value: string) => void;
   models: Model[];

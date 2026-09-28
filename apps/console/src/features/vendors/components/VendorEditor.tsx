@@ -78,7 +78,7 @@ export default function VendorEditor({ vendor, disabled, onCreate, onSave }: {
 
     <form className="vendor-editor-form" onSubmit={submit}>
       <div className="vendor-editor-fields">
-        <Label htmlFor="vendor-name">Vendor name
+        <Label htmlFor="vendor-name">Provider name
           <Input id="vendor-name" value={name} onChange={event => setName(event.target.value)} maxLength={100} autoComplete="off" placeholder="e.g. Primary inference" required disabled={disabled} />
         </Label>
         <Label htmlFor="vendor-adapter">Provider
@@ -96,7 +96,7 @@ export default function VendorEditor({ vendor, disabled, onCreate, onSave }: {
       </div>
 
       <div className="vendor-editor-notes">
-        <span><ShieldCheck size={15} />HTTPS is accepted; HTTP is limited to localhost or loopback.</span>
+        <span><ShieldCheck size={15} />Public HTTPS or localhost HTTP only.</span>
         <span><KeyRound size={15} />Credentials are stored encrypted and never shown again.</span>
       </div>
 
@@ -106,7 +106,7 @@ export default function VendorEditor({ vendor, disabled, onCreate, onSave }: {
       </label>}
 
       {confirmDisable && <div className="vendor-confirm-disable" role="alertdialog" aria-labelledby="vendor-disable-title">
-        <div><strong id="vendor-disable-title">Disable this vendor?</strong><p>Its model routes will stop receiving new requests.</p></div>
+        <div><strong id="vendor-disable-title">Disable this provider?</strong><p>Its model routes will stop receiving new requests.</p></div>
         <div className="vendor-confirm-actions">
           <Button type="button" variant="ghost" size="sm" disabled={disabled} onClick={() => setConfirmDisable(false)}>Keep enabled</Button>
           <Button type="button" variant="destructive" size="sm" disabled={disabled} onClick={() => void save(false).catch(() => {})}>{disabled ? 'Saving…' : 'Confirm disable'}</Button>
@@ -114,9 +114,9 @@ export default function VendorEditor({ vendor, disabled, onCreate, onSave }: {
       </div>}
 
       <div className="vendor-editor-footer">
-        <p>{vendor ? 'Provider type cannot be changed after creation.' : 'Use an HTTPS provider URL. A loopback HTTP URL is accepted for local gateways.'}</p>
+        <p>{vendor ? 'Provider type cannot be changed after creation.' : 'Use a public HTTPS URL. Loopback HTTP works for local development.'}</p>
         <Button type="submit" disabled={disabled || !name.trim() || !apiBase.trim() || (!vendor && !apiKey)}>
-          {!vendor ? <Plus /> : null}{disabled ? 'Saving…' : !vendor ? 'Create vendor' : !vendor.enabled && enabled ? 'Enable vendor' : vendor.enabled && !enabled ? 'Review disable' : 'Save changes'}
+          {!vendor ? <Plus /> : null}{disabled ? 'Saving…' : !vendor ? 'Create provider' : !vendor.enabled && enabled ? 'Enable provider' : vendor.enabled && !enabled ? 'Review disable' : 'Save changes'}
         </Button>
       </div>
     </form>

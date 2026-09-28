@@ -26,15 +26,15 @@ export default function ExecutionCohortPanel({ cohort, loading, error }: {
 
   return <section className="execution-cohort panel" aria-labelledby="execution-cohort-title" aria-busy={loading}>
     <header className="execution-cohort-head">
-      <div><p className="eyebrow">PROJECT ROLLUP</p><h2 id="execution-cohort-title">Cohort outcomes</h2><p>Per-record outcomes and deduplicated ledger evidence.</p></div>
+      <div><p className="eyebrow">PROJECT ROLLUP</p><h2 id="execution-cohort-title">Cohort outcomes</h2><p>Outcomes grouped by source and task; charges are deduplicated.</p></div>
       {cohort && <Badge variant={cohort.cost_evidence.complete ? 'secondary' : 'outline'}>{cohort.cost_evidence.complete ? 'Evidence complete' : 'Evidence incomplete'}</Badge>}
     </header>
     {error && <p role="alert" className="execution-cohort-error">Cohort report unavailable. {error}</p>}
     {loading && !cohort && <p role="status" className="execution-cohort-loading">Loading project rollup…</p>}
     {cohort && <>
       <div className="execution-cohort-grid">
-        <div className="execution-cohort-stat"><span>Imported task records</span><strong>{cohort.records_scanned}{cohort.truncated ? '+' : ''}</strong><small>{cohort.coverage.complete} complete · {cohort.coverage.partial} partial · {cohort.coverage.unknown} unknown coverage</small></div>
-        <div className="execution-cohort-stat execution-cohort-accepted"><span>Accepted completions</span><strong>{cohort.accepted_completions}</strong><small>{cohort.outcomes.rejected} rejected · {cohort.outcomes.inconclusive} inconclusive · {cohort.outcomes.conflicting} conflicting · {cohort.outcomes.unverified} unverified</small></div>
+        <div className="execution-cohort-stat"><span>Evidence records</span><strong>{cohort.records_scanned}{cohort.truncated ? '+' : ''}</strong><small>{cohort.tasks_scanned}{cohort.truncated ? '+' : ''} tasks · {cohort.coverage.complete} complete · {cohort.coverage.partial} partial · {cohort.coverage.unknown} unknown</small></div>
+        <div className="execution-cohort-stat execution-cohort-accepted"><span>Accepted tasks</span><strong>{cohort.accepted_completions}</strong><small>{cohort.outcomes.rejected} rejected · {cohort.outcomes.inconclusive} inconclusive · {cohort.outcomes.conflicting} conflicting · {cohort.outcomes.unverified} unverified</small></div>
         <div className="execution-cohort-stat execution-cohort-money"><span>API-equivalent cost</span><strong>{amounts(apiAmounts)}</strong><small>{cohort.cost_evidence.settled_cost_entries} {cohort.cost_evidence.complete ? 'deduplicated settled entries' : 'known settled entries'}</small></div>
         <div className="execution-cohort-stat execution-cohort-money"><span>Configured-rate cash</span><strong>{amounts(cashAmounts)}</strong><small>Niu rate calculation · not supplier invoices</small></div>
         <div className="execution-cohort-stat execution-cohort-money execution-cohort-ratio"><span>API cost / accepted task</span><strong>{rationalAmounts(acceptedApiCosts)}</strong><small>Exact ratio across all known cohort spend</small></div>
@@ -52,7 +52,7 @@ export default function ExecutionCohortPanel({ cohort, loading, error }: {
         <span>{cohort.cost_evidence.complete ? 'Every imported record has complete coverage and its observed billable work resolves to a settled ledger entry.' : `${cohort.cost_evidence.unresolved_references} unresolved refs · ${cohort.cost_evidence.attempts_without_cost_entries} attempts without cost · ${cohort.work.billable_roots_without_charge_references} billable roots without refs`}</span>
         <span>{cohort.capacity.quota_observations} quota samples · task attribution unavailable</span>
       </div>
-      <p className="execution-cohort-disclosure">Outcomes are counted per imported record. Invoice cash and subscription allocations are not imported. {cohort.truncated && `Showing the first ${cohort.record_limit.toLocaleString()} records in stable UUID order. `}{!cohort.cost_evidence.complete && 'Known settled costs include failed work when a canonical charge is linked; missing references remain unknown.'}</p>
+      <p className="execution-cohort-disclosure">Outcomes group by task. Coverage and ledger references remain per record; invoice and subscription totals are not imported. {cohort.truncated && `Showing the first ${cohort.record_limit.toLocaleString()} records in stable UUID order. `}{!cohort.cost_evidence.complete && 'Unmatched costs stay unknown.'}</p>
     </>}
   </section>;
 }

@@ -372,3 +372,268 @@ async fn streaming_persists_terminal_evidence_and_keeps_interruptions_unknown(po
         server.abort();
     }
 }
+
+#[derive(Clone, Default)]
+struct DeadlineHits(std::sync::Arc<std::sync::atomic::AtomicUsize>);
+
+async fn delayed_json_provider(
+    State(hits): State<DeadlineHits>,
+    Json(_body): Json<Value>,
+) -> Json<Value> {
+    hits.0.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    Json(json!({"ok":true}))
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn inference_deadline_matrix_covers_chat_responses_and_embeddings(pool: sqlx::PgPool) {
+    let hits = DeadlineHits::default();
+    let upstream = Router::new()
+        .route("/v1/chat/completions", post(delayed_json_provider))
+        .route("/v1/responses", post(delayed_json_provider))
+        .route("/v1/embeddings", post(delayed_json_provider))
+        .with_state(hits.clone());
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
+
+    let mut state = test_state(Some(format!("http://{address}/v1")), pool);
+    let config = Arc::make_mut(&mut state.config);
+    config.server.request_timeout_seconds = 1;
+    config.models.get_mut("fast").unwrap().supports_responses = true;
+    let organization = state
+        .store
+        .create_organization("deadline matrix")
+        .await
+        .unwrap();
+    let scope = state
+        .store
+        .create_project(organization, "deadline matrix")
+        .await
+        .unwrap();
+    let key = state
+        .store
+        .issue_key(scope, "deadline test", &["fast".into()], 3600)
+        .await
+        .unwrap();
+    let app = router(state.clone());
+    let request = |path: &str, body: Value| {
+        Request::post(path)
+            .header("authorization", format!("Bearer {}", key.token))
+            .header("content-type", "application/json")
+            .body(axum::body::Body::from(body.to_string()))
+            .unwrap()
+    };
+
+    let (chat, responses, embeddings) = tokio::join!(
+        app.clone().oneshot(request(
+            "/v1/chat/completions",
+            json!({"model":"fast","messages":[{"role":"user","content":"hello"}]}),
+        )),
+        app.clone().oneshot(request(
+            "/v1/responses",
+            json!({"model":"fast","input":"hello"}),
+        )),
+        app.oneshot(request(
+            "/v1/embeddings",
+            json!({"model":"fast","input":"hello"}),
+        )),
+    );
+
+    for response in [chat.unwrap(), responses.unwrap(), embeddings.unwrap()] {
+        assert_eq!(response.status(), StatusCode::BAD_GATEWAY);
+        let attempt_id = response.headers()["x-niu-attempt-id"]
+            .to_str()
+            .unwrap()
+            .parse()
+            .unwrap();
+        let attempt = state
+            .store
+            .attempt(scope, attempt_id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(attempt.execution, "may_have_executed");
+        assert_eq!(attempt.usage_confidence, "unknown");
+        assert_eq!(attempt.prompt_tokens, None);
+        assert_eq!(attempt.completion_tokens, None);
+    }
+    assert_eq!(hits.0.load(std::sync::atomic::Ordering::Relaxed), 3);
+    server.abort();
+}
+
+async fn delayed_sse_provider() -> axum::response::Response {
+    let body = futures_util::stream::once(async {
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        Ok::<_, std::convert::Infallible>(axum::body::Bytes::from_static(
+            b"data: {\"choices\":[]}\n\ndata: [DONE]\n\n",
+        ))
+    });
+    axum::response::Response::builder()
+        .header("content-type", "text/event-stream")
+        .body(axum::body::Body::from_stream(body))
+        .unwrap()
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn streaming_deadline_covers_the_upstream_body_after_headers(pool: sqlx::PgPool) {
+    let upstream = Router::new().route("/v1/chat/completions", post(delayed_sse_provider));
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
+
+    let mut state = test_state(Some(format!("http://{address}/v1")), pool);
+    Arc::make_mut(&mut state.config)
+        .server
+        .request_timeout_seconds = 1;
+    let organization = state
+        .store
+        .create_organization("stream deadline")
+        .await
+        .unwrap();
+    let scope = state
+        .store
+        .create_project(organization, "stream deadline")
+        .await
+        .unwrap();
+    let key = state
+        .store
+        .issue_key(scope, "deadline test", &["fast".into()], 3600)
+        .await
+        .unwrap();
+    let response = router(state.clone())
+        .oneshot(
+            Request::post("/v1/chat/completions")
+                .header("authorization", format!("Bearer {}", key.token))
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(
+                    json!({"model":"fast","stream":true,"messages":[{"role":"user","content":"hello"}]}).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let attempt_id = response.headers()["x-niu-attempt-id"]
+        .to_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let body_result = tokio::time::timeout(
+        std::time::Duration::from_secs(3),
+        response.into_body().collect(),
+    )
+    .await
+    .expect("the upstream stream deadline should terminate the body");
+    assert!(
+        body_result.is_err(),
+        "a body arriving after the request deadline must not complete the stream"
+    );
+    let attempt = state
+        .store
+        .attempt(scope, attempt_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(attempt.execution, "may_have_executed");
+    assert_eq!(attempt.usage_confidence, "unknown");
+    server.abort();
+}
+
+async fn endless_sse_provider(
+    State(produced): State<std::sync::Arc<std::sync::atomic::AtomicUsize>>,
+) -> axum::response::Response {
+    let event = json!({"choices":[{"index":0,"delta":{"content":"x"},"finish_reason":null}]});
+    let chunk = (0..600)
+        .map(|_| format!("data: {event}\n\n"))
+        .collect::<String>();
+    assert!(chunk.len() < 65_536);
+    let chunk = axum::body::Bytes::from(chunk);
+    let stream = futures_util::stream::unfold((produced, chunk), |(produced, chunk)| async move {
+        produced.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        Some((
+            Ok::<_, std::convert::Infallible>(chunk.clone()),
+            (produced, chunk),
+        ))
+    });
+    axum::response::Response::builder()
+        .header("content-type", "text/event-stream")
+        .body(axum::body::Body::from_stream(stream))
+        .unwrap()
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn streaming_body_applies_backpressure_and_keeps_dropped_attempt_unknown(pool: sqlx::PgPool) {
+    let produced = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let upstream = Router::new()
+        .route("/v1/chat/completions", post(endless_sse_provider))
+        .with_state(produced.clone());
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
+
+    let state = test_state(Some(format!("http://{address}/v1")), pool);
+    let organization = state
+        .store
+        .create_organization("stream backpressure")
+        .await
+        .unwrap();
+    let scope = state
+        .store
+        .create_project(organization, "stream backpressure")
+        .await
+        .unwrap();
+    let key = state
+        .store
+        .issue_key(scope, "slow client", &["fast".into()], 3600)
+        .await
+        .unwrap();
+    let response = router(state.clone())
+        .oneshot(
+            Request::post("/v1/chat/completions")
+                .header("authorization", format!("Bearer {}", key.token))
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(
+                    json!({"model":"fast","stream":true,"messages":[{"role":"user","content":"hello"}]}).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let attempt_id = response.headers()["x-niu-attempt-id"]
+        .to_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+
+    // Hold the downstream body unpolled. The upstream stream must not be
+    // drained without downstream demand, even while the provider is ready.
+    tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+    assert!(
+        produced.load(std::sync::atomic::Ordering::Relaxed) < 256,
+        "upstream read-ahead exceeded the bounded backpressure window"
+    );
+    let mut body = response.into_body();
+    let frame = tokio::time::timeout(std::time::Duration::from_secs(3), body.frame())
+        .await
+        .expect("a ready provider chunk should reach the client")
+        .expect("the provider stream should remain open")
+        .expect("the provider chunk should be valid");
+    assert!(frame.is_data());
+    assert!(!frame.into_data().unwrap().is_empty());
+    drop(body);
+
+    let attempt = state
+        .store
+        .attempt(scope, attempt_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(attempt.execution, "may_have_executed");
+    assert_eq!(attempt.usage_confidence, "unknown");
+    server.abort();
+}

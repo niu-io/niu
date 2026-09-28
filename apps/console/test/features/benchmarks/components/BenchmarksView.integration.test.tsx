@@ -3,6 +3,22 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import BenchmarksView from '../../../../src/features/benchmarks/components/BenchmarksView';
 
+const readyDataset = {
+  mode: 'paired_experiment',
+  opt_in: true,
+  authorization_ref: 'evaluation-approval-1',
+  candidates: [
+    { id: 'candidate-a', model_alias: 'model-a', offer_revision: 'route-a-1' },
+    { id: 'candidate-b', model_alias: 'model-b', offer_revision: 'route-b-1' },
+  ],
+  tasks: [{ id: 'task-a', snapshot_sha256: 'a'.repeat(64), tools_sha256: 'b'.repeat(64), permissions_sha256: 'c'.repeat(64), acceptance_sha256: 'd'.repeat(64) }],
+  repetitions: 1,
+  trials: [
+    { task_snapshot_id: 'task-a', candidate_id: 'candidate-a', offer_revision: 'route-a-1', repetition: 1, quality_basis_points: 9500, costs: { currency: 'USD', complete: true }, execution: { coverage: 'complete', spans: [{ id: 'model-a-call', kind: 'model_invocation', requested_model: 'model-a', charge_ref: 'attempt-a' }], outcomes: [{ span_id: 'model-a-call', evidence_id: 'outcome-a', authority: 'human_acceptance', result: 'accepted' }] }, gateway_attempts: [{ attempt_id: 'attempt-a', currency: 'USD', cash_nanos: '10', api_equivalent_nanos: '20' }] },
+    { task_snapshot_id: 'task-a', candidate_id: 'candidate-b', offer_revision: 'route-b-1', repetition: 1, quality_basis_points: 9500, costs: { currency: 'USD', complete: true }, execution: { coverage: 'complete', spans: [{ id: 'model-b-call', kind: 'model_invocation', requested_model: 'model-b', charge_ref: 'attempt-b' }], outcomes: [{ span_id: 'model-b-call', evidence_id: 'outcome-b', authority: 'deterministic_validator', result: 'accepted' }] }, gateway_attempts: [{ attempt_id: 'attempt-b', currency: 'USD', cash_nanos: '10', api_equivalent_nanos: '20' }] },
+  ],
+};
+
 const report = {
   schema_version: 1,
   evidence_kind: 'paired_experiment',
@@ -30,7 +46,8 @@ describe('benchmark dashboard', () => {
     vi.stubGlobal('fetch', fetcher);
     const user = userEvent.setup();
     render(<BenchmarksView token="admin-test-token" />);
-    fireEvent.change(screen.getByRole('textbox', { name: 'Dataset JSON' }), { target: { value: '{"schema_version":1}' } });
+    const dataset = JSON.stringify(readyDataset);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Dataset JSON' }), { target: { value: dataset } });
     await user.click(screen.getByRole('button', { name: 'Analyze dataset' }));
 
     expect(await screen.findByRole('heading', { name: 'Measured outcomes' })).toBeTruthy();
@@ -45,7 +62,32 @@ describe('benchmark dashboard', () => {
     const [path, init] = fetcher.mock.calls[0];
     expect(path).toBe('/admin/v1/benchmarks/compare');
     expect((init?.headers as Record<string, string>).authorization).toBe('Bearer admin-test-token');
-    expect(String(init?.body)).toBe('{"schema_version":1}');
+    expect(String(init?.body)).toBe(dataset);
+  });
+
+  it('shows missing task, outcome, coverage, route, and cost evidence before submitting', async () => {
+    const fetcher = vi.fn<typeof fetch>();
+    vi.stubGlobal('fetch', fetcher);
+    const incomplete = JSON.parse(JSON.stringify(readyDataset)) as typeof readyDataset;
+    incomplete.tasks[0].snapshot_sha256 = 'missing';
+    incomplete.trials.pop();
+    incomplete.trials[0].execution.coverage = 'partial';
+    incomplete.trials[0].execution.outcomes[0].authority = 'agent_claim';
+    incomplete.trials[0].offer_revision = 'stale-route';
+    incomplete.trials[0].costs.complete = false;
+    const user = userEvent.setup();
+    render(<BenchmarksView token="admin-test-token" />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Dataset JSON' }), { target: { value: JSON.stringify(incomplete) } });
+    await user.click(screen.getByRole('button', { name: 'Analyze dataset' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('Task snapshots with matching tool, permission, and acceptance hashes');
+    expect(alert.textContent).toContain('A non-conflicting validator or human outcome and quality score for every run');
+    expect(alert.textContent).toContain('Complete execution coverage for every run');
+    expect(alert.textContent).toContain('A matching model invocation on the pinned route revision for every run');
+    expect(alert.textContent).toContain('Settled Gateway charges for every billable span');
+    expect(alert.textContent).toContain('One run for every task, candidate, and repetition');
+    expect(fetcher).not.toHaveBeenCalled();
   });
 
   it('rejects malformed local JSON without sending a request', async () => {
@@ -64,10 +106,11 @@ describe('benchmark dashboard', () => {
     vi.stubGlobal('fetch', fetcher);
     const user = userEvent.setup();
     render(<BenchmarksView token="admin-test-token" />);
-    fireEvent.change(screen.getByRole('textbox', { name: 'Dataset JSON' }), { target: { value: '{"opt_in":true}' } });
+    const dataset = JSON.stringify(readyDataset);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Dataset JSON' }), { target: { value: dataset } });
     await user.click(screen.getByRole('button', { name: 'Analyze dataset' }));
     expect((await screen.findByRole('alert')).textContent).toContain('incomplete cost evidence');
-    expect((screen.getByRole('textbox', { name: 'Dataset JSON' }) as HTMLTextAreaElement).value).toBe('{"opt_in":true}');
+    expect((screen.getByRole('textbox', { name: 'Dataset JSON' }) as HTMLTextAreaElement).value).toBe(dataset);
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
 });

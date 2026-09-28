@@ -12,6 +12,18 @@ Users should not need to assemble separate gateway, UI, proxy, and worker servic
 
 Startup will validate configuration, connect to PostgreSQL, apply compatible schema migrations, load a valid configuration snapshot, start background work, and then become ready. Missing secrets or invalid configuration must stop startup with a clear error. Never generate a predictable default admin password.
 
+Back up PostgreSQL before upgrading the application image, and record the image digest alongside the backup. The current embedded SQL migrations run transactionally on PostgreSQL. If a migration fails, startup must remain unavailable; the failed migration and its DDL transaction are not recorded as successful. Keep the database intact, use the migration error to repair the blocking schema or restore the pre-upgrade backup, then retry with the same pinned image. Do not point an older application image at a database that has already completed a newer migration unless that downgrade is explicitly supported.
+
+For the current `provider_model` migration, maintainers can rehearse the pinned-package upgrade and recovery path with:
+
+```sh
+NIU_PREVIOUS_IMAGE='registry.example/niu@sha256:<previous-digest>' \
+NIU_IMAGE='registry.example/niu@sha256:<candidate-digest>' \
+python3 scripts/package-upgrade-smoke.py
+```
+
+Use images built from pinned revisions. The smoke script does not build or remove images; it starts a disposable PostgreSQL 17 instance, verifies the prior schema and scoped records, forces migration 16 to fail, then retries the same candidate digest after repairing the conflict. It removes its temporary containers, network, and config file on exit.
+
 On shutdown, readiness is withdrawn and new work stops before active requests are drained. The shutdown deadline bounds draining; unfinished durable work resumes from PostgreSQL after restart.
 
 ## Storage and health

@@ -1,4 +1,5 @@
 import { NiuAPIError, type RequestOptions } from './index.js';
+import type { ExecutionRecordV1 } from './execution.js';
 
 export type TenantScope = { organizationId: string; projectId: string };
 export type SupplierAccountInput = {
@@ -28,6 +29,47 @@ export type NiuAdminOptions = {
   baseURL?: string;
   fetch?: typeof globalThis.fetch;
 };
+export type ExecutionReceipt = { id: string; created: boolean };
+export type CollectorKeyView = {
+  id: string;
+  name: string;
+  purpose: 'quota' | 'execution';
+  created_at_ms: number;
+  expires_at_ms: number;
+  revoked: boolean;
+  expired: boolean;
+};
+export type GatewayActivityOutcome = {
+  authority: 'agent_claim' | 'deterministic_validator' | 'human_acceptance';
+  result: 'accepted' | 'rejected' | 'inconclusive';
+};
+export type GatewayTaskEvidence = {
+  execution_id: string;
+  source: string;
+  record_id: string;
+  coverage: 'complete' | 'partial' | 'unknown';
+  outcomes: GatewayActivityOutcome[];
+};
+export type GatewayActivityEntry = {
+  attempt_id: string;
+  operation_id: string;
+  task_id: string | null;
+  task_evidence: GatewayTaskEvidence | null;
+  model: string;
+  created_at: string;
+  dispatched_at: string | null;
+  completed_at: string | null;
+  duration_ms: number | null;
+  execution: string;
+  usage_confidence: string;
+  prompt_tokens: string | null;
+  completion_tokens: string | null;
+  currency: string | null;
+  cash_nanos: string | null;
+  api_equivalent_nanos: string | null;
+};
+export type GatewayActivityPage = { data: GatewayActivityEntry[]; next_cursor: string | null };
+export type GatewayActivityQuery = { limit?: number; after?: string };
 
 /** Server-side bootstrap administration. Never expose the admin token to clients.
  * No implicit retries: a collector explicitly resubmits identical observations.
@@ -55,8 +97,29 @@ export class NiuAdminClient {
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/collector-keys`, input, options);
   }
 
+  listCollectorKeys(scope: TenantScope, purpose?: 'quota' | 'execution', options?: RequestOptions): Promise<{ data: CollectorKeyView[] }> {
+    const query = purpose ? `?purpose=${purpose}` : '';
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/collector-keys${query}`, undefined, options);
+  }
+
   revokeCollectorKey(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<void> {
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/collector-keys/${uuid(keyId)}`, undefined, options, 'DELETE');
+  }
+
+  reportExecution(scope: TenantScope, record: ExecutionRecordV1, options?: RequestOptions): Promise<ExecutionReceipt> {
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/executions`, record, options);
+  }
+
+  listGatewayActivity(scope: TenantScope, query: GatewayActivityQuery = {}, options?: RequestOptions): Promise<GatewayActivityPage> {
+    if (query.limit !== undefined && (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100)) {
+      throw new Error('Gateway activity limit must be an integer from 1 to 100');
+    }
+    const parameters = new URLSearchParams();
+    if (query.limit !== undefined) parameters.set('limit', String(query.limit));
+    if (query.after !== undefined) parameters.set('after', uuid(query.after));
+    const suffix = parameters.size ? `?${parameters.toString()}` : '';
+    const path = `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/requests${suffix}`;
+    return this.request(path, undefined, options);
   }
 
   listAccounts(scope: TenantScope, options?: RequestOptions): Promise<{ data: SupplierAccount[] }> {
@@ -128,5 +191,9 @@ export class NiuCollectorClient {
 
   observeQuota(accountId: string, observation: QuotaObservation, options?: RequestOptions): Promise<{ id: string }> {
     return this.#client.observeQuota(this.#scope, accountId, observation, options);
+  }
+
+  reportExecution(record: ExecutionRecordV1, options?: RequestOptions): Promise<ExecutionReceipt> {
+    return this.#client.reportExecution(this.#scope, record, options);
   }
 }

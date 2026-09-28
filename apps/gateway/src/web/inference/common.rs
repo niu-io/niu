@@ -7,6 +7,35 @@ use uuid::Uuid;
 
 use crate::{error::ApiError, state::AppState};
 
+const MAX_PROVIDER_JSON_BYTES: usize = 16 * 1024 * 1024;
+
+pub(super) async fn provider_json(mut response: reqwest::Response) -> Result<Value, ApiError> {
+    if response
+        .content_length()
+        .is_some_and(|length| length > MAX_PROVIDER_JSON_BYTES as u64)
+    {
+        return Err(ApiError::upstream());
+    }
+
+    let mut body = Vec::new();
+    while let Some(chunk) = response.chunk().await.map_err(|_| ApiError::upstream())? {
+        append_provider_json_chunk(&mut body, &chunk, MAX_PROVIDER_JSON_BYTES)
+            .map_err(|_| ApiError::upstream())?;
+    }
+    serde_json::from_slice(&body).map_err(|_| ApiError::upstream())
+}
+
+fn append_provider_json_chunk(body: &mut Vec<u8>, chunk: &[u8], limit: usize) -> Result<(), ()> {
+    let next_length = body
+        .len()
+        .checked_add(chunk.len())
+        .filter(|length| *length <= limit)
+        .ok_or(())?;
+    body.try_reserve(next_length - body.len()).map_err(|_| ())?;
+    body.extend_from_slice(chunk);
+    Ok(())
+}
+
 pub(super) fn strip_server_control_fields(body: &mut serde_json::Map<String, Value>) {
     body.retain(|name, _| {
         !matches!(
@@ -17,8 +46,16 @@ pub(super) fn strip_server_control_fields(body: &mut serde_json::Map<String, Val
                 | "extra_headers"
                 | "headers"
                 | "authorization"
+                | "niu_api_key"
+                | "x_niu_api_key"
         )
     });
+}
+
+pub(super) fn provider_reported_model(value: &Value) -> Option<String> {
+    let model = value.get("model")?.as_str()?.trim();
+    (!model.is_empty() && model.len() <= 200 && model.chars().all(|value| !value.is_control()))
+        .then(|| model.to_owned())
 }
 
 pub(super) async fn begin_attempt(
@@ -130,6 +167,29 @@ pub(super) fn route_revision(model: &crate::config::ModelConfig) -> String {
     )
 }
 
+#[cfg(test)]
+mod tests {
+    use super::append_provider_json_chunk;
+
+    #[test]
+    fn provider_json_limit_is_enforced_across_chunks() {
+        let mut body = Vec::new();
+        append_provider_json_chunk(&mut body, b"{\"ok\":", 11).unwrap();
+        append_provider_json_chunk(&mut body, b"true}", 11).unwrap();
+        assert_eq!(body, b"{\"ok\":true}");
+
+        assert!(append_provider_json_chunk(&mut body, b" ", 11).is_err());
+        assert_eq!(body, b"{\"ok\":true}");
+    }
+
+    #[test]
+    fn provider_json_limit_rejects_length_overflow() {
+        let mut body = vec![b'x'; 8];
+        assert!(append_provider_json_chunk(&mut body, b"xx", 9).is_err());
+        assert_eq!(body.len(), 8);
+    }
+}
+
 pub(super) async fn finalize_response(
     state: &AppState,
     dispatch: DispatchContext,
@@ -139,7 +199,12 @@ pub(super) async fn finalize_response(
         Ok(result) if result.completed => {
             if let Err(error) = state
                 .store
-                .complete_and_settle(dispatch.scope, dispatch.attempt, result.usage)
+                .complete_and_settle_with_provider_model(
+                    dispatch.scope,
+                    dispatch.attempt,
+                    result.usage,
+                    result.provider_model.as_deref(),
+                )
                 .await
             {
                 ApiError::from_store(error).into_response()
@@ -259,6 +324,7 @@ pub(super) struct ProviderResponse {
     pub(super) response: Response,
     pub(super) completed: bool,
     pub(super) usage: Option<(u64, u64)>,
+    pub(super) provider_model: Option<String>,
 }
 
 pub(in crate::web) fn bearer(headers: &HeaderMap) -> Option<&str> {

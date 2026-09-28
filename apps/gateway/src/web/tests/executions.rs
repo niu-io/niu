@@ -12,7 +12,7 @@ async fn execution_import_api_is_scoped_and_read_only(pool: sqlx::PgPool) {
         .issue_key(a, "client", &["fast".into()], 3600)
         .await
         .unwrap();
-    let app = router(state);
+    let app = router(state.clone());
     let base = format!(
         "/admin/v1/organizations/{org}/projects/{}/execution-imports",
         a.project_id
@@ -116,7 +116,7 @@ async fn execution_import_api_is_scoped_and_read_only(pool: sqlx::PgPool) {
             assert_eq!(body["charges"]["entries"], json!([]));
             assert_eq!(
                 body["charges"]["unresolved"],
-                json!(["charge-1", "charge-2"])
+                json!(["charge-1", "charge-2", "charge-3"])
             );
             assert_eq!(body["charges"]["task_total_complete"], false);
             assert_eq!(body["charges"]["attribution"], "imported_reference");
@@ -307,11 +307,11 @@ async fn execution_import_api_is_idempotent_scoped_and_deletable(pool: sqlx::PgP
     assert_eq!(cohort_body["data"]["outcomes"]["conflicting"], 2);
     assert_eq!(
         cohort_body["data"]["cost_evidence"]["unique_charge_references"],
-        2
+        3
     );
     assert_eq!(
         cohort_body["data"]["cost_evidence"]["unresolved_references"],
-        1
+        2
     );
     assert_eq!(
         cohort_body["data"]["cost_evidence"]["attempts_without_cost_entries"],
@@ -512,20 +512,408 @@ async fn execution_import_api_is_idempotent_scoped_and_deletable(pool: sqlx::PgP
 async fn execution_collector_is_ingest_only_scoped_and_revocable(pool: sqlx::PgPool) {
     let state = test_state(None, pool);
     let scope = state.store.default_workspace().await.unwrap();
-    let other = state.store.create_project(scope.organization_id, "other").await.unwrap();
-    let collector = state.store.issue_collector_key_for(scope,"execution",3600,"execution").await.unwrap();
-    let quota = state.store.issue_collector_key(scope,"quota",3600).await.unwrap();
+    let other = state
+        .store
+        .create_project(scope.organization_id, "other")
+        .await
+        .unwrap();
+    let collector = state
+        .store
+        .issue_collector_key_for(scope, "execution", 3600, "execution")
+        .await
+        .unwrap();
+    let quota = state
+        .store
+        .issue_collector_key(scope, "quota", 3600)
+        .await
+        .unwrap();
     let app = router(state.clone());
-    let record: Value = serde_json::from_str(include_str!("../../../../../contracts/fixtures/parallel-task.v1.json")).unwrap();
-    let base = format!("/admin/v1/organizations/{}/projects/{}/execution-imports",scope.organization_id,scope.project_id);
-    let post = |path: &str, token: &str| Request::post(path).header("authorization",format!("Bearer {token}")).header("content-type","application/json").body(axum::body::Body::from(record.to_string())).unwrap();
-    assert_eq!(app.clone().oneshot(post(&base,&quota.token)).await.unwrap().status(),StatusCode::UNAUTHORIZED);
-    assert_eq!(app.clone().oneshot(post(&base,&collector.token)).await.unwrap().status(),StatusCode::CREATED);
-    assert_eq!(app.clone().oneshot(post(&base,&collector.token)).await.unwrap().status(),StatusCode::OK);
-    let wrong = format!("/admin/v1/organizations/{}/projects/{}/execution-imports",scope.organization_id,other.project_id);
-    assert_eq!(app.clone().oneshot(post(&wrong,&collector.token)).await.unwrap().status(),StatusCode::UNAUTHORIZED);
-    let read = Request::get(&base).header("authorization",format!("Bearer {}",collector.token)).body(axum::body::Body::empty()).unwrap();
-    assert_eq!(app.clone().oneshot(read).await.unwrap().status(),StatusCode::UNAUTHORIZED);
-    state.store.revoke_collector_key(scope,collector.id).await.unwrap();
-    assert_eq!(app.clone().oneshot(post(&base,&collector.token)).await.unwrap().status(),StatusCode::UNAUTHORIZED);
+    let collector_keys_path = format!(
+        "/admin/v1/organizations/{}/projects/{}/collector-keys?purpose=execution",
+        scope.organization_id, scope.project_id
+    );
+    let listed = app
+        .clone()
+        .oneshot(
+            Request::get(&collector_keys_path)
+                .header(
+                    "authorization",
+                    "Bearer niu-test-admin-token-that-is-long-1234",
+                )
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(listed.status(), StatusCode::OK);
+    let listed: Value =
+        serde_json::from_slice(&listed.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(listed["data"].as_array().unwrap().len(), 1);
+    assert_eq!(listed["data"][0]["purpose"], "execution");
+    assert!(listed.to_string().find(&collector.token).is_none());
+    assert!(listed.to_string().find("token_hash").is_none());
+    let record: Value = serde_json::from_str(include_str!(
+        "../../../../../contracts/fixtures/parallel-task.v1.json"
+    ))
+    .unwrap();
+    let base = format!(
+        "/admin/v1/organizations/{}/projects/{}/execution-imports",
+        scope.organization_id, scope.project_id
+    );
+    let post = |path: &str, token: &str| {
+        Request::post(path)
+            .header("authorization", format!("Bearer {token}"))
+            .header("content-type", "application/json")
+            .body(axum::body::Body::from(record.to_string()))
+            .unwrap()
+    };
+    assert_eq!(
+        app.clone()
+            .oneshot(post(&base, &quota.token))
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        app.clone()
+            .oneshot(post(&base, &collector.token))
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::CREATED
+    );
+    assert_eq!(
+        app.clone()
+            .oneshot(post(&base, &collector.token))
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::OK
+    );
+    let wrong = format!(
+        "/admin/v1/organizations/{}/projects/{}/execution-imports",
+        scope.organization_id, other.project_id
+    );
+    assert_eq!(
+        app.clone()
+            .oneshot(post(&wrong, &collector.token))
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::UNAUTHORIZED
+    );
+    let read = Request::get(&base)
+        .header("authorization", format!("Bearer {}", collector.token))
+        .body(axum::body::Body::empty())
+        .unwrap();
+    assert_eq!(
+        app.clone().oneshot(read).await.unwrap().status(),
+        StatusCode::UNAUTHORIZED
+    );
+    state
+        .store
+        .revoke_collector_key(scope, collector.id)
+        .await
+        .unwrap();
+    let listed = app
+        .clone()
+        .oneshot(
+            Request::get(&collector_keys_path)
+                .header(
+                    "authorization",
+                    "Bearer niu-test-admin-token-that-is-long-1234",
+                )
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(listed.status(), StatusCode::OK);
+    let listed: Value =
+        serde_json::from_slice(&listed.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(listed["data"][0]["revoked"], true);
+    assert_eq!(
+        app.clone()
+            .oneshot(post(&base, &collector.token))
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::UNAUTHORIZED
+    );
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn gateway_activity_uses_a_chronological_cursor_and_includes_task_evidence(
+    pool: sqlx::PgPool,
+) {
+    let state = test_state(None, pool);
+    let organization = state
+        .store
+        .create_organization("gateway history")
+        .await
+        .unwrap();
+    let scope = state
+        .store
+        .create_project(organization, "history")
+        .await
+        .unwrap();
+    let key = state
+        .store
+        .issue_key(scope, "client", &["fast".into()], 3600)
+        .await
+        .unwrap();
+    let principal = state.store.authenticate(&key.token).await.unwrap();
+    for index in 0..105u64 {
+        let operation = state
+            .store
+            .create_operation_for_task(scope, "fast", Some("task-history"))
+            .await
+            .unwrap();
+        let attempt = state
+            .store
+            .prepare_attempt(scope, operation, "fast", "route-v1")
+            .await
+            .unwrap();
+        state
+            .store
+            .mark_dispatched(&principal, attempt)
+            .await
+            .unwrap();
+        state
+            .store
+            .complete_with_provider_model(
+                scope,
+                attempt,
+                Some((index + 1, 1)),
+                Some("upstream-fast-v1"),
+            )
+            .await
+            .unwrap();
+    }
+
+    let app = router(state.clone());
+    let mut record: Value = serde_json::from_str(include_str!(
+        "../../../../../contracts/fixtures/parallel-task.v1.json"
+    ))
+    .unwrap();
+    record["task_id"] = json!("task-history");
+    for span in record["spans"].as_array_mut().unwrap() {
+        if span["id"] == "task" {
+            span["id"] = json!("task-history");
+        }
+    }
+    for link in record["links"].as_array_mut().unwrap() {
+        for endpoint in ["from", "to"] {
+            if link[endpoint] == "task" {
+                link[endpoint] = json!("task-history");
+            }
+        }
+    }
+    for outcome in record["outcomes"].as_array_mut().unwrap() {
+        if outcome["span_id"] == "task" {
+            outcome["span_id"] = json!("task-history");
+        }
+    }
+    let import_path = format!(
+        "/admin/v1/organizations/{organization}/projects/{}/executions",
+        scope.project_id
+    );
+    let imported = app
+        .clone()
+        .oneshot(
+            Request::post(import_path)
+                .header(
+                    "authorization",
+                    "Bearer niu-test-admin-token-that-is-long-1234",
+                )
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(record.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(imported.status(), StatusCode::CREATED);
+    let imported_body: Value =
+        serde_json::from_slice(&imported.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    let execution_id = imported_body["id"].as_str().unwrap();
+
+    let base = format!(
+        "/admin/v1/organizations/{organization}/projects/{}/requests",
+        scope.project_id
+    );
+    let page_request = |path: String| {
+        let app = app.clone();
+        async move {
+            app.oneshot(
+                Request::get(path)
+                    .header(
+                        "authorization",
+                        "Bearer niu-test-admin-token-that-is-long-1234",
+                    )
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap()
+        }
+    };
+    let first_page = page_request(format!("{base}?limit=100")).await;
+    assert_eq!(first_page.status(), StatusCode::OK);
+    let first_body: Value =
+        serde_json::from_slice(&first_page.into_body().collect().await.unwrap().to_bytes())
+            .unwrap();
+    let first_rows = first_body["data"].as_array().unwrap();
+    assert_eq!(first_rows.len(), 100);
+    let cursor = first_body["next_cursor"].as_str().unwrap().to_owned();
+    let mut seen = Vec::new();
+    let mut previous: Option<(String, String)> = None;
+    for row in first_rows {
+        assert_eq!(row["task_id"], "task-history");
+        assert_eq!(row["provider_model"], "upstream-fast-v1");
+        assert_eq!(row["task_evidence"]["source"], "synthetic");
+        assert_eq!(row["task_evidence"]["execution_id"], execution_id);
+        assert_eq!(row["task_evidence"]["record_id"], "parallel-fixture");
+        assert_eq!(row["task_evidence"]["coverage"], "partial");
+        assert!(
+            !row["task_evidence"]["outcomes"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+        let attempt_id = row["attempt_id"].as_str().unwrap().to_owned();
+        assert!(!seen.contains(&attempt_id));
+        seen.push(attempt_id.clone());
+        let current = (row["created_at"].as_str().unwrap().to_owned(), attempt_id);
+        if let Some(prior) = previous.as_ref() {
+            assert!(prior >= &current, "activity pages are not chronological");
+        }
+        previous = Some(current);
+    }
+
+    let arriving_operation = state
+        .store
+        .create_operation_for_task(scope, "fast", Some("task-history"))
+        .await
+        .unwrap();
+    let arriving_attempt = state
+        .store
+        .prepare_attempt(scope, arriving_operation, "fast", "route-v1")
+        .await
+        .unwrap();
+    state
+        .store
+        .mark_dispatched(&principal, arriving_attempt)
+        .await
+        .unwrap();
+    state
+        .store
+        .complete_with_provider_model(
+            scope,
+            arriving_attempt,
+            Some((106, 1)),
+            Some("upstream-fast-v1"),
+        )
+        .await
+        .unwrap();
+
+    let older_page = page_request(format!("{base}?limit=100&after={cursor}")).await;
+    assert_eq!(older_page.status(), StatusCode::OK);
+    let older_body: Value =
+        serde_json::from_slice(&older_page.into_body().collect().await.unwrap().to_bytes())
+            .unwrap();
+    let older_rows = older_body["data"].as_array().unwrap();
+    assert_eq!(older_rows.len(), 5);
+    assert!(older_body["next_cursor"].is_null());
+    for row in older_rows {
+        assert_eq!(row["task_evidence"]["execution_id"], execution_id);
+        let attempt_id = row["attempt_id"].as_str().unwrap().to_owned();
+        assert!(!seen.contains(&attempt_id));
+        assert_ne!(attempt_id, arriving_attempt.to_string());
+        seen.push(attempt_id);
+    }
+    assert_eq!(seen.len(), 105);
+
+    let refreshed = page_request(format!("{base}?limit=100")).await;
+    assert_eq!(refreshed.status(), StatusCode::OK);
+    let refreshed_body: Value =
+        serde_json::from_slice(&refreshed.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(
+        refreshed_body["data"][0]["attempt_id"],
+        arriving_attempt.to_string()
+    );
+
+    let filtered = page_request(format!(
+        "{base}?limit=10&model_alias=fast&key_id={}&status=confirmed_completed",
+        key.id
+    ))
+    .await;
+    assert_eq!(filtered.status(), StatusCode::OK);
+    let filtered_body: Value =
+        serde_json::from_slice(&filtered.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(filtered_body["data"].as_array().unwrap().len(), 10);
+    assert_eq!(filtered_body["summary"]["request_count"], 106);
+    assert_eq!(filtered_body["summary"]["usage_count"], 106);
+    assert_eq!(filtered_body["summary"]["prompt_tokens"], "5671");
+    assert_eq!(filtered_body["summary"]["completion_tokens"], "106");
+    assert_eq!(filtered_body["summary"]["unknown_cost_count"], 106);
+
+    let other_organization = state
+        .store
+        .create_organization("other history workspace")
+        .await
+        .unwrap();
+    let other_scope = state
+        .store
+        .create_project(other_organization, "other history project")
+        .await
+        .unwrap();
+    let other_key = state
+        .store
+        .issue_key(other_scope, "other project key", &["fast".into()], 3600)
+        .await
+        .unwrap();
+    let foreign_key_filter = page_request(format!("{base}?key_id={}", other_key.id)).await;
+    assert_eq!(foreign_key_filter.status(), StatusCode::OK);
+    let foreign_body: Value = serde_json::from_slice(
+        &foreign_key_filter
+            .into_body()
+            .collect()
+            .await
+            .unwrap()
+            .to_bytes(),
+    )
+    .unwrap();
+    assert!(foreign_body["data"].as_array().unwrap().is_empty());
+    assert_eq!(foreign_body["summary"]["request_count"], 0);
+
+    let empty_date_window = page_request(format!("{base}?from_ms=0&to_ms=1")).await;
+    assert_eq!(empty_date_window.status(), StatusCode::OK);
+    let empty_date_body: Value = serde_json::from_slice(
+        &empty_date_window
+            .into_body()
+            .collect()
+            .await
+            .unwrap()
+            .to_bytes(),
+    )
+    .unwrap();
+    assert!(empty_date_body["data"].as_array().unwrap().is_empty());
+    assert_eq!(empty_date_body["summary"]["request_count"], 0);
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::get(format!("{base}?limit=101"))
+                .header(
+                    "authorization",
+                    "Bearer niu-test-admin-token-that-is-long-1234",
+                )
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 }

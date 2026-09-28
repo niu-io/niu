@@ -2,9 +2,9 @@ use std::{
     collections::HashMap,
     env,
     sync::{Arc, atomic::AtomicU64},
-    time::Duration,
 };
 
+use axum::http::HeaderMap;
 use sha2::{Digest, Sha256};
 use subtle::ConstantTimeEq;
 
@@ -18,7 +18,6 @@ pub struct AppState {
     provider_keys: Arc<HashMap<String, String>>,
     pub store: niu_storage::Store,
     pub admin_tokens: Arc<TokenSet>,
-    pub http: reqwest::Client,
     pub requests: Arc<AtomicU64>,
     pub failures: Arc<AtomicU64>,
     pub usage: Arc<crate::usage::UsageMetrics>,
@@ -89,12 +88,8 @@ impl AppState {
                 provider_keys.insert(model.api_key_env.clone(), secret);
             }
         }
-        let http = reqwest::Client::builder()
-            .connect_timeout(Duration::from_secs(10))
-            .redirect(reqwest::redirect::Policy::none())
-            .build()?;
         let mut state =
-            Self::new(config, store, admin_tokens, http, provider_keys).with_enterprise(enterprise);
+            Self::new(config, store, admin_tokens, provider_keys).with_enterprise(enterprise);
         state.vendor_cipher = vendor_cipher;
         Ok(state)
     }
@@ -103,7 +98,6 @@ impl AppState {
         config: AppConfig,
         store: niu_storage::Store,
         admin_tokens: TokenSet,
-        http: reqwest::Client,
         provider_keys: HashMap<String, String>,
     ) -> Self {
         Self {
@@ -113,7 +107,6 @@ impl AppState {
             provider_keys: Arc::new(provider_keys),
             store,
             admin_tokens: Arc::new(admin_tokens),
-            http,
             requests: Arc::new(AtomicU64::new(0)),
             failures: Arc::new(AtomicU64::new(0)),
             usage: Arc::new(crate::usage::UsageMetrics::default()),
@@ -143,6 +136,36 @@ impl AppState {
             .authenticate(token)
             .await
             .map_err(ApiError::from_store)
+    }
+
+    /// Authorize an inference request using Niu's separate credential header
+    /// when present. This lets clients retain a provider Authorization header
+    /// without making it the Niu project credential.
+    pub async fn authorize_api_headers(
+        &self,
+        headers: &HeaderMap,
+    ) -> Result<niu_storage::Principal, ApiError> {
+        let niu_keys = headers.get_all("x-niu-api-key").iter().collect::<Vec<_>>();
+        if niu_keys.len() > 1 {
+            return Err(ApiError::unauthorized());
+        }
+        if let Some(value) = niu_keys.first() {
+            let token = value.to_str().map_err(|_| ApiError::unauthorized())?;
+            if token.is_empty() || token.trim() != token {
+                return Err(ApiError::unauthorized());
+            }
+            return self
+                .store
+                .authenticate(token)
+                .await
+                .map_err(ApiError::from_store);
+        }
+        self.authorize_api(
+            headers
+                .get(axum::http::header::AUTHORIZATION)
+                .and_then(|h| h.to_str().ok()),
+        )
+        .await
     }
 
     pub async fn authorize_admin(

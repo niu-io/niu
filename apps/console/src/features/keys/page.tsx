@@ -1,15 +1,16 @@
 import ConnectGate from '@/app/ConnectGate';
+import { useConsoleContext } from '@/app/console-context';
 import KeysView from './components/KeysView';
 
 export default function KeysRoute() {
-  return <ConnectGate title="API keys" subtitle="Manage organizations, projects and client keys.">
+  const { workspace } = useConsoleContext();
+  return <ConnectGate subtitle="Issue keys for the selected workspace.">
     {({ token, models, session }) => <KeysView
-      key={token}
+      key={`${token}:${workspace?.id ?? ''}`}
       token={token}
       models={models.map(model => model.id)}
+      initialScope={workspace ? { organizationId: workspace.organization_id, projectId: workspace.id } : null}
       canWrite={session?.permissions.write === true}
-      canCreateOrganization={session?.kind === 'installation'}
-      canCreateProject={session?.permissions.write === true && (session.kind === 'installation' || (session.kind === 'operator' && session.operator?.project_id === null))}
     />}
   </ConnectGate>;
 }

@@ -20,6 +20,22 @@ test('lists models with bearer authorization', async () => {
   assert.equal(result.data[0].id, 'fast');
 });
 
+test('uses the separate Niu credential header without replacing provider authorization', async () => {
+  let captured;
+  const client = new NiuClient({
+    apiKey: 'niu-project-key',
+    credentialHeader: 'x-niu-api-key',
+    defaultHeaders: { authorization: 'Bearer provider-session' },
+    fetch: async (_input, init) => {
+      captured = new Headers(init.headers);
+      return Response.json({ object: 'list', data: [] });
+    },
+  });
+  await client.models.list();
+  assert.equal(captured.get('x-niu-api-key'), 'niu-project-key');
+  assert.equal(captured.get('authorization'), 'Bearer provider-session');
+});
+
 test('posts chat requests and returns a typed API error for failures', async () => {
   let capturedBody;
   const client = new NiuClient({

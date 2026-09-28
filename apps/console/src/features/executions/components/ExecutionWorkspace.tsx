@@ -4,12 +4,58 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
-import { executionMetrics, spanDuration, timelineRows, type ExecutionAccountLink, type ExecutionCohort, type ExecutionRecordV1 } from '@/features/executions/utils';
+import { aggregateExternalUsage, executionMetrics, mergeExecutionRecords, spanDuration, timelineRows, type ExecutionAccountLink, type ExecutionCohort, type ExecutionRecordV1 } from '@/features/executions/utils';
 import ExecutionCohortPanel from '@/features/executions/components/ExecutionCohortPanel';
 import TraceRow from '@/features/executions/components/TraceRow';
-import { formatDate, kindLabel, projectPath, request, type Named, type Page, type ScopeFocus, type Summary } from '@/features/executions/api';
+import { formatDate, kindLabel, projectPath, request, type Page, type ScopeFocus, type Summary } from '@/features/executions/api';
 import TaskCharges, { type TaskChargeEvidence } from './TaskCharges';
+import { money } from '@/lib/money';
+
+type TaskGroup = { key: string; source: string; taskId: string; records: Summary[]; coverage: Summary['coverage']; importedAt: string };
+
+function groupTaskRecords(records: Summary[]): TaskGroup[] {
+  const groups = new Map<string, TaskGroup>();
+  for (const record of records) {
+    const key = record.source + '\0' + record.task_id;
+    let group = groups.get(key);
+    if (!group) {
+      group = { key, source: record.source, taskId: record.task_id, records: [], coverage: record.coverage, importedAt: record.imported_at };
+      groups.set(key, group);
+    }
+    group.records.push(record);
+    if (record.coverage === 'unknown' || (record.coverage === 'partial' && group.coverage === 'complete')) group.coverage = record.coverage;
+    if (Date.parse(record.imported_at) > Date.parse(group.importedAt)) group.importedAt = record.imported_at;
+  }
+  return [...groups.values()];
+}
+
+function taskLabel(taskId: string, source: string): string {
+  if (source === 'claude-code-otel') {
+    const promptId = taskId.split('-prompt-')[1];
+    return promptId ? 'Claude Code · ' + promptId.slice(0, 8) : 'Claude Code session';
+  }
+  return taskId.length > 38 ? taskId.slice(0, 23) + '…' + taskId.slice(-10) : taskId;
+}
+
+function mergeTaskCharges(items: Array<TaskChargeEvidence | undefined>): TaskChargeEvidence | undefined {
+  const available = items.filter((item): item is TaskChargeEvidence => item != null);
+  if (!available.length) return undefined;
+  const entries = new Map(available.flatMap(item => item.entries.map(entry => [entry.attempt_id, entry] as const)));
+  return {
+    entries: [...entries.values()],
+    unresolved: [...new Set(available.flatMap(item => item.unresolved))],
+    attribution: 'imported_reference',
+    task_total_complete: available.length === items.length && available.every(item => item.task_total_complete),
+  };
+}
+
+async function mapInBatches<T, R>(items: T[], size: number, map: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = [];
+  for (let index = 0; index < items.length; index += size) {
+    results.push(...await Promise.all(items.slice(index, index + size).map(map)));
+  }
+  return results;
+}
 
 export default function ExecutionWorkspace({ token, initialScope, onOpenSubscription, embedded = false }: {
   token: string;
@@ -17,10 +63,8 @@ export default function ExecutionWorkspace({ token, initialScope, onOpenSubscrip
   initialScope?: ScopeFocus | null;
   onOpenSubscription?: (organizationId: string, projectId: string, accountId: string) => void;
 }) {
-  const [organizations, setOrganizations] = useState<Named[]>([]);
-  const [projects, setProjects] = useState<Named[]>([]);
-  const [organization, setOrganization] = useState(initialScope?.organizationId ?? '');
-  const [project, setProject] = useState(initialScope?.projectId ?? '');
+  const organization = initialScope?.organizationId ?? '';
+  const project = initialScope?.projectId ?? '';
   const [records, setRecords] = useState<Summary[]>([]);
   const [cohort, setCohort] = useState<ExecutionCohort | null>(null);
   const [cohortLoading, setCohortLoading] = useState(false);
@@ -29,6 +73,9 @@ export default function ExecutionWorkspace({ token, initialScope, onOpenSubscrip
   const [cursor, setCursor] = useState('');
   const [selected, setSelected] = useState<Summary | null>(null);
   const [detail, setDetail] = useState<ExecutionRecordV1 | null>(null);
+  const [taskEventRecords, setTaskEventRecords] = useState<ExecutionRecordV1[]>([]);
+  const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
+  const [taskRecordCount, setTaskRecordCount] = useState(0);
   const [charges, setCharges] = useState<TaskChargeEvidence | undefined>();
   const [linkedAccounts, setLinkedAccounts] = useState<ExecutionAccountLink[]>([]);
   const [activeSpanId, setActiveSpanId] = useState<string | null>(null);
@@ -45,29 +92,10 @@ export default function ExecutionWorkspace({ token, initialScope, onOpenSubscrip
 
   useEffect(() => {
     const controller = new AbortController();
-    void request<{ data: Named[] }>('/admin/v1/organizations', token, { signal: controller.signal })
-      .then(value => { if (!controller.signal.aborted) setOrganizations(value.data); })
-      .catch(e => { if (!controller.signal.aborted) setError(e.message); });
-    return () => controller.abort();
-  }, [token]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const focusedProject = initialScope?.organizationId === organization ? initialScope.projectId : '';
-    setProjects([]); if (!focusedProject) setProject(''); setRecords([]); setSelected(null); setDetail(null); setCharges(undefined); setLinkedAccounts([]); setActiveSpanId(null);
-    if (!organization) return () => controller.abort();
-    void request<{ data: Named[] }>('/admin/v1/organizations/' + organization + '/projects', token, { signal: controller.signal })
-      .then(value => { if (!controller.signal.aborted) { setProjects(value.data); if (focusedProject && value.data.some(item => item.id === focusedProject)) setProject(focusedProject); } })
-      .catch(e => { if (!controller.signal.aborted) setError(e.message); });
-    return () => controller.abort();
-  }, [token, organization, initialScope?.organizationId, initialScope?.projectId]);
-
-  useEffect(() => {
-    const controller = new AbortController();
     const firstPage = cursor === '';
     if (firstPage) {
       detailRequestSequence.current += 1;
-      setRecords([]); setNextCursor(null); setSelected(null); setDetail(null); setCharges(undefined); setLinkedAccounts([]); setActiveSpanId(null); setDetailLoading(false);
+      setRecords([]); setNextCursor(null); setSelected(null); setDetail(null); setTaskEventRecords([]); setSelectedRecordIds([]); setTaskRecordCount(0); setCharges(undefined); setLinkedAccounts([]); setActiveSpanId(null); setDetailLoading(false);
     }
     setError('');
     if (!organization || !project) { setLoading(false); return () => controller.abort(); }
@@ -108,7 +136,7 @@ export default function ExecutionWorkspace({ token, initialScope, onOpenSubscrip
 
   async function openRecord(summary: Summary) {
     const sequence = ++detailRequestSequence.current;
-    setSelected(summary); setDetail(null); setCharges(undefined); setLinkedAccounts([]); setActiveSpanId(null); setError(''); setNotice('');
+    setSelected(summary); setDetail(null); setTaskEventRecords([]); setSelectedRecordIds([summary.id]); setTaskRecordCount(1); setCharges(undefined); setLinkedAccounts([]); setActiveSpanId(null); setError(''); setNotice('');
     setDetailLoading(true);
     try {
       const value = await request<{ id: string; record: ExecutionRecordV1; linked_accounts?: ExecutionAccountLink[]; charges?: TaskChargeEvidence }>(projectPath(organization, project) + '/' + summary.id, token);
@@ -116,8 +144,52 @@ export default function ExecutionWorkspace({ token, initialScope, onOpenSubscrip
         const resolvedSummary = { ...summary, task_id: value.record.task_id, source: value.record.source, record_id: value.record.record_id };
         setSelected(resolvedSummary);
         setRecords(previous => previous.some(item => item.id === summary.id) ? previous : [resolvedSummary, ...previous]);
-        setDetail(value.record); setCharges(value.charges); setLinkedAccounts(value.linked_accounts ?? []);
+        setDetail(value.record); setTaskEventRecords([value.record]); setCharges(value.charges); setLinkedAccounts(value.linked_accounts ?? []);
       }
+    } catch (e) {
+      if (sequence === detailRequestSequence.current) setError((e as Error).message);
+    } finally {
+      if (sequence === detailRequestSequence.current) setDetailLoading(false);
+    }
+  }
+
+  async function openTask(group: TaskGroup) {
+    const sequence = ++detailRequestSequence.current;
+    const representative = group.records[0];
+    setSelected(representative); setDetail(null); setTaskEventRecords([]); setSelectedRecordIds([]); setTaskRecordCount(group.records.length);
+    setCharges(undefined); setLinkedAccounts([]); setActiveSpanId(null); setError(''); setNotice(''); setDetailLoading(true);
+    try {
+      const summaries: Summary[] = [];
+      let after: string | null = null;
+      do {
+        const query = new URLSearchParams({ limit: '100', task_id: group.taskId });
+        if (after) query.set('after', after);
+        const page = await request<Page>(projectPath(organization, project) + '?' + query, token);
+        summaries.push(...page.data.filter(item => item.source === group.source));
+        after = page.next_cursor;
+      } while (after);
+
+      const uniqueSummaries = [...new Map(summaries.map(item => [item.id, item])).values()];
+      if (!uniqueSummaries.length) uniqueSummaries.push(representative);
+      const values = await mapInBatches(uniqueSummaries, 8, async item => ({
+        summary: item,
+        value: await request<{ id: string; record: ExecutionRecordV1; linked_accounts?: ExecutionAccountLink[]; charges?: TaskChargeEvidence }>(projectPath(organization, project) + '/' + item.id, token),
+      }));
+      if (sequence !== detailRequestSequence.current) return;
+      const eventRecords = values.map(item => item.value.record);
+      const mergedRecord = mergeExecutionRecords(eventRecords);
+      const resolvedSummary = { ...representative, task_id: mergedRecord.task_id, source: mergedRecord.source };
+      setSelected(resolvedSummary);
+      setRecords(previous => {
+        const known = new Set(previous.map(item => item.id));
+        return [...uniqueSummaries.filter(item => !known.has(item.id)), ...previous];
+      });
+      setSelectedRecordIds(uniqueSummaries.map(item => item.id));
+      setTaskRecordCount(uniqueSummaries.length);
+      setTaskEventRecords(eventRecords);
+      setDetail(mergedRecord);
+      setCharges(mergeTaskCharges(values.map(item => item.value.charges)));
+      setLinkedAccounts([...new Map(values.flatMap(item => item.value.linked_accounts ?? []).map(link => [link.span_id + '\0' + link.attempt_id, link])).values()]);
     } catch (e) {
       if (sequence === detailRequestSequence.current) setError((e as Error).message);
     } finally {
@@ -145,21 +217,29 @@ export default function ExecutionWorkspace({ token, initialScope, onOpenSubscrip
   }
 
   async function deleteRecord() {
-    if (!selected || !confirm('Delete imported metadata for task ' + selected.task_id + '?')) return;
+    if (!selected) return;
+    const ids = selectedRecordIds.length ? selectedRecordIds : [selected.id];
+    const message = ids.length === 1
+      ? 'Delete imported metadata for task ' + selected.task_id + '?'
+      : 'Delete ' + ids.length + ' event records for task ' + selected.task_id + '?';
+    if (!confirm(message)) return;
     try {
-      await request<void>(projectPath(organization, project) + '/' + selected.id, token, { method: 'DELETE' });
+      await mapInBatches(ids, 8, id => request<void>(projectPath(organization, project) + '/' + id, token, { method: 'DELETE' }));
       detailRequestSequence.current += 1;
-      setSelected(null); setDetail(null); setCharges(undefined); setLinkedAccounts([]); setActiveSpanId(null); setDetailLoading(false); setCursor(''); setRevision(n => n + 1);
-      setNotice('Imported metadata deleted.'); setError('');
+      setSelected(null); setDetail(null); setTaskEventRecords([]); setSelectedRecordIds([]); setTaskRecordCount(0); setCharges(undefined); setLinkedAccounts([]); setActiveSpanId(null); setDetailLoading(false); setCursor(''); setRevision(n => n + 1);
+      setNotice(ids.length === 1 ? 'Task evidence deleted.' : ids.length + ' task event records deleted.'); setError('');
     } catch (e) { setError((e as Error).message); }
   }
 
+  const taskGroups = useMemo(() => groupTaskRecords(records), [records]);
   const filteredRecords = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
-    if (!query) return records;
-    return records.filter(record => [record.task_id, record.source, record.record_id].some(value => value.toLocaleLowerCase().includes(query)));
-  }, [records, search]);
+    if (!query) return taskGroups;
+    return taskGroups.filter(group => [group.taskId, group.source, ...group.records.map(record => record.record_id)].some(value => value.toLocaleLowerCase().includes(query)));
+  }, [taskGroups, search]);
+  const selectedGroupKey = selected ? selected.source + '\0' + selected.task_id : '';
   const metrics = detail ? executionMetrics(detail) : null;
+  const agentUsage = taskEventRecords.length ? aggregateExternalUsage(taskEventRecords) : null;
   const rows = detail ? timelineRows(detail) : [];
   const activeSpan = detail && activeSpanId ? detail.spans.find(span => span.id === activeSpanId) : undefined;
   const activeAccount = activeSpan ? linkedAccounts.find(link => link.span_id === activeSpan.id) : undefined;
@@ -167,28 +247,19 @@ export default function ExecutionWorkspace({ token, initialScope, onOpenSubscrip
   const conflictingResults = metrics?.hasConflictingResults ?? false;
   return <>
     <div className="page-heading execution-page-heading">
-      <div><p className="eyebrow">TASK COST ANALYSIS</p>{embedded ? <h2>Your task evidence</h2> : <h1>Tasks</h1>}<p className="page-subtitle">See how attempts, model calls and tool work add up to each task’s time and cost.</p></div>
+      <div>{embedded && <h2>Your task evidence</h2>}<p className="page-subtitle">Compare task time, usage, cost, and accepted outcomes.</p></div>
       <div className="execution-page-actions">
         <Button variant="outline" disabled={!project || loading} onClick={() => { setCursor(''); setRevision(n => n + 1); }}><RefreshCw />Refresh</Button>
         <Button disabled={!project} onClick={() => { setImportOpen(true); setError(''); setNotice(''); }}><Upload />Add task evidence</Button>
       </div>
     </div>
 
-    <section className="execution-scope panel">
-      <div className="key-scope-grid">
-        <Label htmlFor="execution-organization">Organization<NativeSelect id="execution-organization" value={organization} onChange={e => { setOrganization(e.target.value); setProject(''); setCursor(''); }}>
-          <NativeSelectOption value="">Select organization</NativeSelectOption>{organizations.map(x => <NativeSelectOption key={x.id} value={x.id}>{x.name}</NativeSelectOption>)}
-        </NativeSelect></Label>
-        <Label htmlFor="execution-project">Project<NativeSelect id="execution-project" disabled={!organization} value={project} onChange={e => { setProject(e.target.value); setCursor(''); }}>
-          <NativeSelectOption value="">Select project</NativeSelectOption>{projects.map(x => <NativeSelectOption key={x.id} value={x.id}>{x.name}</NativeSelectOption>)}
-        </NativeSelect></Label>
-      </div>
-      {!project && <p className="execution-scope-note">Choose a project to see its tasks. A task is a piece of work you asked an agent to complete; an attempt is one pass at completing it. Each attempt can contain many model and tool steps.</p>}
-    </section>
+    {!project && <p className="execution-scope-note">Choose or create a workspace from the navigation to see its tasks. A task is a piece of work you asked an agent to complete; an attempt is one pass at completing it. Each attempt can contain many model and tool steps.</p>}
 
-    <section className="execution-definition panel" aria-label="How task evidence works">
-      <p><strong>Task</strong> The complete piece of work, such as “prepare a customer-ready slide deck.” <strong>Attempt</strong> One pass by an agent; retries and revisions remain part of the same task. <strong>Steps</strong> The model requests, tool calls and checks inside an attempt.</p>
-      <p>Niu links this evidence so you can compare accepted outcomes by total time and cost, including extra work from retries. Missing measurements stay unknown.</p>
+    <section className="execution-definition panel" aria-label="Task, attempt, and step definitions">
+      <div><strong>Task</strong><span>Work to complete</span></div>
+      <div><strong>Attempt</strong><span>One pass, including retries</span></div>
+      <div><strong>Steps</strong><span>Model calls, tools, and checks</span></div>
     </section>
 
     {project && <ExecutionCohortPanel cohort={cohort} loading={cohortLoading} error={cohortError} />}
@@ -199,7 +270,7 @@ export default function ExecutionWorkspace({ token, initialScope, onOpenSubscrip
     {project && <div className="execution-workbench">
       <aside className="execution-explorer panel" aria-label="Task records">
         <div className="execution-explorer-head">
-          <div><h2>Task records</h2><span>{records.length}{nextCursor ? '+' : ''} on this page</span></div>
+          <div><h2>Tasks</h2><span>{taskGroups.length}{nextCursor ? '+' : ''}</span></div>
           <span className="execution-stream-mark"><Activity size={17} /></span>
         </div>
         <label className="execution-search" htmlFor="execution-search">
@@ -207,13 +278,12 @@ export default function ExecutionWorkspace({ token, initialScope, onOpenSubscrip
         </label>
         {loading && <p role="status" className="execution-loading">Loading task records…</p>}
         <div className="execution-run-list">
-          {filteredRecords.map(item => <button type="button" key={item.id} className="execution-run" aria-current={selected?.id === item.id ? 'true' : undefined} onClick={() => void openRecord(item)}>
-            <span className="execution-run-top"><strong>{item.task_id}</strong><Badge variant={item.coverage === 'complete' ? 'secondary' : 'outline'}>{item.coverage}</Badge></span>
-            <span className="execution-run-meta">{item.source} <span aria-hidden="true">/</span> {formatDate(item.imported_at)}</span>
-            <span className="execution-run-id">{item.record_id}</span>
+          {filteredRecords.map(group => <button type="button" key={group.key} className="execution-run" aria-current={selectedGroupKey === group.key ? 'true' : undefined} onClick={() => void openTask(group)}>
+            <span className="execution-run-top"><strong title={group.taskId}>{taskLabel(group.taskId, group.source)}</strong><Badge variant={group.coverage === 'complete' ? 'secondary' : 'outline'}>{group.coverage}</Badge></span>
+            <span className="execution-run-meta">{group.source} <span aria-hidden="true">/</span> {group.records.length} {group.records.length === 1 ? 'event' : 'events'} loaded <span aria-hidden="true">/</span> {formatDate(group.importedAt)}</span>
           </button>)}
         </div>
-        {!loading && filteredRecords.length === 0 && <div className="execution-empty-list"><Activity size={20} /><strong>{search ? 'No matching task records' : 'No task evidence yet'}</strong><span>{search ? 'Try another task, source, or record ID.' : 'Add a task record to inspect its attempts, model and tool steps, observed time, and outcome evidence.'}</span>{!search && <Button variant="outline" size="sm" disabled={!project} onClick={() => setImportOpen(true)}><Upload />Add task evidence</Button>}</div>}
+        {!loading && filteredRecords.length === 0 && <div className="execution-empty-list"><Activity size={20} /><strong>{search ? 'No matching tasks' : 'No task evidence yet'}</strong><span>{search ? 'Try another task, source, or record ID.' : 'Connect an agent or add a task record to inspect its work.'}</span>{!search && <Button variant="outline" size="sm" disabled={!project} onClick={() => setImportOpen(true)}><Upload />Add task evidence</Button>}</div>}
         {nextCursor && <div className="execution-pagination"><Button variant="outline" disabled={loading} onClick={() => setCursor(nextCursor)}>Load more<ArrowRight /></Button></div>}
         <p className="execution-order-note">Pages use a stable record ID order.</p>
       </aside>
@@ -221,15 +291,15 @@ export default function ExecutionWorkspace({ token, initialScope, onOpenSubscrip
       <section className="execution-investigation" aria-label="Task investigation">
         {!selected && <section className="execution-welcome panel">
           <div className="execution-welcome-mark"><Activity size={20} /></div>
-          <p className="eyebrow">TASK INVESTIGATION</p><h2>See how the work unfolded.</h2>
-          <p>Select a task record to see what happened: its agent attempts, parallel branches, model requests, tool calls, retries, and acceptance evidence.</p>
+          <p className="eyebrow">TASK INVESTIGATION</p><h2>Select a task</h2>
+          <p>Inspect model calls, tools, retries, and outcome evidence.</p>
         </section>}
         {selected && !detail && <section className="panel execution-welcome"><p role={detailLoading ? 'status' : 'alert'}>{detailLoading ? 'Loading task evidence…' : 'Trace could not be loaded.'}</p></section>}
         {selected && detail && metrics && <>
           <section className="execution-task-head panel">
             <div className="execution-task-title">
-              <div><p className="eyebrow">TASK</p><h2>{detail.task_id}</h2><p>{detail.source} <span aria-hidden="true">/</span> {detail.record_id} <span aria-hidden="true">/</span> {formatDate(selected.imported_at)}</p></div>
-              <div className="execution-task-actions"><Badge variant="outline">{detail.coverage} coverage</Badge>{conflictingResults && <Badge variant="outline" className="execution-evidence-diff">Evidence differs</Badge>}<Button aria-label="Delete imported record" title="Delete imported record" variant="ghost" size="icon" onClick={() => void deleteRecord()}><Trash2 /></Button></div>
+              <div><p className="eyebrow">TASK</p><h2 title={detail.task_id}>{taskLabel(detail.task_id, detail.source)}</h2><p>{detail.source} <span aria-hidden="true">/</span> {taskRecordCount} {taskRecordCount === 1 ? 'event record' : 'event records'} <span aria-hidden="true">/</span> {formatDate(selected.imported_at)}</p></div>
+              <div className="execution-task-actions"><Badge variant="outline">{detail.coverage} coverage</Badge>{conflictingResults && <Badge variant="outline" className="execution-evidence-diff">Evidence differs</Badge>}<Button aria-label="Delete task evidence" title="Delete task evidence" variant="ghost" size="icon" onClick={() => void deleteRecord()}><Trash2 /></Button></div>
             </div>
             {conflictingResults && <div className="execution-evidence-alert"><span>!</span><p><strong>Outcome evidence differs.</strong> At least one source accepted the task and another rejected it. Niu keeps both records visible and does not infer a final result.</p></div>}
             <div className="execution-metrics" aria-label="Execution summary">
@@ -239,6 +309,20 @@ export default function ExecutionWorkspace({ token, initialScope, onOpenSubscrip
               <div className="execution-cost-count"><span>Charge refs</span><strong>{metrics.chargeReferences}</strong><small>Amounts unresolved</small></div>
             </div>
           </section>
+
+          {agentUsage && <section className="execution-agent-usage panel" aria-label="Agent-reported usage estimate">
+            <div className="execution-section-head"><div><h3>Agent-reported usage</h3><p>{agentUsage.agent_version ? 'Version ' + agentUsage.agent_version : 'Version unknown'}</p></div><Badge variant="outline">Estimate</Badge></div>
+            <div className="execution-agent-usage-grid">
+              <div><span>Requests</span><strong>{agentUsage.request_count ?? 'Unknown'}</strong></div>
+              <div><span>Retries</span><strong>{agentUsage.retry_count ?? 'Unknown'}</strong></div>
+              <div><span>Input tokens</span><strong>{agentUsage.input_tokens ?? 'Unknown'}</strong></div>
+              <div><span>Output tokens</span><strong>{agentUsage.output_tokens ?? 'Unknown'}</strong></div>
+              <div><span>Cache read</span><strong>{agentUsage.cache_read_tokens ?? 'Unknown'}</strong></div>
+              <div><span>Cache created</span><strong>{agentUsage.cache_creation_tokens ?? 'Unknown'}</strong></div>
+              <div><span>Reported cost</span><strong>{agentUsage.cost_nanos == null || !agentUsage.currency ? 'Unknown' : money(agentUsage.cost_nanos, agentUsage.currency)}</strong></div>
+            </div>
+            <p className="execution-agent-usage-note">{agentUsage.complete ? 'Agent telemetry; not a settled Niu charge.' : 'Partial telemetry. Missing event values remain unknown.'}</p>
+          </section>}
 
           <section className="execution-trace panel">
             <div className="execution-section-head"><div><h3>Activity timeline</h3><p>Rows use observed intervals. Parallel work stays parallel.</p></div><span>{detail.spans.length} spans</span></div>
@@ -276,7 +360,7 @@ export default function ExecutionWorkspace({ token, initialScope, onOpenSubscrip
           <TaskCharges charges={charges} />
 
           <details className="execution-links-panel panel">
-            <summary><span><strong>Causal links</strong><small>Delegation, dependencies, retries, and resumes</small></span><Badge variant="outline">{detail.links.length}</Badge></summary>
+            <summary><span><strong>Causal links</strong><small>Delegation, dependencies, model fallbacks, retries, and resumes</small></span><Badge variant="outline">{detail.links.length}</Badge></summary>
             {detail.links.length ? <ul>{detail.links.map((link, index) => <li key={link.from + ':' + link.to + ':' + link.kind + ':' + index}><code>{link.from}</code><ArrowRight size={14} /><Badge variant="outline">{kindLabel(link.kind)}</Badge><ArrowRight size={14} /><code>{link.to}</code></li>)}</ul> : <p className="execution-unknown-note">No causal links were reported.</p>}
           </details>
         </>}

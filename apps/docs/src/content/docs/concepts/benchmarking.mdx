@@ -4,16 +4,23 @@ description: Analyze matched task observations without treating heuristics as me
 ---
 
 Niu's paired benchmark evaluator is an offline analysis component built around
-the metadata-only `ExecutionRecordV1` format. Its current CLI consumes a
-versioned dataset; it does not yet join live gateway activity and agent-adapter
-events automatically. The intended product workflow uses gateway-owned request
-and cost evidence, with an adapter supplying task, tool and outcome context.
+the metadata-only `ExecutionRecordV1` format. Each trial includes the matching
+gateway attempt rows and joins them to execution spans by canonical attempt ID.
+It checks task identity, model alias, unique attempt references, settled costs,
+and the supplied aggregate totals. This join catches mismatched or duplicated
+evidence in a dataset; it does not authenticate its source or fetch the live
+ledger automatically. The adapter supplies task, tool and outcome context.
 Manual datasets remain useful for controlled experiments, migrations and local
 checks, not as the way users submit ordinary Niu traffic. Each candidate result
 points to a declared task snapshot and pinned route revision. Paired records
 must use identical task, tool, permission, and acceptance-policy hashes. The
 evaluator keeps observed outcomes, heuristic diagnoses, cost evidence, and
 uncertainty visible.
+
+Before submitting a comparison, the console checks for task snapshots and
+policy hashes, complete paired runs, trusted outcome scores, pinned route
+revisions, full trace coverage, and settled gateway charges. The evaluator
+remains authoritative and rejects mismatched ledger evidence.
 
 ## Analyze a paired dataset
 
@@ -25,17 +32,17 @@ cargo run --locked -p niu-benchmark -- compare contracts/fixtures/paired-experim
 
 The public fixture covers three synthetic cases: a lower-cost candidate that wins while meeting acceptance, one whose extra model work makes it lose on cost, and one that fails the deterministic acceptance threshold. Evaluator cash and API-equivalent cost are included in their corresponding totals. Failed tasks remain in the spend denominator, and cost per qualified completion is undefined when no task meets the acceptance policy. The report includes exact integer totals, a paired win interval, observed latency percentiles, coverage, sample size, and per-candidate revisions.
 
-Reference diagnostics such as observed retries, incomplete coverage, or unknown provider-reported models are labeled **heuristic** and cite record/span IDs. A heuristic is a lead for investigation, not proof of unnecessary work or a counterfactual savings estimate. Missing billable-work charge links or incomplete settled costs fail closed and prevent paired comparison. This evaluator does not generate untested estimates.
+Reference diagnostics such as observed retries, incomplete coverage, or unknown provider-reported models are labeled **heuristic** and cite record, span, and gateway attempt IDs. A heuristic is a lead for investigation, not proof of unnecessary work or a counterfactual savings estimate. Missing billable-work charge links, unknown prices, mismatched gateway attempts, or incomplete settled costs fail closed and prevent paired cost comparison. Pricing is optional for ordinary gateway activity; this paired evaluator requires known settled cost evidence for every compared trial.
 
 ## Limits
 
-The current command analyzes supplied results only. It does not read the live
+The current command analyzes supplied results only. It does not fetch the live
 gateway request ledger, run model or task adapters, reserve budget, enforce
 operator approval, isolate tools or permissions, persist report history, or
 authenticate the source of supplied costs. `opt_in` and `authorization_ref` in
 a file are assertions for an eventual caller, not authorization controls. All
-trials must already have settled model and evaluator amounts; any unreferenced
-billable span is rejected. No real paired experiment has been run by this tool,
+trials must already include matching gateway attempt evidence and settled model
+and evaluator amounts; any unreferenced billable span is rejected. No real paired experiment has been run by this tool,
 so its synthetic fixture is not evidence of model quality or cost improvement.
 
 See [execution observation](/docs/concepts/execution-observation/) for the

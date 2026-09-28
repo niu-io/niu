@@ -7,6 +7,13 @@ The versioned OpenAPI contract is maintained in [`contracts/openapi.yaml`](https
 
 The public API surface must preserve protocol-specific behavior. Unsupported parameters and event types are rejected or passed through according to the operation contract; they are not silently discarded.
 
+Inference routes accept either `Authorization: Bearer <project-key>` or
+`X-Niu-API-Key: <project-key>`. Use the latter when a client must keep a
+provider credential in `Authorization`; the Niu key remains scoped to its
+workspace/project and is consumed at the gateway. This header only separates
+the two credentials. Provider-specific auth forwarding and subscription
+eligibility still depend on the configured route and supported client protocol.
+
 ## Public model catalog
 
 `GET /catalog/v1/models` and the `/models/` page list aliases an operator explicitly marks with `public_catalog = true`. The response contains the alias and declared capabilities only; it omits provider names, upstream identifiers, endpoints, credentials and prices. Catalog visibility does not authorize inference. Applications still use scoped keys with `/v1/models` and the inference endpoints.
@@ -17,7 +24,9 @@ The public API surface must preserve protocol-specific behavior. Unsupported par
 
 Operator and session creation/revocation also append immutable, metadata-only audit events in the same database transaction. Events record whether the actor was an installation bootstrap credential or a scoped operator, the actor operator ID when present, target operator/session IDs, tenant scope and timestamp. They never store bearer tokens, token hashes or request bodies. A scoped owner can page through one operator's events with `GET /admin/v1/operators/{operator}/events`; pages are ordered by timestamp and event ID, limited to 1–100 items, and use `next_cursor` for stable continuation.
 
-Owners can manage operators. Admins can read and write management resources but cannot manage operators. Viewers have read access only. Every operator has an `organization_id` and may have a `project_id` that restricts access to a single project. Owners cannot create or manage operators outside their own scope. Workspace URL slugs grant no authority. `GET /admin/v1/session` returns the caller's current identity, scope, and role permissions without exposing credentials. Interactive identity federation remains unimplemented.
+Owners can manage operators. Admins can read and write management resources but cannot manage operators. Viewers have read access only. Every operator has an `organization_id` and may have a `project_id` that restricts access to a single project. Owners cannot create or manage operators outside their own scope. Workspace IDs in console URLs do not grant authority. `GET /admin/v1/session` returns the caller's current identity, scope, and role permissions without exposing credentials. Interactive identity federation remains unimplemented.
+
+The console's `GET /admin/v1/workspaces` lists project workspaces visible to the current administrator, with each workspace's parent organization. `POST /admin/v1/workspaces` creates one in the requested organization. Organization administrators can create workspaces only inside their organization; installation administrators can select any organization. If an installation has no organization yet, omitting `organization_id` creates a `Personal workspace` organization first. Niu workspaces are project-scoped: API keys, requests, budgets, and usage belong to one workspace.
 
 ## Provider capability matrix
 
@@ -33,6 +42,8 @@ Capabilities are route-specific. Flags in `config/niu.toml` declare operator-ver
 | Responses | Non-streaming text subset with `supports_responses` | Not implemented | Not implemented |
 
 The native Anthropic and Bedrock entries describe the current non-streaming chat adapter path, not provider conformance qualification. Niu has no provider-specific conformance fixtures for those routes yet. Tool and structured-output capabilities are deliberately restricted to OpenAI-compatible routes. Pricing applies to bounded text chat, Responses and embeddings; embeddings reserve input capacity only and settle provider-reported prompt usage. Tool calls are rejected on priced chat routes. See [Model routes](/docs/configuration/models/) for the exact route flags and pricing limits.
+
+Non-streaming provider JSON responses are limited to 16 MiB before decoding. Larger responses fail as an upstream error and remain uncompleted in request activity. Streaming Chat inspects at most 65,536 bytes per Server-Sent Event; interrupted or cancelled streams remain uncertain unless a valid terminal event was observed.
 
 ## Chat function tools and structured output
 
@@ -63,15 +74,36 @@ unknown. This is the default source for request activity; a user does not need
 to export or import gateway logs.
 
 `GET /admin/v1/organizations/{organization}/projects/{project}/requests?limit=50`
-returns the newest gateway attempts first. Limits range from 1 to 100, and the
-endpoint currently returns only that bounded recent window without pagination.
-It requires project read permission or an installation administrator
-credential. Each record includes `attempt_id`, `operation_id`, optional
-`task_id`, `model`, `created_at`, `dispatched_at`, `completed_at`,
+returns the newest gateway attempts first. Limits range from 1 to 100. Optional
+`from_ms` and `to_ms` bound creation time (`from_ms` inclusive, `to_ms`
+exclusive); `model_alias`, `key_id`, and `status` narrow the same project feed.
+Status values are `not_sent`, `may_have_executed`, `confirmed_completed`, and
+`confirmed_not_executed`. The endpoint returns `data`, a nullable
+`next_cursor`, and a `summary` computed over the complete selected filter range,
+independent of the current page. Pass the previous attempt UUID as `after` to
+continue with older matching entries. Pages are newest first; this is a live
+traversal, not a snapshot across pages. It requires project read permission or
+an installation administrator credential. Each record includes `attempt_id`,
+`operation_id`, optional `api_key_id` and `key_name`, optional `task_id`,
+optional `task_evidence`, public `model` alias and the nullable
+`provider_model` reported by the upstream provider,
+`created_at`, `dispatched_at`, `completed_at`,
 `duration_ms`, `execution`, `usage_confidence`, nullable prompt/completion token
 counts, and nullable currency, cash and API-equivalent amounts. Token and money
-quantities are exact decimal strings. Unsettled or unpriced requests can have
-unknown cost; their absence from a cost ledger does not mean zero spend.
+quantities are exact decimal strings. `task_evidence` is the latest supplemental
+execution record for the same task ID in this project; it includes its scoped
+execution ID, source, record ID, coverage assertion and authority/result pairs,
+but no imported spans. Fetch metadata-only spans and causal links from
+`/admin/v1/organizations/{organization}/projects/{project}/executions/{execution}`
+when an operator opens the trace.
+Unsettled or unpriced requests can have unknown cost; their absence from a cost
+ledger does not mean zero spend.
+
+The range summary reports matched request count, requests with provider-reported
+usage, exact prompt/completion token totals, requests with complete timing,
+average model time, requests without a settled cost entry, and settled cash and
+API-equivalent totals by currency. A missing price or unsettled attempt remains
+unknown and is not converted to zero.
 
 An application or agent adapter can send the same optional `X-Niu-Task-ID`
 header on every inference call belonging to one task. Chat completions,
@@ -81,6 +113,15 @@ Activity without this header is still retained and remains visible as
 individual model requests. The header only groups model calls: local tool work,
 validation and acceptance need separate adapter events and are not inferred
 from gateway traffic.
+
+The first-party JavaScript agent adapter adds task IDs to supported model calls,
+records model attempts, retries, local tool timing and explicit validator or
+human evidence, then submits metadata through a project-scoped execution
+collector credential. Coverage defaults to `partial`. Prompts, responses, tool
+arguments, tool output and error text are not recorded. The adapter enriches
+gateway activity; the request and its canonical usage/cost remain gateway
+records. An agent claim alone is not acceptance evidence. See [Execution
+observation](/docs/concepts/execution-observation/) for setup and limitations.
 
 ## Supplemental execution observation imports
 
@@ -92,17 +133,17 @@ Bootstrap administrators can import and inspect metadata-only task records for a
 
 - `POST /admin/v1/organizations/{organization}/projects/{project}/executions` accepts one version 1 record. The response is `201` for a new record and `200` for an identical replay; conflicting content for the same source and record ID returns `409`.
 - `GET /admin/v1/organizations/{organization}/projects/{project}/executions?limit=50` lists metadata rows. Optional `task_id` filters the list; `after` continues a stable UUID cursor. Limits range from 1 to 100.
-- `GET .../executions/cohort` aggregates up to 10,000 records in UUID order. It classifies accepted outcomes only when a deterministic validator or human accepts and no conflicting evidence exists; agent claims alone are unverified. Canonical attempt UUID charge references are deduplicated across imported records and resolved only inside this project.
+- `GET .../executions/cohort` scans up to 10,000 records in UUID order and reports both record and distinct source/task counts. It groups outcome evidence by source and task ID, classifying a task as accepted only when a deterministic validator or human accepts and no conflicting evidence exists; agent claims alone are unverified. Canonical attempt UUID charge references are deduplicated across imported records and resolved only inside this project.
 - `GET .../executions/{execution}` retrieves one record and account links resolved from charge references that match Niu attempt UUIDs assigned to supplier accounts.
 - `DELETE .../executions/{execution}` removes only that imported metadata record.
 
 See [Execution observation](/docs/concepts/execution-observation/) for the schema, privacy rules and current limits. Imports cannot dispatch inference or create ledger entries.
 
-The cohort report includes per-authority agent-claim, deterministic-validator and human-acceptance evidence counts. It includes all resolved settled costs, including failed or rejected work, and provides API-equivalent totals separately from Niu's configured-rate cash calculation. Amounts are integer billionths encoded as decimal strings. Per-accepted-completion ratios are emitted only when the bounded import scan, source-reported coverage, billable-work references and scoped settlements are complete; zero accepted completions has no ratio. Unresolved namespaces, unmatched attempt UUIDs and unsettled attempts remain visible as incomplete evidence. Invoice cash and subscription fee allocations return `not_imported`; quota sample count is reported without task attribution. Counts are per imported record because schema v1 has no canonical identity for merging the same real-world task across independent sources. This is a live view, not a snapshot.
+The cohort report includes per-authority agent-claim, deterministic-validator and human-acceptance evidence counts grouped by source/task ID. It includes all resolved settled costs, including failed or rejected work, and provides API-equivalent totals separately from Niu's configured-rate cash calculation. Amounts are integer billionths encoded as decimal strings. Per-accepted-task ratios are emitted only when the bounded import scan, source-reported coverage, billable-work references and scoped settlements are complete; zero accepted tasks has no ratio. Unresolved namespaces, unmatched attempt UUIDs and unsettled attempts remain visible as incomplete evidence. Invoice cash and subscription fee allocations return `not_imported`; quota sample count is reported without task attribution. Independent sources remain separate because schema v1 has no canonical cross-source task identity. This is a live view, not a snapshot.
 
 ## Paired benchmark analysis
 
-`POST /admin/v1/benchmarks/compare` accepts a `PairedExperimentV1` dataset and returns a stateless comparison report. Candidate trials must reference the same declared task snapshot, tool, permission and acceptance-policy hashes and match the pinned route revision. The evaluator requires explicit opt-in metadata, complete trace coverage to qualify a completion, settled cost evidence for every billable invocation, and reported cash under the declared cap. It includes evaluator cost and unsuccessful work when calculating totals.
+`POST /admin/v1/benchmarks/compare` accepts a `PairedExperimentV1` dataset and returns a stateless comparison report. Candidate trials must reference the same declared task snapshot, tool, permission and acceptance-policy hashes and match the pinned route revision. Each trial joins execution-span charge references to supplied Gateway attempt rows by canonical attempt UUID; the evaluator checks task ID, model alias, unique references and that settled attempt sums match trial totals. The evaluator requires explicit opt-in metadata, validator or human acceptance evidence to qualify a completion, complete trace coverage and settled cost evidence for every billable invocation. Unknown prices prevent a paired cost comparison; pricing remains optional for ordinary gateway use. Evaluator cost and unsuccessful work are included in totals.
 
 The endpoint only analyzes supplied records. It does not dispatch requests, enforce the approval metadata, reserve budget, persist reports, isolate task tools, or authenticate the evidence source. The `opt_in` and `authorization_ref` fields are assertions, not security controls. See [paired benchmark analysis](/docs/concepts/benchmarking/) for the CLI, fixture and limits. No real paired experiment has been run by this feature.
 
@@ -162,7 +203,7 @@ repository fixture is suitable for local checks, not a real collector.
 - `POST /admin/v1/organizations/{organization}/projects/{project}/execution-imports`: import a record. A first import returns 201; an identical replay returns 200 with the same ID; conflicting content for the same source/record identity returns 409. `/executions` is a console-compatible alias.
 - `GET /admin/v1/organizations/{organization}/projects/{project}/execution-imports/{id}`: retrieve the metadata record, scoped account links and explicitly referenced settled charges. The response is marked `Cache-Control: no-store`; the task total is always incomplete.
 - `DELETE /admin/v1/organizations/{organization}/projects/{project}/execution-imports/{id}`: remove the imported metadata row. Referenced canonical financial records remain governed by their own retention policy. Re-import after deletion creates a new stored record.
-- `GET /admin/v1/organizations/{organization}/projects/{project}/executions/cohort`: read a bounded project rollup of outcome and cost evidence. It is a live view, scans at most 10,000 records, and does not infer task-level quota attribution or invoice/subscription allocation costs.
+- `GET /admin/v1/organizations/{organization}/projects/{project}/executions/cohort`: read a bounded project rollup of outcome and cost evidence. It is a live view, scans at most 10,000 records, groups outcomes by source/task ID, and does not infer task-level quota attribution or invoice/subscription allocation costs.
 
 All execution import and read endpoints require administrator authorization. Inference client keys and quota-only collector credentials cannot access these records. Imports are capped at 1 MiB, reject unknown content fields and invalid graphs, and take project scope from the authenticated API path. Imports neither execute work nor post ledger charges. There is no automatic retention expiry yet; deletion removes the live database record, while backups must follow the operator's retention policy.
 
@@ -175,5 +216,6 @@ Shared upstream connections persist in PostgreSQL and are managed only with an i
 - `PUT /admin/v1/vendors/{id}` updates metadata, enabled state or the credential using `expected_revision`.
 - `GET /admin/v1/vendors/{id}/models` lists the vendor's mappings.
 - `POST /admin/v1/vendors/{id}/models` creates a mapping without a revision or updates it using the current `expected_revision`.
+- `POST /admin/v1/vendors/{id}/check` with `{ "alias": "team/fast" }` performs a non-inference `GET /models` check. The check is capped at five seconds and 512 KiB, blocks redirects and private-network destinations, and returns only a status plus whether the exact upstream model ID appears in the provider catalog. Provider response content and credentials are never returned. A catalog listing does not prove inference access or quota; use Playground to test a real request through Niu.
 
 On a model update, omitting `pricing` preserves its exact stored value; explicit `null` clears it. Stale updates return `409`. Responses use `Cache-Control: no-store`. Organization and project operators cannot administer these installation-wide resources. See [Model routes](/docs/configuration/models/) for encryption, precedence and bootstrap behavior.

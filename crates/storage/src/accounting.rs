@@ -1,5 +1,5 @@
 use crate::{PriceInput, Store, StoreError, TenantScope, TokenRates};
-use sqlx::Row;
+use sqlx::{QueryBuilder, Row, postgres::Postgres};
 use uuid::Uuid;
 
 #[derive(Debug, sqlx::FromRow)]
@@ -28,8 +28,12 @@ pub struct CostEntry {
 pub struct GatewayActivityEntry {
     pub attempt_id: Uuid,
     pub operation_id: Uuid,
+    pub api_key_id: Option<Uuid>,
+    pub key_name: Option<String>,
     pub task_id: Option<String>,
+    pub task_evidence: Option<serde_json::Value>,
     pub model: String,
+    pub provider_model: Option<String>,
     pub created_at: String,
     pub dispatched_at: Option<String>,
     pub completed_at: Option<String>,
@@ -43,6 +47,79 @@ pub struct GatewayActivityEntry {
     pub api_equivalent_nanos: Option<String>,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct GatewayActivityFilter {
+    pub from_ms: Option<i64>,
+    pub to_ms: Option<i64>,
+    pub model_alias: Option<String>,
+    pub api_key_id: Option<Uuid>,
+    pub execution: Option<String>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct GatewayActivitySummaryCounts {
+    request_count: i64,
+    usage_count: i64,
+    prompt_tokens: String,
+    completion_tokens: String,
+    timing_count: i64,
+    average_duration_ms: Option<i64>,
+    unknown_cost_count: i64,
+}
+
+#[derive(Debug, sqlx::FromRow, serde::Serialize)]
+pub struct GatewayActivityCostSummary {
+    pub currency: String,
+    pub cash_nanos: String,
+    pub api_equivalent_nanos: String,
+    pub settled_requests: i64,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct GatewayActivitySummary {
+    pub request_count: i64,
+    pub usage_count: i64,
+    pub prompt_tokens: String,
+    pub completion_tokens: String,
+    pub timing_count: i64,
+    pub average_duration_ms: Option<i64>,
+    pub unknown_cost_count: i64,
+    pub settled_costs: Vec<GatewayActivityCostSummary>,
+}
+
+fn push_activity_scope_and_filters<'a>(
+    query: &mut QueryBuilder<'a, Postgres>,
+    scope: TenantScope,
+    filter: &'a GatewayActivityFilter,
+) {
+    query
+        .push(" WHERE a.organization_id = ")
+        .push_bind(scope.organization_id)
+        .push(" AND a.project_id = ")
+        .push_bind(scope.project_id);
+    if let Some(from_ms) = filter.from_ms {
+        query
+            .push(" AND a.created_at >= to_timestamp(")
+            .push_bind(from_ms as f64 / 1000.0)
+            .push("::double precision)");
+    }
+    if let Some(to_ms) = filter.to_ms {
+        query
+            .push(" AND a.created_at < to_timestamp(")
+            .push_bind(to_ms as f64 / 1000.0)
+            .push("::double precision)");
+    }
+    if let Some(model_alias) = filter.model_alias.as_deref() {
+        query.push(" AND o.model_alias = ").push_bind(model_alias);
+    }
+    if let Some(api_key_id) = filter.api_key_id {
+        query.push(" AND a.api_key_id = ").push_bind(api_key_id);
+    }
+    if let Some(execution) = filter.execution.as_deref() {
+        query.push(" AND a.execution = ").push_bind(execution);
+    }
+}
+
 fn currency_valid(currency: &str) -> bool {
     currency.len() == 3 && currency.bytes().all(|b| b.is_ascii_uppercase())
 }
@@ -53,29 +130,85 @@ impl Store {
     pub async fn gateway_activity(
         &self,
         scope: TenantScope,
+        after: Option<Uuid>,
         limit: i64,
+        filter: &GatewayActivityFilter,
     ) -> Result<Vec<GatewayActivityEntry>, StoreError> {
-        if !(1..=100).contains(&limit) {
+        if !(1..=101).contains(&limit) {
             return Err(StoreError::InvalidPrice);
         }
-        Ok(sqlx::query_as(
-            "SELECT a.id AS attempt_id, a.operation_id, o.task_id, o.model_alias AS model, \
-             to_char(a.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') AS created_at, \
+        let mut query = QueryBuilder::new(
+            "SELECT a.id AS attempt_id, a.operation_id, a.api_key_id, k.name AS key_name, o.task_id, task.evidence AS task_evidence, o.model_alias AS model, a.provider_model, \
+             to_char(a.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS created_at, \
              CASE WHEN a.dispatched_at IS NULL THEN NULL ELSE to_char(a.dispatched_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') END AS dispatched_at, \
              CASE WHEN a.completed_at IS NULL THEN NULL ELSE to_char(a.completed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') END AS completed_at, \
              CASE WHEN a.dispatched_at IS NULL OR a.completed_at IS NULL THEN NULL ELSE GREATEST(0, round(extract(epoch FROM (a.completed_at - a.dispatched_at)) * 1000))::bigint END AS duration_ms, \
              a.execution, a.usage_confidence, a.prompt_tokens::text AS prompt_tokens, a.completion_tokens::text AS completion_tokens, \
              c.currency, c.cash_nanos::text AS cash_nanos, c.api_equivalent_nanos::text AS api_equivalent_nanos \
              FROM attempts a JOIN operations o ON o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.id=a.operation_id \
+             LEFT JOIN api_keys k ON k.organization_id=a.organization_id AND k.project_id=a.project_id AND k.id=a.api_key_id \
              LEFT JOIN cost_entries c ON c.organization_id=a.organization_id AND c.project_id=a.project_id AND c.attempt_id=a.id \
-             WHERE a.organization_id=$1 AND a.project_id=$2 \
-             ORDER BY a.created_at DESC, a.id DESC LIMIT $3",
-        )
-        .bind(scope.organization_id)
-        .bind(scope.project_id)
-        .bind(limit)
-        .fetch_all(&self.pool)
-        .await?)
+             LEFT JOIN LATERAL (SELECT jsonb_build_object( \
+               'execution_id', e.id, 'source', e.source, 'record_id', e.record_id, 'coverage', e.payload->>'coverage', \
+               'outcomes', (SELECT COALESCE(jsonb_agg(jsonb_build_object('authority', outcome->>'authority', 'result', outcome->>'result')), '[]'::jsonb) FROM jsonb_array_elements(e.payload->'outcomes') AS items(outcome)) \
+             ) AS evidence FROM execution_imports e WHERE e.organization_id=o.organization_id AND e.project_id=o.project_id AND e.task_id=o.task_id ORDER BY e.imported_at DESC, e.id DESC LIMIT 1) task ON true",
+        );
+        push_activity_scope_and_filters(&mut query, scope, filter);
+        if let Some(after) = after {
+            query
+                .push(" AND EXISTS (SELECT 1 FROM attempts cursor WHERE cursor.organization_id=a.organization_id AND cursor.project_id=a.project_id AND cursor.id = ")
+                .push_bind(after)
+                .push(" AND (a.created_at, a.id) < (cursor.created_at, cursor.id))");
+        }
+        query
+            .push(" ORDER BY a.created_at DESC, a.id DESC LIMIT ")
+            .push_bind(limit);
+        Ok(query.build_query_as().fetch_all(&self.pool).await?)
+    }
+
+    /// Exact totals for the current workspace and filter set. Pagination never
+    /// changes these values; all sums stay in integer/string form for safety.
+    pub async fn gateway_activity_summary(
+        &self,
+        scope: TenantScope,
+        filter: &GatewayActivityFilter,
+    ) -> Result<GatewayActivitySummary, StoreError> {
+        let mut counts = QueryBuilder::new(
+            "SELECT COUNT(*)::bigint AS request_count, \
+             COUNT(*) FILTER (WHERE a.usage_confidence='provider_reported')::bigint AS usage_count, \
+             COALESCE(SUM(a.prompt_tokens::numeric) FILTER (WHERE a.usage_confidence='provider_reported'), 0)::text AS prompt_tokens, \
+             COALESCE(SUM(a.completion_tokens::numeric) FILTER (WHERE a.usage_confidence='provider_reported'), 0)::text AS completion_tokens, \
+             COUNT(*) FILTER (WHERE a.dispatched_at IS NOT NULL AND a.completed_at IS NOT NULL)::bigint AS timing_count, \
+             ROUND(AVG(GREATEST(0, round(extract(epoch FROM (a.completed_at - a.dispatched_at)) * 1000))::numeric) FILTER (WHERE a.dispatched_at IS NOT NULL AND a.completed_at IS NOT NULL))::bigint AS average_duration_ms, \
+             COUNT(*) FILTER (WHERE c.attempt_id IS NULL)::bigint AS unknown_cost_count \
+             FROM attempts a JOIN operations o ON o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.id=a.operation_id \
+             LEFT JOIN cost_entries c ON c.organization_id=a.organization_id AND c.project_id=a.project_id AND c.attempt_id=a.id",
+        );
+        push_activity_scope_and_filters(&mut counts, scope, filter);
+        let counts: GatewayActivitySummaryCounts =
+            counts.build_query_as().fetch_one(&self.pool).await?;
+
+        let mut costs = QueryBuilder::new(
+            "SELECT c.currency, COALESCE(SUM(c.cash_nanos::numeric), 0)::text AS cash_nanos, \
+             COALESCE(SUM(c.api_equivalent_nanos::numeric), 0)::text AS api_equivalent_nanos, \
+             COUNT(*)::bigint AS settled_requests \
+             FROM attempts a JOIN operations o ON o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.id=a.operation_id \
+             JOIN cost_entries c ON c.organization_id=a.organization_id AND c.project_id=a.project_id AND c.attempt_id=a.id",
+        );
+        push_activity_scope_and_filters(&mut costs, scope, filter);
+        costs.push(" GROUP BY c.currency ORDER BY c.currency");
+        let settled_costs = costs.build_query_as().fetch_all(&self.pool).await?;
+
+        Ok(GatewayActivitySummary {
+            request_count: counts.request_count,
+            usage_count: counts.usage_count,
+            prompt_tokens: counts.prompt_tokens,
+            completion_tokens: counts.completion_tokens,
+            timing_count: counts.timing_count,
+            average_duration_ms: counts.average_duration_ms,
+            unknown_cost_count: counts.unknown_cost_count,
+            settled_costs,
+        })
     }
 
     /// Persist completion first so settlement failure never loses usage evidence.
@@ -86,7 +219,19 @@ impl Store {
         id: Uuid,
         usage: Option<(u64, u64)>,
     ) -> Result<(), StoreError> {
-        self.complete(scope, id, usage).await?;
+        self.complete_and_settle_with_provider_model(scope, id, usage, None)
+            .await
+    }
+
+    pub async fn complete_and_settle_with_provider_model(
+        &self,
+        scope: TenantScope,
+        id: Uuid,
+        usage: Option<(u64, u64)>,
+        provider_model: Option<&str>,
+    ) -> Result<(), StoreError> {
+        self.complete_with_provider_model(scope, id, usage, provider_model)
+            .await?;
         if usage.is_some() {
             let reserved: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM cost_reservations WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3 AND state='held')")
                 .bind(scope.organization_id).bind(scope.project_id).bind(id).fetch_one(&self.pool).await?;

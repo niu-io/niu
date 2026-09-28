@@ -2,11 +2,8 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Activity, ArrowUpRight, Clock3, Database, Plus, RefreshCw, Trash2, Upload, WalletCards } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import type { ScopeFocus } from '../types';
 
-type Named = { id: string; name: string };
 type Account = {
   id: string; provider: string; plan: string; authentication_mode: string;
   billing_mode: string; credential_revision: number; health: string;
@@ -57,7 +54,7 @@ function quantity(value: string | null, unit: string) {
 
 function changeLabel(window: QuotaWindow) {
   if (window.remaining == null) return 'Change unknown';
-  if (window.previous_remaining == null) return 'No comparable earlier sample';
+  if (window.previous_remaining == null) return 'No earlier sample';
   try {
     const change = BigInt(window.previous_remaining) - BigInt(window.remaining);
     if (change === 0n) return 'No change since prior sample';
@@ -80,18 +77,8 @@ export default function SubscriptionsView({ token, initialScope, onOpenExecution
   initialScope?: ScopeFocus | null;
   onOpenExecution?: (organizationId: string, projectId: string, executionId: string) => void;
 }) {
-  const [clock, setClock] = useState(Date.now);
-  useEffect(() => {
-    const tick = () => setClock(Date.now());
-    const timer = window.setInterval(tick, 1000);
-    window.addEventListener('focus', tick);
-    return () => { window.clearInterval(timer); window.removeEventListener('focus', tick); };
-  }, []);
-  const isFresh = (sample: QuotaWindow) => sample.fresh && sample.remaining != null && clock < sample.valid_until_ms && clock < sample.resets_at_ms;
-  const [organizations, setOrganizations] = useState<Named[]>([]);
-  const [projects, setProjects] = useState<Named[]>([]);
-  const [organization, setOrganization] = useState(initialScope?.organizationId ?? '');
-  const [project, setProject] = useState(initialScope?.projectId ?? '');
+  const organization = initialScope?.organizationId ?? '';
+  const project = initialScope?.projectId ?? '';
   const [data, setData] = useState<AccountWindows[]>([]);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -108,24 +95,6 @@ export default function SubscriptionsView({ token, initialScope, onOpenExecution
   const accountDialog = useRef<HTMLDialogElement>(null);
   const quotaDialog = useRef<HTMLDialogElement>(null);
   const focusedAccountRow = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    void readJson<{ data: Named[] }>('/admin/v1/organizations', token, { signal: controller.signal })
-      .then(value => { if (!controller.signal.aborted) setOrganizations(value.data); })
-      .catch(e => { if (!controller.signal.aborted) setError((e as Error).message); });
-    return () => controller.abort();
-  }, [token]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    setProjects([]);
-    if (!organization) return () => controller.abort();
-    void readJson<{ data: Named[] }>(`/admin/v1/organizations/${organization}/projects`, token, { signal: controller.signal })
-      .then(value => { if (!controller.signal.aborted) setProjects(value.data); })
-      .catch(e => { if (!controller.signal.aborted) setError((e as Error).message); });
-    return () => controller.abort();
-  }, [token, organization]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -168,7 +137,7 @@ export default function SubscriptionsView({ token, initialScope, onOpenExecution
   }, [quotaAccount]);
 
   const windows = useMemo(() => data.flatMap(({ account, windows }) => windows.map(window => ({ account, window }))), [data]);
-  const freshCount = windows.filter(item => isFresh(item.window)).length;
+  const freshCount = windows.filter(item => item.window.fresh).length;
   const unlinkedChanges = windows.filter(({ window }) => window.previous_remaining != null && window.remaining != null && window.previous_remaining !== window.remaining).length;
   const subscriptionAccounts = data.filter(item => item.account.billing_mode === 'subscription').length;
   const accountForImport = data.find(item => item.account.id === quotaAccount)?.account;
@@ -220,24 +189,14 @@ export default function SubscriptionsView({ token, initialScope, onOpenExecution
 
   return <>
     <div className="page-heading execution-page-heading">
-      <div><p className="eyebrow">CAPACITY OBSERVABILITY</p><h1>Subscriptions</h1><p className="page-subtitle">Review provider-reported quota windows and resets.</p></div>
+      <div><p className="page-subtitle">Review provider-reported quota windows and resets.</p></div>
       <div className="execution-page-actions">
         <Button variant="outline" disabled={!project || loading} onClick={() => { setNotice(''); setRevision(value => value + 1); }}><RefreshCw />Refresh</Button>
         <Button disabled={!project} onClick={() => { setAccountOpen(true); setDialogError(''); }}><Plus />Register account</Button>
       </div>
     </div>
 
-    <section className="execution-scope panel">
-      <div className="key-scope-grid">
-        <Label htmlFor="subscription-organization">Organization<NativeSelect id="subscription-organization" value={organization} onChange={e => { setOrganization(e.target.value); setProject(''); }}>
-          <NativeSelectOption value="">Select organization</NativeSelectOption>{organizations.map(item => <NativeSelectOption key={item.id} value={item.id}>{item.name}</NativeSelectOption>)}
-        </NativeSelect></Label>
-        <Label htmlFor="subscription-project">Project<NativeSelect id="subscription-project" disabled={!organization} value={project} onChange={e => setProject(e.target.value)}>
-          <NativeSelectOption value="">Select project</NativeSelectOption>{projects.map(item => <NativeSelectOption key={item.id} value={item.id}>{item.name}</NativeSelectOption>)}
-        </NativeSelect></Label>
-      </div>
-      {!project && <p className="execution-scope-note">Choose a project to review registered supplier accounts and observed capacity.</p>}
-    </section>
+    {!project && <p className="execution-scope-note">Choose or create a workspace from the navigation to review supplier accounts and observed capacity.</p>}
 
     {error && <p role="alert" className="error-text execution-feedback">{error}</p>}
     {notice && <p role="status" className="success-text execution-feedback">{notice}</p>}
@@ -263,7 +222,7 @@ export default function SubscriptionsView({ token, initialScope, onOpenExecution
             const percent = capacityPercent(window);
             return <article className="subscription-window" key={account.id + ':' + window.window_key}>
               <div className="subscription-window-account"><span className="subscription-provider-mark"><WalletCards size={16} /></span><div><strong>{account.provider} <span>·</span> {account.plan}</strong><small>{account.billing_mode.replace('_', ' ')} <span aria-hidden="true">/</span> {window.window_key} <span aria-hidden="true">/</span> {window.source}</small></div></div>
-              <div className="subscription-window-capacity"><div className="subscription-capacity-heading"><span>Remaining capacity</span><Badge variant={isFresh(window) ? 'secondary' : 'destructive'}>{isFresh(window) ? 'Fresh' : 'Stale or unknown'}</Badge></div><strong>{quantity(window.remaining, window.unit)}{window.maximum != null && window.unit !== 'millionths_of_window' ? <small> of {quantity(window.maximum, window.unit)}</small> : null}</strong>{percent != null && <div className="subscription-meter" role="meter" aria-label="Remaining capacity" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}><span style={{ width: `${percent}%` }} /></div>}</div>
+              <div className="subscription-window-capacity"><div className="subscription-capacity-heading"><span>Remaining capacity</span><Badge variant={window.fresh ? 'secondary' : 'destructive'}>{window.fresh ? 'Fresh' : 'Stale or unknown'}</Badge></div><strong>{quantity(window.remaining, window.unit)}{window.maximum != null && window.unit !== 'millionths_of_window' ? <small> of {quantity(window.maximum, window.unit)}</small> : null}</strong>{percent != null && <div className="subscription-meter" role="meter" aria-label="Remaining capacity" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}><span style={{ width: `${percent}%` }} /></div>}</div>
               <div className="subscription-window-times"><span>Observed<strong>{instant(window.observed_at_ms)}</strong></span><span>Resets<strong>{instant(window.resets_at_ms)}</strong></span><span className="subscription-window-change">Change<strong>{changeLabel(window)}</strong></span></div>
               <div className="subscription-window-action"><Button variant="outline" size="sm" onClick={() => openQuota(account.id)}><Upload />Import update</Button><Button variant="ghost" size="icon" aria-label={`Delete quota history for ${window.window_key}`} title="Delete all snapshots for this window" onClick={() => void deleteQuotaHistory(account.id, window.window_key)}><Trash2 /></Button></div>
             </article>;

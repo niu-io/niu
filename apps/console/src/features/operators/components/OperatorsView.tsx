@@ -324,7 +324,7 @@ export default function OperatorsView({ token, session, refreshWorkspace }: Oper
   if (!canManage) {
     const isViewer = session.operator?.role === 'viewer';
     return <>
-      <div className="page-heading"><div><p className="eyebrow">ACCESS CONTROL</p><h1>Operators</h1><p className="page-subtitle">Manage people who can access this Niu installation.</p></div></div>
+      <div className="page-heading"><div><p className="page-subtitle">Manage people who can access this Niu installation.</p></div></div>
       <section className="panel operator-denied" role="status">
         <span className="operator-denied-icon"><ShieldCheck size={19} /></span>
         <div><h2>Owner access required</h2><p>{isViewer
@@ -337,7 +337,7 @@ export default function OperatorsView({ token, session, refreshWorkspace }: Oper
 
   return <>
     <div className="page-heading operator-page-heading">
-      <div><p className="eyebrow">ACCESS CONTROL</p><h1>Operators</h1><p className="page-subtitle">Give each person a scoped role and short lived session credentials.</p></div>
+      <div><p className="page-subtitle">Give each person a scoped role and short lived session credentials.</p></div>
       <div className="operator-page-actions">
         <Button type="button" variant="outline" disabled={loading || busy} onClick={() => void perform(() => loadOperators())}><RefreshCw size={15} />Refresh</Button>
         <Button type="button" disabled={loading || busy || !organizations.length} onClick={() => setCreateOpen(value => !value)}><Plus size={16} />{createOpen ? 'Close form' : 'Add operator'}</Button>

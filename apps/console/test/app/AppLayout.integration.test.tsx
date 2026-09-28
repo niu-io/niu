@@ -35,38 +35,73 @@ describe('console route layout', () => {
     const user = userEvent.setup();
     const router = renderAt('/workspaces/default/');
 
-    expect(await screen.findByRole('heading', { name: /Better outcomes/ })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Compare the outcomes' })).toBeTruthy();
-    expect(screen.getByText('Production traces stay out of the report unless you import them. Savings require a measured comparison.')).toBeTruthy();
-    expect(await screen.findByText(/2 configured routes/)).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Overview' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: /Add a model route/ })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Connect provider' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: /Compare models/ })).toBeTruthy();
     expect(screen.getByLabelText('Installation admin token')).toBeTruthy();
     expect(screen.queryByText('Requests today')).toBeNull();
 
-    await user.click(screen.getByRole('link', { name: /Inspect tasks/ }));
-    expect(await screen.findByRole('heading', { name: 'Tasks' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Tasks' }).getAttribute('aria-current')).toBe('page');
+    await user.click(screen.getByRole('link', { name: 'Activity', exact: true }));
+    expect(await screen.findByRole('heading', { name: 'Activity' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Activity' }).getAttribute('aria-current')).toBe('page');
     expect(router.state.location.pathname).toBe('/workspaces/default/executions');
+  });
+
+  it('closes the expanded workspace navigation when resizing into the compact layout', async () => {
+    const originalWidth = Object.getOwnPropertyDescriptor(window, 'innerWidth');
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1200 });
+    mockHealth();
+    renderAt('/workspaces/default/');
+
+    try {
+      expect(await screen.findByRole('heading', { name: 'Overview' })).toBeTruthy();
+      expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeTruthy();
+      screen.getByRole('link', { name: 'Overview', exact: true }).focus();
+
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
+      window.dispatchEvent(new Event('resize'));
+
+      await waitFor(() => expect(screen.queryByRole('navigation', { name: 'Main navigation' })).toBeNull());
+      const toggle = screen.getByRole('button', { name: 'Expand workspace navigation' });
+      expect(toggle).toBeTruthy();
+      expect(document.activeElement).toBe(toggle);
+    } finally {
+      if (originalWidth) Object.defineProperty(window, 'innerWidth', originalWidth);
+    }
   });
 
   it('separates global destinations from workspace navigation', async () => {
     mockHealth();
     const user = userEvent.setup();
     const router = renderAt('/workspaces/default/');
-    await screen.findByRole('heading', { name: /Better outcomes/ });
+    await screen.findByRole('heading', { name: 'Overview' });
     const rail = within(screen.getByRole('navigation', { name: 'Product navigation' }));
-    let sidebar = within(screen.getByRole('navigation', { name: 'Main navigation' }));
+    const sidebar = within(screen.getByRole('navigation', { name: 'Main navigation' }));
+    expect(screen.queryByRole('banner')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Switch workspace' })).toBeTruthy();
     expect(sidebar.getByRole('link', { name: 'Usage & cost' })).toBeTruthy();
+    expect(sidebar.queryByRole('link', { name: 'Agent Connect' })).toBeNull();
     expect(sidebar.queryByRole('link', { name: 'Benchmarks' })).toBeNull();
     expect(rail.queryByRole('link', { name: 'Platform settings' })).toBeNull();
+    expect(rail.getByRole('link', { name: 'Workspace' }).className).toContain('selected');
+    await user.click(screen.getByRole('button', { name: 'Collapse workspace navigation' }));
+    expect(screen.queryByRole('navigation', { name: 'Main navigation' })).toBeNull();
+    expect(rail.getByRole('link', { name: 'Workspace' })).toBeTruthy();
+    expect(router.state.location.pathname).toBe('/workspaces/default/');
+    await user.click(screen.getByRole('button', { name: 'Expand workspace navigation' }));
+    expect(await screen.findByRole('navigation', { name: 'Main navigation' })).toBeTruthy();
 
     await user.click(rail.getByRole('link', { name: 'Models', exact: true }));
     await screen.findByRole('heading', { name: 'Models' });
     expect(screen.queryByRole('complementary')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Toggle navigation' })).toBeNull();
-    sidebar = within(screen.getByRole('navigation', { name: 'Model views' }));
-    expect(sidebar.getByRole('link', { name: 'Browse catalog' }).getAttribute('href')).toBe('/models/');
-    expect(sidebar.getByRole('link', { name: 'Configured models' })).toBeTruthy();
-    expect(sidebar.queryByRole('link', { name: 'Usage & cost' })).toBeNull();
+    expect(screen.queryByRole('banner')).toBeNull();
+    expect(screen.queryByRole('button', { name: /workspace navigation/ })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Browse catalog' }).getAttribute('href')).toBe('/models/');
+    expect(screen.queryByRole('navigation', { name: 'Model views' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Configured models' })).toBeNull();
+    expect(screen.queryByRole('navigation', { name: 'Main navigation' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Usage & cost' })).toBeNull();
     expect(rail.getByRole('link', { name: 'Models', exact: true }).className).toContain('selected');
     expect(rail.getByRole('link', { name: 'Workspace' }).className).not.toContain('selected');
 
@@ -77,6 +112,7 @@ describe('console route layout', () => {
     expect(screen.queryByRole('navigation', { name: 'Model views' })).toBeNull();
     await user.click(rail.getByRole('link', { name: 'Workspace' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/default'));
+    expect(rail.getByRole('link', { name: 'Workspace' }).className).toContain('selected');
     expect(within(screen.getByRole('navigation', { name: 'Main navigation' })).getByRole('link', { name: 'Overview' })).toBeTruthy();
   });
 
@@ -103,6 +139,209 @@ describe('console route layout', () => {
     expect(await screen.findByRole('heading', { name: 'Usage & cost' })).toBeTruthy();
     expect(screen.getByText('Administrator access required')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Usage & cost' }).getAttribute('aria-current')).toBe('page');
+  });
+
+  it('keeps coding-agent setup out of the platform release routes', async () => {
+    mockHealth();
+    renderAt('/workspaces/default/agent-connect');
+
+    expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Agent Connect' })).toBeNull();
+  });
+
+  it.each(['project-2', 'default', 'missing'])('preserves deep links while resolving workspace %s', async workspaceId => {
+    const calls: string[] = [];
+    const json = (body: unknown) => new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } });
+    let finishLoading!: (response: Response) => void;
+    const workspaceResponse = new Promise<Response>(resolve => { finishLoading = resolve; });
+    localStorage.setItem('niu.active-workspace', 'project-2');
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      calls.push(path);
+      if (path === '/healthz') return json({ status: 'ok' });
+      if (path === '/admin/v1/session') return json({ data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } });
+      if (path === '/admin/v1/models') return json({ data: [{ id: 'fast', public_catalog: false }] });
+      if (path === '/admin/v1/organizations') return json({ data: [{ id: 'org-1', name: 'Acme' }] });
+      if (path === '/admin/v1/workspaces') return workspaceResponse;
+      if (path.endsWith('/keys')) return json({ data: [] });
+      throw new Error(`Unexpected request: ${path}`);
+    }));
+    const user = userEvent.setup();
+    const originalPath = `/workspaces/${workspaceId}/keys`;
+    const router = renderAt(`${originalPath}?tab=active#list`);
+    await user.type(await screen.findByLabelText('Installation admin token'), 'admin-token');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    await waitFor(() => expect(calls).toContain('/admin/v1/workspaces'));
+    expect(router.state.location.pathname).toBe(originalPath);
+    expect(calls.filter(path => path.endsWith('/keys'))).toEqual([]);
+
+    finishLoading(json({ data: [
+      { id: 'project-1', name: 'First project', organization_id: 'org-1', organization_name: 'Acme' },
+      { id: 'project-2', name: 'Second project', organization_id: 'org-1', organization_name: 'Acme' },
+    ] }));
+    if (workspaceId === 'missing') {
+      expect(await screen.findByRole('heading', { name: 'Could not open workspace' })).toBeTruthy();
+      expect(router.state.location.pathname).toBe(originalPath);
+      expect(calls.filter(path => path.endsWith('/keys'))).toEqual([]);
+    } else {
+      expect(await screen.findByRole('heading', { name: 'Project keys' })).toBeTruthy();
+      expect(router.state.location.pathname).toBe('/workspaces/project-2/keys');
+      expect(calls.filter(path => path.endsWith('/keys'))).toEqual(['/admin/v1/organizations/org-1/projects/project-2/keys']);
+    }
+    expect(router.state.location.search).toBe('?tab=active');
+    expect(router.state.location.hash).toBe('#list');
+    localStorage.removeItem('niu.active-workspace');
+  });
+
+  it('keeps the current page and URL state when switching workspaces', async () => {
+    const calls: string[] = [];
+    const json = (body: unknown) => new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } });
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      calls.push(path);
+      if (path === '/healthz') return json({ status: 'ok' });
+      if (path === '/admin/v1/session') return json({ data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } });
+      if (path === '/admin/v1/models') return json({ data: [{ id: 'fast', public_catalog: false }] });
+      if (path === '/admin/v1/organizations') return json({ data: [{ id: 'org-1', name: 'Acme' }] });
+      if (path === '/admin/v1/workspaces') return json({ data: [
+        { id: 'project-1', name: 'First project', organization_id: 'org-1', organization_name: 'Acme' },
+        { id: 'project-2', name: 'Second project', organization_id: 'org-1', organization_name: 'Acme' },
+      ] });
+      if (path.endsWith('/keys')) return json({ data: [] });
+      throw new Error(`Unexpected request: ${path}`);
+    }));
+    const user = userEvent.setup();
+    const router = renderAt('/workspaces/project-1/keys?tab=active#list');
+    await user.type(await screen.findByLabelText('Installation admin token'), 'admin-token');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    await screen.findByRole('heading', { name: 'Project keys' });
+
+    await user.click(screen.getByRole('button', { name: 'Switch workspace' }));
+    await user.click(screen.getByRole('menuitemradio', { name: 'Second project' }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/project-2/keys'));
+    expect(router.state.location.search).toBe('?tab=active');
+    expect(router.state.location.hash).toBe('#list');
+    expect(within(screen.getByRole('button', { name: 'Switch workspace' })).getByText('Second project')).toBeTruthy();
+    expect(calls.filter(path => path.endsWith('/keys'))).toEqual([
+      '/admin/v1/organizations/org-1/projects/project-1/keys',
+      '/admin/v1/organizations/org-1/projects/project-2/keys',
+    ]);
+  });
+
+  it('opens and dismisses the workspace switcher from the keyboard', async () => {
+    const json = (body: unknown) => new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } });
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path === '/healthz') return json({ status: 'ok' });
+      if (path === '/admin/v1/session') return json({ data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } });
+      if (path === '/admin/v1/models') return json({ data: [{ id: 'fast', public_catalog: false }] });
+      if (path === '/admin/v1/organizations') return json({ data: [{ id: 'org-1', name: 'Acme' }] });
+      if (path === '/admin/v1/workspaces') return json({ data: [
+        { id: 'project-1', name: 'First project', organization_id: 'org-1', organization_name: 'Acme' },
+        { id: 'project-2', name: 'Second project', organization_id: 'org-1', organization_name: 'Acme' },
+      ] });
+      if (path.endsWith('/keys')) return json({ data: [] });
+      throw new Error(`Unexpected request: ${path}`);
+    }));
+    const user = userEvent.setup();
+    renderAt('/workspaces/project-1/keys');
+    await user.type(await screen.findByLabelText('Installation admin token'), 'admin-token');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    await screen.findByRole('heading', { name: 'Project keys' });
+
+    const trigger = screen.getByRole('button', { name: 'Switch workspace' });
+    trigger.focus();
+    await user.keyboard('{Enter}');
+    expect(await screen.findByRole('menuitemradio', { name: 'First project' })).toBeTruthy();
+    expect(screen.getByRole('menuitemradio', { name: 'Second project' })).toBeTruthy();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('menuitemradio', { name: 'First project' })).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it('does not show a delayed key response from the workspace it just left', async () => {
+    const json = (body: unknown) => new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } });
+    let finishFirstKeys!: (response: Response) => void;
+    let firstKeyRequestSignal: AbortSignal | null = null;
+    const firstKeys = new Promise<Response>(resolve => { finishFirstKeys = resolve; });
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input);
+      if (path === '/healthz') return json({ status: 'ok' });
+      if (path === '/admin/v1/session') return json({ data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } });
+      if (path === '/admin/v1/models') return json({ data: [{ id: 'fast', public_catalog: false }] });
+      if (path === '/admin/v1/organizations') return json({ data: [{ id: 'org-1', name: 'Acme' }] });
+      if (path === '/admin/v1/workspaces') return json({ data: [
+        { id: 'project-1', name: 'First project', organization_id: 'org-1', organization_name: 'Acme' },
+        { id: 'project-2', name: 'Second project', organization_id: 'org-1', organization_name: 'Acme' },
+      ] });
+      if (path === '/admin/v1/organizations/org-1/projects/project-1/keys') { firstKeyRequestSignal = init?.signal as AbortSignal; return firstKeys; }
+      if (path === '/admin/v1/organizations/org-1/projects/project-2/keys') return json({ data: [
+        { id: 'second-key', name: 'Second workspace key', allowed_models: ['fast'], expires_at_ms: 2_000_000_000_000, revoked: false, expired: false },
+      ] });
+      throw new Error(`Unexpected request: ${path}`);
+    }));
+
+    const user = userEvent.setup();
+    renderAt('/workspaces/project-1/keys');
+    await user.type(await screen.findByLabelText('Installation admin token'), 'admin-token');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    await waitFor(() => expect(firstKeyRequestSignal).not.toBeNull());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Switch workspace' })).toBeTruthy());
+    await user.click(screen.getByRole('button', { name: 'Switch workspace' }));
+    await user.click(screen.getByRole('menuitemradio', { name: 'Second project' }));
+
+    expect(await screen.findByText('Second workspace key')).toBeTruthy();
+    expect(firstKeyRequestSignal?.aborted).toBe(true);
+    finishFirstKeys(json({ data: [
+      { id: 'first-key', name: 'Stale first workspace key', allowed_models: ['fast'], expires_at_ms: 2_000_000_000_000, revoked: false, expired: false },
+    ] }));
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(screen.queryByText('Stale first workspace key')).toBeNull();
+    expect(screen.getByText('Second workspace key')).toBeTruthy();
+  });
+
+  it('creates a workspace from the switcher and keeps the current page', async () => {
+    const calls: Array<{ path: string; method: string; body?: string }> = [];
+    const json = (body: unknown) => new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } });
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input);
+      const method = init?.method ?? 'GET';
+      calls.push({ path, method, body: typeof init?.body === 'string' ? init.body : undefined });
+      if (path === '/healthz') return json({ status: 'ok' });
+      if (path === '/admin/v1/session') return json({ data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } });
+      if (path === '/admin/v1/models') return json({ data: [{ id: 'fast', public_catalog: false }] });
+      if (path === '/admin/v1/organizations') return json({ data: [{ id: 'org-1', name: 'Acme' }] });
+      if (path === '/admin/v1/workspaces' && method === 'GET') return json({ data: [
+        { id: 'project-1', name: 'First project', organization_id: 'org-1', organization_name: 'Acme' },
+      ] });
+      if (path === '/admin/v1/workspaces' && method === 'POST') return json({
+        id: 'project-2', name: 'Research project', organization_id: 'org-1', organization_name: 'Acme',
+      });
+      if (path.endsWith('/keys')) return json({ data: [] });
+      throw new Error(`Unexpected request: ${method} ${path}`);
+    }));
+
+    const user = userEvent.setup();
+    const router = renderAt('/workspaces/project-1/keys?tab=active#list');
+    await user.type(await screen.findByLabelText('Installation admin token'), 'admin-token');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    await screen.findByRole('heading', { name: 'Project keys' });
+
+    await user.click(screen.getByRole('button', { name: 'Switch workspace' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Create workspace' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Create a workspace' });
+    await user.type(within(dialog).getByLabelText('Workspace name'), 'Research project');
+    await user.click(within(dialog).getByRole('button', { name: 'Create workspace' }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/project-2/keys'));
+    expect(router.state.location.search).toBe('?tab=active');
+    expect(router.state.location.hash).toBe('#list');
+    expect(within(screen.getByRole('button', { name: 'Switch workspace' })).getByText('Research project')).toBeTruthy();
+    expect(calls.find(call => call.path === '/admin/v1/workspaces' && call.method === 'POST')?.body).toBe(JSON.stringify({ name: 'Research project', organization_id: 'org-1' }));
+    const keyRequests = calls.filter(call => call.path.endsWith('/keys')).map(call => call.path);
+    expect(keyRequests).toContain('/admin/v1/organizations/org-1/projects/project-1/keys');
+    expect(keyRequests.at(-1)).toBe('/admin/v1/organizations/org-1/projects/project-2/keys');
   });
 
   it('verifies session permissions before loading operator administration', async () => {

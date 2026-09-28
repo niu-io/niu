@@ -5,6 +5,7 @@ import json
 import os
 import re
 import secrets
+import socket
 import subprocess
 import sys
 import tempfile
@@ -25,9 +26,20 @@ PROVIDER = ""
 ADMIN_TOKEN = secrets.token_urlsafe(48)
 DATABASE_PASSWORD = secrets.token_urlsafe(32)
 PROVIDER_KEY = secrets.token_urlsafe(32)
+VENDOR_ENCRYPTION_KEY = secrets.token_urlsafe(48)
 CONFIG_PATH = None
 MOCK_PROVIDER_PORT = 24678
-BASE_URL = "http://127.0.0.1:2555"
+
+
+def free_host_port():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+        listener.bind(("127.0.0.1", 0))
+        return listener.getsockname()[1]
+
+
+HOST_PORT = free_host_port()
+BASE_URL = f"http://127.0.0.1:{HOST_PORT}"
+LOCAL_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 COMPOSE_MODE = len(sys.argv) == 2 and sys.argv[1] == "--compose"
 COMPOSE_ENV = None
 PREVIOUS_LOCAL_IMAGE = None
@@ -68,7 +80,7 @@ def request(method, path, *, payload=None, admin=False, bearer_token=None, timeo
     req = urllib.request.Request(
         f"{BASE_URL}{path}", data=body, headers=headers, method=method
     )
-    with urllib.request.urlopen(req, timeout=timeout) as response:
+    with LOCAL_OPENER.open(req, timeout=timeout) as response:
         data = response.read()
         content_type = response.headers.get("Content-Type", "")
         if "application/json" in content_type:
@@ -96,7 +108,7 @@ def assert_route_error(path, expected_status, *, json_error=False, body_contains
 
 
 def assert_default_workspace_redirect():
-    with urllib.request.urlopen(f"{BASE_URL}/workspaces", timeout=5) as response:
+    with LOCAL_OPENER.open(f"{BASE_URL}/workspaces", timeout=5) as response:
         assert response.geturl().endswith("/workspaces/default/"), (
             "the workspace root did not redirect to the default workspace"
         )
@@ -132,8 +144,11 @@ def setup_compose():
     COMPOSE_ENV = Path(env_file.name)
     with env_file:
         env_file.write(f"POSTGRES_PASSWORD={DATABASE_PASSWORD}\n")
+        env_file.write(f"NIU_HOST_PORT={HOST_PORT}\n")
         env_file.write(f"NIU_ADMIN_TOKENS={ADMIN_TOKEN}\n")
+        env_file.write(f"NIU_VENDOR_ENCRYPTION_KEY={VENDOR_ENCRYPTION_KEY}\n")
         env_file.write(f"OPENAI_API_KEY={PROVIDER_KEY}\n")
+        env_file.write(f"OPENROUTER_API_KEY={PROVIDER_KEY}\n")
 
     existing = subprocess.run(
         ["docker", "image", "inspect", "--format", "{{.Id}}", "niu-io/niu:local"],
@@ -289,7 +304,7 @@ def verify_packaged_inference(client_token):
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=10) as response:
+        with LOCAL_OPENER.open(req, timeout=10) as response:
             status = response.status
             body = json.loads(response.read())
             operation_id = response.headers.get("x-niu-operation-id", "")
@@ -344,7 +359,7 @@ def verify_packaged_streaming(client_token):
         },
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=10) as response:
+    with LOCAL_OPENER.open(req, timeout=10) as response:
         assert response.status == 200
         assert response.headers.get_content_type() == "text/event-stream"
         attempt_id = response.headers.get("x-niu-attempt-id", "")
@@ -539,7 +554,7 @@ def main():
             "--network",
             NETWORK,
             "--publish",
-            "127.0.0.1:2555:2555",
+            f"127.0.0.1:{HOST_PORT}:2555",
             "--env",
             f"NIU_DATABASE_URL=postgres://niu:{DATABASE_PASSWORD}@"
             f"{DATABASE}:5432/niu",
@@ -577,7 +592,7 @@ def main():
     status, _, _ = request("GET", "/healthz")
     assert status == 200, f"liveness returned HTTP {status}"
     # Community root opens the workspace; the marketing artifact is optional.
-    with urllib.request.urlopen(f"{BASE_URL}/", timeout=5) as response:
+    with LOCAL_OPENER.open(f"{BASE_URL}/", timeout=5) as response:
         assert response.url.endswith("/workspaces/default/")
         assert "text/html" in response.headers.get("Content-Type", "")
 
@@ -607,7 +622,7 @@ def main():
 
     docs_status, docs_html, docs_type = request("GET", "/docs/")
     assert docs_status == 200 and "text/html" in docs_type
-    assert "Niu Documentation" in docs_html
+    assert "<title>Niu AI Gateway | niu.io</title>" in docs_html
     assert 'href="https://niu.io/docs/"' in docs_html, "documentation canonical URL omitted its base path"
     docs_page_status, docs_page, _ = request("GET", "/docs/getting-started/")
     assert docs_page_status == 200 and "Getting started" in docs_page
@@ -713,15 +728,27 @@ def main():
 
 def cleanup():
     if COMPOSE_MODE and COMPOSE_ENV is not None:
-        compose("down", "--volumes", "--remove-orphans")
-        COMPOSE_ENV.unlink(missing_ok=True)
-        if PREVIOUS_LOCAL_IMAGE:
-            docker("tag", PREVIOUS_LOCAL_IMAGE, "niu-io/niu:local")
-        else:
-            subprocess.run(
-                ["docker", "image", "rm", "--force", "niu-io/niu:local"],
-                capture_output=True,
-            )
+        cleanup_failed = False
+        try:
+            compose("down", "--volumes", "--remove-orphans")
+        except Exception:
+            cleanup_failed = True
+        finally:
+            COMPOSE_ENV.unlink(missing_ok=True)
+            if PREVIOUS_LOCAL_IMAGE:
+                restored = subprocess.run(
+                    ["docker", "tag", PREVIOUS_LOCAL_IMAGE, "niu-io/niu:local"],
+                    capture_output=True,
+                )
+                cleanup_failed = cleanup_failed or restored.returncode != 0
+            else:
+                removed = subprocess.run(
+                    ["docker", "image", "rm", "niu-io/niu:local"],
+                    capture_output=True,
+                )
+                cleanup_failed = cleanup_failed or removed.returncode != 0
+        if cleanup_failed:
+            print("Package smoke cleanup was incomplete; inspect its isolated Compose project.", file=sys.stderr)
         return
     for container in (PROVIDER, APP, DATABASE):
         if container:

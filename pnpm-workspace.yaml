@@ -3,6 +3,7 @@ packages:
   - apps/docs
   - apps/catalog
   - sdks/javascript
+  - sdks/agent-connect
 allowBuilds:
   esbuild: true
 minimumReleaseAgeExclude:

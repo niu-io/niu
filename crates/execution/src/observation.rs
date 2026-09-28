@@ -14,6 +14,31 @@ pub struct ExecutionRecord {
     pub spans: Vec<Span>,
     pub links: Vec<Link>,
     pub outcomes: Vec<Outcome>,
+    /// Agent/provider-reported estimates remain separate from Niu's charge ledger.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub external_usage: Option<ExternalUsage>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExternalUsage {
+    pub authority: ExternalUsageAuthority,
+    pub agent_version: Option<String>,
+    pub request_count: u32,
+    pub retry_count: u32,
+    pub input_tokens: Option<String>,
+    pub output_tokens: Option<String>,
+    pub cache_read_tokens: Option<String>,
+    pub cache_creation_tokens: Option<String>,
+    /// Estimated source cost in nanounits of the declared currency.
+    pub cost_nanos: Option<String>,
+    pub currency: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ExternalUsageAuthority {
+    AgentReportedEstimate,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -78,6 +103,7 @@ pub enum LinkKind {
     Contains,
     Delegates,
     DependsOn,
+    Fallbacks,
     Retries,
     Resumes,
 }
@@ -165,6 +191,30 @@ fn identifier(value: &str) -> bool {
             .all(|b| b.is_ascii_alphanumeric() || b"._:/-".contains(&b))
 }
 
+fn valid_external_quantity(value: Option<&str>) -> bool {
+    value.is_none_or(|value| {
+        !value.is_empty() && value.len() <= 38 && value.bytes().all(|byte| byte.is_ascii_digit())
+    })
+}
+
+impl ExternalUsage {
+    fn validate(&self) -> bool {
+        valid_external_quantity(self.input_tokens.as_deref())
+            && valid_external_quantity(self.output_tokens.as_deref())
+            && valid_external_quantity(self.cache_read_tokens.as_deref())
+            && valid_external_quantity(self.cache_creation_tokens.as_deref())
+            && valid_external_quantity(self.cost_nanos.as_deref())
+            && self.cost_nanos.is_some() == self.currency.is_some()
+            && self
+                .agent_version
+                .as_ref()
+                .is_none_or(|version| identifier(version))
+            && self.currency.as_ref().is_none_or(|currency| {
+                currency.len() == 3 && currency.bytes().all(|byte| byte.is_ascii_uppercase())
+            })
+    }
+}
+
 impl ExecutionRecord {
     pub fn validate(&self) -> Result<(), InvalidRecord> {
         if self.schema_version != 1 {
@@ -182,6 +232,13 @@ impl ExecutionRecord {
             || self.outcomes.len() > 10_000
         {
             return Err(InvalidRecord::Size);
+        }
+        if self
+            .external_usage
+            .as_ref()
+            .is_some_and(|usage| !usage.validate())
+        {
+            return Err(InvalidRecord::Identifier);
         }
         let mut nodes = BTreeMap::new();
         for span in &self.spans {
@@ -218,6 +275,12 @@ impl ExecutionRecord {
         let mut edges = BTreeSet::new();
         for link in &self.links {
             if !nodes.contains_key(link.from.as_str()) || !nodes.contains_key(link.to.as_str()) {
+                return Err(InvalidRecord::Reference);
+            }
+            if link.kind == LinkKind::Fallbacks
+                && (nodes.get(link.from.as_str()).unwrap().kind != SpanKind::ModelInvocation
+                    || nodes.get(link.to.as_str()).unwrap().kind != SpanKind::ModelInvocation)
+            {
                 return Err(InvalidRecord::Reference);
             }
             if !edges.insert((&link.from, &link.to, &link.kind)) {
@@ -433,7 +496,10 @@ mod tests {
         let record = fixture();
         record.validate().unwrap();
         assert_eq!(record.wall_clock_ms(), Some(100));
-        assert_eq!(record.charge_references().len(), 2);
+        assert_eq!(record.charge_references().len(), 3);
+        assert!(record.links.iter().any(|link| {
+            link.from == "model" && link.to == "model-fallback" && link.kind == LinkKind::Fallbacks
+        }));
         assert_ne!(record.outcomes[0].authority, record.outcomes[1].authority);
         assert!(
             record
@@ -482,6 +548,17 @@ mod tests {
         assert_eq!(record.wall_clock_ms(), None);
         record.schema_version = 2;
         assert_eq!(record.validate(), Err(InvalidRecord::Version));
+    }
+
+    #[test]
+    fn fallback_links_only_connect_model_invocations() {
+        let mut record = fixture();
+        record.links.push(Link {
+            from: "tool".into(),
+            to: "model-fallback".into(),
+            kind: LinkKind::Fallbacks,
+        });
+        assert_eq!(record.validate(), Err(InvalidRecord::Reference));
     }
 
     #[test]

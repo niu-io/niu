@@ -213,8 +213,15 @@ impl AppConfig {
                     .map_err(|_| ConfigError::Invalid(format!("invalid api_base for {name}")))?;
                 let host = parsed.host_str().unwrap_or_default();
                 let local_http = parsed.scheme() == "http" && is_loopback_host(host);
+                let private_literal =
+                    host.trim_matches(['[', ']'])
+                        .parse::<IpAddr>()
+                        .is_ok_and(|address| {
+                            !address.is_loopback() && !crate::upstream::is_public_address(address)
+                        });
                 if (parsed.scheme() != "https" && !local_http)
                     || host.is_empty()
+                    || private_literal
                     || !parsed.username().is_empty()
                     || parsed.password().is_some()
                     || parsed.query().is_some()
@@ -341,6 +348,9 @@ mod tests {
         for api_base in [
             "http://provider.example.test/v1",
             "https://user:pass@api.example.test/v1",
+            "https://10.0.0.10/v1",
+            "https://169.254.169.254/latest/meta-data",
+            "https://[fd00::1]/v1",
         ] {
             let config: AppConfig = toml::from_str(&format!(
                 "[models.fast]\nprovider = \"openai\"\nupstream_model = \"model-a\"\napi_key_env = \"PROVIDER_KEY\"\napi_base = \"{api_base}\""

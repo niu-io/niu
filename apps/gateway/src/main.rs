@@ -4,6 +4,7 @@ mod enterprise;
 mod error;
 mod state;
 mod streaming;
+mod upstream;
 mod usage;
 mod vendors;
 mod web;

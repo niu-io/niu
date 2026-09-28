@@ -1,0 +1,27 @@
+{
+  "name": "@niu-io/agent-connect",
+  "version": "0.1.0",
+  "description": "Workspace-scoped coding-agent connectors for Niu",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "niu-agent-connect": "./bin/niu-agent-connect.mjs"
+  },
+  "files": ["dist", "bin", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "pnpm build && node --test test/*.test.mjs"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
+}

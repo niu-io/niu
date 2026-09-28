@@ -8,6 +8,10 @@ use uuid::Uuid;
 const COHORT_RECORD_LIMIT: usize = 10_000;
 const COHORT_PAGE_SIZE: i64 = 25;
 
+fn parse_attempt_charge_ref(reference: &str) -> Option<Uuid> {
+    Uuid::parse_str(reference.strip_prefix("niu:attempt:").unwrap_or(reference)).ok()
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct ExecutionImportSummary {
     pub id: Uuid,
@@ -131,6 +135,7 @@ pub struct NotImportedAccounting {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct ExecutionCohortReport {
     pub records_scanned: u64,
+    pub tasks_scanned: u64,
     pub record_limit: u64,
     pub truncated: bool,
     pub coverage: ExecutionCoverageCounts,
@@ -175,11 +180,7 @@ impl Store {
             .validate()
             .map_err(|_| StoreError::InvalidObservation)?;
         let refs = record.charge_references();
-        let parse = |reference: &str| {
-            reference
-                .strip_prefix("niu:attempt:")
-                .and_then(|id| Uuid::parse_str(id).ok())
-        };
+        let parse = parse_attempt_charge_ref;
         let ids: Vec<Uuid> = refs
             .iter()
             .filter_map(|r| parse(r))
@@ -209,10 +210,16 @@ impl Store {
         scope: TenantScope,
         record: &ExecutionRecord,
     ) -> Result<ImportReceipt, StoreError> {
-        self.import_execution_with_collector(scope, record, None).await
+        self.import_execution_with_collector(scope, record, None)
+            .await
     }
 
-    pub async fn import_execution_with_collector(&self, scope: TenantScope, record: &ExecutionRecord, collector: Option<&str>) -> Result<ImportReceipt, StoreError> {
+    pub async fn import_execution_with_collector(
+        &self,
+        scope: TenantScope,
+        record: &ExecutionRecord,
+        collector: Option<&str>,
+    ) -> Result<ImportReceipt, StoreError> {
         record
             .validate()
             .map_err(|_| StoreError::InvalidObservation)?;
@@ -223,11 +230,15 @@ impl Store {
         let mut tx = self.pool.begin().await?;
         if let Some(token) = collector {
             use sha2::{Digest, Sha256};
-            if token.len() != 78 || !token.starts_with("niu_collector_") { return Err(StoreError::Unauthorized); }
+            if token.len() != 78 || !token.starts_with("niu_collector_") {
+                return Err(StoreError::Unauthorized);
+            }
             let hash = Sha256::digest(token.as_bytes()).to_vec();
             let key: Option<Uuid> = sqlx::query_scalar("SELECT id FROM collector_keys WHERE purpose='execution' AND token_hash=$1 AND organization_id=$2 AND project_id=$3 AND revoked_at IS NULL AND expires_at>clock_timestamp() FOR SHARE")
                 .bind(hash).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut *tx).await?;
-            if key.is_none() { return Err(StoreError::Unauthorized); }
+            if key.is_none() {
+                return Err(StoreError::Unauthorized);
+            }
         }
 
         let id = Uuid::new_v4();
@@ -267,7 +278,7 @@ impl Store {
         let attempts: Vec<Uuid> = record
             .spans
             .iter()
-            .filter_map(|span| span.charge_ref.as_deref()?.parse().ok())
+            .filter_map(|span| parse_attempt_charge_ref(span.charge_ref.as_deref()?))
             .collect();
         if attempts.is_empty() {
             return Ok(Vec::new());
@@ -286,7 +297,7 @@ impl Store {
             .spans
             .iter()
             .filter_map(|span| {
-                let attempt_id = span.charge_ref.as_deref()?.parse::<Uuid>().ok()?;
+                let attempt_id = parse_attempt_charge_ref(span.charge_ref.as_deref()?)?;
                 let link = by_attempt.get(&attempt_id)?;
                 Some(ExecutionAccountLink {
                     span_id: span.id.clone(),
@@ -315,7 +326,7 @@ impl Store {
         if !owned {
             return Err(StoreError::Conflict);
         }
-        Ok(sqlx::query_as("SELECT e.id, e.task_id, e.source, e.record_id, to_char(e.imported_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS imported_at FROM execution_imports e WHERE e.organization_id=$1 AND e.project_id=$2 AND EXISTS (SELECT 1 FROM jsonb_array_elements(e.payload->'spans') AS sp(span) JOIN account_assignments aa ON aa.organization_id=e.organization_id AND aa.project_id=e.project_id AND aa.account_id=$3 AND aa.attempt_id::text=sp.span->>'charge_ref') ORDER BY e.imported_at DESC, e.id LIMIT 100")
+        Ok(sqlx::query_as("SELECT e.id, e.task_id, e.source, e.record_id, to_char(e.imported_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS imported_at FROM execution_imports e WHERE e.organization_id=$1 AND e.project_id=$2 AND EXISTS (SELECT 1 FROM jsonb_array_elements(e.payload->'spans') AS sp(span) JOIN account_assignments aa ON aa.organization_id=e.organization_id AND aa.project_id=e.project_id AND aa.account_id=$3 AND (aa.attempt_id::text=sp.span->>'charge_ref' OR 'niu:attempt:' || aa.attempt_id::text=sp.span->>'charge_ref')) ORDER BY e.imported_at DESC, e.id LIMIT 100")
             .bind(scope.organization_id)
             .bind(scope.project_id)
             .bind(account_id)
@@ -331,12 +342,14 @@ impl Store {
         scope: TenantScope,
     ) -> Result<ExecutionCohortReport, StoreError> {
         use niu_execution::observation::{
-            Coverage, EvidenceState, ExecutionOutcomeClassification, LinkKind, SpanKind, SpanStatus,
+            Coverage, EvidenceState, ExecutionOutcomeClassification, LinkKind, Outcome, SpanKind,
+            SpanStatus,
         };
         use sqlx::Row;
 
         let mut report = ExecutionCohortReport {
             records_scanned: 0,
+            tasks_scanned: 0,
             record_limit: COHORT_RECORD_LIMIT as u64,
             truncated: false,
             coverage: ExecutionCoverageCounts::default(),
@@ -367,6 +380,18 @@ impl Store {
         let mut references = BTreeSet::<String>::new();
         let mut attempt_references = BTreeSet::<Uuid>::new();
         let mut untyped_references = BTreeSet::<String>::new();
+        let mut task_outcomes = BTreeMap::<(String, String), BTreeMap<String, Outcome>>::new();
+
+        fn evidence_count(target: &mut AuthorityEvidenceCounts, state: EvidenceState, events: u64) {
+            target.evidence_events += events;
+            match state {
+                EvidenceState::Absent => target.absent += 1,
+                EvidenceState::Accepted => target.accepted += 1,
+                EvidenceState::Rejected => target.rejected += 1,
+                EvidenceState::Inconclusive => target.inconclusive += 1,
+                EvidenceState::Conflicting => target.conflicting += 1,
+            }
+        }
 
         loop {
             let rows = sqlx::query("SELECT id, payload::text AS payload FROM execution_imports WHERE organization_id=$1 AND project_id=$2 AND ($3::uuid IS NULL OR id > $3) ORDER BY id LIMIT $4")
@@ -397,47 +422,14 @@ impl Store {
                     Coverage::Partial => report.coverage.partial += 1,
                     Coverage::Unknown => report.coverage.unknown += 1,
                 }
-                let outcome = record.outcome_summary();
-                fn evidence_count(
-                    target: &mut AuthorityEvidenceCounts,
-                    state: EvidenceState,
-                    events: u64,
-                ) {
-                    target.evidence_events += events;
-                    match state {
-                        EvidenceState::Absent => target.absent += 1,
-                        EvidenceState::Accepted => target.accepted += 1,
-                        EvidenceState::Rejected => target.rejected += 1,
-                        EvidenceState::Inconclusive => target.inconclusive += 1,
-                        EvidenceState::Conflicting => target.conflicting += 1,
-                    }
-                }
-                evidence_count(
-                    &mut report.outcome_evidence.agent_claim,
-                    outcome.agent_claim.state,
-                    outcome.agent_claim.evidence_count,
-                );
-                evidence_count(
-                    &mut report.outcome_evidence.deterministic_validator,
-                    outcome.deterministic_validator.state,
-                    outcome.deterministic_validator.evidence_count,
-                );
-                evidence_count(
-                    &mut report.outcome_evidence.human_acceptance,
-                    outcome.human_acceptance.state,
-                    outcome.human_acceptance.evidence_count,
-                );
-                match outcome.classification {
-                    ExecutionOutcomeClassification::Accepted => {
-                        report.outcomes.accepted += 1;
-                        report.accepted_completions += 1;
-                    }
-                    ExecutionOutcomeClassification::Rejected => report.outcomes.rejected += 1,
-                    ExecutionOutcomeClassification::Inconclusive => {
-                        report.outcomes.inconclusive += 1
-                    }
-                    ExecutionOutcomeClassification::Conflicting => report.outcomes.conflicting += 1,
-                    ExecutionOutcomeClassification::Unverified => report.outcomes.unverified += 1,
+                let task_key = (record.source.clone(), record.task_id.clone());
+                let outcomes = task_outcomes.entry(task_key).or_default();
+                for outcome in &record.outcomes {
+                    let identity = format!(
+                        "{:?}\0{}\0{:?}\0{}",
+                        outcome.authority, outcome.evidence_id, outcome.result, outcome.span_id
+                    );
+                    outcomes.entry(identity).or_insert_with(|| outcome.clone());
                 }
 
                 for span in &record.spans {
@@ -488,6 +480,47 @@ impl Store {
             }
             if rows.len() < COHORT_PAGE_SIZE as usize {
                 break;
+            }
+        }
+
+        report.tasks_scanned = task_outcomes.len() as u64;
+        for ((source, task_id), outcomes) in task_outcomes {
+            let task_record = ExecutionRecord {
+                schema_version: 1,
+                source,
+                record_id: "cohort-rollup".into(),
+                task_id,
+                coverage: Coverage::Unknown,
+                spans: Vec::new(),
+                links: Vec::new(),
+                outcomes: outcomes.into_values().collect(),
+                external_usage: None,
+            };
+            let outcome = task_record.outcome_summary();
+            evidence_count(
+                &mut report.outcome_evidence.agent_claim,
+                outcome.agent_claim.state,
+                outcome.agent_claim.evidence_count,
+            );
+            evidence_count(
+                &mut report.outcome_evidence.deterministic_validator,
+                outcome.deterministic_validator.state,
+                outcome.deterministic_validator.evidence_count,
+            );
+            evidence_count(
+                &mut report.outcome_evidence.human_acceptance,
+                outcome.human_acceptance.state,
+                outcome.human_acceptance.evidence_count,
+            );
+            match outcome.classification {
+                ExecutionOutcomeClassification::Accepted => {
+                    report.outcomes.accepted += 1;
+                    report.accepted_completions += 1;
+                }
+                ExecutionOutcomeClassification::Rejected => report.outcomes.rejected += 1,
+                ExecutionOutcomeClassification::Inconclusive => report.outcomes.inconclusive += 1,
+                ExecutionOutcomeClassification::Conflicting => report.outcomes.conflicting += 1,
+                ExecutionOutcomeClassification::Unverified => report.outcomes.unverified += 1,
             }
         }
 

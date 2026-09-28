@@ -25,7 +25,7 @@ pub(crate) fn router(state: AppState) -> Router {
         )
         .route(
             "/admin/v1/organizations/{organization}/projects/{project}/collector-keys",
-            axum::routing::post(crate::admin::issue_collector_key),
+            get(crate::admin::collector_keys).post(crate::admin::issue_collector_key),
         )
         .route(
             "/admin/v1/organizations/{organization}/projects/{project}/collector-keys/{id}",
@@ -38,6 +38,10 @@ pub(crate) fn router(state: AppState) -> Router {
         .route(
             "/admin/v1/organizations",
             get(crate::admin::organizations).post(crate::admin::organization),
+        )
+        .route(
+            "/admin/v1/workspaces",
+            get(crate::admin::workspaces).post(crate::admin::create_workspace),
         )
         .route(
             "/admin/v1/organizations/{organization}/projects",
@@ -84,6 +88,8 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/admin/v1/vendors", get(crate::vendors::list).post(crate::vendors::create))
         .route("/admin/v1/vendors/{id}", axum::routing::put(crate::vendors::update))
         .route("/admin/v1/vendors/{id}/models", get(crate::vendors::list_models).post(crate::vendors::upsert_model))
+        .route("/admin/v1/vendors/{id}/catalog", get(crate::vendors::catalog))
+        .route("/admin/v1/vendors/{id}/check", axum::routing::post(crate::vendors::check_model))
         .route(
             "/admin/v1/organizations/{organization}/projects/{project}/accounts",
             get(crate::admin::accounts).post(crate::admin::create_account),
@@ -219,7 +225,7 @@ async fn public_models(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
-    let principal = state.authorize_api(bearer(&headers)).await?;
+    let principal = state.authorize_api_headers(&headers).await?;
     let models = crate::vendors::effective_models(&state).await?;
     let data: Vec<_> = models
         .keys()

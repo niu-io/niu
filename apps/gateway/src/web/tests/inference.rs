@@ -263,10 +263,28 @@ async fn tool_calls_require_route_opt_in_and_persist_provider_usage(pool: PgPool
         }}],
         "tool_choice":"required"
     });
+    let invalid_niu_key = router(state.clone())
+        .oneshot(
+            Request::post("/v1/chat/completions")
+                .header("x-niu-api-key", "niu-invalid-project-key")
+                .header("authorization", format!("Bearer {}", key.token))
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(request.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(invalid_niu_key.status(), StatusCode::UNAUTHORIZED);
+
     let response = router(state.clone())
         .oneshot(
             Request::post("/v1/chat/completions")
-                .header("authorization", format!("Bearer {}", key.token))
+                .header("x-niu-api-key", &key.token)
+                // Provider auth remains a separate client credential. This
+                // OpenAI-compatible route uses its configured upstream key.
+                .header("authorization", "Bearer client-provider-session")
+                .header("x-forwarded-for", "127.0.0.1")
+                .header("x-client-secret", "must-not-reach-provider")
                 .header("content-type", "application/json")
                 .body(axum::body::Body::from(request.to_string()))
                 .unwrap(),
@@ -290,6 +308,9 @@ async fn tool_calls_require_route_opt_in_and_persist_provider_usage(pool: PgPool
 
     let (headers, forwarded) = captured.0.lock().unwrap().take().unwrap();
     assert_eq!(headers["authorization"], "Bearer provider-secret-token");
+    assert!(!headers.contains_key("x-niu-api-key"));
+    assert!(!headers.contains_key("x-forwarded-for"));
+    assert!(!headers.contains_key("x-client-secret"));
     assert_eq!(forwarded["model"], "provider-secret-model");
     assert_eq!(forwarded["tools"], request["tools"]);
     assert_eq!(forwarded["tool_choice"], "required");
@@ -1156,6 +1177,7 @@ async fn chat_uses_server_routing_and_credentials_not_client_control_fields(pool
     assert_eq!(attempt.execution, "confirmed_completed");
     assert_eq!(attempt.prompt_tokens, Some(2));
     assert_eq!(attempt.completion_tokens, Some(1));
+    assert_eq!(attempt.provider_model.as_deref(), Some("provider-model"));
     assert_eq!(attempt.settlement, "unresolved");
     // Simple inference must not require observability imports, subscriptions,
     // or an opt-in budget/pricing setup.

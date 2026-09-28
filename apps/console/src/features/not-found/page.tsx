@@ -4,7 +4,7 @@ import PageHeader from '@/components/PageHeader';
 
 export default function NotFoundRoute() {
   return <>
-    <PageHeader title="Page not found" subtitle="This console route does not exist." />
+    <PageHeader subtitle="This console route does not exist." />
     <section className="panel empty-state">
       <strong>We couldn’t find that page.</strong>
       <span>Use the workspace navigation to choose a supported view.</span>

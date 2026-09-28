@@ -13,6 +13,8 @@ node_modules/
 .idea/
 .vscode/
 coverage/
+.aider.chat.history.md
+.aider.input.history
 
 # Generated Astro types and content caches
 **/.astro/

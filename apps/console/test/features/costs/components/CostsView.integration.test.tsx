@@ -29,21 +29,12 @@ function stubAccountingApi() {
   return { fetchMock, getPosted: () => posted };
 }
 
-async function selectProject(user: ReturnType<typeof userEvent.setup>) {
-  const organization = await screen.findByLabelText('Organization');
-  await user.selectOptions(organization, 'org-1');
-  const project = await screen.findByLabelText('Project');
-  await waitFor(() => expect(project.querySelector('option[value="project-1"]')).toBeTruthy());
-  await user.selectOptions(project, 'project-1');
-  await screen.findByRole('button', { name: 'Set lifetime budget' });
-}
-
 describe('project cash budgets', () => {
   it('creates a lifetime budget with exact nanounits and displays the persisted value', async () => {
     const api = stubAccountingApi();
     const user = userEvent.setup();
-    render(<CostsView token="admin-token" />);
-    await selectProject(user);
+    render(<CostsView token="admin-token" initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} />);
+    await screen.findByRole('button', { name: 'Set lifetime budget' });
 
     await user.clear(screen.getByLabelText('Cash limit'));
     await user.type(screen.getByLabelText('Cash limit'), '1250.123456789');
@@ -59,8 +50,8 @@ describe('project cash budgets', () => {
   it('rejects amounts with unsupported precision before sending a request', async () => {
     const api = stubAccountingApi();
     const user = userEvent.setup();
-    render(<CostsView token="admin-token" />);
-    await selectProject(user);
+    render(<CostsView token="admin-token" initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} />);
+    await screen.findByRole('button', { name: 'Set lifetime budget' });
 
     await user.clear(screen.getByLabelText('Cash limit'));
     await user.type(screen.getByLabelText('Cash limit'), '1.1234567890');

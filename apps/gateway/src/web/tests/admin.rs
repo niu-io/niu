@@ -258,6 +258,319 @@ async fn admin_cost_reporting_preserves_precision_and_requires_admin(pool: sqlx:
 
 #[sqlx::test(migrations = "../../crates/storage/migrations")]
 #[ignore = "requires PostgreSQL"]
+async fn project_operator_cannot_read_sibling_workspace_keys_or_activity(pool: sqlx::PgPool) {
+    use axum::http::Method;
+    use niu_storage::{OperatorAuditActor, OperatorRole, OperatorScope};
+
+    let store = niu_storage::Store::from_pool(pool.clone());
+    let organization_id = store
+        .create_organization("workspace boundary")
+        .await
+        .unwrap();
+    let first = store
+        .create_project(organization_id, "first")
+        .await
+        .unwrap();
+    let second = store
+        .create_project(organization_id, "second")
+        .await
+        .unwrap();
+    let first_key = store
+        .issue_key(first, "first workspace key", &["fast".into()], 3600)
+        .await
+        .unwrap();
+    let second_key = store
+        .issue_key(second, "second workspace key", &["fast".into()], 3600)
+        .await
+        .unwrap();
+    let first_account = store
+        .create_account(
+            first,
+            &niu_storage::AccountInput {
+                provider: "fixture".into(),
+                plan: "subscription".into(),
+                authentication_mode: niu_storage::AuthMode::OAuthRefresh,
+                billing_mode: niu_storage::BillingMode::Subscription,
+                credential_reference: "secret:first-account".into(),
+                concurrency_limit: 1,
+            },
+        )
+        .await
+        .unwrap();
+    let second_account = store
+        .create_account(
+            second,
+            &niu_storage::AccountInput {
+                provider: "fixture".into(),
+                plan: "subscription".into(),
+                authentication_mode: niu_storage::AuthMode::OAuthRefresh,
+                billing_mode: niu_storage::BillingMode::Subscription,
+                credential_reference: "secret:second-account".into(),
+                concurrency_limit: 1,
+            },
+        )
+        .await
+        .unwrap();
+    let operator = store
+        .create_operator(
+            OperatorScope {
+                organization_id,
+                project_id: Some(first.project_id),
+            },
+            "first workspace owner",
+            OperatorRole::Owner,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let app = router(test_state(None, pool));
+
+    async fn get(app: &Router, path: &str, token: &str) -> (StatusCode, Value) {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::get(path)
+                    .header("authorization", format!("Bearer {token}"))
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = response.status();
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        (status, serde_json::from_slice(&body).unwrap_or(Value::Null))
+    }
+
+    let (status, workspaces) = get(&app, "/admin/v1/workspaces", &operator.token).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(workspaces["data"].as_array().unwrap().len(), 1);
+    assert_eq!(workspaces["data"][0]["id"], first.project_id.to_string());
+
+    let first_base = format!(
+        "/admin/v1/organizations/{organization_id}/projects/{}",
+        first.project_id
+    );
+    let second_base = format!(
+        "/admin/v1/organizations/{organization_id}/projects/{}",
+        second.project_id
+    );
+    let (status, keys) = get(&app, &format!("{first_base}/keys"), &operator.token).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(keys["data"].as_array().unwrap().len(), 1);
+    assert_eq!(keys["data"][0]["id"], first_key.id.to_string());
+
+    let (status, accounts) = get(&app, &format!("{first_base}/accounts"), &operator.token).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(accounts["data"].as_array().unwrap().len(), 1);
+    assert_eq!(accounts["data"][0]["id"], first_account.to_string());
+
+    for path in [
+        format!("{second_base}/keys"),
+        format!("{second_base}/requests"),
+        format!("{second_base}/costs"),
+        format!("{second_base}/budget"),
+        format!("{second_base}/accounts"),
+        format!("{second_base}/accounts/{}/quota", second_account),
+        format!("{second_base}/accounts/{}/executions", second_account),
+        format!("{second_base}/executions"),
+        format!("{second_base}/executions/cohort"),
+        format!("{second_base}/execution-imports"),
+    ] {
+        let (status, _) = get(&app, &path, &operator.token).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "unexpected access to {path}");
+    }
+    for (method, path, payload) in [
+        (
+            Method::POST,
+            format!("{second_base}/keys"),
+            Some(json!({"name":"forged key","allowed_models":["fast"],"ttl_seconds":3600})),
+        ),
+        (
+            Method::POST,
+            format!("{second_base}/accounts"),
+            Some(json!({
+                "provider":"fixture", "plan":"subscription", "authentication_mode":"oauth_refresh",
+                "billing_mode":"subscription", "credential_reference":"secret:forged", "concurrency_limit":1
+            })),
+        ),
+        (
+            Method::POST,
+            format!("{second_base}/collector-keys"),
+            Some(json!({"name":"forged collector", "ttl_seconds":3600})),
+        ),
+    ] {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(&path)
+                    .header("authorization", format!("Bearer {}", operator.token))
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(payload.unwrap().to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            response.status(),
+            StatusCode::NOT_FOUND,
+            "unexpected access to {path}"
+        );
+    }
+    assert_ne!(first_key.id, second_key.id);
+
+    for suffix in ["requests", "costs"] {
+        let (status, body) = get(&app, &format!("{first_base}/{suffix}"), &operator.token).await;
+        assert_eq!(status, StatusCode::OK);
+        assert!(body["data"].is_array());
+    }
+    let (status, budget) = get(&app, &format!("{first_base}/budget"), &operator.token).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(budget["data"].is_null());
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn workspace_creation_obeys_operator_write_and_organization_scope(pool: sqlx::PgPool) {
+    use niu_storage::{OperatorAuditActor, OperatorRole, OperatorScope};
+
+    let store = niu_storage::Store::from_pool(pool.clone());
+    let organization = store
+        .create_organization("workspace creation")
+        .await
+        .unwrap();
+    let foreign_organization = store
+        .create_organization("foreign workspace creation")
+        .await
+        .unwrap();
+    let project = store
+        .create_project(organization, "existing project")
+        .await
+        .unwrap();
+    let organization_owner = store
+        .create_operator(
+            OperatorScope {
+                organization_id: organization,
+                project_id: None,
+            },
+            "organization owner",
+            OperatorRole::Owner,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let project_owner = store
+        .create_operator(
+            OperatorScope {
+                organization_id: organization,
+                project_id: Some(project.project_id),
+            },
+            "project owner",
+            OperatorRole::Owner,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let viewer = store
+        .create_operator(
+            OperatorScope {
+                organization_id: organization,
+                project_id: None,
+            },
+            "organization viewer",
+            OperatorRole::Viewer,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let app = router(test_state(None, pool));
+
+    async fn create(
+        app: &Router,
+        token: &str,
+        name: &str,
+        organization_id: Option<Uuid>,
+    ) -> (StatusCode, Value) {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::post("/admin/v1/workspaces")
+                    .header("authorization", format!("Bearer {token}"))
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(
+                        json!({"name": name, "organization_id": organization_id}).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = response.status();
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        (status, serde_json::from_slice(&body).unwrap_or(Value::Null))
+    }
+
+    let (status, created) = create(
+        &app,
+        &organization_owner.token,
+        "owner workspace",
+        Some(organization),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    assert_eq!(created["organization_id"], organization.to_string());
+    assert_eq!(
+        create(
+            &app,
+            &organization_owner.token,
+            "foreign workspace",
+            Some(foreign_organization),
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        create(
+            &app,
+            &project_owner.token,
+            "sibling workspace",
+            Some(organization),
+        )
+        .await
+        .0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        create(
+            &app,
+            &viewer.token,
+            "read only workspace",
+            Some(organization)
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+
+    let (status, personal) = create(
+        &app,
+        "niu-test-admin-token-that-is-long-1234",
+        "personal workspace",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    assert_ne!(personal["organization_id"], organization.to_string());
+    assert_eq!(personal["organization_name"], "Personal workspace");
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
 async fn readiness_and_liveness_do_not_require_credentials(pool: sqlx::PgPool) {
     let app = router(test_state(None, pool.clone()));
     for path in ["/healthz", "/readyz", "/enterprise/readyz"] {

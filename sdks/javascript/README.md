@@ -68,7 +68,18 @@ for (const account of accounts.data) {
   const evidence = await admin.quota(scope, account.id);
   console.log(account.provider, account.billing_mode, evidence.data);
 }
+
+let activity = await admin.listGatewayActivity(scope, { limit: 100 });
+for (;;) {
+  for (const request of activity.data) {
+    console.log(request.model, request.prompt_tokens, request.cash_nanos ?? 'cost unknown');
+  }
+  if (!activity.next_cursor) break;
+  activity = await admin.listGatewayActivity(scope, { limit: 100, after: activity.next_cursor });
+}
 ```
+
+Gateway activity is automatically retained metadata for requests admitted by Niu. Pages are scoped to the organization and project, newest first, and the cursor reads older entries; traversal is a live view rather than a cross-page snapshot. Token counts and costs are nullable decimal strings, so unknown usage or cost must stay unknown. Request and response bodies are not included.
 
 Use `createAccount(scope, input)` to register account metadata and an `env:` or `secret:` credential reference. Registration is not credential verification. Use `observeQuota(scope, accountId, observation)` with evidence obtained by an authorized collector. `remaining` and `maximum` are decimal strings or null, never floating-point values. Timestamps are safe-integer milliseconds. The server validates intervals, quantity bounds and tenant ownership. Identical observations may be explicitly resubmitted; conflicting evidence returns `NiuAPIError` with status 409. The SDK does not retry automatically and rejects redirects. Every method accepts an optional `{ signal }` for cancellation.
 
@@ -93,35 +104,55 @@ await collector.observeQuota(accountId, providerObservation);
 ```
 
 The collector interface exposes only `observeQuota`. Its scope is copied at construction, and the server enforces project ownership, expiry and revocation on every ingestion. It cannot query quota or register accounts; use the admin client in the operator application for those operations. No retries, polling or credential refresh happen implicitly.
-## Record agent execution metadata
+## Experimental SDK task adapter (unqualified)
+
+This experimental API example routes an application-owned task through Niu; it
+does not integrate a named coding agent. Neither agent rerouting nor telemetry
+collection is a supported integration until a named agent, version and mode
+pass end-to-end qualification. Niu Agent Connect remains planned after
+platform readiness.
 
 ```ts
-import { NiuExecutionRecorder } from '@niu-io/sdk';
+import { NiuAgentAdapter } from '@niu-io/sdk';
 
-const trace = new NiuExecutionRecorder({
-  source: 'my-agent',
-  coverage: 'complete', // Use only when your collector observed the full task.
+const adapter = new NiuAgentAdapter({
+  apiKey: process.env.NIU_API_KEY!,
+  collectorToken: process.env.NIU_EXECUTION_COLLECTOR_TOKEN!,
+  scope: {
+    organizationId: process.env.NIU_ORGANIZATION_ID!,
+    projectId: process.env.NIU_PROJECT_ID!,
+  },
+  apiBaseURL: 'https://gateway.example/v1',
+  adminBaseURL: 'https://gateway.example/admin/v1',
 });
 
-const agent = trace.startSpan('agent');
-await trace.withSpan('model_invocation', {
-  parentId: agent,
-  requestedModel: 'fast',
-  reportedModel: 'provider-model-id',
-  chargeRef: 'canonical-ledger-attempt-id',
-}, async () => {
-  // Run the operation in your application. The recorder sees no payload.
-});
-trace.endSpan(agent);
-trace.addOutcome({
-  span_id: trace.export().task_id,
-  evidence_id: 'validator-result-1',
-  authority: 'deterministic_validator',
-  result: 'accepted',
-});
-trace.finish();
-
-const metadata = trace.export(); // ExecutionRecordV1; safe to serialize for your collector.
+const task = adapter.createTask();
+try {
+  await task.withAgent(async agentId => {
+    const response = await task.chatCompletions({
+      model: 'fast',
+      messages: [{ role: 'user', content: 'Summarize the report.' }],
+    }, { parentSpanId: agentId });
+    await task.withTool(async () => runLocalTool(response), agentId);
+    await task.validate(() => checkResult(), agentId);
+  });
+  await task.finish();
+} catch (error) {
+  await task.finish('failed');
+  throw error;
+}
 ```
 
-The recorder emits only the version 1 execution metadata contract. `coverage` defaults to `unknown`; mark it `complete` only when your instrumentation can support that claim. Supply a `chargeRef` only when it refers to canonical accounting evidence. The SDK does not upload records or give application processes administrator credentials. Import records through a trusted server-side collector using the documented admin API.
+For this experimental example, create a project-scoped collector key with
+`purpose: "execution"` using the administrator API, then keep it beside the
+project inference key in a trusted server-side environment. Never expose an
+installation administrator token to an agent. The task's stable ID is sent as
+`X-Niu-Task-ID`; Niu captures model requests automatically, while the adapter
+adds local retry, tool and validator/human outcome metadata. Coverage defaults
+to `partial`, since the adapter cannot see unwrapped work. It stores no prompts,
+responses, tool arguments, tool output or error text. A returned attempt UUID
+links metadata to gateway usage and any settled cost; missing usage or pricing
+remains unknown.
+`finish()` submits the metadata record once; after a failed submission,
+`report()` resubmits the same idempotent record. Inference retries are never
+implicit, and an agent claim by itself is not acceptance evidence.

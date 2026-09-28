@@ -50,11 +50,13 @@ export type {
   ExecutionOutcomeAuthority,
   ExecutionOutcomeResult,
   ExecutionOutcomeV1,
+  ExternalUsageV1,
   ExecutionRecordV1,
   ExecutionRecorderOptions,
   ExecutionSpanKind,
   ExecutionSpanStatus,
   ExecutionSpanV1,
+  ModelExecutionEvidence,
   StartExecutionSpanOptions,
 } from './execution.js';
 
@@ -154,22 +156,30 @@ export type ResponsesResponse = {
 
 export type NiuClientOptions = {
   apiKey: string;
+  /** Defaults to Authorization: Bearer. Use x-niu-api-key to preserve a separate provider Authorization header. */
+  credentialHeader?: NiuCredentialHeader;
   baseURL?: string;
   fetch?: typeof globalThis.fetch;
   defaultHeaders?: HeadersInit;
 };
 
+export type NiuCredentialHeader = 'authorization' | 'x-niu-api-key';
+
 export class NiuAPIError extends Error {
   readonly status: number;
   readonly requestId?: string;
+  readonly attemptId?: string;
+  readonly operationId?: string;
   readonly responseBody: unknown;
 
-  constructor(status: number, responseBody: unknown, requestId?: string) {
+  constructor(status: number, responseBody: unknown, requestId?: string, attemptId?: string, operationId?: string) {
     super(errorMessage(responseBody, status));
     this.name = 'NiuAPIError';
     this.status = status;
     this.responseBody = responseBody;
     this.requestId = requestId;
+    this.attemptId = attemptId;
+    this.operationId = operationId;
   }
 }
 
@@ -183,6 +193,7 @@ export class NiuClient {
   };
 
   private readonly apiKey: string;
+  private readonly credentialHeader: NiuCredentialHeader;
   private readonly baseURL: string;
   private readonly requestFetch: typeof globalThis.fetch;
   private readonly defaultHeaders: HeadersInit;
@@ -190,6 +201,7 @@ export class NiuClient {
   constructor(options: NiuClientOptions) {
     if (!options.apiKey.trim()) throw new Error('apiKey is required');
     this.apiKey = options.apiKey;
+    this.credentialHeader = options.credentialHeader ?? 'authorization';
     this.baseURL = (options.baseURL ?? 'http://localhost:2555/v1').replace(/\/+$/, '');
     this.requestFetch = options.fetch ?? globalThis.fetch.bind(globalThis);
     this.defaultHeaders = options.defaultHeaders ?? {};
@@ -236,7 +248,11 @@ export class NiuClient {
 
   private async send(path: string, body: unknown, options: RequestOptions, accept: string): Promise<Response> {
     const headers = new Headers(this.defaultHeaders);
-    headers.set('authorization', `Bearer ${this.apiKey}`);
+    if (this.credentialHeader === 'authorization') {
+      headers.set('authorization', `Bearer ${this.apiKey}`);
+    } else {
+      headers.set('x-niu-api-key', this.apiKey);
+    }
     headers.set('accept', accept);
     if (body !== undefined) headers.set('content-type', 'application/json');
 
@@ -247,7 +263,13 @@ export class NiuClient {
       signal: options.signal,
     });
     if (!response.ok) {
-      throw new NiuAPIError(response.status, await readPayload(response), response.headers.get('x-niu-operation-id') ?? response.headers.get('x-request-id') ?? undefined);
+      throw new NiuAPIError(
+        response.status,
+        await readPayload(response),
+        response.headers.get('x-request-id') ?? response.headers.get('x-niu-operation-id') ?? undefined,
+        response.headers.get('x-niu-attempt-id') ?? undefined,
+        response.headers.get('x-niu-operation-id') ?? undefined,
+      );
     }
     return response;
   }
@@ -320,4 +342,6 @@ async function* parseChatStream(body: ReadableStream<Uint8Array>): AsyncGenerato
 }
 
 export { NiuAdminClient, NiuCollectorClient } from './admin.js';
-export type { NiuAdminOptions, NiuCollectorOptions, TenantScope, SupplierAccountInput, SupplierAccount, QuotaObservation, QuotaWindow } from './admin.js';
+export type { NiuAdminOptions, NiuCollectorOptions, TenantScope, SupplierAccountInput, SupplierAccount, QuotaObservation, QuotaWindow, ExecutionReceipt, GatewayActivityOutcome, GatewayTaskEvidence, GatewayActivityEntry, GatewayActivityPage, GatewayActivityQuery } from './admin.js';
+export { NiuAgentAdapter, NiuAgentTask } from './agent.js';
+export type { NiuAgentAdapterOptions, NiuAgentTaskOptions, AgentCallOptions, AgentRetryOptions, ValidationResult } from './agent.js';

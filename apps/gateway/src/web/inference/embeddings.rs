@@ -16,7 +16,7 @@ pub(in crate::web) async fn embeddings(
     headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Result<Response, ApiError> {
-    let principal = state.authorize_api(bearer(&headers)).await?;
+    let principal = state.authorize_api_headers(&headers).await?;
     let public_model = body
         .get("model")
         .and_then(Value::as_str)
@@ -49,10 +49,22 @@ pub(in crate::web) async fn embeddings(
     }
     let api_key = resolved.api_key;
     let timeout = Duration::from_secs(state.config.server.request_timeout_seconds);
-    state.requests.fetch_add(1, Ordering::Relaxed);
-
     let task_id = request_task_id(&headers)?;
-    let dispatch = begin_attempt(&state, &principal, &public_model, model, Some(0), task_id.as_deref()).await?;
+    let base = model.endpoint_base().ok_or_else(ApiError::unavailable)?;
+    let endpoint = format!("{}/embeddings", base.trim_end_matches('/'));
+    let client = crate::upstream::client_for_endpoint(&endpoint, timeout)
+        .await
+        .map_err(|_| ApiError::unavailable())?;
+    state.requests.fetch_add(1, Ordering::Relaxed);
+    let dispatch = begin_attempt(
+        &state,
+        &principal,
+        &public_model,
+        model,
+        Some(0),
+        task_id.as_deref(),
+    )
+    .await?;
     let result = execute_embeddings(
         &state,
         EmbeddingExecution {
@@ -62,6 +74,7 @@ pub(in crate::web) async fn embeddings(
             body,
             input_bounds,
             timeout,
+            client,
         },
     )
     .await;
@@ -161,6 +174,7 @@ struct EmbeddingExecution<'a> {
     body: Value,
     input_bounds: EmbeddingInputBounds,
     timeout: Duration,
+    client: reqwest::Client,
 }
 
 async fn execute_embeddings(
@@ -174,6 +188,7 @@ async fn execute_embeddings(
         mut body,
         input_bounds,
         timeout,
+        client,
     } = execution;
     let base = model.endpoint_base().ok_or_else(ApiError::unavailable)?;
     let endpoint = format!("{}/embeddings", base.trim_end_matches('/'));
@@ -184,8 +199,7 @@ async fn execute_embeddings(
     strip_server_control_fields(object);
 
     let usage_attempt = state.usage.begin();
-    let upstream = state
-        .http
+    let upstream = client
         .post(endpoint)
         .bearer_auth(api_key)
         .timeout(timeout)
@@ -200,7 +214,7 @@ async fn execute_embeddings(
         state.failures.fetch_add(1, Ordering::Relaxed);
         return Err(ApiError::upstream());
     }
-    let mut value: Value = upstream.json().await.map_err(|_| {
+    let mut value: Value = provider_json(upstream).await.map_err(|_| {
         state.failures.fetch_add(1, Ordering::Relaxed);
         ApiError::upstream()
     })?;
@@ -237,6 +251,7 @@ async fn execute_embeddings(
         state.failures.fetch_add(1, Ordering::Relaxed);
         return Err(ApiError::upstream());
     }
+    let provider_model = provider_reported_model(&value);
     let usage = value["usage"]["prompt_tokens"]
         .as_u64()
         .map(|prompt_tokens| {
@@ -256,5 +271,6 @@ async fn execute_embeddings(
         response: Json(value).into_response(),
         completed: true,
         usage,
+        provider_model,
     })
 }

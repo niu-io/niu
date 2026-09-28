@@ -70,6 +70,9 @@ function stubVendorApi({ existing = [], models: modelFixtures = {} }: {
         return jsonResponse({ data: value });
       }
     }
+    if (path.startsWith('/admin/v1/vendors/') && path.endsWith('/check') && method === 'POST') {
+      return jsonResponse({ data: { status: 'connected', model: 'listed', http_status: 200, duration_ms: 8, checked_at_ms: 1 } });
+    }
     if (path.startsWith('/admin/v1/vendors/') && method === 'PUT') {
       const vendorId = path.split('/')[4];
       const index = vendors.findIndex(vendor => vendor.id === vendorId);
@@ -109,12 +112,15 @@ describe('vendor administration workflow', () => {
     const refreshWorkspace = vi.fn(async () => {});
     render(<VendorsView token="installation-token" session={installationSession} refreshWorkspace={refreshWorkspace} />);
 
-    await user.click(await screen.findByRole('button', { name: 'Add vendor' }));
-    await user.type(await screen.findByLabelText('Vendor name'), 'OpenRouter primary');
+    expect(screen.getByRole('heading', { name: 'Providers', level: 1 })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Connections', level: 2 })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Providers', level: 2 })).toBeNull();
+    await user.click(await screen.findByRole('button', { name: 'Add provider' }));
+    await user.type(await screen.findByLabelText('Provider name'), 'OpenRouter primary');
     expect((screen.getByLabelText('Provider') as HTMLSelectElement).value).toBe('openrouter');
     expect((screen.getByLabelText('API base URL') as HTMLInputElement).value).toBe('https://openrouter.ai/api/v1');
     await user.type(screen.getByLabelText('Provider API key'), 'vendor-secret-once');
-    await user.click(screen.getByRole('button', { name: 'Create vendor' }));
+    await user.click(screen.getByRole('button', { name: 'Create provider' }));
 
     expect(await screen.findByRole('heading', { name: 'OpenRouter primary' })).toBeTruthy();
     await waitFor(() => expect(api.calls.some(call => call.path === '/admin/v1/vendors/vendor-1/models' && call.method === 'GET')).toBe(true));
@@ -151,6 +157,10 @@ describe('vendor administration workflow', () => {
     });
     expect(refreshWorkspace).toHaveBeenCalledTimes(2);
 
+    await user.click(screen.getByRole('button', { name: 'Check' }));
+    expect(await screen.findByText('Reachable · model listed. Try Playground to verify access.')).toBeTruthy();
+    expect(api.calls.find(call => call.path === '/admin/v1/vendors/vendor-1/check')?.body).toEqual({ alias: 'team/fast' });
+
     await user.click(screen.getByRole('button', { name: 'Edit' }));
     await user.click(screen.getAllByRole('checkbox', { name: /Enabled for inference/ })[1]);
     await user.click(screen.getByRole('button', { name: 'Save mapping' }));
@@ -163,7 +173,7 @@ describe('vendor administration workflow', () => {
     await user.type(screen.getByLabelText('Replace provider API key (optional)'), 'vendor-secret-rotation');
     await user.click(screen.getByRole('checkbox', { name: /Enabled for inference/ }));
     await user.click(screen.getByRole('button', { name: 'Review disable' }));
-    expect(await screen.findByRole('alertdialog', { name: 'Disable this vendor?' })).toBeTruthy();
+    expect(await screen.findByRole('alertdialog', { name: 'Disable this provider?' })).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Confirm disable' }));
 
     const updateVendor = api.calls.find(call => call.path === '/admin/v1/vendors/vendor-1' && call.method === 'PUT');
@@ -185,11 +195,11 @@ describe('vendor administration workflow', () => {
     render(<VendorsView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
 
     await screen.findByRole('heading', { name: openRouter.name });
-    await user.click(screen.getByRole('button', { name: 'Add vendor' }));
-    await user.type(screen.getByLabelText('Vendor name'), 'OpenAI fallback');
+    await user.click(screen.getByRole('button', { name: 'Add provider' }));
+    await user.type(screen.getByLabelText('Provider name'), 'OpenAI fallback');
     await user.selectOptions(screen.getByLabelText('Provider'), 'openai');
     await user.type(screen.getByLabelText('Provider API key'), 'second-vendor-key');
-    await user.click(screen.getByRole('button', { name: 'Create vendor' }));
+    await user.click(screen.getByRole('button', { name: 'Create provider' }));
 
     expect(await screen.findByRole('heading', { name: 'OpenAI fallback' })).toBeTruthy();
     expect((screen.getByLabelText('API base URL') as HTMLInputElement).value).toBe('https://api.openai.com/v1');

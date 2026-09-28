@@ -27,6 +27,8 @@ pub struct ChatEvidence {
     pub done: bool,
     usage: Option<(u64, u64)>,
     ambiguous_usage: bool,
+    provider_model: Option<String>,
+    conflicting_provider_model: bool,
 }
 
 impl ChatEvidence {
@@ -35,6 +37,14 @@ impl ChatEvidence {
             None
         } else {
             self.usage
+        }
+    }
+
+    pub fn provider_model(&self) -> Option<&str> {
+        if self.conflicting_provider_model {
+            None
+        } else {
+            self.provider_model.as_deref()
         }
     }
 
@@ -94,6 +104,24 @@ impl ChatEvidence {
             self.data.clear();
             if !value.is_object() || value.get("error").is_some() {
                 return Err("invalid upstream chat event");
+            }
+            if let Some(model) = value
+                .get("model")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|model| {
+                    !model.is_empty()
+                        && model.len() <= 200
+                        && model.chars().all(|character| !character.is_control())
+                })
+            {
+                match self.provider_model.as_deref() {
+                    Some(previous) if previous != model => {
+                        self.conflicting_provider_model = true;
+                    }
+                    None => self.provider_model = Some(model.to_owned()),
+                    _ => {}
+                }
             }
             if let Some(usage) = value.get("usage").filter(|v| !v.is_null()) {
                 let observed = usage["prompt_tokens"]
@@ -168,9 +196,15 @@ where
                         if evidence.done {
                             stopped = true;
                             let context = attempt.take().expect("active stream context");
+                            let provider_model = evidence.provider_model().map(str::to_owned);
                             match context
                                 .store
-                                .complete_and_settle(context.scope, context.id, evidence.usage())
+                                .complete_and_settle_with_provider_model(
+                                    context.scope,
+                                    context.id,
+                                    evidence.usage(),
+                                    provider_model.as_deref(),
+                                )
                                 .await
                             {
                                 Ok(()) => {
@@ -237,6 +271,28 @@ mod tests {
             assert!(evidence.done);
             assert_eq!(evidence.usage(), None);
         }
+    }
+    #[test]
+    fn provider_model_is_retained_only_when_stream_identity_is_consistent() {
+        let mut single = ChatEvidence::default();
+        single
+            .feed(b"data: {\"model\":\"provider-model-a\",\"choices\":[]}\n\n")
+            .unwrap();
+        assert_eq!(single.provider_model(), Some("provider-model-a"));
+
+        let mut conflicting = ChatEvidence::default();
+        conflicting
+            .feed(b"data: {\"model\":\"provider-model-a\",\"choices\":[]}\n\ndata: {\"model\":\"provider-model-b\",\"choices\":[]}\n\n")
+            .unwrap();
+        assert_eq!(conflicting.provider_model(), None);
+
+        let mut oversized = ChatEvidence::default();
+        let value = format!(
+            "data: {{\"model\":\"{}\",\"choices\":[]}}\n\n",
+            "m".repeat(201)
+        );
+        oversized.feed(value.as_bytes()).unwrap();
+        assert_eq!(oversized.provider_model(), None);
     }
     #[test]
     fn rejects_errors_and_bounds_memory_without_accepting_partial_terminal() {

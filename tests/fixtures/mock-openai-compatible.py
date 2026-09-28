@@ -7,6 +7,22 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 
 class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path != "/v1/models":
+            self.send_error(404)
+            return
+        if self.headers.get("Authorization") != f"Bearer {os.environ['PROVIDER_KEY']}":
+            self.send_error(401)
+            return
+        response = json.dumps(
+            {"object": "list", "data": [{"id": "fixture-model", "object": "model"}]}
+        ).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(response)))
+        self.end_headers()
+        self.wfile.write(response)
+
     def do_POST(self):
         if self.path != "/v1/chat/completions":
             self.send_error(404)

@@ -3,7 +3,7 @@ import { ShieldAlert } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import type { AdminSession } from '@/app/console-context';
 import { Button } from '@/components/ui/button';
-import { VendorRequestError, request, type ModelWrite, type Vendor, type VendorModel, type VendorWrite } from '../api';
+import { VendorRequestError, request, type ModelWrite, type ProviderCatalogModel, type ProviderModelCheck, type Vendor, type VendorModel, type VendorWrite } from '../api';
 import VendorDirectory from './VendorDirectory';
 import VendorEditor, { type VendorCreate } from './VendorEditor';
 import ModelMappings from './ModelMappings';
@@ -17,6 +17,9 @@ export default function VendorsView({ token, session, refreshWorkspace }: {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [selectedVendorId, setSelectedVendorId] = useState('');
   const [models, setModels] = useState<VendorModel[]>([]);
+  const [catalog, setCatalog] = useState<ProviderCatalogModel[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogError, setCatalogError] = useState('');
   const [loadingVendors, setLoadingVendors] = useState(true);
   const [loadingModels, setLoadingModels] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -26,6 +29,8 @@ export default function VendorsView({ token, session, refreshWorkspace }: {
   const authGeneration = useRef(0);
   const modelsController = useRef<AbortController | null>(null);
   const modelsGeneration = useRef(0);
+  const catalogController = useRef<AbortController | null>(null);
+  const catalogGeneration = useRef(0);
   const busyRef = useRef(false);
   const currentScope = useRef({ selectedVendorId, token, canManage });
   currentScope.current = { selectedVendorId, token, canManage };
@@ -163,6 +168,20 @@ export default function VendorsView({ token, session, refreshWorkspace }: {
     };
   }, [addingVendor, canManage, explainError, selectedVendorId, token]);
 
+  useEffect(() => {
+    catalogController.current?.abort();
+    catalogController.current = null;
+    catalogGeneration.current += 1;
+    setCatalog([]);
+    setCatalogError('');
+    setCatalogLoading(false);
+    return () => {
+      catalogController.current?.abort();
+      catalogController.current = null;
+      catalogGeneration.current += 1;
+    };
+  }, [addingVendor, selectedVendorId, token]);
+
   const mutate = useCallback(async (action: (signal: AbortSignal, generation: number) => Promise<void>) => {
     const controller = authController.current;
     if (!canManage || !controller || controller.signal.aborted) return;
@@ -232,6 +251,47 @@ export default function VendorsView({ token, session, refreshWorkspace }: {
     });
   }
 
+  async function checkModel(vendorId: string, alias: string): Promise<ProviderModelCheck> {
+    const result = await request<{ data: ProviderModelCheck }>(
+      token,
+      `/admin/v1/vendors/${encodeURIComponent(vendorId)}/check`,
+      'POST',
+      { alias },
+    );
+    return result.data;
+  }
+
+  async function loadProviderCatalog() {
+    const vendorId = selectedVendorId;
+    if (!canManage || !token || !vendorId || catalogLoading || catalog.length > 0) return;
+    catalogController.current?.abort();
+    const controller = new AbortController();
+    catalogController.current = controller;
+    const generation = ++catalogGeneration.current;
+    setCatalogLoading(true);
+    setCatalogError('');
+    try {
+      const result = await request<{ data: ProviderCatalogModel[] }>(
+        token,
+        `/admin/v1/vendors/${encodeURIComponent(vendorId)}/catalog`,
+        'GET',
+        undefined,
+        controller.signal,
+      );
+      const scope = currentScope.current;
+      if (!controller.signal.aborted && generation === catalogGeneration.current && scope.canManage && scope.token === token && scope.selectedVendorId === vendorId) {
+        setCatalog(result.data);
+      }
+    } catch (reason) {
+      const scope = currentScope.current;
+      if (!controller.signal.aborted && generation === catalogGeneration.current && scope.canManage && scope.token === token && scope.selectedVendorId === vendorId) {
+        setCatalogError(reason instanceof Error ? reason.message : 'Provider models could not be loaded.');
+      }
+    } finally {
+      if (!controller.signal.aborted && generation === catalogGeneration.current) setCatalogLoading(false);
+    }
+  }
+
   async function refreshVendors() {
     setError('');
     const generation = authGeneration.current;
@@ -281,7 +341,7 @@ export default function VendorsView({ token, session, refreshWorkspace }: {
   if (!canManage) {
     const role = session.kind === 'operator' ? session.operator?.role : null;
     return <>
-      <PageHeader title="Vendors" subtitle="Manage provider connections, credentials, and model routes." />
+      <PageHeader subtitle="Manage provider connections, credentials, and model routes." />
       <section className="panel vendor-access-denied" role="status">
         <span className="vendor-access-mark"><ShieldAlert size={18} /></span>
         <div><h2>Installation access required</h2><p>Only an installation admin can view or change provider connections. {role ? `Your ${role} session is scoped to its organization and project.` : 'Connect with an installation admin session to continue.'}</p></div>
@@ -290,7 +350,7 @@ export default function VendorsView({ token, session, refreshWorkspace }: {
   }
 
   return <>
-    <PageHeader title="Vendors" subtitle="Manage provider connections, credentials, and model routes." />
+    <PageHeader subtitle="Manage provider connections, credentials, and model routes." />
     {error && <div className="vendor-error" role="alert"><span>{error}</span><Button type="button" size="xs" variant="ghost" disabled={busy || loadingVendors || loadingModels} onClick={() => void retryData()}>Retry</Button></div>}
     <div className="vendor-workspace">
       <VendorDirectory
@@ -315,10 +375,15 @@ export default function VendorsView({ token, session, refreshWorkspace }: {
     {selectedVendor && !addingVendor && <ModelMappings
       key={selectedVendor.id}
       models={models}
+      catalog={catalog}
+      catalogLoading={catalogLoading}
+      catalogError={catalogError}
       loading={loadingModels}
       disabled={busy || loadingModels}
       onRefresh={() => void refreshSelectedModels()}
+      onLoadCatalog={loadProviderCatalog}
       onSave={saveModel}
+      onCheck={alias => checkModel(selectedVendor.id, alias)}
     />}
   </>;
 }

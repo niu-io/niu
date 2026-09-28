@@ -212,7 +212,6 @@ fn test_state(api_base: Option<String>, pool: sqlx::PgPool) -> AppState {
         config,
         niu_storage::Store::from_pool(pool),
         admin_tokens,
-        reqwest::Client::new(),
         HashMap::from([
             ("PROVIDER_KEY".into(), "provider-secret-token".into()),
             (

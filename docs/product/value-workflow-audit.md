@@ -18,25 +18,67 @@ was mistaken for proof that the console made that journey simple.
 
 These were specification errors. The corrected product is gateway-first.
 
+## Current delivery order
+
+Finish the platform workflow before building coding-agent connectors: provider
+and model setup, a project-scoped key, Playground comparisons, a real client
+request through Niu, and automatically visible request activity with useful
+history. Keep the interface direct; short labels, defaults, and clear next
+actions should explain routine steps. Agent routing, subscription-preserving
+routes, external collection, and task-level economics remain later phases.
+
 ## Product workflow
 
 1. An administrator connects a provider and publishes model aliases.
 2. The user creates a project-scoped Niu API key.
-3. A custom application or supported agent sends its model requests to Niu's
-   OpenAI-compatible endpoint using that key.
+3. A custom application sends its model requests to Niu's endpoint using that
+   key. Coding-agent routing and collection are deferred until the platform
+   workflow passes its release gate.
 4. The gateway automatically retains request metadata and the corresponding
    attempt, usage, latency, route, status, and settled cost. Request/response
    content stays out of the record by default.
 5. The console analyzes those records without asking the user to export or
    upload logs.
 
-Every supported LLM request in this workflow goes through Niu. An agent adapter
-may configure a coding agent to use the Niu endpoint and attach a stable
-`X-Niu-Task-ID` to all model calls from one task. It can also report local tool
-actions, validation, and acceptance evidence, which a model gateway cannot
-observe from request traffic alone. The adapter enriches gateway-owned call
-records; it is not a second inference route and must not ask the user to upload
-run JSON.
+## Reference product review and decisions
+
+Reviewed the official LiteLLM Admin UI, OpenRouter quickstart, and OpenRouter
+Activity materials on 2026-09-27.
+
+- LiteLLM's setup flow connects a provider, selects a model, tests the
+  connection, then issues a virtual key and sends a Playground request. Niu
+  should keep this order: test the provider/model route, publish its alias,
+  create a project-scoped key, and then show the client setup. See the
+  [LiteLLM Admin UI quickstart](https://docs.litellm.ai/docs/proxy/docker_quick_start).
+- OpenRouter starts client setup with an API key, base URL, and model slug, and
+  its quickstart supports standard SDKs. Niu should show a copyable gateway
+  base URL, selected alias, and working client example alongside the scoped
+  key. See the [OpenRouter quickstart](https://openrouter.ai/docs/quickstart).
+- OpenRouter Activity connects overview and trend metrics to grouped usage and
+  individual request logs. Niu should make request history filterable, show
+  totals for the loaded date range, and let users open the requests behind a
+  usage or latency change. See [OpenRouter Activity](https://openrouter.ai/blog/announcements/activity-dashboard/).
+- Taken together, the quickstarts demonstrate sending a request to a selected
+  model. Niu adopts their direct prompt and model controls but makes a shared
+  prompt across two to four model aliases its primary Playground action. Show
+  each response, time, tokens, request count, and known or unknown cost
+  together. Task benchmarks require matched inputs and acceptance evidence; a
+  response alone cannot establish task quality or savings.
+
+Gateway-routed requests remain the default source for Niu request activity.
+Future route mode may configure a supported agent to use the Niu endpoint and
+attach a stable `X-Niu-Task-ID` where the agent allows it. If subscription
+authentication must remain in the provider header, a verified connector can
+use a separate project credential that Niu strips before forwarding. No such
+coding-agent route is part of the current platform release.
+
+Future collect mode leaves the agent's provider connection and authentication
+untouched. It sends documented telemetry or explicitly selected local activity
+to Niu off the agent's request path. Such records remain labeled as
+agent-reported, with source and coverage; they are not gateway requests. An
+agent adapter can add tool actions, validation, and acceptance evidence, which
+a model gateway cannot observe from request traffic alone. Neither mode should
+ask the user to upload a run JSON file as the normal setup path.
 
 Provider-side quota, invoice, or subscription-capacity data is a separate
 collection problem. A supported provider connector may collect that evidence
@@ -89,9 +131,10 @@ captured model requests as ungrouped activity and say what evidence is missing.
   a recovery message. Do not make a healthy gateway look like a disconnected
   external service that users should disconnect from.
 - A coding-agent adapter is a first-party setup and instrumentation path. It
-  keeps model calls on Niu, correlates their task ID, and reports local tool and
-  outcome events. Do not imply these events already exist before an adapter
-  implements them.
+  offers an explicit gateway-routing mode and a separate external-activity
+  collection mode when those capabilities are supported. It reports local tool
+  and outcome events when observable and labels each source. Do not imply these
+  events already exist before a connector implements them.
 - Keep import/collector administration available only as an explicitly
   secondary path for supplemental provider evidence or migration.
 
@@ -112,10 +155,14 @@ captured model requests as ungrouped activity and say what evidence is missing.
   not require a task ID, agent adapter, benchmark, pricing table, budget, or
   metadata import.
 
-R17 and R20 should be reported as **partial** until their end-to-end console
-acceptance evidence passes. A persistence smoke or imported-fixture browser
-check is useful component evidence, not proof of a simple, valuable product
-flow. The most important next acceptance test starts with a clean installation,
-uses the console to connect a test provider and publish one alias, creates a
-scoped key, sends a request through Niu, and verifies its automatically stored
-usage, latency, and cost evidence in the console without any import step.
+R20's clean-install gateway path has now passed end-to-end against a local
+OpenAI-compatible provider fixture. Starting with no configured providers or
+models, the console created the provider route, model alias, first workspace,
+project, and scoped key; a standard request returned provider usage and appeared
+automatically in Tasks with its task ID, latency, copyable Niu base URL, and
+model alias. No execution import was used. Pricing was unset, so cost remained
+explicitly unknown, and the validation key was revoked after the request. This
+is functional local-fixture evidence, not live upstream qualification. R09
+remains partial for its broader console and operational requirements. R17 also
+remains partial pending broader adapter runtime and causal-link coverage plus
+matched-task cost/quality analysis.

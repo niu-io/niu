@@ -55,6 +55,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Check public source boundary and build inputs
+        run: |
+          python3 scripts/check-public-boundary.py --root . --tracked-tree --check-build-inputs
+          python3 -m unittest discover -s scripts/tests -p 'test_public_boundary.py'
       - uses: pnpm/action-setup@v4
         with:
           version: 11.25.0
@@ -88,6 +92,8 @@ jobs:
         run: pnpm check:catalog
       - name: Build public catalog
         run: pnpm build:catalog
+      - name: Scan generated public artifacts
+        run: python3 scripts/check-public-boundary.py --root . apps/console/dist apps/docs/dist apps/catalog/dist
       - name: Test JavaScript SDK
         run: pnpm --dir sdks/javascript run test
       - name: Check JavaScript SDK types
@@ -109,6 +115,13 @@ jobs:
         run: |
           test "$(docker image inspect --format '{{.Config.User}}' niu-io/niu:ci)" = "10001:10001"
           docker run --rm --entrypoint /bin/sh niu-io/niu:ci -c 'set -- /app/console/assets/*.js; test -x /usr/local/bin/niu-gateway && test -s /app/console/index.html && test -s "$1" && test -s /app/docs/index.html && test -s /app/docs/pagefind/pagefind.js && test -s /app/catalog/models/index.html && set -- /app/catalog/_catalog/*.css && test -s "$1" && test -s /app/catalog/catalog-assets/brand/niu-mark.png && test -s /app/catalog/catalog-assets/models.js && test ! -e /app/Cargo.toml && test ! -e /app/node_modules'
+      - name: Scan final runtime assets
+        run: |
+          container=$(docker create niu-io/niu:ci)
+          destination=$(mktemp -d)
+          trap 'docker rm "$container" >/dev/null' EXIT
+          docker cp "$container:/app" "$destination/app"
+          python3 scripts/check-public-boundary.py --root . "$destination/app"
       - name: Smoke test the packaged application with PostgreSQL
         env:
           NIU_IMAGE: niu-io/niu:ci

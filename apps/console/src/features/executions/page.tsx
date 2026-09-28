@@ -1,25 +1,35 @@
 import { useSearchParams } from 'react-router';
 import ConnectGate from '@/app/ConnectGate';
 import type { ScopeFocus } from './api';
+import ExecutionWorkspace from './components/ExecutionWorkspace';
 import GatewayActivity from './components/GatewayActivity';
+import { useConsoleContext } from '@/app/console-context';
 
 function readScope(params: URLSearchParams): ScopeFocus | null {
   const organizationId = params.get('organizationId');
   const projectId = params.get('projectId');
   if (!organizationId || !projectId) return null;
-  return { organizationId, projectId };
+  return { organizationId, projectId, executionId: params.get('executionId') ?? undefined };
 }
 
 export default function ExecutionsRoute() {
   const [params] = useSearchParams();
-  const initialScope = readScope(params);
+  const { workspace } = useConsoleContext();
+  const detailScope = readScope(params);
+  const initialScope = workspace
+    ? { organizationId: workspace.organization_id, projectId: workspace.id, executionId: detailScope?.executionId }
+    : detailScope;
 
-  return <ConnectGate title="Tasks" subtitle="Niu automatically captures model usage and cost for every request routed through the gateway.">
-    {({ token, models }) => <GatewayActivity
-      key={token}
-      token={token}
-      models={models.map(model => model.id)}
-      initialScope={initialScope}
-    />}
+  return <ConnectGate subtitle="Gateway requests and task evidence in this workspace.">
+    {({ token, models }) => <>
+      <GatewayActivity
+        key={`${token}:${workspace?.id ?? ''}`}
+        token={token}
+        models={models.map(model => model.id)}
+        initialScope={initialScope}
+        preferredModelAlias={params.get('modelAlias') ?? undefined}
+      />
+      {initialScope?.executionId && <ExecutionWorkspace token={token} initialScope={initialScope} embedded />}
+    </>}
   </ConnectGate>;
 }

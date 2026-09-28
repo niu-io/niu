@@ -102,10 +102,14 @@ impl ApiError {
     }
 
     pub fn upstream() -> Self {
+        Self::upstream_message("The provider request failed")
+    }
+
+    pub fn upstream_message(message: &'static str) -> Self {
         Self {
             status: StatusCode::BAD_GATEWAY,
             kind: "upstream_error",
-            message: "The provider request failed",
+            message,
         }
     }
 

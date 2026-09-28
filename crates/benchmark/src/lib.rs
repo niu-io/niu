@@ -9,6 +9,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use niu_execution::observation::{Coverage, ExecutionRecord, LinkKind, SpanKind};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 const MAX_TRIALS: usize = 10_000;
 const MAX_REPETITIONS: u16 = 100;
@@ -80,9 +81,23 @@ pub struct Trial {
     pub offer_revision: String,
     pub repetition: u16,
     pub execution: ExecutionRecord,
+    /// Gateway-owned attempt evidence joined by canonical attempt UUID.
+    pub gateway_attempts: Vec<GatewayAttemptEvidence>,
     /// Deterministic evaluator score in basis points. Unknown stays absent.
     pub quality_basis_points: Option<u16>,
     pub costs: TrialCosts,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct GatewayAttemptEvidence {
+    pub attempt_id: String,
+    pub task_id: String,
+    pub model_alias: String,
+    /// Cash and API-equivalent values stay absent when the Gateway has no settled price.
+    pub currency: Option<String>,
+    pub cash_nanos: Option<String>,
+    pub api_equivalent_nanos: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -184,6 +199,7 @@ pub struct EvidenceLink {
     pub candidate_id: String,
     pub task_snapshot_id: String,
     pub record_id: String,
+    pub gateway_attempt_ids: Vec<String>,
     pub span_ids: Vec<String>,
 }
 
@@ -205,6 +221,8 @@ pub enum EvaluationError {
     Execution,
     #[error("trial is missing complete settled cost evidence")]
     IncompleteCost,
+    #[error("execution charge references do not match scoped gateway attempts")]
+    GatewayEvidence,
     #[error("cost evidence currency differs from the declared budget")]
     Currency,
     #[error("invalid exact monetary amount")]
@@ -285,6 +303,7 @@ impl PairedExperiment {
         let mut record_ids = BTreeSet::new();
         let mut total_cash = 0_u128;
         let mut total_api = 0_u128;
+        let mut gateway_attempt_ids = BTreeSet::new();
         for trial in &self.trials {
             let candidate = candidate_by_id
                 .get(trial.candidate_id.as_str())
@@ -320,6 +339,10 @@ impl PairedExperiment {
             let evaluator = parse_amount(&trial.costs.evaluator_cash_nanos)?;
             let api = parse_amount(&trial.costs.api_equivalent_nanos)?;
             let evaluator_api = parse_amount(&trial.costs.evaluator_api_equivalent_nanos)?;
+            let (gateway_cash, gateway_api) = gateway_cost_totals(trial, &mut gateway_attempt_ids)?;
+            if cash != gateway_cash || api != gateway_api {
+                return Err(EvaluationError::GatewayEvidence);
+            }
             let trial_cash = cash
                 .checked_add(evaluator)
                 .ok_or(EvaluationError::AmountOverflow)?;
@@ -548,6 +571,11 @@ impl PairedExperiment {
                 candidate_id: trial.candidate_id.clone(),
                 task_snapshot_id: trial.task_snapshot_id.clone(),
                 record_id: execution.record_id.clone(),
+                gateway_attempt_ids: trial
+                    .gateway_attempts
+                    .iter()
+                    .map(|attempt| attempt.attempt_id.clone())
+                    .collect(),
                 span_ids: Vec::new(),
             };
             if execution.coverage != Coverage::Complete {
@@ -605,6 +633,65 @@ impl PairedExperiment {
         }
         diagnostics
     }
+}
+
+fn gateway_cost_totals(
+    trial: &Trial,
+    seen_attempts: &mut BTreeSet<Uuid>,
+) -> Result<(u128, u128), EvaluationError> {
+    let references = trial.execution.charge_references();
+    if references.is_empty() || references.len() != trial.gateway_attempts.len() {
+        return Err(EvaluationError::GatewayEvidence);
+    }
+    let mut attempts = BTreeMap::new();
+    for attempt in &trial.gateway_attempts {
+        let id =
+            Uuid::parse_str(&attempt.attempt_id).map_err(|_| EvaluationError::GatewayEvidence)?;
+        if !seen_attempts.insert(id) || attempt.task_id != trial.execution.task_id {
+            return Err(EvaluationError::GatewayEvidence);
+        }
+        if attempts
+            .insert(attempt.attempt_id.as_str(), attempt)
+            .is_some()
+        {
+            return Err(EvaluationError::GatewayEvidence);
+        }
+    }
+    let mut cash_total = 0_u128;
+    let mut api_total = 0_u128;
+    for reference in references {
+        let attempt = attempts
+            .get(reference)
+            .copied()
+            .ok_or(EvaluationError::GatewayEvidence)?;
+        if trial.execution.spans.iter().any(|span| {
+            span.kind == SpanKind::ModelInvocation
+                && span.charge_ref.as_deref() == Some(reference)
+                && span.requested_model.as_deref() != Some(attempt.model_alias.as_str())
+        }) {
+            return Err(EvaluationError::GatewayEvidence);
+        }
+        if attempt.currency.as_deref() != Some(trial.costs.currency.as_str()) {
+            return Err(EvaluationError::IncompleteCost);
+        }
+        cash_total = cash_total
+            .checked_add(parse_amount(
+                attempt
+                    .cash_nanos
+                    .as_deref()
+                    .ok_or(EvaluationError::IncompleteCost)?,
+            )?)
+            .ok_or(EvaluationError::AmountOverflow)?;
+        api_total = api_total
+            .checked_add(parse_amount(
+                attempt
+                    .api_equivalent_nanos
+                    .as_deref()
+                    .ok_or(EvaluationError::IncompleteCost)?,
+            )?)
+            .ok_or(EvaluationError::AmountOverflow)?;
+    }
+    Ok((cash_total, api_total))
 }
 
 fn trial_total_cash(trial: &Trial) -> Result<u128, EvaluationError> {
@@ -705,6 +792,7 @@ mod tests {
     #[test]
     fn diagnostics_are_labeled_heuristics_and_link_to_observed_spans() {
         let mut experiment = fixture();
+        let retry_charge_ref = experiment.trials[0].execution.spans[1].charge_ref.clone();
         experiment.trials[0]
             .execution
             .links
@@ -724,7 +812,7 @@ mod tests {
                 ended_at_ms: Some(60),
                 requested_model: None,
                 reported_model: None,
-                charge_ref: Some("retry-charge".into()),
+                charge_ref: retry_charge_ref,
             });
         let report = experiment.evaluate().unwrap();
         let diagnostic = report
@@ -768,6 +856,40 @@ mod tests {
         assert!(matches!(
             experiment.evaluate(),
             Err(EvaluationError::BudgetExceeded)
+        ));
+    }
+
+    #[test]
+    fn gateway_attempt_ids_and_settled_costs_must_match_execution_evidence() {
+        let experiment = fixture();
+        let report = experiment.evaluate().unwrap();
+        assert!(report.diagnostics.iter().all(|diagnostic| {
+            diagnostic
+                .evidence
+                .iter()
+                .all(|link| !link.gateway_attempt_ids.is_empty())
+        }));
+
+        let mut experiment = fixture();
+        experiment.trials[0].gateway_attempts[0].attempt_id =
+            "00000000-0000-4000-8000-999999999999".into();
+        assert!(matches!(
+            experiment.evaluate(),
+            Err(EvaluationError::GatewayEvidence)
+        ));
+
+        let mut experiment = fixture();
+        experiment.trials[0].gateway_attempts[0].cash_nanos = Some("91".into());
+        assert!(matches!(
+            experiment.evaluate(),
+            Err(EvaluationError::GatewayEvidence)
+        ));
+
+        let mut experiment = fixture();
+        experiment.trials[0].gateway_attempts[0].api_equivalent_nanos = None;
+        assert!(matches!(
+            experiment.evaluate(),
+            Err(EvaluationError::IncompleteCost)
         ));
     }
 

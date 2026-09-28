@@ -25,6 +25,7 @@ struct ChatExecution<'a> {
     native_optional_params: Option<serde_json::Map<String, Value>>,
     stream: bool,
     timeout: Duration,
+    upstream_client: Option<reqwest::Client>,
     scope: niu_storage::TenantScope,
     attempt: Uuid,
 }
@@ -35,6 +36,7 @@ struct StreamExecution<'a> {
     api_key: String,
     body: Value,
     timeout: Duration,
+    upstream_client: reqwest::Client,
     scope: niu_storage::TenantScope,
     attempt: Uuid,
 }
@@ -44,7 +46,7 @@ pub(in crate::web) async fn chat(
     headers: HeaderMap,
     Json(mut body): Json<Value>,
 ) -> Result<Response, ApiError> {
-    let principal = state.authorize_api(bearer(&headers)).await?;
+    let principal = state.authorize_api_headers(&headers).await?;
     let public_model = body
         .get("model")
         .and_then(Value::as_str)
@@ -102,9 +104,28 @@ pub(in crate::web) async fn chat(
     };
     let api_key = resolved.api_key;
     let timeout = Duration::from_secs(state.config.server.request_timeout_seconds);
-    state.requests.fetch_add(1, Ordering::Relaxed);
     let task_id = request_task_id(&headers)?;
-    let dispatch = begin_attempt(&state, &principal, &public_model, model, None, task_id.as_deref()).await?;
+    let upstream_client = if protocol.is_openai_compatible() {
+        let base = model.endpoint_base().ok_or_else(ApiError::unavailable)?;
+        let endpoint = format!("{}/chat/completions", base.trim_end_matches('/'));
+        Some(
+            crate::upstream::client_for_endpoint(&endpoint, timeout)
+                .await
+                .map_err(|_| ApiError::unavailable())?,
+        )
+    } else {
+        None
+    };
+    state.requests.fetch_add(1, Ordering::Relaxed);
+    let dispatch = begin_attempt(
+        &state,
+        &principal,
+        &public_model,
+        model,
+        None,
+        task_id.as_deref(),
+    )
+    .await?;
     let result = execute_chat(
         &state,
         ChatExecution {
@@ -116,6 +137,7 @@ pub(in crate::web) async fn chat(
             native_optional_params,
             stream,
             timeout,
+            upstream_client,
             scope: dispatch.scope,
             attempt: dispatch.attempt,
         },
@@ -137,6 +159,7 @@ async fn execute_chat(
         native_optional_params,
         stream,
         timeout,
+        upstream_client,
         scope,
         attempt,
     } = execution;
@@ -149,6 +172,7 @@ async fn execute_chat(
                 api_key,
                 body,
                 timeout,
+                upstream_client: upstream_client.ok_or_else(ApiError::unavailable)?,
                 scope,
                 attempt,
             },
@@ -157,8 +181,16 @@ async fn execute_chat(
     }
 
     if model.protocol().is_openai_compatible() {
-        return complete_openai_compatible(state, public_model, model, api_key, body, timeout)
-            .await;
+        return complete_openai_compatible(
+            state,
+            public_model,
+            model,
+            api_key,
+            body,
+            timeout,
+            upstream_client.ok_or_else(ApiError::unavailable)?,
+        )
+        .await;
     }
 
     let optional_params = native_optional_params.ok_or_else(ApiError::unsupported)?;
@@ -186,6 +218,7 @@ async fn execute_chat(
         }
     };
     let mut value = serde_json::to_value(response).map_err(|_| ApiError::upstream())?;
+    let provider_model = provider_reported_model(&value);
     let usage = validated_native_chat_usage(&value["usage"]);
     if let Some((prompt, completion)) = usage {
         usage_attempt.report(&json!({
@@ -205,6 +238,7 @@ async fn execute_chat(
         response: Json(value).into_response(),
         completed: true,
         usage,
+        provider_model,
     })
 }
 
@@ -234,6 +268,7 @@ async fn complete_openai_compatible(
     api_key: String,
     mut body: Value,
     timeout: Duration,
+    client: reqwest::Client,
 ) -> Result<ProviderResponse, ApiError> {
     let base = model.endpoint_base().ok_or_else(ApiError::unavailable)?;
     let endpoint = format!("{}/chat/completions", base.trim_end_matches('/'));
@@ -246,8 +281,7 @@ async fn complete_openai_compatible(
     strip_server_control_fields(object);
 
     let usage_attempt = state.usage.begin();
-    let upstream = state
-        .http
+    let upstream = client
         .post(endpoint)
         .bearer_auth(api_key)
         .timeout(timeout)
@@ -262,7 +296,7 @@ async fn complete_openai_compatible(
         state.failures.fetch_add(1, Ordering::Relaxed);
         return Err(ApiError::upstream());
     }
-    let mut value: Value = upstream.json().await.map_err(|_| {
+    let mut value: Value = provider_json(upstream).await.map_err(|_| {
         state.failures.fetch_add(1, Ordering::Relaxed);
         ApiError::upstream()
     })?;
@@ -272,6 +306,7 @@ async fn complete_openai_compatible(
         state.failures.fetch_add(1, Ordering::Relaxed);
         return Err(ApiError::upstream());
     }
+    let provider_model = provider_reported_model(&value);
     if let Some(object) = value.as_object_mut() {
         object
             .entry("id")
@@ -287,6 +322,7 @@ async fn complete_openai_compatible(
         response: Json(value).into_response(),
         completed: true,
         usage,
+        provider_model,
     })
 }
 
@@ -300,6 +336,7 @@ async fn stream_openai_compatible(
         api_key,
         mut body,
         timeout,
+        upstream_client,
         scope,
         attempt,
     } = execution;
@@ -310,8 +347,7 @@ async fn stream_openai_compatible(
         strip_server_control_fields(object);
     }
     let usage_attempt = state.usage.begin();
-    let upstream = state
-        .http
+    let upstream = upstream_client
         .post(endpoint)
         .bearer_auth(api_key)
         .header(header::ACCEPT, "text/event-stream")
@@ -371,6 +407,7 @@ async fn stream_openai_compatible(
         response,
         completed: false,
         usage: None,
+        provider_model: None,
     })
 }
 

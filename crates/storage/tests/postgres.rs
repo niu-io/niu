@@ -99,6 +99,158 @@ async fn tenant_boundaries_dispatch_races_and_restart(pool: PgPool) {
     reopened_pool.close().await;
 }
 
+#[sqlx::test(migrations = "../migrations")]
+#[ignore = "requires PostgreSQL with permission to create test databases"]
+async fn collector_key_metadata_is_scoped_and_never_contains_secrets(pool: PgPool) {
+    let store = Store::from_pool(pool);
+    let first_org = store
+        .create_organization("collector metadata A")
+        .await
+        .unwrap();
+    let second_org = store
+        .create_organization("collector metadata B")
+        .await
+        .unwrap();
+    let first = store
+        .create_project(first_org, "first project")
+        .await
+        .unwrap();
+    let second = store
+        .create_project(second_org, "second project")
+        .await
+        .unwrap();
+    let execution = store
+        .issue_collector_key_for(first, "Claude Code", 3600, "execution")
+        .await
+        .unwrap();
+    let quota = store
+        .issue_collector_key(first, "Quota", 3600)
+        .await
+        .unwrap();
+    store
+        .issue_collector_key_for(second, "Other workspace", 3600, "execution")
+        .await
+        .unwrap();
+
+    let execution_keys = store
+        .list_collector_keys(first, Some("execution"))
+        .await
+        .unwrap();
+    assert_eq!(execution_keys.len(), 1);
+    assert_eq!(execution_keys[0].id, execution.id);
+    assert_eq!(execution_keys[0].purpose, "execution");
+    assert!(!execution_keys[0].revoked);
+    let all_keys = store.list_collector_keys(first, None).await.unwrap();
+    assert_eq!(all_keys.len(), 2);
+    let serialized = serde_json::to_string(&all_keys).unwrap();
+    assert!(!serialized.contains(&execution.token));
+    assert!(!serialized.contains(&quota.token));
+    assert!(!serialized.contains("token_hash"));
+    assert!(
+        store
+            .list_collector_keys(second, Some("execution"))
+            .await
+            .unwrap()
+            .len()
+            == 1
+    );
+
+    store
+        .revoke_collector_key(first, execution.id)
+        .await
+        .unwrap();
+    let revoked = store
+        .list_collector_keys(first, Some("execution"))
+        .await
+        .unwrap();
+    assert!(revoked[0].revoked);
+}
+
+#[sqlx::test]
+#[ignore = "requires PostgreSQL with permission to create test databases"]
+async fn failed_provider_model_migration_can_be_retried_after_schema_repair(pool: PgPool) {
+    use std::borrow::Cow;
+
+    use sqlx::migrate::Migrator;
+
+    const PROVIDER_MODEL_MIGRATION: i64 = 16;
+
+    // The SQLx test harness applies the latest schema before entering the test.
+    // This test owns a disposable database, so reset its schema to model an upgrade.
+    sqlx::query("DROP SCHEMA public CASCADE")
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("CREATE SCHEMA public")
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("GRANT ALL ON SCHEMA public TO public")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let before_provider_model = Migrator {
+        migrations: Cow::Owned(
+            MIGRATOR
+                .iter()
+                .filter(|migration| migration.version < PROVIDER_MODEL_MIGRATION)
+                .cloned()
+                .collect(),
+        ),
+        ..Migrator::DEFAULT
+    };
+    assert!(
+        MIGRATOR
+            .iter()
+            .any(|migration| migration.version == PROVIDER_MODEL_MIGRATION)
+    );
+    before_provider_model.run(&pool).await.unwrap();
+
+    // Simulate a schema conflict that makes the real pending migration fail.
+    // PostgreSQL transactional DDL must leave its migration version unapplied.
+    sqlx::query("ALTER TABLE attempts ADD COLUMN provider_model TEXT")
+        .execute(&pool)
+        .await
+        .unwrap();
+    let error = MIGRATOR.run(&pool).await.unwrap_err();
+    assert!(matches!(
+        error,
+        sqlx::migrate::MigrateError::ExecuteMigration(_, PROVIDER_MODEL_MIGRATION)
+    ));
+
+    let migration_record: Option<bool> =
+        sqlx::query_scalar("SELECT success FROM _sqlx_migrations WHERE version = $1")
+            .bind(PROVIDER_MODEL_MIGRATION)
+            .fetch_optional(&pool)
+            .await
+            .unwrap();
+    assert_eq!(migration_record, None);
+
+    // Repair the conflicting schema and retry the same embedded migration set.
+    sqlx::query("ALTER TABLE attempts DROP COLUMN provider_model")
+        .execute(&pool)
+        .await
+        .unwrap();
+    MIGRATOR.run(&pool).await.unwrap();
+
+    let migration_record: Option<bool> =
+        sqlx::query_scalar("SELECT success FROM _sqlx_migrations WHERE version = $1")
+            .bind(PROVIDER_MODEL_MIGRATION)
+            .fetch_optional(&pool)
+            .await
+            .unwrap();
+    assert_eq!(migration_record, Some(true));
+
+    let column_exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'attempts' AND column_name = 'provider_model')",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(column_exists);
+}
+
 #[sqlx::test]
 #[ignore = "requires PostgreSQL with permission to create test databases"]
 async fn operator_sessions_store_only_hashes_and_revocation_blocks_authentication(pool: PgPool) {
@@ -1172,6 +1324,26 @@ async fn execution_cohort_deduplicates_scoped_costs_and_keeps_unknowns_explicit(
         ))
         .unwrap();
         record.record_id = record_id.into();
+        let task_id = format!("task-{record_id}");
+        for span in &mut record.spans {
+            if span.id == record.task_id {
+                span.id = task_id.clone();
+            }
+        }
+        for link in &mut record.links {
+            if link.from == record.task_id {
+                link.from = task_id.clone();
+            }
+            if link.to == record.task_id {
+                link.to = task_id.clone();
+            }
+        }
+        for outcome in &mut record.outcomes {
+            if outcome.span_id == record.task_id {
+                outcome.span_id = task_id.clone();
+            }
+        }
+        record.task_id = task_id;
         record.coverage = Coverage::Complete;
         for span in &mut record.spans {
             if matches!(
@@ -1199,6 +1371,29 @@ async fn execution_cohort_deduplicates_scoped_costs_and_keeps_unknowns_explicit(
             });
         }
         record
+    }
+
+    fn relabel_task(record: &mut ExecutionRecord, task_id: &str) {
+        let old_id = record.task_id.clone();
+        for span in &mut record.spans {
+            if span.id == old_id {
+                span.id = task_id.into();
+            }
+        }
+        for link in &mut record.links {
+            if link.from == old_id {
+                link.from = task_id.into();
+            }
+            if link.to == old_id {
+                link.to = task_id.into();
+            }
+        }
+        for outcome in &mut record.outcomes {
+            if outcome.span_id == old_id {
+                outcome.span_id = task_id.into();
+            }
+        }
+        record.task_id = task_id.into();
     }
 
     let accepted = observed_record("accepted", attempt_ids[0], true);
@@ -1233,6 +1428,7 @@ async fn execution_cohort_deduplicates_scoped_costs_and_keeps_unknowns_explicit(
 
     let report = store.execution_cohort(scope).await.unwrap();
     assert_eq!(report.records_scanned, 3);
+    assert_eq!(report.tasks_scanned, 3);
     assert_eq!(report.coverage.complete, 3);
     assert_eq!((report.outcomes.accepted, report.outcomes.rejected), (1, 2));
     assert_eq!(report.outcome_evidence.agent_claim.accepted, 1);
@@ -1282,6 +1478,7 @@ async fn execution_cohort_deduplicates_scoped_costs_and_keeps_unknowns_explicit(
         .charge_ref = Some("provider-ledger-reference".into());
     store.import_execution(scope, &partial).await.unwrap();
     let incomplete = store.execution_cohort(scope).await.unwrap();
+    assert_eq!(incomplete.tasks_scanned, 4);
     assert_eq!(incomplete.accepted_completions, 2);
     // One UUID has no scoped attempt row and one provider-native namespace is
     // intentionally not guessed to be a canonical ledger identifier.
@@ -1289,6 +1486,28 @@ async fn execution_cohort_deduplicates_scoped_costs_and_keeps_unknowns_explicit(
     assert!(!incomplete.cost_evidence.complete);
     assert!(incomplete.api_equivalent_per_accepted_completion.is_empty());
     assert_eq!(incomplete.api_equivalent_by_currency[0].amount_nanos, "100");
+
+    let grouped_scope = store
+        .create_project(organization, "grouped outcomes")
+        .await
+        .unwrap();
+    let mut grouped_accepted = observed_record("grouped-accepted", attempt_ids[0], true);
+    let mut grouped_rejected = observed_record("grouped-rejected", attempt_ids[1], false);
+    relabel_task(&mut grouped_accepted, "shared-task");
+    relabel_task(&mut grouped_rejected, "shared-task");
+    store
+        .import_execution(grouped_scope, &grouped_accepted)
+        .await
+        .unwrap();
+    store
+        .import_execution(grouped_scope, &grouped_rejected)
+        .await
+        .unwrap();
+    let grouped = store.execution_cohort(grouped_scope).await.unwrap();
+    assert_eq!(grouped.records_scanned, 2);
+    assert_eq!(grouped.tasks_scanned, 1);
+    assert_eq!(grouped.outcomes.conflicting, 1);
+    assert_eq!(grouped.accepted_completions, 0);
 
     let empty_cost_scope = store
         .create_project(organization, "zero accepted")

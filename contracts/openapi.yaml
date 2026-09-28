@@ -37,6 +37,7 @@ paths:
       summary: List models available to the configured API key
       security:
         - bearerAuth: []
+        - niuApiKeyAuth: []
       responses:
         '200':
           description: Available public model names.
@@ -56,6 +57,7 @@ paths:
       summary: Create an OpenAI-compatible chat completion
       security:
         - bearerAuth: []
+        - niuApiKeyAuth: []
       parameters:
         - name: X-Niu-Task-ID
           in: header
@@ -106,6 +108,7 @@ paths:
       description: The configured route must use provider openai and explicitly declare embedding support. Optional dimensions and base64 output require separate route capabilities. These declarations are operator assertions, not provider conformance evidence. Unsupported providers or capabilities are rejected before durable operation and attempt creation.
       security:
         - bearerAuth: []
+        - niuApiKeyAuth: []
       parameters:
         - name: X-Niu-Task-ID
           in: header
@@ -147,6 +150,7 @@ paths:
       description: The route must be an OpenAI-compatible provider route with supports_responses enabled. This public subset accepts a single text input and optional text instructions, output limit, sampling values, metadata and user identifier. Streaming, multimodal input, tools, prior-response state and other fields are rejected.
       security:
         - bearerAuth: []
+        - niuApiKeyAuth: []
       parameters:
         - name: X-Niu-Task-ID
           in: header
@@ -278,6 +282,77 @@ paths:
         '403': { description: Installation administrator required. }
         '404': { description: Vendor does not exist. }
         '409': { description: Stale revision, existing alias or different vendor ownership. }
+  /admin/v1/vendors/{id}/catalog:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: listProviderModelCatalog
+      summary: Discover models available from an installation vendor
+      description: Makes a bounded GET to the configured provider /models endpoint using the encrypted server-side credential. No inference request is sent. Redirects are blocked, the response body is capped at 2 MiB, and only model ID, display name, and context length are returned. Provider credentials and raw response data are never returned.
+      security: [{ adminBearerAuth: [] }]
+      responses:
+        '200':
+          description: Provider model metadata wrapped in data.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    maxItems: 2000
+                    items: { $ref: '#/components/schemas/ProviderCatalogModel' }
+        '403': { description: Installation administrator required. }
+        '404': { description: Vendor does not exist. }
+        '502': { description: Provider rejected the credential or returned an invalid catalog or request error. }
+  /admin/v1/vendors/{id}/check:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: checkVendorModel
+      summary: Check provider reachability and whether a mapped model is listed
+      description: Performs a bounded GET to the provider's /models endpoint. It does not send an inference request. Redirects are blocked, response bodies are capped at 2 MiB, and provider response content and credentials are never returned. A listed model does not prove inference entitlement or quota.
+      security: [{ adminBearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [alias]
+              properties:
+                alias: { type: string, minLength: 1, maxLength: 200 }
+      responses:
+        '200':
+          description: Sanitized provider check result wrapped in data.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [status, model, http_status, duration_ms, checked_at_ms]
+                    properties:
+                      status:
+                        type: string
+                        enum: [connected, credentials_rejected, endpoint_unavailable, private_endpoint_blocked, invalid_endpoint, redirect_blocked, provider_rate_limited, provider_error, model_catalog_unavailable, model_catalog_too_large, invalid_model_catalog]
+                      model: { type: string, enum: [listed, not_listed, unknown] }
+                      http_status: { type: [integer, 'null'] }
+                      duration_ms: { type: integer, minimum: 0 }
+                      checked_at_ms: { type: integer, minimum: 0 }
+        '400': { description: Invalid model alias. }
+        '403': { description: Installation administrator required. }
+        '404': { description: Model alias is not mapped to this vendor. }
+        '503': { description: Credential decryption or storage unavailable. }
   /admin/v1/session:
     get:
       operationId: getAdminSessionIdentity
@@ -539,6 +614,55 @@ paths:
           description: Invalid dataset, mismatched trial, incomplete cost evidence, or budget limit exceeded.
         '401':
           description: Invalid or expired administrator/operator credential.
+  /admin/v1/workspaces:
+    get:
+      operationId: listWorkspaces
+      summary: List up to 1000 workspaces available to the current administrator
+      security:
+        - adminBearerAuth: []
+      responses:
+        '200':
+          description: Workspaces pair each project with its parent organization.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Workspace'
+        '401':
+          description: Invalid administrator or operator credential.
+        '403':
+          description: The credential does not have read access.
+    post:
+      operationId: createWorkspace
+      summary: Create a workspace under an organization
+      security:
+        - adminBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceInput'
+      responses:
+        '201':
+          description: Created workspace. If an installation administrator omits organization_id, Niu creates a Personal workspace organization.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+        '400':
+          description: Workspace name is empty or exceeds 200 bytes.
+        '401':
+          description: Invalid administrator or operator credential.
+        '403':
+          description: The credential does not have write access.
+        '404':
+          description: The credential cannot create a workspace in the requested organization.
   /admin/v1/organizations:
     get:
       operationId: listOrganizations
@@ -981,7 +1105,7 @@ paths:
     get:
       operationId: listProjectGatewayActivity
       summary: Read automatically retained gateway request activity
-      description: Returns metadata for recent model attempts admitted by Niu. Request and response bodies, prompts and completions are not included. The result is newest first and bounded to at most 100 entries; it has no pagination. An absent task_id means the caller did not supply X-Niu-Task-ID. Missing usage or cost fields remain unknown.
+      description: Returns metadata for model attempts admitted by Niu, newest first. Request and response bodies, prompts and completions are not included. Pages are bounded to at most 100 entries. Pass the previous response's next_cursor as after to read older matching entries; traversal is a live view, not a cross-page snapshot. Optional filters apply to the whole project scope. summary totals cover the selected filters independent of page. An absent task_id means the caller did not supply X-Niu-Task-ID. Missing usage or cost fields remain unknown.
       security:
         - adminBearerAuth: []
       parameters:
@@ -993,22 +1117,70 @@ paths:
           in: path
           required: true
           schema: { type: string, format: uuid }
+        - name: after
+          in: query
+          description: Exclusive cursor from the previous page's next_cursor; results are older than this attempt.
+          schema: { type: string, format: uuid }
         - name: limit
           in: query
           schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - name: from_ms
+          in: query
+          description: Inclusive creation-time lower bound as Unix epoch milliseconds.
+          schema: { type: integer, format: int64 }
+        - name: to_ms
+          in: query
+          description: Exclusive creation-time upper bound as Unix epoch milliseconds.
+          schema: { type: integer, format: int64 }
+        - name: model_alias
+          in: query
+          description: Exact public model alias filter.
+          schema: { type: string, minLength: 1, maxLength: 200 }
+        - name: key_id
+          in: query
+          description: Project API key ID filter. Key names and IDs are visible only within the authorized project.
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          description: Exact gateway execution state.
+          schema: { type: string, enum: [not_sent, may_have_executed, confirmed_completed, confirmed_not_executed] }
       responses:
         '200':
-          description: Recent gateway activity wrapped in data. Each entry includes attempt_id, operation_id, optional task_id, public model alias, creation/dispatch/completion times, duration_ms, execution status, usage confidence, nullable prompt/completion token counts, and nullable currency/cash/API-equivalent amounts. Integer quantities and amounts are decimal strings.
+          description: Gateway activity wrapped in data, nullable next_cursor, and summary. Each entry includes attempt_id, operation_id, optional project api_key_id/key_name and task_id, an optional summary of the latest supplemental execution record for that task, public model alias and nullable provider-reported model, creation/dispatch/completion times, duration_ms, execution status, usage confidence, nullable prompt/completion token counts, and nullable currency/cash/API-equivalent amounts. Integer quantities and amounts are decimal strings. Pages are newest first; next_cursor is the last attempt_id when older matching entries remain. summary covers all rows matching the filters, not only the current page.
           content:
             application/json:
               schema:
                 type: object
-                required: [data]
+                required: [data, next_cursor, summary]
                 properties:
                   data:
                     type: array
                     items:
                       $ref: '#/components/schemas/GatewayActivity'
+                  next_cursor:
+                    type: [string, 'null']
+                    format: uuid
+                  summary:
+                    type: object
+                    required: [request_count, usage_count, prompt_tokens, completion_tokens, timing_count, average_duration_ms, unknown_cost_count, settled_costs]
+                    properties:
+                      request_count: { type: integer, format: int64 }
+                      usage_count: { type: integer, format: int64 }
+                      prompt_tokens: { type: string, pattern: '^[0-9]+$' }
+                      completion_tokens: { type: string, pattern: '^[0-9]+$' }
+                      timing_count: { type: integer, format: int64 }
+                      average_duration_ms: { type: [integer, 'null'], minimum: 0 }
+                      unknown_cost_count: { type: integer, format: int64, description: Requests without a settled cost entry; never implies zero cost. }
+                      settled_costs:
+                        type: array
+                        items:
+                          type: object
+                          required: [currency, cash_nanos, api_equivalent_nanos, settled_requests]
+                          properties:
+                            currency: { type: string, pattern: '^[A-Z]{3}$' }
+                            cash_nanos: { type: string, pattern: '^[0-9]+$' }
+                            api_equivalent_nanos: { type: string, pattern: '^[0-9]+$' }
+                            settled_requests: { type: integer, format: int64 }
         '401':
           description: Administrator authentication required.
         '400':
@@ -1025,6 +1197,50 @@ paths:
         '401':
           description: Administrator authentication required.
   /admin/v1/organizations/{organization}/projects/{project}/collector-keys:
+    get:
+      operationId: listCollectorKeys
+      summary: List scoped collector credential metadata
+      description: Lists collector names, purposes, expiry and status without returning secrets or token hashes.
+      security:
+        - adminBearerAuth: []
+      parameters:
+        - name: organization
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: project
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: purpose
+          in: query
+          schema: { type: string, enum: [quota, execution] }
+      responses:
+        '200':
+          description: Collector metadata in this project only.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, name, purpose, created_at_ms, expires_at_ms, revoked, expired]
+                      properties:
+                        id: { type: string, format: uuid }
+                        name: { type: string, maxLength: 200 }
+                        purpose: { type: string, enum: [quota, execution] }
+                        created_at_ms: { type: integer }
+                        expires_at_ms: { type: integer }
+                        revoked: { type: boolean }
+                        expired: { type: boolean }
+        '401':
+          description: Administrator authentication required.
+        '403':
+          description: Session does not have read access to this project.
     post:
       operationId: issueCollectorKey
       summary: Issue a scoped quota-observation collector credential
@@ -1323,15 +1539,46 @@ paths:
         '404': { description: Record absent from this project. }
 components:
   schemas:
+    ProviderCatalogModel:
+      type: object
+      additionalProperties: false
+      required: [id, name, context_length]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 200, description: Provider model ID used for inference routing. }
+        name: { type: string, minLength: 1, maxLength: 300, description: Display name supplied by the provider. }
+        context_length: { type: [integer, 'null'], minimum: 1 }
     GatewayActivity:
       type: object
       additionalProperties: false
-      required: [attempt_id, operation_id, model, created_at, execution, usage_confidence]
+      required: [attempt_id, operation_id, api_key_id, key_name, task_evidence, model, provider_model, created_at, execution, usage_confidence]
       properties:
         attempt_id: { type: string, format: uuid }
         operation_id: { type: string, format: uuid }
+        api_key_id: { type: [string, 'null'], format: uuid }
+        key_name: { type: [string, 'null'] }
         task_id: { type: [string, 'null'], maxLength: 200 }
+        task_evidence:
+          oneOf:
+            - type: 'null'
+            - type: object
+              additionalProperties: false
+              required: [execution_id, source, record_id, coverage, outcomes]
+              properties:
+                execution_id: { type: string, format: uuid, description: Fetch this metadata-only trace from the scoped executions endpoint. }
+                source: { type: string }
+                record_id: { type: string }
+                coverage: { type: string, enum: [complete, partial, unknown] }
+                outcomes:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [authority, result]
+                    properties:
+                      authority: { type: string, enum: [agent_claim, deterministic_validator, human_acceptance] }
+                      result: { type: string, enum: [accepted, rejected, inconclusive] }
         model: { type: string, description: Public model alias requested through Niu. }
+        provider_model: { type: [string, 'null'], description: Provider-reported model identity when returned by the provider. It is distinct from the public model alias. }
         created_at: { type: string, format: date-time }
         dispatched_at: { type: [string, 'null'], format: date-time }
         completed_at: { type: [string, 'null'], format: date-time }
@@ -1703,15 +1950,30 @@ components:
     BenchmarkTrialV1:
       type: object
       additionalProperties: false
-      required: [task_snapshot_id, candidate_id, offer_revision, repetition, execution, costs]
+      required: [task_snapshot_id, candidate_id, offer_revision, repetition, execution, gateway_attempts, costs]
       properties:
         task_snapshot_id: { type: string, minLength: 1 }
         candidate_id: { type: string, minLength: 1 }
         offer_revision: { type: string, minLength: 1 }
         repetition: { type: integer, minimum: 1 }
         execution: { $ref: '#/components/schemas/ExecutionRecordV1' }
+        gateway_attempts:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/BenchmarkGatewayAttemptEvidenceV1' }
         quality_basis_points: { type: [integer, 'null'], minimum: 0, maximum: 10000 }
         costs: { $ref: '#/components/schemas/BenchmarkTrialCostsV1' }
+    BenchmarkGatewayAttemptEvidenceV1:
+      type: object
+      additionalProperties: false
+      required: [attempt_id, task_id, model_alias, currency, cash_nanos, api_equivalent_nanos]
+      properties:
+        attempt_id: { type: string, format: uuid, description: Canonical Niu gateway attempt ID referenced by the execution spans. }
+        task_id: { type: string, minLength: 1, maxLength: 200 }
+        model_alias: { type: string, minLength: 1, maxLength: 200 }
+        currency: { type: [string, 'null'], pattern: '^[A-Z]{3}$' }
+        cash_nanos: { type: [string, 'null'], pattern: '^[0-9]+$' }
+        api_equivalent_nanos: { type: [string, 'null'], pattern: '^[0-9]+$' }
     BenchmarkTrialCostsV1:
       type: object
       additionalProperties: false
@@ -1803,23 +2065,25 @@ components:
           items: { $ref: '#/components/schemas/BenchmarkEvidenceLinkV1' }
     BenchmarkEvidenceLinkV1:
       type: object
-      required: [candidate_id, task_snapshot_id, record_id, span_ids]
+      required: [candidate_id, task_snapshot_id, record_id, gateway_attempt_ids, span_ids]
       properties:
         candidate_id: { type: string }
         task_snapshot_id: { type: string }
         record_id: { type: string }
+        gateway_attempt_ids: { type: array, items: { type: string, format: uuid } }
         span_ids: { type: array, items: { type: string } }
     ExecutionCohortV1:
       type: object
-      required: [records_scanned, record_limit, truncated, coverage, outcomes, outcome_evidence, accepted_completions, work, cost_evidence, api_equivalent_by_currency, configured_rate_cash_by_currency, api_equivalent_per_accepted_completion, configured_rate_cash_per_accepted_completion, invoice_cash, subscription_allocation_cash, capacity]
+      required: [records_scanned, tasks_scanned, record_limit, truncated, coverage, outcomes, outcome_evidence, accepted_completions, work, cost_evidence, api_equivalent_by_currency, configured_rate_cash_by_currency, api_equivalent_per_accepted_completion, configured_rate_cash_per_accepted_completion, invoice_cash, subscription_allocation_cash, capacity]
       properties:
         records_scanned: { type: integer, minimum: 0 }
+        tasks_scanned: { type: integer, minimum: 0, description: Distinct task IDs grouped by source across scanned records. }
         record_limit: { type: integer, const: 10000 }
         truncated: { type: boolean, description: True when more records exist beyond the scan limit. }
         coverage: { $ref: '#/components/schemas/ExecutionCoverageCountsV1' }
         outcomes: { $ref: '#/components/schemas/ExecutionOutcomeCountsV1' }
         outcome_evidence: { $ref: '#/components/schemas/ExecutionOutcomeEvidenceCountsV1' }
-        accepted_completions: { type: integer, minimum: 0, description: Requires deterministic validator or human acceptance evidence and no conflicting outcome evidence. }
+        accepted_completions: { type: integer, minimum: 0, description: Distinct source/task groups with deterministic validator or human acceptance evidence and no conflicting outcome evidence. }
         work: { $ref: '#/components/schemas/ExecutionWorkCountsV1' }
         cost_evidence: { $ref: '#/components/schemas/ExecutionCostEvidenceV1' }
         api_equivalent_by_currency:
@@ -1944,6 +2208,24 @@ components:
           type: array
           maxItems: 10000
           items: { $ref: '#/components/schemas/ExecutionOutcomeV1' }
+        external_usage:
+          $ref: '#/components/schemas/ExternalUsageV1'
+          description: Optional source-reported usage estimate. It is not a settled Niu charge and is excluded from ledger cost calculations.
+    ExternalUsageV1:
+      type: object
+      additionalProperties: false
+      required: [authority, agent_version, request_count, retry_count, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, cost_nanos, currency]
+      properties:
+        authority: { type: string, const: agent_reported_estimate }
+        agent_version: { type: [string, 'null'], maxLength: 200 }
+        request_count: { type: integer, minimum: 0 }
+        retry_count: { type: integer, minimum: 0, description: Source-reported retries; separate from Niu gateway attempt records. }
+        input_tokens: { type: [string, 'null'], pattern: '^\\d{1,38}$' }
+        output_tokens: { type: [string, 'null'], pattern: '^\\d{1,38}$' }
+        cache_read_tokens: { type: [string, 'null'], pattern: '^\\d{1,38}$' }
+        cache_creation_tokens: { type: [string, 'null'], pattern: '^\\d{1,38}$' }
+        cost_nanos: { type: [string, 'null'], pattern: '^\\d{1,38}$', description: Estimated source cost in nanounits; not an invoice or settled charge. }
+        currency: { type: [string, 'null'], pattern: '^[A-Z]{3}$' }
     ExecutionSpanV1:
       type: object
       additionalProperties: false
@@ -1964,7 +2246,7 @@ components:
       properties:
         from: { type: string, minLength: 1, maxLength: 200 }
         to: { type: string, minLength: 1, maxLength: 200 }
-        kind: { type: string, enum: [contains, delegates, depends_on, retries, resumes] }
+        kind: { type: string, enum: [contains, delegates, depends_on, fallbacks, retries, resumes], description: A fallback edge points from a model invocation to its explicitly selected replacement invocation. }
     ExecutionOutcomeV1:
       type: object
       additionalProperties: false
@@ -2054,6 +2336,26 @@ components:
           type: string
           minLength: 1
           maxLength: 200
+    WorkspaceInput:
+      type: object
+      required: [name]
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        organization_id:
+          type: [string, 'null']
+          format: uuid
+    Workspace:
+      type: object
+      required: [id, name, organization_id, organization_name]
+      properties:
+        id: { type: string, format: uuid, description: Project ID used to address this workspace. }
+        name: { type: string, description: Workspace name (stored as the project name). }
+        organization_id: { type: string, format: uuid }
+        organization_name: { type: string }
     KeyInput:
       type: object
       required: [name, allowed_models, ttl_seconds]
@@ -2075,6 +2377,10 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
+    niuApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Niu-API-Key
     adminBearerAuth:
       type: http
       scheme: bearer

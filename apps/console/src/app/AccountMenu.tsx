@@ -20,7 +20,7 @@ export default function AccountMenu({ context }: { context: ConsoleContext }) {
   const { session, token, draftToken, setDraftToken, error, connect } = context;
   useEffect(() => { if (token) setSignInOpen(false); }, [token]);
   const installation = session?.kind === 'installation';
-  const label = installation ? 'Installation admin' : session?.operator ? `${session.operator.role[0].toUpperCase()}${session.operator.role.slice(1)}` : 'Administrator access';
+  const label = installation ? 'Niu administrator' : session?.operator ? `${session.operator.role[0].toUpperCase()}${session.operator.role.slice(1)}` : 'Administrator access';
   return <>
     <DropdownMenu.Root>
       <DropdownMenu.Trigger className="rail-avatar account-trigger" aria-label="Account menu" title="Account">
@@ -30,7 +30,7 @@ export default function AccountMenu({ context }: { context: ConsoleContext }) {
         <DropdownMenu.Content className="account-menu" side="right" align="end" sideOffset={12} collisionPadding={12}>
           <DropdownMenu.Label className="account-identity">
             <strong>{label}</strong>
-            <span>{installation ? 'Access across this installation' : session?.operator ? 'Scoped workspace access' : 'Sign in to manage this installation'}</span>
+            <span>{installation ? 'All organizations and projects' : session?.operator ? 'Scoped workspace access' : 'Sign in to manage this installation'}</span>
             {session?.operator && <dl><dt>Organization</dt><dd>{session.operator.organization_id}</dd>{session.operator.project_id && <><dt>Project</dt><dd>{session.operator.project_id}</dd></>}</dl>}
           </DropdownMenu.Label>
           <DropdownMenu.Separator className="account-separator"/>

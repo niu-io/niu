@@ -132,6 +132,20 @@ impl Store {
             .await?)
     }
 
+    /// Return a vendor's encrypted credential for a server-side provider call.
+    /// The ciphertext must never be returned by an API response or logged.
+    pub async fn vendor_credential_ciphertext(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<Vec<u8>>, StoreError> {
+        let row: Option<(Option<Vec<u8>>,)> =
+            sqlx::query_as("SELECT credential_ciphertext FROM vendors WHERE id=$1")
+                .bind(id)
+                .fetch_optional(&self.pool)
+                .await?;
+        Ok(row.and_then(|(ciphertext,)| ciphertext))
+    }
+
     pub async fn vendor_by_name(&self, name: &str) -> Result<Option<VendorView>, StoreError> {
         let bootstrap_query =
             format!("SELECT {VENDOR_COLUMNS} FROM vendors WHERE bootstrap_name=$1");
