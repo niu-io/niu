@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import ModalFrame from '@/components/ModalFrame';
 import { aggregateExternalUsage, executionMetrics, mergeExecutionRecords, spanDuration, timelineRows, type ExecutionAccountLink, type ExecutionCohort, type ExecutionRecordV1 } from '@/features/executions/utils';
 import ExecutionCohortPanel from '@/features/executions/components/ExecutionCohortPanel';
 import TraceRow from '@/features/executions/components/TraceRow';
@@ -57,9 +58,10 @@ async function mapInBatches<T, R>(items: T[], size: number, map: (item: T) => Pr
   return results;
 }
 
-export default function ExecutionWorkspace({ token, initialScope, onOpenSubscription, embedded = false }: {
+export default function ExecutionWorkspace({ token, initialScope, onOpenSubscription, embedded = false, platformCosts = false }: {
   token: string;
   embedded?: boolean;
+  platformCosts?: boolean;
   initialScope?: ScopeFocus | null;
   onOpenSubscription?: (organizationId: string, projectId: string, accountId: string) => void;
 }) {
@@ -87,7 +89,6 @@ export default function ExecutionWorkspace({ token, initialScope, onOpenSubscrip
   const [loading, setLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  const dialogRef = useRef<HTMLDialogElement>(null);
   const detailRequestSequence = useRef(0);
 
   useEffect(() => {
@@ -118,21 +119,14 @@ export default function ExecutionWorkspace({ token, initialScope, onOpenSubscrip
     const controller = new AbortController();
     setCohort(null);
     setCohortError('');
-    if (!organization || !project) { setCohortLoading(false); return () => controller.abort(); }
+    if (!platformCosts || !organization || !project) { setCohortLoading(false); return () => controller.abort(); }
     setCohortLoading(true);
     void request<{ data: ExecutionCohort }>(projectPath(organization, project) + '/cohort', token, { signal: controller.signal })
       .then(value => { if (!controller.signal.aborted) setCohort(value.data); })
       .catch(e => { if (!controller.signal.aborted) setCohortError((e as Error).message); })
       .finally(() => { if (!controller.signal.aborted) setCohortLoading(false); });
     return () => controller.abort();
-  }, [token, organization, project, revision]);
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (importOpen && !dialog.open) dialog.showModal();
-    if (!importOpen && dialog.open) dialog.close();
-  }, [importOpen]);
+  }, [token, organization, project, revision, platformCosts]);
 
   async function openRecord(summary: Summary) {
     const sequence = ++detailRequestSequence.current;
@@ -247,7 +241,7 @@ export default function ExecutionWorkspace({ token, initialScope, onOpenSubscrip
   const conflictingResults = metrics?.hasConflictingResults ?? false;
   return <>
     <div className="page-heading execution-page-heading">
-      <div>{embedded && <h2>Your task evidence</h2>}<p className="page-subtitle">Compare task time, usage, cost, and accepted outcomes.</p></div>
+      <div><h2>{embedded ? 'Task detail' : 'Task activity'}</h2></div>
       <div className="execution-page-actions">
         <Button variant="outline" disabled={!project || loading} onClick={() => { setCursor(''); setRevision(n => n + 1); }}><RefreshCw />Refresh</Button>
         <Button disabled={!project} onClick={() => { setImportOpen(true); setError(''); setNotice(''); }}><Upload />Add task evidence</Button>
@@ -256,13 +250,7 @@ export default function ExecutionWorkspace({ token, initialScope, onOpenSubscrip
 
     {!project && <p className="execution-scope-note">Choose or create a workspace from the navigation to see its tasks. A task is a piece of work you asked an agent to complete; an attempt is one pass at completing it. Each attempt can contain many model and tool steps.</p>}
 
-    <section className="execution-definition panel" aria-label="Task, attempt, and step definitions">
-      <div><strong>Task</strong><span>Work to complete</span></div>
-      <div><strong>Attempt</strong><span>One pass, including retries</span></div>
-      <div><strong>Steps</strong><span>Model calls, tools, and checks</span></div>
-    </section>
-
-    {project && <ExecutionCohortPanel cohort={cohort} loading={cohortLoading} error={cohortError} />}
+    {platformCosts && project && <ExecutionCohortPanel cohort={cohort} loading={cohortLoading} error={cohortError} />}
 
     {error && !importOpen && <p role="alert" className="error-text execution-feedback">{error}</p>}
     {notice && <p role="status" className="success-text execution-feedback">{notice}</p>}
@@ -357,7 +345,7 @@ export default function ExecutionWorkspace({ token, initialScope, onOpenSubscrip
             </section>
           </div>
 
-          <TaskCharges charges={charges} />
+          {platformCosts && <TaskCharges charges={charges} />}
 
           <details className="execution-links-panel panel">
             <summary><span><strong>Causal links</strong><small>Delegation, dependencies, model fallbacks, retries, and resumes</small></span><Badge variant="outline">{detail.links.length}</Badge></summary>
@@ -367,14 +355,13 @@ export default function ExecutionWorkspace({ token, initialScope, onOpenSubscrip
       </section>
     </div>}
 
-    <dialog ref={dialogRef} id="execution-import-dialog" className="execution-import-dialog" aria-labelledby="execution-import-title" onCancel={event => { event.preventDefault(); setImportOpen(false); }} onClose={() => setImportOpen(false)}>
+    <ModalFrame open={importOpen} onOpenChange={setImportOpen} title="Add task evidence" description="Import one task record in Niu’s version 1 metadata format." className="execution-import-dialog">
       <form className="execution-import-form" onSubmit={event => void importRecord(event)}>
-        <div className="execution-import-head"><div><p className="eyebrow">TASK METADATA</p><h2 id="execution-import-title">Add task evidence</h2><p>Import one task record in Niu’s version 1 metadata format.</p></div><Button type="button" variant="ghost" size="icon" aria-label="Close import dialog" onClick={() => setImportOpen(false)}>×</Button></div>
         <Label htmlFor="execution-json">Task record JSON<textarea id="execution-json" rows={15} value={draft} onChange={e => setDraft(e.target.value)} placeholder={'Paste one task record from Niu’s v1 metadata contract'} required autoFocus /></Label>
         <p className="execution-import-privacy">Prompts, responses, code, tool output, and credentials are not accepted. Replaying identical source and record IDs is safe.</p>
         {error && importOpen && <p role="alert" className="error-text">{error}</p>}
         <div className="execution-import-actions"><Button type="button" variant="outline" onClick={() => setImportOpen(false)}>Cancel</Button><Button type="submit" disabled={!draft.trim()}><Upload />Import execution</Button></div>
       </form>
-    </dialog>
+    </ModalFrame>
   </>;
 }

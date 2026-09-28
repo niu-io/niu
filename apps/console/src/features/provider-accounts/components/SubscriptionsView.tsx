@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Activity, ArrowUpRight, Clock3, Database, Plus, RefreshCw, Trash2, Upload, WalletCards } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Dropdown, DropdownOption } from '@/components/ui/dropdown';
+import ModalFrame from '@/components/ModalFrame';
 import type { ScopeFocus } from '../types';
 
 type Account = {
@@ -92,8 +94,6 @@ export default function SubscriptionsView({ token, initialScope, onOpenExecution
     credential_reference: '', concurrency_limit: '1',
   });
   const [dialogError, setDialogError] = useState('');
-  const accountDialog = useRef<HTMLDialogElement>(null);
-  const quotaDialog = useRef<HTMLDialogElement>(null);
   const focusedAccountRow = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -124,17 +124,6 @@ export default function SubscriptionsView({ token, initialScope, onOpenExecution
       if (row && typeof row.scrollIntoView === 'function') row.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }, [data, initialScope?.accountId]);
-
-  useEffect(() => {
-    const dialog = accountDialog.current;
-    if (accountOpen && dialog && !dialog.open) dialog.showModal();
-    else if (!accountOpen && dialog?.open) dialog.close();
-  }, [accountOpen]);
-  useEffect(() => {
-    const dialog = quotaDialog.current;
-    if (quotaAccount && dialog && !dialog.open) dialog.showModal();
-    else if (!quotaAccount && dialog?.open) dialog.close();
-  }, [quotaAccount]);
 
   const windows = useMemo(() => data.flatMap(({ account, windows }) => windows.map(window => ({ account, window }))), [data]);
   const freshCount = windows.filter(item => item.window.fresh).length;
@@ -189,7 +178,7 @@ export default function SubscriptionsView({ token, initialScope, onOpenExecution
 
   return <>
     <div className="page-heading execution-page-heading">
-      <div><p className="page-subtitle">Review provider-reported quota windows and resets.</p></div>
+      <div><h1>Subscriptions</h1></div>
       <div className="execution-page-actions">
         <Button variant="outline" disabled={!project || loading} onClick={() => { setNotice(''); setRevision(value => value + 1); }}><RefreshCw />Refresh</Button>
         <Button disabled={!project} onClick={() => { setAccountOpen(true); setDialogError(''); }}><Plus />Register account</Button>
@@ -204,7 +193,7 @@ export default function SubscriptionsView({ token, initialScope, onOpenExecution
 
     {project && !loading && !error && <>
       <section className="subscription-metrics" aria-label="Subscription summary">
-        <article className="subscription-metric"><span className="subscription-metric-icon"><WalletCards size={16} /></span><div><small>Supplier accounts</small><strong>{data.length}</strong><span>In this project</span></div></article>
+        <article className="subscription-metric"><span className="subscription-metric-icon"><WalletCards size={16} /></span><div><small>Supplier accounts</small><strong>{data.length}</strong><span>In this workspace</span></div></article>
         <article className="subscription-metric"><span className="subscription-metric-icon is-violet"><Database size={16} /></span><div><small>Subscription plans</small><strong>{subscriptionAccounts}</strong><span>Separate from metered keys</span></div></article>
         <article className="subscription-metric"><span className="subscription-metric-icon is-green"><Activity size={16} /></span><div><small>Fresh windows</small><strong>{freshCount}<em> / {windows.length}</em></strong><span>Before validity and reset deadlines</span></div></article>
         <article className="subscription-metric"><span className="subscription-metric-icon is-amber"><Clock3 size={16} /></span><div><small>Unattributed changes</small><strong>{unlinkedChanges}</strong><span>Between provider snapshots</span></div></article>
@@ -236,27 +225,25 @@ export default function SubscriptionsView({ token, initialScope, onOpenExecution
       </section>
     </>}
 
-    <dialog ref={accountDialog} className="subscription-dialog" onCancel={event => { event.preventDefault(); setAccountOpen(false); }}>
+    <ModalFrame open={accountOpen} onOpenChange={setAccountOpen} title="Register account" description="Registration stores metadata and an opaque secret reference. It does not enable inference." className="subscription-dialog">
       <form className="subscription-dialog-form" onSubmit={event => void createAccount(event)}>
-        <header className="execution-import-head"><div><p className="eyebrow">SUPPLIER SETUP</p><h2>Register account</h2><p>Registration stores metadata and an opaque secret reference. It does not enable inference.</p></div><Button type="button" variant="ghost" size="icon" aria-label="Close" onClick={() => setAccountOpen(false)}>×</Button></header>
         {dialogError && <p role="alert" className="error-text">{dialogError}</p>}
         <label>Provider<input required maxLength={100} value={accountDraft.provider} onChange={e => setAccountDraft({ ...accountDraft, provider: e.target.value })} placeholder="Provider name" /></label>
         <label>Plan<input required maxLength={200} value={accountDraft.plan} onChange={e => setAccountDraft({ ...accountDraft, plan: e.target.value })} placeholder="Plan label" /></label>
-        <div className="subscription-dialog-grid"><label>Authentication<select value={accountDraft.authentication_mode} onChange={e => setAccountDraft({ ...accountDraft, authentication_mode: e.target.value as AccountDraft['authentication_mode'] })}><option value="oauth_refresh">OAuth refresh</option><option value="api_key">API key</option></select></label><label>Billing<select value={accountDraft.billing_mode} onChange={e => setAccountDraft({ ...accountDraft, billing_mode: e.target.value as AccountDraft['billing_mode'] })}><option value="subscription">Subscription</option><option value="metered_api">Metered API</option></select></label></div>
+        <div className="subscription-dialog-grid"><label>Authentication<Dropdown value={accountDraft.authentication_mode} onChange={e => setAccountDraft({ ...accountDraft, authentication_mode: e.target.value as AccountDraft['authentication_mode'] })}><DropdownOption value="oauth_refresh">OAuth refresh</DropdownOption><DropdownOption value="api_key">API key</DropdownOption></Dropdown></label><label>Billing<Dropdown value={accountDraft.billing_mode} onChange={e => setAccountDraft({ ...accountDraft, billing_mode: e.target.value as AccountDraft['billing_mode'] })}><DropdownOption value="subscription">Subscription</DropdownOption><DropdownOption value="metered_api">Metered API</DropdownOption></Dropdown></label></div>
         <label>Credential reference<input required value={accountDraft.credential_reference} onChange={e => setAccountDraft({ ...accountDraft, credential_reference: e.target.value })} placeholder="env:PROVIDER_ACCOUNT" autoComplete="off" /><small>Use an env: or secret: reference. Never paste the secret itself.</small></label>
         <label>Concurrency limit<input required type="number" min="1" max="10000" value={accountDraft.concurrency_limit} onChange={e => setAccountDraft({ ...accountDraft, concurrency_limit: e.target.value })} /></label>
         <footer className="execution-import-actions"><Button variant="outline" type="button" onClick={() => setAccountOpen(false)}>Cancel</Button><Button type="submit">Register account</Button></footer>
       </form>
-    </dialog>
+    </ModalFrame>
 
-    <dialog ref={quotaDialog} className="subscription-dialog" onCancel={event => { event.preventDefault(); setQuotaAccount(''); }}>
+    <ModalFrame open={Boolean(quotaAccount)} onOpenChange={open => { if (!open) setQuotaAccount(''); }} title="Import quota snapshot" description={accountForImport ? `${accountForImport.provider} · ${accountForImport.plan}` : 'Provider-reported window'} className="subscription-dialog">
       <form className="subscription-dialog-form" onSubmit={event => void importQuota(event)}>
-        <header className="execution-import-head"><div><p className="eyebrow">VERSIONED OBSERVATION</p><h2>Import quota snapshot</h2><p>{accountForImport ? `${accountForImport.provider} · ${accountForImport.plan}` : 'Provider-reported window'}</p></div><Button type="button" variant="ghost" size="icon" aria-label="Close" onClick={() => setQuotaAccount('')}>×</Button></header>
         {dialogError && <p role="alert" className="error-text">{dialogError}</p>}
         <label>Quota observation JSON<textarea required spellCheck={false} value={quotaDraft} onChange={e => setQuotaDraft(e.target.value)} /></label>
         <p className="execution-import-privacy">Use schema version 1. Report the provider's unit, observation time, validity and reset time. Raw credentials and content do not belong in this record; duplicate samples are idempotent and conflicting replays are rejected.</p>
         <footer className="execution-import-actions"><Button variant="outline" type="button" onClick={() => setQuotaAccount('')}>Cancel</Button><Button type="submit"><Upload />Import snapshot</Button></footer>
       </form>
-    </dialog>
+    </ModalFrame>
   </>;
 }

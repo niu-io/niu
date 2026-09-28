@@ -157,6 +157,15 @@ impl Store {
                 .bind(account).bind(id).fetch_optional(&mut *tx).await?;
             if eligible.is_none() { return Err(StoreError::AccountUnavailable); }
         }
+        if let Some((offer_id, revision)) = sqlx::query_as::<_, (Uuid, Uuid)>(
+            "SELECT offer_id,revision_id FROM provider_attempt_offers WHERE attempt_id=$1",
+        )
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await?
+        {
+            sqlx::query("SELECT id FROM provider_offers WHERE id=$1 AND current_revision=$2 AND active FOR SHARE").bind(offer_id).bind(revision).fetch_optional(&mut *tx).await?.ok_or(StoreError::AccountUnavailable)?;
+        }
         // Take the attempt lock in a separate statement so the following
         // reservation check observes any release committed while we waited.
         sqlx::query("SELECT id FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")

@@ -119,7 +119,7 @@ export default function BenchmarksView({ token }: { token: string }) {
 
   return <>
     <div className="page-heading benchmark-page-heading">
-      <div><p className="page-subtitle">Compare matched task outcomes against the same tools and acceptance criteria.</p></div>
+      <div><h1>Benchmarks</h1></div>
       <span className="benchmark-mode"><span /> Offline analysis</span>
     </div>
 

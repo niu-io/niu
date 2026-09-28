@@ -31,6 +31,9 @@ pub use vendors::{
 };
 mod keys;
 mod pricing;
+mod providers;
+mod billing;
+pub use providers::{ProviderMembership, ProviderOfferInput};
 pub use accounting::{
     BudgetSnapshot, CostEntry, GatewayActivityCostSummary, GatewayActivityEntry,
     GatewayActivityFilter, GatewayActivitySummary,

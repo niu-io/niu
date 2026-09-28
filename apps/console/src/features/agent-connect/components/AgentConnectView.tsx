@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import { Dropdown, DropdownOption } from '@/components/ui/dropdown';
 import type { Workspace } from '@/app/console-context';
 import {
   issueAiderProjectKey,
@@ -82,7 +82,7 @@ export default function AgentConnectView({ token, workspace, models, canWrite }:
   ].join('\n'), [gatewayBaseURL, routeAlias]);
   const collectExample = useMemo(() => [
     'pnpm --filter @niu-io/agent-connect build',
-    `node sdks/agent-connect/bin/niu-agent-connect.mjs claude collect --gateway ${shellQuote(gatewayBaseURL)} --organization ${shellQuote(workspace.organization_id)} --project ${shellQuote(workspace.id)} -- claude`,
+    `node sdks/agent-connect/bin/niu-agent-connect.mjs claude collect --gateway ${shellQuote(gatewayBaseURL)} --organization ${shellQuote(workspace.organization_id)} --workspace ${shellQuote(workspace.id)} -- claude`,
   ].join('\n'), [gatewayBaseURL, workspace.id, workspace.organization_id]);
 
   const reloadCollectorKeys = useCallback(async (signal?: AbortSignal) => {
@@ -135,9 +135,9 @@ export default function AgentConnectView({ token, workspace, models, canWrite }:
 
   return <div className="agent-connect-page">
     <div className="page-heading">
-      <div><h1>Agent Connect</h1><p className="page-subtitle">Set up a model route or collect agent activity.</p></div>
+      <div><h1>Agent Connect</h1></div>
     </div>
-    <div className="agent-connect-scope"><span>Workspace</span><strong>{workspace.name}</strong><span className="agent-scope-project">Project-scoped credentials</span></div>
+    <div className="agent-connect-scope"><span>Workspace</span><strong>{workspace.name}</strong><span className="agent-scope-project">Workspace-scoped credentials</span></div>
     {error && <p className="error-text" role="alert">{error}</p>}
     {notice && <p className="agent-connect-notice" role="status">{notice}</p>}
 
@@ -182,23 +182,23 @@ export default function AgentConnectView({ token, workspace, models, canWrite }:
 
         {agent.availableMode === 'route' ? <section className="agent-connect-setup" aria-labelledby="aider-setup-title">
           <div className="agent-connect-setup-title"><div><h3 id="aider-setup-title">Connect Aider</h3><p>The key grants access to one model alias in this workspace.</p></div><Badge variant="outline">Aider API billing</Badge></div>
-          {!canWrite && <p className="operator-read-only-note">This session can view setup but cannot issue a project key.</p>}
+          {!canWrite && <p className="operator-read-only-note">This session can view setup but cannot issue a workspace key.</p>}
           {models.length === 0 ? <div className="agent-connect-empty"><p>Connect a provider and publish a model alias first.</p><Button asChild variant="outline"><Link to="../vendors">Connect a provider</Link></Button></div> : <>
             <Label htmlFor="aider-model-alias">Model alias
-              <NativeSelect id="aider-model-alias" value={routeAlias} disabled={busy || routeKeyModel !== null} onChange={event => setSelectedModel(event.target.value)}>
-                {models.map(model => <NativeSelectOption key={model} value={model}>{model}</NativeSelectOption>)}
-              </NativeSelect>
+              <Dropdown id="aider-model-alias" aria-label="Model alias" value={routeAlias} disabled={busy || routeKeyModel !== null} onChange={event => setSelectedModel(event.target.value)}>
+                {models.map(model => <DropdownOption key={model} value={model}>{model}</DropdownOption>)}
+              </Dropdown>
             </Label>
             {canWrite && routeKeyModel === null && <Button disabled={busy || !selectedAlias} onClick={() => void mutate(async () => {
               const issued = await issueAiderProjectKey(token, scope, selectedAlias);
               setRouteKeyModel(selectedAlias);
               setRouteSecret({ id: issued.id, token: issued.token });
-              setNotice('Project key created. Copy it now; Niu will not show it again.');
+              setNotice('Workspace key created. Copy it now; Niu will not show it again.');
               setCopyNotice('');
             })}><KeyRound size={16} />Create Aider key</Button>}
             {routeSecret && <div className="agent-connect-secret">
-              <Label id="aider-key-label" htmlFor="aider-project-key">Project key · shown once</Label>
-              <div><Input id="aider-project-key" className="mono" readOnly value={routeSecret.token} onFocus={event => event.target.select()} /><Button type="button" variant="outline" onClick={() => void copyValue('Project key', routeSecret.token)}><Copy size={15} />Copy key</Button><Button type="button" variant="ghost" aria-label="Dismiss project key" onClick={() => setRouteSecret(null)}><X size={16} /></Button></div>
+              <Label id="aider-key-label" htmlFor="aider-workspace-key">Workspace key · shown once</Label>
+              <div><Input id="aider-workspace-key" className="mono" readOnly value={routeSecret.token} onFocus={event => event.target.select()} /><Button type="button" variant="outline" onClick={() => void copyValue('Workspace key', routeSecret.token)}><Copy size={15} />Copy key</Button><Button type="button" variant="ghost" aria-label="Dismiss workspace key" onClick={() => setRouteSecret(null)}><X size={16} /></Button></div>
             </div>}
             <div className="agent-connect-copy-field">
               <Label htmlFor="aider-gateway-url">Niu base URL</Label>
@@ -210,8 +210,8 @@ export default function AgentConnectView({ token, workspace, models, canWrite }:
             </div>
             <div className="agent-connect-code-heading"><strong>Aider setup</strong><Button type="button" variant="outline" size="sm" onClick={() => void copyValue('Aider setup', routeExample)}><Copy size={15} />Copy setup</Button></div>
             <pre className="agent-connect-code"><code>{routeExample}</code></pre>
-            <p className="agent-connect-security"><Shield size={15} />Paste the key at the hidden prompt. Niu pins the route; Aider config and project <code>.env</code> are ignored. Aider subscriptions are not preserved.</p>
-            {routeKeyModel !== null && <p className="agent-connect-key-management">This key is scoped to <code>{routeKeyModel}</code>. <Link to="../keys">Manage or revoke it in Project keys</Link></p>}
+            <p className="agent-connect-security"><Shield size={15} />Paste the key at the hidden prompt. Niu pins the route; Aider config and workspace <code>.env</code> files are ignored. Aider subscriptions are not preserved.</p>
+            {routeKeyModel !== null && <p className="agent-connect-key-management">This key is scoped to <code>{routeKeyModel}</code>. <Link to="../keys">Manage or revoke it in Workspace keys</Link></p>}
           </>}
         </section> : <section className="agent-connect-setup" aria-labelledby="claude-setup-title">
           <div className="agent-connect-setup-title"><div><h3 id="claude-setup-title">Collect Claude Code activity</h3><p>Only the wrapped Claude Code process sends telemetry to Niu.</p></div><Badge variant="outline">Keeps current sign-in</Badge></div>

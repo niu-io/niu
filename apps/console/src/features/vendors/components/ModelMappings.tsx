@@ -1,6 +1,10 @@
-import { useState } from 'react';
-import { Plus, Route } from 'lucide-react';
+import ProviderLogo from '@/components/ProviderLogo';
+import { modelIdentity } from '@/lib/providers';
+import { useMemo, useState } from 'react';
+import { ChevronLeft, ChevronRight, Plus, Route, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import ModalFrame from '@/components/ModalFrame';
 import type { ModelWrite, ProviderCatalogModel, ProviderModelCheck, VendorModel } from '../api';
 import ModelMappingForm from './ModelMappingForm';
 
@@ -29,9 +33,18 @@ export default function ModelMappings({ models, catalog, catalogLoading, catalog
   onCheck: (alias: string) => Promise<ProviderModelCheck>;
 }) {
   const [editing, setEditing] = useState<VendorModel | null | 'new'>(null);
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(0);
   const [checkingAlias, setCheckingAlias] = useState('');
   const [checkResults, setCheckResults] = useState<Record<string, ProviderModelCheck>>({});
   const [checkErrors, setCheckErrors] = useState<Record<string, string>>({});
+  const filteredModels = useMemo(() => {
+    const value = query.trim().toLowerCase();
+    return models.filter(model => !value || `${model.alias} ${model.upstream_model} ${model.enabled ? 'enabled' : 'disabled'} ${model.public_catalog ? 'public' : 'private'}`.toLowerCase().includes(value));
+  }, [models, query]);
+  const pageSize = 20;
+  const pageCount = Math.max(1, Math.ceil(filteredModels.length / pageSize));
+  const visibleModels = filteredModels.slice(page * pageSize, (page + 1) * pageSize);
 
   async function save(input: ModelWrite) {
     await onSave(input);
@@ -60,7 +73,7 @@ export default function ModelMappings({ models, catalog, catalogLoading, catalog
   }
 
   function checkLabel(result: ProviderModelCheck) {
-    if (result.status === 'connected' && result.model === 'listed') return 'Reachable · model listed. Try Playground to verify access.';
+    if (result.status === 'connected' && result.model === 'listed') return 'Reachable · model listed. Try Chat to verify access.';
     if (result.status === 'connected' && result.model === 'not_listed') return 'Reachable · model not listed. Check the upstream ID.';
     if (result.status === 'credentials_rejected') return 'Key rejected. Check the saved provider key.';
     if (result.status === 'private_endpoint_blocked') return 'Private endpoint blocked.';
@@ -76,7 +89,7 @@ export default function ModelMappings({ models, catalog, catalogLoading, catalog
 
   return <section className="panel vendor-models" aria-labelledby="vendor-models-title">
     <div className="vendor-panel-heading">
-      <div><h2 id="vendor-models-title">Model mappings</h2><p>Client aliases routed through this provider</p></div>
+          <div><h2 id="vendor-models-title">Model routes</h2><p>Client aliases routed through this provider</p></div>
       <div className="vendor-heading-actions">
         <Button type="button" variant="ghost" size="icon-sm" aria-label="Refresh model mappings" disabled={disabled || loading} onClick={onRefresh}><span className="sr-only">Refresh</span><Route size={15} /></Button>
         <Button type="button" size="sm" disabled={disabled} onClick={addModel}><Plus />Add model</Button>
@@ -91,13 +104,13 @@ export default function ModelMappings({ models, catalog, catalogLoading, catalog
           <p>Add the first alias to route requests to this provider.</p>
           <Button type="button" variant="outline" disabled={disabled} onClick={addModel}><Plus />Add model mapping</Button>
         </div>
-        : <div className="table-wrap vendor-model-table-wrap">
+        : <><div className="vendor-model-toolbar"><label className="model-search"><Search size={17} /><span className="sr-only">Search model routes</span><Input value={query} onChange={event => { setQuery(event.target.value); setPage(0); }} placeholder="Search aliases and upstream IDs" /></label><span>{filteredModels.length.toLocaleString()} route{filteredModels.length === 1 ? '' : 's'}</span></div>{filteredModels.length === 0 ? <p className="model-no-results">No routes match “{query}”.</p> : <div className="table-wrap vendor-model-table-wrap">
           <table className="vendor-model-table">
             <thead><tr><th scope="col">Niu alias</th><th scope="col">Upstream model</th><th scope="col">Optional features</th><th scope="col">Catalog</th><th scope="col">Status</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
-            <tbody>{models.map(model => {
+            <tbody>{visibleModels.map(model => {
               const features = capabilityNames(model);
               return <tr key={model.alias}>
-                <td><strong className="vendor-model-alias">{model.alias}</strong></td>
+                <td><span className="provider-model-cell"><ProviderLogo provider={modelIdentity({ id: model.alias, upstream_model: model.upstream_model })} size="small" /><strong className="vendor-model-alias">{model.alias}</strong></span></td>
                 <td><span className="vendor-upstream-model">{model.upstream_model}</span></td>
                 <td><span className="vendor-feature-list">{features.length ? features.join(', ') : 'None declared'}</span></td>
                 <td><span className={'vendor-catalog-state' + (model.public_catalog ? ' is-public' : '')}>{model.public_catalog ? 'Public' : 'Private'}</span></td>
@@ -116,8 +129,9 @@ export default function ModelMappings({ models, catalog, catalogLoading, catalog
               </tr>;
             })}</tbody>
           </table>
-        </div>}
-    {editing !== null && <div className="vendor-model-form-wrap">
+        </div>}{filteredModels.length > pageSize && <div className="model-pagination"><span>{(page * pageSize + 1).toLocaleString()}–{Math.min((page + 1) * pageSize, filteredModels.length).toLocaleString()} of {filteredModels.length.toLocaleString()}</span><div><Button variant="outline" size="icon" aria-label="Previous page" disabled={page === 0} onClick={() => setPage(value => Math.max(0, value - 1))}><ChevronLeft size={16} /></Button><Button variant="outline" size="icon" aria-label="Next page" disabled={page + 1 >= pageCount} onClick={() => setPage(value => Math.min(pageCount - 1, value + 1))}><ChevronRight size={16} /></Button></div></div>}</>}
+    <ModalFrame open={editing !== null} onOpenChange={open => { if (!open && !disabled) setEditing(null); }} title={editing === 'new' ? 'Add a model route' : `Edit ${editing?.alias ?? 'model route'}`} description="Choose the name clients will send and map it to the upstream provider model." className="model-route-dialog">
+      {editing !== null &&
       <ModelMappingForm
         key={editing === 'new' ? 'new' : `${editing.alias}:${editing.revision}`}
         model={editing === 'new' ? null : editing}
@@ -128,6 +142,7 @@ export default function ModelMappings({ models, catalog, catalogLoading, catalog
         onCancel={() => setEditing(null)}
         onSave={save}
       />
-    </div>}
+      }
+    </ModalFrame>
   </section>;
 }

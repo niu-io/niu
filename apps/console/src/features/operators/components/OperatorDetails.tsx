@@ -3,7 +3,7 @@ import { Ban, KeyRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import { Dropdown, DropdownOption } from '@/components/ui/dropdown';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatExpiry, type NamedResource, type Operator, type OperatorAuditEvent, type OperatorSession } from '../api';
 import type { ConfirmTarget, CredentialView } from './operator-types';
@@ -21,9 +21,9 @@ function roleLabel(role: Operator['role']) {
 
 function displayScope(operator: Operator, organizations: NamedResource[], projects: NamedResource[]) {
   const organization = organizations.find(item => item.id === operator.organization_id)?.name ?? 'Organization';
-  if (!operator.project_id) return organization + ' · all projects';
-  const project = projects.find(item => item.id === operator.project_id)?.name ?? 'Project';
-  return organization + ' · ' + project;
+  if (!operator.project_id) return organization + ' · all workspaces';
+  const workspace = projects.find(item => item.id === operator.project_id)?.name ?? 'Workspace';
+  return organization + ' · ' + workspace;
 }
 
 function expiryState(session: OperatorSession) {
@@ -85,9 +85,9 @@ export default function OperatorDetails({ operator, organizations, projects, ses
         ? <span className="operator-revoked-note">Operator revoked</span>
         : <div className="operator-issue-controls">
           <Label htmlFor="new-session-expiry">Expires in
-            <NativeSelect id="new-session-expiry" size="sm" disabled={busy} value={expiryDays} onChange={event => setExpiryDays(Number(event.target.value))}>
-              {expiryChoices.map(item => <NativeSelectOption key={item.days} value={item.days}>{item.label}</NativeSelectOption>)}
-            </NativeSelect>
+            <Dropdown id="new-session-expiry" size="sm" disabled={busy} value={expiryDays} onChange={event => setExpiryDays(Number(event.target.value))}>
+              {expiryChoices.map(item => <DropdownOption key={item.days} value={item.days}>{item.label}</DropdownOption>)}
+            </Dropdown>
           </Label>
           <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => onIssueSession(expiryDays * 86400)}><KeyRound size={14} />Issue new session</Button>
         </div>}

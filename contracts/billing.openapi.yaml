@@ -1,0 +1,185 @@
+openapi: 3.1.0
+info:
+  title: Niu customer usage billing
+  version: 0.1.0
+security:
+  - adminBearerAuth: []
+paths:
+  /admin/v1/organizations/{organization}/projects/{project}/billing:
+    parameters:
+      - $ref: '#/components/parameters/Organization'
+      - $ref: '#/components/parameters/Project'
+    get:
+      operationId: getCustomerBilling
+      summary: Read workspace customer charges, tariffs and latest 100 invoices
+      description: Requires project read access. Balances cover the full ledger per currency. All monetary amounts and aggregate counts are decimal integer strings. Upstream costs are separate. Cache-Control is no-store.
+      responses:
+        '200':
+          description: Billing overview
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [balances, unresolved, unpriced, tariffs, invoices]
+                    properties:
+                      balances:
+                        type: array
+                        items:
+                          type: object
+                          required: [currency, charged_nanos, unbilled_nanos, due_nanos, paid_nanos]
+                          properties:
+                            currency: { type: string }
+                            charged_nanos: { $ref: '#/components/schemas/IntegerString' }
+                            unbilled_nanos: { $ref: '#/components/schemas/IntegerString' }
+                            due_nanos: { $ref: '#/components/schemas/IntegerString' }
+                            paid_nanos: { $ref: '#/components/schemas/IntegerString' }
+                      unresolved: { $ref: '#/components/schemas/IntegerString' }
+                      unpriced: { $ref: '#/components/schemas/IntegerString' }
+                      tariffs:
+                        type: array
+                        items: { $ref: '#/components/schemas/Tariff' }
+                      invoices:
+                        type: array
+                        items: { $ref: '#/components/schemas/Invoice' }
+        '401': { description: Invalid or expired credential }
+        '404': { description: Project outside authorized scope }
+  /admin/v1/organizations/{organization}/projects/{project}/billing/tariffs:
+    parameters:
+      - $ref: '#/components/parameters/Organization'
+      - $ref: '#/components/parameters/Project'
+    post:
+      operationId: publishCustomerSellingRate
+      summary: Publish an immutable customer selling rate revision
+      description: Installation only. Rates are currency nanounits per million text tokens, bounded at 1000000000000000. No retroactive billing. Cache-Control is no-store.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [model_alias, currency, prompt_rate, completion_rate]
+              properties:
+                model_alias: { type: string, maxLength: 200 }
+                currency: { type: string, pattern: '^[A-Z]{3}$' }
+                prompt_rate: { $ref: '#/components/schemas/IntegerString' }
+                completion_rate: { $ref: '#/components/schemas/IntegerString' }
+                expected_revision: { type: [string, 'null'], format: uuid }
+      responses:
+        '200': { description: Published revision UUID in data.revision }
+        '400': { description: Invalid rates, currency or unavailable model alias }
+        '403': { description: Installation authority required }
+        '409': { description: Stale expected revision }
+  /admin/v1/organizations/{organization}/projects/{project}/billing/invoices:
+    parameters:
+      - $ref: '#/components/parameters/Organization'
+      - $ref: '#/components/parameters/Project'
+    post:
+      operationId: issueCustomerUsageInvoice
+      summary: Issue an immutable itemized usage statement
+      description: Installation only. Closed UTC dispatch interval, maximum 366 days, one currency. Rejects unresolved priced usage, overlapping periods and empty periods. Exact idempotent retries return the same invoice. Does not collect money or calculate tax. Cache-Control is no-store.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [from_ms, to_ms, currency, idempotency_key]
+              properties:
+                from_ms: { type: integer, format: int64, minimum: 0 }
+                to_ms: { type: integer, format: int64 }
+                currency: { type: string, pattern: '^[A-Z]{3}$' }
+                idempotency_key: { type: string, format: uuid }
+      responses:
+        '200': { description: Invoice UUID in data.id }
+        '400': { description: Invalid period or currency }
+        '403': { description: Installation authority required }
+        '409': { description: Unresolved usage, overlapping or empty period, or changed idempotency payload }
+  /admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}:
+    parameters:
+      - $ref: '#/components/parameters/Organization'
+      - $ref: '#/components/parameters/Project'
+      - $ref: '#/components/parameters/Invoice'
+    get:
+      operationId: getCustomerInvoiceLines
+      summary: Read invoice lines grouped by model and pinned rate revision
+      description: Requires project read access. Returns no entries for an invoice outside that project. Cache-Control is no-store.
+      responses:
+        '200':
+          description: Grouped immutable charge entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/Tariff'
+                        - type: object
+                          properties:
+                            requests: { $ref: '#/components/schemas/IntegerString' }
+                            prompt_tokens: { $ref: '#/components/schemas/IntegerString' }
+                            completion_tokens: { $ref: '#/components/schemas/IntegerString' }
+                            amount_nanos: { $ref: '#/components/schemas/IntegerString' }
+        '404': { description: Project outside authorized scope }
+  /admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}/payment:
+    parameters:
+      - $ref: '#/components/parameters/Organization'
+      - $ref: '#/components/parameters/Project'
+      - $ref: '#/components/parameters/Invoice'
+    post:
+      operationId: recordCustomerExternalPayment
+      summary: Record one confirmed full external invoice payment
+      description: Installation only. Does not charge any payment method. Invoice and reference form an idempotent pair; references cannot be reused on another invoice. Cache-Control is no-store.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [payment_reference]
+              properties:
+                payment_reference: { type: string, minLength: 1, maxLength: 200 }
+      responses:
+        '200': { description: Payment recorded or exact retry; invoice UUID in data.id }
+        '400': { description: Invalid reference }
+        '403': { description: Installation authority required }
+        '409': { description: Invoice missing, already recorded with another reference, or reference already used }
+components:
+  securitySchemes:
+    adminBearerAuth: { type: http, scheme: bearer }
+  parameters:
+    Organization: { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
+    Project: { name: project, in: path, required: true, schema: { type: string, format: uuid } }
+    Invoice: { name: invoice, in: path, required: true, schema: { type: string, format: uuid } }
+  schemas:
+    IntegerString: { type: string, pattern: '^[0-9]+$' }
+    Tariff:
+      type: object
+      required: [model_alias, revision, currency, prompt_rate, completion_rate]
+      properties:
+        model_alias: { type: string }
+        revision: { type: string, format: uuid }
+        currency: { type: string }
+        prompt_rate: { $ref: '#/components/schemas/IntegerString' }
+        completion_rate: { $ref: '#/components/schemas/IntegerString' }
+    Invoice:
+      type: object
+      required: [id, from_ms, to_ms, currency, amount_nanos, created_at, status, payment_reference]
+      properties:
+        id: { type: string, format: uuid }
+        from_ms: { type: integer, format: int64 }
+        to_ms: { type: integer, format: int64 }
+        currency: { type: string }
+        amount_nanos: { $ref: '#/components/schemas/IntegerString' }
+        created_at: { type: string, format: date-time }
+        status: { type: string, enum: [issued, paid] }
+        payment_reference: { type: [string, 'null'] }

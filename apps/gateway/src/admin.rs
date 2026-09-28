@@ -95,6 +95,17 @@ async fn authorize_project(
     }
 }
 
+// Wholesale costs are platform records, never customer or supplier entitlements.
+async fn authorize_platform(state: &AppState, headers: &HeaderMap) -> Result<(), ApiError> {
+    if !authorize(state, headers, AdminPermission::Read)
+        .await?
+        .is_installation()
+    {
+        return Err(ApiError::forbidden());
+    }
+    Ok(())
+}
+
 async fn authorize_operator_management(
     state: &AppState,
     headers: &HeaderMap,
@@ -735,6 +746,7 @@ pub async fn budget(
     Path((organization_id, project_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
+    authorize_platform(&state, &headers).await?;
     authorize_project(
         &state,
         &headers,
@@ -772,6 +784,7 @@ pub async fn costs(
     headers: HeaderMap,
     axum::extract::Query(query): axum::extract::Query<CostQuery>,
 ) -> Result<Json<Value>, ApiError> {
+    authorize_platform(&state, &headers).await?;
     authorize_project(
         &state,
         &headers,
@@ -827,7 +840,7 @@ pub async fn gateway_activity(
     headers: HeaderMap,
     Query(query): Query<GatewayActivityQuery>,
 ) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {
-    authorize_project(
+    let authorization = authorize_project(
         &state,
         &headers,
         AdminPermission::Read,
@@ -900,6 +913,24 @@ pub async fn gateway_activity(
     let next_cursor = has_more
         .then(|| data.last().map(|entry| entry.attempt_id))
         .flatten();
+    let mut data = serde_json::to_value(data)
+        .map_err(|_| ApiError::invalid_request("Activity serialization failed"))?;
+    let mut summary = serde_json::to_value(summary)
+        .map_err(|_| ApiError::invalid_request("Activity serialization failed"))?;
+    if !authorization.is_installation() {
+        for row in data.as_array_mut().into_iter().flatten() {
+            if let Some(row) = row.as_object_mut() {
+                for field in ["cash_nanos", "api_equivalent_nanos", "currency"] {
+                    row.remove(field);
+                }
+            }
+        }
+        if let Some(summary) = summary.as_object_mut() {
+            for field in ["settled_costs", "unknown_cost_count"] {
+                summary.remove(field);
+            }
+        }
+    }
     Ok((
         [("cache-control", "no-store")],
         Json(json!({"data": data, "next_cursor": next_cursor, "summary": summary})),
@@ -1018,6 +1049,7 @@ pub async fn execution_cohort(
     Path((organization_id, project_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
+    authorize_platform(&state, &headers).await?;
     authorize_project(
         &state,
         &headers,
@@ -1042,7 +1074,7 @@ pub async fn execution_import(
     Path((organization_id, project_id, execution_id)): Path<(Uuid, Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {
-    authorize_project(
+    let authorization = authorize_project(
         &state,
         &headers,
         AdminPermission::Read,
@@ -1065,12 +1097,19 @@ pub async fn execution_import(
         .execution_account_links(scope, &record)
         .await
         .map_err(ApiError::from_store)?;
-    let charges = state
-        .store
-        .execution_charges(scope, &record)
-        .await
-        .map_err(ApiError::from_store)?;
-    let entries: Vec<Value> = charges.entries.into_iter().map(cost_entry_json).collect();
+    let charges = if authorization.is_installation() {
+        let charges = state
+            .store
+            .execution_charges(scope, &record)
+            .await
+            .map_err(ApiError::from_store)?;
+        let entries: Vec<Value> = charges.entries.into_iter().map(cost_entry_json).collect();
+        Some(
+            json!({"entries":entries,"unresolved":charges.unresolved,"attribution":"imported_reference","task_total_complete":false}),
+        )
+    } else {
+        None
+    };
     Ok((
         [("cache-control", "no-store")],
         Json(json!({
@@ -1078,12 +1117,7 @@ pub async fn execution_import(
             "record": &record,
             "data": &record,
             "linked_accounts": linked_accounts,
-            "charges": {
-                "entries": entries,
-                "unresolved": charges.unresolved,
-                "attribution": "imported_reference",
-                "task_total_complete": false
-            }
+            "charges": charges
         })),
     ))
 }
@@ -1131,6 +1165,7 @@ pub async fn create_budget(
     headers: HeaderMap,
     Json(input): Json<BudgetInput>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
+    authorize_platform(&state, &headers).await?;
     authorize_project(
         &state,
         &headers,

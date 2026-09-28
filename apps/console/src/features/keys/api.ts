@@ -13,9 +13,10 @@ export function projectKeyPath(organization: string, project: string) {
   return `/admin/v1/organizations/${encodeURIComponent(organization)}/projects/${encodeURIComponent(project)}/keys`;
 }
 
-export async function keyRequest<T>(token: string, path: string, method = 'GET', body?: unknown): Promise<T> {
+export async function keyRequest<T>(token: string, path: string, method = 'GET', body?: unknown, signal?: AbortSignal): Promise<T> {
   const response = await fetch(path, {
     method,
+    signal,
     headers: { authorization: `Bearer ${token}`, ...(body ? { 'content-type': 'application/json' } : {}) },
     body: body ? JSON.stringify(body) : undefined,
   });

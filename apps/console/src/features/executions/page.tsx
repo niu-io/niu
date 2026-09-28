@@ -20,7 +20,7 @@ export default function ExecutionsRoute() {
     ? { organizationId: workspace.organization_id, projectId: workspace.id, executionId: detailScope?.executionId }
     : detailScope;
 
-  return <ConnectGate subtitle="Gateway requests and task evidence in this workspace.">
+  return <ConnectGate>
     {({ token, models }) => <>
       <GatewayActivity
         key={`${token}:${workspace?.id ?? ''}`}

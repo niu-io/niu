@@ -1,9 +1,12 @@
+import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render as renderView, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { AdminSession } from '../../../../src/app/console-context';
 import VendorsView from '../../../../src/features/vendors/components/VendorsView';
 import type { Vendor, VendorModel } from '../../../../src/features/vendors/api';
+
+const render = (ui: Parameters<typeof renderView>[0]) => renderView(ui, { wrapper: MemoryRouter });
 
 const installationSession: AdminSession = {
   kind: 'installation',
@@ -102,7 +105,7 @@ describe('vendor administration workflow', () => {
     render(<VendorsView token="scoped-token" session={scopedOwnerSession} refreshWorkspace={async () => {}} />);
 
     expect(screen.getByRole('heading', { name: 'Installation access required' })).toBeTruthy();
-    expect(screen.getByText(/scoped to its organization and project/)).toBeTruthy();
+    expect(screen.getByText(/scoped to its organization and workspace/)).toBeTruthy();
     await waitFor(() => expect(fetchMock).not.toHaveBeenCalled());
   });
 
@@ -112,12 +115,11 @@ describe('vendor administration workflow', () => {
     const refreshWorkspace = vi.fn(async () => {});
     render(<VendorsView token="installation-token" session={installationSession} refreshWorkspace={refreshWorkspace} />);
 
-    expect(screen.getByRole('heading', { name: 'Providers', level: 1 })).toBeTruthy();
-    expect(await screen.findByRole('heading', { name: 'Connections', level: 2 })).toBeTruthy();
-    expect(screen.queryByRole('heading', { name: 'Providers', level: 2 })).toBeNull();
-    await user.click(await screen.findByRole('button', { name: 'Add provider' }));
+    expect(screen.getByRole('heading', { name: 'Provider configuration', level: 1 })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Providers', level: 2 })).toBeTruthy();
+    await user.click((await screen.findAllByRole('button', { name: 'Add provider' }))[0]);
     await user.type(await screen.findByLabelText('Provider name'), 'OpenRouter primary');
-    expect((screen.getByLabelText('Provider') as HTMLSelectElement).value).toBe('openrouter');
+    expect(screen.getByLabelText('Provider').textContent).toBe('OpenRouter');
     expect((screen.getByLabelText('API base URL') as HTMLInputElement).value).toBe('https://openrouter.ai/api/v1');
     await user.type(screen.getByLabelText('Provider API key'), 'vendor-secret-once');
     await user.click(screen.getByRole('button', { name: 'Create provider' }));
@@ -133,7 +135,7 @@ describe('vendor administration workflow', () => {
       enabled: true,
     });
     expect(refreshWorkspace).toHaveBeenCalledTimes(1);
-    expect((screen.getByLabelText('Replace provider API key (optional)') as HTMLInputElement).value).toBe('');
+    expect(screen.queryByLabelText('Replace provider API key (optional)')).toBeNull();
     expect(localStorage.length).toBe(0);
 
     await user.click(screen.getByRole('button', { name: 'Add model' }));
@@ -158,11 +160,11 @@ describe('vendor administration workflow', () => {
     expect(refreshWorkspace).toHaveBeenCalledTimes(2);
 
     await user.click(screen.getByRole('button', { name: 'Check' }));
-    expect(await screen.findByText('Reachable · model listed. Try Playground to verify access.')).toBeTruthy();
+    expect(await screen.findByText('Reachable · model listed. Try Chat to verify access.')).toBeTruthy();
     expect(api.calls.find(call => call.path === '/admin/v1/vendors/vendor-1/check')?.body).toEqual({ alias: 'team/fast' });
 
     await user.click(screen.getByRole('button', { name: 'Edit' }));
-    await user.click(screen.getAllByRole('checkbox', { name: /Enabled for inference/ })[1]);
+    await user.click(screen.getByRole('checkbox', { name: /Enabled for inference/ }));
     await user.click(screen.getByRole('button', { name: 'Save mapping' }));
     expect(await screen.findByText('Disabled')).toBeTruthy();
     const updateModel = api.calls.filter(call => call.path === '/admin/v1/vendors/vendor-1/models' && call.method === 'POST')[1];
@@ -170,6 +172,7 @@ describe('vendor administration workflow', () => {
     expect(Object.hasOwn(updateModel?.body ?? {}, 'pricing')).toBe(false);
     expect(refreshWorkspace).toHaveBeenCalledTimes(3);
 
+    await user.click(screen.getByRole('button', { name: 'Edit provider' }));
     await user.type(screen.getByLabelText('Replace provider API key (optional)'), 'vendor-secret-rotation');
     await user.click(screen.getByRole('checkbox', { name: /Enabled for inference/ }));
     await user.click(screen.getByRole('button', { name: 'Review disable' }));
@@ -185,7 +188,7 @@ describe('vendor administration workflow', () => {
       expected_revision: 1,
     });
     expect(refreshWorkspace).toHaveBeenCalledTimes(4);
-    await waitFor(() => expect((screen.getByLabelText('Replace provider API key (optional)') as HTMLInputElement).value).toBe(''));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(localStorage.length).toBe(0);
   });
 
@@ -197,12 +200,13 @@ describe('vendor administration workflow', () => {
     await screen.findByRole('heading', { name: openRouter.name });
     await user.click(screen.getByRole('button', { name: 'Add provider' }));
     await user.type(screen.getByLabelText('Provider name'), 'OpenAI fallback');
-    await user.selectOptions(screen.getByLabelText('Provider'), 'openai');
+    await user.click(screen.getByLabelText('Provider'));
+    await user.click(screen.getByRole('menuitemradio', { name: 'OpenAI' }));
     await user.type(screen.getByLabelText('Provider API key'), 'second-vendor-key');
     await user.click(screen.getByRole('button', { name: 'Create provider' }));
 
     expect(await screen.findByRole('heading', { name: 'OpenAI fallback' })).toBeTruthy();
-    expect((screen.getByLabelText('API base URL') as HTMLInputElement).value).toBe('https://api.openai.com/v1');
+    expect(screen.getByText('https://api.openai.com/v1')).toBeTruthy();
     expect(api.calls.find(call => call.path === '/admin/v1/vendors' && call.method === 'POST')?.body).toMatchObject({
       name: 'OpenAI fallback',
       adapter: 'openai',
@@ -263,7 +267,8 @@ describe('vendor administration workflow', () => {
     const user = userEvent.setup();
     render(<VendorsView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
 
-    await user.type(await screen.findByLabelText('Replace provider API key (optional)'), 'retry-this-credential');
+    await user.click(await screen.findByRole('button', { name: 'Edit provider' }));
+    await user.type(screen.getByLabelText('Replace provider API key (optional)'), 'retry-this-credential');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
     expect((await screen.findByRole('alert')).textContent).toContain('This record changed in another session');
@@ -275,13 +280,33 @@ describe('vendor administration workflow', () => {
     const user = userEvent.setup();
     const view = render(<VendorsView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
 
+    await user.click(await screen.findByRole('button', { name: 'Edit provider' }));
     const credential = await screen.findByLabelText('Replace provider API key (optional)');
     await user.type(credential, 'temporary-draft-only');
     view.rerender(<VendorsView token="installation-token" session={scopedOwnerSession} refreshWorkspace={async () => {}} />);
     expect(screen.getByRole('heading', { name: 'Installation access required' })).toBeTruthy();
 
     view.rerender(<VendorsView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
+    await user.click(await screen.findByRole('button', { name: 'Edit provider' }));
     const resetInput = await screen.findByLabelText('Replace provider API key (optional)') as HTMLInputElement;
     expect(resetInput.value).toBe('');
   });
+});
+
+it('shows a rejected model-route save inside its dialog and preserves the draft', async () => {
+  const api = stubVendorApi({ existing: [openRouter] });
+  api.fetchMock.mockImplementation(async (input, init) => {
+    const path = String(input);
+    if (path.endsWith('/models') && init?.method === 'POST') return jsonResponse({ error: { message: 'Model alias already exists' } }, 409);
+    if (path === '/admin/v1/vendors') return jsonResponse({ data: [openRouter] });
+    return jsonResponse({ data: [] });
+  });
+  const user = userEvent.setup();
+  render(<VendorsView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
+  await user.click(await screen.findByRole('button', { name: 'Add model', exact: true }));
+  await user.type(screen.getByLabelText('Niu model alias'), 'team/fast');
+  await user.type(screen.getByLabelText('Upstream model ID'), 'upstream-model');
+  await user.click(screen.getByRole('button', { name: 'Add mapping' }));
+  expect((await screen.findByRole('alert')).textContent).toContain('Model alias already exists');
+  expect((screen.getByLabelText('Niu model alias') as HTMLInputElement).value).toBe('team/fast');
 });

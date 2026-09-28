@@ -146,10 +146,10 @@ describe('operator administration workflow', () => {
     const user = userEvent.setup();
     render(<OperatorsView token="owner-token" session={ownerSession} />);
 
-    await user.click(await screen.findByRole('button', { name: 'Add operator' }));
+    await user.click(await screen.findByRole('button', { name: 'Workspace' }));
+    await user.click(screen.getByRole('menuitemradio', { name: project.name }));
+    await user.click(screen.getByRole('button', { name: 'Add operator' }));
     await user.type(screen.getByLabelText('Name'), 'Production reviewer');
-    await user.selectOptions(screen.getByLabelText('Project'), project.id);
-    await user.selectOptions(screen.getByLabelText('Role'), 'viewer');
     await user.click(screen.getByRole('button', { name: 'Create operator' }));
 
     expect(await screen.findByRole('heading', { name: 'Production reviewer' })).toBeTruthy();

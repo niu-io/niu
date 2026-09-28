@@ -3,7 +3,7 @@ import { KeyRound, Plus, Router, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import { Dropdown, DropdownOption } from '@/components/ui/dropdown';
 import { defaultApiBase, type Vendor, type VendorAdapter, type VendorWrite } from '../api';
 
 export type VendorCreate = { name: string; adapter: VendorAdapter; api_base: string; api_key: string; enabled: true };
@@ -64,12 +64,12 @@ export default function VendorEditor({ vendor, disabled, onCreate, onSave }: {
     void save().catch(() => {});
   }
 
-  const title = vendor ? vendor.name : 'Connect a provider';
+  const title = vendor ? vendor.name : 'Connect an upstream';
   return <section className={'panel vendor-editor' + (vendor && vendor.enabled ? ' is-enabled' : '')} aria-labelledby="vendor-editor-title">
     <div className="vendor-editor-heading">
       <span className="vendor-editor-mark"><Router size={18} /></span>
       <div className="vendor-editor-title-copy">
-        <p className="eyebrow">{vendor ? 'PROVIDER CONNECTION' : 'NEW CONNECTION'}</p>
+        <p className="eyebrow">{vendor ? 'PROVIDER' : 'NEW PROVIDER'}</p>
         <h2 id="vendor-editor-title">{title}</h2>
         <p>{vendor ? `Revision ${vendor.revision} · ${vendor.has_credential ? 'Credential stored' : 'No credential stored'}` : 'Provider identity stays visible; the stored credential is never shown again.'}</p>
       </div>
@@ -82,10 +82,10 @@ export default function VendorEditor({ vendor, disabled, onCreate, onSave }: {
           <Input id="vendor-name" value={name} onChange={event => setName(event.target.value)} maxLength={100} autoComplete="off" placeholder="e.g. Primary inference" required disabled={disabled} />
         </Label>
         <Label htmlFor="vendor-adapter">Provider
-          <NativeSelect id="vendor-adapter" value={adapter} disabled={disabled || Boolean(vendor)} onChange={event => changeAdapter(event.target.value as VendorAdapter)}>
-            <NativeSelectOption value="openrouter">OpenRouter</NativeSelectOption>
-            <NativeSelectOption value="openai">OpenAI</NativeSelectOption>
-          </NativeSelect>
+          <Dropdown id="vendor-adapter" value={adapter} disabled={disabled || Boolean(vendor)} onChange={event => changeAdapter(event.target.value as VendorAdapter)}>
+            <DropdownOption value="openrouter">OpenRouter</DropdownOption>
+            <DropdownOption value="openai">OpenAI</DropdownOption>
+          </Dropdown>
         </Label>
         <Label htmlFor="vendor-api-base">API base URL
           <Input id="vendor-api-base" type="url" inputMode="url" value={apiBase} onChange={event => setApiBase(event.target.value)} maxLength={2048} autoComplete="url" placeholder="https://openrouter.ai/api/v1" required disabled={disabled} />
@@ -102,7 +102,7 @@ export default function VendorEditor({ vendor, disabled, onCreate, onSave }: {
 
       {vendor && <label className="vendor-enabled-toggle">
         <input type="checkbox" checked={enabled} disabled={disabled} onChange={event => { setEnabled(event.target.checked); setConfirmDisable(false); }} />
-        <span><strong>Enabled for inference</strong><small>Disabled connections stay available for audit and can be enabled again.</small></span>
+        <span><strong>Enabled for inference</strong><small>Disabled providers stay available for audit and can be enabled again.</small></span>
       </label>}
 
       {confirmDisable && <div className="vendor-confirm-disable" role="alertdialog" aria-labelledby="vendor-disable-title">

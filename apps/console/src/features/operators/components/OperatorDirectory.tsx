@@ -4,9 +4,9 @@ import type { NamedResource, Operator } from '../api';
 
 function displayScope(operator: Operator, organizations: NamedResource[], projects: NamedResource[]) {
   const organization = organizations.find(item => item.id === operator.organization_id)?.name ?? 'Organization';
-  if (!operator.project_id) return organization + ' · all projects';
-  const project = projects.find(item => item.id === operator.project_id)?.name ?? 'Project';
-  return organization + ' · ' + project;
+  if (!operator.project_id) return organization + ' · all workspaces';
+  const workspace = projects.find(item => item.id === operator.project_id)?.name ?? 'Workspace';
+  return organization + ' · ' + workspace;
 }
 
 function roleLabel(role: Operator['role']) {
@@ -25,7 +25,7 @@ export default function OperatorDirectory({ operators, organizations, projects, 
   onAdd: () => void;
 }) {
   return <section className="panel operator-directory" aria-labelledby="operator-directory-title">
-    <div className="operator-section-title"><div><h2 id="operator-directory-title">Directory</h2><p>{projectScope ? 'Organization-wide and project operators in this scope.' : 'Every operator in the selected organization.'}</p></div><span className="operator-count">{operators.length}</span></div>
+    <div className="operator-section-title"><div><h2 id="operator-directory-title">Directory</h2><p>{projectScope ? 'Organization-wide and workspace operators in this scope.' : 'Every operator in the selected organization.'}</p></div><span className="operator-count">{operators.length}</span></div>
     {loading
       ? <div className="operator-loading" role="status">Loading operators…</div>
       : operators.length === 0

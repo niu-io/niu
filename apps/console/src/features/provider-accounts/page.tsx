@@ -15,7 +15,7 @@ export default function SubscriptionsRoute() {
     ? { organizationId, projectId, accountId: accountId ?? undefined }
     : null;
 
-  return <ConnectGate subtitle="Inspect provider-reported quota windows and resets.">
+  return <ConnectGate>
     {({ token }) => <SubscriptionsView
       key={`${token}:${workspace?.id ?? ''}`}
       token={token}

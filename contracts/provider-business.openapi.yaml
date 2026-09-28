@@ -1,0 +1,168 @@
+openapi: 3.1.0
+info:
+  title: Niu provider business API
+  version: 0.1.0
+  description: Supplier memberships, agreed text-token payout rates, independent earnings and confirmed external payment records. These APIs never initiate transfers. All responses use Cache-Control no-store.
+servers:
+  - url: /
+security:
+  - operatorBearer: []
+paths:
+  /admin/v1/provider-memberships:
+    get:
+      operationId: listProviderMemberships
+      summary: List active supplier memberships for this operator; installation sessions return an empty list
+      responses:
+        '200': { description: 'Data array of id, name, and role (manager or viewer).' }
+        '401': { description: Valid session required }
+  /admin/v1/providers:
+    get:
+      operationId: listProviderBusinesses
+      summary: Installation-only list of registered supplier businesses (up to 1000)
+      responses:
+        '200': { description: 'Data array of id, name, and active member count.' }
+        '403': { description: Installation access required }
+    post:
+      operationId: createProviderBusiness
+      summary: Register a supplier without granting membership
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 100 }
+      responses:
+        '200': { description: Provider ID in data.id }
+        '403': { description: Installation access required }
+  /admin/v1/providers/{provider}/members/{operator}:
+    parameters:
+      - $ref: '#/components/parameters/provider'
+      - { name: operator, in: path, required: true, schema: { type: string, format: uuid } }
+    put:
+      operationId: setProviderMembership
+      summary: Installation-only grant, change, or revoke of explicit supplier membership
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [role, active]
+              properties:
+                role: { type: string, enum: [manager, viewer] }
+                active: { type: boolean }
+      responses:
+        '200': { description: Membership saved and audited }
+        '403': { description: Installation access required }
+        '409': { description: Provider or active operator does not exist }
+  /admin/v1/providers/{provider}/offers:
+    parameters:
+      - $ref: '#/components/parameters/provider'
+    post:
+      operationId: publishProviderPayoutRates
+      summary: Installation-only publication of an agreed immutable payout revision
+      description: Binds an existing vendor model alias and vendor to one supplier. Rates are integer currency nanounits per million text tokens, encoded as decimal strings. No platform fee is inferred. Existing attempts retain the rate pinned before dispatch. A stale expected_revision is rejected; initial creation requires null. Vendor ownership cannot be transferred through this API.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [model_alias, currency, prompt_rate, completion_rate, expected_revision]
+              properties:
+                model_alias: { type: string, minLength: 1, maxLength: 200 }
+                currency: { type: string, pattern: '^[A-Z]{3}$' }
+                prompt_rate: { type: string, pattern: '^[0-9]+$', description: Maximum 1000000000000000 }
+                completion_rate: { type: string, pattern: '^[0-9]+$', description: Maximum 1000000000000000 }
+                expected_revision: { type: [string, 'null'], format: uuid }
+      responses:
+        '200': { description: New revision ID in data.revision }
+        '400': { description: Invalid monetary values }
+        '403': { description: Installation access required }
+        '409': { description: Ownership or expected revision conflict }
+  /admin/v1/providers/{provider}/offers/{offer}:
+    parameters:
+      - $ref: '#/components/parameters/provider'
+      - { name: offer, in: path, required: true, schema: { type: string, format: uuid } }
+    patch:
+      operationId: setProviderOfferAvailability
+      summary: A supplier manager can pause or resume an owned offer
+      description: Pausing prevents new admissions. Already dispatched requests may complete and accrue earnings. Viewers and unrelated operators cannot mutate offers.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [active]
+              properties:
+                active: { type: boolean }
+      responses:
+        '200': { description: Availability saved and audited }
+        '404': { description: No eligible supplier membership }
+        '409': { description: Offer unavailable in supplier scope }
+  /admin/v1/providers/{provider}/dashboard:
+    parameters:
+      - $ref: '#/components/parameters/provider'
+      - $ref: '#/components/parameters/days'
+    get:
+      operationId: getProviderDashboard
+      summary: Supplier-scoped earnings and operations; active explicit membership required
+      description: Returns one repeatable-read snapshot in data. Balances group by currency and include all-time earned_nanos, unpaid_nanos, paid_nanos and period_nanos. All amounts and usage totals are decimal integer strings. Traffic includes admitted requests, completed requests, reported tokens and unresolved earnings in the selected rolling period. Daily earnings use UTC. Offers include agreed rates and availability (up to 1000). Consumption groups verified tokens, request counts, agreed rates, earnings and unpaid amounts by model and payout revision; no request identifiers, customer identities, workspaces or task references are returned; settlements contain the latest 100 all-time external payment records. No customer identity, prompt, credential, endpoint or customer charges are returned. This is an accrual ledger, not a guarantee of payment eligibility or schedule.
+      responses:
+        '200': { description: Provider dashboard in data }
+        '400': { description: Period must be 7, 30, or 90 days }
+        '403': { description: Installation sessions do not imply supplier membership }
+        '404': { description: No active membership for this provider }
+  /admin/v1/providers/{provider}/administration:
+    parameters:
+      - $ref: '#/components/parameters/provider'
+      - $ref: '#/components/parameters/days'
+    get:
+      operationId: getProviderAdministrationDashboard
+      summary: Explicit installation oversight of the supplier dashboard
+      responses:
+        '200': { description: Same dashboard snapshot as the supplier endpoint }
+        '403': { description: Installation access required }
+  /admin/v1/providers/{provider}/settlements:
+    parameters:
+      - $ref: '#/components/parameters/provider'
+    post:
+      operationId: recordExternalProviderPayment
+      summary: Installation-only recording of an already completed external payment
+      description: Does not move funds. The selected earnings must belong to this provider, share one currency, remain unpaid and have a positive total. The recorded amount is their exact sum. A repeated idempotency key must have the same reference and entry set; conflicting replays or a duplicate external payment reference fail. Membership does not authorize settlement recording. No bank details are stored.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [idempotency_key, payment_reference, attempt_ids]
+              properties:
+                idempotency_key: { type: string, format: uuid }
+                payment_reference: { type: string, minLength: 1, maxLength: 200 }
+                attempt_ids:
+                  type: array
+                  minItems: 1
+                  maxItems: 1000
+                  uniqueItems: true
+                  items: { type: string, format: uuid }
+      responses:
+        '200': { description: Settlement ID in data.id }
+        '400': { description: Invalid entry set or currency mix }
+        '403': { description: Installation access required }
+        '409': { description: Entries unavailable or replay conflicts }
+components:
+  securitySchemes:
+    operatorBearer: { type: http, scheme: bearer }
+  parameters:
+    provider: { name: provider, in: path, required: true, schema: { type: string, format: uuid } }
+    days: { name: days, in: query, schema: { type: integer, enum: [7, 30, 90], default: 30 } }

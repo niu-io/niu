@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Activity, ArrowUpRight, Copy, RefreshCw, Coins, Timer, Workflow } from 'lucide-react';
+import { Activity, ArrowUpRight, RefreshCw, Timer, Workflow } from 'lucide-react';
+import { Link } from 'react-router';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
-import { money } from '@/lib/money';
+import { Dropdown, DropdownOption } from '@/components/ui/dropdown';
+import PageHeader from '@/components/PageHeader';
 
 type TaskEvidence = {
   execution_id: string;
@@ -33,9 +33,6 @@ type GatewayRequest = {
   usage_confidence: string;
   prompt_tokens: string | null;
   completion_tokens: string | null;
-  currency: string | null;
-  cash_nanos: string | null;
-  api_equivalent_nanos: string | null;
 };
 type ActivitySummary = {
   request_count: number;
@@ -44,8 +41,6 @@ type ActivitySummary = {
   completion_tokens: string;
   timing_count: number;
   average_duration_ms: number | null;
-  unknown_cost_count: number;
-  settled_costs: Array<{ currency: string; cash_nanos: string; api_equivalent_nanos: string; settled_requests: number }>;
 };
 type ActivityFilters = { from: string; to: string; model: string; keyId: string; status: string };
 type KeyOption = { id: string; name: string; allowed_models: string[]; revoked: boolean; expired: boolean };
@@ -56,35 +51,9 @@ async function get<T>(path: string, token: string, signal?: AbortSignal): Promis
   return await response.json() as T;
 }
 
-function amount(values: GatewayRequest[], key: 'cash_nanos' | 'api_equivalent_nanos') {
-  const totals = new Map<string, bigint>();
-  let unknown = 0;
-  for (const item of values) {
-    if (!item.currency || item[key] == null) { unknown += 1; continue; }
-    totals.set(item.currency, (totals.get(item.currency) ?? 0n) + BigInt(item[key]!));
-  }
-  return { totals: [...totals].map(([currency, nanos]) => money(nanos.toString(), currency)), unknown };
-}
-
-function totalTokens(values: GatewayRequest[]) {
-  let total = 0n;
-  let known = 0;
-  for (const item of values) {
-    if (item.prompt_tokens != null && item.completion_tokens != null) {
-      total += BigInt(item.prompt_tokens) + BigInt(item.completion_tokens);
-      known += 1;
-    }
-  }
-  return { total: total.toLocaleString(), known };
-}
-
 function timestamp(value: string) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? 'Time unavailable' : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date);
-}
-
-function countLabel(count: number, singular: string) {
-  return `${count} ${singular}${count === 1 ? '' : 's'}`;
 }
 
 function localDayStart(value: string) {
@@ -102,10 +71,6 @@ function statusLabel(value: string) {
   }
 }
 
-function summaryCosts(summary: ActivitySummary, field: 'cash_nanos' | 'api_equivalent_nanos') {
-  return summary.settled_costs.map(item => money(item[field], item.currency));
-}
-
 function filterQuery(filters: ActivityFilters) {
   const query = new URLSearchParams();
   if (filters.from) query.set('from_ms', String(localDayStart(filters.from)));
@@ -118,48 +83,6 @@ function filterQuery(filters: ActivityFilters) {
   if (filters.keyId) query.set('key_id', filters.keyId);
   if (filters.status) query.set('status', filters.status);
   return query.toString();
-}
-
-function taskTraceURL(workspaceRoot: string, organization: string, project: string, executionId: string) {
-  const query = new URLSearchParams({ organizationId: organization, projectId: project, executionId });
-  return `${workspaceRoot}/tasks?${query.toString()}`;
-}
-
-function shellQuote(value: string) {
-  return `'${value.replaceAll("'", "'\\''")}'`;
-}
-
-function curlRequestExample(baseURL: string, model: string) {
-  const body = JSON.stringify({
-    model,
-    messages: [{ role: 'user', content: 'Reply with a short greeting.' }],
-  });
-  const continuation = String.fromCharCode(92);
-  const command = [
-    'curl "$NIU_BASE_URL/chat/completions"',
-    '--header "Authorization: Bearer $NIU_API_KEY"',
-    '--header "Content-Type: application/json"',
-    `--data ${shellQuote(body)}`,
-  ].join(` ${continuation}\n  `);
-  return `export NIU_BASE_URL=${shellQuote(baseURL)}\n${command}`;
-}
-
-function groupRequests(requests: GatewayRequest[]) {
-  const groups = new Map<string, GatewayRequest[]>();
-  for (const request of requests) {
-    const key = request.task_id ? `task:${request.task_id}` : `request:${request.operation_id}`;
-    groups.set(key, [...(groups.get(key) ?? []), request]);
-  }
-  return [...groups].map(([key, items]) => ({
-    key,
-    taskId: items[0].task_id,
-    taskEvidence: items.find(item => item.task_evidence)?.task_evidence ?? null,
-    requests: items,
-    tokens: totalTokens(items),
-    cashCosts: amount(items, 'cash_nanos'),
-    apiCosts: amount(items, 'api_equivalent_nanos'),
-    workMs: items.reduce((total, item) => total + (item.duration_ms ?? 0), 0),
-  }));
 }
 
 export function taskOutcome(evidence: TaskEvidence | null) {
@@ -183,7 +106,7 @@ export function taskOutcome(evidence: TaskEvidence | null) {
   return 'Unverified';
 }
 
-export default function GatewayActivity({ token, models, initialScope, compact = false, preferredModelAlias }: { token: string; models: string[]; initialScope?: { organizationId: string; projectId: string } | null; compact?: boolean; preferredModelAlias?: string }) {
+export default function GatewayActivity({ token, models, initialScope, compact = false, statisticsOnly = false, preferredModelAlias }: { token: string; models: string[]; initialScope?: { organizationId: string; projectId: string } | null; compact?: boolean; statisticsOnly?: boolean; preferredModelAlias?: string }) {
   const organization = initialScope?.organizationId ?? '';
   const project = initialScope?.projectId ?? '';
   const [requests, setRequests] = useState<GatewayRequest[]>([]);
@@ -196,56 +119,37 @@ export default function GatewayActivity({ token, models, initialScope, compact =
   const [keys, setKeys] = useState<KeyOption[]>([]);
   const [keyFilterError, setKeyFilterError] = useState('');
   const [filters, setFilters] = useState<ActivityFilters>({ from: '', to: '', model: '', keyId: '', status: '' });
-  const [modelAlias, setModelAlias] = useState(() => preferredModelAlias && models.includes(preferredModelAlias) ? preferredModelAlias : models[0] ?? '');
-  const [copyNotice, setCopyNotice] = useState('');
   const olderController = useRef<AbortController | null>(null);
   const preferredAliasApplied = useRef('');
-  const clientModels = useMemo(() => {
-    const granted = new Set(keys.filter(key => !key.revoked && !key.expired).flatMap(key => key.allowed_models ?? []));
-    return granted.size > 0 ? models.filter(model => granted.has(model)) : models;
-  }, [keys, models]);
-
-  useEffect(() => {
-    if (preferredModelAlias && preferredAliasApplied.current !== preferredModelAlias && clientModels.includes(preferredModelAlias)) {
-      preferredAliasApplied.current = preferredModelAlias;
-      setModelAlias(preferredModelAlias);
-      return;
-    }
-    if (!clientModels.includes(modelAlias)) setModelAlias(clientModels[0] ?? '');
-  }, [clientModels, modelAlias, preferredModelAlias]);
 
   const productBase = import.meta.env.BASE_URL.replace(/\/+$/, '');
   const workspaceRoot = typeof window === 'undefined'
     ? `${productBase}/workspaces/default`
     : (window.location.pathname.match(/^(.*\/workspaces\/[^/]+)/)?.[0] ?? `${productBase}/workspaces/default`);
-  const baseURL = typeof window === 'undefined' ? `${productBase}/v1` : `${window.location.origin}${productBase}/v1`;
-  const requestExample = useMemo(() => curlRequestExample(baseURL, modelAlias), [baseURL, modelAlias]);
   const activityFilterQuery = useMemo(() => filterQuery(filters), [filters]);
   const invalidDateRange = Boolean(filters.from && filters.to && filters.from > filters.to);
   const hasActivityFilters = Boolean(activityFilterQuery);
+
+  useEffect(() => {
+    const alias = preferredModelAlias?.trim();
+    if (!alias || !models.includes(alias) || preferredAliasApplied.current === alias) return;
+    preferredAliasApplied.current = alias;
+    setFilters(current => ({ ...current, model: alias }));
+  }, [preferredModelAlias, models]);
 
   function updateFilter(name: keyof ActivityFilters, value: string) {
     setFilters(current => ({ ...current, [name]: value }));
   }
 
-  async function copyValue(label: string, value: string) {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopyNotice(`${label} copied`);
-    } catch {
-      setCopyNotice('Clipboard unavailable. Select the value to copy it.');
-    }
-  }
-
   useEffect(() => {
-    if (!organization || !project || compact) return;
+    if (!organization || !project || compact || statisticsOnly) return;
     const controller = new AbortController();
     setKeyFilterError('');
     void get<{ data: KeyOption[] }>(`/admin/v1/organizations/${organization}/projects/${project}/keys`, token, controller.signal)
       .then(value => { if (!controller.signal.aborted) setKeys(value.data); })
       .catch(reason => { if (!controller.signal.aborted) setKeyFilterError((reason as Error).message); });
     return () => controller.abort();
-  }, [token, organization, project, compact]);
+  }, [token, organization, project, compact, statisticsOnly]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -303,14 +207,22 @@ export default function GatewayActivity({ token, models, initialScope, compact =
     }
   }
 
-  const groups = useMemo(() => groupRequests(requests), [requests]);
+  const modelStats = useMemo(() => {
+    const byModel = new Map<string, { requests: number; tokens: bigint; usage: number; timed: number; elapsed: number }>();
+    for (const request of requests) {
+      const current = byModel.get(request.model) ?? { requests: 0, tokens: 0n, usage: 0, timed: 0, elapsed: 0 };
+      current.requests += 1;
+      if (request.prompt_tokens != null && request.completion_tokens != null) { current.tokens += BigInt(request.prompt_tokens) + BigInt(request.completion_tokens); current.usage += 1; }
+      if (request.duration_ms != null) { current.timed += 1; current.elapsed += request.duration_ms; }
+      byModel.set(request.model, current);
+    }
+    return [...byModel].map(([model, stats]) => ({ model, ...stats })).sort((a, b) => b.requests - a.requests || a.model.localeCompare(b.model)).slice(0, 8);
+  }, [requests]);
   const aggregate = summary ?? {
     request_count: 0, usage_count: 0, prompt_tokens: '0', completion_tokens: '0',
-    timing_count: 0, average_duration_ms: null, unknown_cost_count: 0, settled_costs: [],
+    timing_count: 0, average_duration_ms: null,
   };
   const aggregateTokens = (BigInt(aggregate.prompt_tokens) + BigInt(aggregate.completion_tokens)).toLocaleString();
-  const settledTotals = summaryCosts(aggregate, 'cash_nanos');
-  const apiEquivalentTotals = summaryCosts(aggregate, 'api_equivalent_nanos');
   const averageDuration = summary?.average_duration_ms;
 
   useEffect(() => {
@@ -325,61 +237,43 @@ export default function GatewayActivity({ token, models, initialScope, compact =
   }, [loading, requests]);
 
   return <>
-    {!compact && <div className="page-heading gateway-activity-heading">
-      <div><p className="page-subtitle">Requests through Niu, with measured usage, latency, and known cost.</p></div>
-      <Button variant="outline" disabled={!project || loading} onClick={() => setRevision(value => value + 1)}><RefreshCw />Refresh</Button>
-    </div>}
+    {!compact && <PageHeader title={statisticsOnly ? 'Usage' : 'Observability'} action={<Button variant="outline" disabled={!project || loading} onClick={() => setRevision(value => value + 1)}><RefreshCw />Refresh</Button>} />}
 
-    {!compact && <section className="gateway-client-setup panel" aria-label="Niu client settings">
-      <div className="gateway-client-setup-heading"><div><p className="eyebrow">CLIENT SETUP</p><h2>Point your app at Niu</h2><p>Use a project key that grants the selected alias. Provider credentials stay in Niu.</p></div><div><a href={`${workspaceRoot}/vendors`}>Configure provider<ArrowUpRight size={15} /></a><a href={`${workspaceRoot}/keys`}>Manage project keys<ArrowUpRight size={15} /></a></div></div>
-      <div className="gateway-client-values">
-        <div className="gateway-client-value"><span>Niu base URL</span><div><code>{baseURL}</code><Button type="button" variant="outline" size="sm" aria-label="Copy Niu base URL" onClick={() => void copyValue('Niu base URL', baseURL)}><Copy />Copy</Button></div></div>
-        <div className="gateway-client-value"><span>Model alias</span>{clientModels.length > 1 && <Label htmlFor="activity-model">Choose a model<NativeSelect id="activity-model" value={modelAlias} onChange={event => setModelAlias(event.target.value)}>{clientModels.map(model => <NativeSelectOption key={model} value={model}>{model}</NativeSelectOption>)}</NativeSelect></Label>}<div><code>{modelAlias || 'No enabled model alias'}</code><Button type="button" variant="outline" size="sm" aria-label="Copy model alias" disabled={!modelAlias} onClick={() => void copyValue('Model alias', modelAlias)}><Copy />Copy</Button></div></div>
-      </div>
-      {modelAlias ? <details className="gateway-request-example">
-        <summary>Try a request from your terminal</summary>
-        <div className="gateway-request-content">
-          <div className="gateway-request-heading"><p>Set <code>NIU_API_KEY</code> to a project-scoped key before running.</p><Button type="button" variant="outline" size="sm" onClick={() => void copyValue('cURL request', requestExample)}><Copy />Copy cURL request</Button></div>
-          <pre><code>{requestExample}</code></pre>
-        </div>
-      </details> : <p className="gateway-request-unavailable">Publish an enabled model alias to generate a request example.</p>}
-      {copyNotice && <p className="gateway-copy-notice" role="status">{copyNotice}</p>}
-    </section>}
-
-    {error && <p role="alert" className="error-text">{error}</p>}
+    {error && <div role="alert" className="page-error"><span>{error}</span><Button variant="outline" size="sm" onClick={() => setRevision(value => value + 1)}>Try again</Button></div>}
+    {!project && <section className="panel empty-state"><strong>Choose a workspace</strong><span>Select or create a workspace to view its activity.</span></section>}
     {project && <>
       {!compact && <section className="gateway-activity-filters panel" aria-label="Filter request activity">
         <label>From<input type="date" value={filters.from} max={filters.to || undefined} onChange={event => updateFilter('from', event.target.value)} /></label>
         <label>To<input type="date" value={filters.to} min={filters.from || undefined} onChange={event => updateFilter('to', event.target.value)} /></label>
-        <label>Model<NativeSelect value={filters.model} onChange={event => updateFilter('model', event.target.value)}><NativeSelectOption value="">All models</NativeSelectOption>{models.map(model => <NativeSelectOption key={model} value={model}>{model}</NativeSelectOption>)}</NativeSelect></label>
-        <label>API key<NativeSelect value={filters.keyId} onChange={event => updateFilter('keyId', event.target.value)}><NativeSelectOption value="">All keys</NativeSelectOption>{keys.map(key => <NativeSelectOption key={key.id} value={key.id}>{key.name}{key.revoked ? ' · revoked' : key.expired ? ' · expired' : ''}</NativeSelectOption>)}</NativeSelect></label>
-        <label>Status<NativeSelect value={filters.status} onChange={event => updateFilter('status', event.target.value)}><NativeSelectOption value="">Any status</NativeSelectOption><NativeSelectOption value="confirmed_completed">Completed</NativeSelectOption><NativeSelectOption value="may_have_executed">Uncertain</NativeSelectOption><NativeSelectOption value="confirmed_not_executed">Not executed</NativeSelectOption><NativeSelectOption value="not_sent">Not sent</NativeSelectOption></NativeSelect></label>
+        <label>Model<Dropdown value={filters.model} onChange={event => updateFilter('model', event.target.value)}><DropdownOption value="">All models</DropdownOption>{models.map(model => <DropdownOption key={model} value={model}>{model}</DropdownOption>)}</Dropdown></label>
+        <label>API key<Dropdown value={filters.keyId} onChange={event => updateFilter('keyId', event.target.value)}><DropdownOption value="">All keys</DropdownOption>{keys.map(key => <DropdownOption key={key.id} value={key.id}>{key.name}{key.revoked ? ' · revoked' : key.expired ? ' · expired' : ''}</DropdownOption>)}</Dropdown></label>
+        <label>Status<Dropdown value={filters.status} onChange={event => updateFilter('status', event.target.value)}><DropdownOption value="">Any status</DropdownOption><DropdownOption value="confirmed_completed">Completed</DropdownOption><DropdownOption value="may_have_executed">Uncertain</DropdownOption><DropdownOption value="confirmed_not_executed">Not executed</DropdownOption><DropdownOption value="not_sent">Not sent</DropdownOption></Dropdown></label>
+        {hasActivityFilters && <Button variant="ghost" size="sm" onClick={() => setFilters({ from: '', to: '', model: '', keyId: '', status: '' })}>Clear filters</Button>}
         {keyFilterError && <p role="alert" className="gateway-filter-error">{keyFilterError}</p>}
       </section>}
 
-      <section className="gateway-activity-summary" aria-label="Filtered request totals" aria-busy={loading}>
-        <article className="panel"><span><Activity size={16} />Matching requests</span><strong>{summary ? aggregate.request_count.toLocaleString() : '—'}</strong><small>{summary ? `${requests.length.toLocaleString()} loaded${nextCursor ? ' · more history available' : ' · all matching history loaded'}` : 'Range total unavailable'}</small></article>
+      {(statisticsOnly || compact) && !error && <section className="gateway-activity-summary" aria-label="Filtered request totals" aria-busy={loading}>
+        <article className="panel"><span><Activity size={16} />Matching requests</span><strong>{summary ? aggregate.request_count.toLocaleString() : '—'}</strong><small>{summary ? `${requests.length.toLocaleString()} loaded${nextCursor ? ' · more history available' : ' · all matching requests'}` : 'Range total unavailable'}</small></article>
         <article className="panel"><span><Workflow size={16} />Token usage</span><strong>{summary ? aggregateTokens : '—'}</strong><small>{summary ? `${BigInt(aggregate.prompt_tokens).toLocaleString()} prompt · ${BigInt(aggregate.completion_tokens).toLocaleString()} output · ${aggregate.usage_count} with reported usage` : 'Range total unavailable'}</small></article>
-        <article className="panel"><span><Coins size={16} />Settled gateway cost</span><strong>{summary ? settledTotals.length ? settledTotals.join(' · ') : aggregate.unknown_cost_count ? 'Unknown' : '—' : '—'}</strong><small>{summary ? aggregate.unknown_cost_count ? `${countLabel(aggregate.unknown_cost_count, 'request')} without a settled charge` : 'Settled charges only' : 'Range total unavailable'}</small></article>
-        <article className="panel"><span><Coins size={16} />API-equivalent cost</span><strong>{summary ? apiEquivalentTotals.length ? apiEquivalentTotals.join(' · ') : aggregate.unknown_cost_count ? 'Unknown' : '—' : '—'}</strong><small>{summary ? aggregate.unknown_cost_count ? `${countLabel(aggregate.unknown_cost_count, 'request')} without a known price` : 'Model price estimate' : 'Range total unavailable'}</small></article>
         <article className="panel"><span><Timer size={16} />Average model time</span><strong>{averageDuration == null ? '—' : `${averageDuration.toLocaleString()} ms`}</strong><small>{summary ? `${aggregate.timing_count} requests with complete timing` : 'Range total unavailable'}</small></article>
-      </section>
+      </section>}
 
-      <section className={`gateway-task-feed panel${compact ? ' is-compact' : ''}`} aria-labelledby="gateway-task-feed-title" aria-busy={loading}>
-        <div className="gateway-task-feed-heading"><div><h2 id="gateway-task-feed-title">{compact ? 'Recent requests' : 'Request activity'}</h2>{!compact && <p>Matching <code>X-Niu-Task-ID</code> values group requests. A task ID does not verify a complete task.</p>}</div><div className="gateway-feed-actions">{compact && <a href={`${workspaceRoot}/executions`}>View activity<ArrowUpRight size={15} /></a>}<Badge variant="outline">Gateway</Badge></div></div>
-        {loading && <p role="status" className="execution-loading">Loading gateway activity…</p>}
-        {!loading && groups.length === 0 && <div className="gateway-task-empty"><Activity size={22} /><h3>{hasActivityFilters ? 'No matching requests' : 'No requests yet'}</h3><p>{hasActivityFilters ? 'Adjust or clear the filters to see more activity.' : 'Send a model call from Playground or your app.'}</p>{hasActivityFilters ? <Button type="button" variant="outline" onClick={() => setFilters({ from: '', to: '', model: '', keyId: '', status: '' })}>Clear filters</Button> : <a href={`${workspaceRoot}/playground`}>Open Playground<ArrowUpRight size={16} /></a>}</div>}
-        {!loading && groups.length > 0 && <div className="gateway-task-groups">{(compact ? groups.slice(0, 3) : groups).map(group => <article className="gateway-task-group" key={group.key}>
-          <div className="gateway-task-group-head"><div><span className="gateway-task-kicker">{group.taskId ? 'CORRELATED REQUESTS' : group.requests.length > 1 ? 'ATTEMPT HISTORY' : 'REQUEST'}</span><h3>{group.taskId ? `Task ID · ${group.taskId}` : group.requests[0].model}</h3><p>{group.requests.length} {group.taskId ? `request${group.requests.length === 1 ? '' : 's'}` : `attempt${group.requests.length === 1 ? '' : 's'}`} · {group.requests.map(item => item.model).filter((model, index, all) => all.indexOf(model) === index).join(', ')}</p>{group.taskEvidence && <p className="gateway-task-quality">Task evidence: {taskOutcome(group.taskEvidence)} · {group.taskEvidence.coverage} coverage</p>}{group.taskEvidence?.execution_id && <a className="gateway-task-trace-link" href={taskTraceURL(workspaceRoot, organization, project, group.taskEvidence.execution_id)}>Open task evidence<ArrowUpRight size={14} /></a>}</div><div className="gateway-task-group-total"><strong>{group.cashCosts.totals.length ? group.cashCosts.totals.join(' · ') : 'Cost unknown'}</strong><span>{group.cashCosts.unknown ? `${countLabel(group.cashCosts.unknown, 'request')} without settled cash · total incomplete` : 'Settled model cash only · other task costs may be unknown'}</span><span>API-equivalent: {group.apiCosts.totals.length ? group.apiCosts.totals.join(' · ') : 'unknown'}{group.apiCosts.unknown ? ` · ${countLabel(group.apiCosts.unknown, 'request')} without a known price` : ''}</span>{nextCursor && <span>Loaded history only; older activity may add costs.</span>}<span>{group.tokens.total} tokens · {group.workMs ? `${group.workMs.toLocaleString()} ms model time` : 'timing unavailable'}</span></div></div>
-          <div className="gateway-task-request-list">{group.requests.map(item => <div className="gateway-task-request" id={`gateway-attempt-${item.attempt_id}`} tabIndex={-1} key={item.attempt_id}>
-            <span className={`gateway-request-state ${item.execution === 'confirmed_completed' ? 'is-complete' : item.execution === 'confirmed_not_executed' ? 'is-failed' : 'is-pending'}`} aria-hidden="true" />
-            <div className="gateway-request-model"><strong>{item.model}</strong>{item.provider_model && <small>Provider · {item.provider_model}</small>}</div><span>{timestamp(item.created_at)}</span><span>{item.prompt_tokens != null && item.completion_tokens != null ? `${(BigInt(item.prompt_tokens) + BigInt(item.completion_tokens)).toLocaleString()} tokens` : 'Usage unknown'}</span><span>{item.duration_ms == null ? 'Time unknown' : `${item.duration_ms.toLocaleString()} ms`}</span><span>{item.cash_nanos != null && item.currency ? money(item.cash_nanos, item.currency) : item.execution === 'confirmed_completed' ? 'Price unavailable' : 'Unsettled'}</span>
-            {!compact && <details className="gateway-attempt-details"><summary>Details</summary><div><span>Status · {statusLabel(item.execution)}</span><span>Attempt · <code>{item.attempt_id}</code></span><span>Operation · <code>{item.operation_id}</code></span><span>API key · {item.key_name ?? 'Unknown or unavailable'}</span></div></details>}
-          </div>)}</div>
-        </article>)}</div>}
-        {!compact && !loading && nextCursor && <div className="gateway-task-history"><Button type="button" variant="outline" disabled={loadingOlder} onClick={() => void loadOlder()}>{loadingOlder ? 'Loading older activity…' : 'Load older activity'}</Button></div>}
-        {!compact && !loading && groups.length > 0 && <p className="gateway-task-disclosure">Request activity shows gateway calls. <a href={`${workspaceRoot}/executions`}>Task evidence</a> adds tool steps and accepted outcomes when available.</p>}
-      </section>
+      {statisticsOnly && !error && <section className="panel activity-model-breakdown">
+        <div className="panel-heading"><div><h2>Model usage</h2><p>Request counts from the latest {requests.length.toLocaleString()} gateway records.</p></div><Link to="../executions">Investigate requests<ArrowUpRight size={15} /></Link></div>
+        {loading ? <p role="status" className="execution-loading">Loading model activity…</p> : modelStats.length ? <div className="activity-model-table-wrap"><table><thead><tr><th>Model</th><th>Requests</th><th>Tokens observed</th><th>Avg. model time</th></tr></thead><tbody>{modelStats.map(item => <tr key={item.model}><th scope="row">{item.model}</th><td>{item.requests.toLocaleString()}</td><td>{item.usage ? item.tokens.toLocaleString() : 'Unknown'}</td><td>{item.timed ? `${Math.round(item.elapsed / item.timed).toLocaleString()} ms` : 'Unknown'}</td></tr>)}</tbody></table></div> : <div className="activity-model-empty"><strong>No model activity yet</strong><p>Requests through Chat or your app will populate these statistics automatically.</p><Link to="../playground">Open Chat<ArrowUpRight size={14} /></Link></div>}
+        <div className="activity-stat-links"><Link to="../billing">View billing<ArrowUpRight size={14} /></Link></div>
+      </section>}
+
+      {!statisticsOnly && <section className={`gateway-task-feed panel${compact ? ' is-compact' : ''}`} aria-labelledby="gateway-task-feed-title" aria-busy={loading}>
+        <div className="gateway-task-feed-heading"><div><h2 id="gateway-task-feed-title">{compact ? 'Recent requests' : 'Requests'}</h2></div><div className="gateway-feed-actions">{compact && <Link to={`${workspaceRoot}/executions`}>View all requests<ArrowUpRight size={15} /></Link>}{!compact && <Badge variant="outline">{requests.length.toLocaleString()} loaded</Badge>}</div></div>
+        {loading && <p role="status" className="execution-loading">Loading requests…</p>}
+        {!loading && !error && requests.length === 0 && <div className="gateway-task-empty"><Activity size={22} /><h3>{hasActivityFilters ? 'No matching requests' : 'No requests yet'}</h3><p>{hasActivityFilters ? 'Adjust or clear the filters to see more activity.' : 'Calls sent through Chat or your application appear here.'}</p>{hasActivityFilters ? <Button type="button" variant="outline" onClick={() => setFilters({ from: '', to: '', model: '', keyId: '', status: '' })}>Clear filters</Button> : !compact && <Link to={`${workspaceRoot}/playground`}>Open Chat<ArrowUpRight size={16} /></Link>}</div>}
+        {!loading && requests.length > 0 && <div className="gateway-request-table-wrap"><table className={`gateway-request-table${compact ? ' is-compact' : ''}`}><thead><tr><th>Time</th><th>Model</th><th>Status</th><th>Latency</th>{!compact && <><th>Tokens</th><th>API key</th><th>Details</th></>}</tr></thead><tbody>{requests.map(item => <tr id={`gateway-attempt-${item.attempt_id}`} tabIndex={-1} key={item.attempt_id}>
+          <td>{timestamp(item.created_at)}</td><th scope="row"><span>{item.model}</span>{item.provider_model && <small>Provider · {item.provider_model}</small>}</th><td><span className={`gateway-table-status ${item.execution === 'confirmed_completed' ? 'is-complete' : item.execution === 'confirmed_not_executed' ? 'is-failed' : 'is-pending'}`}>{statusLabel(item.execution)}</span></td><td>{item.duration_ms == null ? 'Unknown' : `${item.duration_ms.toLocaleString()} ms`}</td>{!compact && <><td>{item.prompt_tokens != null && item.completion_tokens != null ? (BigInt(item.prompt_tokens) + BigInt(item.completion_tokens)).toLocaleString() : 'Unknown'}</td><td>{item.key_name ?? 'Unknown'}</td><td><details className="gateway-request-detail"><summary>View details</summary><div><strong>{item.model}</strong><dl><div><dt>Provider model</dt><dd>{item.provider_model ?? 'Unknown'}</dd></div><div><dt>Status</dt><dd>{statusLabel(item.execution)}</dd></div><div><dt>Time</dt><dd>{timestamp(item.created_at)}</dd></div><div><dt>Model time</dt><dd>{item.duration_ms == null ? 'Unknown' : `${item.duration_ms.toLocaleString()} ms`}</dd></div><div><dt>Prompt tokens</dt><dd>{item.prompt_tokens ?? 'Unknown'}</dd></div><div><dt>Output tokens</dt><dd>{item.completion_tokens ?? 'Unknown'}</dd></div><div><dt>Usage evidence</dt><dd>{item.usage_confidence}</dd></div><div><dt>API key</dt><dd>{item.key_name ?? 'Unknown'}</dd></div>{item.task_id && <div><dt>Task ID</dt><dd>{item.task_id}</dd></div>}<div><dt>Operation ID</dt><dd><code>{item.operation_id}</code></dd></div><div><dt>Attempt ID</dt><dd><code>{item.attempt_id}</code></dd></div>{item.task_evidence && <div><dt>Task evidence</dt><dd>{taskOutcome(item.task_evidence)} · {item.task_evidence.coverage}</dd></div>}</dl></div></details></td></>}
+        </tr>)}</tbody></table></div>}
+        {!compact && !loading && nextCursor && <div className="gateway-task-history"><Button type="button" variant="outline" disabled={loadingOlder} onClick={() => void loadOlder()}>{loadingOlder ? 'Loading older requests…' : 'Load older requests'}</Button></div>}
+        {!compact && !loading && requests.length > 0 && <p className="gateway-task-disclosure">Token counts are shown only when reported. Customer charges and invoices are available in Billing.</p>}
+      </section>}
     </>}
   </>;
 }

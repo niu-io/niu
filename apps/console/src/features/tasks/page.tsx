@@ -8,7 +8,7 @@ export default function TasksPage() {
     ? { organizationId: workspace.organization_id, projectId: workspace.id }
     : null;
 
-  return <ConnectGate subtitle="Compare task time, model and tool work, cost, and outcome evidence.">
+  return <ConnectGate>
     {({ token }) => <ExecutionWorkspace token={token} initialScope={initialScope} />}
   </ConnectGate>;
 }

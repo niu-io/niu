@@ -99,7 +99,7 @@ async fn tenant_boundaries_dispatch_races_and_restart(pool: PgPool) {
     reopened_pool.close().await;
 }
 
-#[sqlx::test(migrations = "../migrations")]
+#[sqlx::test(migrations = "./migrations")]
 #[ignore = "requires PostgreSQL with permission to create test databases"]
 async fn collector_key_metadata_is_scoped_and_never_contains_secrets(pool: PgPool) {
     let store = Store::from_pool(pool);

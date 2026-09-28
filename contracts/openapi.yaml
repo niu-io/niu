@@ -6,6 +6,32 @@ info:
 servers:
   - url: /
 paths:
+  /admin/v1/organizations/{organization}/projects/{project}/billing:
+    $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1billing'
+  /admin/v1/organizations/{organization}/projects/{project}/billing/tariffs:
+    $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1tariffs'
+  /admin/v1/organizations/{organization}/projects/{project}/billing/invoices:
+    $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1invoices'
+  /admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}:
+    $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1invoices~1{invoice}'
+  /admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}/payment:
+    $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1invoices~1{invoice}~1payment'
+  /admin/v1/provider-memberships:
+    $ref: './provider-business.openapi.yaml#/paths/~1admin~1v1~1provider-memberships'
+  /admin/v1/providers:
+    $ref: './provider-business.openapi.yaml#/paths/~1admin~1v1~1providers'
+  /admin/v1/providers/{provider}/members/{operator}:
+    $ref: './provider-business.openapi.yaml#/paths/~1admin~1v1~1providers~1{provider}~1members~1{operator}'
+  /admin/v1/providers/{provider}/offers:
+    $ref: './provider-business.openapi.yaml#/paths/~1admin~1v1~1providers~1{provider}~1offers'
+  /admin/v1/providers/{provider}/offers/{offer}:
+    $ref: './provider-business.openapi.yaml#/paths/~1admin~1v1~1providers~1{provider}~1offers~1{offer}'
+  /admin/v1/providers/{provider}/dashboard:
+    $ref: './provider-business.openapi.yaml#/paths/~1admin~1v1~1providers~1{provider}~1dashboard'
+  /admin/v1/providers/{provider}/administration:
+    $ref: './provider-business.openapi.yaml#/paths/~1admin~1v1~1providers~1{provider}~1administration'
+  /admin/v1/providers/{provider}/settlements:
+    $ref: './provider-business.openapi.yaml#/paths/~1admin~1v1~1providers~1{provider}~1settlements'
   /healthz:
     get:
       operationId: getHealth
@@ -371,9 +397,19 @@ paths:
                 properties:
                   data:
                     type: object
-                    required: [kind, operator, permissions]
+                    required: [kind, operator, permissions, provider_memberships]
                     properties:
                       kind: { type: string, enum: [installation, operator] }
+                      provider_memberships:
+                        type: array
+                        description: Explicit active supplier grants only; installation identity returns an empty array.
+                        items:
+                          type: object
+                          required: [id, name, role]
+                          properties:
+                            id: { type: string, format: uuid }
+                            name: { type: string }
+                            role: { type: string, enum: [viewer, manager] }
                       operator:
                         type: [object, 'null']
                         required: [id, role, organization_id, project_id]
@@ -1014,7 +1050,7 @@ paths:
   /admin/v1/organizations/{organization}/projects/{project}/budget:
     post:
       operationId: createProjectBudget
-      summary: Create a lifetime project cash budget
+      summary: Create a platform upstream cost budget (installation only)
       description: Fails with conflict if a budget exists. Previously dispatched work is not retroactively reserved. Further dispatch requires a trusted held reservation; configure pricing separately in the model route.
       security:
         - adminBearerAuth: []
@@ -1054,7 +1090,7 @@ paths:
           description: JSON does not match the required schema.
     get:
       operationId: getProjectBudget
-      summary: Read the project lifetime cash budget
+      summary: Read the platform upstream cost budget (installation only)
       security:
         - adminBearerAuth: []
       parameters:
@@ -1076,7 +1112,7 @@ paths:
   /admin/v1/organizations/{organization}/projects/{project}/costs:
     get:
       operationId: listProjectCosts
-      summary: Read settled per-attempt cost entries
+      summary: Read platform upstream cost entries (installation only)
       security:
         - adminBearerAuth: []
       parameters:
@@ -1105,7 +1141,7 @@ paths:
     get:
       operationId: listProjectGatewayActivity
       summary: Read automatically retained gateway request activity
-      description: Returns metadata for model attempts admitted by Niu, newest first. Request and response bodies, prompts and completions are not included. Pages are bounded to at most 100 entries. Pass the previous response's next_cursor as after to read older matching entries; traversal is a live view, not a cross-page snapshot. Optional filters apply to the whole project scope. summary totals cover the selected filters independent of page. An absent task_id means the caller did not supply X-Niu-Task-ID. Missing usage or cost fields remain unknown.
+      description: Returns metadata for model attempts admitted by Niu, newest first. Request and response bodies, prompts and completions are not included. Pages are bounded to at most 100 entries. Pass the previous response's next_cursor as after to read older matching entries; traversal is a live view, not a cross-page snapshot. Optional filters apply to the whole project scope. summary totals cover the selected filters independent of page. An absent task_id means the caller did not supply X-Niu-Task-ID. Missing usage remains unknown. Operator responses omit currency, cash_nanos, api_equivalent_nanos, unknown_cost_count and settled_costs; these upstream financial fields are installation-only. Customer charges are available through Billing.
       security:
         - adminBearerAuth: []
       parameters:
@@ -1162,7 +1198,7 @@ paths:
                     format: uuid
                   summary:
                     type: object
-                    required: [request_count, usage_count, prompt_tokens, completion_tokens, timing_count, average_duration_ms, unknown_cost_count, settled_costs]
+                    required: [request_count, usage_count, prompt_tokens, completion_tokens, timing_count, average_duration_ms]
                     properties:
                       request_count: { type: integer, format: int64 }
                       usage_count: { type: integer, format: int64 }
@@ -1379,7 +1415,7 @@ paths:
           schema: { type: string, format: uuid }
       responses:
         '200':
-          description: Metadata record, scoped account links, and explicitly referenced settled charges. The task total is always marked incomplete; cache control is no-store.
+          description: Metadata record and scoped account links. Referenced upstream charges are installation-only; charges is null for operators. The task total is always marked incomplete; cache control is no-store.
         '401':
           description: Administrator authentication required.
         '404':
@@ -1412,7 +1448,7 @@ paths:
   /admin/v1/organizations/{organization}/projects/{project}/executions/cohort:
     get:
       operationId: getExecutionCohort
-      summary: Summarize observed task outcomes and linked canonical costs
+      summary: Summarize observed task outcomes and platform costs (installation only)
       description: Scans at most 10,000 imported records in UUID order. This is a live view, not a snapshot. Cost references resolve only to scoped attempt UUIDs; invoice cash and subscription allocation cash are not imported, and quota samples have no task attribution.
       security:
         - adminBearerAuth: []
@@ -1510,7 +1546,7 @@ paths:
           schema: { type: string, format: uuid }
       responses:
         '200':
-          description: Record, account links and resolved referenced charges.
+          description: Record and account links; resolved upstream charges are returned only to installation administrators, otherwise charges is null.
         '401':
           description: Administrator authentication required.
         '404':

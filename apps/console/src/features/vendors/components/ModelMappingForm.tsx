@@ -32,6 +32,7 @@ export default function ModelMappingForm({ model, catalog, catalogLoading, catal
   const [catalogQuery, setCatalogQuery] = useState('');
   const [catalogOpen, setCatalogOpen] = useState(false);
 
+  const [saveError, setSaveError] = useState('');
   const visibleCatalog = catalog
     .filter(item => !catalogQuery || `${item.name} ${item.id}`.toLowerCase().includes(catalogQuery.toLowerCase()))
     .slice(0, 12);
@@ -80,6 +81,7 @@ export default function ModelMappingForm({ model, catalog, catalogLoading, catal
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (disabled || !alias.trim() || !upstreamModel.trim()) return;
+    setSaveError('');
     await onSave({
       alias: alias.trim(),
       upstream_model: upstreamModel.trim(),
@@ -91,7 +93,8 @@ export default function ModelMappingForm({ model, catalog, catalogLoading, catal
     });
   }
 
-  return <form className="model-mapping-form" onSubmit={event => void submit(event).catch(() => {})}>
+  return <form className="model-mapping-form" onSubmit={event => void submit(event).catch(reason => setSaveError(reason instanceof Error ? reason.message : 'Unable to save this model route.'))}>
+    {saveError && <p role="alert" className="error-text">{saveError}</p>}
     <div className="model-form-heading"><div><h3>{model ? 'Edit model mapping' : 'Add a model mapping'}</h3><p>Map the name clients use to the provider’s upstream model ID.</p></div></div>
     <div className="model-form-fields">
       {!model && <div className="provider-model-picker">

@@ -1,6 +1,7 @@
 import { expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router';
 import KeysView from '../../../../src/features/keys/components/KeysView';
 
 const expectedBaseUrl = () => `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/+$/, '')}/v1`;
@@ -10,10 +11,12 @@ vi.mock('../../../../src/app/console-context', () => ({
     workspaces: [{ id: 'project-1', name: 'Production', organization_id: 'org-1', organization_name: 'Acme' }],
     workspace: { id: 'project-1', name: 'Production', organization_id: 'org-1', organization_name: 'Acme' },
     workspaceLoading: false,
+    rememberChatKey: vi.fn(),
+    forgetChatKey: vi.fn(),
   }),
 }));
 
-it('issues a project-scoped key and makes its one-time secret easy to copy', async () => {
+it('issues a workspace API key and makes its one-time secret easy to copy', async () => {
   const calls: Array<{ path: string; method: string; body?: string }> = [];
   const keyPath = '/admin/v1/organizations/org-1/projects/project-1/keys';
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -29,27 +32,29 @@ it('issues a project-scoped key and makes its one-time secret easy to copy', asy
   const user = userEvent.setup();
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
 
-  render(<KeysView token="admin-token" models={['fast', 'careful']} canWrite canCreateOrganization initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} />);
+  render(<MemoryRouter initialEntries={['/workspaces/production/keys']}><KeysView token="admin-token" models={['fast', 'careful']} canWrite initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} /></MemoryRouter>);
 
-  expect(await screen.findByRole('heading', { name: 'Project keys' })).toBeTruthy();
+  expect(await screen.findByRole('heading', { name: 'API keys' })).toBeTruthy();
+  expect(await screen.findByText('No API keys yet')).toBeTruthy();
+  expect(screen.getAllByRole('button', { name: /New API key|Create your first key/ })).toHaveLength(1);
+  await user.click(screen.getByRole('button', { name: 'New API key' }));
   await user.type(screen.getByLabelText('Key name'), 'My application');
-  await user.click(screen.getByRole('checkbox', { name: 'fast' }));
-  await user.click(screen.getByRole('button', { name: 'Issue key' }));
+  await user.type(screen.getByRole('textbox', { name: 'Search allowed models' }), 'care');
+  expect(screen.queryByRole('checkbox', { name: 'fast' })).toBeNull();
+  await user.click(screen.getByRole('checkbox', { name: 'careful' }));
+  expect(screen.getByRole('status').textContent).toContain('1 selected');
+  await user.click(screen.getByRole('button', { name: 'Create key' }));
 
-  expect(await screen.findByRole('heading', { name: 'Save your key' })).toBeTruthy();
-  expect((screen.getByLabelText('New API key') as HTMLInputElement).value).toBe('niu_once_test_secret');
-  expect((screen.getByLabelText('Niu base URL') as HTMLInputElement).value).toBe(expectedBaseUrl());
-  expect((screen.getByLabelText('Model alias') as HTMLSelectElement).value).toBe('fast');
-  expect(screen.getByText(/model: 'fast'/)).toBeTruthy();
+  expect(await screen.findByRole('heading', { name: 'Save your API key' })).toBeTruthy();
+  expect((screen.getByLabelText('API key') as HTMLInputElement).value).toBe('niu_once_test_secret');
+  expect((screen.getByLabelText('Base URL') as HTMLInputElement).value).toBe(expectedBaseUrl());
   expect(screen.queryByText(/admin-token/)).toBeNull();
-  await user.click(screen.getByRole('button', { name: 'Copy Niu base URL' }));
+  await user.click(screen.getByRole('button', { name: 'Copy URL' }));
   expect(writeText).toHaveBeenCalledWith(expectedBaseUrl());
-  await user.click(screen.getByRole('button', { name: 'Copy client example' }));
-  expect(writeText).toHaveBeenLastCalledWith(expect.stringContaining(`baseURL: '${expectedBaseUrl()}'`));
-  expect(writeText).toHaveBeenLastCalledWith(expect.stringContaining("model: 'fast'"));
-  await user.click(screen.getByRole('button', { name: 'Copy API key' }));
+  await user.click(screen.getByRole('button', { name: 'Copy example' }));
+  expect(writeText).toHaveBeenLastCalledWith(expect.stringContaining('"model":"fast"'));
+  await user.click(screen.getByRole('button', { name: 'Copy key' }));
   expect(writeText).toHaveBeenCalledWith('niu_once_test_secret');
-  expect(screen.getByText('Copied to clipboard.')).toBeTruthy();
 
   const issue = calls.find(call => call.method === 'POST');
   expect(issue?.path).toBe(keyPath);
@@ -61,13 +66,11 @@ it('keeps an operator viewer in read-only key administration', async () => {
     id: 'key-1', name: 'Frontend', allowed_models: ['fast'], expires_at_ms: 2_000_000_000_000, revoked: false, expired: false,
   }] }), { status: 200, headers: { 'content-type': 'application/json' } })));
 
-  render(<KeysView token="viewer-token" models={['fast']} canWrite={false} canCreateOrganization={false} initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} />);
+  render(<MemoryRouter initialEntries={['/workspaces/production/keys']}><KeysView token="viewer-token" models={['fast']} canWrite={false} initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} /></MemoryRouter>);
 
-  expect(await screen.findByRole('heading', { name: 'Project keys' })).toBeTruthy();
+  expect(await screen.findByRole('heading', { name: 'API keys' })).toBeTruthy();
   expect(screen.getByText('Frontend')).toBeTruthy();
-  expect(screen.getByRole('heading', { name: 'Use a project key' })).toBeTruthy();
-  expect((screen.getByLabelText('Model alias') as HTMLSelectElement).value).toBe('fast');
   expect(screen.queryByText(/admin-token/)).toBeNull();
-  expect(screen.getByText('This session can review keys but does not have permission to create or revoke them.')).toBeTruthy();
-  expect(screen.queryByRole('button', { name: 'Issue key' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'New API key' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Create key' })).toBeNull();
 });

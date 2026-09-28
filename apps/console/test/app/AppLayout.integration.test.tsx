@@ -18,6 +18,22 @@ function mockHealth() {
 }
 
 describe('console route layout', () => {
+  it('opens the workspace when the console root is requested', async () => {
+    mockHealth();
+    const router = renderAt('/');
+
+    expect(await screen.findByRole('heading', { name: 'Overview' })).toBeTruthy();
+    expect(router.state.location.pathname).toBe('/workspaces/default/');
+  });
+
+  it('shows a branded recovery page for an unknown console URL', async () => {
+    renderAt('/not-a-console-route');
+
+    expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Open workspace' })).toBeTruthy();
+    expect(screen.queryByText('Unexpected Application Error!')).toBeNull();
+  });
+
   it('blocks unavailable gateway content and recovers on retry', async () => {
     const user = userEvent.setup();
     let online = false;
@@ -27,8 +43,33 @@ describe('console route layout', () => {
     expect(screen.queryByRole('heading', {name: 'Models'})).toBeNull();
     online = true;
     await user.click(screen.getByRole('button', {name: 'Retry connection'}));
-    expect(await screen.findByRole('heading', {name: 'Models'})).toBeTruthy();
+    expect(await screen.findByText('Administrator access required')).toBeTruthy();
+    await waitFor(() => expect(within(screen.getByLabelText('Breadcrumb')).getByText('Models')).toBeTruthy());
     expect(screen.queryByText('Gateway online')).toBeNull();
+  });
+  it('explains a workspace API version mismatch and retries the real request', async () => {
+    const user = userEvent.setup();
+    const calls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      calls.push(path);
+      if (path === '/healthz') return new Response(JSON.stringify({ status: 'ok' }));
+      if (path === '/admin/v1/session') return new Response(JSON.stringify({ data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } }));
+      if (path === '/admin/v1/models') return new Response(JSON.stringify({ data: [] }));
+      if (path === '/admin/v1/organizations') return new Response(JSON.stringify({ data: [] }));
+      if (path === '/admin/v1/workspaces') return new Response(JSON.stringify({ error: { message: 'Not found' } }), { status: 404 });
+      throw new Error(`Unexpected request: ${path}`);
+    }));
+    renderAt('/workspaces/default/');
+    await user.type(await screen.findByLabelText('Installation admin token'), 'admin-token');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+
+    expect(await screen.findByRole('heading', { name: 'This console and gateway are out of sync' })).toBeTruthy();
+    expect(screen.getByText('GET /admin/v1/workspaces')).toBeTruthy();
+    expect(screen.getByText('HTTP 404')).toBeTruthy();
+    const callsBeforeRetry = calls.filter(path => path === '/admin/v1/workspaces').length;
+    await user.click(screen.getByRole('button', { name: 'Retry workspace access' }));
+    await waitFor(() => expect(calls.filter(path => path === '/admin/v1/workspaces').length).toBe(callsBeforeRetry + 1));
   });
   it('renders the workspace overview and connects the sidebar to real routes', async () => {
     mockHealth();
@@ -36,16 +77,17 @@ describe('console route layout', () => {
     const router = renderAt('/workspaces/default/');
 
     expect(await screen.findByRole('heading', { name: 'Overview' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: /Add a model route/ })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Connect provider' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: /Compare models/ })).toBeTruthy();
+    expect(screen.getAllByRole('link', { name: /Explore models/ }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('link', { name: 'Connect a provider' })).toBeNull();
+    expect(screen.getByRole('navigation', { name: 'Gateway workflow' })).toBeTruthy();
     expect(screen.getByLabelText('Installation admin token')).toBeTruthy();
     expect(screen.queryByText('Requests today')).toBeNull();
 
-    await user.click(screen.getByRole('link', { name: 'Activity', exact: true }));
-    expect(await screen.findByRole('heading', { name: 'Activity' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Activity' }).getAttribute('aria-current')).toBe('page');
-    expect(router.state.location.pathname).toBe('/workspaces/default/executions');
+    await user.click(screen.getByRole('link', { name: 'Usage', exact: true }));
+    expect(await screen.findByText('Administrator access required')).toBeTruthy();
+    await waitFor(() => expect(within(screen.getByLabelText('Breadcrumb')).getByText('Usage')).toBeTruthy());
+    expect(screen.getByRole('link', { name: 'Usage' }).getAttribute('aria-current')).toBe('page');
+    expect(router.state.location.pathname).toBe('/workspaces/default/usage');
   });
 
   it('closes the expanded workspace navigation when resizing into the compact layout', async () => {
@@ -78,9 +120,9 @@ describe('console route layout', () => {
     await screen.findByRole('heading', { name: 'Overview' });
     const rail = within(screen.getByRole('navigation', { name: 'Product navigation' }));
     const sidebar = within(screen.getByRole('navigation', { name: 'Main navigation' }));
-    expect(screen.queryByRole('banner')).toBeNull();
+    expect(screen.getByRole('banner')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Switch workspace' })).toBeTruthy();
-    expect(sidebar.getByRole('link', { name: 'Usage & cost' })).toBeTruthy();
+    expect(sidebar.getByRole('link', { name: 'Usage' })).toBeTruthy();
     expect(sidebar.queryByRole('link', { name: 'Agent Connect' })).toBeNull();
     expect(sidebar.queryByRole('link', { name: 'Benchmarks' })).toBeNull();
     expect(rail.queryByRole('link', { name: 'Platform settings' })).toBeNull();
@@ -93,21 +135,21 @@ describe('console route layout', () => {
     expect(await screen.findByRole('navigation', { name: 'Main navigation' })).toBeTruthy();
 
     await user.click(rail.getByRole('link', { name: 'Models', exact: true }));
-    await screen.findByRole('heading', { name: 'Models' });
+    expect(await screen.findByText('Administrator access required')).toBeTruthy();
+    await waitFor(() => expect(within(screen.getByLabelText('Breadcrumb')).getByText('Models')).toBeTruthy());
     expect(screen.queryByRole('complementary')).toBeNull();
-    expect(screen.queryByRole('banner')).toBeNull();
+    expect(screen.getByRole('banner')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /workspace navigation/ })).toBeNull();
-    expect(screen.getByRole('link', { name: 'Browse catalog' }).getAttribute('href')).toBe('/models/');
     expect(screen.queryByRole('navigation', { name: 'Model views' })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Configured models' })).toBeNull();
     expect(screen.queryByRole('navigation', { name: 'Main navigation' })).toBeNull();
-    expect(screen.queryByRole('link', { name: 'Usage & cost' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Usage' })).toBeNull();
     expect(rail.getByRole('link', { name: 'Models', exact: true }).className).toContain('selected');
     expect(rail.getByRole('link', { name: 'Workspace' }).className).not.toContain('selected');
 
-    await user.click(rail.getByRole('link', { name: 'Benchmarks' }));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/default/benchmarks'));
-    expect(rail.getByRole('link', { name: 'Benchmarks' }).className).toContain('selected');
+    await user.click(rail.getByRole('link', { name: 'Chat · compare model responses' }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/chat'));
+    expect(rail.getByRole('link', { name: 'Chat · compare model responses' }).className).toContain('selected');
     expect(screen.queryByRole('complementary')).toBeNull();
     expect(screen.queryByRole('navigation', { name: 'Model views' })).toBeNull();
     await user.click(rail.getByRole('link', { name: 'Workspace' }));
@@ -120,11 +162,11 @@ describe('console route layout', () => {
     mockHealth();
     const user = userEvent.setup();
     renderAt('/workspaces/default/benchmarks');
-    await screen.findByRole('heading', { name: 'Benchmarks' });
+    expect(await screen.findByText('Administrator access required')).toBeTruthy();
     const trigger = screen.getByRole('button', { name: 'Account menu' });
     trigger.focus();
     await user.keyboard('{Enter}');
-    expect(await screen.findByRole('menuitem', { name: 'Usage & cost' })).toBeTruthy();
+    expect(await screen.findByRole('menuitem', { name: 'Usage' })).toBeTruthy();
     expect(screen.queryByRole('menuitem', { name: 'Administration' })).toBeNull();
     await user.click(screen.getByRole('menuitem', { name: 'Administrator sign-in' }));
     expect(await screen.findByRole('dialog')).toBeTruthy();
@@ -136,9 +178,9 @@ describe('console route layout', () => {
     mockHealth();
     renderAt('/workspaces/production/usage');
 
-    expect(await screen.findByRole('heading', { name: 'Usage & cost' })).toBeTruthy();
+    expect(await screen.findByText('Administrator access required')).toBeTruthy();
     expect(screen.getByText('Administrator access required')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Usage & cost' }).getAttribute('aria-current')).toBe('page');
+    expect(screen.getByRole('link', { name: 'Usage' }).getAttribute('aria-current')).toBe('page');
   });
 
   it('keeps coding-agent setup out of the platform release routes', async () => {
@@ -180,13 +222,13 @@ describe('console route layout', () => {
       { id: 'project-2', name: 'Second project', organization_id: 'org-1', organization_name: 'Acme' },
     ] }));
     if (workspaceId === 'missing') {
-      expect(await screen.findByRole('heading', { name: 'Could not open workspace' })).toBeTruthy();
+      expect(await screen.findByRole('heading', { name: 'This workspace link can’t be opened' })).toBeTruthy();
       expect(router.state.location.pathname).toBe(originalPath);
       expect(calls.filter(path => path.endsWith('/keys'))).toEqual([]);
     } else {
-      expect(await screen.findByRole('heading', { name: 'Project keys' })).toBeTruthy();
-      expect(router.state.location.pathname).toBe('/workspaces/project-2/keys');
-      expect(calls.filter(path => path.endsWith('/keys'))).toEqual(['/admin/v1/organizations/org-1/projects/project-2/keys']);
+      expect(await screen.findByRole('heading', { name: 'API keys' })).toBeTruthy();
+      expect(router.state.location.pathname).toBe('/workspaces/second-project/keys');
+      await waitFor(() => expect(calls.filter(path => path.endsWith('/keys'))).toContain('/admin/v1/organizations/org-1/projects/project-2/keys'));
     }
     expect(router.state.location.search).toBe('?tab=active');
     expect(router.state.location.hash).toBe('#list');
@@ -214,16 +256,16 @@ describe('console route layout', () => {
     const router = renderAt('/workspaces/project-1/keys?tab=active#list');
     await user.type(await screen.findByLabelText('Installation admin token'), 'admin-token');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
-    await screen.findByRole('heading', { name: 'Project keys' });
+    await screen.findByRole('heading', { name: 'API keys' });
 
     await user.click(screen.getByRole('button', { name: 'Switch workspace' }));
     await user.click(screen.getByRole('menuitemradio', { name: 'Second project' }));
 
-    await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/project-2/keys'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/second-project/keys'));
     expect(router.state.location.search).toBe('?tab=active');
     expect(router.state.location.hash).toBe('#list');
     expect(within(screen.getByRole('button', { name: 'Switch workspace' })).getByText('Second project')).toBeTruthy();
-    expect(calls.filter(path => path.endsWith('/keys'))).toEqual([
+    expect([...new Set(calls.filter(path => path.endsWith('/keys')))]).toEqual([
       '/admin/v1/organizations/org-1/projects/project-1/keys',
       '/admin/v1/organizations/org-1/projects/project-2/keys',
     ]);
@@ -248,7 +290,7 @@ describe('console route layout', () => {
     renderAt('/workspaces/project-1/keys');
     await user.type(await screen.findByLabelText('Installation admin token'), 'admin-token');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
-    await screen.findByRole('heading', { name: 'Project keys' });
+    await screen.findByRole('heading', { name: 'API keys' });
 
     const trigger = screen.getByRole('button', { name: 'Switch workspace' });
     trigger.focus();
@@ -326,7 +368,7 @@ describe('console route layout', () => {
     const router = renderAt('/workspaces/project-1/keys?tab=active#list');
     await user.type(await screen.findByLabelText('Installation admin token'), 'admin-token');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
-    await screen.findByRole('heading', { name: 'Project keys' });
+    await screen.findByRole('heading', { name: 'API keys' });
 
     await user.click(screen.getByRole('button', { name: 'Switch workspace' }));
     await user.click(screen.getByRole('menuitem', { name: 'Create workspace' }));
@@ -334,10 +376,10 @@ describe('console route layout', () => {
     await user.type(within(dialog).getByLabelText('Workspace name'), 'Research project');
     await user.click(within(dialog).getByRole('button', { name: 'Create workspace' }));
 
-    await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/project-2/keys'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/research-project/keys'));
     expect(router.state.location.search).toBe('?tab=active');
     expect(router.state.location.hash).toBe('#list');
-    expect(within(screen.getByRole('button', { name: 'Switch workspace' })).getByText('Research project')).toBeTruthy();
+    await waitFor(() => expect(within(screen.getByRole('button', { name: 'Switch workspace' })).getByText('Research project')).toBeTruthy());
     expect(calls.find(call => call.path === '/admin/v1/workspaces' && call.method === 'POST')?.body).toBe(JSON.stringify({ name: 'Research project', organization_id: 'org-1' }));
     const keyRequests = calls.filter(call => call.path.endsWith('/keys')).map(call => call.path);
     expect(keyRequests).toContain('/admin/v1/organizations/org-1/projects/project-1/keys');

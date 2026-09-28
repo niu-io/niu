@@ -1,30 +1,29 @@
 import {
-  Activity,
+  ReceiptText,
+  Building2,
   Boxes,
   ChartNoAxesCombined,
-  ClipboardList,
-  FlaskConical,
   KeyRound,
   LayoutDashboard,
-  MessageSquareText,
+  MessagesSquare,
   Network,
-  WalletCards,
+  ScanSearch,
   UsersRound,
   type LucideIcon,
 } from 'lucide-react';
 
-export type Destination = 'Workspace' | 'Models' | 'Benchmarks' | 'Administration';
+export type Destination = 'Organization' | 'Global' | 'Workspace' | 'Models' | 'Administration' | 'Providers';
 
 export const navigation: Array<{ to: string; label: string; icon: LucideIcon; destination: Destination }> = [
+  { destination: 'Organization', to: 'organization', label: 'Organization settings', icon: Building2 },
+  { destination: 'Global', to: '/chat', label: 'Chat', icon: MessagesSquare },
   { destination: 'Workspace', to: '.', label: 'Overview', icon: LayoutDashboard },
   { destination: 'Workspace', to: 'keys', label: 'API keys', icon: KeyRound },
-  { destination: 'Workspace', to: 'playground', label: 'Playground', icon: MessageSquareText },
-  { destination: 'Workspace', to: 'executions', label: 'Activity', icon: Activity },
-  { destination: 'Workspace', to: 'tasks', label: 'Tasks', icon: ClipboardList },
-  { destination: 'Benchmarks', to: 'benchmarks', label: 'Benchmarks', icon: FlaskConical },
-  { destination: 'Workspace', to: 'usage', label: 'Usage & cost', icon: ChartNoAxesCombined },
+  { destination: 'Workspace', to: 'executions', label: 'Observability', icon: ScanSearch },
   { destination: 'Models', to: 'models', label: 'Models', icon: Boxes },
-  { destination: 'Workspace', to: 'subscriptions', label: 'Subscriptions', icon: WalletCards },
-  { destination: 'Workspace', to: 'operators', label: 'Operators', icon: UsersRound },
-  { destination: 'Administration', to: 'vendors', label: 'Providers', icon: Network },
+  { destination: 'Workspace', to: 'billing', label: 'Billing', icon: ReceiptText },
+  { destination: 'Workspace', to: 'usage', label: 'Usage', icon: ChartNoAxesCombined },
+  { destination: 'Workspace', to: 'operators', label: 'Access management', icon: UsersRound },
+  { destination: 'Providers', to: '/providers', label: 'Providers', icon: Network },
+  { destination: 'Administration', to: 'vendors', label: 'Upstream connections', icon: Network },
 ];

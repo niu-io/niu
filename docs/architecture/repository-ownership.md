@@ -4,7 +4,7 @@ Repository boundaries and URL boundaries are independent. The hosted product use
 
 | Repository | Owns | Public paths |
 | --- | --- | --- |
-| `niu-io/niu` | Public Gateway, console, model catalog, API contracts, SDKs, docs, tests, community image, shared brand assets and theme tokens | `/models/`, `/docs/`, `/workspaces/{workspace}/…`, `/v1/`, `/admin/v1/`, `/catalog/v1/` |
+| `niu-io/niu` | Public Gateway, console, model catalog, API contracts, SDKs, docs, tests, community image, shared brand assets and theme tokens | `/models/`, `/docs/`, `/workspaces/{workspace}/…`, `/providers`, `/providers/{provider}`, `/v1/`, `/admin/v1/`, `/catalog/v1/` |
 | `niu-io/website` | Marketing homepage, copy, illustrations, and marketing build | `/`, `/site-assets/`, `/_astro/`, favicon, robots and sitemap |
 | Enterprise distribution | Private modules, SaaS integration, production release composition | `/enterprise/` and `/enterprise/api/v1/{module_id}/…` |
 

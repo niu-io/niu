@@ -18,6 +18,19 @@ use super::inference::{bearer, chat, embeddings, responses};
 pub(crate) fn router(state: AppState) -> Router {
     let enterprise_enabled = state.enterprise.is_some();
     let app = Router::new()
+        .route("/admin/v1/organizations/{organization}/projects/{project}/billing", get(crate::billing::overview))
+        .route("/admin/v1/organizations/{organization}/projects/{project}/billing/tariffs", axum::routing::post(crate::billing::tariff))
+        .route("/admin/v1/organizations/{organization}/projects/{project}/billing/invoices", axum::routing::post(crate::billing::issue))
+        .route("/admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}", get(crate::billing::lines))
+        .route("/admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}/payment", axum::routing::post(crate::billing::payment))
+        .route("/admin/v1/provider-memberships", get(crate::providers::memberships))
+        .route("/admin/v1/providers", get(crate::providers::list).post(crate::providers::create))
+        .route("/admin/v1/providers/{provider}/members/{operator}", axum::routing::put(crate::providers::set_member))
+        .route("/admin/v1/providers/{provider}/offers", axum::routing::post(crate::providers::publish_offer))
+        .route("/admin/v1/providers/{provider}/settlements", axum::routing::post(crate::providers::record_settlement))
+        .route("/admin/v1/providers/{provider}/administration", get(crate::providers::administration_dashboard))
+        .route("/admin/v1/providers/{provider}/dashboard", get(crate::providers::dashboard))
+        .route("/admin/v1/providers/{provider}/offers/{offer}", axum::routing::patch(crate::providers::set_offer))
         .route("/admin/v1/session", get(crate::admin::current_session))
         .route(
             "/admin/v1/setup/default-workspace",

@@ -78,6 +78,22 @@ pub(super) async fn begin_attempt(
         .prepare_attempt(scope, operation, public_model, &revision)
         .await
         .map_err(ApiError::from_store)?;
+    state
+        .store
+        .bind_customer_tariff(scope, attempt, public_model)
+        .await
+        .map_err(ApiError::from_store)?;
+    state
+        .store
+        .bind_provider_offer(
+            scope,
+            attempt,
+            public_model,
+            &model.upstream_model,
+            model.api_base.as_deref(),
+        )
+        .await
+        .map_err(ApiError::from_store)?;
     if let Some(price) = &model.pricing {
         let price_id = state
             .store

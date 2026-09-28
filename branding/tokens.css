@@ -1,6 +1,7 @@
 :root {
   --radius: 0.625rem;
   --radius-control: 0.625rem;
+  --radius-panel: 1rem;
   --radius-overlay: 1.25rem;
   --shadow-overlay: 0 12px 48px oklch(0 0 0 / 16%);
   --background: oklch(0.975 0.003 255);

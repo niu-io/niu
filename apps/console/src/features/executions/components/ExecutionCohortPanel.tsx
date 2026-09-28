@@ -26,11 +26,11 @@ export default function ExecutionCohortPanel({ cohort, loading, error }: {
 
   return <section className="execution-cohort panel" aria-labelledby="execution-cohort-title" aria-busy={loading}>
     <header className="execution-cohort-head">
-      <div><p className="eyebrow">PROJECT ROLLUP</p><h2 id="execution-cohort-title">Cohort outcomes</h2><p>Outcomes grouped by source and task; charges are deduplicated.</p></div>
+      <div><h2 id="execution-cohort-title">Workspace outcomes</h2><p>Grouped by source and task; charges are deduplicated.</p></div>
       {cohort && <Badge variant={cohort.cost_evidence.complete ? 'secondary' : 'outline'}>{cohort.cost_evidence.complete ? 'Evidence complete' : 'Evidence incomplete'}</Badge>}
     </header>
     {error && <p role="alert" className="execution-cohort-error">Cohort report unavailable. {error}</p>}
-    {loading && !cohort && <p role="status" className="execution-cohort-loading">Loading project rollup…</p>}
+    {loading && !cohort && <p role="status" className="execution-cohort-loading">Loading workspace summary…</p>}
     {cohort && <>
       <div className="execution-cohort-grid">
         <div className="execution-cohort-stat"><span>Evidence records</span><strong>{cohort.records_scanned}{cohort.truncated ? '+' : ''}</strong><small>{cohort.tasks_scanned}{cohort.truncated ? '+' : ''} tasks · {cohort.coverage.complete} complete · {cohort.coverage.partial} partial · {cohort.coverage.unknown} unknown</small></div>

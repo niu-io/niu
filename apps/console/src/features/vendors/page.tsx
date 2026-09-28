@@ -1,11 +1,10 @@
 import ConnectGate from '@/app/ConnectGate';
-import PageHeader from '@/components/PageHeader';
 import VendorsView from './components/VendorsView';
 
 export default function VendorsRoute() {
-  return <ConnectGate subtitle="Manage provider connections, credentials, and model routes.">
+  return <ConnectGate>
     {({ token, session, refreshWorkspace }) => session
       ? <VendorsView key={token} token={token} session={session} refreshWorkspace={refreshWorkspace} />
-      : <><PageHeader subtitle="Confirming the current session and its permissions." /><section className="panel vendor-loading" role="status">Checking session permissions…</section></>}
+      : <section className="panel vendor-loading" role="status">Checking session permissions…</section>}
   </ConnectGate>;
 }

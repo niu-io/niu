@@ -1,5 +1,7 @@
 # Upstream vendor management
 
+This is installation administration, not the supplier-facing provider business workspace. See [Provider workspace and customer access](provider-workspace.md) for the earnings-oriented workspace and explicit supplier authorization contract.
+
 The platform vendor registry owns shared upstream connections used by the installation. OpenRouter is a vendor; OpenAI, Anthropic, Google and other names in its catalog identify model makers. A model maker does not imply a direct credentialed connection from Niu.
 
 Vendors and model mappings persist in PostgreSQL. The registry records the adapter, validated upstream API endpoint, enabled state and revision. Each model alias maps to one vendor and one upstream model ID, with explicit capabilities and public-catalog visibility. New requests resolve the current database records; disabling a vendor or model removes its availability for subsequent requests without an image rebuild. Already dispatched work may finish with its original configuration.

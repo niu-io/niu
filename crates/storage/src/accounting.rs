@@ -232,6 +232,8 @@ impl Store {
     ) -> Result<(), StoreError> {
         self.complete_with_provider_model(scope, id, usage, provider_model)
             .await?;
+        self.accrue_provider_earning(id).await?;
+        self.accrue_customer_charge(id).await?;
         if usage.is_some() {
             let reserved: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM cost_reservations WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3 AND state='held')")
                 .bind(scope.organization_id).bind(scope.project_id).bind(id).fetch_one(&self.pool).await?;

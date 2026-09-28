@@ -15,7 +15,7 @@ function stubAccountingApi() {
   const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
     const path = String(input);
     if (path === '/admin/v1/organizations') return jsonResponse({ data: [{ id: 'org-1', name: 'Workspace' }] });
-    if (path === '/admin/v1/organizations/org-1/projects') return jsonResponse({ data: [{ id: 'project-1', name: 'Default project' }] });
+    if (path === '/admin/v1/organizations/org-1/projects') return jsonResponse({ data: [{ id: 'project-1', name: 'Default workspace' }] });
     if (path.endsWith('/budget') && init?.method === 'POST') {
       posted = JSON.parse(String(init.body)) as { currency: string; limit_nanos: string };
       budget = { ...posted, reserved_nanos: '0', spent_nanos: '0' };
@@ -29,29 +29,29 @@ function stubAccountingApi() {
   return { fetchMock, getPosted: () => posted };
 }
 
-describe('project cash budgets', () => {
+describe('workspace cash budgets', () => {
   it('creates a lifetime budget with exact nanounits and displays the persisted value', async () => {
     const api = stubAccountingApi();
     const user = userEvent.setup();
-    render(<CostsView token="admin-token" initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} />);
-    await screen.findByRole('button', { name: 'Set lifetime budget' });
+    render(<CostsView token="admin-token" canWrite initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} />);
+    await user.click(await screen.findByRole('button', { name: 'Set budget' }));
 
     await user.clear(screen.getByLabelText('Cash limit'));
     await user.type(screen.getByLabelText('Cash limit'), '1250.123456789');
-    await user.clear(screen.getByLabelText('Currency code'));
-    await user.type(screen.getByLabelText('Currency code'), 'eur');
+    await user.clear(screen.getByLabelText('Currency'));
+    await user.type(screen.getByLabelText('Currency'), 'eur');
     await user.click(screen.getByRole('button', { name: 'Set lifetime budget' }));
 
     await screen.findByText('EUR 1250.123456789');
     expect(api.getPosted()).toEqual({ currency: 'EUR', limit_nanos: '1250123456789' });
-    expect(await screen.findByText('Lifetime project budget saved.')).toBeTruthy();
+    expect(await screen.findByText('Lifetime workspace budget saved.')).toBeTruthy();
   });
 
   it('rejects amounts with unsupported precision before sending a request', async () => {
     const api = stubAccountingApi();
     const user = userEvent.setup();
-    render(<CostsView token="admin-token" initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} />);
-    await screen.findByRole('button', { name: 'Set lifetime budget' });
+    render(<CostsView token="admin-token" canWrite initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} />);
+    await user.click(await screen.findByRole('button', { name: 'Set budget' }));
 
     await user.clear(screen.getByLabelText('Cash limit'));
     await user.type(screen.getByLabelText('Cash limit'), '1.1234567890');
@@ -60,4 +60,34 @@ describe('project cash budgets', () => {
     expect((await screen.findByRole('alert')).textContent).toContain('no more than 9 decimal places');
     expect(api.getPosted()).toBeNull();
   });
+});
+
+it('keeps budget creation unavailable to read-only sessions', async () => {
+  stubAccountingApi();
+  render(<CostsView token="viewer-token" canWrite={false} initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} />);
+  await screen.findByRole('heading', { name: 'Upstream cost budget' });
+  expect(screen.queryByRole('button', { name: 'Set budget' })).toBeNull();
+});
+
+it('returns to the previous ledger page and resets pagination on refresh', async () => {
+  const requests: string[] = [];
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+    const path = String(input);
+    requests.push(path);
+    if (path.endsWith('/budget')) return jsonResponse({ data: null });
+    return jsonResponse({ data: [], next_cursor: path.includes('after=') ? null : 'page-two' });
+  }));
+  const user = userEvent.setup();
+  render(<CostsView token="viewer-token" initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} />);
+  await user.click(await screen.findByRole('button', { name: 'Next page' }));
+  expect(await screen.findByText('Page 2')).toBeTruthy();
+  expect(requests.at(-1)).toContain('after=page-two');
+  await user.click(screen.getByRole('button', { name: 'Previous page' }));
+  expect(await screen.findByText('Page 1')).toBeTruthy();
+  expect(requests.at(-1)).not.toContain('after=');
+  await user.click(screen.getByRole('button', { name: 'Next page' }));
+  await screen.findByText('Page 2');
+  await user.click(screen.getByRole('button', { name: 'Refresh' }));
+  expect(await screen.findByText('Page 1')).toBeTruthy();
+  expect(requests.at(-1)).not.toContain('after=');
 });

@@ -1,0 +1,32 @@
+import { render, screen, cleanup } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, expect, it, vi } from 'vitest';
+import { MemoryRouter } from 'react-router';
+import { SidebarProvider } from '@/components/ui/sidebar';
+import ModelTable from '@/features/models/components/ModelTable';
+vi.mock('@/app/console-context', () => ({ useConsoleContext: () => ({ token: '', workspace: null }) }));
+vi.mock('@/app/useModelPopularity', () => ({ useModelPopularity: (models: unknown[]) => ({ models }) }));
+afterEach(cleanup);
+const models = Array.from({ length: 25 }, (_, i) => ({ id: `openai/model-${i}`, provider: 'openrouter', public_catalog: true }));
+it('searches and opens a model without losing the catalog filter on return', async () => {
+  const user = userEvent.setup();
+  render(<MemoryRouter><SidebarProvider><ModelTable models={models} /></SidebarProvider></MemoryRouter>);
+  await user.type(screen.getByRole('textbox', { name: 'Search model routes' }), 'model-24');
+  expect(screen.queryByRole('button', { name: 'openai/model-0', exact: true })).toBeNull();
+  await user.click(screen.getByRole('button', { name: 'openai/model-24', exact: true }));
+  expect(screen.getByRole('complementary', { name: 'openai/model-24 route details' })).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Try in Chat' }).getAttribute('href')).toContain('model=openai%2Fmodel-24');
+  await user.click(screen.getByRole('button', { name: 'Back to models' }));
+  expect((screen.getByRole('textbox', { name: 'Search model routes' }) as HTMLInputElement).value).toBe('model-24');
+});
+it('appends results instead of replacing pages and opens deep-linked details', async () => {
+  const user = userEvent.setup();
+  const view = render(<MemoryRouter><SidebarProvider><ModelTable models={models} /></SidebarProvider></MemoryRouter>);
+  expect(screen.getAllByRole('article')).toHaveLength(20);
+  await user.click(screen.getByRole('button', { name: 'Show more models' }));
+  expect(screen.getAllByRole('article')).toHaveLength(25);
+  expect(screen.queryByRole('button', { name: 'Show more models' })).toBeNull();
+  view.unmount();
+  render(<MemoryRouter initialEntries={['/?model=openai%2Fmodel-24']}><SidebarProvider><ModelTable models={models} /></SidebarProvider></MemoryRouter>);
+  expect(screen.getByRole('complementary', { name: 'openai/model-24 route details' })).toBeTruthy();
+});

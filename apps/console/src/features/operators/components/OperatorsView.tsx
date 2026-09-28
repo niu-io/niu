@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, RefreshCw, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import PageHeader from '@/components/PageHeader';
+import ModalFrame from '@/components/ModalFrame';
 import { Label } from '@/components/ui/label';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import { Dropdown, DropdownOption } from '@/components/ui/dropdown';
 import type { AdminSession } from '@/app/console-context';
 import { AdminRequestError, request, type IssuedSession, type NamedResource, type Operator, type OperatorAuditEvent, type OperatorSession } from '../api';
 import OperatorCreateForm, { type NewOperator } from './OperatorCreateForm';
@@ -10,20 +12,20 @@ import OperatorDirectory from './OperatorDirectory';
 import OperatorDetails from './OperatorDetails';
 import type { ConfirmTarget, CredentialView } from './operator-types';
 
-type OperatorsViewProps = { token: string; session: AdminSession; refreshWorkspace?: () => Promise<void> };
+type OperatorsViewProps = { token: string; session: AdminSession; refreshWorkspace?: () => Promise<void>; initialOrganization?: string };
 
 function roleLabel(role: 'owner' | 'admin' | 'viewer') {
   return role[0].toUpperCase() + role.slice(1);
 }
 
-export default function OperatorsView({ token, session, refreshWorkspace }: OperatorsViewProps) {
+export default function OperatorsView({ token, session, refreshWorkspace, initialOrganization }: OperatorsViewProps) {
   const canManage = session.permissions.manage_operators;
   const lockedOrganization = session.kind === 'operator' ? session.operator?.organization_id ?? '' : '';
   const lockedProject = session.kind === 'operator' ? session.operator?.project_id ?? '' : '';
   const [organizations, setOrganizations] = useState<NamedResource[]>([]);
   const [projects, setProjects] = useState<NamedResource[]>([]);
   const [operators, setOperators] = useState<Operator[]>([]);
-  const [organization, setOrganization] = useState(lockedOrganization);
+  const [organization, setOrganization] = useState(lockedOrganization || initialOrganization || '');
   const [project, setProject] = useState(lockedProject);
   const [selectedOperatorId, setSelectedOperatorId] = useState('');
   const [sessions, setSessions] = useState<OperatorSession[]>([]);
@@ -178,7 +180,7 @@ export default function OperatorsView({ token, session, refreshWorkspace }: Oper
       setProject(current => lockedProject || (result.data.some(item => item.id === current) ? current : ''));
     }).catch(reason => {
       if (!controller.signal.aborted) {
-        setError(reason instanceof Error ? reason.message : 'Could not load projects.');
+        setError(reason instanceof Error ? reason.message : 'Could not load workspaces.');
         if (reason instanceof AdminRequestError && reason.status === 401) void refreshWorkspace?.();
       }
     });
@@ -324,7 +326,7 @@ export default function OperatorsView({ token, session, refreshWorkspace }: Oper
   if (!canManage) {
     const isViewer = session.operator?.role === 'viewer';
     return <>
-      <div className="page-heading"><div><p className="page-subtitle">Manage people who can access this Niu installation.</p></div></div>
+      <PageHeader title="Access management" />
       <section className="panel operator-denied" role="status">
         <span className="operator-denied-icon"><ShieldCheck size={19} /></span>
         <div><h2>Owner access required</h2><p>{isViewer
@@ -336,26 +338,23 @@ export default function OperatorsView({ token, session, refreshWorkspace }: Oper
   }
 
   return <>
-    <div className="page-heading operator-page-heading">
-      <div><p className="page-subtitle">Give each person a scoped role and short lived session credentials.</p></div>
-      <div className="operator-page-actions">
+    <PageHeader title="Access management" action={<div className="operator-page-actions">
         <Button type="button" variant="outline" disabled={loading || busy} onClick={() => void perform(() => loadOperators())}><RefreshCw size={15} />Refresh</Button>
-        <Button type="button" disabled={loading || busy || !organizations.length} onClick={() => setCreateOpen(value => !value)}><Plus size={16} />{createOpen ? 'Close form' : 'Add operator'}</Button>
-      </div>
-    </div>
+        <Button type="button" disabled={loading || busy || !organizations.length} onClick={() => setCreateOpen(true)}><Plus size={16} />Add operator</Button>
+      </div>} className="operator-page-heading" />
     {error && <div className="operator-error" role="alert"><span>{error}</span><Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void perform(() => loadOperators())}>Try again</Button></div>}
     <section className="operator-summary" aria-label="Operator summary">
       <div className="operator-summary-item"><span>In this scope</span><strong>{loading ? '—' : visibleOperators.length}</strong><small>operators listed</small></div>
       <div className="operator-summary-item"><span>Active operators</span><strong>{loading ? '—' : activeOperatorCount}</strong><small>able to start sessions</small></div>
       <div className="operator-summary-item"><span>Revoked</span><strong>{loading ? '—' : revokedOperatorCount}</strong><small>kept in the access record</small></div>
-      <div className="operator-summary-context"><span className="operator-summary-mark"><ShieldCheck size={17} /></span><div><strong>{session.kind === 'installation' ? 'Installation owner' : lockedProject ? 'Project owner' : 'Organization owner'}</strong><small>Operator secrets are shown once and kept in this tab only.</small></div></div>
+      <div className="operator-summary-context"><span className="operator-summary-mark"><ShieldCheck size={17} /></span><div><strong>{session.kind === 'installation' ? 'Installation owner' : lockedProject ? 'Workspace owner' : 'Organization owner'}</strong><small>Operator secrets are shown once and kept in this tab only.</small></div></div>
     </section>
 
     <section className="panel operator-scope-panel" aria-label="Operator scope">
-      <div className="operator-section-title"><div><h2>Scope</h2><p>Choose which organization and projects to manage.</p></div><span className="operator-scope-note"><ShieldCheck size={14} />New operators inherit this scope</span></div>
+      <div className="operator-section-title"><div><h2>Scope</h2></div><span className="operator-scope-note"><ShieldCheck size={14} />New operators inherit this scope</span></div>
       <div className="operator-scope-fields">
         <Label htmlFor="operator-organization">Organization
-          <NativeSelect id="operator-organization" disabled={busy || loading || Boolean(lockedOrganization)} value={organization} onChange={event => {
+          <Dropdown id="operator-organization" disabled={busy || loading || Boolean(lockedOrganization)} value={organization} onChange={event => {
           setOrganization(event.target.value);
           setProject('');
           setSelectedOperatorId('');
@@ -363,30 +362,25 @@ export default function OperatorsView({ token, session, refreshWorkspace }: Oper
           setCredential(null);
           invalidateAudit();
           }}>
-            <NativeSelectOption value="">Select organization</NativeSelectOption>
-            {organizations.map(item => <NativeSelectOption key={item.id} value={item.id}>{item.name}</NativeSelectOption>)}
-          </NativeSelect>
+            <DropdownOption value="">Select organization</DropdownOption>
+            {organizations.map(item => <DropdownOption key={item.id} value={item.id}>{item.name}</DropdownOption>)}
+          </Dropdown>
         </Label>
-        <Label htmlFor="operator-project">Project
-          <NativeSelect id="operator-project" disabled={busy || loading || !organization || Boolean(lockedProject)} value={project} onChange={event => {
+        <Label htmlFor="operator-workspace">Workspace
+          <Dropdown id="operator-workspace" aria-label="Workspace" disabled={busy || loading || !organization || Boolean(lockedProject)} value={project} onChange={event => {
           setProject(event.target.value);
           setSelectedOperatorId('');
           setSessions([]);
           setCredential(null);
           invalidateAudit();
           }}>
-            <NativeSelectOption value="">All projects in organization</NativeSelectOption>
-            {projects.map(item => <NativeSelectOption key={item.id} value={item.id}>{item.name}</NativeSelectOption>)}
-          </NativeSelect>
+            <DropdownOption value="">All workspaces in organization</DropdownOption>
+            {projects.map(item => <DropdownOption key={item.id} value={item.id}>{item.name}</DropdownOption>)}
+          </Dropdown>
         </Label>
       </div>
-      {lockedProject && <p className="operator-scope-footnote">Your owner session is limited to its assigned project.</p>}
+      {lockedProject && <p className="operator-scope-footnote">Your owner session is limited to its assigned workspace.</p>}
     </section>
-
-    {createOpen && <OperatorCreateForm
-      disabled={busy || loading || !organization}
-      onCreate={onCreateOperator}
-    />}
 
     <div className="operator-workspace-grid">
       <OperatorDirectory
@@ -436,5 +430,9 @@ export default function OperatorsView({ token, session, refreshWorkspace }: Oper
         }}
       />
     </div>
+    <ModalFrame open={createOpen} onOpenChange={open => { if (!open && !busy) setCreateOpen(false); }} title="Add an operator" description="Issue an initial scoped session. The credential appears once after creation." className="operator-dialog">
+      <OperatorCreateForm disabled={busy || loading || !organization} onCreate={onCreateOperator} />
+      {error && <p className="error-text operator-dialog-error" role="alert">{error}</p>}
+    </ModalFrame>
   </>;
 }

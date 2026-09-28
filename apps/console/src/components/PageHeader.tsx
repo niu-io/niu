@@ -1,13 +1,13 @@
 import type { ReactNode } from 'react';
 
-export default function PageHeader({ subtitle, eyebrow, action, className }: {
-  subtitle: string;
+export default function PageHeader({ title, eyebrow, action, className }: {
+  title: string;
   eyebrow?: string;
   action?: ReactNode;
   className?: string;
 }) {
   return <div className={`page-heading${className ? ` ${className}` : ''}`}>
-    <div>{eyebrow && <p className="eyebrow">{eyebrow}</p>}<p className="page-subtitle">{subtitle}</p></div>
+    <div className="page-heading-copy">{eyebrow && <p className="eyebrow">{eyebrow}</p>}<h1>{title}</h1></div>
     {action && <div className="page-heading-action">{action}</div>}
   </div>;
 }

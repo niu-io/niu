@@ -35,10 +35,10 @@ it('creates a model-scoped Aider key and keeps its copied setup bound to that al
   render(<MemoryRouter><AgentConnectView token="admin-token" workspace={workspace} models={['team/fast', 'team/careful']} canWrite /></MemoryRouter>);
 
   await user.click(await screen.findByRole('button', { name: 'Create Aider key' }));
-  expect((await screen.findByLabelText('Project key · shown once') as HTMLInputElement).value).toBe('niu_once_aider_key');
-  const modelSelect = screen.getByLabelText('Model alias', { selector: 'select' }) as HTMLSelectElement;
-  expect(modelSelect.value).toBe('team/fast');
-  expect(modelSelect.disabled).toBe(true);
+  expect((await screen.findByLabelText('Workspace key · shown once') as HTMLInputElement).value).toBe('niu_once_aider_key');
+  const modelDropdown = screen.getByRole('button', { name: 'Model alias' });
+  expect(modelDropdown.textContent).toContain('team/fast');
+  expect((modelDropdown as HTMLButtonElement).disabled).toBe(true);
   expect(screen.getByText(/node sdks\/agent-connect\/bin\/niu-agent-connect\.mjs aider route/)).toBeTruthy();
   expect(screen.getByText(/--model 'team\/fast'/)).toBeTruthy();
   expect(screen.queryByText(/\n\+/)).toBeNull();
@@ -56,14 +56,14 @@ it('creates a model-scoped Aider key and keeps its copied setup bound to that al
   expect(writeText).toHaveBeenCalledWith(expect.stringContaining('pnpm --filter @niu-io/agent-connect build'));
   expect(writeText).toHaveBeenCalledWith(expect.stringContaining(`--gateway '${window.location.origin}${import.meta.env.BASE_URL.replace(/\/+$/, '')}/v1'`));
   expect(writeText).toHaveBeenCalledWith(expect.stringContaining("--model 'team/fast'"));
-  expect(writeText).not.toHaveBeenCalledWith(expect.stringContaining('paste-the-one-time-project-key'));
-  await user.click(screen.getByRole('button', { name: 'Dismiss project key' }));
+  expect(writeText).not.toHaveBeenCalledWith(expect.stringContaining('paste-the-one-time-workspace-key'));
+  await user.click(screen.getByRole('button', { name: 'Dismiss workspace key' }));
   expect(screen.getByText(/This key is scoped to/)).toBeTruthy();
-  expect(screen.getByRole('link', { name: 'Manage or revoke it in Project keys' })).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Manage or revoke it in Workspace keys' })).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Create Aider key' })).toBeNull();
 });
 
-it('creates and revokes a project-scoped Claude activity key without putting it in the run command', async () => {
+it('creates and revokes a workspace-scoped Claude activity key without putting it in the run command', async () => {
   const calls: Array<{ path: string; method: string; body?: string }> = [];
   let keys: Array<Record<string, unknown>> = [];
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -103,7 +103,7 @@ it('creates and revokes a project-scoped Claude activity key without putting it 
   expect(screen.getByText(/Run from a Niu source checkout/)).toBeTruthy();
   const runCommand = screen.getByText(/node sdks\/agent-connect\/bin\/niu-agent-connect.mjs/).textContent ?? '';
   expect(runCommand).toContain(`--organization '${organizationId}'`);
-  expect(runCommand).toContain(`--project '${projectId}'`);
+  expect(runCommand).toContain(`--workspace '${projectId}'`);
   expect(runCommand).not.toContain('niu_collector_once');
 
   await user.click(screen.getByRole('button', { name: 'Create activity key' }));
@@ -112,7 +112,7 @@ it('creates and revokes a project-scoped Claude activity key without putting it 
   await user.click(screen.getByRole('button', { name: 'Copy setup' }));
   expect(await screen.findByText('Claude Code setup copied.')).toBeTruthy();
   expect(writeText).toHaveBeenCalledWith(expect.stringContaining('pnpm --filter @niu-io/agent-connect build'));
-  expect(writeText).toHaveBeenCalledWith(expect.stringContaining(`--project '${projectId}'`));
+  expect(writeText).toHaveBeenCalledWith(expect.stringContaining(`--workspace '${projectId}'`));
   expect(writeText).not.toHaveBeenCalledWith(expect.stringContaining('niu_collector_once'));
   expect(screen.queryByText(/admin-token/)).toBeNull();
 
