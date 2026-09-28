@@ -318,6 +318,7 @@ pub(super) const CORE_ROUTE_PREFIXES: &[&str] = &[
     "/catalog/v1",
     "/admin/v1",
     "/docs",
+    "/help",
     "/models",
     "/workspaces",
     "/_astro",

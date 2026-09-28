@@ -4,7 +4,7 @@ Repository boundaries and URL boundaries are independent. The hosted product use
 
 | Repository | Owns | Public paths |
 | --- | --- | --- |
-| `niu-io/niu` | Public Gateway, console, model catalog, API contracts, SDKs, docs, tests, community image, shared brand assets and theme tokens | `/models/`, `/docs/`, `/workspaces/{workspace}/…`, `/providers`, `/providers/{provider}`, `/v1/`, `/admin/v1/`, `/catalog/v1/` |
+| `niu-io/niu` | Public Gateway, console, model catalog, API contracts, SDKs, docs, tests, community image, shared brand assets and theme tokens | `/models/`, `/docs/`, `/help/`, `/workspaces/{workspace}/…`, `/providers`, `/providers/{provider}`, `/v1/`, `/admin/v1/`, `/catalog/v1/` |
 | `niu-io/website` | Marketing homepage, copy, illustrations, and marketing build | `/`, `/site-assets/`, `/_astro/`, favicon, robots and sitemap |
 | Enterprise distribution | Private modules, SaaS integration, production release composition | `/enterprise/` and `/enterprise/api/v1/{module_id}/…` |
 
@@ -15,3 +15,5 @@ The hosted distribution pins immutable Niu and website commits and installs the 
 Keep cross-product navigation relative to the origin: `/models/`, `/docs/`, and `/workspaces/default/`. Production canonical URLs use `https://niu.io`. Website brand snapshots retain attribution and record the Niu revision from which they were copied; the Niu `branding/` directory remains the shared theme source.
 
 The private Enterprise distribution composes independently versioned private services beside the pinned public core. The public service boundary, module registration, health checks and tenant context are specified in [Enterprise composition and service boundaries](enterprise-composition.md). Community operation requires no private module, supervisor, or license service.
+
+`/docs/` serves standalone public documentation. `/help/` is a console route inside the shared application layout. It embeds the standalone documentation artifact; article navigation updates the console router while retaining its rail and account controls. Console Help links use `/help/`, while public links and canonical URLs use `/docs/`. Neither documentation route requires authentication.

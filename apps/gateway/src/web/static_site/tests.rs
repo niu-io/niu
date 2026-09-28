@@ -35,6 +35,7 @@ impl Fixture {
             ("console/index.html", "workspace shell"),
             ("console/assets/app.js", "workspace script"),
             ("docs/index.html", "public docs"),
+            ("docs/getting-started/index.html", "getting started"),
             ("docs/404.html", "docs missing"),
         ] {
             let path = root.join(file);
@@ -88,6 +89,8 @@ async fn separate_artifacts_share_one_origin_without_route_or_asset_collisions()
         ("/", "marketing"),
         ("/models/", "public catalog"),
         ("/docs/", "public docs"),
+        ("/help/", "workspace shell"),
+        ("/help/getting-started/", "workspace shell"),
         ("/workspaces/default/", "workspace shell"),
         ("/workspaces/default/operators", "workspace shell"),
         ("/site-assets/brand.png", "marketing image"),
@@ -101,6 +104,7 @@ async fn separate_artifacts_share_one_origin_without_route_or_asset_collisions()
     ] {
         assert_eq!(body(&app, path, StatusCode::OK).await, expected);
     }
+    assert_eq!(body(&app, "/help/missing", StatusCode::OK).await, "workspace shell");
     for path in [
         "/admin/v1/missing",
         "/v1/missing",

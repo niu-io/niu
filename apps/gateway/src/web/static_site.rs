@@ -34,6 +34,8 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
         .fallback_service(ServeDir::new(console_dir).fallback(ServeFile::new(console_index)));
 
     let app = Router::new()
+        .route("/help", get(|| async { Redirect::temporary("/help/") }))
+        .route_service("/help/", ServeFile::new(format!("{console_dir}/index.html")))
         .route_service("/docs/", ServeFile::new(format!("{docs_dir}/index.html")))
         .route_service(
             "/models/",
@@ -48,6 +50,7 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
             ServeDir::new(format!("{catalog_dir}/catalog-assets")),
         )
         .nest_service("/assets", ServeDir::new(format!("{console_dir}/assets")))
+        .nest("/help", Router::new().fallback_service(ServeFile::new(format!("{console_dir}/index.html"))))
         .nest("/docs", docs)
         .nest("/models", models)
         .nest("/workspaces", workspaces);

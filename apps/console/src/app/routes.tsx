@@ -28,6 +28,7 @@ export const appRoutes: RouteObject[] = [{
         { path: 'providers/configuration', lazy: async () => ({ Component: (await import('@/features/vendors/page')).default }) },
         { path: 'providers/manage/:section', lazy: async () => ({ Component: (await import('@/features/provider-business/admin')).default }) },
         { path: 'providers/:provider/:section?', lazy: async () => ({ Component: (await import('@/features/provider-business/page')).default }) },
+        { path: 'help/*', lazy: async () => ({ Component: (await import('@/features/help/page')).default }) },
         { path: 'chat', lazy: async () => ({ Component: (await import('@/features/playground/page')).default }) },
         { path: 'workspaces/:workspace', children: [
           { index: true, lazy: async () => ({ Component: (await import('@/features/overview/page')).default }) },

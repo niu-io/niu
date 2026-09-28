@@ -1,0 +1,22 @@
+---
+import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
+---
+<PageFrame><slot name="header" slot="header" /><slot name="sidebar" slot="sidebar" /><slot /></PageFrame>
+<script>
+  // Inside console Help, keep article navigation in the parent router so the
+  // shared shell, account menu and browser history remain owned by the console.
+  if (window.parent !== window) {
+    document.addEventListener('click', (event) => {
+      const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>('a[href]') : null;
+      if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || link.target || link.hasAttribute('download')) return;
+      const url = new URL(link.href, location.href);
+      if (url.origin === location.origin && url.pathname.startsWith('/docs/')) {
+        event.preventDefault();
+        parent.postMessage({ type: 'niu-docs-navigation', path: url.pathname + url.search + url.hash }, location.origin);
+      } else {
+        link.target = '_blank';
+        link.rel = 'noopener';
+      }
+    });
+  }
+</script>

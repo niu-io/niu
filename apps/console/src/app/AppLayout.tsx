@@ -52,7 +52,7 @@ function WorkspaceNav({
         </SidebarMenu>
       </nav>
     </SidebarContent>
-    <SidebarFooter className="sidebar-bottom"><a href={`${import.meta.env.BASE_URL}docs/`}>Documentation <ArrowUpRight size={16} /></a></SidebarFooter>
+    <SidebarFooter className="sidebar-bottom"><a href={`${import.meta.env.BASE_URL}help/`}>Documentation <ArrowUpRight size={16} /></a></SidebarFooter>
   </>;
 }
 
@@ -434,6 +434,7 @@ export default function AppLayout() {
   const activeNavigation = navigation.find(item => item.to.replace(/^\/+|\/+$/g, '') === activePath)
     ?? navigation.filter(item => item.destination !== 'Global' && activePath.startsWith(`${item.to}/`)).sort((a, b) => b.to.length - a.to.length)[0];
   const providerArea = location.pathname === '/providers' || location.pathname.startsWith('/providers/');
+  const helpArea = location.pathname === '/help' || location.pathname.startsWith('/help/');
   const title = providerArea ? ({ configuration: 'Provider configuration', members: 'Provider access', models: 'Model offers', consumption: 'Consumption & earnings', settlements: 'Settlements' }[location.pathname.split('/').pop() ?? ''] ?? (location.pathname === '/providers' ? 'Overview' : 'Overview')) : activeNavigation?.label ?? 'Page not found';
 
   useEffect(() => {
@@ -446,7 +447,7 @@ export default function AppLayout() {
   const sidebarRef = useRef<HTMLDivElement>(null);
   const destination = activeNavigation?.destination ?? 'Workspace';
   const platform = destination === 'Administration';
-  const hasSidebar = providerArea || destination === 'Workspace';
+  const hasSidebar = !helpArea && (providerArea || destination === 'Workspace');
   const isInstallation = session?.kind === 'installation';
   const activeWorkspacePath = !isGlobalChat && routeWorkspaceId
     ? `/workspaces/${routeWorkspaceId}`
@@ -488,7 +489,7 @@ export default function AppLayout() {
       {(!providerArea || isInstallation) && <WorkspaceRailLink to={activeWorkspacePath} end onActivate={() => {}} className={`rail-item${hasSidebar && !providerArea ? ' selected' : ''}`} aria-label="Workspace" title="Workspace">{hasSidebar ? <FolderOpenDot size={21} /> : <FolderDot size={21} />}</WorkspaceRailLink>}
       {(!providerArea || isInstallation) && <><NavLink to="/chat" className={`rail-item${destination === 'Global' ? ' selected' : ''}`} aria-label="Chat · compare model responses" title="Chat · compare model responses"><MessagesSquare size={21} /></NavLink>
       <NavLink to={`${activeWorkspacePath}/models`} className={`rail-item${destination === 'Models' ? ' selected' : ''}`} aria-label="Models" title="Models"><Boxes size={21} /></NavLink></>}
-      <div className="rail-bottom">{isInstallation || session?.provider_memberships?.length ? <NavLink to={isInstallation ? '/providers' : `/providers/${session!.provider_memberships![0].id}`} className={`rail-item${providerArea ? ' selected' : ''}`} aria-label="Providers" title="Providers"><Settings2 size={21} /></NavLink> : null}<a className="rail-item" href={`${import.meta.env.BASE_URL}docs/`} aria-label="Documentation" title="Documentation"><CircleHelp size={21} /></a><AccountMenu context={context} workspacePath={activeWorkspacePath} providerArea={providerArea}/></div>
+      <div className="rail-bottom">{isInstallation || session?.provider_memberships?.length ? <NavLink to={isInstallation ? '/providers' : `/providers/${session!.provider_memberships![0].id}`} className={`rail-item${providerArea ? ' selected' : ''}`} aria-label="Providers" title="Providers"><Settings2 size={21} /></NavLink> : null}<NavLink className={`rail-item${helpArea ? ' selected' : ''}`} to="/help/" aria-label="Documentation" title="Documentation"><CircleHelp size={21} /></NavLink><AccountMenu context={context} workspacePath={activeWorkspacePath} providerArea={providerArea}/></div>
     </nav>
     <div className="app-rail-spacer" aria-hidden="true" />
     {hasSidebar && <Sidebar
@@ -504,11 +505,11 @@ export default function AppLayout() {
       {providerArea ? <ProviderNav context={context} /> : <WorkspaceNav context={context} activeWorkspacePath={activeWorkspacePath} models={models} activePath={activePath} scopeLabel={scopeLabel} />}
     </Sidebar>}
     <SidebarInset className="main-panel">
-      {!isGlobalChat && destination !== 'Models' && <header className="console-page-header">
+      {!isGlobalChat && !helpArea && destination !== 'Models' && <header className="console-page-header">
         {hasSidebar && <WorkspaceSidebarToggle buttonRef={toggleRef} providerArea={providerArea} />}
         <div className="breadcrumbs" aria-label="Breadcrumb"><span>{providerArea ? 'Provider' : platform ? 'Platform' : destination === 'Global' ? 'Niu' : destination === 'Organization' ? 'Organization' : 'Workspace'}</span><span className="crumb-divider" aria-hidden="true">/</span><strong>{title}</strong></div>
       </header>}
-      <div className="page-content" id="console-content" tabIndex={-1}>{gatewayStatus === 'offline' ? <section className="gateway-recovery" role="alert"><h2>Restore your gateway connection</h2><p>The console cannot reach the gateway. Restore the service before continuing.</p><p>For local development, start the stack with <code>pnpm dev</code>. For a hosted installation, ask your administrator to check the service.</p><Button onClick={() => { void refreshWorkspace(); }}>Retry connection</Button></section> : token && !providerArea && workspaceError ? <WorkspaceRecovery problem={workspaceError} onRetry={() => setWorkspaceLoadRevision(value => value + 1)} /> : token && !providerArea && (workspaceLoading || workspacesLoadedFor !== token) ? <p role="status">Loading workspace…</p> : <Outlet context={context} />}</div>
+      <div className={`page-content${helpArea ? ' help-content' : ''}`} id="console-content" tabIndex={-1}>{helpArea ? <Outlet context={context} /> : gatewayStatus === 'offline' ? <section className="gateway-recovery" role="alert"><h2>Restore your gateway connection</h2><p>The console cannot reach the gateway. Restore the service before continuing.</p><p>For local development, start the stack with <code>pnpm dev</code>. For a hosted installation, ask your administrator to check the service.</p><Button onClick={() => { void refreshWorkspace(); }}>Retry connection</Button></section> : token && !providerArea && workspaceError ? <WorkspaceRecovery problem={workspaceError} onRetry={() => setWorkspaceLoadRevision(value => value + 1)} /> : token && !providerArea && (workspaceLoading || workspacesLoadedFor !== token) ? <p role="status">Loading workspace…</p> : <Outlet context={context} />}</div>
     </SidebarInset>
   </SidebarProvider>;
 }

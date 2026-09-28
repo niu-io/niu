@@ -21,6 +21,7 @@ export default defineConfig({
         },
       ],
       customCss: ['./src/styles.css'],
+      components: { PageFrame: './src/components/PageFrame.astro', SiteTitle: './src/components/SiteTitle.astro' },
       sidebar: [
         { label: 'Start here', items: ['index', 'getting-started'] },
         {
