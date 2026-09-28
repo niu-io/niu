@@ -1,10 +1,11 @@
+import { X } from 'lucide-react';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, RefreshCw, ShieldCheck } from 'lucide-react';
+import { ChevronDown, Plus, RefreshCw, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import PageHeader from '@/components/PageHeader';
-import ModalFrame from '@/components/ModalFrame';
 import { Label } from '@/components/ui/label';
-import { Dropdown, DropdownOption } from '@/components/ui/dropdown';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import type { AdminSession } from '@/app/console-context';
 import { AdminRequestError, request, type IssuedSession, type NamedResource, type Operator, type OperatorAuditEvent, type OperatorSession } from '../api';
 import OperatorCreateForm, { type NewOperator } from './OperatorCreateForm';
@@ -354,35 +355,39 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
       <div className="operator-section-title"><div><h2>Scope</h2></div><span className="operator-scope-note"><ShieldCheck size={14} />New operators inherit this scope</span></div>
       <div className="operator-scope-fields">
         <Label htmlFor="operator-organization">Organization
-          <Dropdown id="operator-organization" disabled={busy || loading || Boolean(lockedOrganization)} value={organization} onChange={event => {
-          setOrganization(event.target.value);
+          <DropdownMenu><DropdownMenuTrigger asChild><Button id="operator-organization" disabled={busy || loading || Boolean(lockedOrganization)} variant="outline" className="w-full justify-between font-normal">{organizations.find(item => item.id === organization)?.name ?? 'Select organization'}<ChevronDown size={16} /></Button></DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={organization || '__all__'} onValueChange={value => {
+          setOrganization(value === '__all__' ? '' : value);
           setProject('');
           setSelectedOperatorId('');
           setSessions([]);
           setCredential(null);
           invalidateAudit();
           }}>
-            <DropdownOption value="">Select organization</DropdownOption>
-            {organizations.map(item => <DropdownOption key={item.id} value={item.id}>{item.name}</DropdownOption>)}
-          </Dropdown>
+            <DropdownMenuRadioItem value="__all__">Select organization</DropdownMenuRadioItem>
+            {organizations.map(item => <DropdownMenuRadioItem key={item.id} value={item.id}>{item.name}</DropdownMenuRadioItem>)}
+          </DropdownMenuRadioGroup></DropdownMenuContent>
+          </DropdownMenu>
         </Label>
         <Label htmlFor="operator-workspace">Workspace
-          <Dropdown id="operator-workspace" aria-label="Workspace" disabled={busy || loading || !organization || Boolean(lockedProject)} value={project} onChange={event => {
-          setProject(event.target.value);
+          <DropdownMenu><DropdownMenuTrigger asChild><Button id="operator-workspace" aria-label="Workspace" disabled={busy || loading || !organization || Boolean(lockedProject)} variant="outline" className="w-full justify-between font-normal">{projects.find(item => item.id === project)?.name ?? 'All workspaces in organization'}<ChevronDown size={16} /></Button></DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={project || '__all__'} onValueChange={value => {
+          setProject(value === '__all__' ? '' : value);
           setSelectedOperatorId('');
           setSessions([]);
           setCredential(null);
           invalidateAudit();
           }}>
-            <DropdownOption value="">All workspaces in organization</DropdownOption>
-            {projects.map(item => <DropdownOption key={item.id} value={item.id}>{item.name}</DropdownOption>)}
-          </Dropdown>
+            <DropdownMenuRadioItem value="__all__">All workspaces in organization</DropdownMenuRadioItem>
+            {projects.map(item => <DropdownMenuRadioItem key={item.id} value={item.id}>{item.name}</DropdownMenuRadioItem>)}
+          </DropdownMenuRadioGroup></DropdownMenuContent>
+          </DropdownMenu>
         </Label>
       </div>
       {lockedProject && <p className="operator-scope-footnote">Your owner session is limited to its assigned workspace.</p>}
     </section>
 
-    <div className="operator-workspace-grid">
+    <div className={`operator-workspace-grid${visibleOperators.length ? '' : ' operator-workspace-empty'}`}>
       <OperatorDirectory
         operators={visibleOperators}
         organizations={organizations}
@@ -401,7 +406,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
         }}
         onAdd={() => setCreateOpen(true)}
       />
-      <OperatorDetails
+      {visibleOperators.length > 0 && <OperatorDetails
         operator={selectedOperator}
         organizations={organizations}
         projects={projects}
@@ -428,11 +433,17 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
             void loadAudit(selectedOperator.id, auditCursor, true, controller.signal, auditRevision.current);
           }
         }}
-      />
+      />}
     </div>
-    <ModalFrame open={createOpen} onOpenChange={open => { if (!open && !busy) setCreateOpen(false); }} title="Add an operator" description="Issue an initial scoped session. The credential appears once after creation." className="operator-dialog">
+    <Dialog open={createOpen} onOpenChange={open => { if (!open && !busy) setCreateOpen(false); }}>
+      <DialogContent className="niu-modal operator-dialog" showCloseButton={false}>
+        <DialogHeader className="niu-modal-heading flex-row text-left">
+          <div><DialogTitle>Add an operator</DialogTitle><DialogDescription>Issue an initial scoped session. The credential appears once after creation.</DialogDescription></div>
+          <DialogClose className="niu-modal-close" aria-label="Close dialog"><X size={18} /></DialogClose>
+        </DialogHeader>
       <OperatorCreateForm disabled={busy || loading || !organization} onCreate={onCreateOperator} />
       {error && <p className="error-text operator-dialog-error" role="alert">{error}</p>}
-    </ModalFrame>
+    </DialogContent>
+    </Dialog>
   </>;
 }

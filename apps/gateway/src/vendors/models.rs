@@ -10,6 +10,7 @@ use std::collections::BTreeMap;
 #[derive(Clone, Default, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub(super) struct Capabilities {
+    catalog: crate::catalog_metadata::CatalogMetadata,
     supports_embeddings: bool,
     supports_embedding_dimensions: bool,
     supports_embedding_base64: bool,
@@ -38,6 +39,7 @@ pub(super) fn make_model(
         .transpose()
         .map_err(|_| ApiError::invalid_request("Invalid model pricing"))?;
     Ok(ModelConfig {
+        catalog: caps.catalog,
         provider: adapter.to_owned(),
         upstream_model: upstream_model.to_owned(),
         api_key_env: "NIU_MANAGED_CREDENTIAL".into(),

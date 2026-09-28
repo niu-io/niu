@@ -1,12 +1,16 @@
+import { Sidebar, SidebarHeader, SidebarContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
+import { Textarea } from '@/components/ui/textarea';
+import { Table as ShadcnTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { X } from 'lucide-react';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { ArrowRight, ArrowUpRight, Check, CircleDollarSign, ClipboardCopy, Clock3, FlaskConical, Hash, KeyRound, MessageSquarePlus, Plus, Play, Settings2, Square, Timer } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Check, ChevronDown, CircleDollarSign, ClipboardCopy, Clock3, FlaskConical, Hash, KeyRound, MessageSquarePlus, Plus, Play, Settings2, Square, Timer } from 'lucide-react';
 import { Link, useLocation } from 'react-router';
 import { Badge } from '@/components/ui/badge';
-import ModalFrame from '@/components/ModalFrame';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dropdown, DropdownOption } from '@/components/ui/dropdown';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { money } from '@/lib/money';
 import { useConsoleContext } from '@/app/console-context';
@@ -241,6 +245,7 @@ export default function PlaygroundView({ token, models, initialScope }: {
   models: string[];
   initialScope: Scope | null;
 }) {
+  const { isMobile, setOpenMobile } = useSidebar();
   const location = useLocation();
   const comparisonController = useRef<AbortController | null>(null);
   const customizedModels = useRef(false);
@@ -276,7 +281,9 @@ export default function PlaygroundView({ token, models, initialScope }: {
     : '/workspaces/default';
   const sessionKeys = chatKeys.filter(key => key.organizationId === organization && key.projectId === workspaceId);
   const selectedKey = sessionKeys.find(key => key.id === selectedKeyId);
-  const usableModels = selectedKey ? modelAliases.filter(model => selectedKey.allowedModels.includes(model)) : modelAliases;
+  const usableModels = selectedKey && !selectedKey.allowedModels.includes('*')
+    ? modelAliases.filter(model => selectedKey.allowedModels.includes(model))
+    : modelAliases;
   const apiKey = selectedKey?.token ?? manualKey.trim();
   const keyIds = sessionKeys.map(key => key.id).join('\u0000');
 
@@ -465,19 +472,19 @@ export default function PlaygroundView({ token, models, initialScope }: {
 
   return <div className="playground-view">
     <div className="playground-chat-layout">
-      <aside className="playground-history" aria-label="Recent comparisons">
-        <div className="playground-history-heading"><h2>Recent</h2><Button type="button" variant="ghost" size="sm" onClick={startNewComparison} disabled={running}><MessageSquarePlus size={16} />New</Button></div>
-        <div className="playground-history-list">
+      <Sidebar className="niu-workspace-sidebar playground-history" mobileClassName="niu-workspace-sidebar-mobile" mobileStyle={{ left: 'var(--rail)', top: 0, bottom: 0, height: '100dvh', width: 'min(var(--context), calc(100vw - var(--rail)))' }} aria-label="Recent comparisons">
+        <SidebarHeader className="playground-history-heading"><h2>Recent</h2><Button type="button" variant="ghost" size="sm" onClick={startNewComparison} disabled={running}><MessageSquarePlus size={16} />New</Button>{isMobile && <Button variant="ghost" size="icon" aria-label="Close chat history" onClick={() => setOpenMobile(false)}><X size={16} /></Button>}</SidebarHeader>
+        <SidebarContent className="playground-history-list"><SidebarMenu>
           {history.length === 0
             ? <p className="playground-history-empty">No comparisons yet</p>
-            : history.map(item => <button key={item.id} type="button" disabled={running} className={'playground-history-item' + (activeComparisonId === item.id ? ' is-active' : '')} onClick={() => openComparison(item)}>
+            : history.map(item => <SidebarMenuItem key={item.id}><SidebarMenuButton disabled={running} isActive={activeComparisonId === item.id} onClick={() => { openComparison(item); if (isMobile) setOpenMobile(false); }}>
               <span>{item.prompt.split('\n')[0]}</span>
-            </button>)}
-        </div>
-      </aside>
+            </SidebarMenuButton></SidebarMenuItem>)}
+        </SidebarMenu></SidebarContent>
+      </Sidebar>
 
       <section className="playground-chat-main" aria-label="Model comparison chat">
-        <header className="playground-chat-toolbar">
+        <header className="playground-chat-toolbar"><SidebarTrigger aria-label="Toggle chat history" />
           <div className="playground-toolbar-models">
             <span className="playground-toolbar-label">Models</span>
             <div className="playground-toolbar-chips">
@@ -510,7 +517,7 @@ export default function PlaygroundView({ token, models, initialScope }: {
                       </TabsList>
                     </Tabs>
                     <div className="playground-starters" aria-label="Example prompts">
-                      {visiblePromptExamples.map(item => <button key={item.id} type="button" className="playground-starter" onClick={() => { setPrompt(item.text); setResults(null); setNotice(''); setError(''); setActiveComparisonId(null); }}><strong>{item.title}</strong><span>{item.summary}</span><ArrowRight size={16} aria-hidden="true" /></button>)}
+                      {visiblePromptExamples.map(item => <Button key={item.id} type="button" className="playground-starter" onClick={() => { setPrompt(item.text); setResults(null); setNotice(''); setError(''); setActiveComparisonId(null); }}><strong>{item.title}</strong><span>{item.summary}</span><ArrowRight size={16} aria-hidden="true" /></Button>)}
                     </div>
                   </div>
                 </div>
@@ -539,19 +546,19 @@ export default function PlaygroundView({ token, models, initialScope }: {
                     <details className="playground-measurement-details">
                       <summary><Timer size={16} />Compare measured usage</summary>
                       <div className="playground-measurements">
-                        <div className="playground-metric-table-wrap"><table className="playground-metric-table" style={{ minWidth: (516 + (results.length - 2) * 224) + 'px' }}><caption className="playground-table-caption">Each value comes from these requests. Missing gateway evidence remains unknown.</caption><thead><tr>
-                          <th scope="col">Measure</th>
+                        <div className="playground-metric-table-wrap"><ShadcnTable className="playground-metric-table" style={{ minWidth: (516 + (results.length - 2) * 224) + 'px' }}><caption className="playground-table-caption">Each value comes from these requests. Missing gateway evidence remains unknown.</caption><TableHeader><TableRow>
+                          <TableHead scope="col">Measure</TableHead>
                           {results.map((result, index) => <Fragment key={result.model}>
-                            <th scope="col" className={index === 0 ? 'playground-baseline-column' : undefined}>{index === 0 ? <>Baseline<br /><span>{result.model}</span></> : result.model}</th>
-                            {index > 0 && <th scope="col" className="playground-delta-heading" aria-label={'Difference for ' + result.model + ' versus baseline'}>Δ vs baseline</th>}
+                            <TableHead scope="col" className={index === 0 ? 'playground-baseline-column' : undefined}>{index === 0 ? <>Baseline<br /><span>{result.model}</span></> : result.model}</TableHead>
+                            {index > 0 && <TableHead scope="col" className="playground-delta-heading" aria-label={'Difference for ' + result.model + ' versus baseline'}>Δ vs baseline</TableHead>}
                           </Fragment>)}
-                        </tr></thead><tbody>{comparisonMetrics.map(metric => <tr key={metric.key}>
-                          <th scope="row">{metric.label}</th>
+                        </TableRow></TableHeader><TableBody>{comparisonMetrics.map(metric => <TableRow key={metric.key}>
+                          <TableHead scope="row">{metric.label}</TableHead>
                           {results.map((result, index) => <Fragment key={result.model}>
-                            <td className={index === 0 ? 'playground-baseline-column' : undefined}>{metricValue(result, metric.key)}</td>
-                            {index > 0 && <td className="playground-delta-cell">{results[0] ? metricDifference(results[0], result, metric.key) : 'Not comparable'}</td>}
+                            <TableCell className={index === 0 ? 'playground-baseline-column' : undefined}>{metricValue(result, metric.key)}</TableCell>
+                            {index > 0 && <TableCell className="playground-delta-cell">{results[0] ? metricDifference(results[0], result, metric.key) : 'Not comparable'}</TableCell>}
                           </Fragment>)}
-                        </tr>)}</tbody></table></div>
+                        </TableRow>)}</TableBody></ShadcnTable></div>
                       </div>
                     </details>
                   </section>
@@ -563,7 +570,7 @@ export default function PlaygroundView({ token, models, initialScope }: {
         {initialScope && modelAliases.length >= minComparisonModels && <form onSubmit={compare} className="playground-composer">
           <div className="playground-composer-surface">
             <Label htmlFor="playground-user-prompt" className="sr-only">Prompt for all selected models</Label>
-            <textarea id="playground-user-prompt" rows={3} maxLength={12000} required disabled={running} value={prompt} onChange={event => { setPrompt(event.target.value); setResults(null); setNotice(''); setError(''); setActiveComparisonId(null); }} placeholder="Write a task to compare across models" />
+            <Textarea id="playground-user-prompt" rows={3} maxLength={12000} required disabled={running} value={prompt} onChange={event => { setPrompt(event.target.value); setResults(null); setNotice(''); setError(''); setActiveComparisonId(null); }} placeholder="Write a task to compare across models" />
             <div className="playground-composer-actions">
               {running
                 ? <Button type="button" variant="outline" onClick={cancelComparison}><Square size={14} />Stop</Button>
@@ -574,39 +581,55 @@ export default function PlaygroundView({ token, models, initialScope }: {
       </section>
     </div>
 
-    <ModalFrame open={modelPickerOpen} onOpenChange={setModelPickerOpen} title="Choose models" description="Select two to four enabled routes. Each receives the same prompt." className="playground-model-dialog">
+    <Dialog open={modelPickerOpen} onOpenChange={setModelPickerOpen}>
+      <DialogContent className="niu-modal playground-model-dialog" showCloseButton={false}>
+        <DialogHeader className="niu-modal-heading flex-row text-left">
+          <div><DialogTitle>Choose models</DialogTitle><DialogDescription>Select two to four enabled routes. Each receives the same prompt.</DialogDescription></div>
+          <DialogClose className="niu-modal-close" aria-label="Close dialog"><X size={18} /></DialogClose>
+        </DialogHeader>
       <div className="playground-model-picker">
         <label className="model-search"><span className="sr-only">Search models</span><Input autoFocus value={modelQuery} onChange={event => setModelQuery(event.target.value)} placeholder="Search model routes" /></label>
         <div className="playground-model-categories" role="tablist" aria-label="Model categories">
-          {modelCategories.map(category => <button key={category.id} type="button" role="tab" aria-selected={activeModelCategory?.id === category.id} className="playground-model-category" onClick={() => { setModelCategory(category.id); setModelQuery(''); }}>{category.label}<span>{category.models.length}</span></button>)}
+          {modelCategories.map(category => <Button key={category.id} type="button" role="tab" aria-selected={activeModelCategory?.id === category.id} className="playground-model-category" onClick={() => { setModelCategory(category.id); setModelQuery(''); }}>{category.label}<span>{category.models.length}</span></Button>)}
         </div>
         <div className="playground-model-picker-list">{filteredModelAliases.map(model => {
           const selected = selectedModels.includes(model);
-          return <button key={model} type="button" className="playground-model-picker-option" aria-pressed={selected} disabled={!selected && selectedModels.length >= maxComparisonModels} onClick={() => toggleModel(model)}>
+          return <Button key={model} type="button" className="playground-model-picker-option" aria-pressed={selected} disabled={!selected && selectedModels.length >= maxComparisonModels} onClick={() => toggleModel(model)}>
             <span>{model}</span>{selected && <Check size={16} />}
-          </button>;
+          </Button>;
         })}{filteredModelAliases.length === 0 && <p className="model-no-results">No model routes found.</p>}</div>
         {((modelQuery ? usableModels.length : activeModelCategory?.models.length ?? usableModels.length) > filteredModelAliases.length) && <p className="playground-model-picker-hint">Showing {filteredModelAliases.length} routes. Search to find another.</p>}
       </div>
-    </ModalFrame>
+    </DialogContent>
+    </Dialog>
 
-    <ModalFrame open={chatSettingsOpen} onOpenChange={setChatSettingsOpen} title="Chat settings" description="Adjust options shared by every selected model." className="playground-chat-settings-dialog">
+    <Dialog open={chatSettingsOpen} onOpenChange={setChatSettingsOpen}>
+      <DialogContent className="niu-modal playground-chat-settings-dialog" showCloseButton={false}>
+        <DialogHeader className="niu-modal-heading flex-row text-left">
+          <div><DialogTitle>Chat settings</DialogTitle><DialogDescription>Adjust options shared by every selected model.</DialogDescription></div>
+          <DialogClose className="niu-modal-close" aria-label="Close dialog"><X size={18} /></DialogClose>
+        </DialogHeader>
       <div className="playground-chat-settings">
-        <Label htmlFor="playground-max-tokens">Max output<Dropdown id="playground-max-tokens" aria-label="Max output" disabled={running} value={String(maxTokens)} onChange={event => setMaxTokens(Number(event.target.value))}><DropdownOption value="256">256 tokens</DropdownOption><DropdownOption value="512">512 tokens</DropdownOption><DropdownOption value="1024">1,024 tokens</DropdownOption></Dropdown></Label>
+        <Label htmlFor="playground-max-tokens">Max output<DropdownMenu><DropdownMenuTrigger asChild><Button id="playground-max-tokens" aria-label="Max output" disabled={running} variant="outline" className="w-full justify-between font-normal">{maxTokens.toLocaleString()} tokens<ChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={String(maxTokens)} onValueChange={value => setMaxTokens(Number(value))}><DropdownMenuRadioItem value="256">256 tokens</DropdownMenuRadioItem><DropdownMenuRadioItem value="512">512 tokens</DropdownMenuRadioItem><DropdownMenuRadioItem value="1024">1,024 tokens</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></Label>
         <Label htmlFor="playground-temperature">Temperature<Input id="playground-temperature" type="number" min="0" max="2" step="0.1" disabled={running} value={temperature} onChange={event => setTemperature(Number(event.target.value))} /></Label>
-        <Label htmlFor="playground-system-prompt" className="playground-system-prompt-label">System instructions<textarea id="playground-system-prompt" rows={4} maxLength={12000} disabled={running} value={systemPrompt} onChange={event => setSystemPrompt(event.target.value)} placeholder="Optional instructions applied to every model" /></Label>
+        <Label htmlFor="playground-system-prompt" className="playground-system-prompt-label">System instructions<Textarea id="playground-system-prompt" rows={4} maxLength={12000} disabled={running} value={systemPrompt} onChange={event => setSystemPrompt(event.target.value)} placeholder="Optional instructions applied to every model" /></Label>
         <div className="playground-chat-settings-actions"><Button type="button" onClick={() => setChatSettingsOpen(false)}>Done</Button></div>
       </div>
-    </ModalFrame>
+    </DialogContent>
+    </Dialog>
 
-    <ModalFrame open={apiSettingsOpen} onOpenChange={setApiSettingsOpen} title="API key" description="Choose the key Chat sends with model requests." className="playground-api-dialog">
+    <Dialog open={apiSettingsOpen} onOpenChange={setApiSettingsOpen}>
+      <DialogContent className="niu-modal playground-api-dialog" showCloseButton={false}>
+        <DialogHeader className="niu-modal-heading flex-row text-left">
+          <div><DialogTitle>API key</DialogTitle><DialogDescription>Choose the key Chat sends with model requests.</DialogDescription></div>
+          <DialogClose className="niu-modal-close" aria-label="Close dialog"><X size={18} /></DialogClose>
+        </DialogHeader>
       <div className="playground-api-settings">
         {sessionKeys.length > 0
           ? <Label htmlFor="playground-api-key">API key
-            <Dropdown id="playground-api-key" aria-label="API key" disabled={running} value={selectedKey ? selectedKey.id : 'manual'} onChange={event => { setSelectedKeyId(event.target.value); setManualKey(''); setResults(null); setError(''); }}>
-              {sessionKeys.map(key => <DropdownOption key={key.id} value={key.id}>{key.name}</DropdownOption>)}
-              <DropdownOption value="manual">Use another key</DropdownOption>
-            </Dropdown>
+            <DropdownMenu><DropdownMenuTrigger asChild><Button id="playground-api-key" aria-label="API key" disabled={running} variant="outline" className="w-full justify-between font-normal">{selectedKey?.name ?? 'Use another key'}<ChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={selectedKey ? selectedKey.id : 'manual'} onValueChange={value => { setSelectedKeyId(value); setManualKey(''); setResults(null); setError(''); }}>
+              {sessionKeys.map(key => <DropdownMenuRadioItem key={key.id} value={key.id}>{key.name}</DropdownMenuRadioItem>)}<DropdownMenuRadioItem value="manual">Use another key</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
           </Label>
           : <div className="playground-key-empty">
             <KeyRound size={20} aria-hidden="true" />
@@ -625,6 +648,7 @@ export default function PlaygroundView({ token, models, initialScope }: {
         {selectedKey && usableModels.length < minComparisonModels && <p role="alert" className="playground-api-warning">This key allows fewer than two of this workspace’s model routes.</p>}
         <div className="playground-api-dialog-actions"><Button type="button" variant="outline" onClick={() => setApiSettingsOpen(false)}>Done</Button>{sessionKeys.length > 0 && <Button asChild variant="ghost"><Link to={workspaceRoot + '/keys'}>Manage keys<ArrowUpRight size={15} /></Link></Button>}</div>
       </div>
-    </ModalFrame>
+    </DialogContent>
+    </Dialog>
   </div>;
 }

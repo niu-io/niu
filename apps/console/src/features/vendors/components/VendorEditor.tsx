@@ -1,9 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { KeyRound, Plus, Router, ShieldCheck } from 'lucide-react';
+import { ChevronDown, KeyRound, Plus, Router, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dropdown, DropdownOption } from '@/components/ui/dropdown';
+import { Checkbox } from '@/components/ui/checkbox';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { defaultApiBase, type Vendor, type VendorAdapter, type VendorWrite } from '../api';
 
 export type VendorCreate = { name: string; adapter: VendorAdapter; api_base: string; api_key: string; enabled: true };
@@ -78,14 +79,17 @@ export default function VendorEditor({ vendor, disabled, onCreate, onSave }: {
 
     <form className="vendor-editor-form" onSubmit={submit}>
       <div className="vendor-editor-fields">
-        <Label htmlFor="vendor-name">Provider name
+        <Label htmlFor="vendor-name">Supplier name
           <Input id="vendor-name" value={name} onChange={event => setName(event.target.value)} maxLength={100} autoComplete="off" placeholder="e.g. Primary inference" required disabled={disabled} />
         </Label>
         <Label htmlFor="vendor-adapter">Provider
-          <Dropdown id="vendor-adapter" value={adapter} disabled={disabled || Boolean(vendor)} onChange={event => changeAdapter(event.target.value as VendorAdapter)}>
-            <DropdownOption value="openrouter">OpenRouter</DropdownOption>
-            <DropdownOption value="openai">OpenAI</DropdownOption>
-          </Dropdown>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild><Button id="vendor-adapter" type="button" variant="outline" className="w-full justify-between font-normal" disabled={disabled || Boolean(vendor)}>{adapter === 'openrouter' ? 'OpenRouter' : 'OpenAI'}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={adapter} onValueChange={value => changeAdapter(value as VendorAdapter)}>
+              <DropdownMenuRadioItem value="openrouter">OpenRouter</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="openai">OpenAI</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup></DropdownMenuContent>
+          </DropdownMenu>
         </Label>
         <Label htmlFor="vendor-api-base">API base URL
           <Input id="vendor-api-base" type="url" inputMode="url" value={apiBase} onChange={event => setApiBase(event.target.value)} maxLength={2048} autoComplete="url" placeholder="https://openrouter.ai/api/v1" required disabled={disabled} />
@@ -101,12 +105,12 @@ export default function VendorEditor({ vendor, disabled, onCreate, onSave }: {
       </div>
 
       {vendor && <label className="vendor-enabled-toggle">
-        <input type="checkbox" checked={enabled} disabled={disabled} onChange={event => { setEnabled(event.target.checked); setConfirmDisable(false); }} />
+        <Checkbox checked={enabled} disabled={disabled} onCheckedChange={value => { setEnabled(value === true); setConfirmDisable(false); }} />
         <span><strong>Enabled for inference</strong><small>Disabled providers stay available for audit and can be enabled again.</small></span>
       </label>}
 
       {confirmDisable && <div className="vendor-confirm-disable" role="alertdialog" aria-labelledby="vendor-disable-title">
-        <div><strong id="vendor-disable-title">Disable this provider?</strong><p>Its model routes will stop receiving new requests.</p></div>
+        <div><strong id="vendor-disable-title">Disable this supplier?</strong><p>Its model routes will stop receiving new requests.</p></div>
         <div className="vendor-confirm-actions">
           <Button type="button" variant="ghost" size="sm" disabled={disabled} onClick={() => setConfirmDisable(false)}>Keep enabled</Button>
           <Button type="button" variant="destructive" size="sm" disabled={disabled} onClick={() => void save(false).catch(() => {})}>{disabled ? 'Saving…' : 'Confirm disable'}</Button>
@@ -116,7 +120,7 @@ export default function VendorEditor({ vendor, disabled, onCreate, onSave }: {
       <div className="vendor-editor-footer">
         <p>{vendor ? 'Provider type cannot be changed after creation.' : 'Use a public HTTPS URL. Loopback HTTP works for local development.'}</p>
         <Button type="submit" disabled={disabled || !name.trim() || !apiBase.trim() || (!vendor && !apiKey)}>
-          {!vendor ? <Plus /> : null}{disabled ? 'Saving…' : !vendor ? 'Create provider' : !vendor.enabled && enabled ? 'Enable provider' : vendor.enabled && !enabled ? 'Review disable' : 'Save changes'}
+          {!vendor ? <Plus /> : null}{disabled ? 'Saving…' : !vendor ? 'Create provider' : !vendor.enabled && enabled ? 'Enable supplier' : vendor.enabled && !enabled ? 'Review disable' : 'Save changes'}
         </Button>
       </div>
     </form>

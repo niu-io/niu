@@ -1,3 +1,4 @@
+import { SidebarProvider } from '@/components/ui/sidebar';
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -44,9 +45,9 @@ async function setWorkspaceKey(user: ReturnType<typeof userEvent.setup>, key = '
 }
 
 function renderPlayground(models = ['fast', 'strong', 'balanced', 'unused', 'spare']) {
-  return render(<MemoryRouter initialEntries={['/workspaces/workspace-a/playground']}>
+  return render(<SidebarProvider><MemoryRouter initialEntries={['/workspaces/workspace-a/playground']}>
     <Routes><Route path="/workspaces/:workspace/playground" element={<PlaygroundView token="admin-session" models={models} initialScope={scope} />} /></Routes>
-  </MemoryRouter>);
+  </MemoryRouter></SidebarProvider>);
 }
 
 describe('Global Chat', () => {
@@ -242,10 +243,10 @@ describe('Global Chat', () => {
       return <PlaygroundView key={workspace} token="admin-session" models={['fast', 'strong']} initialScope={{ organizationId: workspace, workspaceId: workspace, workspaceName: workspace }} />;
     }
     const user = userEvent.setup();
-    render(<MemoryRouter initialEntries={['/workspaces/workspace-a/playground']}>
+    render(<SidebarProvider><MemoryRouter initialEntries={['/workspaces/workspace-a/playground']}>
       <Link to="/workspaces/workspace-b/playground">Switch workspace</Link>
       <Routes><Route path="/workspaces/:workspace/playground" element={<WorkspacePlayground />} /></Routes>
-    </MemoryRouter>);
+    </MemoryRouter></SidebarProvider>);
     await setWorkspaceKey(user);
     await user.type(screen.getByLabelText('Prompt for all selected models'), 'Only for workspace A.');
     await user.click(screen.getByRole('button', { name: 'Compare 2 models' }));

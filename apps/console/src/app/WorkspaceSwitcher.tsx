@@ -1,7 +1,8 @@
+import { X } from 'lucide-react';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useState, type FormEvent } from 'react';
 import { ChevronsUpDown, Plus } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import ModalFrame from '@/components/ModalFrame';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -73,7 +74,12 @@ export default function WorkspaceSwitcher({ context }: { context: ConsoleContext
         </DropdownMenuContent>
     </DropdownMenu>
 
-    <ModalFrame open={createOpen} onOpenChange={open => { if (!saving) setCreateOpen(open); }} title="Create a workspace" description="Keep API keys, requests, and costs together." className="workspace-create-dialog">
+    <Dialog open={createOpen} onOpenChange={open => { if (!saving) setCreateOpen(open); }}>
+      <DialogContent className="niu-modal workspace-create-dialog" showCloseButton={false}>
+        <DialogHeader className="niu-modal-heading flex-row text-left">
+          <div><DialogTitle>Create a workspace</DialogTitle><DialogDescription>Keep API keys, requests, and costs together.</DialogDescription></div>
+          <DialogClose className="niu-modal-close" aria-label="Close dialog"><X size={18} /></DialogClose>
+        </DialogHeader>
           <form onSubmit={submitCreate} className="niu-modal-form">
             <Label htmlFor="workspace-name">Workspace name<Input id="workspace-name" required maxLength={200} autoFocus value={name} onChange={event => setName(event.target.value)} placeholder="e.g. Product experiments" /></Label>
             {organization && <p className="workspace-create-parent">In {organization.name}</p>}
@@ -81,6 +87,7 @@ export default function WorkspaceSwitcher({ context }: { context: ConsoleContext
             {createError && <p className="error-text" role="alert">{createError}</p>}
             <div className="workspace-create-actions"><Button type="button" variant="outline" disabled={saving} onClick={() => setCreateOpen(false)}>Cancel</Button><Button type="submit" disabled={saving || !name.trim()}>{saving ? 'Creating…' : 'Create workspace'}</Button></div>
           </form>
-    </ModalFrame>
+    </DialogContent>
+    </Dialog>
   </div>;
 }

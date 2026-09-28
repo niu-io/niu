@@ -1133,6 +1133,25 @@ async fn rotation_is_atomic_scoped_and_audited_without_extending_expiry(pool: Pg
             .await
             .is_err()
     );
+
+    let workspace_key = store
+        .issue_key(scope, "workspace-wide", &["*".into()], 3600)
+        .await
+        .unwrap();
+    let workspace_principal = store.authenticate(&workspace_key.token).await.unwrap();
+    assert!(workspace_principal.allows_model("any-current-or-future-route"));
+    let operation = store
+        .create_operation(scope, "any-current-or-future-route")
+        .await
+        .unwrap();
+    let attempt = store
+        .prepare_attempt(scope, operation, "any-current-or-future-route", "v1")
+        .await
+        .unwrap();
+    store
+        .mark_dispatched(&workspace_principal, attempt)
+        .await
+        .unwrap();
 }
 
 #[sqlx::test]

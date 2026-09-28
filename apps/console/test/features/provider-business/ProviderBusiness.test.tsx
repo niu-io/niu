@@ -73,7 +73,7 @@ describe("provider business access and earnings", () => {
     const fetch = vi.fn();
     vi.stubGlobal("fetch", fetch);
     setup();
-    expect(screen.getByText("Provider access required")).toBeTruthy();
+    expect(screen.getByText("Supplier access required")).toBeTruthy();
     expect(fetch).not.toHaveBeenCalled();
   });
   it("shows earnings independently from unresolved usage and does not give viewers offer controls", async () => {
@@ -137,7 +137,7 @@ describe("provider business access and earnings", () => {
     revoked = true;
     await userEvent
       .setup()
-      .click(screen.getByRole("button", { name: "Refresh provider data" }));
+      .click(screen.getByRole("button", { name: "Refresh supplier data" }));
     await screen.findByText("Access revoked");
     expect(screen.queryByText("USD 1.2")).toBeNull();
     expect(fixture.context.refreshWorkspace).toHaveBeenCalled();
@@ -174,14 +174,12 @@ it("reports model consumption without customer request identifiers", async () =>
   );
   setup("viewer");
   await screen.findByText("USD 1.2");
-  await userEvent
-    .setup()
-    .click(screen.getByRole("link", { name: "Consumption", exact: true }));
-  expect(
-    await screen.findByRole("heading", {
-      name: "Consumption & earnings by model",
-    }),
-  ).toBeTruthy();
+    await userEvent
+      .setup()
+      .click(screen.getByRole("link", { name: "Consumption", exact: true }));
+    expect(
+      await screen.findByRole("heading", { name: "Model usage" }),
+    ).toBeTruthy();
   expect(screen.getAllByText("USD 1.4").length).toBe(2);
   expect(screen.queryByRole("columnheader", { name: "Customer" })).toBeNull();
   expect(screen.queryByRole("columnheader", { name: "Task" })).toBeNull();

@@ -18,23 +18,23 @@ export default function VendorDirectory({ vendors, selectedId, loading, disabled
   const filtered = vendors.filter(vendor => `${vendor.name} ${connectionIdentity(vendor).name} ${vendor.api_base}`.toLowerCase().includes(query.trim().toLowerCase()));
   return <section className="panel vendor-directory" aria-labelledby="vendor-directory-title">
     <div className="vendor-panel-heading">
-      <div><h2 id="vendor-directory-title">Providers</h2></div>
+      <div><h2 id="vendor-directory-title">Suppliers</h2></div>
       <div className="vendor-heading-actions">
         <span className="vendor-count">{vendors.length}</span>
-        <Button type="button" variant="ghost" size="icon-sm" aria-label="Refresh providers" disabled={disabled || loading} onClick={onRefresh}><RefreshCw /></Button>
+        <Button type="button" variant="ghost" size="icon-sm" aria-label="Refresh suppliers" disabled={disabled || loading} onClick={onRefresh}><RefreshCw /></Button>
       </div>
     </div>
-    {vendors.length > 0 && <div className="provider-directory-search"><label className="model-search"><Search size={16} /><span className="sr-only">Search providers</span><Input placeholder="Search providers…" value={query} onChange={event => setQuery(event.target.value)} /></label></div>}
+    {vendors.length > 0 && <div className="provider-directory-search"><label className="model-search"><Search size={16} /><span className="sr-only">Search suppliers</span><Input placeholder="Search suppliers…" value={query} onChange={event => setQuery(event.target.value)} /></label></div>}
     {loading
-      ? <div className="vendor-loading" role="status">Loading providers…</div>
+      ? <div className="vendor-loading" role="status">Loading suppliers…</div>
       : vendors.length === 0
         ? <div className="vendor-empty">
           <span className="vendor-empty-mark"><Router size={17} /></span>
-          <strong>No providers connected</strong>
+          <strong>No suppliers added</strong>
         </div>
         : <div className="vendor-list">
           {filtered.length === 0 && <div className="directory-empty"><strong>No matching providers</strong><Button variant="ghost" size="sm" onClick={() => setQuery('')}>Clear search</Button></div>}
-          {filtered.map(vendor => <button
+          {filtered.map(vendor => <Button
             type="button"
             key={vendor.id}
             className={'vendor-entry' + (vendor.id === selectedId ? ' is-selected' : '') + (!vendor.enabled ? ' is-disabled' : '')}
@@ -43,9 +43,9 @@ export default function VendorDirectory({ vendors, selectedId, loading, disabled
             onClick={() => onSelect(vendor.id)}
           >
             <ProviderLogo provider={connectionIdentity(vendor)} />
-            <span className="vendor-entry-copy"><strong>{vendor.name}</strong><small>{connectionIdentity(vendor).name}</small></span>
+            <span className="vendor-entry-copy"><strong>{vendor.name}</strong>{connectionIdentity(vendor).name !== vendor.name && <small>{connectionIdentity(vendor).name}</small>}</span>
             <span className={'vendor-state' + (vendor.enabled ? ' is-enabled' : '')}>{vendor.enabled ? 'Enabled' : 'Disabled'}</span>
-          </button>)}
+          </Button>)}
         </div>}
   </section>;
 }

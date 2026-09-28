@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type RefObject } from 'react';
-import { LayoutDashboard, Users, Wallet, ChartNoAxesCombined, ArrowUpRight, CircleHelp, FolderDot, FolderOpenDot, Boxes, Settings2, MessagesSquare, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
-import { NavLink, Outlet, useLocation, useNavigate, useParams, type NavLinkProps } from 'react-router';
+import { LayoutDashboard, Wallet, ChartNoAxesCombined, Settings2, ServerCog, CircleHelp, FolderDot, FolderOpenDot, Boxes, MessagesSquare, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { NavLink, Outlet, useLocation, useNavigate, useParams, useSearchParams, type NavLinkProps } from 'react-router';
+import { ChevronsUpDown, Plus } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { request } from '@/features/vendors/api';
 import { Button } from '@/components/ui/button';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, useSidebar } from '@/components/ui/sidebar';
 import type { AdminSession, ConsoleContext, GatewayStatus, Health, Model, Organization, SessionChatKey, Workspace, WorkspaceProblem } from './console-context';
@@ -52,35 +55,66 @@ function WorkspaceNav({
         </SidebarMenu>
       </nav>
     </SidebarContent>
-    <SidebarFooter className="sidebar-bottom"><a href={`${import.meta.env.BASE_URL}help/`}>Documentation <ArrowUpRight size={16} /></a></SidebarFooter>
+    <SidebarFooter><SidebarMenu><SidebarMenuItem><SidebarMenuButton asChild><NavLink to="/help/"><CircleHelp size={16} /><span>Documentation</span></NavLink></SidebarMenuButton></SidebarMenuItem></SidebarMenu></SidebarFooter>
   </>;
 }
 
-function ProviderNav({ context }: { context: ConsoleContext }) {
+function SupplierNav({ context }: { context: ConsoleContext }) {
   const { provider } = useParams();
   const { isMobile, setOpenMobile } = useSidebar();
-  const membership = context.session?.provider_memberships?.find(item => item.id === provider);
+  const [search, setSearch] = useSearchParams();
+  const navigate = useNavigate();
+  const [suppliers, setSuppliers] = useState<{id: string; name: string}[]>([]);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    if (context.session?.kind !== 'installation') {
+      setSuppliers(context.session?.provider_memberships ?? []);
+      return;
+    }
+    const controller = new AbortController();
+    void request<{data: {id: string; name: string}[]}>(context.token, '/admin/v1/providers', 'GET', undefined, controller.signal)
+      .then(result => { if (!controller.signal.aborted) { setSuppliers(result.data); setError(''); } })
+      .catch(() => { if (!controller.signal.aborted) setError('Could not load suppliers'); });
+    return () => controller.abort();
+  }, [context.token, context.session, search.get('supplier')]);
+  const selected = provider ?? search.get('supplier') ?? suppliers[0]?.id ?? '';
+  const membership = suppliers.find(item => item.id === selected);
+  const suffix = selected ? '?supplier=' + encodeURIComponent(selected) : '';
+
   const location = useLocation();
   const entries = provider ? [
     { to: `/providers/${provider}`, label: 'Overview', end: true },
-    { to: `/providers/${provider}/models`, label: 'Model offers', end: false },
-    { to: `/providers/${provider}/consumption`, label: 'Consumption & earnings', end: false },
-    { to: `/providers/${provider}/settlements`, label: 'Settlements', end: false },
+    { to: `/providers/${provider}/models`, label: 'Models & pricing', end: false },
+    { to: `/providers/${provider}/consumption`, label: 'Usage', end: false },
+    { to: `/providers/${provider}/settlements`, label: 'Billing', end: false },
   ] : [
     { to: '/providers', label: 'Overview', end: true },
-    { to: '/providers/configuration', label: 'Provider configuration', end: false },
-    { to: '/providers/manage/models', label: 'Model offers', end: false },
-    { to: '/providers/manage/consumption', label: 'Consumption & earnings', end: false },
-    { to: '/providers/manage/settlements', label: 'Settlements', end: false },
-    { to: '/providers/manage/members', label: 'Provider access', end: false },
+    { to: '/providers/manage/models', label: 'Models & pricing', end: false },
+    { to: '/providers/manage/consumption', label: 'Usage', end: false },
+    { to: '/providers/manage/settlements', label: 'Billing', end: false },
   ];
   return <>
-    <SidebarHeader className="provider-zone-heading"><strong>{membership?.name ?? 'Providers'}</strong><span>{membership ? 'Provider workspace' : 'Models, earnings & access'}</span></SidebarHeader>
+    <SidebarHeader className="sidebar-heading">
+      <div className="workspace-switcher"><DropdownMenu>
+        <DropdownMenuTrigger className="workspace-switcher-trigger" aria-label="Switch supplier" title="Switch supplier">
+          <span className="workspace-switcher-copy"><strong>{membership?.name ?? 'Choose supplier'}</strong></span><ChevronsUpDown size={16} />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="workspace-switcher-menu" side="bottom" align="start" sideOffset={8} collisionPadding={12}>
+          <DropdownMenuLabel className="workspace-switcher-menu-title">Suppliers</DropdownMenuLabel>
+          <DropdownMenuRadioGroup value={selected} onValueChange={id => {
+            if (provider) navigate('/providers/' + encodeURIComponent(id) + (location.pathname.split('/')[3] ? '/' + location.pathname.split('/')[3] : ''));
+            else setSearch(current => { current.set('supplier', id); current.delete('create'); return current; });
+          }}>{suppliers.map(item => <DropdownMenuRadioItem className="workspace-switcher-item" key={item.id} value={item.id}><span>{item.name}</span></DropdownMenuRadioItem>)}</DropdownMenuRadioGroup>
+          {error && <div className="workspace-switcher-error" role="alert">{error}</div>}
+          {context.session?.kind === 'installation' && <><DropdownMenuSeparator className="workspace-switcher-separator" /><DropdownMenuItem disabled={!selected} onSelect={() => navigate('/providers?properties=supplier&supplier=' + encodeURIComponent(selected))}><Settings2 size={16} />Supplier properties</DropdownMenuItem><DropdownMenuItem className="workspace-switcher-create" onSelect={() => navigate('/providers?create=supplier' + (selected ? '&supplier=' + encodeURIComponent(selected) : ''))}><Plus size={16} />Add supplier</DropdownMenuItem></>}
+        </DropdownMenuContent>
+      </DropdownMenu></div>
+    </SidebarHeader>
     <SidebarContent className="workspace-sidebar-content">
-      <nav aria-label="Provider navigation"><SidebarMenu className="workspace-nav-menu">
-        {entries.map(item => { const Icon = item.label === 'Provider configuration' ? Settings2 : item.label === 'Overview' ? LayoutDashboard : item.label === 'Provider access' ? Users : item.label === 'Model offers' ? Boxes : item.label === 'Settlements' ? Wallet : ChartNoAxesCombined; return <SidebarMenuItem key={item.to}>
+      <nav aria-label="Supplier navigation"><SidebarMenu className="workspace-nav-menu">
+        {entries.map(item => { const Icon = item.label === 'Overview' ? LayoutDashboard : item.label === 'Models & pricing' ? Boxes : item.label === 'Billing' ? Wallet : ChartNoAxesCombined; return <SidebarMenuItem key={item.to}>
           <SidebarMenuButton asChild isActive={location.pathname === item.to} className="nav-item provider-zone-item">
-            <NavLink to={item.to} end={item.end} onClick={() => { if (isMobile) setOpenMobile(false); }}><Icon className="nav-icon" aria-hidden="true" /><span>{item.label}</span></NavLink>
+            <NavLink to={item.to + (provider ? '' : suffix)} end={item.end} onClick={() => { if (isMobile) setOpenMobile(false); }}><Icon className="nav-icon" aria-hidden="true" /><span>{item.label}</span></NavLink>
           </SidebarMenuButton>
         </SidebarMenuItem>; })}
       </SidebarMenu></nav>
@@ -88,10 +122,10 @@ function ProviderNav({ context }: { context: ConsoleContext }) {
   </>;
 }
 
-function WorkspaceSidebarToggle({ buttonRef, providerArea = false }: { buttonRef: RefObject<HTMLButtonElement | null>; providerArea?: boolean }) {
+function WorkspaceSidebarToggle({ buttonRef, providerArea = false, modelsArea = false }: { buttonRef: RefObject<HTMLButtonElement | null>; providerArea?: boolean; modelsArea?: boolean }) {
   const { isMobile, openMobile, state, toggleSidebar } = useSidebar();
   const expanded = isMobile ? openMobile : state === 'expanded';
-  return <Button ref={buttonRef} type="button" variant="ghost" size="icon" className="sidebar-toggle" onClick={toggleSidebar} aria-expanded={expanded} aria-controls={providerArea ? "provider-navigation" : "workspace-navigation"} aria-label={`${expanded ? 'Collapse' : 'Expand'} ${providerArea ? 'provider' : 'workspace'} navigation`} title={expanded ? 'Collapse navigation' : 'Expand navigation'}>
+  return <Button ref={buttonRef} type="button" variant="ghost" size="icon" className="sidebar-toggle" onClick={toggleSidebar} aria-expanded={expanded} aria-controls={modelsArea ? "model-filters" : providerArea ? "provider-navigation" : "workspace-navigation"} aria-label={`${expanded ? 'Collapse' : 'Expand'} ${modelsArea ? 'model filters' : providerArea ? 'supplier navigation' : 'workspace navigation'}`} title={expanded ? 'Collapse navigation' : 'Expand navigation'}>
     {expanded ? <PanelLeftClose aria-hidden="true" /> : <PanelLeftOpen aria-hidden="true" />}
   </Button>;
 }
@@ -182,10 +216,31 @@ export default function AppLayout() {
       setModels(value.data);
       setSession(sessionValue.data);
       setToken(credential);
+      try { sessionStorage.removeItem('niu.signed-out'); } catch { /* Storage is optional. */ }
       setDraftToken('');
     } catch {
       if (revision === connectionRevision.current) setError('The admin token was rejected or the Niu gateway is unavailable.');
     }
+  }, []);
+
+  const signOut = useCallback(() => {
+    connectionController.current?.abort();
+    connectionController.current = null;
+    connectionRevision.current += 1;
+    try { sessionStorage.setItem('niu.signed-out', '1'); } catch { /* Storage is optional. */ }
+    setToken('');
+    setDraftToken('');
+    setSession(null);
+    setModels([]);
+    setChatKeys([]);
+    setOrganizations([]);
+    setWorkspaces([]);
+    setWorkspace(null);
+    setSelectedOrganizationId(null);
+    setWorkspaceError(null);
+    setWorkspaceLoading(false);
+    setWorkspacesLoadedFor('');
+    setError('');
   }, []);
 
   const connect = useCallback(async (event: FormEvent<HTMLFormElement>) => {
@@ -195,6 +250,7 @@ export default function AppLayout() {
 
   useEffect(() => {
     if (!import.meta.env.DEV || import.meta.env.MODE === 'test') return;
+    try { if (sessionStorage.getItem('niu.signed-out') === '1') return; } catch { /* Storage is optional. */ }
     const controller = new AbortController();
     void fetch('/__niu_dev_session', {
       method: 'POST', headers: { 'x-niu-dev-session': '1' }, signal: controller.signal,
@@ -425,9 +481,10 @@ export default function AppLayout() {
     gatewayStatus,
     error,
     connect,
+    signOut,
     refreshModels,
     refreshWorkspace,
-  }), [token, session, organizations, selectedOrganizationId, selectOrganization, workspaces, workspace, routeWorkspaceId, isGlobalChat, workspaceLoading, workspaceError, selectWorkspace, createWorkspace, chatKeys, rememberChatKey, forgetChatKey, draftToken, models, health, gatewayStatus, error, connect, refreshModels, refreshWorkspace]);
+  }), [token, session, organizations, selectedOrganizationId, selectOrganization, workspaces, workspace, routeWorkspaceId, isGlobalChat, workspaceLoading, workspaceError, selectWorkspace, createWorkspace, chatKeys, rememberChatKey, forgetChatKey, draftToken, models, health, gatewayStatus, error, connect, signOut, refreshModels, refreshWorkspace]);
   const activePath = location.pathname.startsWith('/workspaces/')
     ? location.pathname.split('/').filter(Boolean).slice(2).join('/') || '.'
     : location.pathname.replace(/^\/+|\/+$/g, '');
@@ -435,7 +492,7 @@ export default function AppLayout() {
     ?? navigation.filter(item => item.destination !== 'Global' && activePath.startsWith(`${item.to}/`)).sort((a, b) => b.to.length - a.to.length)[0];
   const providerArea = location.pathname === '/providers' || location.pathname.startsWith('/providers/');
   const helpArea = location.pathname === '/help' || location.pathname.startsWith('/help/');
-  const title = providerArea ? ({ configuration: 'Provider configuration', members: 'Provider access', models: 'Model offers', consumption: 'Consumption & earnings', settlements: 'Settlements' }[location.pathname.split('/').pop() ?? ''] ?? (location.pathname === '/providers' ? 'Overview' : 'Overview')) : activeNavigation?.label ?? 'Page not found';
+  const title = providerArea ? ({ configuration: 'Supplier properties', models: 'Models & pricing', consumption: 'Usage', settlements: 'Billing' }[location.pathname.split('/').pop() ?? ''] ?? 'Overview') : activeNavigation?.label ?? 'Page not found';
 
   useEffect(() => {
     document.title = 'niu.io';
@@ -454,6 +511,9 @@ export default function AppLayout() {
     : workspace
       ? `/workspaces/${workspacePathSegment(workspace, workspaces)}`
       : '/workspaces/default';
+  useEffect(() => {
+    try { localStorage.setItem('niu.navigation.workspace-path', activeWorkspacePath); } catch { /* Storage is optional. */ }
+  }, [activeWorkspacePath]);
   const scopeLabel = session?.operator?.project_id ? 'Workspace access' : session?.operator ? 'Organization access' : 'Administrator access needed';
   useEffect(() => {
     const close = (event: KeyboardEvent) => {
@@ -489,7 +549,7 @@ export default function AppLayout() {
       {(!providerArea || isInstallation) && <WorkspaceRailLink to={activeWorkspacePath} end onActivate={() => {}} className={`rail-item${hasSidebar && !providerArea ? ' selected' : ''}`} aria-label="Workspace" title="Workspace">{hasSidebar ? <FolderOpenDot size={21} /> : <FolderDot size={21} />}</WorkspaceRailLink>}
       {(!providerArea || isInstallation) && <><NavLink to="/chat" className={`rail-item${destination === 'Global' ? ' selected' : ''}`} aria-label="Chat · compare model responses" title="Chat · compare model responses"><MessagesSquare size={21} /></NavLink>
       <NavLink to={`${activeWorkspacePath}/models`} className={`rail-item${destination === 'Models' ? ' selected' : ''}`} aria-label="Models" title="Models"><Boxes size={21} /></NavLink></>}
-      <div className="rail-bottom">{isInstallation || session?.provider_memberships?.length ? <NavLink to={isInstallation ? '/providers' : `/providers/${session!.provider_memberships![0].id}`} className={`rail-item${providerArea ? ' selected' : ''}`} aria-label="Providers" title="Providers"><Settings2 size={21} /></NavLink> : null}<NavLink className={`rail-item${helpArea ? ' selected' : ''}`} to="/help/" aria-label="Documentation" title="Documentation"><CircleHelp size={21} /></NavLink><AccountMenu context={context} workspacePath={activeWorkspacePath} providerArea={providerArea}/></div>
+      <div className="rail-bottom">{isInstallation || session?.provider_memberships?.length ? <NavLink to={isInstallation ? '/providers' : `/providers/${session!.provider_memberships![0].id}`} className={`rail-item${providerArea ? ' selected' : ''}`} aria-label="Suppliers" title="Suppliers"><ServerCog size={21} aria-hidden="true" /></NavLink> : null}<NavLink className={`rail-item${helpArea ? ' selected' : ''}`} to="/help/" aria-label="Documentation" title="Documentation"><CircleHelp size={21} /></NavLink><AccountMenu context={context} workspacePath={activeWorkspacePath} providerArea={providerArea}/></div>
     </nav>
     <div className="app-rail-spacer" aria-hidden="true" />
     {hasSidebar && <Sidebar
@@ -502,12 +562,12 @@ export default function AppLayout() {
       mobileClassName="niu-workspace-sidebar-mobile"
       mobileStyle={{ left: 'var(--rail)', top: 'var(--console-header-height)', right: 0, bottom: 0, width: 'min(var(--context), calc(100vw - var(--rail)))', height: 'auto' }}
     >
-      {providerArea ? <ProviderNav context={context} /> : <WorkspaceNav context={context} activeWorkspacePath={activeWorkspacePath} models={models} activePath={activePath} scopeLabel={scopeLabel} />}
+      {providerArea ? <SupplierNav context={context} /> : <WorkspaceNav context={context} activeWorkspacePath={activeWorkspacePath} models={models} activePath={activePath} scopeLabel={scopeLabel} />}
     </Sidebar>}
     <SidebarInset className="main-panel">
-      {!isGlobalChat && !helpArea && destination !== 'Models' && <header className="console-page-header">
-        {hasSidebar && <WorkspaceSidebarToggle buttonRef={toggleRef} providerArea={providerArea} />}
-        <div className="breadcrumbs" aria-label="Breadcrumb"><span>{providerArea ? 'Provider' : platform ? 'Platform' : destination === 'Global' ? 'Niu' : destination === 'Organization' ? 'Organization' : 'Workspace'}</span><span className="crumb-divider" aria-hidden="true">/</span><strong>{title}</strong></div>
+      {!isGlobalChat && !helpArea && <header className="console-page-header">
+        {(hasSidebar || (destination === 'Models' && !activePath.startsWith('models/'))) && <WorkspaceSidebarToggle buttonRef={toggleRef} providerArea={providerArea} modelsArea={destination === 'Models'} />}
+        <div className="breadcrumbs" aria-label="Breadcrumb"><span>{providerArea ? 'Suppliers' : platform ? 'Platform' : destination === 'Global' ? 'Niu' : destination === 'Organization' ? 'Organization' : 'Workspace'}</span><span className="crumb-divider" aria-hidden="true">/</span><strong>{destination === 'Models' && activePath.startsWith('models/') ? <NavLink to={`${activeWorkspacePath}/models`}>Models</NavLink> : title}</strong></div>
       </header>}
       <div className={`page-content${helpArea ? ' help-content' : ''}`} id="console-content" tabIndex={-1}>{helpArea ? <Outlet context={context} /> : gatewayStatus === 'offline' ? <section className="gateway-recovery" role="alert"><h2>Restore your gateway connection</h2><p>The console cannot reach the gateway. Restore the service before continuing.</p><p>For local development, start the stack with <code>pnpm dev</code>. For a hosted installation, ask your administrator to check the service.</p><Button onClick={() => { void refreshWorkspace(); }}>Retry connection</Button></section> : token && !providerArea && workspaceError ? <WorkspaceRecovery problem={workspaceError} onRetry={() => setWorkspaceLoadRevision(value => value + 1)} /> : token && !providerArea && (workspaceLoading || workspacesLoadedFor !== token) ? <p role="status">Loading workspace…</p> : <Outlet context={context} />}</div>
     </SidebarInset>

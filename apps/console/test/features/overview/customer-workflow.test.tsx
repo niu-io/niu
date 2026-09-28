@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import OverviewRoute from '../../../src/features/overview/page';
 import ModelsRoute from '../../../src/features/models/page';
+import { SidebarProvider } from '../../../src/components/ui/sidebar';
 import type { ConsoleContext } from '../../../src/app/console-context';
 
 const fixture = vi.hoisted(() => ({ context: {} as ConsoleContext }));
@@ -21,7 +22,7 @@ describe('customer model workflow', () => {
   });
   it('keeps the empty model catalog customer-facing', () => {
     fixture.context = { token: 'test-session', models: [], workspace: null, session: null } as unknown as ConsoleContext;
-    const { container } = render(<MemoryRouter><ModelsRoute /></MemoryRouter>);
+    const { container } = render(<MemoryRouter><SidebarProvider><ModelsRoute /></SidebarProvider></MemoryRouter>);
     expect(screen.getByText('Your administrator can enable model access for this workspace.')).toBeTruthy();
     expect(container.querySelector('a[href$="vendors"]')).toBeNull();
   });

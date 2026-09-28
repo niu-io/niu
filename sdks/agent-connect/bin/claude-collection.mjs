@@ -14,7 +14,7 @@ export class ClaudeCollectionReceiver {
     this.organizationId = validateUuid(organizationId, 'organization');
     this.projectId = validateUuid(projectId, 'project');
     if (typeof collectorKey !== 'string' || !collectorKey.startsWith('niu_collector_')) {
-      throw new Error('A project-scoped execution collector key is required');
+      throw new Error('A workspace-scoped activity key is required');
     }
     this.collectorKey = collectorKey;
     this.localSecret = randomBytes(32).toString('base64url');

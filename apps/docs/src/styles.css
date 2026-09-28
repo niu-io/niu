@@ -24,7 +24,7 @@
   --sl-color-hairline: var(--border);
   --sl-color-hairline-light: var(--border);
   --sl-color-hairline-shade: var(--border);
-  --sl-sidebar-width: 16.5rem;
+  --sl-sidebar-width: 16rem;
   --sl-content-width: 48rem;
   --sl-text-h1: clamp(2rem, 3vw, 2.5rem);
   --sl-text-h2: clamp(1.4rem, 2vw, 1.75rem);

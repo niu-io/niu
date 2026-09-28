@@ -1,9 +1,11 @@
+import { Table as ShadcnTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import {
   ArrowDownLeft,
-  ArrowUpRight,
+  Building2,
   Check,
+  ChevronDown,
   CircleDollarSign,
   Clock3,
   RefreshCw,
@@ -16,7 +18,7 @@ import { useConsoleContext } from "@/app/console-context";
 import PageHeader from "@/components/PageHeader";
 import ProviderLogo from "@/components/ProviderLogo";
 import { Button } from "@/components/ui/button";
-import { Dropdown, DropdownOption } from "@/components/ui/dropdown";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { modelIdentity } from "@/lib/providers";
 import { money } from "@/lib/money";
 import { request, VendorRequestError } from "@/features/vendors/api";
@@ -89,42 +91,28 @@ export default function ProviderBusinessRoute() {
   if (!context.token || !membership)
     return (
       <>
-        <PageHeader title="Providers" />
+        <PageHeader title="Suppliers" />
         <section className="panel provider-access-message">
           <ShieldCheck size={28} />
-          <h2>Provider access required</h2>
+          <h2>Supplier access required</h2>
           <p>
             This area is for approved suppliers earning revenue on Niu. Your
-            account needs an active provider membership.
+            account needs an active supplier membership.
           </p>
         </section>
       </>
     );
+  const memberships = context.session!.provider_memberships!;
   return (
-    <>
-      {context.session!.provider_memberships!.length > 1 && (
-        <div className="provider-business-switch">
-          <Dropdown
-            aria-label="Switch provider business"
-            value={membership.id}
-            onChange={(event) => navigate(`/providers/${event.target.value}`)}
-          >
-            {context.session!.provider_memberships!.map((item) => (
-              <DropdownOption key={item.id} value={item.id}>
-                {item.name}
-              </DropdownOption>
-            ))}
-          </Dropdown>
-        </div>
-      )}
-      <ProviderBusiness
+    <ProviderBusiness
         key={`${context.token}:${provider}`}
         token={context.token}
         provider={membership.id}
         role={membership.role}
+        memberships={memberships}
+        navigate={navigate}
         refreshAccess={context.refreshWorkspace}
       />
-    </>
   );
 }
 
@@ -132,16 +120,21 @@ function ProviderBusiness({
   token,
   provider,
   role,
+  memberships,
+  navigate,
   refreshAccess,
 }: {
   token: string;
   provider: string;
   role: string;
+  memberships: { id: string; name: string; role: "manager" | "viewer" }[];
+  navigate: (to: string) => void;
   refreshAccess: () => Promise<void>;
 }) {
   const [days, setDays] = useState("30");
   const { section = "overview" } = useParams();
   const tab = section === "models" ? "offers" : section === "consumption" ? "earnings" : section;
+  const showPeriod = tab === "overview" || tab === "earnings";
   const [currency, setCurrency] = useState("");
   const [data, setData] = useState<Dashboard | null>(null);
   const [loading, setLoading] = useState(true);
@@ -170,7 +163,7 @@ function ProviderBusiness({
         setError(
           reason instanceof Error
             ? reason.message
-            : "Provider data could not be loaded.",
+            : "Supplier data could not be loaded.",
         );
         if (
           reason instanceof VendorRequestError &&
@@ -246,22 +239,34 @@ function ProviderBusiness({
   return (
     <>
       <PageHeader
-        title={{ overview: "Overview", offers: "Model offers", earnings: "Consumption & earnings", settlements: "Settlements" }[tab] ?? "Providers"}
-        eyebrow={data?.name ?? "Provider business"}
+        title={{ overview: "Overview", offers: "Model offers", earnings: "Consumption & earnings", settlements: "Settlements" }[tab] ?? "Suppliers"}
+        eyebrow={memberships.length === 1 ? data?.name : undefined}
         action={
-          <div className="provider-toolbar">
-            <Dropdown
-              aria-label="Earnings period"
-              value={days}
-              onChange={(event) => setDays(event.target.value)}
-            >
-              <DropdownOption value="7">Last 7 days</DropdownOption>
-              <DropdownOption value="30">Last 30 days</DropdownOption>
-              <DropdownOption value="90">Last 90 days</DropdownOption>
-            </Dropdown>
+          <div className="provider-header-actions">
+            {memberships.length > 1 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button aria-label="Switch supplier" variant="outline" className="provider-context-picker">
+                    <Building2 size={16} />
+                    <span>{memberships.find((item) => item.id === provider)?.name ?? "Choose supplier"}</span>
+                    <ChevronDown size={16} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64">
+                  <DropdownMenuRadioGroup value={provider} onValueChange={(value) => navigate(`/providers/${value}`)}>
+                    {memberships.map((item) => <DropdownMenuRadioItem key={item.id} value={item.id}>{item.name}</DropdownMenuRadioItem>)}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            {showPeriod && <DropdownMenu><DropdownMenuTrigger asChild><Button aria-label="Date range" variant="outline" className="provider-period-picker">Last {days} days<ChevronDown size={16} /></Button></DropdownMenuTrigger>
+              <DropdownMenuContent align="end"><DropdownMenuRadioGroup value={days} onValueChange={setDays}>
+                <DropdownMenuRadioItem value="7">Last 7 days</DropdownMenuRadioItem><DropdownMenuRadioItem value="30">Last 30 days</DropdownMenuRadioItem><DropdownMenuRadioItem value="90">Last 90 days</DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup></DropdownMenuContent>
+            </DropdownMenu>}
             <Button
               variant="outline"
-              aria-label="Refresh provider data"
+              aria-label="Refresh supplier data"
               disabled={loading}
               onClick={() => setRevision((value) => value + 1)}
             >
@@ -270,9 +275,6 @@ function ProviderBusiness({
           </div>
         }
       />
-      <p className="provider-intro">
-        Track consumption of your models and the earnings at your agreed rates.
-      </p>
       {error && (
         <div className="provider-message" role="alert">
           <span>{error}</span>
@@ -301,7 +303,7 @@ function ProviderBusiness({
       )}
       {loading ? (
         <section className="panel provider-access-message" role="status">
-          Loading your provider business…
+          Loading your supplier business…
         </section>
       ) : (
         data && (
@@ -311,17 +313,11 @@ function ProviderBusiness({
                 <div className="provider-section-heading">
                   <h2>Earnings at a glance</h2>
                   {currencies.length > 0 && (
-                    <Dropdown
-                      aria-label="Earnings currency"
-                      value={selectedCurrency}
-                      onChange={(event) => setCurrency(event.target.value)}
-                    >
-                      {currencies.map((item) => (
-                        <DropdownOption value={item} key={item}>
-                          {item}
-                        </DropdownOption>
-                      ))}
-                    </Dropdown>
+                    <DropdownMenu><DropdownMenuTrigger asChild><Button aria-label="Earnings currency" variant="outline" className="justify-between font-normal">{selectedCurrency}<ChevronDown size={16} /></Button></DropdownMenuTrigger>
+                      <DropdownMenuContent align="end"><DropdownMenuRadioGroup value={selectedCurrency} onValueChange={setCurrency}>
+                        {currencies.map(item => <DropdownMenuRadioItem value={item} key={item}>{item}</DropdownMenuRadioItem>)}
+                      </DropdownMenuRadioGroup></DropdownMenuContent>
+                    </DropdownMenu>
                   )}
                 </div>
                 <div className="provider-metrics">
@@ -521,46 +517,43 @@ function ProviderBusiness({
             {tab === "earnings" && (
               <section className="panel">
                 <div className="provider-panel-heading">
-                  <h2>Consumption & earnings by model</h2>
-                  <p>
-                    Last {days} days · grouped by agreed rate · currencies
-                    remain separate
-                  </p>
+                  <h2>Model usage</h2>
+                  <span>Last {days} days</span>
                 </div>
                 {data.consumption.length ? (
                   <div className="table-wrap">
-                    <table className="provider-ledger">
-                      <thead>
-                        <tr>
-                          <th>Model</th>
-                          <th>Requests</th>
-                          <th>Input / output tokens</th>
-                          <th>Input / output rate per 1M</th>
-                          <th>Earnings</th>
-                          <th>Unpaid</th>
-                        </tr>
-                      </thead>
-                      <tbody>
+                    <ShadcnTable className="provider-ledger">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Model</TableHead>
+                          <TableHead>Requests</TableHead>
+                          <TableHead>Input / output tokens</TableHead>
+                          <TableHead>Input / output rate per 1M</TableHead>
+                          <TableHead>Earnings</TableHead>
+                          <TableHead>Unpaid</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
                         {data.consumption.map((entry) => (
-                          <tr key={entry.revision}>
-                            <td>
+                          <TableRow key={entry.revision}>
+                            <TableCell>
                               <strong>{entry.model_alias}</strong>
-                            </td>
-                            <td>{count(entry.requests)}</td>
-                            <td>
+                            </TableCell>
+                            <TableCell>{count(entry.requests)}</TableCell>
+                            <TableCell>
                               {count(entry.prompt_tokens)} /{" "}
                               {count(entry.completion_tokens)}
-                            </td>
-                            <td>
+                            </TableCell>
+                            <TableCell>
                               {money(entry.prompt_rate, entry.currency)} /{" "}
                               {money(entry.completion_rate, entry.currency)}
-                            </td>
-                            <td>{money(entry.amount_nanos, entry.currency)}</td>
-                            <td>{money(entry.unpaid_nanos, entry.currency)}</td>
-                          </tr>
+                            </TableCell>
+                            <TableCell>{money(entry.amount_nanos, entry.currency)}</TableCell>
+                            <TableCell>{money(entry.unpaid_nanos, entry.currency)}</TableCell>
+                          </TableRow>
                         ))}
-                      </tbody>
-                    </table>
+                      </TableBody>
+                    </ShadcnTable>
                   </div>
                 ) : (
                   <Empty
@@ -574,51 +567,44 @@ function ProviderBusiness({
               <section className="panel">
                 <div className="provider-section-heading provider-panel-heading">
                   <div>
-                    <h2>Settlement history</h2>
-                    <p>
-                      Latest 100 confirmed external payment records · all time
-                    </p>
+                    <h2>Payment history</h2>
+                    <p>Latest 100 · all time</p>
                   </div>
                 </div>
                 {data.settlements.length ? (
                   <div className="table-wrap">
-                    <table className="provider-ledger">
-                      <thead>
-                        <tr>
-                          <th>Date recorded</th>
-                          <th>Payment reference</th>
-                          <th>Amount</th>
-                          <th>Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
+                    <ShadcnTable className="provider-ledger">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date recorded</TableHead>
+                          <TableHead>Payment reference</TableHead>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
                         {data.settlements.map((entry) => (
-                          <tr key={entry.id}>
-                            <td>{date(entry.created_at)}</td>
-                            <td>{entry.payment_reference}</td>
-                            <td>{money(entry.amount_nanos, entry.currency)}</td>
-                            <td>
+                          <TableRow key={entry.id}>
+                            <TableCell>{date(entry.created_at)}</TableCell>
+                            <TableCell>{entry.payment_reference}</TableCell>
+                            <TableCell>{money(entry.amount_nanos, entry.currency)}</TableCell>
+                            <TableCell>
                               <span className="provider-ledger-state">
                                 <Check size={13} />
                                 Payment recorded
                               </span>
-                            </td>
-                          </tr>
+                            </TableCell>
+                          </TableRow>
                         ))}
-                      </tbody>
-                    </table>
+                      </TableBody>
+                    </ShadcnTable>
                   </div>
                 ) : (
                   <Empty
                     title="No settlements recorded"
-                    detail="Your accrued earnings remain unpaid until provider management records a confirmed external payment."
+                    detail="Your accrued earnings remain unpaid until supplier management records a confirmed external payment."
                   />
                 )}
-                <p className="provider-panel-note">
-                  No automated payout schedule or bank transfer is configured
-                  here. Contact your billing contact for settlement
-                  arrangements.
-                </p>
               </section>
             )}
           </>
@@ -629,8 +615,7 @@ function ProviderBusiness({
 }
 function Empty({ title, detail }: { title: string; detail: string }) {
   return (
-    <div className="provider-chart-empty">
-      <ArrowUpRight size={24} />
+    <div className="provider-empty-state">
       <strong>{title}</strong>
       <p>{detail}</p>
     </div>

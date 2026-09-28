@@ -1,9 +1,11 @@
+import { Link } from 'react-router';
+import { X } from 'lucide-react';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import ProviderLogo from '@/components/ProviderLogo';
 import { connectionIdentity } from '@/lib/providers';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, KeyRound, Pencil, Router, ShieldAlert, ShieldCheck } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
-import ModalFrame from '@/components/ModalFrame';
 import type { AdminSession } from '@/app/console-context';
 import { Button } from '@/components/ui/button';
 import { VendorRequestError, request, type ModelWrite, type ProviderCatalogModel, type ProviderModelCheck, type Vendor, type VendorModel, type VendorWrite } from '../api';
@@ -11,7 +13,8 @@ import VendorDirectory from './VendorDirectory';
 import VendorEditor, { type VendorCreate } from './VendorEditor';
 import ModelMappings from './ModelMappings';
 
-export default function VendorsView({ token, session, refreshWorkspace }: {
+export default function VendorsView({ token, session, refreshWorkspace, catalogPath = '/workspaces/default/models' }: {
+  catalogPath?: string;
   token: string;
   session: AdminSession;
   refreshWorkspace: () => Promise<void>;
@@ -348,7 +351,7 @@ export default function VendorsView({ token, session, refreshWorkspace }: {
   if (!canManage) {
     const role = session.kind === 'operator' ? session.operator?.role : null;
     return <>
-      <PageHeader title="Provider configuration" />
+      <PageHeader title="Suppliers" />
       <section className="panel vendor-access-denied" role="status">
         <span className="vendor-access-mark"><ShieldAlert size={18} /></span>
         <div><h2>Installation access required</h2><p>Only an installation admin can view or change providers. {role ? `Your ${role} session is scoped to its organization and workspace.` : 'Connect with an installation admin session to continue.'}</p></div>
@@ -357,7 +360,7 @@ export default function VendorsView({ token, session, refreshWorkspace }: {
   }
 
   return <>
-    <PageHeader title="Provider configuration" action={canManage && <Button type="button" onClick={() => { setError(''); setAddingVendor(true); }}><Router size={16} />Add provider</Button>} />
+    <PageHeader title="Suppliers" action={canManage && <Button type="button" onClick={() => { setError(''); setAddingVendor(true); }}><Router size={16} />Add supplier</Button>} />
     {error && !addingVendor && !editingVendor && <div className="vendor-error" role="alert"><span>{error}</span><Button type="button" size="xs" variant="ghost" disabled={busy || loadingVendors || loadingModels} onClick={() => void retryData()}>Retry</Button></div>}
     <div className="vendor-workspace">
       <VendorDirectory
@@ -371,8 +374,8 @@ export default function VendorsView({ token, session, refreshWorkspace }: {
       {!loadingVendors && selectedVendor ? <section className="panel vendor-detail-panel" aria-labelledby="vendor-detail-title">
         <div className="vendor-detail-heading"><ProviderLogo provider={connectionIdentity(selectedVendor)} size="large" /><div><h2 id="vendor-detail-title">{selectedVendor.name}</h2><p>{selectedVendor.adapter === 'openrouter' ? 'OpenRouter API' : 'OpenAI-compatible API'}</p></div><span className={'vendor-status-badge' + (selectedVendor.enabled ? ' is-enabled' : '')}>{selectedVendor.enabled ? 'Enabled' : 'Disabled'}</span></div>
         <dl className="vendor-detail-facts"><div><dt>API endpoint</dt><dd title={selectedVendor.api_base}>{selectedVendor.api_base}</dd></div><div><dt>Provider credential</dt><dd>{selectedVendor.has_credential ? <><ShieldCheck size={15} />Stored securely</> : <><KeyRound size={15} />Not configured</>}</dd></div><div><dt>Model routes</dt><dd>{loadingModels ? 'Loading…' : `${models.length} configured`}</dd></div></dl>
-        <div className="vendor-detail-actions"><Button type="button" variant="outline" disabled={busy} onClick={() => { setError(''); setEditingVendor(true); }}><Pencil size={15} />Edit provider</Button><a href={`${import.meta.env.BASE_URL}models/`}>Browse model catalog<ArrowUpRight size={14} /></a></div>
-      </section> : loadingVendors ? <section className="panel vendor-detail-panel vendor-editor-loading" role="status">Loading providers…</section> : <section className="panel vendor-detail-panel"><div className="vendor-empty"><span className="vendor-empty-mark"><Router size={17} /></span><strong>Select a provider</strong><p>Provider credentials stay in the gateway. Add a provider to make upstream models available.</p><Button type="button" onClick={() => setAddingVendor(true)}>Add provider</Button></div></section>}
+        <div className="vendor-detail-actions"><Button type="button" variant="outline" disabled={busy} onClick={() => { setError(''); setEditingVendor(true); }}><Pencil size={15} />Edit supplier</Button><Link to={catalogPath}>Browse model catalog<ArrowUpRight size={14} /></Link></div>
+      </section> : loadingVendors ? <section className="panel vendor-detail-panel vendor-editor-loading" role="status">Loading suppliers…</section> : <section className="panel vendor-detail-panel"><div className="vendor-empty"><span className="vendor-empty-mark"><Router size={17} /></span><strong>Select a supplier</strong><p>Provider credentials stay in the gateway. Add a supplier to make upstream models available.</p><Button type="button" onClick={() => setAddingVendor(true)}>Add supplier</Button></div></section>}
     </div>
     {selectedVendor && !addingVendor && <ModelMappings
       key={selectedVendor.id}
@@ -387,7 +390,12 @@ export default function VendorsView({ token, session, refreshWorkspace }: {
       onSave={saveModel}
       onCheck={alias => checkModel(selectedVendor.id, alias)}
     />}
-    <ModalFrame open={addingVendor || editingVendor} onOpenChange={open => { if (!open && !busy) { setAddingVendor(false); setEditingVendor(false); } }} title={addingVendor ? 'Add a provider' : `Edit ${selectedVendor?.name ?? 'provider'}`} description={addingVendor ? 'Niu stores the upstream credential and routes client requests through this endpoint.' : 'Update the provider endpoint or replace its stored credential.'} className="vendor-dialog">
+    <Dialog open={addingVendor || editingVendor} onOpenChange={open => { if (!open && !busy) { setAddingVendor(false); setEditingVendor(false); } }}>
+      <DialogContent className="niu-modal vendor-dialog" showCloseButton={false}>
+        <DialogHeader className="niu-modal-heading flex-row text-left">
+          <div><DialogTitle>{addingVendor ? 'Add a supplier' : `Edit ${selectedVendor?.name ?? 'provider'}`}</DialogTitle><DialogDescription>{addingVendor ? 'Niu stores the upstream credential and routes client requests through this endpoint.' : 'Update the provider endpoint or replace its stored credential.'}</DialogDescription></div>
+          <DialogClose className="niu-modal-close" aria-label="Close dialog"><X size={18} /></DialogClose>
+        </DialogHeader>
       {error && <p className="error-text" role="alert">{error}</p>}
       {(addingVendor || editingVendor && selectedVendor) && <VendorEditor
         key={addingVendor ? 'new-vendor' : `${selectedVendor!.id}:${selectedVendor!.revision}`}
@@ -396,6 +404,7 @@ export default function VendorsView({ token, session, refreshWorkspace }: {
         onCreate={createVendor}
         onSave={saveVendor}
       />}
-    </ModalFrame>
+    </DialogContent>
+    </Dialog>
   </>;
 }

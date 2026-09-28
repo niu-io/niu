@@ -1,9 +1,12 @@
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { X } from 'lucide-react';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { Activity, ArrowUpRight, Clock3, Database, Plus, RefreshCw, Trash2, Upload, WalletCards } from 'lucide-react';
+import { Activity, ArrowUpRight, ChevronDown, Clock3, Database, Plus, RefreshCw, Trash2, Upload, WalletCards } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dropdown, DropdownOption } from '@/components/ui/dropdown';
-import ModalFrame from '@/components/ModalFrame';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import type { ScopeFocus } from '../types';
 
 type Account = {
@@ -221,29 +224,41 @@ export default function SubscriptionsView({ token, initialScope, onOpenExecution
 
     <section className="subscription-account-panel panel">
         <div className="panel-heading"><div><h2>Registered accounts</h2><p>Metadata only. Credentials remain in the configured secret source.</p></div><span className="subscription-window-total">{data.length} accounts</span></div>
-        {data.length === 0 ? <div className="empty-state"><div className="empty-icon"><Plus size={17} /></div><strong>No supplier accounts</strong><span>Register an account to begin importing quota observations.</span></div> : <div className="subscription-account-list">{data.map(({ account, executions }) => <div className={`subscription-account-row${initialScope?.accountId === account.id ? ' is-focused' : ''}`} key={account.id} data-account-id={account.id} ref={initialScope?.accountId === account.id ? focusedAccountRow : undefined}><span className="subscription-provider-mark"><WalletCards size={16} /></span><div className="subscription-account-name"><strong>{account.provider} <span>·</span> {account.plan}</strong><small>{account.id} <span aria-hidden="true">/</span> {account.authentication_mode.replace('_', ' ')} <span aria-hidden="true">/</span> {account.billing_mode.replace('_', ' ')}</small>{executions.length > 0 && <div className="subscription-related-tasks"><small>Related tasks</small>{executions.map(execution => <button type="button" key={execution.id} onClick={() => onOpenExecution?.(organization, project, execution.id)}>{execution.task_id}<ArrowUpRight size={12} /></button>)}</div>}</div><span className="subscription-account-concurrency">{account.concurrency_limit} concurrent</span><Badge variant={account.health === 'ready' ? 'secondary' : 'outline'}>{account.health.replaceAll('_', ' ')}</Badge></div>)}</div>}
+        {data.length === 0 ? <div className="empty-state"><div className="empty-icon"><Plus size={17} /></div><strong>No supplier accounts</strong><span>Register an account to begin importing quota observations.</span></div> : <div className="subscription-account-list">{data.map(({ account, executions }) => <div className={`subscription-account-row${initialScope?.accountId === account.id ? ' is-focused' : ''}`} key={account.id} data-account-id={account.id} ref={initialScope?.accountId === account.id ? focusedAccountRow : undefined}><span className="subscription-provider-mark"><WalletCards size={16} /></span><div className="subscription-account-name"><strong>{account.provider} <span>·</span> {account.plan}</strong><small>{account.id} <span aria-hidden="true">/</span> {account.authentication_mode.replace('_', ' ')} <span aria-hidden="true">/</span> {account.billing_mode.replace('_', ' ')}</small>{executions.length > 0 && <div className="subscription-related-tasks"><small>Related tasks</small>{executions.map(execution => <Button type="button" key={execution.id} onClick={() => onOpenExecution?.(organization, project, execution.id)}>{execution.task_id}<ArrowUpRight size={12} /></Button>)}</div>}</div><span className="subscription-account-concurrency">{account.concurrency_limit} concurrent</span><Badge variant={account.health === 'ready' ? 'secondary' : 'outline'}>{account.health.replaceAll('_', ' ')}</Badge></div>)}</div>}
       </section>
     </>}
 
-    <ModalFrame open={accountOpen} onOpenChange={setAccountOpen} title="Register account" description="Registration stores metadata and an opaque secret reference. It does not enable inference." className="subscription-dialog">
+    <Dialog open={accountOpen} onOpenChange={setAccountOpen}>
+      <DialogContent className="niu-modal subscription-dialog" showCloseButton={false}>
+        <DialogHeader className="niu-modal-heading flex-row text-left">
+          <div><DialogTitle>Register account</DialogTitle><DialogDescription>Registration stores metadata and an opaque secret reference. It does not enable inference.</DialogDescription></div>
+          <DialogClose className="niu-modal-close" aria-label="Close dialog"><X size={18} /></DialogClose>
+        </DialogHeader>
       <form className="subscription-dialog-form" onSubmit={event => void createAccount(event)}>
         {dialogError && <p role="alert" className="error-text">{dialogError}</p>}
-        <label>Provider<input required maxLength={100} value={accountDraft.provider} onChange={e => setAccountDraft({ ...accountDraft, provider: e.target.value })} placeholder="Provider name" /></label>
-        <label>Plan<input required maxLength={200} value={accountDraft.plan} onChange={e => setAccountDraft({ ...accountDraft, plan: e.target.value })} placeholder="Plan label" /></label>
-        <div className="subscription-dialog-grid"><label>Authentication<Dropdown value={accountDraft.authentication_mode} onChange={e => setAccountDraft({ ...accountDraft, authentication_mode: e.target.value as AccountDraft['authentication_mode'] })}><DropdownOption value="oauth_refresh">OAuth refresh</DropdownOption><DropdownOption value="api_key">API key</DropdownOption></Dropdown></label><label>Billing<Dropdown value={accountDraft.billing_mode} onChange={e => setAccountDraft({ ...accountDraft, billing_mode: e.target.value as AccountDraft['billing_mode'] })}><DropdownOption value="subscription">Subscription</DropdownOption><DropdownOption value="metered_api">Metered API</DropdownOption></Dropdown></label></div>
-        <label>Credential reference<input required value={accountDraft.credential_reference} onChange={e => setAccountDraft({ ...accountDraft, credential_reference: e.target.value })} placeholder="env:PROVIDER_ACCOUNT" autoComplete="off" /><small>Use an env: or secret: reference. Never paste the secret itself.</small></label>
-        <label>Concurrency limit<input required type="number" min="1" max="10000" value={accountDraft.concurrency_limit} onChange={e => setAccountDraft({ ...accountDraft, concurrency_limit: e.target.value })} /></label>
+        <label>Provider<Input required maxLength={100} value={accountDraft.provider} onChange={e => setAccountDraft({ ...accountDraft, provider: e.target.value })} placeholder="Provider name" /></label>
+        <label>Plan<Input required maxLength={200} value={accountDraft.plan} onChange={e => setAccountDraft({ ...accountDraft, plan: e.target.value })} placeholder="Plan label" /></label>
+        <div className="subscription-dialog-grid"><label>Authentication<DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="w-full justify-between font-normal">{accountDraft.authentication_mode === 'oauth_refresh' ? 'OAuth refresh' : 'API key'}<ChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={accountDraft.authentication_mode} onValueChange={value => setAccountDraft({ ...accountDraft, authentication_mode: value as AccountDraft['authentication_mode'] })}><DropdownMenuRadioItem value="oauth_refresh">OAuth refresh</DropdownMenuRadioItem><DropdownMenuRadioItem value="api_key">API key</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></label><label>Billing<DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="w-full justify-between font-normal">{accountDraft.billing_mode === 'subscription' ? 'Subscription' : 'Metered API'}<ChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={accountDraft.billing_mode} onValueChange={value => setAccountDraft({ ...accountDraft, billing_mode: value as AccountDraft['billing_mode'] })}><DropdownMenuRadioItem value="subscription">Subscription</DropdownMenuRadioItem><DropdownMenuRadioItem value="metered_api">Metered API</DropdownMenuRadioItem></DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></label></div>
+        <label>Credential reference<Input required value={accountDraft.credential_reference} onChange={e => setAccountDraft({ ...accountDraft, credential_reference: e.target.value })} placeholder="env:PROVIDER_ACCOUNT" autoComplete="off" /><small>Use an env: or secret: reference. Never paste the secret itself.</small></label>
+        <label>Concurrency limit<Input required type="number" min="1" max="10000" value={accountDraft.concurrency_limit} onChange={e => setAccountDraft({ ...accountDraft, concurrency_limit: e.target.value })} /></label>
         <footer className="execution-import-actions"><Button variant="outline" type="button" onClick={() => setAccountOpen(false)}>Cancel</Button><Button type="submit">Register account</Button></footer>
       </form>
-    </ModalFrame>
+    </DialogContent>
+    </Dialog>
 
-    <ModalFrame open={Boolean(quotaAccount)} onOpenChange={open => { if (!open) setQuotaAccount(''); }} title="Import quota snapshot" description={accountForImport ? `${accountForImport.provider} · ${accountForImport.plan}` : 'Provider-reported window'} className="subscription-dialog">
+    <Dialog open={Boolean(quotaAccount)} onOpenChange={open => { if (!open) setQuotaAccount(''); }}>
+      <DialogContent className="niu-modal subscription-dialog" showCloseButton={false}>
+        <DialogHeader className="niu-modal-heading flex-row text-left">
+          <div><DialogTitle>Import quota snapshot</DialogTitle><DialogDescription>{accountForImport ? `${accountForImport.provider} · ${accountForImport.plan}` : 'Provider-reported window'}</DialogDescription></div>
+          <DialogClose className="niu-modal-close" aria-label="Close dialog"><X size={18} /></DialogClose>
+        </DialogHeader>
       <form className="subscription-dialog-form" onSubmit={event => void importQuota(event)}>
         {dialogError && <p role="alert" className="error-text">{dialogError}</p>}
-        <label>Quota observation JSON<textarea required spellCheck={false} value={quotaDraft} onChange={e => setQuotaDraft(e.target.value)} /></label>
+        <label>Quota observation JSON<Textarea required spellCheck={false} value={quotaDraft} onChange={e => setQuotaDraft(e.target.value)} /></label>
         <p className="execution-import-privacy">Use schema version 1. Report the provider's unit, observation time, validity and reset time. Raw credentials and content do not belong in this record; duplicate samples are idempotent and conflicting replays are rejected.</p>
         <footer className="execution-import-actions"><Button variant="outline" type="button" onClick={() => setQuotaAccount('')}>Cancel</Button><Button type="submit"><Upload />Import snapshot</Button></footer>
       </form>
-    </ModalFrame>
+    </DialogContent>
+    </Dialog>
   </>;
 }

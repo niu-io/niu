@@ -115,10 +115,10 @@ describe('vendor administration workflow', () => {
     const refreshWorkspace = vi.fn(async () => {});
     render(<VendorsView token="installation-token" session={installationSession} refreshWorkspace={refreshWorkspace} />);
 
-    expect(screen.getByRole('heading', { name: 'Provider configuration', level: 1 })).toBeTruthy();
-    expect(await screen.findByRole('heading', { name: 'Providers', level: 2 })).toBeTruthy();
-    await user.click((await screen.findAllByRole('button', { name: 'Add provider' }))[0]);
-    await user.type(await screen.findByLabelText('Provider name'), 'OpenRouter primary');
+    expect(screen.getByRole('heading', { name: 'Suppliers', level: 1 })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Suppliers', level: 2 })).toBeTruthy();
+    await user.click((await screen.findAllByRole('button', { name: 'Add supplier' }))[0]);
+    await user.type(await screen.findByLabelText('Supplier name'), 'OpenRouter primary');
     expect(screen.getByLabelText('Provider').textContent).toBe('OpenRouter');
     expect((screen.getByLabelText('API base URL') as HTMLInputElement).value).toBe('https://openrouter.ai/api/v1');
     await user.type(screen.getByLabelText('Provider API key'), 'vendor-secret-once');
@@ -172,11 +172,11 @@ describe('vendor administration workflow', () => {
     expect(Object.hasOwn(updateModel?.body ?? {}, 'pricing')).toBe(false);
     expect(refreshWorkspace).toHaveBeenCalledTimes(3);
 
-    await user.click(screen.getByRole('button', { name: 'Edit provider' }));
+    await user.click(screen.getByRole('button', { name: 'Edit supplier' }));
     await user.type(screen.getByLabelText('Replace provider API key (optional)'), 'vendor-secret-rotation');
     await user.click(screen.getByRole('checkbox', { name: /Enabled for inference/ }));
     await user.click(screen.getByRole('button', { name: 'Review disable' }));
-    expect(await screen.findByRole('alertdialog', { name: 'Disable this provider?' })).toBeTruthy();
+    expect(await screen.findByRole('alertdialog', { name: 'Disable this supplier?' })).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Confirm disable' }));
 
     const updateVendor = api.calls.find(call => call.path === '/admin/v1/vendors/vendor-1' && call.method === 'PUT');
@@ -198,8 +198,8 @@ describe('vendor administration workflow', () => {
     render(<VendorsView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
 
     await screen.findByRole('heading', { name: openRouter.name });
-    await user.click(screen.getByRole('button', { name: 'Add provider' }));
-    await user.type(screen.getByLabelText('Provider name'), 'OpenAI fallback');
+    await user.click(screen.getByRole('button', { name: 'Add supplier' }));
+    await user.type(screen.getByLabelText('Supplier name'), 'OpenAI fallback');
     await user.click(screen.getByLabelText('Provider'));
     await user.click(screen.getByRole('menuitemradio', { name: 'OpenAI' }));
     await user.type(screen.getByLabelText('Provider API key'), 'second-vendor-key');
@@ -267,7 +267,7 @@ describe('vendor administration workflow', () => {
     const user = userEvent.setup();
     render(<VendorsView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
 
-    await user.click(await screen.findByRole('button', { name: 'Edit provider' }));
+    await user.click(await screen.findByRole('button', { name: 'Edit supplier' }));
     await user.type(screen.getByLabelText('Replace provider API key (optional)'), 'retry-this-credential');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
@@ -280,14 +280,14 @@ describe('vendor administration workflow', () => {
     const user = userEvent.setup();
     const view = render(<VendorsView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
 
-    await user.click(await screen.findByRole('button', { name: 'Edit provider' }));
+    await user.click(await screen.findByRole('button', { name: 'Edit supplier' }));
     const credential = await screen.findByLabelText('Replace provider API key (optional)');
     await user.type(credential, 'temporary-draft-only');
     view.rerender(<VendorsView token="installation-token" session={scopedOwnerSession} refreshWorkspace={async () => {}} />);
     expect(screen.getByRole('heading', { name: 'Installation access required' })).toBeTruthy();
 
     view.rerender(<VendorsView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
-    await user.click(await screen.findByRole('button', { name: 'Edit provider' }));
+    await user.click(await screen.findByRole('button', { name: 'Edit supplier' }));
     const resetInput = await screen.findByLabelText('Replace provider API key (optional)') as HTMLInputElement;
     expect(resetInput.value).toBe('');
   });

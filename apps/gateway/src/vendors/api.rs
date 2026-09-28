@@ -331,6 +331,7 @@ pub async fn catalog(
                 "id": id,
                 "name": name,
                 "context_length": model.get("context_length").and_then(Value::as_u64),
+                "catalog": crate::catalog_metadata::CatalogMetadata::from_provider(model),
             }))
         })
         .collect::<Vec<_>>();
@@ -570,4 +571,12 @@ pub async fn upsert_model(
         .await
         .map_err(ApiError::from_store)?;
     Ok(Json(json!({"data":model})))
+}
+
+/// Explicit metadata refresh; discovery GET stays read-only.
+pub async fn refresh_catalog(State(state): State<AppState>, Path(id): Path<Uuid>, headers: HeaderMap) -> Result<Json<Value>, ApiError> {
+    let Json(result) = catalog(State(state.clone()), Path(id), headers).await?;
+    let entries = result["data"].as_array().into_iter().flatten().filter_map(|entry| Some((entry["id"].as_str()?.to_owned(), entry["catalog"].clone()))).collect();
+    let updated = state.store.refresh_vendor_catalog(id, entries).await.map_err(ApiError::from_store)?;
+    Ok(Json(json!({"updated": updated})))
 }

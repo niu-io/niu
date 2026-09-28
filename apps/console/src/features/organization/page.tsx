@@ -1,3 +1,5 @@
+import { X } from 'lucide-react';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import { ArrowUpRight, Plus, UsersRound } from 'lucide-react';
@@ -5,7 +7,6 @@ import ConnectGate from '@/app/ConnectGate';
 import type { ConsoleContext } from '@/app/console-context';
 import { workspacePathSegment } from '@/app/workspace-route';
 import PageHeader from '@/components/PageHeader';
-import ModalFrame from '@/components/ModalFrame';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -37,7 +38,7 @@ function OrganizationSettings({ context }: { context: ConsoleContext }) {
   }
 
   return <div className="organization-settings">
-    <PageHeader title="Organization settings" eyebrow={organization?.name} />
+    <PageHeader title="Organization settings" />
     {!organization ? <section className="panel"><p>No organization is available. Create a workspace to get started.</p></section> : <>
       <section className="organization-settings-card" aria-labelledby="organization-details-title">
         <h2 id="organization-details-title">General</h2>
@@ -51,9 +52,15 @@ function OrganizationSettings({ context }: { context: ConsoleContext }) {
         <div className="organization-section-heading"><div><h2 id="organization-access-title">People & access</h2></div>{session?.permissions.manage_operators && <Button asChild variant="outline"><Link to={`${workspacePath}/operators`}><UsersRound size={16} />Manage access</Link></Button>}</div>
         {!session?.permissions.manage_operators && <p>Contact an organization administrator to change access.</p>}
       </section>
-      <ModalFrame open={createOpen} onOpenChange={open => { if (!saving) setCreateOpen(open); }} title="Create a workspace" description={`In ${organization.name}`}>
+      <Dialog open={createOpen} onOpenChange={open => { if (!saving) setCreateOpen(open); }}>
+      <DialogContent className="niu-modal" showCloseButton={false}>
+        <DialogHeader className="niu-modal-heading flex-row text-left">
+          <div><DialogTitle>Create a workspace</DialogTitle><DialogDescription>{`In ${organization.name}`}</DialogDescription></div>
+          <DialogClose className="niu-modal-close" aria-label="Close dialog"><X size={18} /></DialogClose>
+        </DialogHeader>
         <form onSubmit={submit} className="organization-create-form"><Label htmlFor="organization-workspace-name">Workspace name</Label><Input id="organization-workspace-name" required maxLength={200} value={name} onChange={event => setName(event.target.value)} autoFocus placeholder="e.g. Product experiments" />{error && <p role="alert" className="error-text">{error}</p>}<Button type="submit" disabled={saving || !name.trim()}>{saving ? 'Creating…' : 'Create workspace'}</Button></form>
-      </ModalFrame>
+      </DialogContent>
+    </Dialog>
     </>}
   </div>;
 }

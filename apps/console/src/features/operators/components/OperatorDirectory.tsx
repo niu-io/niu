@@ -31,7 +31,7 @@ export default function OperatorDirectory({ operators, organizations, projects, 
       : operators.length === 0
         ? <div className="operator-empty"><span className="operator-empty-icon"><UsersRound size={19} /></span><strong>No operators in this scope</strong><p>Create a scoped operator to give someone access to Niu.</p><Button type="button" variant="outline" disabled={disabled} onClick={onAdd}><Plus size={15} />Add first operator</Button></div>
         : <div className="operator-list">
-          {operators.map(operator => <button
+          {operators.map(operator => <Button
             type="button"
             key={operator.id}
             className={'operator-entry' + (selectedId === operator.id ? ' is-selected' : '')}
@@ -43,7 +43,7 @@ export default function OperatorDirectory({ operators, organizations, projects, 
             <span className="operator-entry-main"><strong>{operator.name}</strong><small>{displayScope(operator, organizations, projects)}</small></span>
             <span className={'operator-role-chip role-' + operator.role}>{roleLabel(operator.role)}</span>
             <span className={'operator-status-mark' + (operator.revoked ? ' is-revoked' : '')}>{operator.revoked ? 'Revoked' : 'Active'}</span>
-          </button>)}
+          </Button>)}
         </div>}
   </section>;
 }

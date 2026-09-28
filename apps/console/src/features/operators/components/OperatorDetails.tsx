@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Ban, KeyRound } from 'lucide-react';
+import { Ban, ChevronDown, KeyRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dropdown, DropdownOption } from '@/components/ui/dropdown';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatExpiry, type NamedResource, type Operator, type OperatorAuditEvent, type OperatorSession } from '../api';
 import type { ConfirmTarget, CredentialView } from './operator-types';
@@ -85,9 +85,11 @@ export default function OperatorDetails({ operator, organizations, projects, ses
         ? <span className="operator-revoked-note">Operator revoked</span>
         : <div className="operator-issue-controls">
           <Label htmlFor="new-session-expiry">Expires in
-            <Dropdown id="new-session-expiry" size="sm" disabled={busy} value={expiryDays} onChange={event => setExpiryDays(Number(event.target.value))}>
-              {expiryChoices.map(item => <DropdownOption key={item.days} value={item.days}>{item.label}</DropdownOption>)}
-            </Dropdown>
+            <DropdownMenu><DropdownMenuTrigger asChild><Button id="new-session-expiry" type="button" variant="outline" size="sm" className="w-full justify-between font-normal" disabled={busy}>{expiryChoices.find(item => item.days === expiryDays)?.label}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={String(expiryDays)} onValueChange={value => setExpiryDays(Number(value))}>
+                {expiryChoices.map(item => <DropdownMenuRadioItem key={item.days} value={String(item.days)}>{item.label}</DropdownMenuRadioItem>)}
+              </DropdownMenuRadioGroup></DropdownMenuContent>
+            </DropdownMenu>
           </Label>
           <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => onIssueSession(expiryDays * 86400)}><KeyRound size={14} />Issue new session</Button>
         </div>}

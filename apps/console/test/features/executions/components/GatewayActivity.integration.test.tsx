@@ -68,7 +68,7 @@ describe('gateway activity', () => {
     const user = userEvent.setup();
     const { container } = render(<MemoryRouter><GatewayActivity token="admin-session" models={['fast']} initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} /></MemoryRouter>);
 
-    expect(await screen.findByText('attempt-new')).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'View details' })).toBeTruthy();
     expect(screen.getByText('1 loaded')).toBeTruthy();
     expect(container.querySelector('.gateway-activity-summary')).toBeNull();
     expect(screen.queryByText('Niu base URL')).toBeNull();
@@ -79,7 +79,15 @@ describe('gateway activity', () => {
 
     await user.click(screen.getByRole('button', { name: 'Load older requests' }));
 
-    expect(await screen.findByText('attempt-old')).toBeTruthy();
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'View details' })).toHaveLength(2));
+    await user.click(screen.getAllByRole('button', { name: 'View details' })[0]);
+    expect(await screen.findByRole('dialog')).toBeTruthy();
+    expect(screen.getByText('attempt-new')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Previous request' }).hasAttribute('disabled')).toBe(true);
+    await user.click(screen.getByRole('button', { name: 'Next request' }));
+    expect(screen.getByText('attempt-old')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Next request' }).hasAttribute('disabled')).toBe(true);
+    await user.keyboard('{Escape}');
     expect(screen.getByText('2 loaded')).toBeTruthy();
     expect(calls.some(call => call.path.endsWith('/requests?limit=100&after=attempt-new'))).toBe(true);
     expect(screen.queryByRole('button', { name: 'Load older requests' })).toBeNull();

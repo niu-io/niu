@@ -1,11 +1,13 @@
+import { Table as ShadcnTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { X } from "lucide-react";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useEffect, useState, type FormEvent } from "react";
-import { ReceiptText, RefreshCw } from "lucide-react";
+import { ChevronDown, ReceiptText, RefreshCw } from "lucide-react";
 import { useConsoleContext } from "@/app/console-context";
 import PageHeader from "@/components/PageHeader";
-import ModalFrame from "@/components/ModalFrame";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dropdown, DropdownOption } from "@/components/ui/dropdown";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { money } from "@/lib/money";
 import { request } from "@/features/vendors/api";
 type Tariff = {
@@ -318,11 +320,11 @@ function BillingView({
                 </p>
               </section>
             )}
-            <p className="provider-business-note">
+            {BigInt(data.unresolved) > 0n && <p className="provider-business-note">
               {BigInt(data.unresolved).toLocaleString()} priced requests await
               billing reconciliation. Affected periods cannot be invoiced until
               usage is resolved.
-            </p>
+            </p>}
             {BigInt(data.unpriced) > 0n && (
               <p className="provider-business-note">
                 {BigInt(data.unpriced).toLocaleString()} requests had no selling
@@ -339,34 +341,34 @@ function BillingView({
               </div>
               {data.invoices.length ? (
                 <div className="table-wrap">
-                  <table className="provider-ledger">
-                    <thead>
-                      <tr>
-                        <th>Billing period</th>
-                        <th>Invoice</th>
-                        <th>Total</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                  <ShadcnTable className="provider-ledger">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Billing period</TableHead>
+                        <TableHead>Invoice</TableHead>
+                        <TableHead>Total</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {data.invoices.map((invoice) => (
-                        <tr key={invoice.id}>
-                          <td>
+                        <TableRow key={invoice.id}>
+                          <TableCell>
                             {day(invoice.from_ms)} – {day(invoice.to_ms - 1)}
-                          </td>
-                          <td>
+                          </TableCell>
+                          <TableCell>
                             <code>{invoice.id.slice(0, 8)}</code>
-                          </td>
-                          <td>
+                          </TableCell>
+                          <TableCell>
                             {money(invoice.amount_nanos, invoice.currency)}
-                          </td>
-                          <td>
+                          </TableCell>
+                          <TableCell>
                             {invoice.status === "paid"
                               ? "Payment recorded"
                               : "Issued · unpaid"}
-                          </td>
-                          <td>
+                          </TableCell>
+                          <TableCell>
                             <div className="billing-row-actions">
                               <Button
                                 size="sm"
@@ -385,11 +387,11 @@ function BillingView({
                                 </Button>
                               )}
                             </div>
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       ))}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </ShadcnTable>
                 </div>
               ) : (
                 <div className="provider-chart-empty">
@@ -410,30 +412,30 @@ function BillingView({
               </div>
               {data.tariffs.length ? (
                 <div className="table-wrap">
-                  <table className="provider-ledger">
-                    <thead>
-                      <tr>
-                        <th>Model</th>
-                        <th>Input</th>
-                        <th>Output</th>
-                        <th>Rate revision</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                  <ShadcnTable className="provider-ledger">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Model</TableHead>
+                        <TableHead>Input</TableHead>
+                        <TableHead>Output</TableHead>
+                        <TableHead>Rate revision</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {data.tariffs.map((tariff) => (
-                        <tr key={tariff.model_alias}>
-                          <td>{tariff.model_alias}</td>
-                          <td>{money(tariff.prompt_rate, tariff.currency)}</td>
-                          <td>
+                        <TableRow key={tariff.model_alias}>
+                          <TableCell>{tariff.model_alias}</TableCell>
+                          <TableCell>{money(tariff.prompt_rate, tariff.currency)}</TableCell>
+                          <TableCell>
                             {money(tariff.completion_rate, tariff.currency)}
-                          </td>
-                          <td>
+                          </TableCell>
+                          <TableCell>
                             <code>{tariff.revision.slice(0, 8)}</code>
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       ))}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </ShadcnTable>
                 </div>
               ) : (
                 <p className="provider-panel-note">
@@ -450,28 +452,25 @@ function BillingView({
           </>
         )
       )}
-      <ModalFrame
-        open={Boolean(dialog)}
-        onOpenChange={(value) => {
+      <Dialog open={Boolean(dialog)} onOpenChange={(value) => {
           if (!value && !busy) setDialog("");
-        }}
-        title={
+        }}>
+      <DialogContent className={`niu-modal ${dialog === "details" ? "billing-detail-dialog" : "vendor-dialog"}`} showCloseButton={false}>
+        <DialogHeader className="niu-modal-heading flex-row text-left">
+          <div><DialogTitle>{
           {
             tariff: "Set customer selling rates",
             invoice: "Issue a usage invoice",
             payment: "Record a confirmed customer payment",
             details: "Invoice details",
           }[dialog] ?? ""
-        }
-        description={
+        }</DialogTitle><DialogDescription>{
           dialog === "details" && selected
             ? `Invoice ${selected.id}`
             : "Workspace billing"
-        }
-        className={
-          dialog === "details" ? "billing-detail-dialog" : "vendor-dialog"
-        }
-      >
+        }</DialogDescription></div>
+          <DialogClose className="niu-modal-close" aria-label="Close dialog"><X size={18} /></DialogClose>
+        </DialogHeader>
         {error && (
           <p role="alert" className="error-text">
             {error}
@@ -491,36 +490,36 @@ function BillingView({
             )}
             {lines ? (
               <div className="table-wrap">
-                <table className="provider-ledger">
-                  <thead>
-                    <tr>
-                      <th>Model / rate revision</th>
-                      <th>Requests</th>
-                      <th>Input / output tokens</th>
-                      <th>Rates / 1M</th>
-                      <th>Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                <ShadcnTable className="provider-ledger">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Model / rate revision</TableHead>
+                      <TableHead>Requests</TableHead>
+                      <TableHead>Input / output tokens</TableHead>
+                      <TableHead>Rates / 1M</TableHead>
+                      <TableHead>Amount</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {lines.map((line) => (
-                      <tr key={line.revision}>
-                        <td>
+                      <TableRow key={line.revision}>
+                        <TableCell>
                           {line.model_alias}
                           <small>{line.revision}</small>
-                        </td>
-                        <td>{line.requests}</td>
-                        <td>
+                        </TableCell>
+                        <TableCell>{line.requests}</TableCell>
+                        <TableCell>
                           {line.prompt_tokens} / {line.completion_tokens}
-                        </td>
-                        <td>
+                        </TableCell>
+                        <TableCell>
                           {money(line.prompt_rate, line.currency)} /{" "}
                           {money(line.completion_rate, line.currency)}
-                        </td>
-                        <td>{money(line.amount_nanos, line.currency)}</td>
-                      </tr>
+                        </TableCell>
+                        <TableCell>{money(line.amount_nanos, line.currency)}</TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </ShadcnTable>
               </div>
             ) : (
               <p role="status">Loading line items…</p>
@@ -540,17 +539,11 @@ function BillingView({
               <>
                 <label>
                   Model
-                  <Dropdown
-                    aria-label="Customer tariff model"
-                    value={model}
-                    onChange={(event) => selectTariff(event.target.value)}
-                  >
-                    {models.map((item) => (
-                      <DropdownOption value={item} key={item}>
-                        {item}
-                      </DropdownOption>
-                    ))}
-                  </Dropdown>
+                  <DropdownMenu><DropdownMenuTrigger asChild><Button aria-label="Customer tariff model" variant="outline" className="w-full justify-between font-normal">{model || "Choose a model"}<ChevronDown size={16} /></Button></DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={model} onValueChange={selectTariff}>
+                      {models.map(item => <DropdownMenuRadioItem value={item} key={item}>{item}</DropdownMenuRadioItem>)}
+                    </DropdownMenuRadioGroup></DropdownMenuContent>
+                  </DropdownMenu>
                 </label>
                 <label>
                   Input price per million tokens
@@ -650,7 +643,8 @@ function BillingView({
             </Button>
           </form>
         )}
-      </ModalFrame>
+      </DialogContent>
+    </Dialog>
     </>
   );
 }

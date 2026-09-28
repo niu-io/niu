@@ -30,8 +30,13 @@ pub struct WorkspaceInput {
 #[derive(Deserialize)]
 pub struct KeyInput {
     name: String,
+    #[serde(default = "all_model_aliases")]
     allowed_models: Vec<String>,
     ttl_seconds: i64,
+}
+
+fn all_model_aliases() -> Vec<String> {
+    vec!["*".to_owned()]
 }
 
 #[derive(Deserialize)]
@@ -295,7 +300,10 @@ pub async fn issue_key(
     )
     .await?;
     let models = crate::vendors::effective_models(&state).await?;
-    if input.allowed_models.iter().any(|m| !models.contains_key(m)) {
+    let all_models = input.allowed_models.len() == 1 && input.allowed_models[0] == "*";
+    if (!all_models && input.allowed_models.iter().any(|m| !models.contains_key(m)))
+        || (input.allowed_models.iter().any(|model| model == "*") && !all_models)
+    {
         return Err(ApiError::invalid_request("Every granted model must exist"));
     }
     let issued = state

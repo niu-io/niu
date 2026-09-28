@@ -73,7 +73,7 @@ paths:
     get:
       operationId: listPublicCatalogModels
       summary: List model aliases explicitly published by the gateway operator
-      description: Returns only aliases with public_catalog enabled. Provider names, upstream identifiers, endpoints, credentials and prices are omitted.
+      description: Returns only aliases with public_catalog enabled. Provider names, upstream identifiers, endpoints and credentials are omitted. Public catalog metadata includes provider-advertised prices, which do not configure billing.
       responses:
         '200':
           description: Public model aliases and declared capabilities.
@@ -317,7 +317,7 @@ paths:
     get:
       operationId: listProviderModelCatalog
       summary: Discover models available from an installation vendor
-      description: Makes a bounded GET to the configured provider /models endpoint using the encrypted server-side credential. No inference request is sent. Redirects are blocked, the response body is capped at 2 MiB, and only model ID, display name, and context length are returned. Provider credentials and raw response data are never returned.
+      description: Makes a bounded GET to the configured provider /models endpoint using the encrypted server-side credential. No inference request is sent. Redirects are blocked, the response body is capped at 2 MiB, and only allowlisted model IDs and catalog metadata (display name, description, context and output limits, modalities, and advertised USD token prices) are returned. Provider credentials and raw response data are never returned.
       security: [{ adminBearerAuth: [] }]
       responses:
         '200':
@@ -335,6 +335,23 @@ paths:
         '403': { description: Installation administrator required. }
         '404': { description: Vendor does not exist. }
         '502': { description: Provider rejected the credential or returned an invalid catalog or request error. }
+    post:
+      operationId: refreshProviderCatalogMetadata
+      summary: Refresh descriptive metadata for existing vendor model mappings
+      description: Fetches the bounded provider catalog and updates matching upstream IDs only. Preserves aliases, routing, capability declarations and billing prices. Increments revisions when metadata changes. Missing provider models are retained.
+      security: [{ adminBearerAuth: [] }]
+      responses:
+        '200':
+          description: Number of updated mappings.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  updated: { type: integer, minimum: 0 }
+        '403': { description: Installation administrator required. }
+        '404': { description: Vendor does not exist. }
+        '502': { description: Provider catalog unavailable or invalid. }
   /admin/v1/vendors/{id}/check:
     parameters:
       - name: id
@@ -1575,11 +1592,25 @@ paths:
         '404': { description: Record absent from this project. }
 components:
   schemas:
+    CatalogMetadata:
+      type: object
+      additionalProperties: false
+      description: Descriptive provider metadata, stored under capabilities.catalog on vendor mappings and exposed as catalog on model listings. Advertised USD per-token prices are separate from billing rates. Missing values mean unknown, never zero.
+      properties:
+        name: { type: [string, 'null'], maxLength: 300 }
+        description: { type: [string, 'null'], maxLength: 12000 }
+        context_length: { type: [integer, 'null'], minimum: 1 }
+        max_completion_tokens: { type: [integer, 'null'], minimum: 1 }
+        input_modalities: { type: array, maxItems: 16, items: { type: string, maxLength: 40 } }
+        output_modalities: { type: array, maxItems: 16, items: { type: string, maxLength: 40 } }
+        input_price: { type: [string, 'null'], maxLength: 64, description: Advertised USD per input token. }
+        output_price: { type: [string, 'null'], maxLength: 64, description: Advertised USD per output token. }
     ProviderCatalogModel:
       type: object
       additionalProperties: false
-      required: [id, name, context_length]
+      required: [id, name, context_length, catalog]
       properties:
+        catalog: { $ref: '#/components/schemas/CatalogMetadata' }
         id: { type: string, minLength: 1, maxLength: 200, description: Provider model ID used for inference routing. }
         name: { type: string, minLength: 1, maxLength: 300, description: Display name supplied by the provider. }
         context_length: { type: [integer, 'null'], minimum: 1 }
@@ -2394,7 +2425,7 @@ components:
         organization_name: { type: string }
     KeyInput:
       type: object
-      required: [name, allowed_models, ttl_seconds]
+      required: [name, ttl_seconds]
       properties:
         name:
           type: string
@@ -2403,6 +2434,8 @@ components:
         allowed_models:
           type: array
           minItems: 1
+          default: ['*']
+          description: Deprecated. Omit to grant every model available to this workspace; explicit aliases are retained for compatibility. The wildcard must be the only entry when used.
           items:
             type: string
         ttl_seconds:

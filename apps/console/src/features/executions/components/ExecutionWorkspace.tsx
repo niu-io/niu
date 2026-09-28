@@ -1,10 +1,12 @@
+import { Textarea } from '@/components/ui/textarea';
+import { X } from 'lucide-react';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Activity, ArrowRight, RefreshCw, Search, Trash2, Upload } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import ModalFrame from '@/components/ModalFrame';
 import { aggregateExternalUsage, executionMetrics, mergeExecutionRecords, spanDuration, timelineRows, type ExecutionAccountLink, type ExecutionCohort, type ExecutionRecordV1 } from '@/features/executions/utils';
 import ExecutionCohortPanel from '@/features/executions/components/ExecutionCohortPanel';
 import TraceRow from '@/features/executions/components/TraceRow';
@@ -266,10 +268,10 @@ export default function ExecutionWorkspace({ token, initialScope, onOpenSubscrip
         </label>
         {loading && <p role="status" className="execution-loading">Loading task records…</p>}
         <div className="execution-run-list">
-          {filteredRecords.map(group => <button type="button" key={group.key} className="execution-run" aria-current={selectedGroupKey === group.key ? 'true' : undefined} onClick={() => void openTask(group)}>
+          {filteredRecords.map(group => <Button type="button" key={group.key} className="execution-run" aria-current={selectedGroupKey === group.key ? 'true' : undefined} onClick={() => void openTask(group)}>
             <span className="execution-run-top"><strong title={group.taskId}>{taskLabel(group.taskId, group.source)}</strong><Badge variant={group.coverage === 'complete' ? 'secondary' : 'outline'}>{group.coverage}</Badge></span>
             <span className="execution-run-meta">{group.source} <span aria-hidden="true">/</span> {group.records.length} {group.records.length === 1 ? 'event' : 'events'} loaded <span aria-hidden="true">/</span> {formatDate(group.importedAt)}</span>
-          </button>)}
+          </Button>)}
         </div>
         {!loading && filteredRecords.length === 0 && <div className="execution-empty-list"><Activity size={20} /><strong>{search ? 'No matching tasks' : 'No task evidence yet'}</strong><span>{search ? 'Try another task, source, or record ID.' : 'Connect an agent or add a task record to inspect its work.'}</span>{!search && <Button variant="outline" size="sm" disabled={!project} onClick={() => setImportOpen(true)}><Upload />Add task evidence</Button>}</div>}
         {nextCursor && <div className="execution-pagination"><Button variant="outline" disabled={loading} onClick={() => setCursor(nextCursor)}>Load more<ArrowRight /></Button></div>}
@@ -355,13 +357,19 @@ export default function ExecutionWorkspace({ token, initialScope, onOpenSubscrip
       </section>
     </div>}
 
-    <ModalFrame open={importOpen} onOpenChange={setImportOpen} title="Add task evidence" description="Import one task record in Niu’s version 1 metadata format." className="execution-import-dialog">
+    <Dialog open={importOpen} onOpenChange={setImportOpen}>
+      <DialogContent className="niu-modal execution-import-dialog" showCloseButton={false}>
+        <DialogHeader className="niu-modal-heading flex-row text-left">
+          <div><DialogTitle>Add task evidence</DialogTitle><DialogDescription>Import one task record in Niu’s version 1 metadata format.</DialogDescription></div>
+          <DialogClose className="niu-modal-close" aria-label="Close dialog"><X size={18} /></DialogClose>
+        </DialogHeader>
       <form className="execution-import-form" onSubmit={event => void importRecord(event)}>
-        <Label htmlFor="execution-json">Task record JSON<textarea id="execution-json" rows={15} value={draft} onChange={e => setDraft(e.target.value)} placeholder={'Paste one task record from Niu’s v1 metadata contract'} required autoFocus /></Label>
+        <Label htmlFor="execution-json">Task record JSON<Textarea id="execution-json" rows={15} value={draft} onChange={e => setDraft(e.target.value)} placeholder={'Paste one task record from Niu’s v1 metadata contract'} required autoFocus /></Label>
         <p className="execution-import-privacy">Prompts, responses, code, tool output, and credentials are not accepted. Replaying identical source and record IDs is safe.</p>
         {error && importOpen && <p role="alert" className="error-text">{error}</p>}
         <div className="execution-import-actions"><Button type="button" variant="outline" onClick={() => setImportOpen(false)}>Cancel</Button><Button type="submit" disabled={!draft.trim()}><Upload />Import execution</Button></div>
       </form>
-    </ModalFrame>
+    </DialogContent>
+    </Dialog>
   </>;
 }

@@ -101,7 +101,7 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/admin/v1/vendors", get(crate::vendors::list).post(crate::vendors::create))
         .route("/admin/v1/vendors/{id}", axum::routing::put(crate::vendors::update))
         .route("/admin/v1/vendors/{id}/models", get(crate::vendors::list_models).post(crate::vendors::upsert_model))
-        .route("/admin/v1/vendors/{id}/catalog", get(crate::vendors::catalog))
+        .route("/admin/v1/vendors/{id}/catalog", get(crate::vendors::catalog).post(crate::vendors::refresh_catalog))
         .route("/admin/v1/vendors/{id}/check", axum::routing::post(crate::vendors::check_model))
         .route(
             "/admin/v1/organizations/{organization}/projects/{project}/accounts",
@@ -258,6 +258,7 @@ async fn catalog_models(State(state): State<AppState>) -> Result<Json<Value>, Ap
                 "id": name,
                 "object": "model",
                 "owned_by": "niu",
+                "catalog": model.catalog,
                 "capabilities": {
                     "chat_completions": true,
                     "streaming": model.protocol().supports_streaming(),
@@ -296,6 +297,7 @@ async fn admin_models(
                 "provider": model.provider,
                 "upstream_model": model.upstream_model,
                 "public_catalog": model.public_catalog,
+                    "catalog": model.catalog,
                     "supports_embeddings": model.supports_embeddings,
                     "supports_embedding_dimensions": model.supports_embedding_dimensions,
                     "supports_embedding_base64": model.supports_embedding_base64,
@@ -308,6 +310,7 @@ async fn admin_models(
                 json!({
                     "id": name,
                     "public_catalog": model.public_catalog,
+                    "catalog": model.catalog,
                     "capabilities": capabilities
                 })
             }

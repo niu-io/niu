@@ -48,7 +48,7 @@ With the gateway running, use your admin bearer token to:
 
 1. `POST /admin/v1/organizations` with `{"name":"My organization"}`.
 2. `POST /admin/v1/organizations/{organization_id}/projects` with `{"name":"My project"}`.
-3. `POST /admin/v1/organizations/{organization_id}/projects/{project_id}/keys` with `{"name":"Application","allowed_models":["fast"],"ttl_seconds":86400}`.
+3. `POST /admin/v1/organizations/{organization_id}/projects/{project_id}/keys` with `{"name":"Application","ttl_seconds":86400}`. The key can call every model route available in the workspace.
 
 Each POST returns `201`. Use the returned IDs in the next path. The key response returns its `token` once; store it securely and use it as the bearer token for `/v1/models` and `/v1/chat/completions`. Every request requires `Content-Type: application/json` when sending a JSON body. Delete the key at the same keys path with `/{key_id}` appended to revoke it (`204`).
 

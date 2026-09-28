@@ -7,14 +7,15 @@
     "config": "",
     "css": "src/styles.css",
     "baseColor": "neutral",
-    "cssVariables": true
+    "cssVariables": true,
+    "prefix": ""
   },
   "iconLibrary": "lucide",
   "aliases": {
     "components": "@/components",
-    "utils": "@/lib/utils",
     "ui": "@/components/ui",
     "lib": "@/lib",
+    "utils": "@/lib/utils",
     "hooks": "@/hooks"
   }
 }

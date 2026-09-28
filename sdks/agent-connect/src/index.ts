@@ -41,7 +41,7 @@ export const aiderConnector: ConnectorManifestV1 = {
     subscriptionAuthentication: 'not_supported',
     captured: ['Niu gateway request and attempt activity', 'Provider-reported usage when available'],
     notCaptured: ['Aider tool calls', 'Aider retries as a task-level sequence', 'Validation or accepted outcomes'],
-    optIns: ['The user chooses a workspace, project, model alias, and project-scoped Niu key'],
+    optIns: ['The user chooses a workspace, model alias, and workspace-scoped Niu key'],
     documentation: ['https://aider.chat/docs/llms/openai-compat.html'],
   }],
 };
@@ -62,7 +62,7 @@ export const claudeCodeConnector: ConnectorManifestV1 = {
     subscriptionAuthentication: 'supported',
     captured: ['Opt-in API request and error events', 'Model and usage estimates when emitted', 'Tool timing and status metadata'],
     notCaptured: ['Gateway traffic', 'Prompt or response content', 'Tool arguments or output', 'Validator or human acceptance unless separately recorded'],
-    optIns: ['The user explicitly enables OpenTelemetry and selects the Niu workspace/project'],
+    optIns: ['The user explicitly enables OpenTelemetry and selects the Niu workspace'],
     documentation: ['https://code.claude.com/docs/en/monitoring-usage'],
   }],
 };
@@ -101,7 +101,7 @@ export type AiderInvocation = {
 
 /** Build a session-only invocation. The Niu key is placed only in child env, never argv or a file. */
 export function createAiderInvocation(input: AiderInvocationInput): AiderInvocation {
-  if (!input.apiKey.trim()) throw new Error('A Niu project key is required');
+  if (!input.apiKey.trim()) throw new Error('A Niu workspace key is required');
   const gatewayBaseURL = validateGatewayBaseURL(input.gatewayBaseURL);
   const modelAlias = validateModelAlias(input.modelAlias);
   const model = `openai/${modelAlias}`;

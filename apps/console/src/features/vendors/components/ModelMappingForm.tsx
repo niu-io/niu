@@ -1,11 +1,14 @@
-import { useEffect, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { emptyCapabilities, type ModelCapabilities, type ModelWrite, type ProviderCatalogModel, type VendorModel } from '../api';
 
-const capabilityChoices: Array<{ key: keyof ModelCapabilities; label: string; help: string }> = [
+const capabilityChoices: Array<{ key: Exclude<keyof ModelCapabilities, 'catalog'>; label: string; help: string }> = [
   { key: 'supports_tool_calls', label: 'Function tools', help: 'Tool call responses' },
   { key: 'supports_streaming_tool_calls', label: 'Streaming tools', help: 'Tool deltas in streams' },
   { key: 'supports_structured_output', label: 'Structured output', help: 'JSON schema response format' },
@@ -49,20 +52,13 @@ export default function ModelMappingForm({ model, catalog, catalogLoading, catal
 
   function chooseProviderModel(item: ProviderCatalogModel) {
     setUpstreamModel(item.id);
+    setCapabilities(current => ({ ...current, catalog: item.catalog }));
     setAlias(item.id.replace(/[^A-Za-z0-9._/-]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, ''));
     setCatalogQuery(item.name);
     setCatalogOpen(false);
   }
 
-  function handleCatalogKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.key === 'Escape') setCatalogOpen(false);
-    if (event.key === 'Enter' && catalogOpen && visibleCatalog.length > 0) {
-      event.preventDefault();
-      chooseProviderModel(visibleCatalog[0]);
-    }
-  }
-
-  function updateCapability(key: keyof ModelCapabilities, checked: boolean) {
+  function updateCapability(key: Exclude<keyof ModelCapabilities, 'catalog'>, checked: boolean) {
     setCapabilities(previous => {
       const next = { ...previous, [key]: checked };
       if (key === 'supports_tool_calls' && !checked) next.supports_streaming_tool_calls = false;
@@ -98,23 +94,26 @@ export default function ModelMappingForm({ model, catalog, catalogLoading, catal
     <div className="model-form-heading"><div><h3>{model ? 'Edit model mapping' : 'Add a model mapping'}</h3><p>Map the name clients use to the provider’s upstream model ID.</p></div></div>
     <div className="model-form-fields">
       {!model && <div className="provider-model-picker">
-        <Label htmlFor="provider-model-search">Find a provider model
-          <Input
-            id="provider-model-search"
-            value={catalogQuery}
-            onChange={event => { setCatalogQuery(event.target.value); setCatalogOpen(true); }}
-            onFocus={() => setCatalogOpen(true)}
-            onKeyDown={handleCatalogKeyDown}
-            maxLength={200}
-            autoComplete="off"
-            placeholder={catalogLoading ? 'Loading provider models…' : 'Search by model name or ID'}
-            disabled={disabled}
-            role="combobox"
-            aria-expanded={catalogOpen}
-            aria-controls="provider-model-options"
-            aria-autocomplete="list"
-          />
-        </Label>
+        <Label htmlFor="provider-model-search-trigger">Find a provider model</Label>
+        <Popover open={catalogOpen} onOpenChange={open => { setCatalogOpen(open); if (open) setCatalogQuery(''); }}>
+          <PopoverTrigger asChild>
+            <Button id="provider-model-search-trigger" type="button" variant="outline" role="combobox" aria-expanded={catalogOpen} disabled={disabled} className="provider-model-trigger w-full justify-between font-normal">
+              <span>{catalog.find(item => item.id === upstreamModel)?.name ?? 'Search provider models'}</span><ChevronDown size={16} aria-hidden="true" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="provider-model-popover p-0">
+            <Command shouldFilter={false}>
+              <CommandInput autoFocus maxLength={200} value={catalogQuery} onValueChange={setCatalogQuery} placeholder={catalogLoading ? 'Loading provider models…' : 'Search by model name or ID'} />
+              <CommandList>
+                {visibleCatalog.map(item => <CommandItem key={item.id} value={`${item.name} ${item.id}`} onSelect={() => chooseProviderModel(item)}>
+                  <span className="provider-model-option-copy"><strong>{item.name}</strong><small>{item.id}</small></span>
+                  {item.context_length ? <small>{new Intl.NumberFormat().format(item.context_length)} ctx</small> : null}
+                </CommandItem>)}
+                {visibleCatalog.length === 0 && <CommandEmpty>{catalogLoading ? 'Loading provider models…' : catalogError ? 'Provider model catalog is unavailable' : 'No matching models'}</CommandEmpty>}
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
         {catalogLoading
           ? <span className="provider-model-hint" role="status">Loading models…</span>
           : catalogError
@@ -122,21 +121,6 @@ export default function ModelMappingForm({ model, catalog, catalogLoading, catal
             : catalog.length > 0
               ? <span className="provider-model-hint">{catalog.length} models available</span>
               : <span className="provider-model-hint">Provider catalog not loaded · enter an ID below</span>}
-        {catalogOpen && !catalogLoading && visibleCatalog.length > 0 && <div id="provider-model-options" className="provider-model-options" role="listbox" aria-label="Provider models">
-          {visibleCatalog.map(item => <button
-            key={item.id}
-            type="button"
-            className="provider-model-option"
-            role="option"
-            aria-selected={item.id === upstreamModel}
-            onMouseDown={event => event.preventDefault()}
-            onClick={() => chooseProviderModel(item)}
-          >
-            <span><strong>{item.name}</strong><small>{item.id}</small></span>
-            {item.context_length ? <small>{new Intl.NumberFormat().format(item.context_length)} ctx</small> : null}
-          </button>)}
-        </div>}
-        {catalogOpen && !catalogLoading && catalog.length > 0 && visibleCatalog.length === 0 && <div className="provider-model-options-empty">No matching models</div>}
       </div>}
       <Label htmlFor="model-alias">Niu model alias
         <Input id="model-alias" value={alias} onChange={event => setAlias(event.target.value)} maxLength={200} placeholder="e.g. fast or team/model" required disabled={disabled || Boolean(model)} />

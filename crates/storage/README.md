@@ -21,7 +21,7 @@ Applied migrations are append-only. Add a new migration rather than editing a mi
 
 ## Persistent API keys
 
-Keys belong to one organization/project and an explicit model allowlist. Issuance generates a random secret and stores only its SHA-256 hash. The secret is returned once and has no debug or serialization implementation. Expiry is required; the current maximum lifetime is one year. Wildcard model grants are not supported.
+Keys are scoped to one workspace (stored as an organization/project pair). Workspace-created API keys can call every model route available in that workspace; adapter-managed keys can retain an explicit model grant. Issuance generates a random secret and stores only its SHA-256 hash. The secret is returned once and has no debug or serialization implementation. Expiry is required; the current maximum lifetime is one year.
 
 Authentication constructs a principal with private identity fields. Dispatch requires that principal and rechecks key status, expiry and the operation's model inside the dispatch transaction. A shared key-row lock serializes admission with revocation; revocation prevents later admissions but does not cancel work already admitted. Administrative callers must authorize their tenant scope before issuing or revoking keys. Storage methods do not implement operator role checks.
 

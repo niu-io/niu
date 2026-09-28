@@ -155,17 +155,17 @@ function Sidebar({
   side = "left",
   variant = "sidebar",
   collapsible = "offcanvas",
-  className,
   mobileClassName,
   mobileStyle,
+  className,
   children,
   ...props
 }: React.ComponentProps<"div"> & {
+  mobileClassName?: string
+  mobileStyle?: React.CSSProperties
   side?: "left" | "right"
   variant?: "sidebar" | "floating" | "inset"
   collapsible?: "offcanvas" | "icon" | "none"
-  mobileClassName?: string
-  mobileStyle?: React.CSSProperties
 }) {
   const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
 
@@ -191,6 +191,7 @@ function Sidebar({
           data-sidebar="sidebar"
           data-slot="sidebar"
           data-mobile="true"
+          id={props.id}
           className={cn("w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden", mobileClassName)}
           style={
             {

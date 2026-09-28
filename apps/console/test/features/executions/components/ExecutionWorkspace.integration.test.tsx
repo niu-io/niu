@@ -145,7 +145,7 @@ function mockGateway(initialSummaries: ReturnType<typeof makeSummary>[] = [], fa
 }
 
 function renderExecutionWorkspace(props: Partial<ComponentProps<typeof ExecutionWorkspace>> = {}) {
-  return render(<ExecutionWorkspace token="admin-test-token" initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} {...props} />);
+  return render(<ExecutionWorkspace token="admin-test-token" initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} platformCosts {...props} />);
 }
 
 describe('execution dashboard', () => {
@@ -307,9 +307,9 @@ describe('execution dashboard', () => {
     const user = userEvent.setup();
     renderExecutionWorkspace();
 
-    expect(await screen.findByRole('heading', { name: 'Cohort outcomes' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Workspace outcomes' })).toBeTruthy();
     expect(screen.getByText('Evidence complete')).toBeTruthy();
-    const cohort = screen.getByLabelText('Cohort outcomes');
+    const cohort = screen.getByLabelText('Workspace outcomes');
     expect(cohort.textContent).toContain('Evidence records2');
     expect(cohort.textContent).toContain('2 tasks');
     expect(cohort.textContent).toContain('Accepted tasks1');
@@ -338,7 +338,7 @@ describe('execution dashboard', () => {
     renderExecutionWorkspace();
 
     expect(await screen.findByText('Evidence incomplete')).toBeTruthy();
-    const cohort = screen.getByLabelText('Cohort outcomes');
+    const cohort = screen.getByLabelText('Workspace outcomes');
     expect(cohort.textContent).toContain('known settled entries');
     expect(cohort.textContent).toContain('Unavailable while evidence is incomplete');
     expect(cohort.textContent).toContain('1 unresolved refs');
@@ -356,7 +356,7 @@ describe('execution dashboard', () => {
     const user = userEvent.setup();
     renderExecutionWorkspace();
 
-    const cohort = screen.getByLabelText('Cohort outcomes');
+    const cohort = screen.getByLabelText('Workspace outcomes');
     expect(await within(cohort).findByText('Evidence complete')).toBeTruthy();
     expect(cohort.textContent).toContain('Undefined with zero accepted tasks');
     expect(cohort.textContent).toContain('invoice and subscription totals are not imported');
@@ -374,7 +374,7 @@ describe('execution dashboard', () => {
     const user = userEvent.setup();
     renderExecutionWorkspace();
 
-    const cohort = screen.getByLabelText('Cohort outcomes');
+    const cohort = screen.getByLabelText('Workspace outcomes');
     expect(await within(cohort).findByText('Evidence complete')).toBeTruthy();
     expect(cohort.textContent).toContain('No settled currency totals');
     expect(cohort.textContent).not.toContain('Undefined with zero accepted tasks');

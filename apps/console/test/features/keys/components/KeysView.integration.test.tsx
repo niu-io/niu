@@ -38,11 +38,9 @@ it('issues a workspace API key and makes its one-time secret easy to copy', asyn
   expect(await screen.findByText('No API keys yet')).toBeTruthy();
   expect(screen.getAllByRole('button', { name: /New API key|Create your first key/ })).toHaveLength(1);
   await user.click(screen.getByRole('button', { name: 'New API key' }));
-  await user.type(screen.getByLabelText('Key name'), 'My application');
-  await user.type(screen.getByRole('textbox', { name: 'Search allowed models' }), 'care');
-  expect(screen.queryByRole('checkbox', { name: 'fast' })).toBeNull();
-  await user.click(screen.getByRole('checkbox', { name: 'careful' }));
-  expect(screen.getByRole('status').textContent).toContain('1 selected');
+  await user.type(screen.getByLabelText('Name'), 'My application');
+  expect(screen.queryByText('Models this key can call')).toBeNull();
+  expect(screen.queryByRole('checkbox')).toBeNull();
   await user.click(screen.getByRole('button', { name: 'Create key' }));
 
   expect(await screen.findByRole('heading', { name: 'Save your API key' })).toBeTruthy();
@@ -58,7 +56,7 @@ it('issues a workspace API key and makes its one-time secret easy to copy', asyn
 
   const issue = calls.find(call => call.method === 'POST');
   expect(issue?.path).toBe(keyPath);
-  expect(JSON.parse(issue?.body ?? '{}')).toEqual({ name: 'My application', allowed_models: ['fast'], ttl_seconds: 30 * 86400 });
+  expect(JSON.parse(issue?.body ?? '{}')).toEqual({ name: 'My application', ttl_seconds: 30 * 86400 });
 });
 
 it('keeps an operator viewer in read-only key administration', async () => {

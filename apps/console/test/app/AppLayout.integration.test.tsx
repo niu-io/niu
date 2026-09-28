@@ -104,7 +104,7 @@ describe('console route layout', () => {
       Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
       window.dispatchEvent(new Event('resize'));
 
-      await waitFor(() => expect(screen.queryByRole('navigation', { name: 'Main navigation' })).toBeNull());
+      await waitFor(() => expect(screen.getByRole('navigation', { name: 'Main navigation' }).closest('[data-slot="sidebar"]')?.getAttribute('data-collapsible')).toBe('offcanvas'));
       const toggle = screen.getByRole('button', { name: 'Expand workspace navigation' });
       expect(toggle).toBeTruthy();
       expect(document.activeElement).toBe(toggle);
@@ -128,7 +128,7 @@ describe('console route layout', () => {
     expect(rail.queryByRole('link', { name: 'Platform settings' })).toBeNull();
     expect(rail.getByRole('link', { name: 'Workspace' }).className).toContain('selected');
     await user.click(screen.getByRole('button', { name: 'Collapse workspace navigation' }));
-    expect(screen.queryByRole('navigation', { name: 'Main navigation' })).toBeNull();
+    await waitFor(() => expect(screen.getByRole('navigation', { name: 'Main navigation' }).closest('[data-slot="sidebar"]')?.getAttribute('data-collapsible')).toBe('offcanvas'));
     expect(rail.getByRole('link', { name: 'Workspace' })).toBeTruthy();
     expect(router.state.location.pathname).toBe('/workspaces/default/');
     await user.click(screen.getByRole('button', { name: 'Expand workspace navigation' }));

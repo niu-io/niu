@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Activity, Bot, Cable, Check, Copy, KeyRound, Link2, Shield, X } from 'lucide-react';
+import { Activity, Bot, Cable, Check, ChevronDown, Copy, KeyRound, Link2, Shield, X } from 'lucide-react';
 import { Link } from 'react-router';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dropdown, DropdownOption } from '@/components/ui/dropdown';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import type { Workspace } from '@/app/console-context';
 import {
   issueAiderProjectKey,
@@ -143,7 +143,7 @@ export default function AgentConnectView({ token, workspace, models, canWrite }:
 
     <div className="agent-connect-layout">
       <nav className="agent-connect-list" aria-label="Coding agents">
-        {agents.map(item => <button
+        {agents.map(item => <Button
           type="button"
           key={item.id}
           className={`agent-connect-option${agent.id === item.id ? ' selected' : ''}`}
@@ -153,7 +153,7 @@ export default function AgentConnectView({ token, workspace, models, canWrite }:
           <Bot size={19} aria-hidden="true" />
           <span className="agent-connect-option-copy"><strong>{item.name}</strong><small>{item.availableMode === 'route' ? 'Route through Niu' : 'Collect activity'}</small></span>
           <Badge variant="outline">Preview</Badge>
-        </button>)}
+        </Button>)}
       </nav>
 
       <section className="agent-connect-detail" aria-labelledby="agent-connect-detail-title">
@@ -162,12 +162,12 @@ export default function AgentConnectView({ token, workspace, models, canWrite }:
           <a href={agent.documentation} target="_blank" rel="noreferrer">Agent docs <Link2 size={14} /></a>
         </div>
         <div className="agent-mode-switch" role="group" aria-label="Connection mode">
-          <button type="button" disabled={agent.availableMode !== 'route'} aria-pressed={agent.availableMode === 'route'}>
+          <Button type="button" disabled={agent.availableMode !== 'route'} aria-pressed={agent.availableMode === 'route'}>
             <Cable size={16} />Route through Niu
-          </button>
-          <button type="button" disabled={agent.availableMode !== 'collect'} aria-pressed={agent.availableMode === 'collect'}>
+          </Button>
+          <Button type="button" disabled={agent.availableMode !== 'collect'} aria-pressed={agent.availableMode === 'collect'}>
             <Activity size={16} />Collect activity
-          </button>
+          </Button>
         </div>
         <p className="agent-mode-availability" role="status">{agent.id === 'aider'
           ? 'Aider log collection is not supported by this connector.'
@@ -185,9 +185,9 @@ export default function AgentConnectView({ token, workspace, models, canWrite }:
           {!canWrite && <p className="operator-read-only-note">This session can view setup but cannot issue a workspace key.</p>}
           {models.length === 0 ? <div className="agent-connect-empty"><p>Connect a provider and publish a model alias first.</p><Button asChild variant="outline"><Link to="../vendors">Connect a provider</Link></Button></div> : <>
             <Label htmlFor="aider-model-alias">Model alias
-              <Dropdown id="aider-model-alias" aria-label="Model alias" value={routeAlias} disabled={busy || routeKeyModel !== null} onChange={event => setSelectedModel(event.target.value)}>
-                {models.map(model => <DropdownOption key={model} value={model}>{model}</DropdownOption>)}
-              </Dropdown>
+              <DropdownMenu><DropdownMenuTrigger asChild><Button id="aider-model-alias" aria-label="Model alias" disabled={busy || routeKeyModel !== null} variant="outline" className="w-full justify-between font-normal">{routeAlias}<ChevronDown size={16} /></Button></DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={routeAlias} onValueChange={setSelectedModel}>{models.map(model => <DropdownMenuRadioItem key={model} value={model}>{model}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent>
+              </DropdownMenu>
             </Label>
             {canWrite && routeKeyModel === null && <Button disabled={busy || !selectedAlias} onClick={() => void mutate(async () => {
               const issued = await issueAiderProjectKey(token, scope, selectedAlias);

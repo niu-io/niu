@@ -1,3 +1,4 @@
+mod catalog_metadata;
 mod admin;
 mod billing;
 mod config;

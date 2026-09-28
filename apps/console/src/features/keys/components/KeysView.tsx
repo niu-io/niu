@@ -1,15 +1,15 @@
+import { X } from 'lucide-react';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { ArrowUpRight, Check, Clipboard, KeyRound, Plus, RefreshCw, RotateCw, Trash2 } from 'lucide-react';
+import { ArrowUpRight, Check, ChevronDown, Clipboard, KeyRound, Plus, RefreshCw, RotateCw, Trash2 } from 'lucide-react';
 import { Link, useLocation } from 'react-router';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dropdown, DropdownOption } from '@/components/ui/dropdown';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import PageHeader from '@/components/PageHeader';
-import ModalFrame from '@/components/ModalFrame';
 import { useConsoleContext } from '@/app/console-context';
 import { keyRequest, keyStatus, projectKeyPath, workspacePath, type ProjectKey, type IssuedProjectKey } from '../api';
 
@@ -45,9 +45,7 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
   const [error, setError] = useState('');
   const [dialog, setDialog] = useState<KeyDialog>(null);
   const [name, setName] = useState('');
-  const [modelQuery, setModelQuery] = useState('');
   const [copyError, setCopyError] = useState('');
-  const [allowedModels, setAllowedModels] = useState<string[]>([]);
   const [ttl, setTtl] = useState(expiryOptions[1].seconds);
   const [issued, setIssued] = useState<IssuedProjectKey | null>(null);
   const [secretModel, setSecretModel] = useState('');
@@ -55,8 +53,8 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
   const [dialogError, setDialogError] = useState('');
   const root = workspacePath(location.pathname);
   const collectionPath = initialScope ? projectKeyPath(initialScope.organizationId, initialScope.projectId) : '';
-  const canIssue = canWrite && Boolean(workspace) && models.length > 0;
-  const exampleModel = secretModel || allowedModels[0] || models[0] || 'your-model';
+  const canIssue = canWrite && Boolean(workspace);
+  const exampleModel = secretModel || models[0] || 'your-model';
   const command = useMemo(() => requestExample(baseUrl(), exampleModel), [exampleModel]);
 
   const loadController = useRef<AbortController | null>(null);
@@ -81,11 +79,7 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
   useEffect(() => { setKeys([]); void reload(); return () => loadController.current?.abort(); }, [collectionPath, token]);
 
   function openCreate() {
-    const preferredModel = new URLSearchParams(location.search).get('model');
     setName('');
-    setModelQuery('');
-    const preferred = preferredModel && models.includes(preferredModel) ? preferredModel : undefined;
-    setAllowedModels([...new Set([preferred, ...models].filter((model): model is string => Boolean(model)))].slice(0, 2));
     setTtl(expiryOptions[1].seconds);
     setIssued(null);
     setSecretModel('');
@@ -108,15 +102,15 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
 
   async function issue(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!collectionPath || !name.trim() || !allowedModels.length || busy) return;
+    if (!collectionPath || !name.trim() || busy) return;
     setBusy(true); setDialogError('');
     try {
       const result = await keyRequest<IssuedProjectKey>(token, collectionPath, 'POST', {
-        name: name.trim(), allowed_models: allowedModels, ttl_seconds: ttl,
+        name: name.trim(), ttl_seconds: ttl,
       });
       setIssued(result);
-      setSecretModel(allowedModels[0]);
-      if (initialScope) rememberChatKey({ ...result, name: name.trim(), allowedModels, ...initialScope });
+      setSecretModel(models[0] ?? 'your-model');
+      if (initialScope) rememberChatKey({ ...result, name: name.trim(), allowedModels: ['*'], ...initialScope });
       setDialog({ kind: 'secret' });
       await reload();
     } catch (cause) {
@@ -130,7 +124,7 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
     try {
       const result = await keyRequest<IssuedProjectKey>(token, `${collectionPath}/${encodeURIComponent(key.id)}/rotate`, 'POST');
       setIssued(result);
-      setSecretModel(key.allowed_models[0] ?? '');
+      setSecretModel(key.allowed_models.includes('*') ? models[0] ?? 'your-model' : key.allowed_models[0] ?? models[0] ?? 'your-model');
       if (initialScope) rememberChatKey({ ...result, name: key.name, allowedModels: key.allowed_models, ...initialScope });
       setDialog({ kind: 'secret', key });
       await reload();
@@ -161,39 +155,56 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
     ? 'This secret is shown once. Copy it now, then use it from your application.'
     : dialog?.kind === 'rotate' ? `Rotating ${dialog.key.name} immediately revokes its current secret.`
       : dialog?.kind === 'revoke' ? `Requests using ${dialog.key.name} will stop working immediately.`
-        : 'Create a workspace API key for your application. It can call only the model aliases you select.';
+        : '';
 
   return <div className="keys-page">
     <PageHeader title="API keys" action={canIssue
       ? <Button onClick={openCreate}><Plus size={16} />New API key</Button>
-      : !models.length && workspace ? <Button asChild><Link to={`${root}/vendors`}>Connect a model<ArrowUpRight size={15} /></Link></Button>
-        : <Button type="button" variant="ghost" size="icon" aria-label="Refresh API keys" title="Refresh" disabled={loading} onClick={() => void reload()}><RefreshCw size={16} /></Button>} />
+      : <Button type="button" variant="ghost" size="icon" aria-label="Refresh API keys" title="Refresh" disabled={loading} onClick={() => void reload()}><RefreshCw size={16} /></Button>} />
     {!workspaceLoading && !workspace && <p className="key-scope-empty">Choose a workspace from the sidebar to manage its keys.</p>}
-    {workspace && <div className="keys-scope-line"><strong>{workspace.name}</strong><span>{keys.length.toLocaleString()} key{keys.length === 1 ? '' : 's'}</span><Button type="button" variant="ghost" size="icon" aria-label="Refresh API keys" title="Refresh" disabled={loading} onClick={() => void reload()}><RefreshCw size={16} /></Button></div>}
-    {workspace && !models.length && <section className="key-prerequisite" role="status"><KeyRound size={20} /><div><strong>Connect a model before issuing a key</strong><p>Keys are limited to configured routes so each application gets only the access it needs.</p></div><Button asChild variant="outline"><Link to={`${root}/vendors`}>Connect provider<ArrowUpRight size={14} /></Link></Button></section>}
+    {workspace && <div className="keys-scope-line"><span>{keys.length.toLocaleString()} key{keys.length === 1 ? '' : 's'}</span><Button type="button" variant="ghost" size="icon" aria-label="Refresh API keys" title="Refresh" disabled={loading} onClick={() => void reload()}><RefreshCw size={16} /></Button></div>}
     {!canWrite && workspace && <p className="key-read-only">This session can review keys but does not have permission to create, rotate, or revoke them.</p>}
     {error && <p className="key-error" role="alert">{error}<Button type="button" variant="ghost" size="sm" onClick={() => void reload()}>Try again</Button></p>}
     {workspace && <section className="key-list" aria-label="API keys" aria-busy={loading}>
       {loading && !keys.length && <p className="key-list-state" role="status">Loading keys…</p>}
-      {!loading && !error && !keys.length && <div className="key-empty"><span><KeyRound size={21} /></span><strong>No API keys yet</strong><p>{canIssue ? 'Create a key for an app or agent to send requests through Niu.' : !models.length ? 'Connect a provider and add a model route to continue.' : 'Your session can review keys, but cannot create them.'}</p></div>}
-      {keys.length > 0 && <div className="table-wrap"><Table className="key-table"><TableHeader><TableRow><TableHead>Key</TableHead><TableHead>Models</TableHead><TableHead>Expires</TableHead><TableHead>Status</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader><TableBody>{keys.map(key => <TableRow key={key.id}>
+      {!loading && !error && !keys.length && <div className="key-empty"><span><KeyRound size={21} /></span><strong>No API keys yet</strong><p>{canIssue ? 'Create a key for an app or agent to send requests through Niu.' : 'Your session can review keys, but cannot create them.'}</p></div>}
+      {keys.length > 0 && <div className="table-wrap"><Table className="key-table"><TableHeader><TableRow><TableHead>Key</TableHead><TableHead>Model access</TableHead><TableHead>Expires</TableHead><TableHead>Status</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader><TableBody>{keys.map(key => <TableRow key={key.id}>
         <TableCell><span className="key-name-link"><KeyRound size={15} />{key.name}</span><span className="key-id">{key.id}</span></TableCell>
-        <TableCell><span className="key-model-summary" title={key.allowed_models.join(', ')}>{key.allowed_models.join(', ')}</span></TableCell>
+        <TableCell><span className="key-model-summary" title={key.allowed_models.includes('*') ? 'Every model available in this workspace' : key.allowed_models.join(', ')}>{key.allowed_models.includes('*') ? 'All workspace models' : key.allowed_models.join(', ')}</span></TableCell>
         <TableCell>{new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(key.expires_at_ms))}</TableCell>
         <TableCell><Badge variant={key.revoked || key.expired ? 'secondary' : 'outline'}>{keyStatus(key)}</Badge></TableCell>
         <TableCell><div className="key-row-actions">{canWrite && !key.revoked && !key.expired && <><Button type="button" size="sm" variant="ghost" onClick={() => { setDialogError(''); setDialog({ kind: 'rotate', key }); }}><RotateCw size={14} />Rotate</Button><Button type="button" size="sm" variant="ghost" className="key-revoke-button" onClick={() => { setDialogError(''); setDialog({ kind: 'revoke', key }); }}><Trash2 size={14} />Revoke</Button></>}</div></TableCell>
       </TableRow>)}</TableBody></Table></div>}
     </section>}
-    {workspace && <section className="key-endpoint panel"><div><h2>Use your key</h2><p>Send an OpenAI-compatible request to Niu. Provider credentials never leave the gateway.</p></div><dl><div><dt>Base URL</dt><dd><code>{baseUrl()}</code><Button type="button" variant="ghost" size="sm" aria-label="Copy base URL" onClick={() => void copy('base-url', baseUrl())}><Clipboard size={14} />{copied === 'base-url' ? 'Copied' : 'Copy'}</Button></dd></div><div><dt>Authentication</dt><dd><code>Authorization: Bearer $NIU_API_KEY</code></dd></div></dl><Button asChild variant="outline"><Link to={`${root}/playground`}>Open Chat<ArrowUpRight size={14} /></Link></Button></section>}
+    {workspace && <section className="key-endpoint"><div><h2>Use your key</h2><p>Send an OpenAI-compatible request to Niu. Provider credentials never leave the gateway.</p></div><dl><div><dt>Base URL</dt><dd><code>{baseUrl()}</code><Button type="button" variant="ghost" size="sm" aria-label="Copy base URL" onClick={() => void copy('base-url', baseUrl())}><Clipboard size={14} />{copied === 'base-url' ? 'Copied' : 'Copy'}</Button></dd></div><div><dt>Authentication</dt><dd><code>Authorization: Bearer $NIU_API_KEY</code></dd></div></dl><Button asChild variant="outline"><Link to={`${root}/playground`}>Open Chat<ArrowUpRight size={14} /></Link></Button></section>}
 
     {copyError && <p role="alert" className="error-text">{copyError}</p>}
-    <ModalFrame open={dialogOpen} onOpenChange={open => { if (!open && !busy) { setDialog(null); setDialogError(''); } }} title={dialogTitle} description={dialogDescription} className="key-dialog">
+    <Dialog open={dialogOpen} onOpenChange={open => { if (!open && !busy) { setDialog(null); setDialogError(''); } }}>
+      <DialogContent className="niu-modal key-dialog" showCloseButton={false}>
+        <DialogHeader className="niu-modal-heading flex-row text-left">
+          <div><DialogTitle>{dialogTitle}</DialogTitle><DialogDescription>{dialogDescription}</DialogDescription></div>
+          <DialogClose className="niu-modal-close" aria-label="Close dialog"><X size={18} /></DialogClose>
+        </DialogHeader>
       {dialog?.kind === 'create' && <form className="niu-modal-form" onSubmit={event => void issue(event)}>
-        <Label htmlFor="api-key-name">Key name<Input id="api-key-name" autoFocus maxLength={200} autoComplete="off" placeholder="e.g. production app" value={name} onChange={event => setName(event.target.value)} required /></Label>
-        <Label htmlFor="api-key-expiry">Expires after<Dropdown id="api-key-expiry" value={ttl} onChange={event => setTtl(Number(event.target.value))}>{expiryOptions.map(option => <DropdownOption key={option.seconds} value={option.seconds}>{option.label}</DropdownOption>)}</Dropdown></Label>
-        <fieldset className="key-model-choice"><legend>Models this key can call</legend><Input aria-label="Search allowed models" placeholder="Search models…" value={modelQuery} onChange={event => setModelQuery(event.target.value)} /><p className="key-selection-summary" role="status">{allowedModels.length} selected</p><div>{models.filter(model => model.toLowerCase().includes(modelQuery.trim().toLowerCase())).map(model => <label key={model}><Checkbox checked={allowedModels.includes(model)} onCheckedChange={value => setAllowedModels(current => value === true ? [...current, model] : current.filter(item => item !== model))} /><span>{model}</span></label>)}</div>{!models.some(model => model.toLowerCase().includes(modelQuery.trim().toLowerCase())) && <p className="key-selection-summary">No models match your search.</p>}</fieldset>
+        <Label htmlFor="api-key-name">Name<Input id="api-key-name" autoFocus maxLength={200} autoComplete="off" placeholder="e.g. production app" value={name} onChange={event => setName(event.target.value)} required /></Label>
+        <div className="key-expiration-field">
+          <Label htmlFor="api-key-expiry">Expiration</Label>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button id="api-key-expiry" type="button" variant="outline" className="h-10 w-full justify-between font-normal">
+                {expiryOptions.find(option => option.seconds === ttl)?.label}
+                <ChevronDown aria-hidden="true" size={16} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]" align="start" sideOffset={5} collisionPadding={10}>
+              <DropdownMenuRadioGroup value={String(ttl)} onValueChange={value => setTtl(Number(value))}>
+                {expiryOptions.map(option => <DropdownMenuRadioItem key={option.seconds} value={String(option.seconds)}>{option.label}</DropdownMenuRadioItem>)}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
         {dialogError && <p role="alert" className="error-text">{dialogError}</p>}
-        <footer className="niu-modal-actions"><Button type="button" variant="ghost" onClick={() => setDialog(null)}>Cancel</Button><Button type="submit" disabled={busy || !name.trim() || !allowedModels.length}>{busy ? 'Creating…' : 'Create key'}</Button></footer>
+        <footer className="niu-modal-actions"><Button type="button" variant="ghost" onClick={() => setDialog(null)}>Cancel</Button><Button type="submit" disabled={busy || !name.trim()}>{busy ? 'Creating…' : 'Create key'}</Button></footer>
       </form>}
       {dialog?.kind === 'secret' && issued && <div className="niu-modal-form key-issued-view">
         <div className="key-once-notice"><Check size={17} /><span>Copy this secret before closing. Niu cannot reveal it again.</span></div>
@@ -205,6 +216,7 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
       </div>}
       {dialog?.kind === 'rotate' && <div className="niu-modal-form"><p className="key-confirm-copy">The current credential stops working as soon as rotation succeeds. The replacement secret is shown once.</p>{dialogError && <p role="alert" className="error-text">{dialogError}</p>}<footer className="niu-modal-actions"><Button variant="ghost" disabled={busy} onClick={() => setDialog(null)}>Cancel</Button><Button disabled={busy} onClick={() => void rotate(dialog.key)}>{busy ? 'Rotating…' : 'Rotate key'}</Button></footer></div>}
       {dialog?.kind === 'revoke' && <div className="niu-modal-form"><p className="key-confirm-copy">Any service using this key will receive an authorization error. This cannot be undone.</p>{dialogError && <p role="alert" className="error-text">{dialogError}</p>}<footer className="niu-modal-actions"><Button variant="ghost" disabled={busy} onClick={() => setDialog(null)}>Keep key</Button><Button variant="destructive" disabled={busy} onClick={() => void revoke(dialog.key)}>{busy ? 'Revoking…' : 'Revoke key'}</Button></footer></div>}
-    </ModalFrame>
+    </DialogContent>
+    </Dialog>
   </div>;
 }

@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from 'react';
-import { UserRound, UsersRound } from 'lucide-react';
+import { ChevronDown, UserRound, UsersRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dropdown, DropdownOption } from '@/components/ui/dropdown';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import type { OperatorRole } from '../api';
 
 const expiryChoices = [
@@ -34,16 +34,20 @@ export default function OperatorCreateForm({ disabled, onCreate }: {
     <form className="operator-create-form" onSubmit={submit}>
       <Label htmlFor="new-operator-name">Name<Input id="new-operator-name" required maxLength={200} autoComplete="off" placeholder="e.g. Platform on-call" value={name} onChange={event => setName(event.target.value)} /></Label>
       <Label htmlFor="new-operator-role">Role
-        <Dropdown id="new-operator-role" disabled={disabled} value={role} onChange={event => setRole(event.target.value as OperatorRole)}>
-          <DropdownOption value="viewer">Viewer · read workspace data</DropdownOption>
-          <DropdownOption value="admin">Admin · change workspace data</DropdownOption>
-          <DropdownOption value="owner">Owner · manage operators and access</DropdownOption>
-        </Dropdown>
+        <DropdownMenu><DropdownMenuTrigger asChild><Button id="new-operator-role" type="button" variant="outline" className="w-full justify-between font-normal" disabled={disabled}>{{ viewer: 'Viewer · read workspace data', admin: 'Admin · change workspace data', owner: 'Owner · manage operators and access' }[role]}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={role} onValueChange={value => setRole(value as OperatorRole)}>
+            <DropdownMenuRadioItem value="viewer">Viewer · read workspace data</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="admin">Admin · change workspace data</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="owner">Owner · manage operators and access</DropdownMenuRadioItem>
+          </DropdownMenuRadioGroup></DropdownMenuContent>
+        </DropdownMenu>
       </Label>
       <Label htmlFor="new-operator-expiry">First session expires in
-        <Dropdown id="new-operator-expiry" disabled={disabled} value={expiryDays} onChange={event => setExpiryDays(Number(event.target.value))}>
-          {expiryChoices.map(item => <DropdownOption key={item.days} value={item.days}>{item.label}</DropdownOption>)}
-        </Dropdown>
+        <DropdownMenu><DropdownMenuTrigger asChild><Button id="new-operator-expiry" type="button" variant="outline" className="w-full justify-between font-normal" disabled={disabled}>{expiryChoices.find(item => item.days === expiryDays)?.label}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={String(expiryDays)} onValueChange={value => setExpiryDays(Number(value))}>
+            {expiryChoices.map(item => <DropdownMenuRadioItem key={item.days} value={String(item.days)}>{item.label}</DropdownMenuRadioItem>)}
+          </DropdownMenuRadioGroup></DropdownMenuContent>
+        </DropdownMenu>
       </Label>
       <div className="operator-create-footer"><p>Sessions can be revoked at any time. Expiry can be set from 7 days up to 1 year.</p><Button type="submit" disabled={disabled || !name.trim()}><UsersRound size={15} />{disabled ? 'Creating…' : 'Create operator'}</Button></div>
     </form>

@@ -9,7 +9,7 @@ use it from a Niu source checkout while these integrations remain in preview.
 ## Aider route prototype
 
 Aider documents an OpenAI-compatible endpoint and API key configuration. The
-connector launches Aider with the selected Niu gateway URL, a project-scoped
+connector launches Aider with the selected Niu gateway URL, a workspace-scoped
 Niu key, and one selected model alias for the main, weak, and editor model. The
 key is read from `NIU_API_KEY` or a hidden terminal prompt, then passed only in
 the child process environment. It is not written to agent configuration or
@@ -20,13 +20,13 @@ The route pins the gateway URL and selected alias, ignores Aider configuration
 and `.env` files for that run, and rejects command-line options that can change
 the route, model, or key. Pass other desired Aider options after `--`. Chat
 and input history remain on this device in the user's private Niu Agent
-Connect data directory, outside the project; the connector does not upload it.
+Connect data directory, outside the working repository; the connector does not upload it.
 
 ```sh
 pnpm --filter @niu-io/agent-connect build
 node sdks/agent-connect/bin/niu-agent-connect.mjs aider route \
   --gateway https://niu.example/v1 \
-  --model <project-model-alias>
+  --model <workspace-model-alias>
 ```
 
 The command prompts for the one-time key without echoing it. Add optional Aider
@@ -42,7 +42,7 @@ request activity remains the source for routed model requests.
 Claude Code documents opt-in OpenTelemetry logs for request and tool metadata.
 The connector starts a loopback-only OTLP/HTTP JSON receiver for the wrapped
 Claude Code process, sanitizes logs into immutable event records, and forwards
-them with a project-scoped execution collector key. Failed delivery is queued
+them with a workspace-scoped activity key. Failed delivery is queued
 locally with private file permissions and retried on the next run. The Niu key
 is not passed to Claude Code or written to disk.
 

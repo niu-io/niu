@@ -4,6 +4,11 @@ import AppError from './route-error';
 import RouterPending from './RouterPending';
 import RouteFallback from './RouteFallback';
 
+function SupplierOverviewRedirect() {
+  const location = useLocation();
+  return <Navigate to={'/providers' + location.search} replace />;
+}
+
 function WorkspaceChatRedirect() {
   const { workspace } = useParams();
   const location = useLocation();
@@ -26,13 +31,14 @@ export const appRoutes: RouteObject[] = [{
       children: [
         { path: 'providers', lazy: async () => ({ Component: (await import('@/features/provider-business/admin')).default }) },
         { path: 'providers/configuration', lazy: async () => ({ Component: (await import('@/features/vendors/page')).default }) },
+        { path: 'providers/manage/members', element: <SupplierOverviewRedirect /> },
         { path: 'providers/manage/:section', lazy: async () => ({ Component: (await import('@/features/provider-business/admin')).default }) },
         { path: 'providers/:provider/:section?', lazy: async () => ({ Component: (await import('@/features/provider-business/page')).default }) },
         { path: 'help/*', lazy: async () => ({ Component: (await import('@/features/help/page')).default }) },
         { path: 'chat', lazy: async () => ({ Component: (await import('@/features/playground/page')).default }) },
         { path: 'workspaces/:workspace', children: [
           { index: true, lazy: async () => ({ Component: (await import('@/features/overview/page')).default }) },
-          { path: 'models', lazy: async () => ({ Component: (await import('@/features/models/page')).default }) },
+          { path: 'models/*', lazy: async () => ({ Component: (await import('@/features/models/page')).default }) },
           { path: 'providers-admin', element: <Navigate to="/providers" replace /> },
           { path: 'vendors', element: <Navigate to="/providers/configuration" replace /> },
           { path: 'keys', lazy: async () => ({ Component: (await import('@/features/keys/page')).default }) },

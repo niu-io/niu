@@ -31,7 +31,7 @@ pub struct Principal {
 
 impl Principal {
     pub fn allows_model(&self, model: &str) -> bool {
-        self.allowed_models.iter().any(|allowed| allowed == model)
+        self.allowed_models.iter().any(|allowed| allowed == "*" || allowed == model)
     }
 
     pub fn scope(&self) -> TenantScope {
@@ -53,9 +53,8 @@ impl Store {
         if name.trim().is_empty()
             || name.len() > 200
             || models.is_empty()
-            || models
-                .iter()
-                .any(|m| m.is_empty() || m.len() > 200 || m == "*")
+            || (models.iter().any(|m| m == "*") && models.len() != 1)
+            || models.iter().any(|m| m.is_empty() || m.len() > 200)
             || !(1..=31_536_000).contains(&ttl_seconds)
         {
             return Err(StoreError::InvalidKey);
@@ -170,7 +169,7 @@ impl Store {
         // reservation check observes any release committed while we waited.
         sqlx::query("SELECT id FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")
             .bind(scope.organization_id).bind(scope.project_id).bind(id).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
-        let changed = sqlx::query("UPDATE attempts a SET execution = 'may_have_executed', dispatched_at = clock_timestamp(), api_key_id = $4 FROM operations o, api_keys k WHERE a.organization_id = $1 AND a.project_id = $2 AND a.id = $3 AND a.execution = 'not_sent' AND o.id = a.operation_id AND k.id = $4 AND o.model_alias = ANY(k.allowed_models) AND k.expires_at > clock_timestamp() AND NOT EXISTS (SELECT 1 FROM account_assignments s WHERE s.attempt_id=a.id AND s.state <> 'held') AND (NOT EXISTS (SELECT 1 FROM project_budgets b WHERE b.organization_id=$1 AND b.project_id=$2) OR EXISTS (SELECT 1 FROM cost_reservations r WHERE r.attempt_id=a.id AND r.state='held'))")
+        let changed = sqlx::query("UPDATE attempts a SET execution = 'may_have_executed', dispatched_at = clock_timestamp(), api_key_id = $4 FROM operations o, api_keys k WHERE a.organization_id = $1 AND a.project_id = $2 AND a.id = $3 AND a.execution = 'not_sent' AND o.id = a.operation_id AND k.id = $4 AND ('*' = ANY(k.allowed_models) OR o.model_alias = ANY(k.allowed_models)) AND k.expires_at > clock_timestamp() AND NOT EXISTS (SELECT 1 FROM account_assignments s WHERE s.attempt_id=a.id AND s.state <> 'held') AND (NOT EXISTS (SELECT 1 FROM project_budgets b WHERE b.organization_id=$1 AND b.project_id=$2) OR EXISTS (SELECT 1 FROM cost_reservations r WHERE r.attempt_id=a.id AND r.state='held'))")
             .bind(scope.organization_id).bind(scope.project_id).bind(id).bind(principal.key_id).execute(&mut *tx).await?.rows_affected();
         if changed != 1 {
             return Err(StoreError::Conflict);

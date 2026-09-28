@@ -64,6 +64,26 @@ async fn key_creation_uses_active_database_and_static_models(pool: PgPool) {
     .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(models["data"][0]["id"], "managed-only");
+    let (status, workspace_key) = call(
+        &app,
+        Method::POST,
+        &key_path,
+        ADMIN,
+        json!({"name":"all workspace models", "ttl_seconds":3600}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    let (status, all_models) = call(
+        &app,
+        Method::GET,
+        "/v1/models",
+        workspace_key["token"].as_str().unwrap(),
+        Value::Null,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(all_models["data"][0]["id"], "managed-only");
+    assert_eq!(all_models["data"].as_array().unwrap().len(), 1);
     // Disabled database aliases shadow static routes for new grants too.
     for alias in ["disabled", "fast", "missing"] {
         assert_eq!(

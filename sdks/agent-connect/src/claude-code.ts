@@ -57,7 +57,7 @@ const supportedEvents = new Set<EventName>([
 ]);
 const maximumLogRecords = 10_000;
 
-/** Sanitizes opt-in Claude Code OTLP logs into metadata-only, project-scoped task records. */
+/** Sanitizes opt-in Claude Code OTLP logs into metadata-only, workspace-scoped task records. */
 export class ClaudeCodeOtelCollector {
   private readonly eventIds = new Set<string>();
   private readonly acceptedEvents: Event[] = [];

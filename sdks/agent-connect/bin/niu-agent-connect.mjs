@@ -16,11 +16,11 @@ if (agent === 'list' || agent === '--help' || agent === '-h' || !agent) {
     '',
     'Supported connector work in this package:',
     '  aider route --gateway <https://niu.example/v1> --model <alias> [-- <aider arguments>]',
-    '  claude collect --gateway <https://niu.example/v1> --organization <id> --project <id> [-- claude arguments]',
+    '  claude collect --gateway <https://niu.example/v1> --organization <id> --workspace <id> [-- claude arguments]',
     '',
-    'Route mode uses the selected project key and the provider account configured in Niu.',
-    'It pins the Niu URL, key, and alias, and ignores Aider provider settings from project config and .env files.',
-    'Aider chat and input history stay in private per-user state outside the project.',
+    'Route mode uses the selected workspace key and the provider account configured in Niu.',
+    'It pins the Niu URL, key, and alias, and ignores Aider provider settings from repository config and .env files.',
+    'Aider chat and input history stay in private per-user state outside the workspace.',
     'Collection mode keeps Claude Code auth and request routing unchanged; it forwards metadata-only OTLP logs.',
     'Prompt and tool content are disabled for the wrapped process. Neither mode records accepted task outcomes.',
     '',
@@ -62,7 +62,7 @@ if (agent === 'claude' && mode === 'collect') {
   let apiKey = process.env.NIU_API_KEY;
   if (!apiKey) {
     try {
-      apiKey = await readSecret('Niu project key: ', 'NIU_API_KEY');
+      apiKey = await readSecret('Niu workspace key: ', 'NIU_API_KEY');
     } catch (error) {
       process.stderr.write(`${error instanceof Error ? error.message : 'Could not read key'}\n`);
       process.exit(2);
@@ -176,12 +176,13 @@ async function runClaudeCollection(rawArgs) {
   const separator = rawArgs.indexOf('--');
   const connectorArgs = separator < 0 ? rawArgs : rawArgs.slice(0, separator);
   const childSpec = separator < 0 ? [] : rawArgs.slice(separator + 1);
-  const options = parseOptions(connectorArgs, new Set(['--gateway', '--organization', '--project']));
+  const options = parseOptions(connectorArgs, new Set(['--gateway', '--organization', '--workspace', '--project']));
   const gatewayBaseURL = options.get('--gateway');
   const organizationId = options.get('--organization');
-  const projectId = options.get('--project');
+  if (options.has('--workspace') && options.has('--project')) throw new Error('Use --workspace only.');
+  const projectId = options.get('--workspace') ?? options.get('--project');
   if (!gatewayBaseURL || !organizationId || !projectId) {
-    throw new Error('Usage: niu-agent-connect claude collect --gateway <base-url> --organization <id> --project <id> [-- claude arguments]');
+    throw new Error('Usage: niu-agent-connect claude collect --gateway <base-url> --organization <id> --workspace <id> [-- claude arguments]');
   }
   const command = childSpec[0] || 'claude';
   const agentArgs = childSpec.length > 0 ? childSpec.slice(1) : [];

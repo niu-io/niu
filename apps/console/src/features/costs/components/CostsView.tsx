@@ -1,3 +1,5 @@
+import { X } from 'lucide-react';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { amountToNanos, money } from '@/lib/money';
 import { useEffect, useState, type FormEvent } from 'react';
 import { RefreshCw, ArrowRight, ArrowLeft } from 'lucide-react';
@@ -7,7 +9,6 @@ import { Label } from '@/components/ui/label';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import PageHeader from '@/components/PageHeader';
-import ModalFrame from '@/components/ModalFrame';
 
 type Budget = { currency: string; limit_nanos: string; reserved_nanos: string; spent_nanos: string };
 type Entry = {
@@ -110,13 +111,19 @@ export default function CostsView({ token, initialScope, canWrite = false }: { c
         {(previousCursors.length > 0 || report.next_cursor) && <div className="ledger-pagination"><Button variant="outline" disabled={!previousCursors.length || loading} onClick={() => { setCursor(previousCursors.at(-1) ?? null); setPreviousCursors(values => values.slice(0, -1)); }}><ArrowLeft />Previous page</Button><span>Page {previousCursors.length + 1}</span><Button variant="outline" disabled={!report.next_cursor || loading} onClick={() => { setPreviousCursors(values => [...values, cursor]); setCursor(report.next_cursor); }}>Next page<ArrowRight /></Button></div>}
       </section>
     </>}
-    <ModalFrame open={budgetDialogOpen} onOpenChange={open => { if (!savingBudget) setBudgetDialogOpen(open); }} title="Set a workspace budget" description="Create a lifetime cash limit. Only priced requests within configured token bounds can be enforced." className="budget-dialog">
+    <Dialog open={budgetDialogOpen} onOpenChange={open => { if (!savingBudget) setBudgetDialogOpen(open); }}>
+      <DialogContent className="niu-modal budget-dialog" showCloseButton={false}>
+        <DialogHeader className="niu-modal-heading flex-row text-left">
+          <div><DialogTitle>Set a workspace budget</DialogTitle><DialogDescription>Create a lifetime cash limit. Only priced requests within configured token bounds can be enforced.</DialogDescription></div>
+          <DialogClose className="niu-modal-close" aria-label="Close dialog"><X size={18} /></DialogClose>
+        </DialogHeader>
       <form className="niu-modal-form" onSubmit={createBudget}>
         <Label htmlFor="budget-amount">Cash limit<Input id="budget-amount" inputMode="decimal" autoComplete="off" required value={budgetAmount} onChange={event => setBudgetAmount(event.target.value)} /></Label>
         <Label htmlFor="budget-currency">Currency<Input id="budget-currency" autoComplete="off" maxLength={3} required value={budgetCurrency} onChange={event => setBudgetCurrency(event.target.value.toUpperCase())} /></Label>
         {budgetError && <p role="alert" className="error-text budget-form-error">{budgetError}</p>}
         <footer className="niu-modal-actions"><Button type="button" variant="ghost" onClick={() => setBudgetDialogOpen(false)}>Cancel</Button><Button type="submit" disabled={savingBudget || loading}>{savingBudget ? 'Saving…' : 'Set lifetime budget'}</Button></footer>
       </form>
-    </ModalFrame>
+    </DialogContent>
+    </Dialog>
   </>;
 }

@@ -27,6 +27,8 @@ impl Default for ServerConfig {
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct ModelConfig {
+    #[serde(default)]
+    pub catalog: crate::catalog_metadata::CatalogMetadata,
     pub provider: String,
     pub upstream_model: String,
     pub api_key_env: String,
@@ -165,7 +167,7 @@ impl AppConfig {
                     "invalid public model name: {name}"
                 )));
             }
-            if model.provider.trim().is_empty()
+            if !model.catalog.valid() || model.provider.trim().is_empty()
                 || model.upstream_model.trim().is_empty()
                 || model.api_key_env.trim().is_empty()
             {

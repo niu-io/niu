@@ -1,10 +1,12 @@
+import { Table as ShadcnTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { X } from 'lucide-react';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import ProviderLogo from '@/components/ProviderLogo';
 import { modelIdentity } from '@/lib/providers';
 import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Route, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import ModalFrame from '@/components/ModalFrame';
 import type { ModelWrite, ProviderCatalogModel, ProviderModelCheck, VendorModel } from '../api';
 import ModelMappingForm from './ModelMappingForm';
 
@@ -89,7 +91,7 @@ export default function ModelMappings({ models, catalog, catalogLoading, catalog
 
   return <section className="panel vendor-models" aria-labelledby="vendor-models-title">
     <div className="vendor-panel-heading">
-          <div><h2 id="vendor-models-title">Model routes</h2><p>Client aliases routed through this provider</p></div>
+          <div><h2 id="vendor-models-title">Model routes</h2><p>Client aliases routed through this supplier</p></div>
       <div className="vendor-heading-actions">
         <Button type="button" variant="ghost" size="icon-sm" aria-label="Refresh model mappings" disabled={disabled || loading} onClick={onRefresh}><span className="sr-only">Refresh</span><Route size={15} /></Button>
         <Button type="button" size="sm" disabled={disabled} onClick={addModel}><Plus />Add model</Button>
@@ -101,21 +103,21 @@ export default function ModelMappings({ models, catalog, catalogLoading, catalog
         ? <div className="vendor-empty vendor-model-empty">
           <span className="vendor-empty-mark"><Route size={17} /></span>
           <strong>No model mappings yet</strong>
-          <p>Add the first alias to route requests to this provider.</p>
+          <p>Add the first alias to route requests to this supplier.</p>
           <Button type="button" variant="outline" disabled={disabled} onClick={addModel}><Plus />Add model mapping</Button>
         </div>
         : <><div className="vendor-model-toolbar"><label className="model-search"><Search size={17} /><span className="sr-only">Search model routes</span><Input value={query} onChange={event => { setQuery(event.target.value); setPage(0); }} placeholder="Search aliases and upstream IDs" /></label><span>{filteredModels.length.toLocaleString()} route{filteredModels.length === 1 ? '' : 's'}</span></div>{filteredModels.length === 0 ? <p className="model-no-results">No routes match “{query}”.</p> : <div className="table-wrap vendor-model-table-wrap">
-          <table className="vendor-model-table">
-            <thead><tr><th scope="col">Niu alias</th><th scope="col">Upstream model</th><th scope="col">Optional features</th><th scope="col">Catalog</th><th scope="col">Status</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
-            <tbody>{visibleModels.map(model => {
+          <ShadcnTable className="vendor-model-table">
+            <TableHeader><TableRow><TableHead scope="col">Niu alias</TableHead><TableHead scope="col">Upstream model</TableHead><TableHead scope="col">Optional features</TableHead><TableHead scope="col">Catalog</TableHead><TableHead scope="col">Status</TableHead><TableHead scope="col"><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
+            <TableBody>{visibleModels.map(model => {
               const features = capabilityNames(model);
-              return <tr key={model.alias}>
-                <td><span className="provider-model-cell"><ProviderLogo provider={modelIdentity({ id: model.alias, upstream_model: model.upstream_model })} size="small" /><strong className="vendor-model-alias">{model.alias}</strong></span></td>
-                <td><span className="vendor-upstream-model">{model.upstream_model}</span></td>
-                <td><span className="vendor-feature-list">{features.length ? features.join(', ') : 'None declared'}</span></td>
-                <td><span className={'vendor-catalog-state' + (model.public_catalog ? ' is-public' : '')}>{model.public_catalog ? 'Public' : 'Private'}</span></td>
-                <td><span className={'vendor-state' + (model.enabled ? ' is-enabled' : '')}>{model.enabled ? 'Enabled' : 'Disabled'}</span></td>
-                <td className="vendor-model-actions">
+              return <TableRow key={model.alias}>
+                <TableCell><span className="provider-model-cell"><ProviderLogo provider={modelIdentity({ id: model.alias, upstream_model: model.upstream_model })} size="small" /><strong className="vendor-model-alias">{model.alias}</strong></span></TableCell>
+                <TableCell><span className="vendor-upstream-model">{model.upstream_model}</span></TableCell>
+                <TableCell><span className="vendor-feature-list">{features.length ? features.join(', ') : 'None declared'}</span></TableCell>
+                <TableCell><span className={'vendor-catalog-state' + (model.public_catalog ? ' is-public' : '')}>{model.public_catalog ? 'Public' : 'Private'}</span></TableCell>
+                <TableCell><span className={'vendor-state' + (model.enabled ? ' is-enabled' : '')}>{model.enabled ? 'Enabled' : 'Disabled'}</span></TableCell>
+                <TableCell className="vendor-model-actions">
                   <div className="vendor-model-action-buttons">
                     <Button type="button" size="xs" variant="outline" disabled={disabled || checkingAlias === model.alias} onClick={() => void check(model.alias)}>{checkingAlias === model.alias ? 'Checking…' : 'Check'}</Button>
                     <Button type="button" size="xs" variant="ghost" disabled={disabled} onClick={() => setEditing(model)}>Edit</Button>
@@ -125,12 +127,17 @@ export default function ModelMappings({ models, catalog, catalogLoading, catalog
                     : checkResults[model.alias]
                       ? <span className="vendor-check-result" aria-live="polite">{checkLabel(checkResults[model.alias])}</span>
                       : null}
-                </td>
-              </tr>;
-            })}</tbody>
-          </table>
+                </TableCell>
+              </TableRow>;
+            })}</TableBody>
+          </ShadcnTable>
         </div>}{filteredModels.length > pageSize && <div className="model-pagination"><span>{(page * pageSize + 1).toLocaleString()}–{Math.min((page + 1) * pageSize, filteredModels.length).toLocaleString()} of {filteredModels.length.toLocaleString()}</span><div><Button variant="outline" size="icon" aria-label="Previous page" disabled={page === 0} onClick={() => setPage(value => Math.max(0, value - 1))}><ChevronLeft size={16} /></Button><Button variant="outline" size="icon" aria-label="Next page" disabled={page + 1 >= pageCount} onClick={() => setPage(value => Math.min(pageCount - 1, value + 1))}><ChevronRight size={16} /></Button></div></div>}</>}
-    <ModalFrame open={editing !== null} onOpenChange={open => { if (!open && !disabled) setEditing(null); }} title={editing === 'new' ? 'Add a model route' : `Edit ${editing?.alias ?? 'model route'}`} description="Choose the name clients will send and map it to the upstream provider model." className="model-route-dialog">
+    <Dialog open={editing !== null} onOpenChange={open => { if (!open && !disabled) setEditing(null); }}>
+      <DialogContent className="niu-modal model-route-dialog" showCloseButton={false}>
+        <DialogHeader className="niu-modal-heading flex-row text-left">
+          <div><DialogTitle>{editing === 'new' ? 'Add a model route' : `Edit ${editing?.alias ?? 'model route'}`}</DialogTitle><DialogDescription>Choose the name clients will send and map it to the upstream provider model.</DialogDescription></div>
+          <DialogClose className="niu-modal-close" aria-label="Close dialog"><X size={18} /></DialogClose>
+        </DialogHeader>
       {editing !== null &&
       <ModelMappingForm
         key={editing === 'new' ? 'new' : `${editing.alias}:${editing.revision}`}
@@ -143,6 +150,7 @@ export default function ModelMappings({ models, catalog, catalogLoading, catalog
         onSave={save}
       />
       }
-    </ModalFrame>
+    </DialogContent>
+    </Dialog>
   </section>;
 }

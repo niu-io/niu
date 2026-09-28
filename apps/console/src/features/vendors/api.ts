@@ -1,3 +1,4 @@
+import type { CatalogMetadata } from '@/app/console-context';
 export type VendorAdapter = 'openrouter' | 'openai';
 
 export type Vendor = {
@@ -11,6 +12,7 @@ export type Vendor = {
 };
 
 export type ModelCapabilities = {
+  catalog?: CatalogMetadata;
   supports_tool_calls: boolean;
   supports_streaming_tool_calls: boolean;
   supports_structured_output: boolean;
@@ -32,6 +34,7 @@ export type VendorModel = {
 };
 
 export type ProviderCatalogModel = {
+  catalog?: CatalogMetadata;
   id: string;
   name: string;
   context_length: number | null;
