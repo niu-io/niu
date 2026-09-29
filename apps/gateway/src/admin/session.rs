@@ -28,7 +28,11 @@ pub async fn current_session(
     };
     let provider_memberships = match authorization {
         AdminAuthorization::Installation => vec![],
-        AdminAuthorization::Operator(principal) => state.store.provider_memberships(principal.id).await.map_err(ApiError::from_store)?,
+        AdminAuthorization::Operator(principal) => state
+            .store
+            .provider_memberships(principal.id)
+            .await
+            .map_err(ApiError::from_store)?,
     };
     Ok(Json(json!({"data": {
         "kind": kind,

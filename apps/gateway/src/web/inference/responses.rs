@@ -23,6 +23,7 @@ pub(in crate::web) async fn responses(
     headers: HeaderMap,
     Json(mut body): Json<Value>,
 ) -> Result<Response, ApiError> {
+    let _in_flight = state.track_inference();
     let principal = state.authorize_api_headers(&headers).await?;
     let public_model = body
         .get("model")

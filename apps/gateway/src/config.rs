@@ -167,7 +167,8 @@ impl AppConfig {
                     "invalid public model name: {name}"
                 )));
             }
-            if !model.catalog.valid() || model.provider.trim().is_empty()
+            if !model.catalog.valid()
+                || model.provider.trim().is_empty()
                 || model.upstream_model.trim().is_empty()
                 || model.api_key_env.trim().is_empty()
             {

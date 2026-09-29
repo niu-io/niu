@@ -16,6 +16,10 @@ Configure a provider, issue a client key, and call the standard model API on por
 
 Installation administrators can manage vendors such as OpenRouter and their model mappings in the console. Configuration persists in PostgreSQL; new requests use current enabled state and routing. Provider credentials are encrypted with a separate `NIU_VENDOR_ENCRYPTION_KEY` deployment secret and are never returned by the API. Back up that key separately from the database. See [vendor architecture](docs/architecture/vendors.md) for access boundaries, static-route precedence and bootstrap semantics.
 
+The gateway's PostgreSQL connection pool defaults to 10 connections per instance. Set `NIU_DATABASE_MAX_CONNECTIONS` from 1 to 256 to tune it for the database's connection limit and the number of gateway instances.
+
+Concurrent unpriced requests share bounded PostgreSQL admission batches. Niu commits dispatch intent before calling a provider, then flushes usage evidence asynchronously after the response. Priced requests commit a bounded budget reservation before dispatch and queue provider usage and settlement in a bounded worker after completion. The worker batches completions by workspace to reduce database round trips and budget-row contention. Queue pressure applies backpressure; a storage failure leaves the durable attempt and reservation unresolved rather than inventing a charge.
+
 ## Current implementation
 
 The repository is a mixed-language monorepo. `apps/gateway` is the Rust application entry point, `apps/catalog` contains the public model catalog, `apps/console` is the workspace console, and `apps/docs` is the static developer documentation site. `contracts` owns the public API schema, `crates` contains execution, benchmark, extension and cost components, and `vendor/litellm-rust` contains selected provider and protocol modules with upstream provenance.

@@ -596,11 +596,17 @@ mod tests {
 
 impl Store {
     /// Update only descriptive catalog metadata for existing mappings, preserving billing and routing.
-    pub async fn refresh_vendor_catalog(&self, vendor_id: Uuid, entries: Vec<(String, Value)>) -> Result<u64, StoreError> {
+    pub async fn refresh_vendor_catalog(
+        &self,
+        vendor_id: Uuid,
+        entries: Vec<(String, Value)>,
+    ) -> Result<u64, StoreError> {
         let mut tx = self.pool.begin().await?;
         let mut updated = 0;
         for (upstream, metadata) in entries {
-            if !metadata.is_object() || json_size(&metadata) > MAX_JSON_BYTES { return Err(StoreError::InvalidVendor); }
+            if !metadata.is_object() || json_size(&metadata) > MAX_JSON_BYTES {
+                return Err(StoreError::InvalidVendor);
+            }
             updated += sqlx::query("UPDATE vendor_models SET capabilities=jsonb_set(capabilities, '{catalog}', $3), revision=revision+1 WHERE vendor_id=$1 AND upstream_model=$2 AND capabilities->'catalog' IS DISTINCT FROM $3")
                 .bind(vendor_id).bind(upstream).bind(metadata).execute(&mut *tx).await?.rows_affected();
         }

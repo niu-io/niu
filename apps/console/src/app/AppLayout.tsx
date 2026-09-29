@@ -9,7 +9,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarInset, Si
 import type { AdminSession, ConsoleContext, GatewayStatus, Health, Model, Organization, SessionChatKey, Workspace, WorkspaceProblem } from './console-context';
 import { navigation } from './navigation';
 import AccountMenu from './AccountMenu';
-import WorkspaceSwitcher from './WorkspaceSwitcher';
+import WorkspaceSwitcher, { WorkspaceCreateDialog } from './WorkspaceSwitcher';
 import WorkspaceRecovery from './WorkspaceRecovery';
 import { resolveWorkspacePathSegment, workspacePathSegment } from './workspace-route';
 import logo from '../../../../branding/assets/niu-mark.png';
@@ -23,18 +23,21 @@ function WorkspaceNav({
   models,
   activePath,
   scopeLabel,
+  onCreateWorkspace,
 }: {
   context: ConsoleContext;
   activeWorkspacePath: string;
   models: Model[];
   activePath: string;
   scopeLabel: string;
+  onCreateWorkspace: () => void;
 }) {
   const { isMobile, setOpenMobile } = useSidebar();
-  const navItems = navigation.filter(item => item.destination === 'Workspace');
+  const navItems = navigation.filter(item => item.destination === 'Workspace'
+    && (item.to !== 'costs' || context.session?.kind === 'installation'));
 
   return <>
-    <SidebarHeader className="sidebar-heading"><WorkspaceSwitcher context={context} /></SidebarHeader>
+    <SidebarHeader className="sidebar-heading"><WorkspaceSwitcher context={context} onCreateWorkspace={onCreateWorkspace} /></SidebarHeader>
     <SidebarContent className="workspace-sidebar-content">
       {(context.session?.operator || !context.session) && <div className="session-context"><span>{scopeLabel}</span>{context.session?.operator && <details><summary>View access scope</summary><dl><dt>Organization</dt><dd>{context.session.operator.organization_id}</dd>{context.session.operator.project_id && <><dt>Workspace</dt><dd>{context.session.operator.project_id}</dd></>}<dt>Role</dt><dd>{context.session.operator.role}</dd></dl></details>}{!context.session && <p>The gateway is available. Sign in with an installation admin token to manage it.</p>}</div>}
       <nav aria-label="Main navigation">
@@ -136,6 +139,7 @@ function WorkspaceRailLink({ to, onActivate, children, onClick, ...props }: NavL
 }
 
 export default function AppLayout() {
+  const [workspaceCreateOpen, setWorkspaceCreateOpen] = useState(false);
   const [token, setToken] = useState('');
   const [draftToken, setDraftToken] = useState('');
   const [models, setModels] = useState<Model[]>([]);
@@ -158,6 +162,7 @@ export default function AppLayout() {
   const navigate = useNavigate();
   const { workspace: routeWorkspaceId } = useParams();
   const isGlobalChat = location.pathname === '/chat';
+  const loginArea = location.pathname === '/login';
 
   const rememberChatKey = useCallback((key: SessionChatKey) => {
     setChatKeys(current => [key, ...current.filter(item => item.id !== key.id || item.projectId !== key.projectId)]);
@@ -241,6 +246,12 @@ export default function AppLayout() {
     setWorkspaceLoading(false);
     setWorkspacesLoadedFor('');
     setError('');
+    if (import.meta.env.DEV) {
+      void fetch(`${import.meta.env.BASE_URL}login/session`, {
+        method: 'DELETE',
+        headers: { 'x-niu-dev-login': '1' },
+      }).catch(() => { /* Dev sign-out remains local when the helper is unavailable. */ });
+    }
   }, []);
 
   const connect = useCallback(async (event: FormEvent<HTMLFormElement>) => {
@@ -252,7 +263,7 @@ export default function AppLayout() {
     if (!import.meta.env.DEV || import.meta.env.MODE === 'test') return;
     try { if (sessionStorage.getItem('niu.signed-out') === '1') return; } catch { /* Storage is optional. */ }
     const controller = new AbortController();
-    void fetch('/__niu_dev_session', {
+    void fetch(`${import.meta.env.BASE_URL}__niu_dev_session`, {
       method: 'POST', headers: { 'x-niu-dev-session': '1' }, signal: controller.signal,
     }).then(async response => {
       if (!response.ok) return;
@@ -492,10 +503,20 @@ export default function AppLayout() {
     ?? navigation.filter(item => item.destination !== 'Global' && activePath.startsWith(`${item.to}/`)).sort((a, b) => b.to.length - a.to.length)[0];
   const providerArea = location.pathname === '/providers' || location.pathname.startsWith('/providers/');
   const helpArea = location.pathname === '/help' || location.pathname.startsWith('/help/');
-  const title = providerArea ? ({ configuration: 'Supplier properties', models: 'Models & pricing', consumption: 'Usage', settlements: 'Billing' }[location.pathname.split('/').pop() ?? ''] ?? 'Overview') : activeNavigation?.label ?? 'Page not found';
+  const title = loginArea
+    ? 'Sign in'
+    : helpArea
+      ? 'Documentation'
+    : providerArea
+      ? ({ configuration: 'Supplier properties', models: 'Models & pricing', consumption: 'Usage', settlements: 'Billing' }[location.pathname.split('/').pop() ?? ''] ?? 'Overview')
+      : activePath === 'keys/new'
+        ? 'New API key'
+        : activePath.startsWith('keys/')
+          ? 'API key'
+          : activeNavigation?.label ?? 'Page not found';
 
   useEffect(() => {
-    document.title = 'niu.io';
+    document.title = `${title} · Niu`;
   }, [title]);
 
   const sidebarViewportWidth = useRef(typeof window !== 'undefined' ? window.innerWidth : sidebarBreakpoint);
@@ -537,6 +558,7 @@ export default function AppLayout() {
     window.addEventListener('resize', closeOnCompactViewport);
     return () => window.removeEventListener('resize', closeOnCompactViewport);
   }, []);
+  if (loginArea) return <div className="console-login-shell"><Outlet context={context} /></div>;
   return <SidebarProvider
     open={sidebarOpen}
     onOpenChange={setSidebarOpen}
@@ -544,8 +566,9 @@ export default function AppLayout() {
     style={{ '--sidebar-width': 'var(--context)', '--sidebar-width-icon': 'var(--context)', '--sidebar-width-mobile': 'var(--context)' } as CSSProperties}
   >
     <a className="console-skip" href="#console-content">Skip to content</a>
+    <WorkspaceCreateDialog context={context} open={workspaceCreateOpen} onOpenChange={setWorkspaceCreateOpen} />
     <nav className="app-rail" aria-label="Product navigation">
-      <a className="rail-logo" href={providerArea ? location.pathname : import.meta.env.BASE_URL} aria-label="niu.io home"><img src={logo} alt="" /></a>
+      <a className="rail-logo" href={import.meta.env.BASE_URL} aria-label="niu.io home"><img src={logo} alt="" /></a>
       {(!providerArea || isInstallation) && <WorkspaceRailLink to={activeWorkspacePath} end onActivate={() => {}} className={`rail-item${hasSidebar && !providerArea ? ' selected' : ''}`} aria-label="Workspace" title="Workspace">{hasSidebar ? <FolderOpenDot size={21} /> : <FolderDot size={21} />}</WorkspaceRailLink>}
       {(!providerArea || isInstallation) && <><NavLink to="/chat" className={`rail-item${destination === 'Global' ? ' selected' : ''}`} aria-label="Chat · compare model responses" title="Chat · compare model responses"><MessagesSquare size={21} /></NavLink>
       <NavLink to={`${activeWorkspacePath}/models`} className={`rail-item${destination === 'Models' ? ' selected' : ''}`} aria-label="Models" title="Models"><Boxes size={21} /></NavLink></>}
@@ -562,12 +585,12 @@ export default function AppLayout() {
       mobileClassName="niu-workspace-sidebar-mobile"
       mobileStyle={{ left: 'var(--rail)', top: 'var(--console-header-height)', right: 0, bottom: 0, width: 'min(var(--context), calc(100vw - var(--rail)))', height: 'auto' }}
     >
-      {providerArea ? <SupplierNav context={context} /> : <WorkspaceNav context={context} activeWorkspacePath={activeWorkspacePath} models={models} activePath={activePath} scopeLabel={scopeLabel} />}
+      {providerArea ? <SupplierNav context={context} /> : <WorkspaceNav context={context} activeWorkspacePath={activeWorkspacePath} models={models} activePath={activePath} scopeLabel={scopeLabel} onCreateWorkspace={() => setWorkspaceCreateOpen(true)} />}
     </Sidebar>}
     <SidebarInset className="main-panel">
       {!isGlobalChat && !helpArea && <header className="console-page-header">
         {(hasSidebar || (destination === 'Models' && !activePath.startsWith('models/'))) && <WorkspaceSidebarToggle buttonRef={toggleRef} providerArea={providerArea} modelsArea={destination === 'Models'} />}
-        <div className="breadcrumbs" aria-label="Breadcrumb"><span>{providerArea ? 'Suppliers' : platform ? 'Platform' : destination === 'Global' ? 'Niu' : destination === 'Organization' ? 'Organization' : 'Workspace'}</span><span className="crumb-divider" aria-hidden="true">/</span><strong>{destination === 'Models' && activePath.startsWith('models/') ? <NavLink to={`${activeWorkspacePath}/models`}>Models</NavLink> : title}</strong></div>
+        <div className="breadcrumbs"><span>{providerArea ? 'Suppliers' : platform ? 'Platform' : destination === 'Global' ? 'Niu' : destination === 'Organization' ? 'Organization' : 'Workspace'}</span><span className="crumb-divider" aria-hidden="true">/</span><h1 className="console-route-title">{destination === 'Models' && activePath.startsWith('models/') ? <NavLink to={`${activeWorkspacePath}/models`}>Models</NavLink> : title}</h1></div>
       </header>}
       <div className={`page-content${helpArea ? ' help-content' : ''}`} id="console-content" tabIndex={-1}>{helpArea ? <Outlet context={context} /> : gatewayStatus === 'offline' ? <section className="gateway-recovery" role="alert"><h2>Restore your gateway connection</h2><p>The console cannot reach the gateway. Restore the service before continuing.</p><p>For local development, start the stack with <code>pnpm dev</code>. For a hosted installation, ask your administrator to check the service.</p><Button onClick={() => { void refreshWorkspace(); }}>Retry connection</Button></section> : token && !providerArea && workspaceError ? <WorkspaceRecovery problem={workspaceError} onRetry={() => setWorkspaceLoadRevision(value => value + 1)} /> : token && !providerArea && (workspaceLoading || workspacesLoadedFor !== token) ? <p role="status">Loading workspace…</p> : <Outlet context={context} />}</div>
     </SidebarInset>

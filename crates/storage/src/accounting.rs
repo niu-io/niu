@@ -1,4 +1,4 @@
-use crate::{PriceInput, Store, StoreError, TenantScope, TokenRates};
+use crate::{GatewayCompletion, PriceInput, Principal, Store, StoreError, TenantScope, TokenRates};
 use sqlx::{QueryBuilder, Row, postgres::Postgres};
 use uuid::Uuid;
 
@@ -67,6 +67,33 @@ struct GatewayActivitySummaryCounts {
     unknown_cost_count: i64,
 }
 
+#[derive(Debug, sqlx::FromRow)]
+struct GatewaySettlementCandidate {
+    attempt_id: Uuid,
+    price_revision_id: Uuid,
+    reserved_nanos: i64,
+    prompt_bound: i64,
+    completion_bound: i64,
+    currency: String,
+    api_prompt_rate: i64,
+    api_completion_rate: i64,
+    cash_prompt_rate: i64,
+    cash_completion_rate: i64,
+    prompt_tokens: i64,
+    completion_tokens: i64,
+}
+
+struct GatewaySettlementEntry {
+    attempt_id: Uuid,
+    price_revision_id: Uuid,
+    currency: String,
+    api_equivalent_nanos: i64,
+    cash_nanos: i64,
+    prompt_tokens: i64,
+    completion_tokens: i64,
+    bound_exceeded: bool,
+}
+
 #[derive(Debug, sqlx::FromRow, serde::Serialize)]
 pub struct GatewayActivityCostSummary {
     pub currency: String,
@@ -122,6 +149,21 @@ fn push_activity_scope_and_filters<'a>(
 
 fn currency_valid(currency: &str) -> bool {
     currency.len() == 3 && currency.bytes().all(|b| b.is_ascii_uppercase())
+}
+
+fn map_gateway_admission_error(error: sqlx::Error) -> StoreError {
+    let code = error
+        .as_database_error()
+        .and_then(|database_error| database_error.code())
+        .map(|code| code.into_owned());
+    match code.as_deref() {
+        Some("P0005") => StoreError::Unauthorized,
+        Some("P0006") => StoreError::Conflict,
+        Some("P0007") => StoreError::AccountUnavailable,
+        Some("P0008") => StoreError::BudgetExceeded,
+        Some("P0009") => StoreError::InvalidPrice,
+        _ => StoreError::Database(error),
+    }
 }
 
 impl Store {
@@ -241,6 +283,143 @@ impl Store {
                 self.settle_cost(scope, id).await?;
             }
         }
+        Ok(())
+    }
+
+    /// Persist a bounded set of provider completions first, then settle all
+    /// held reservations in one workspace transaction. Keeping these phases
+    /// separate means a settlement failure never discards usage evidence.
+    pub async fn complete_and_settle_gateway_batch(
+        &self,
+        scope: TenantScope,
+        completions: Vec<GatewayCompletion>,
+    ) -> Result<(), StoreError> {
+        const MAX_BATCH_SIZE: usize = 64;
+        if completions.is_empty() || completions.len() > MAX_BATCH_SIZE {
+            return Err(StoreError::InvalidGatewayAdmissionBatch);
+        }
+        let mut settlement_ids = Vec::with_capacity(completions.len());
+        for completion in &completions {
+            if completion.scope.organization_id != scope.organization_id
+                || completion.scope.project_id != scope.project_id
+            {
+                return Err(StoreError::InvalidGatewayAdmissionBatch);
+            }
+            if completion.usage.is_some() {
+                settlement_ids.push(completion.attempt_id);
+            }
+        }
+
+        self.complete_gateway_batch(completions).await?;
+        if !settlement_ids.is_empty() {
+            self.settle_gateway_batch(scope, &settlement_ids).await?;
+        }
+        Ok(())
+    }
+
+    async fn settle_gateway_batch(
+        &self,
+        scope: TenantScope,
+        attempt_ids: &[Uuid],
+    ) -> Result<(), StoreError> {
+        const MAX_BATCH_SIZE: usize = 64;
+        if attempt_ids.is_empty() || attempt_ids.len() > MAX_BATCH_SIZE {
+            return Err(StoreError::InvalidGatewayAdmissionBatch);
+        }
+
+        let mut tx = self.pool.begin().await?;
+        let locked_attempts: Vec<Uuid> = sqlx::query_scalar("SELECT id FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=ANY($3) AND execution='confirmed_completed' AND usage_confidence='provider_reported' ORDER BY id FOR UPDATE")
+            .bind(scope.organization_id).bind(scope.project_id).bind(attempt_ids)
+            .fetch_all(&mut *tx).await?;
+        if locked_attempts.len() != attempt_ids.len() {
+            return Err(StoreError::Conflict);
+        }
+
+        let candidates: Vec<GatewaySettlementCandidate> = sqlx::query_as("SELECT a.id AS attempt_id, r.price_revision_id, r.reserved_nanos, r.prompt_bound, r.completion_bound, p.currency, p.api_prompt_rate, p.api_completion_rate, p.cash_prompt_rate, p.cash_completion_rate, a.prompt_tokens, a.completion_tokens FROM attempts a JOIN cost_reservations r ON r.organization_id=a.organization_id AND r.project_id=a.project_id AND r.attempt_id=a.id AND r.state='held' JOIN price_revisions p ON p.organization_id=r.organization_id AND p.project_id=r.project_id AND p.id=r.price_revision_id WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=ANY($3) AND a.execution='confirmed_completed' AND a.usage_confidence='provider_reported' ORDER BY a.id FOR UPDATE OF r")
+            .bind(scope.organization_id).bind(scope.project_id).bind(attempt_ids)
+            .fetch_all(&mut *tx).await?;
+        if candidates.is_empty() {
+            tx.commit().await?;
+            return Ok(());
+        }
+
+        let currency = candidates[0].currency.clone();
+        let mut reserved_total = 0_i64;
+        let mut cash_total = 0_i64;
+        let mut entries = Vec::with_capacity(candidates.len());
+        for candidate in candidates {
+            if candidate.currency != currency {
+                return Err(StoreError::Conflict);
+            }
+            let api = TokenRates {
+                prompt: candidate.api_prompt_rate,
+                completion: candidate.api_completion_rate,
+            }
+            .charge(candidate.prompt_tokens, candidate.completion_tokens)?;
+            let cash = TokenRates {
+                prompt: candidate.cash_prompt_rate,
+                completion: candidate.cash_completion_rate,
+            }
+            .charge(candidate.prompt_tokens, candidate.completion_tokens)?;
+            reserved_total = reserved_total
+                .checked_add(candidate.reserved_nanos)
+                .ok_or(StoreError::AggregateOverflow)?;
+            cash_total = cash_total
+                .checked_add(cash)
+                .ok_or(StoreError::AggregateOverflow)?;
+            entries.push(GatewaySettlementEntry {
+                attempt_id: candidate.attempt_id,
+                price_revision_id: candidate.price_revision_id,
+                currency: candidate.currency,
+                api_equivalent_nanos: api,
+                cash_nanos: cash,
+                prompt_tokens: candidate.prompt_tokens,
+                completion_tokens: candidate.completion_tokens,
+                bound_exceeded: candidate.prompt_tokens > candidate.prompt_bound
+                    || candidate.completion_tokens > candidate.completion_bound,
+            });
+        }
+
+        let budget_updated = sqlx::query("UPDATE project_budgets SET reserved_nanos=reserved_nanos-$3, spent_nanos=spent_nanos+$4 WHERE organization_id=$1 AND project_id=$2 AND currency=$5")
+            .bind(scope.organization_id).bind(scope.project_id).bind(reserved_total).bind(cash_total).bind(&currency)
+            .execute(&mut *tx).await?.rows_affected();
+        if budget_updated != 1 {
+            return Err(StoreError::Conflict);
+        }
+
+        let settled_ids = entries
+            .iter()
+            .map(|entry| entry.attempt_id)
+            .collect::<Vec<_>>();
+        let mut insert = QueryBuilder::<Postgres>::new(
+            "INSERT INTO cost_entries (attempt_id, organization_id, project_id, price_revision_id, currency, api_equivalent_nanos, cash_nanos, usage_prompt_tokens, usage_completion_tokens, bound_exceeded) ",
+        );
+        insert.push_values(&entries, |mut row, entry| {
+            row.push_bind(entry.attempt_id)
+                .push_bind(scope.organization_id)
+                .push_bind(scope.project_id)
+                .push_bind(entry.price_revision_id)
+                .push_bind(&entry.currency)
+                .push_bind(entry.api_equivalent_nanos)
+                .push_bind(entry.cash_nanos)
+                .push_bind(entry.prompt_tokens)
+                .push_bind(entry.completion_tokens)
+                .push_bind(entry.bound_exceeded);
+        });
+        insert.build().execute(&mut *tx).await?;
+
+        let reservations_updated = sqlx::query("UPDATE cost_reservations SET state='settled' WHERE organization_id=$1 AND project_id=$2 AND attempt_id=ANY($3) AND state='held'")
+            .bind(scope.organization_id).bind(scope.project_id).bind(&settled_ids)
+            .execute(&mut *tx).await?.rows_affected();
+        let attempts_updated = sqlx::query("UPDATE attempts SET settlement='settled' WHERE organization_id=$1 AND project_id=$2 AND id=ANY($3) AND execution='confirmed_completed' AND usage_confidence='provider_reported'")
+            .bind(scope.organization_id).bind(scope.project_id).bind(&settled_ids)
+            .execute(&mut *tx).await?.rows_affected();
+        if reservations_updated != settled_ids.len() as u64
+            || attempts_updated != settled_ids.len() as u64
+        {
+            return Err(StoreError::Conflict);
+        }
+        tx.commit().await?;
         Ok(())
     }
 
@@ -394,6 +573,36 @@ impl Store {
             .bind(attempt_id).bind(scope.organization_id).bind(scope.project_id).bind(price_id).bind(amount).bind(prompt_bound).bind(completion_bound).execute(&mut *tx).await?;
         tx.commit().await?;
         Ok(())
+    }
+
+    /// Reserve the configured worst-case cost and commit dispatch intent in
+    /// one transaction. A provider call can begin only after both transitions
+    /// are durable, while avoiding a separate transaction for each one.
+    pub async fn reserve_and_dispatch_gateway(
+        &self,
+        principal: &Principal,
+        attempt_id: Uuid,
+        price_id: Uuid,
+        resource_id: &str,
+        offer_revision: &str,
+        prompt_bound: i64,
+        completion_bound: i64,
+    ) -> Result<(), StoreError> {
+        let scope = principal.scope();
+        sqlx::query("SELECT niu_reserve_and_dispatch_gateway($1,$2,$3,$4,$5,$6,$7,$8,$9)")
+            .bind(scope.organization_id)
+            .bind(scope.project_id)
+            .bind(principal.key_id())
+            .bind(attempt_id)
+            .bind(price_id)
+            .bind(resource_id)
+            .bind(offer_revision)
+            .bind(prompt_bound)
+            .bind(completion_bound)
+            .execute(&self.pool)
+            .await
+            .map(|_| ())
+            .map_err(map_gateway_admission_error)
     }
 
     pub async fn budget(&self, scope: TenantScope) -> Result<Option<BudgetSnapshot>, StoreError> {

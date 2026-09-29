@@ -1,6 +1,7 @@
-mod catalog_metadata;
 mod admin;
+mod admission;
 mod billing;
+mod catalog_metadata;
 mod config;
 mod enterprise;
 mod error;
@@ -34,6 +35,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         env::var("PORT").ok().as_deref(),
     )?;
     let listener = TcpListener::bind(address).await?;
+    let gateway_writes = state.gateway_writes.clone();
     let recovery_store = state.store.clone();
     let recovery = tokio::spawn(async move {
         let mut cursor = None;
@@ -84,6 +86,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
         .await?;
+    gateway_writes.shutdown().await;
     recovery.abort();
     Ok(())
 }

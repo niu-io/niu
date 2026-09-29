@@ -42,6 +42,9 @@ impl ApiError {
             niu_storage::StoreError::InvalidKey => {
                 Self::invalid_request("Invalid key name, model permissions, or lifetime")
             }
+            niu_storage::StoreError::InvalidGatewayAdmissionBatch => {
+                Self::invalid_request("Invalid gateway admission batch")
+            }
             niu_storage::StoreError::InvalidOperator => {
                 Self::invalid_request("Invalid operator name, role, or session lifetime")
             }
@@ -98,6 +101,14 @@ impl ApiError {
             status: StatusCode::SERVICE_UNAVAILABLE,
             kind: "upstream_error",
             message: "The configured provider credential is unavailable",
+        }
+    }
+
+    pub fn storage_unavailable() -> Self {
+        Self {
+            status: StatusCode::SERVICE_UNAVAILABLE,
+            kind: "storage_error",
+            message: "Durable storage is unavailable",
         }
     }
 

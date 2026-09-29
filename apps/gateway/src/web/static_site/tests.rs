@@ -104,7 +104,10 @@ async fn separate_artifacts_share_one_origin_without_route_or_asset_collisions()
     ] {
         assert_eq!(body(&app, path, StatusCode::OK).await, expected);
     }
-    assert_eq!(body(&app, "/help/missing", StatusCode::OK).await, "workspace shell");
+    assert_eq!(
+        body(&app, "/help/missing", StatusCode::OK).await,
+        "workspace shell"
+    );
     for path in [
         "/admin/v1/missing",
         "/v1/missing",

@@ -46,6 +46,7 @@ pub(in crate::web) async fn chat(
     headers: HeaderMap,
     Json(mut body): Json<Value>,
 ) -> Result<Response, ApiError> {
+    let _in_flight = state.track_inference();
     let principal = state.authorize_api_headers(&headers).await?;
     let public_model = body
         .get("model")
@@ -288,11 +289,23 @@ async fn complete_openai_compatible(
         .json(&body)
         .send()
         .await
-        .map_err(|_| {
+        .map_err(|error| {
+            tracing::warn!(
+                model = public_model,
+                timeout = error.is_timeout(),
+                connect = error.is_connect(),
+                error = ?error.without_url(),
+                "OpenAI-compatible provider request failed"
+            );
             state.failures.fetch_add(1, Ordering::Relaxed);
             ApiError::upstream()
         })?;
     if !upstream.status().is_success() {
+        tracing::warn!(
+            model = public_model,
+            status = %upstream.status(),
+            "OpenAI-compatible provider returned a non-success response"
+        );
         state.failures.fetch_add(1, Ordering::Relaxed);
         return Err(ApiError::upstream());
     }
@@ -385,9 +398,10 @@ async fn stream_openai_compatible(
     let mut response = Response::new(crate::streaming::tracked_body(
         upstream.bytes_stream(),
         crate::streaming::StreamAttempt {
-            store: state.store.clone(),
+            gateway_writes: state.gateway_writes.clone(),
             scope,
             id: attempt,
+            priced: model.pricing.is_some(),
             usage: usage_attempt,
             failures: state.failures.clone(),
         },
