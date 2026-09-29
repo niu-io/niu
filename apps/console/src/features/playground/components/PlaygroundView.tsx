@@ -489,7 +489,7 @@ export default function PlaygroundView({ token, models, initialScope }: {
             <span className="playground-toolbar-label">Models</span>
             <div className="playground-toolbar-chips">
               {selectedModels.length
-                ? selectedModels.map((model, index) => <span className={'playground-toolbar-chip model-' + (index % 2)} key={model}><span className="playground-model-mark">{String.fromCharCode(65 + index)}</span>{model}</span>)
+                ? selectedModels.map((model, index) => <span className={'playground-toolbar-chip model-' + (index % 2)} key={model}><span className="playground-model-mark">{String.fromCharCode(65 + index)}</span><span className="playground-toolbar-model-name" title={model}>{model}</span></span>)
                 : <span className="playground-toolbar-unselected">Select at least two</span>}
             </div>
             <Button type="button" variant="ghost" size="sm" onClick={() => { setModelQuery(''); setModelPickerOpen(true); }} disabled={running || modelAliases.length === 0}><Plus size={15} />Choose models</Button>
