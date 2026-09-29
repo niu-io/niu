@@ -31,6 +31,7 @@ pub struct ModelConfig {
     pub catalog: crate::catalog_metadata::CatalogMetadata,
     pub provider: String,
     pub upstream_model: String,
+    #[serde(default)]
     pub api_key_env: String,
     #[serde(default)]
     pub public_catalog: bool,
@@ -77,9 +78,13 @@ impl ModelProtocol {
 }
 
 impl ModelConfig {
+    pub fn uses_codex_chatgpt_auth(&self) -> bool {
+        self.provider == "codex-chatgpt"
+    }
+
     pub fn protocol(&self) -> ModelProtocol {
         match self.provider.as_str() {
-            "openai" | "openrouter" => ModelProtocol::OpenAiCompatible,
+            "openai" | "openrouter" | "codex-chatgpt" => ModelProtocol::OpenAiCompatible,
             "anthropic" => ModelProtocol::Anthropic,
             "bedrock" => ModelProtocol::Bedrock,
             _ => ModelProtocol::Unsupported,
@@ -87,6 +92,9 @@ impl ModelConfig {
     }
 
     pub fn endpoint_base(&self) -> Option<&str> {
+        if self.uses_codex_chatgpt_auth() {
+            return Some("https://chatgpt.com/backend-api/codex");
+        }
         self.api_base.as_deref().or(match self.provider.as_str() {
             "openai" => Some("https://api.openai.com/v1"),
             "openrouter" => Some("https://openrouter.ai/api/v1"),
@@ -170,10 +178,25 @@ impl AppConfig {
             if !model.catalog.valid()
                 || model.provider.trim().is_empty()
                 || model.upstream_model.trim().is_empty()
-                || model.api_key_env.trim().is_empty()
+                || (!model.uses_codex_chatgpt_auth() && model.api_key_env.trim().is_empty())
             {
                 return Err(ConfigError::Invalid(format!(
-                    "model route {name} must set provider, upstream_model, and api_key_env"
+                    "model route {name} must set provider and upstream_model; API-key routes must set api_key_env"
+                )));
+            }
+            if model.uses_codex_chatgpt_auth()
+                && model
+                    .api_base
+                    .as_deref()
+                    .is_some_and(|endpoint| endpoint != "https://chatgpt.com/backend-api/codex")
+            {
+                return Err(ConfigError::Invalid(format!(
+                    "model route {name} uses an invalid Codex ChatGPT endpoint"
+                )));
+            }
+            if model.uses_codex_chatgpt_auth() && model.pricing.is_some() {
+                return Err(ConfigError::Invalid(format!(
+                    "model route {name} cannot assign per-token pricing to a Codex subscription route"
                 )));
             }
             if model.supports_embeddings && !model.protocol().is_openai_compatible() {
@@ -390,6 +413,23 @@ mod tests {
         )
         .expect("configuration shape should parse");
         assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn rejects_per_token_pricing_on_codex_chatgpt_routes() {
+        let config: AppConfig = toml::from_str(
+            r#"
+                [models.codex]
+                provider = "codex-chatgpt"
+                upstream_model = "gpt-codex"
+                supports_responses = true
+                api_base = "https://chatgpt.com/backend-api/codex"
+                pricing = { currency = "USD", api_prompt_rate = 1, api_completion_rate = 1, cash_prompt_rate = 1, cash_completion_rate = 1, max_input_tokens = 100, max_output_tokens = 100 }
+            "#,
+        )
+        .expect("configuration shape should parse");
+
+        assert!(config.validate().is_err());
     }
 
     #[test]

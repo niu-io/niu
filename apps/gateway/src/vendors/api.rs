@@ -32,7 +32,7 @@ pub struct CreateVendor {
     name: String,
     adapter: String,
     api_base: String,
-    api_key: String,
+    api_key: Option<String>,
     #[serde(default = "enabled")]
     enabled: bool,
 }
@@ -117,13 +117,27 @@ pub async fn create(
         )?,
     )?;
     let id = Uuid::new_v4();
-    let cipher = state
-        .vendor_cipher
-        .as_ref()
-        .ok_or_else(ApiError::unavailable)?;
-    let ciphertext = cipher
-        .seal(id, &input.api_key)
-        .map_err(ApiError::invalid_request)?;
+    let ciphertext = if input.adapter == "codex-chatgpt" {
+        if input.api_key.is_some() {
+            return Err(ApiError::invalid_request(
+                "Codex ChatGPT routes use the caller's current Codex sign-in and do not store a provider key",
+            ));
+        }
+        None
+    } else {
+        let api_key = input
+            .api_key
+            .as_deref()
+            .ok_or_else(|| ApiError::invalid_request("A provider API key is required"))?;
+        Some(
+            state
+                .vendor_cipher
+                .as_ref()
+                .ok_or_else(ApiError::unavailable)?
+                .seal(id, api_key)
+                .map_err(ApiError::invalid_request)?,
+        )
+    };
     let vendor = state
         .store
         .create_vendor(niu_storage::VendorInput {
@@ -152,6 +166,13 @@ pub async fn update(
         .await
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::not_found)?;
+    if current.adapter == "codex-chatgpt"
+        && input.api_base != "https://chatgpt.com/backend-api/codex"
+    {
+        return Err(ApiError::invalid_request(
+            "The Codex ChatGPT endpoint is fixed for credential safety",
+        ));
+    }
     validate_model(
         "validation",
         make_model(
@@ -162,7 +183,14 @@ pub async fn update(
             None,
         )?,
     )?;
-    let ciphertext = if let Some(key) = input.api_key {
+    let ciphertext = if current.adapter == "codex-chatgpt" {
+        if input.api_key.is_some() {
+            return Err(ApiError::invalid_request(
+                "Codex ChatGPT routes do not accept a stored provider API key",
+            ));
+        }
+        None
+    } else if let Some(key) = input.api_key {
         Some(
             state
                 .vendor_cipher
@@ -222,6 +250,11 @@ pub async fn catalog(
         .await
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::not_found)?;
+    if vendor.adapter == "codex-chatgpt" {
+        return Err(ApiError::upstream_message(
+            "The Codex model catalog requires the caller's current Codex sign-in. Enter a model ID in the route form.",
+        ));
+    }
     let ciphertext = state
         .store
         .vendor_credential_ciphertext(id)
@@ -363,11 +396,24 @@ pub async fn check_model(
         .map_err(ApiError::from_store)?
         .filter(|route| route.vendor.id == id)
         .ok_or_else(ApiError::not_found)?;
+    if route.vendor.adapter == "codex-chatgpt" {
+        let started = Instant::now();
+        return Ok(check_response(
+            "codex_auth_required",
+            "unknown",
+            None,
+            started,
+        ));
+    }
+    let ciphertext = route
+        .credential_ciphertext
+        .as_deref()
+        .ok_or_else(ApiError::unavailable)?;
     let api_key = state
         .vendor_cipher
         .as_ref()
         .ok_or_else(ApiError::unavailable)?
-        .open(id, &route.credential_ciphertext)
+        .open(id, ciphertext)
         .map_err(|_| ApiError::unavailable())?;
     let endpoint = format!("{}/models", route.vendor.api_base.trim_end_matches('/'));
     let timeout = Duration::from_secs(state.config.server.request_timeout_seconds.clamp(1, 5));
@@ -542,6 +588,20 @@ pub async fn upsert_model(
         .await
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::not_found)?;
+    if vendor.adapter == "codex-chatgpt" {
+        if input.pricing.flatten().is_some() {
+            return Err(ApiError::invalid_request(
+                "Per-token provider pricing is unavailable for Codex subscription routes",
+            ));
+        }
+        input.capabilities = json!({
+            "supports_tool_calls": true,
+            "supports_streaming_tool_calls": true,
+            "supports_structured_output": true,
+            "supports_responses": true
+        });
+        input.pricing = Some(None);
+    }
     if input.expected_revision.is_some() && input.pricing.is_none() {
         let previous = state
             .store

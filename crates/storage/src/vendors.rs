@@ -17,7 +17,7 @@ pub struct VendorInput {
     pub adapter: String,
     pub api_base: String,
     pub enabled: bool,
-    pub credential_ciphertext: Vec<u8>,
+    pub credential_ciphertext: Option<Vec<u8>>,
 }
 
 #[derive(Serialize, sqlx::FromRow)]
@@ -66,7 +66,7 @@ pub struct VendorModelView {
 pub struct VendorRoute {
     pub model: VendorModelView,
     pub vendor: VendorView,
-    pub credential_ciphertext: Vec<u8>,
+    pub credential_ciphertext: Option<Vec<u8>>,
 }
 
 #[derive(FromRow)]
@@ -86,7 +86,7 @@ struct VendorRouteRow {
     vendor_enabled: bool,
     vendor_revision: i64,
     has_credential: bool,
-    credential_ciphertext: Vec<u8>,
+    credential_ciphertext: Option<Vec<u8>>,
 }
 
 impl VendorRouteRow {
@@ -176,7 +176,7 @@ impl Store {
             .bind(&input.adapter)
             .bind(&input.api_base)
             .bind(input.enabled)
-            .bind(&input.credential_ciphertext)
+            .bind(input.credential_ciphertext.as_deref())
             .fetch_one(&mut *transaction)
             .await
             .map_err(map_vendor_write_error)?;
@@ -350,7 +350,7 @@ impl Store {
             .bind(&input.adapter)
             .bind(&input.api_base)
             .bind(input.enabled)
-            .bind(&input.credential_ciphertext)
+            .bind(input.credential_ciphertext.as_deref())
             .fetch_optional(&mut *transaction)
             .await
             .map_err(map_vendor_write_error)?;
@@ -442,7 +442,18 @@ fn route_query(filter: &str) -> String {
 
 fn validate_vendor(input: &VendorInput) -> Result<(), StoreError> {
     validate_vendor_fields(&input.name, &input.adapter, &input.api_base)?;
-    if !(30..=16_384).contains(&input.credential_ciphertext.len()) {
+    let valid_credential = match input.adapter.as_str() {
+        "codex-chatgpt" => {
+            input.credential_ciphertext.is_none()
+                && input.api_base == "https://chatgpt.com/backend-api/codex"
+        }
+        "openrouter" | "openai" => input
+            .credential_ciphertext
+            .as_ref()
+            .is_some_and(|value| (30..=16_384).contains(&value.len())),
+        _ => false,
+    };
+    if !valid_credential {
         return Err(StoreError::InvalidVendor);
     }
     Ok(())
@@ -464,10 +475,14 @@ fn validate_vendor_update(update: &VendorUpdate) -> Result<(), StoreError> {
 
 fn validate_vendor_fields(name: &str, adapter: &str, api_base: &str) -> Result<(), StoreError> {
     validate_text(name, 100)?;
-    if !matches!(adapter, "openrouter" | "openai") {
+    if !matches!(adapter, "openrouter" | "openai" | "codex-chatgpt") {
         return Err(StoreError::InvalidVendor);
     }
-    validate_api_base(api_base)
+    validate_api_base(api_base)?;
+    if adapter == "codex-chatgpt" && api_base != "https://chatgpt.com/backend-api/codex" {
+        return Err(StoreError::InvalidVendor);
+    }
+    Ok(())
 }
 
 fn validate_api_base(value: &str) -> Result<(), StoreError> {
@@ -576,7 +591,7 @@ mod tests {
                 adapter: "openrouter".to_owned(),
                 api_base: "https://openrouter.ai/api/v1".to_owned(),
                 enabled: true,
-                credential_ciphertext: vec![0; 30],
+                credential_ciphertext: Some(vec![0; 30]),
             })
             .is_ok()
         );
@@ -587,7 +602,7 @@ mod tests {
                 adapter: "openrouter".to_owned(),
                 api_base: "https://openrouter.ai/api/v1".to_owned(),
                 enabled: true,
-                credential_ciphertext: vec![0; 29],
+                credential_ciphertext: Some(vec![0; 29]),
             })
             .is_err()
         );

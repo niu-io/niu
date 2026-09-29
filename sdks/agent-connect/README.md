@@ -1,10 +1,11 @@
 # @niu-io/agent-connect
 
 Niu Agent Connect provides workspace-scoped connectors for coding agents. This
-package contains an Aider route-mode prototype and a Claude Code OpenTelemetry
-collection prototype. Neither connector is release qualified until its tested
-version and end-to-end evidence are recorded. The package is not published yet;
-use it from a Niu source checkout while these integrations remain in preview.
+package contains a Codex subscription-route prototype, an Aider route-mode
+prototype, and a Claude Code OpenTelemetry collection prototype. None is
+release qualified until its exact version and end-to-end evidence are recorded.
+The package is not published yet; use it from a Niu source checkout while these
+integrations remain in preview.
 
 ## Aider route prototype
 
@@ -36,6 +37,43 @@ This mode uses the provider account configured in Niu. It does not preserve an
 Aider or model-provider subscription. Agent tool calls, retries, validation,
 and accepted outcomes are not captured by the route connector; Niu's gateway
 request activity remains the source for routed model requests.
+
+## Codex ChatGPT route prototype
+
+Create a `ChatGPT Codex subscription` provider connection in the Niu console,
+then add a model route using the model ID Codex should request. This connection
+has a fixed ChatGPT Codex destination and stores no provider credential. On
+Agent Connect, choose the Codex model alias and create a key scoped to that
+workspace and alias.
+
+From a Niu source checkout, build the launcher and run the copied command:
+
+```sh
+pnpm --filter @niu-io/agent-connect build
+node sdks/agent-connect/bin/niu-agent-connect.mjs codex route \
+  --gateway https://niu.example/v1 \
+  --model <workspace-model-alias>
+```
+
+The launcher prompts for the Niu key without echoing it, then passes it only to
+the Codex process as `X-Niu-API-Key`. Codex uses its existing local ChatGPT
+sign-in and refreshes its own token. The launcher supplies one-process Codex
+configuration overrides; it does not edit Codex's saved configuration or
+authentication files. Codex model discovery and HTTP Responses inference go
+through Niu's fixed ChatGPT Codex route. WebSockets are disabled for that
+provider route.
+
+This is a routing prototype, not a verified subscription-billing integration.
+Provider eligibility and the actual payer remain unverified; Niu leaves cost
+unknown and does not apply per-token pricing to this route. Niu records gateway
+request/attempt metadata and terminal provider token usage when supplied. It
+does not capture Codex tool calls, retries, validation, or accepted outcomes as
+a complete task trace.
+
+The launcher accepts the Codex CLI installed on the machine. Pass normal Codex
+arguments after `--`, for example `-- exec "Summarize this repository"`.
+Arguments that override the provider, model, profile, or route configuration
+are rejected so the selected Niu route stays active for the process.
 
 ## Claude Code collection prototype
 

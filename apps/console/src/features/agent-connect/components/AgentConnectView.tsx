@@ -9,6 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenu
 import type { Workspace } from '@/app/console-context';
 import {
   issueAiderProjectKey,
+  issueCodexProjectKey,
   issueExecutionCollectorKey,
   listExecutionCollectorKeys,
   revokeExecutionCollectorKey,
@@ -16,7 +17,7 @@ import {
   type ProjectScope,
 } from '../api';
 
-type AgentId = 'aider' | 'claude-code';
+type AgentId = 'codex' | 'aider' | 'claude-code';
 type Mode = 'route' | 'collect';
 type AgentDefinition = {
   id: AgentId;
@@ -30,6 +31,16 @@ type AgentDefinition = {
 };
 
 const agents: AgentDefinition[] = [
+  {
+    id: 'codex',
+    name: 'Codex CLI',
+    version: 'Uses the Codex CLI installed on this machine',
+    availableMode: 'route',
+    billing: 'Codex keeps its ChatGPT sign-in. Subscription eligibility and billing through a custom endpoint are not verified.',
+    receives: 'Gateway request, attempt, timing, and provider-reported token usage when available.',
+    excluded: 'Codex tool calls as a complete task trace, validation, and accepted outcomes.',
+    documentation: '',
+  },
   {
     id: 'aider',
     name: 'Aider',
@@ -56,11 +67,12 @@ type Props = {
   token: string;
   workspace: Workspace;
   models: string[];
+  codexModels: string[];
   canWrite: boolean;
 };
 
-export default function AgentConnectView({ token, workspace, models, canWrite }: Props) {
-  const [agentId, setAgentId] = useState<AgentId>('aider');
+export default function AgentConnectView({ token, workspace, models, codexModels, canWrite }: Props) {
+  const [agentId, setAgentId] = useState<AgentId>('codex');
   const [selectedModel, setSelectedModel] = useState(models[0] ?? '');
   const [collectorKeys, setCollectorKeys] = useState<ExecutionCollectorKey[]>([]);
   const [routeSecret, setRouteSecret] = useState<{ id: string; token: string } | null>(null);
@@ -71,15 +83,16 @@ export default function AgentConnectView({ token, workspace, models, canWrite }:
   const [notice, setNotice] = useState('');
   const [copyNotice, setCopyNotice] = useState('');
   const agent = agents.find(item => item.id === agentId)!;
+  const agentModels = agentId === 'codex' ? codexModels : models;
   const scope: ProjectScope = { organizationId: workspace.organization_id, projectId: workspace.id };
   const productBase = import.meta.env.BASE_URL.replace(/\/+$/, '');
   const gatewayBaseURL = `${window.location.origin}${productBase}/v1`;
-  const selectedAlias = models.includes(selectedModel) ? selectedModel : models[0] ?? '';
+  const selectedAlias = agentModels.includes(selectedModel) ? selectedModel : agentModels[0] ?? '';
   const routeAlias = routeKeyModel ?? selectedAlias;
   const routeExample = useMemo(() => [
     'pnpm --filter @niu-io/agent-connect build',
-    `node sdks/agent-connect/bin/niu-agent-connect.mjs aider route --gateway ${shellQuote(gatewayBaseURL)} --model ${shellQuote(routeAlias)}`,
-  ].join('\n'), [gatewayBaseURL, routeAlias]);
+    `node sdks/agent-connect/bin/niu-agent-connect.mjs ${agentId === 'codex' ? 'codex' : 'aider'} route --gateway ${shellQuote(gatewayBaseURL)} --model ${shellQuote(routeAlias)}`,
+  ].join('\n'), [agentId, gatewayBaseURL, routeAlias]);
   const collectExample = useMemo(() => [
     'pnpm --filter @niu-io/agent-connect build',
     `node sdks/agent-connect/bin/niu-agent-connect.mjs claude collect --gateway ${shellQuote(gatewayBaseURL)} --organization ${shellQuote(workspace.organization_id)} --workspace ${shellQuote(workspace.id)} -- claude`,
@@ -99,8 +112,8 @@ export default function AgentConnectView({ token, workspace, models, canWrite }:
   }, [reloadCollectorKeys]);
 
   useEffect(() => {
-    if (!models.includes(selectedModel)) setSelectedModel(models[0] ?? '');
-  }, [models, selectedModel]);
+    if (!agentModels.includes(selectedModel)) setSelectedModel(agentModels[0] ?? '');
+  }, [agentModels, selectedModel]);
 
   async function copyValue(label: string, value: string) {
     try {
@@ -152,14 +165,14 @@ export default function AgentConnectView({ token, workspace, models, canWrite }:
         >
           <Bot size={19} aria-hidden="true" />
           <span className="agent-connect-option-copy"><strong>{item.name}</strong><small>{item.availableMode === 'route' ? 'Route through Niu' : 'Collect activity'}</small></span>
-          <Badge variant="outline">Preview</Badge>
+          <Badge variant="outline">{item.id === 'codex' ? 'Prototype' : 'Preview'}</Badge>
         </Button>)}
       </nav>
 
       <section className="agent-connect-detail" aria-labelledby="agent-connect-detail-title">
         <div className="agent-connect-detail-heading">
           <div><h2 id="agent-connect-detail-title">{agent.name}</h2><p>{agent.version}</p></div>
-          <a href={agent.documentation} target="_blank" rel="noreferrer">Agent docs <Link2 size={14} /></a>
+          {agent.documentation && <a href={agent.documentation} target="_blank" rel="noreferrer">Agent docs <Link2 size={14} /></a>}
         </div>
         <div className="agent-mode-switch" role="group" aria-label="Connection mode">
           <Button type="button" disabled={agent.availableMode !== 'route'} aria-pressed={agent.availableMode === 'route'}>
@@ -169,9 +182,11 @@ export default function AgentConnectView({ token, workspace, models, canWrite }:
             <Activity size={16} />Collect activity
           </Button>
         </div>
-        <p className="agent-mode-availability" role="status">{agent.id === 'aider'
-          ? 'Aider log collection is not supported by this connector.'
-          : 'Routing Claude Code through Niu is not qualified. Collection leaves its provider route unchanged.'}</p>
+        <p className="agent-mode-availability" role="status">{agent.id === 'codex'
+          ? 'Codex sends Responses requests through Niu; its current ChatGPT sign-in stays local.'
+          : agent.id === 'aider'
+            ? 'Aider log collection is not supported by this connector.'
+            : 'Routing Claude Code through Niu is not qualified. Collection leaves its provider route unchanged.'}</p>
 
         <dl className="agent-connect-evidence">
           <div><dt>{agent.availableMode === 'route' ? 'Request path' : 'Provider route'}</dt><dd>{agent.availableMode === 'route' ? 'Agent → Niu → configured provider' : 'Unchanged from Claude Code'}</dd></div>
@@ -180,37 +195,39 @@ export default function AgentConnectView({ token, workspace, models, canWrite }:
           <div><dt>Not captured</dt><dd>{agent.excluded}</dd></div>
         </dl>
 
-        {agent.availableMode === 'route' ? <section className="agent-connect-setup" aria-labelledby="aider-setup-title">
-          <div className="agent-connect-setup-title"><div><h3 id="aider-setup-title">Connect Aider</h3><p>The key grants access to one model alias in this workspace.</p></div><Badge variant="outline">Aider API billing</Badge></div>
+        {agent.availableMode === 'route' ? <section className="agent-connect-setup" aria-labelledby="route-setup-title">
+          <div className="agent-connect-setup-title"><div><h3 id="route-setup-title">Connect {agent.name}</h3><p>The key grants access to one model alias in this workspace.</p></div><Badge variant="outline">{agent.id === 'codex' ? 'Uses Codex sign-in' : 'API billing'}</Badge></div>
           {!canWrite && <p className="operator-read-only-note">This session can view setup but cannot issue a workspace key.</p>}
-          {models.length === 0 ? <div className="agent-connect-empty"><p>Connect a provider and publish a model alias first.</p><Button asChild variant="outline"><Link to="../vendors">Connect a provider</Link></Button></div> : <>
-            <Label htmlFor="aider-model-alias">Model alias
-              <DropdownMenu><DropdownMenuTrigger asChild><Button id="aider-model-alias" aria-label="Model alias" disabled={busy || routeKeyModel !== null} variant="outline" className="w-full justify-between font-normal">{routeAlias}<ChevronDown size={16} /></Button></DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={routeAlias} onValueChange={setSelectedModel}>{models.map(model => <DropdownMenuRadioItem key={model} value={model}>{model}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent>
+          {agentModels.length === 0 ? <div className="agent-connect-empty"><p>{agent.id === 'codex' ? 'Add a Codex ChatGPT route and model alias first.' : 'Connect a provider and publish a model alias first.'}</p><Button asChild variant="outline"><Link to="../vendors">Connect a provider</Link></Button></div> : <>
+            <Label htmlFor="agent-model-alias">Model alias
+              <DropdownMenu><DropdownMenuTrigger asChild><Button id="agent-model-alias" aria-label="Model alias" disabled={busy || routeKeyModel !== null} variant="outline" className="w-full justify-between font-normal">{routeAlias}<ChevronDown size={16} /></Button></DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={routeAlias} onValueChange={setSelectedModel}>{agentModels.map(model => <DropdownMenuRadioItem key={model} value={model}>{model}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent>
               </DropdownMenu>
             </Label>
             {canWrite && routeKeyModel === null && <Button disabled={busy || !selectedAlias} onClick={() => void mutate(async () => {
-              const issued = await issueAiderProjectKey(token, scope, selectedAlias);
+              const issued = agent.id === 'codex'
+                ? await issueCodexProjectKey(token, scope, selectedAlias)
+                : await issueAiderProjectKey(token, scope, selectedAlias);
               setRouteKeyModel(selectedAlias);
               setRouteSecret({ id: issued.id, token: issued.token });
               setNotice('Workspace key created. Copy it now; Niu will not show it again.');
               setCopyNotice('');
-            })}><KeyRound size={16} />Create Aider key</Button>}
+            })}><KeyRound size={16} />Create {agent.id === 'codex' ? 'Codex' : 'Aider'} key</Button>}
             {routeSecret && <div className="agent-connect-secret">
-              <Label id="aider-key-label" htmlFor="aider-workspace-key">Workspace key · shown once</Label>
-              <div><Input id="aider-workspace-key" className="mono" readOnly value={routeSecret.token} onFocus={event => event.target.select()} /><Button type="button" variant="outline" onClick={() => void copyValue('Workspace key', routeSecret.token)}><Copy size={15} />Copy key</Button><Button type="button" variant="ghost" aria-label="Dismiss workspace key" onClick={() => setRouteSecret(null)}><X size={16} /></Button></div>
+              <Label id="route-key-label" htmlFor="route-workspace-key">Workspace key · shown once</Label>
+              <div><Input id="route-workspace-key" className="mono" readOnly value={routeSecret.token} onFocus={event => event.target.select()} /><Button type="button" variant="outline" onClick={() => void copyValue('Workspace key', routeSecret.token)}><Copy size={15} />Copy key</Button><Button type="button" variant="ghost" aria-label="Dismiss workspace key" onClick={() => setRouteSecret(null)}><X size={16} /></Button></div>
             </div>}
             <div className="agent-connect-copy-field">
-              <Label htmlFor="aider-gateway-url">Niu base URL</Label>
-              <div><Input id="aider-gateway-url" className="mono" readOnly value={gatewayBaseURL} onFocus={event => event.target.select()} /><Button type="button" variant="outline" aria-label="Copy Niu base URL" onClick={() => void copyValue('Niu base URL', gatewayBaseURL)}><Copy size={15} /></Button></div>
+              <Label htmlFor="agent-gateway-url">Niu base URL</Label>
+              <div><Input id="agent-gateway-url" className="mono" readOnly value={gatewayBaseURL} onFocus={event => event.target.select()} /><Button type="button" variant="outline" aria-label="Copy Niu base URL" onClick={() => void copyValue('Niu base URL', gatewayBaseURL)}><Copy size={15} /></Button></div>
             </div>
             <div className="agent-connect-copy-field">
-              <Label htmlFor="aider-model-value">Model alias</Label>
-              <div><Input id="aider-model-value" className="mono" readOnly value={selectedAlias} onFocus={event => event.target.select()} /><Button type="button" variant="outline" aria-label="Copy model alias" onClick={() => void copyValue('Model alias', selectedAlias)}><Copy size={15} /></Button></div>
+              <Label htmlFor="agent-model-value">Model alias</Label>
+              <div><Input id="agent-model-value" className="mono" readOnly value={selectedAlias} onFocus={event => event.target.select()} /><Button type="button" variant="outline" aria-label="Copy model alias" onClick={() => void copyValue('Model alias', selectedAlias)}><Copy size={15} /></Button></div>
             </div>
-            <div className="agent-connect-code-heading"><strong>Aider setup</strong><Button type="button" variant="outline" size="sm" onClick={() => void copyValue('Aider setup', routeExample)}><Copy size={15} />Copy setup</Button></div>
+            <div className="agent-connect-code-heading"><strong>{agent.name} setup</strong><Button type="button" variant="outline" size="sm" onClick={() => void copyValue(`${agent.name} setup`, routeExample)}><Copy size={15} />Copy setup</Button></div>
             <pre className="agent-connect-code"><code>{routeExample}</code></pre>
-            <p className="agent-connect-security"><Shield size={15} />Paste the key at the hidden prompt. Niu pins the route; Aider config and workspace <code>.env</code> files are ignored. Aider subscriptions are not preserved.</p>
+            <p className="agent-connect-security"><Shield size={15} />Paste the key at the hidden prompt. It is passed only to this process. {agent.id === 'codex' ? 'Codex manages and refreshes its ChatGPT sign-in; Niu does not store that token.' : 'Niu pins the route and ignores Aider project configuration and .env files.'}</p>
             {routeKeyModel !== null && <p className="agent-connect-key-management">This key is scoped to <code>{routeKeyModel}</code>. <Link to="../keys">Manage or revoke it in Workspace keys</Link></p>}
           </>}
         </section> : <section className="agent-connect-setup" aria-labelledby="claude-setup-title">

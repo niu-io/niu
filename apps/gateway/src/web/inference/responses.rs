@@ -3,7 +3,7 @@ use std::{sync::atomic::Ordering, time::Duration};
 use axum::{
     Json,
     extract::State,
-    http::HeaderMap,
+    http::{HeaderMap, HeaderValue, header},
     response::{IntoResponse, Response},
 };
 use serde_json::{Value, json};
@@ -36,7 +36,17 @@ pub(in crate::web) async fn responses(
     }
     let resolved = crate::vendors::resolve_model(&state, &public_model).await?;
     let model = &resolved.model;
-    let bounds = validate_responses_request(&mut body, model.pricing.as_ref())?;
+    let codex_route = model.uses_codex_chatgpt_auth();
+    let codex_headers = if codex_route {
+        Some(super::common::codex_forward_headers(&headers)?)
+    } else {
+        None
+    };
+    let bounds = if codex_route {
+        validate_codex_responses_request(&body)?
+    } else {
+        validate_responses_request(&mut body, model.pricing.as_ref())?
+    };
     if !model.protocol().is_openai_compatible() || !model.supports_responses {
         return Err(ApiError::unsupported());
     }
@@ -65,9 +75,52 @@ pub(in crate::web) async fn responses(
         task_id.as_deref(),
     )
     .await?;
-    let result =
-        execute_responses(&state, &public_model, model, api_key, body, timeout, client).await;
+    let result = if codex_route {
+        execute_codex_responses(
+            &state,
+            model,
+            body,
+            codex_headers.expect("Codex routes have validated caller headers"),
+            dispatch,
+            timeout,
+            client,
+        )
+        .await
+    } else {
+        execute_responses(
+            &state,
+            &public_model,
+            model,
+            api_key.ok_or_else(ApiError::unavailable)?,
+            body,
+            timeout,
+            client,
+        )
+        .await
+    };
     Ok(finalize_response(&state, dispatch, result).await)
+}
+
+fn validate_codex_responses_request(body: &Value) -> Result<ResponsesRequestBounds, ApiError> {
+    let object = body
+        .as_object()
+        .ok_or_else(|| ApiError::invalid_request("The request body must be a JSON object"))?;
+    if object.get("stream") != Some(&Value::Bool(true)) {
+        return Err(ApiError::invalid_request(
+            "Codex Responses requests must use streaming",
+        ));
+    }
+    if object
+        .get("model")
+        .and_then(Value::as_str)
+        .is_none_or(str::is_empty)
+    {
+        return Err(ApiError::invalid_request("A model name is required"));
+    }
+    Ok(ResponsesRequestBounds {
+        input_bytes: 0,
+        max_output_tokens: object.get("max_output_tokens").and_then(Value::as_i64),
+    })
 }
 
 pub(in crate::web) fn validate_responses_request(
@@ -233,6 +286,102 @@ async fn execute_responses(
         usage,
         provider_model,
     })
+}
+
+async fn execute_codex_responses(
+    state: &AppState,
+    model: &crate::config::ModelConfig,
+    mut body: Value,
+    forwarded_headers: HeaderMap,
+    dispatch: DispatchContext,
+    timeout: Duration,
+    client: reqwest::Client,
+) -> Result<ProviderResponse, ApiError> {
+    let base = model.endpoint_base().ok_or_else(ApiError::unavailable)?;
+    let endpoint = format!("{}/responses", base.trim_end_matches('/'));
+    let object = body
+        .as_object_mut()
+        .ok_or_else(|| ApiError::invalid_request("The request body must be a JSON object"))?;
+    object.insert("model".to_owned(), json!(model.upstream_model));
+    strip_server_control_fields(object);
+    let usage_attempt = state.usage.begin();
+    let upstream = client
+        .post(endpoint)
+        .headers(forwarded_headers)
+        .header(header::ACCEPT, "text/event-stream")
+        .timeout(timeout)
+        .json(&body)
+        .send()
+        .await
+        .map_err(|_| {
+            state.failures.fetch_add(1, Ordering::Relaxed);
+            ApiError::upstream()
+        })?;
+    if !upstream.status().is_success() {
+        state.failures.fetch_add(1, Ordering::Relaxed);
+        return Err(codex_upstream_error(upstream.status()));
+    }
+    let status = axum::http::StatusCode::from_u16(upstream.status().as_u16())
+        .unwrap_or(axum::http::StatusCode::BAD_GATEWAY);
+    let content_type = upstream
+        .headers()
+        .get(header::CONTENT_TYPE)
+        .cloned()
+        .ok_or_else(|| {
+            state.failures.fetch_add(1, Ordering::Relaxed);
+            ApiError::upstream()
+        })?;
+    if content_type
+        .to_str()
+        .ok()
+        .and_then(|value| value.split(';').next())
+        .is_none_or(|value| !value.trim().eq_ignore_ascii_case("text/event-stream"))
+    {
+        state.failures.fetch_add(1, Ordering::Relaxed);
+        return Err(ApiError::upstream());
+    }
+    // Codex captures this opaque sticky-routing token from the HTTP response
+    // headers and sends it again on follow-up requests in the same turn.
+    let turn_state = upstream.headers().get("x-codex-turn-state").cloned();
+    let response = Response::new(crate::streaming::tracked_responses_body(
+        upstream.bytes_stream(),
+        crate::streaming::StreamAttempt {
+            gateway_writes: state.gateway_writes.clone(),
+            scope: dispatch.scope,
+            id: dispatch.attempt,
+            priced: false,
+            usage: usage_attempt,
+            failures: state.failures.clone(),
+        },
+    ));
+    let mut response = response;
+    *response.status_mut() = status;
+    response
+        .headers_mut()
+        .insert(header::CONTENT_TYPE, content_type);
+    if let Some(turn_state) = turn_state {
+        response
+            .headers_mut()
+            .insert("x-codex-turn-state", turn_state);
+    }
+    response
+        .headers_mut()
+        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-cache"));
+    Ok(ProviderResponse {
+        response,
+        completed: false,
+        usage: None,
+        provider_model: None,
+    })
+}
+
+fn codex_upstream_error(status: axum::http::StatusCode) -> ApiError {
+    match status {
+        axum::http::StatusCode::UNAUTHORIZED => ApiError::upstream_authentication(),
+        axum::http::StatusCode::FORBIDDEN => ApiError::upstream_forbidden(),
+        axum::http::StatusCode::TOO_MANY_REQUESTS => ApiError::upstream_rate_limited(),
+        _ => ApiError::upstream(),
+    }
 }
 
 pub(in crate::web) fn valid_responses_response(response: &Value) -> bool {

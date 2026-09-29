@@ -231,6 +231,8 @@ async fn vendor_management_persists_and_controls_new_inference_requests(pool: Pg
     assert!(
         !route
             .credential_ciphertext
+            .as_deref()
+            .expect("vendor has a saved credential")
             .windows(b"vendor-test-first-secret".len())
             .any(|v| v == b"vendor-test-first-secret")
     );

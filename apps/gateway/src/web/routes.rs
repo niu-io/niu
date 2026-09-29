@@ -15,6 +15,8 @@ use crate::{error::ApiError, state::AppState};
 
 use super::inference::{bearer, chat, embeddings, responses};
 
+const MAX_RESPONSES_REQUEST_BYTES: usize = 16 * 1024 * 1024;
+
 pub(crate) fn router(state: AppState) -> Router {
     let enterprise_enabled = state.enterprise.is_some();
     let app = Router::new()
@@ -94,8 +96,13 @@ pub(crate) fn router(state: AppState) -> Router {
         )
         .route("/catalog/v1/models", get(catalog_models))
         .route("/v1/models", get(public_models))
+        .route("/v1/codex/models", get(super::codex::models))
         .route("/v1/chat/completions", axum::routing::post(chat))
-        .route("/v1/responses", axum::routing::post(responses))
+        .route(
+            "/v1/responses",
+            axum::routing::post(responses)
+                .layer(DefaultBodyLimit::max(MAX_RESPONSES_REQUEST_BYTES)),
+        )
         .route("/v1/embeddings", axum::routing::post(embeddings))
         .route("/admin/v1/models", get(admin_models))
         .route("/admin/v1/vendors", get(crate::vendors::list).post(crate::vendors::create))
@@ -260,8 +267,9 @@ async fn catalog_models(State(state): State<AppState>) -> Result<Json<Value>, Ap
                 "owned_by": "niu",
                 "catalog": model.catalog,
                 "capabilities": {
-                    "chat_completions": true,
-                    "streaming": model.protocol().supports_streaming(),
+                    "chat_completions": !model.uses_codex_chatgpt_auth(),
+                    "streaming": !model.uses_codex_chatgpt_auth()
+                        && model.protocol().supports_streaming(),
                     "embeddings": model.supports_embeddings,
                     "responses": model.supports_responses
                 }

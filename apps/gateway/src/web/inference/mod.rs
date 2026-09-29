@@ -7,6 +7,7 @@ pub(super) use chat::chat;
 #[cfg(test)]
 pub(super) use chat::{valid_chat_completion_features, validate_chat_capabilities};
 pub(super) use common::bearer;
+pub(in crate::web) use common::codex_forward_headers;
 pub(super) use embeddings::embeddings;
 #[cfg(test)]
 pub(super) use embeddings::validate_embedding_request;

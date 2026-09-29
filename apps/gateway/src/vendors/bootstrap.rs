@@ -96,7 +96,7 @@ pub(super) async fn seed_bytes(
                     adapter: vendor.adapter,
                     api_base: vendor.api_base,
                     enabled: true,
-                    credential_ciphertext: ciphertext,
+                    credential_ciphertext: Some(ciphertext),
                 },
                 vendor.models.into_iter().map(ModelInput::storage).collect(),
             )

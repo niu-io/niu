@@ -124,6 +124,30 @@ impl ApiError {
         }
     }
 
+    pub fn upstream_authentication() -> Self {
+        Self {
+            status: StatusCode::UNAUTHORIZED,
+            kind: "upstream_authentication_error",
+            message: "The provider rejected Codex authentication",
+        }
+    }
+
+    pub fn upstream_forbidden() -> Self {
+        Self {
+            status: StatusCode::FORBIDDEN,
+            kind: "upstream_permission_error",
+            message: "The provider denied this Codex route",
+        }
+    }
+
+    pub fn upstream_rate_limited() -> Self {
+        Self {
+            status: StatusCode::TOO_MANY_REQUESTS,
+            kind: "upstream_rate_limit_error",
+            message: "The provider rate limited the Codex request",
+        }
+    }
+
     pub fn unsupported() -> Self {
         Self {
             status: StatusCode::NOT_IMPLEMENTED,

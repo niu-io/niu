@@ -69,6 +69,30 @@ paths:
           description: Available public model names.
         '401':
           description: Missing or invalid gateway credentials.
+  /v1/codex/models:
+    get:
+      operationId: listCodexModels
+      summary: List Codex model aliases available to this project key
+      description: Proxies Codex's native model catalog through the fixed ChatGPT Codex endpoint. Requires both the user's Codex-managed ChatGPT bearer token and a separate Niu project key; returns only enabled Codex aliases granted to that key.
+      security:
+        - codexChatGPTAuth: []
+          niuApiKeyAuth: []
+      parameters:
+        - name: client_version
+          in: query
+          required: false
+          schema: { type: string, maxLength: 64, pattern: '^[A-Za-z0-9._-]+$' }
+      responses:
+        '200':
+          description: Codex-native model metadata with slugs rewritten to the allowed Niu aliases.
+        '401':
+          description: The project key is invalid or Codex authentication was rejected upstream.
+        '403':
+          description: The ChatGPT Codex endpoint denied this account or route.
+        '429':
+          description: The ChatGPT Codex endpoint rate limited model discovery.
+        '502':
+          description: The Codex model catalog could not be reached or parsed.
   /catalog/v1/models:
     get:
       operationId: listPublicCatalogModels
@@ -172,11 +196,13 @@ paths:
   /v1/responses:
     post:
       operationId: createResponse
-      summary: Create a non-streaming text response
-      description: The route must be an OpenAI-compatible provider route with supports_responses enabled. This public subset accepts a single text input and optional text instructions, output limit, sampling values, metadata and user identifier. Streaming, multimodal input, tools, prior-response state and other fields are rejected.
+      summary: Create a Responses API response
+      description: Requests are limited to 16 MiB. Ordinary OpenAI-compatible routes accept the documented non-streaming text subset. A codex-chatgpt route instead requires both Codex-managed ChatGPT authorization and a separate project key, accepts Codex's streaming Responses request, and streams bytes from the fixed ChatGPT Codex endpoint. The Codex request and response are passed through; terminal token usage is recorded when present. The route does not capture task/tool outcomes or establish subscription eligibility or payer.
       security:
         - bearerAuth: []
         - niuApiKeyAuth: []
+        - codexChatGPTAuth: []
+          niuApiKeyAuth: []
       parameters:
         - name: X-Niu-Task-ID
           in: header
@@ -188,25 +214,37 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ResponsesRequest'
+              oneOf:
+                - $ref: '#/components/schemas/ResponsesRequest'
+                - $ref: '#/components/schemas/CodexResponsesRequest'
       responses:
         '200':
-          description: A validated Responses API text response with the public model alias.
+          description: A JSON response for ordinary routes or an unchanged Codex Responses event stream for codex-chatgpt routes.
+          headers:
+            X-Codex-Turn-State:
+              description: Opaque sticky-routing value returned by the Codex endpoint and replayed by Codex on follow-up requests.
+              schema: { type: string }
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ResponsesResponse'
+            text/event-stream:
+              schema: { type: string, description: Server-sent Codex Responses events. }
         '400':
           description: Invalid body, unsupported field or invalid request shape.
         '401':
-          description: Missing or invalid gateway credentials.
+          description: Missing or invalid Niu credentials, or Codex authentication rejected by the fixed upstream.
+        '403':
+          description: The ChatGPT Codex endpoint denied this account or route.
         '404':
           description: Model alias does not exist or is unavailable to this key.
         '501':
           description: Responses support is disabled for the route or streaming was requested.
         '502':
           description: Provider request failed or returned an invalid text response.
-      x-niu-status: Non-streaming, text-only subset on explicitly configured OpenAI-compatible routes. The gateway validates response item types and usage shape. Tool, multimodal, streaming and stateful conversation semantics are not implemented.
+        '429':
+          description: The fixed Codex endpoint rate limited the request.
+      x-niu-status: Ordinary routes support a validated non-streaming text subset. The codex-chatgpt route accepts streaming Responses JSON, passes its SSE stream through, and captures terminal usage metadata only. It does not claim complete Codex feature or account coverage.
   /admin/v1/models:
     get:
       operationId: adminListModels
@@ -236,7 +274,7 @@ paths:
         '403': { description: Installation administrator required. }
     post:
       operationId: createVendor
-      summary: Create an installation vendor with an encrypted credential
+      summary: Create an installation provider connection
       security: [{ adminBearerAuth: [] }]
       requestBody:
         required: true
@@ -317,7 +355,7 @@ paths:
     get:
       operationId: listProviderModelCatalog
       summary: Discover models available from an installation vendor
-      description: Makes a bounded GET to the configured provider /models endpoint using the encrypted server-side credential. No inference request is sent. Redirects are blocked, the response body is capped at 2 MiB, and only allowlisted model IDs and catalog metadata (display name, description, context and output limits, modalities, and advertised USD token prices) are returned. Provider credentials and raw response data are never returned.
+      description: Makes a bounded GET to an OpenAI/OpenRouter provider /models endpoint using the encrypted server-side credential. No inference request is sent. Redirects are blocked, the response body is capped at 2 MiB, and only allowlisted model IDs and catalog metadata are returned. Codex ChatGPT model discovery instead uses GET /v1/codex/models with the caller's current Codex sign-in; enter its upstream model ID in the route form. Provider credentials and raw response data are never returned.
       security: [{ adminBearerAuth: [] }]
       responses:
         '200':
@@ -1664,7 +1702,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
-        adapter: { type: string, enum: [openrouter, openai] }
+        adapter: { type: string, enum: [openrouter, openai, codex-chatgpt] }
         api_base: { type: string, format: uri }
         enabled: { type: boolean }
         revision: { type: integer, minimum: 1 }
@@ -1672,12 +1710,12 @@ components:
     VendorCreate:
       type: object
       additionalProperties: false
-      required: [name, adapter, api_base, api_key]
+      required: [name, adapter, api_base]
       properties:
         name: { type: string, minLength: 1, maxLength: 100 }
-        adapter: { type: string, enum: [openrouter, openai] }
-        api_base: { type: string, format: uri, maxLength: 2048, description: HTTPS endpoint or HTTP loopback endpoint without URL credentials or query parameters. }
-        api_key: { type: string, writeOnly: true, minLength: 1, maxLength: 8192 }
+        adapter: { type: string, enum: [openrouter, openai, codex-chatgpt] }
+        api_base: { type: string, format: uri, maxLength: 2048, description: HTTPS endpoint or HTTP loopback endpoint for OpenAI/OpenRouter. codex-chatgpt requires the fixed https://chatgpt.com/backend-api/codex destination. }
+        api_key: { type: string, writeOnly: true, minLength: 1, maxLength: 8192, description: Required for OpenAI/OpenRouter and rejected for codex-chatgpt, which uses Codex-managed caller authentication. }
         enabled: { type: boolean, default: true }
     VendorUpdate:
       type: object
@@ -1710,7 +1748,7 @@ components:
         enabled: { type: boolean, default: true }
         public_catalog: { type: boolean, default: false }
         capabilities: { $ref: '#/components/schemas/VendorCapabilities' }
-        pricing: { type: [object, 'null'], description: Optional validated route pricing. Null clears pricing; omission preserves existing pricing on updates and leaves cost unknown on creates. }
+        pricing: { type: [object, 'null'], description: Optional validated route pricing. Null clears pricing; omission preserves existing pricing on updates and leaves cost unknown on creates. Codex ChatGPT subscription routes reject per-token pricing. }
         expected_revision: { type: [integer, 'null'], minimum: 1 }
     VendorModel:
       type: object
@@ -1843,6 +1881,20 @@ components:
           additionalProperties: { type: string, maxLength: 512 }
         user: { type: string, maxLength: 512 }
         stream: { type: boolean, const: false, default: false }
+    CodexResponsesRequest:
+      type: object
+      description: Codex CLI request shape. Additional fields are passed through only on the fixed codex-chatgpt route.
+      required: [model, input, stream]
+      properties:
+        model: { type: string, minLength: 1, description: Niu model alias. Niu rewrites it to the configured upstream model. }
+        input:
+          description: Codex Responses input items.
+          oneOf:
+            - type: string
+            - type: array
+              items: { type: object, additionalProperties: true }
+        stream: { type: boolean, const: true }
+      additionalProperties: true
     ResponsesOutputText:
       type: object
       required: [type, text]
@@ -2446,6 +2498,11 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
+      description: Niu project key for ordinary inference routes.
+    codexChatGPTAuth:
+      type: http
+      scheme: bearer
+      description: Codex-managed ChatGPT bearer token. Use only with X-Niu-API-Key on a codex-chatgpt route.
     niuApiKeyAuth:
       type: apiKey
       in: header

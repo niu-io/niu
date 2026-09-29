@@ -57,6 +57,7 @@ export function modelIdentity(model: { id: string; upstream_model?: string }): P
   return namespace.length > 1 && namespace[0] ? { id: `custom:${namespace[0]}`, name: namespace[0] } : { id: 'other', name: 'Other models' };
 }
 export function connectionIdentity(vendor: { name: string; api_base: string; adapter: string }): ProviderIdentity {
+  if (vendor.adapter === 'codex-chatgpt') return { id: 'openai', name: 'ChatGPT Codex' };
   let host = '';
   try { host = new URL(vendor.api_base).hostname.toLowerCase(); } catch { /* Invalid endpoints keep the neutral mark. */ }
   const domains: Record<string, string> = { 'openai.com': 'openai', 'anthropic.com': 'anthropic', 'openrouter.ai': 'openrouter', 'deepseek.com': 'deepseek', 'dashscope.aliyuncs.com': 'qwen', 'dashscope-intl.aliyuncs.com': 'qwen', 'googleapis.com': 'google', 'moonshot.cn': 'moonshot', 'moonshot.ai': 'moonshot', 'mistral.ai': 'mistral', 'bigmodel.cn': 'zai', 'z.ai': 'zai', 'minimax.io': 'minimax', 'minimaxi.com': 'minimax', 'x.ai': 'xai', 'qiniu.com': 'qiniu', 'qnaigc.com': 'qiniu' };

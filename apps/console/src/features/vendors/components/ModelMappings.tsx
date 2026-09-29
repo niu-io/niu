@@ -22,11 +22,12 @@ function capabilityNames(model: VendorModel) {
   return names;
 }
 
-export default function ModelMappings({ models, catalog, catalogLoading, catalogError, loading, disabled, onRefresh, onLoadCatalog, onSave, onCheck }: {
+export default function ModelMappings({ models, catalog, catalogLoading, catalogError, codexRoute, loading, disabled, onRefresh, onLoadCatalog, onSave, onCheck }: {
   models: VendorModel[];
   catalog: ProviderCatalogModel[];
   catalogLoading: boolean;
   catalogError: string;
+  codexRoute: boolean;
   loading: boolean;
   disabled: boolean;
   onRefresh: () => void;
@@ -55,7 +56,7 @@ export default function ModelMappings({ models, catalog, catalogLoading, catalog
 
   function addModel() {
     setEditing('new');
-    void onLoadCatalog();
+    if (!codexRoute) void onLoadCatalog();
   }
 
   async function check(alias: string) {
@@ -84,6 +85,7 @@ export default function ModelMappings({ models, catalog, catalogLoading, catalog
     if (result.status === 'redirect_blocked') return 'Provider redirected; Niu did not follow it.';
     if (result.status === 'provider_rate_limited') return 'Provider rate limited the check.';
     if (result.status === 'model_catalog_unavailable') return 'Provider has no compatible model list.';
+    if (result.status === 'codex_auth_required') return 'Niu checks the local Codex sign-in when the CLI makes a request.';
     if (result.status === 'model_catalog_too_large') return 'Provider model list exceeded the 2 MiB check limit.';
     if (result.status === 'invalid_model_catalog') return 'Provider returned an unreadable model list.';
     return `Provider returned an error${result.http_status ? ` (${result.http_status})` : ''}.`;
@@ -119,10 +121,12 @@ export default function ModelMappings({ models, catalog, catalogLoading, catalog
                 <TableCell><span className={'vendor-state' + (model.enabled ? ' is-enabled' : '')}>{model.enabled ? 'Enabled' : 'Disabled'}</span></TableCell>
                 <TableCell className="vendor-model-actions">
                   <div className="vendor-model-action-buttons">
-                    <Button type="button" size="xs" variant="outline" disabled={disabled || checkingAlias === model.alias} onClick={() => void check(model.alias)}>{checkingAlias === model.alias ? 'Checking…' : 'Check'}</Button>
+                    {!codexRoute && <Button type="button" size="xs" variant="outline" disabled={disabled || checkingAlias === model.alias} onClick={() => void check(model.alias)}>{checkingAlias === model.alias ? 'Checking…' : 'Check'}</Button>}
                     <Button type="button" size="xs" variant="ghost" disabled={disabled} onClick={() => setEditing(model)}>Edit</Button>
                   </div>
-                  {checkErrors[model.alias]
+                  {codexRoute
+                    ? <span className="vendor-check-result">Run Codex with this alias to verify access.</span>
+                    : checkErrors[model.alias]
                     ? <span className="vendor-check-result is-error" role="alert">{checkErrors[model.alias]}</span>
                     : checkResults[model.alias]
                       ? <span className="vendor-check-result" aria-live="polite">{checkLabel(checkResults[model.alias])}</span>
@@ -145,6 +149,7 @@ export default function ModelMappings({ models, catalog, catalogLoading, catalog
         catalog={catalog}
         catalogLoading={catalogLoading}
         catalogError={catalogError}
+        codexRoute={codexRoute}
         disabled={disabled}
         onCancel={() => setEditing(null)}
         onSave={save}

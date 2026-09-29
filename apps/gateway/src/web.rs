@@ -1,3 +1,4 @@
+mod codex;
 mod inference;
 mod routes;
 mod static_site;

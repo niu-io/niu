@@ -65,11 +65,12 @@ impl AppState {
             .transpose()?
             .map(Arc::new);
         crate::vendors::seed_from_env(&store, vendor_cipher.as_deref()).await?;
-        if !store
+        if store
             .vendors()
             .await
             .map_err(|_| "Cannot read vendor registry")?
-            .is_empty()
+            .iter()
+            .any(|vendor| vendor.has_credential)
             && vendor_cipher.is_none()
         {
             return Err("NIU_VENDOR_ENCRYPTION_KEY is required for persisted vendors".into());
@@ -80,8 +81,14 @@ impl AppState {
                 .await
                 .map_err(|_| "Cannot read vendor registry")?
             {
-                cipher.open(route.vendor.id, &route.credential_ciphertext)
-                    .map_err(|_| "Cannot decrypt persisted vendor credentials with the configured encryption key")?;
+                match route.credential_ciphertext.as_deref() {
+                    Some(ciphertext) => {
+                        cipher.open(route.vendor.id, ciphertext)
+                            .map_err(|_| "Cannot decrypt persisted vendor credentials with the configured encryption key")?;
+                    }
+                    None if route.vendor.adapter == "codex-chatgpt" => {}
+                    None => return Err("Persisted provider credential is missing".into()),
+                }
             }
         }
         let admin_tokens = TokenSet::parse(
@@ -96,6 +103,9 @@ impl AppState {
                 .map_err(|_| "Cannot read vendor registry")?
                 .is_some()
             {
+                continue;
+            }
+            if model.uses_codex_chatgpt_auth() {
                 continue;
             }
             if !provider_keys.contains_key(&model.api_key_env) {

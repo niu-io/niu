@@ -7,7 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { defaultApiBase, type Vendor, type VendorAdapter, type VendorWrite } from '../api';
 
-export type VendorCreate = { name: string; adapter: VendorAdapter; api_base: string; api_key: string; enabled: true };
+export type VendorCreate = { name: string; adapter: VendorAdapter; api_base: string; api_key?: string; enabled: true };
 
 export default function VendorEditor({ vendor, disabled, onCreate, onSave }: {
   vendor: Vendor | null;
@@ -21,6 +21,7 @@ export default function VendorEditor({ vendor, disabled, onCreate, onSave }: {
   const [apiKey, setApiKey] = useState('');
   const [enabled, setEnabled] = useState(vendor?.enabled ?? true);
   const [confirmDisable, setConfirmDisable] = useState(false);
+  const usesCodexAuth = adapter === 'codex-chatgpt';
 
   useEffect(() => {
     setName(vendor?.name ?? '');
@@ -39,8 +40,8 @@ export default function VendorEditor({ vendor, disabled, onCreate, onSave }: {
   async function save(nextEnabled = enabled) {
     if (disabled || !name.trim() || !apiBase.trim()) return;
     if (!vendor) {
-      if (!apiKey) return;
-      await onCreate({ name: name.trim(), adapter, api_base: apiBase.trim(), api_key: apiKey, enabled: true });
+      if (!usesCodexAuth && !apiKey) return;
+      await onCreate({ name: name.trim(), adapter, api_base: apiBase.trim(), ...(usesCodexAuth ? {} : { api_key: apiKey }), enabled: true });
       setName('');
       setApiKey('');
       return;
@@ -72,7 +73,7 @@ export default function VendorEditor({ vendor, disabled, onCreate, onSave }: {
       <div className="vendor-editor-title-copy">
         <p className="eyebrow">{vendor ? 'PROVIDER' : 'NEW PROVIDER'}</p>
         <h2 id="vendor-editor-title">{title}</h2>
-        <p>{vendor ? `Revision ${vendor.revision} · ${vendor.has_credential ? 'Credential stored' : 'No credential stored'}` : 'Provider identity stays visible; the stored credential is never shown again.'}</p>
+        <p>{usesCodexAuth ? 'Uses the caller’s current Codex sign-in; Niu stores no ChatGPT token.' : vendor ? `Revision ${vendor.revision} · ${vendor.has_credential ? 'Credential stored' : 'No credential stored'}` : 'Provider identity stays visible; the stored credential is never shown again.'}</p>
       </div>
       {vendor && <span className={'vendor-status-badge' + (vendor.enabled ? ' is-enabled' : '')}>{vendor.enabled ? 'Enabled' : 'Disabled'}</span>}
     </div>
@@ -84,24 +85,25 @@ export default function VendorEditor({ vendor, disabled, onCreate, onSave }: {
         </Label>
         <Label htmlFor="vendor-adapter">Provider
           <DropdownMenu>
-            <DropdownMenuTrigger asChild><Button id="vendor-adapter" type="button" variant="outline" className="w-full justify-between font-normal" disabled={disabled || Boolean(vendor)}>{adapter === 'openrouter' ? 'OpenRouter' : 'OpenAI'}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
+            <DropdownMenuTrigger asChild><Button id="vendor-adapter" type="button" variant="outline" className="w-full justify-between font-normal" disabled={disabled || Boolean(vendor)}>{adapter === 'openrouter' ? 'OpenRouter' : adapter === 'codex-chatgpt' ? 'ChatGPT Codex subscription' : 'OpenAI'}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={adapter} onValueChange={value => changeAdapter(value as VendorAdapter)}>
               <DropdownMenuRadioItem value="openrouter">OpenRouter</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="openai">OpenAI</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="codex-chatgpt">ChatGPT Codex subscription</DropdownMenuRadioItem>
             </DropdownMenuRadioGroup></DropdownMenuContent>
           </DropdownMenu>
         </Label>
         <Label htmlFor="vendor-api-base">API base URL
-          <Input id="vendor-api-base" type="url" inputMode="url" value={apiBase} onChange={event => setApiBase(event.target.value)} maxLength={2048} autoComplete="url" placeholder="https://openrouter.ai/api/v1" required disabled={disabled} />
+          <Input id="vendor-api-base" type="url" inputMode="url" value={apiBase} onChange={event => setApiBase(event.target.value)} maxLength={2048} autoComplete="url" placeholder="https://openrouter.ai/api/v1" required disabled={disabled || usesCodexAuth} />
         </Label>
-        <Label htmlFor="vendor-api-key">{vendor ? 'Replace provider API key (optional)' : 'Provider API key'}
+        {!usesCodexAuth && <Label htmlFor="vendor-api-key">{vendor ? 'Replace provider API key (optional)' : 'Provider API key'}
           <Input id="vendor-api-key" type="password" value={apiKey} onChange={event => setApiKey(event.target.value)} autoComplete="new-password" spellCheck={false} placeholder={vendor ? 'Leave blank to keep the current credential' : 'Paste a provider key'} required={!vendor} disabled={disabled} />
-        </Label>
+        </Label>}
       </div>
 
       <div className="vendor-editor-notes">
-        <span><ShieldCheck size={15} />Public HTTPS or localhost HTTP only.</span>
-        <span><KeyRound size={15} />Credentials are stored encrypted and never shown again.</span>
+        <span><ShieldCheck size={15} />{usesCodexAuth ? 'Fixed ChatGPT Codex endpoint.' : 'Public HTTPS or localhost HTTP only.'}</span>
+        <span><KeyRound size={15} />{usesCodexAuth ? 'No provider credential is stored.' : 'Credentials are stored encrypted and never shown again.'}</span>
       </div>
 
       {vendor && <label className="vendor-enabled-toggle">
@@ -118,8 +120,8 @@ export default function VendorEditor({ vendor, disabled, onCreate, onSave }: {
       </div>}
 
       <div className="vendor-editor-footer">
-        <p>{vendor ? 'Provider type cannot be changed after creation.' : 'Use a public HTTPS URL. Loopback HTTP works for local development.'}</p>
-        <Button type="submit" disabled={disabled || !name.trim() || !apiBase.trim() || (!vendor && !apiKey)}>
+        <p>{vendor ? 'Provider type cannot be changed after creation.' : usesCodexAuth ? 'Codex requests use the caller’s ChatGPT sign-in.' : 'Use a public HTTPS URL. Loopback HTTP works for local development.'}</p>
+        <Button type="submit" disabled={disabled || !name.trim() || !apiBase.trim() || (!vendor && !usesCodexAuth && !apiKey)}>
           {!vendor ? <Plus /> : null}{disabled ? 'Saving…' : !vendor ? 'Create provider' : !vendor.enabled && enabled ? 'Enable supplier' : vendor.enabled && !enabled ? 'Review disable' : 'Save changes'}
         </Button>
       </div>

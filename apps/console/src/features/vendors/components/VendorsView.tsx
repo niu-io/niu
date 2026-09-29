@@ -4,7 +4,7 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, Di
 import ProviderLogo from '@/components/ProviderLogo';
 import { connectionIdentity } from '@/lib/providers';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, KeyRound, Pencil, Router, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { KeyRound, Pencil, Router, ShieldAlert, ShieldCheck } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import type { AdminSession } from '@/app/console-context';
 import { Button } from '@/components/ui/button';
@@ -272,6 +272,11 @@ export default function VendorsView({ token, session, refreshWorkspace, catalogP
   }
 
   async function loadProviderCatalog() {
+    if (selectedVendor?.adapter === 'codex-chatgpt') {
+      setCatalog([]);
+      setCatalogError('Enter the Codex model ID; admin catalog checks do not use a local Codex sign-in.');
+      return;
+    }
     const vendorId = selectedVendorId;
     if (!canManage || !token || !vendorId || catalogLoading || catalog.length > 0) return;
     catalogController.current?.abort();
@@ -372,9 +377,9 @@ export default function VendorsView({ token, session, refreshWorkspace, catalogP
         onRefresh={() => void refreshVendors()}
       />
       {!loadingVendors && selectedVendor ? <section className="panel vendor-detail-panel" aria-labelledby="vendor-detail-title">
-        <div className="vendor-detail-heading"><ProviderLogo provider={connectionIdentity(selectedVendor)} size="large" /><div><h2 id="vendor-detail-title">{selectedVendor.name}</h2><p>{selectedVendor.adapter === 'openrouter' ? 'OpenRouter API' : 'OpenAI-compatible API'}</p></div><span className={'vendor-status-badge' + (selectedVendor.enabled ? ' is-enabled' : '')}>{selectedVendor.enabled ? 'Enabled' : 'Disabled'}</span></div>
-        <dl className="vendor-detail-facts"><div><dt>API endpoint</dt><dd title={selectedVendor.api_base}>{selectedVendor.api_base}</dd></div><div><dt>Provider credential</dt><dd>{selectedVendor.has_credential ? <><ShieldCheck size={15} />Stored securely</> : <><KeyRound size={15} />Not configured</>}</dd></div><div><dt>Model routes</dt><dd>{loadingModels ? 'Loading…' : `${models.length} configured`}</dd></div></dl>
-        <div className="vendor-detail-actions"><Button type="button" variant="outline" disabled={busy} onClick={() => { setError(''); setEditingVendor(true); }}><Pencil size={15} />Edit supplier</Button><Link to={catalogPath}>Browse model catalog<ArrowUpRight size={14} /></Link></div>
+        <div className="vendor-detail-heading"><ProviderLogo provider={connectionIdentity(selectedVendor)} size="large" /><div><h2 id="vendor-detail-title">{selectedVendor.name}</h2><p>{selectedVendor.adapter === 'openrouter' ? 'OpenRouter API' : selectedVendor.adapter === 'codex-chatgpt' ? 'ChatGPT Codex subscription' : 'OpenAI API'}</p></div><span className={'vendor-status-badge' + (selectedVendor.enabled ? ' is-enabled' : '')}>{selectedVendor.enabled ? 'Enabled' : 'Disabled'}</span></div>
+        <dl className="vendor-detail-facts"><div><dt>API endpoint</dt><dd title={selectedVendor.api_base}>{selectedVendor.api_base}</dd></div><div><dt>{selectedVendor.adapter === 'codex-chatgpt' ? 'Authentication' : 'Provider credential'}</dt><dd>{selectedVendor.adapter === 'codex-chatgpt' ? 'Uses the caller’s Codex sign-in' : selectedVendor.has_credential ? <><ShieldCheck size={15} />Stored securely</> : <><KeyRound size={15} />Not configured</>}</dd></div><div><dt>Model routes</dt><dd>{loadingModels ? 'Loading…' : `${models.length} configured`}</dd></div></dl>
+        <div className="vendor-detail-actions"><Button type="button" variant="outline" disabled={busy} onClick={() => { setError(''); setEditingVendor(true); }}><Pencil size={15} />Edit supplier</Button>{selectedVendor.adapter !== 'codex-chatgpt' && <Link to={catalogPath}>Browse model catalog</Link>}</div>
       </section> : loadingVendors ? <section className="panel vendor-detail-panel vendor-editor-loading" role="status">Loading suppliers…</section> : <section className="panel vendor-detail-panel"><div className="vendor-empty"><span className="vendor-empty-mark"><Router size={17} /></span><strong>Select a supplier</strong><p>Provider credentials stay in the gateway. Add a supplier to make upstream models available.</p><Button type="button" onClick={() => setAddingVendor(true)}>Add supplier</Button></div></section>}
     </div>
     {selectedVendor && !addingVendor && <ModelMappings
@@ -383,6 +388,7 @@ export default function VendorsView({ token, session, refreshWorkspace, catalogP
       catalog={catalog}
       catalogLoading={catalogLoading}
       catalogError={catalogError}
+      codexRoute={selectedVendor.adapter === 'codex-chatgpt'}
       loading={loadingModels}
       disabled={busy || loadingModels}
       onRefresh={() => void refreshSelectedModels()}
@@ -393,7 +399,7 @@ export default function VendorsView({ token, session, refreshWorkspace, catalogP
     <Dialog open={addingVendor || editingVendor} onOpenChange={open => { if (!open && !busy) { setAddingVendor(false); setEditingVendor(false); } }}>
       <DialogContent className="niu-modal vendor-dialog" showCloseButton={false}>
         <DialogHeader className="niu-modal-heading flex-row text-left">
-          <div><DialogTitle>{addingVendor ? 'Add a supplier' : `Edit ${selectedVendor?.name ?? 'provider'}`}</DialogTitle><DialogDescription>{addingVendor ? 'Niu stores the upstream credential and routes client requests through this endpoint.' : 'Update the provider endpoint or replace its stored credential.'}</DialogDescription></div>
+          <div><DialogTitle>{addingVendor ? 'Add a supplier' : `Edit ${selectedVendor?.name ?? 'provider'}`}</DialogTitle><DialogDescription>{addingVendor ? 'Niu routes client requests through this endpoint.' : 'Update the provider endpoint or credential settings.'}</DialogDescription></div>
           <DialogClose className="niu-modal-close" aria-label="Close dialog"><X size={18} /></DialogClose>
         </DialogHeader>
       {error && <p className="error-text" role="alert">{error}</p>}

@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { aiderConnector, claudeCodeConnector, createAiderInvocation } from '../dist/index.js';
+import { aiderConnector, claudeCodeConnector, createAiderInvocation, createCodexInvocation } from '../dist/index.js';
 import { ClaudeCollectionReceiver } from './claude-collection.mjs';
 import { claudeTelemetryEnvironment } from './claude-telemetry-env.mjs';
 
@@ -15,11 +15,13 @@ if (agent === 'list' || agent === '--help' || agent === '-h' || !agent) {
     'Niu Agent Connect (prototype)',
     '',
     'Supported connector work in this package:',
+    '  codex route --gateway <https://niu.example/v1> --model <alias> [-- <codex arguments>]',
     '  aider route --gateway <https://niu.example/v1> --model <alias> [-- <aider arguments>]',
     '  claude collect --gateway <https://niu.example/v1> --organization <id> --workspace <id> [-- claude arguments]',
     '',
     'Route mode uses the selected workspace key and the provider account configured in Niu.',
     'It pins the Niu URL, key, and alias, and ignores Aider provider settings from repository config and .env files.',
+    'Codex route keeps the current Codex ChatGPT sign-in and supplies a workspace key only to the Codex child process.',
     'Aider chat and input history stay in private per-user state outside the workspace.',
     'Collection mode keeps Claude Code auth and request routing unchanged; it forwards metadata-only OTLP logs.',
     'Prompt and tool content are disabled for the wrapped process. Neither mode records accepted task outcomes.',
@@ -28,13 +30,18 @@ if (agent === 'list' || agent === '--help' || agent === '-h' || !agent) {
   process.exit(agent === 'list' || !agent || ['--help', '-h'].includes(agent) ? 0 : 2);
 }
 
-if (agent === 'claude' && mode === 'collect') {
+if (agent === 'codex' && mode === 'route') {
+  process.exitCode = await runCodexRoute(rawArgs).catch(error => {
+    process.stderr.write(`${error instanceof Error ? error.message : 'Could not run Codex through Niu'}\n`);
+    return 2;
+  });
+} else if (agent === 'claude' && mode === 'collect') {
   process.exitCode = await runClaudeCollection(rawArgs).catch(error => {
     process.stderr.write(`${error instanceof Error ? error.message : 'Claude collection failed'}\n`);
     return 2;
   });
 } else if (agent !== 'aider' || mode !== 'route') {
-  process.stderr.write('This connector version supports: aider route, claude collect\n');
+  process.stderr.write('This connector version supports: codex route, aider route, claude collect\n');
   process.exit(2);
 } else {
   const separator = rawArgs.indexOf('--');
@@ -75,6 +82,43 @@ if (agent === 'claude' && mode === 'collect') {
     process.stderr.write(`${error instanceof Error ? error.message : 'Could not run Aider through Niu'}\n`);
     process.exitCode = 2;
   }
+}
+
+async function runCodexRoute(rawArgs) {
+  const separator = rawArgs.indexOf('--');
+  const connectorArgs = separator < 0 ? rawArgs : rawArgs.slice(0, separator);
+  const codexArgs = separator < 0 ? [] : rawArgs.slice(separator + 1);
+  const options = parseOptions(connectorArgs, new Set(['--gateway', '--model']));
+  const gatewayBaseURL = options.get('--gateway');
+  const modelAlias = options.get('--model');
+  if (!gatewayBaseURL || !modelAlias) {
+    throw new Error('Usage: niu-agent-connect codex route --gateway <base-url> --model <alias> [-- <codex arguments>]');
+  }
+
+  // Validate the destination and protected arguments before prompting for a key.
+  createCodexInvocation({ gatewayBaseURL, modelAlias, apiKey: 'validation-only', args: codexArgs });
+  const detected = spawnSync('codex', ['--version'], {
+    encoding: 'utf8', timeout: 5_000, stdio: 'pipe', env: process.env,
+  });
+  if (detected.error || detected.status !== 0) {
+    throw new Error('Could not detect Codex CLI using codex --version');
+  }
+  const version = `${detected.stdout ?? ''} ${detected.stderr ?? ''}`.match(/\b(\d+\.\d+\.\d+)\b/)?.[1];
+  if (!version) throw new Error('Codex CLI did not report a semantic version');
+  const apiKey = process.env.NIU_API_KEY ?? await readSecret('Niu workspace key: ', 'NIU_API_KEY');
+  const invocation = createCodexInvocation({
+    gatewayBaseURL,
+    modelAlias,
+    apiKey,
+    args: codexArgs,
+    baseEnv: process.env,
+  });
+  process.stderr.write(`Codex CLI ${version}: Niu will receive Responses requests. Codex keeps its existing ChatGPT sign-in.\n`);
+  return await new Promise((resolve, reject) => {
+    const child = spawn(invocation.command, invocation.args, { env: invocation.env, stdio: 'inherit' });
+    child.once('error', reject);
+    child.once('exit', (code, signal) => resolve(signal ? 1 : (code ?? 1)));
+  });
 }
 
 async function runAiderRoute({ gatewayBaseURL, modelAlias, apiKey, args }) {

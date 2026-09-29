@@ -13,6 +13,7 @@ export default function AgentConnectPage() {
           token={token}
           workspace={workspace}
           models={models.map(model => model.id)}
+          codexModels={models.filter(model => model.provider === 'codex-chatgpt').map(model => model.id)}
           canWrite={session?.permissions.write === true}
         />
         : <section className="panel agent-connect-empty" role="status">Choose a workspace to continue.</section>}

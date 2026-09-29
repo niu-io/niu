@@ -1,5 +1,5 @@
 use axum::{
-    http::{HeaderMap, HeaderValue, header},
+    http::{HeaderMap, HeaderName, HeaderValue, header},
     response::{IntoResponse, Response},
 };
 use serde_json::{Value, json};
@@ -50,6 +50,50 @@ pub(super) fn strip_server_control_fields(body: &mut serde_json::Map<String, Val
                 | "x_niu_api_key"
         )
     });
+}
+
+/// Forward only Codex identity, session, and Responses protocol headers to the
+/// fixed ChatGPT Codex origin. Niu credentials and arbitrary headers are never
+/// forwarded.
+pub(in crate::web) fn codex_forward_headers(incoming: &HeaderMap) -> Result<HeaderMap, ApiError> {
+    let authorization = incoming
+        .get_all(header::AUTHORIZATION)
+        .iter()
+        .collect::<Vec<_>>();
+    if authorization.len() != 1
+        || authorization[0]
+            .to_str()
+            .ok()
+            .is_none_or(|value| !value.starts_with("Bearer ") || value.len() <= 7)
+    {
+        return Err(ApiError::unauthorized());
+    }
+    let mut outgoing = HeaderMap::new();
+    const ALLOWED: &[&str] = &[
+        "authorization",
+        "chatgpt-account-id",
+        "x-openai-fedramp",
+        "originator",
+        "user-agent",
+        "x-oai-attestation",
+        "x-codex-beta-features",
+        "x-codex-turn-state",
+        "x-client-request-id",
+        "session-id",
+        "thread-id",
+        "x-openai-subagent",
+    ];
+    for name in ALLOWED {
+        let name = HeaderName::from_static(name);
+        let values = incoming.get_all(&name).iter().collect::<Vec<_>>();
+        if values.len() > 1 {
+            return Err(ApiError::invalid_request("Duplicate Codex request header"));
+        }
+        if let Some(value) = values.first() {
+            outgoing.insert(name, (*value).clone());
+        }
+    }
+    Ok(outgoing)
 }
 
 pub(super) fn provider_reported_model(value: &Value) -> Option<String> {
@@ -209,7 +253,8 @@ pub(super) fn route_revision(model: &crate::config::ModelConfig) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::append_provider_json_chunk;
+    use super::{append_provider_json_chunk, codex_forward_headers};
+    use axum::http::{HeaderMap, HeaderValue, header};
 
     #[test]
     fn provider_json_limit_is_enforced_across_chunks() {
@@ -227,6 +272,63 @@ mod tests {
         let mut body = vec![b'x'; 8];
         assert!(append_provider_json_chunk(&mut body, b"xx", 9).is_err());
         assert_eq!(body.len(), 8);
+    }
+
+    #[test]
+    fn codex_headers_forward_auth_identity_and_strip_niu_and_arbitrary_headers() {
+        let mut incoming = HeaderMap::new();
+        incoming.insert(
+            header::AUTHORIZATION,
+            HeaderValue::from_static("Bearer codex-token"),
+        );
+        incoming.insert("x-niu-api-key", HeaderValue::from_static("niu-project-key"));
+        incoming.insert("chatgpt-account-id", HeaderValue::from_static("account-id"));
+        incoming.insert("x-openai-fedramp", HeaderValue::from_static("true"));
+        incoming.insert(
+            "x-debug-secret",
+            HeaderValue::from_static("must-not-forward"),
+        );
+        incoming.insert(
+            "x-codex-turn-state",
+            HeaderValue::from_static("codex-turn-state"),
+        );
+        incoming.insert(
+            "x-codex-beta-features",
+            HeaderValue::from_static("feature-a"),
+        );
+
+        let forwarded = codex_forward_headers(&incoming).unwrap();
+        assert_eq!(forwarded[header::AUTHORIZATION], "Bearer codex-token");
+        assert_eq!(forwarded["chatgpt-account-id"], "account-id");
+        assert_eq!(forwarded["x-openai-fedramp"], "true");
+        assert_eq!(forwarded["x-codex-turn-state"], "codex-turn-state");
+        assert_eq!(forwarded["x-codex-beta-features"], "feature-a");
+        assert!(!forwarded.contains_key("x-niu-api-key"));
+        assert!(!forwarded.contains_key("x-debug-secret"));
+    }
+
+    #[test]
+    fn codex_headers_require_exactly_one_bearer_authorization() {
+        let missing = HeaderMap::new();
+        assert!(codex_forward_headers(&missing).is_err());
+
+        let mut duplicate = HeaderMap::new();
+        duplicate.append(
+            header::AUTHORIZATION,
+            HeaderValue::from_static("Bearer first"),
+        );
+        duplicate.append(
+            header::AUTHORIZATION,
+            HeaderValue::from_static("Bearer second"),
+        );
+        assert!(codex_forward_headers(&duplicate).is_err());
+
+        let mut wrong_scheme = HeaderMap::new();
+        wrong_scheme.insert(
+            header::AUTHORIZATION,
+            HeaderValue::from_static("Basic token"),
+        );
+        assert!(codex_forward_headers(&wrong_scheme).is_err());
     }
 }
 

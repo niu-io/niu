@@ -1,5 +1,5 @@
 import type { CatalogMetadata } from '@/app/console-context';
-export type VendorAdapter = 'openrouter' | 'openai';
+export type VendorAdapter = 'openrouter' | 'openai' | 'codex-chatgpt';
 
 export type Vendor = {
   id: string;
@@ -52,7 +52,8 @@ export type ProviderModelCheck = {
     | 'provider_error'
     | 'model_catalog_unavailable'
     | 'model_catalog_too_large'
-    | 'invalid_model_catalog';
+    | 'invalid_model_catalog'
+    | 'codex_auth_required';
   model: 'listed' | 'not_listed' | 'unknown';
   http_status: number | null;
   duration_ms: number;
@@ -105,7 +106,9 @@ export async function request<T>(
 }
 
 export function defaultApiBase(adapter: VendorAdapter) {
-  return adapter === 'openrouter' ? 'https://openrouter.ai/api/v1' : 'https://api.openai.com/v1';
+  if (adapter === 'openrouter') return 'https://openrouter.ai/api/v1';
+  if (adapter === 'codex-chatgpt') return 'https://chatgpt.com/backend-api/codex';
+  return 'https://api.openai.com/v1';
 }
 
 export function emptyCapabilities(): ModelCapabilities {

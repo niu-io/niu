@@ -18,11 +18,12 @@ const capabilityChoices: Array<{ key: Exclude<keyof ModelCapabilities, 'catalog'
   { key: 'supports_responses', label: 'Responses API', help: 'Text-only Responses subset' },
 ];
 
-export default function ModelMappingForm({ model, catalog, catalogLoading, catalogError, disabled, onCancel, onSave }: {
+export default function ModelMappingForm({ model, catalog, catalogLoading, catalogError, codexRoute, disabled, onCancel, onSave }: {
   model: VendorModel | null;
   catalog: ProviderCatalogModel[];
   catalogLoading: boolean;
   catalogError: string;
+  codexRoute: boolean;
   disabled: boolean;
   onCancel: () => void;
   onSave: (input: ModelWrite) => Promise<void>;
@@ -93,7 +94,7 @@ export default function ModelMappingForm({ model, catalog, catalogLoading, catal
     {saveError && <p role="alert" className="error-text">{saveError}</p>}
     <div className="model-form-heading"><div><h3>{model ? 'Edit model mapping' : 'Add a model mapping'}</h3><p>Map the name clients use to the provider’s upstream model ID.</p></div></div>
     <div className="model-form-fields">
-      {!model && <div className="provider-model-picker">
+      {!model && !codexRoute && <div className="provider-model-picker">
         <Label htmlFor="provider-model-search-trigger">Find a provider model</Label>
         <Popover open={catalogOpen} onOpenChange={open => { setCatalogOpen(open); if (open) setCatalogQuery(''); }}>
           <PopoverTrigger asChild>
@@ -126,14 +127,16 @@ export default function ModelMappingForm({ model, catalog, catalogLoading, catal
         <Input id="model-alias" value={alias} onChange={event => setAlias(event.target.value)} maxLength={200} placeholder="e.g. fast or team/model" required disabled={disabled || Boolean(model)} />
       </Label>
       <Label htmlFor="model-upstream">Upstream model ID
-        <Input id="model-upstream" value={upstreamModel} onChange={event => setUpstreamModel(event.target.value)} maxLength={200} placeholder="e.g. openai/gpt-4.1-mini" required disabled={disabled} />
+        <Input id="model-upstream" value={upstreamModel} onChange={event => setUpstreamModel(event.target.value)} maxLength={200} placeholder={codexRoute ? 'Enter the Codex model ID' : 'e.g. openai/gpt-4.1-mini'} required disabled={disabled} />
       </Label>
     </div>
     <div className="model-route-switches">
       <label className="model-switch"><Checkbox checked={enabled} disabled={disabled} onCheckedChange={value => setEnabled(value === true)} /><span><strong>Enabled for inference</strong><small>Disabled mappings remain in the directory.</small></span></label>
       <label className="model-switch"><Checkbox checked={publicCatalog} disabled={disabled} onCheckedChange={value => setPublicCatalog(value === true)} /><span><strong>Show in public catalog</strong><small>Publish this alias in the unauthenticated model list.</small></span></label>
     </div>
-    <fieldset className="model-capabilities" disabled={disabled}>
+    {codexRoute
+      ? <p className="provider-model-hint">Codex Responses and tool fields are routed through this endpoint.</p>
+      : <fieldset className="model-capabilities" disabled={disabled}>
       <legend>Optional capabilities</legend>
       <p>These declarations are off by default. Enable only after checking the selected upstream model and endpoint.</p>
       <div className="model-capability-grid">
@@ -146,7 +149,7 @@ export default function ModelMappingForm({ model, catalog, catalogLoading, catal
           </label>;
         })}
       </div>
-    </fieldset>
+    </fieldset>}
     <div className="model-form-footer">
       <span>{model ? `Revision ${model.revision} · alias remains stable for existing clients` : 'Pricing remains unset until it is configured separately.'}</span>
       <div>

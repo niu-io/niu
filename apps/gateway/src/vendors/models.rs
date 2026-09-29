@@ -22,7 +22,7 @@ pub(super) struct Capabilities {
 
 pub(crate) struct ResolvedModel {
     pub model: ModelConfig,
-    pub api_key: String,
+    pub api_key: Option<String>,
 }
 
 pub(super) fn make_model(
@@ -38,21 +38,31 @@ pub(super) fn make_model(
         .map(serde_json::from_value)
         .transpose()
         .map_err(|_| ApiError::invalid_request("Invalid model pricing"))?;
+    let codex_chatgpt = adapter == "codex-chatgpt";
+    if codex_chatgpt && pricing.is_some() {
+        return Err(ApiError::invalid_request(
+            "Per-token provider pricing is not available for Codex subscription routes",
+        ));
+    }
     Ok(ModelConfig {
         catalog: caps.catalog,
         provider: adapter.to_owned(),
         upstream_model: upstream_model.to_owned(),
-        api_key_env: "NIU_MANAGED_CREDENTIAL".into(),
+        api_key_env: if codex_chatgpt {
+            String::new()
+        } else {
+            "NIU_MANAGED_CREDENTIAL".into()
+        },
         api_base: Some(api_base.to_owned()),
         public_catalog: false,
         pricing,
         supports_embeddings: caps.supports_embeddings,
         supports_embedding_dimensions: caps.supports_embedding_dimensions,
         supports_embedding_base64: caps.supports_embedding_base64,
-        supports_tool_calls: caps.supports_tool_calls,
-        supports_streaming_tool_calls: caps.supports_streaming_tool_calls,
-        supports_structured_output: caps.supports_structured_output,
-        supports_responses: caps.supports_responses,
+        supports_tool_calls: codex_chatgpt || caps.supports_tool_calls,
+        supports_streaming_tool_calls: codex_chatgpt || caps.supports_streaming_tool_calls,
+        supports_structured_output: codex_chatgpt || caps.supports_structured_output,
+        supports_responses: codex_chatgpt || caps.supports_responses,
     })
 }
 
@@ -110,13 +120,18 @@ pub(crate) async fn resolve_model(
         if !route.vendor.enabled || !route.model.enabled {
             return Err(ApiError::not_found());
         }
-        let cipher = state
-            .vendor_cipher
-            .as_ref()
-            .ok_or_else(ApiError::unavailable)?;
-        let api_key = cipher
-            .open(route.vendor.id, &route.credential_ciphertext)
-            .map_err(|_| ApiError::unavailable())?;
+        let api_key = match route.credential_ciphertext.as_deref() {
+            Some(ciphertext) => Some(
+                state
+                    .vendor_cipher
+                    .as_ref()
+                    .ok_or_else(ApiError::unavailable)?
+                    .open(route.vendor.id, ciphertext)
+                    .map_err(|_| ApiError::unavailable())?,
+            ),
+            None if route.vendor.adapter == "codex-chatgpt" => None,
+            None => return Err(ApiError::unavailable()),
+        };
         return Ok(ResolvedModel {
             model: stored_model(&route)?,
             api_key,
@@ -128,9 +143,15 @@ pub(crate) async fn resolve_model(
         .get(alias)
         .cloned()
         .ok_or_else(ApiError::not_found)?;
-    let api_key = state
-        .provider_key(&model.api_key_env)
-        .ok_or_else(ApiError::unavailable)?
-        .to_owned();
+    let api_key = if model.uses_codex_chatgpt_auth() {
+        None
+    } else {
+        Some(
+            state
+                .provider_key(&model.api_key_env)
+                .ok_or_else(ApiError::unavailable)?
+                .to_owned(),
+        )
+    };
     Ok(ResolvedModel { model, api_key })
 }

@@ -31,7 +31,7 @@ pub(in crate::web) async fn embeddings(
     let model = &resolved.model;
     // Only OpenAI-compatible embedding routes are implemented. Reject before
     // creating an operation or dispatch attempt for other providers.
-    if !model.protocol().is_openai_compatible() {
+    if !model.protocol().is_openai_compatible() || model.uses_codex_chatgpt_auth() {
         return Err(ApiError::unsupported());
     }
     let input_bounds = validate_embedding_request(&body)?;
@@ -48,7 +48,7 @@ pub(in crate::web) async fn embeddings(
             "Embedding input exceeds the priced route's conservative UTF-8 byte bound",
         ));
     }
-    let api_key = resolved.api_key;
+    let api_key = resolved.api_key.ok_or_else(ApiError::unavailable)?;
     let timeout = Duration::from_secs(state.config.server.request_timeout_seconds);
     let task_id = request_task_id(&headers)?;
     let base = model.endpoint_base().ok_or_else(ApiError::unavailable)?;

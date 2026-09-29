@@ -59,6 +59,9 @@ pub(in crate::web) async fn chat(
     }
     let resolved = crate::vendors::resolve_model(&state, &public_model).await?;
     let model = &resolved.model;
+    if model.uses_codex_chatgpt_auth() {
+        return Err(ApiError::unsupported());
+    }
     let stream = match body.get("stream") {
         None => false,
         Some(Value::Bool(value)) => *value,
@@ -103,7 +106,7 @@ pub(in crate::web) async fn chat(
         }
         Some(optional_params)
     };
-    let api_key = resolved.api_key;
+    let api_key = resolved.api_key.ok_or_else(ApiError::unavailable)?;
     let timeout = Duration::from_secs(state.config.server.request_timeout_seconds);
     let task_id = request_task_id(&headers)?;
     let upstream_client = if protocol.is_openai_compatible() {

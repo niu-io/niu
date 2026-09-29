@@ -10,7 +10,7 @@ fn vendor_input(id: Uuid, name: &str, ciphertext: Vec<u8>) -> VendorInput {
         adapter: "openrouter".to_owned(),
         api_base: "https://openrouter.ai/api/v1".to_owned(),
         enabled: true,
-        credential_ciphertext: ciphertext,
+        credential_ciphertext: Some(ciphertext),
     }
 }
 
@@ -154,7 +154,10 @@ async fn vendor_registry_is_atomic_versioned_persistent_and_secret_safe(pool: Pg
     let route = store.vendor_route("fast").await.unwrap().unwrap();
     assert!(!route.vendor.enabled);
     assert!(!route.model.enabled);
-    assert_eq!(route.credential_ciphertext, rotated_ciphertext);
+    assert_eq!(
+        route.credential_ciphertext.as_deref(),
+        Some(rotated_ciphertext.as_slice())
+    );
     assert!(
         store
             .all_vendor_routes()
@@ -263,8 +266,9 @@ async fn vendor_registry_is_atomic_versioned_persistent_and_secret_safe(pool: Pg
             .await
             .unwrap()
             .unwrap()
-            .credential_ciphertext,
-        rotated_ciphertext
+            .credential_ciphertext
+            .as_deref(),
+        Some(rotated_ciphertext.as_slice())
     );
     assert_eq!(reopened.vendors().await.unwrap().len(), 4);
     reopened_pool.close().await;

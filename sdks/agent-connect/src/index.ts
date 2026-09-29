@@ -67,7 +67,29 @@ export const claudeCodeConnector: ConnectorManifestV1 = {
   }],
 };
 
+/** Codex uses its existing ChatGPT sign-in on a fixed, first-party Responses route. */
+export const codexConnector: ConnectorManifestV1 = {
+  schemaVersion: 1,
+  id: 'codex',
+  name: 'Codex CLI',
+  agent: 'codex',
+  testedVersion: null,
+  status: 'prototype',
+  modes: [{
+    mode: 'route',
+    status: 'prototype',
+    endpoint: 'responses',
+    billing: 'Uses the current Codex ChatGPT sign-in. Subscription eligibility and billing through a custom endpoint are not verified.',
+    subscriptionAuthentication: 'unverified',
+    captured: ['Niu gateway request and attempt activity', 'Provider-reported token usage when available'],
+    notCaptured: ['Codex tool calls as a complete task trace', 'Task acceptance or validation outcomes'],
+    optIns: ['The user chooses a workspace-scoped Niu key and a configured Niu Codex model alias'],
+    documentation: [],
+  }],
+};
+
 export const connectorManifests: readonly ConnectorManifestV1[] = [
+  codexConnector,
   aiderConnector,
   claudeCodeConnector,
 ];
@@ -98,6 +120,52 @@ export type AiderInvocation = {
   args: string[];
   env: Record<string, string | undefined>;
 };
+
+export type CodexInvocationInput = {
+  gatewayBaseURL: string;
+  modelAlias: string;
+  apiKey: string;
+  args?: string[];
+  baseEnv?: Record<string, string | undefined>;
+};
+
+export type CodexInvocation = {
+  command: 'codex';
+  args: string[];
+  env: Record<string, string | undefined>;
+};
+
+/** Build a one-process Codex route. The Niu key stays in child env; Codex owns ChatGPT auth. */
+export function createCodexInvocation(input: CodexInvocationInput): CodexInvocation {
+  if (!input.apiKey.trim()) throw new Error('A Niu workspace key is required');
+  const gatewayBaseURL = validateGatewayBaseURL(input.gatewayBaseURL);
+  const modelAlias = validateModelAlias(input.modelAlias);
+  const args = input.args ?? [];
+  assertNoCodexRouteOverrides(args);
+  // Codex keeps an existing provider definition when IDs collide. Give this
+  // process a unique ID so local config cannot silently replace the Niu route.
+  const providerId = `niu_codex_${globalThis.crypto.randomUUID().replaceAll('-', '')}`;
+  const catalogURL = `${gatewayBaseURL}/codex/models`;
+  const config = (key: string, value: string) => ['--config', `${key}=${value}`];
+  const env = { ...(input.baseEnv ?? {}) };
+  for (const name of ['NIU_API_KEY', 'OPENAI_API_KEY', 'OPENAI_BASE_URL']) delete env[name];
+  return {
+    command: 'codex',
+    args: [
+      ...config('model_provider', tomlString(providerId)),
+      ...config('model', tomlString(modelAlias)),
+      ...config(`model_providers.${providerId}.name`, tomlString('Niu')),
+      ...config(`model_providers.${providerId}.base_url`, tomlString(gatewayBaseURL)),
+      ...config(`model_providers.${providerId}.model_catalog_url`, tomlString(catalogURL)),
+      ...config(`model_providers.${providerId}.wire_api`, '"responses"'),
+      ...config(`model_providers.${providerId}.requires_openai_auth`, 'true'),
+      ...config(`model_providers.${providerId}.supports_websockets`, 'false'),
+      ...config(`model_providers.${providerId}.env_http_headers`, '{ "X-Niu-API-Key" = "NIU_API_KEY" }'),
+      ...args,
+    ],
+    env: { ...env, NIU_API_KEY: input.apiKey },
+  };
+}
 
 /** Build a session-only invocation. The Niu key is placed only in child env, never argv or a file. */
 export function createAiderInvocation(input: AiderInvocationInput): AiderInvocation {
@@ -195,6 +263,23 @@ function validateModelAlias(value: string): string {
     throw new Error('Model alias must be 1 to 200 safe characters');
   }
   return alias;
+}
+
+function tomlString(value: string): string {
+  return JSON.stringify(value);
+}
+
+function assertNoCodexRouteOverrides(args: string[]): void {
+  const protectedOptions = new Set(['--model', '-m', '--config', '-c', '--profile', '-p', '--oss', '--local-provider']);
+  for (const argument of args) {
+    const option = argument.split('=', 1)[0];
+    const attachedShortOption = ['-m', '-c', '-p'].find(short =>
+      argument.startsWith(short) && argument.length > short.length && !argument.startsWith('--'),
+    );
+    if (protectedOptions.has(option) || attachedShortOption) {
+      throw new Error(`Codex option ${attachedShortOption ?? option} is controlled by the Niu route connector`);
+    }
+  }
 }
 
 function assertNoRouteOverrides(args: string[]): void {

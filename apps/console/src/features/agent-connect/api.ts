@@ -44,6 +44,14 @@ export function issueAiderProjectKey(token: string, scope: ProjectScope, model: 
   });
 }
 
+export function issueCodexProjectKey(token: string, scope: ProjectScope, model: string): Promise<IssuedProjectKey> {
+  return request(token, `${scopePath(scope)}/keys`, 'POST', {
+    name: 'Agent Connect - Codex',
+    allowed_models: [model],
+    ttl_seconds: 90 * 24 * 60 * 60,
+  });
+}
+
 export async function listExecutionCollectorKeys(token: string, scope: ProjectScope, signal?: AbortSignal): Promise<ExecutionCollectorKey[]> {
   const value = await request<{ data: ExecutionCollectorKey[] }>(
     token,
