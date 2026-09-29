@@ -4,6 +4,8 @@ mod bootstrap;
 pub(crate) mod crypto;
 mod models;
 
-pub use api::{refresh_catalog, catalog, check_model, create, list, list_models, update, upsert_model};
+pub use api::{
+    catalog, check_model, create, list, list_models, refresh_catalog, update, upsert_model,
+};
 pub(crate) use bootstrap::seed_from_env;
 pub(crate) use models::{effective_models, resolve_model};

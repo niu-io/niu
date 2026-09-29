@@ -240,6 +240,7 @@ impl TaskAdapter for ReferenceExtension {
                     authority: OutcomeAuthority::DeterministicValidator,
                     result: OutcomeResult::Accepted,
                 }],
+                external_usage: None,
             };
             Ok(TaskRunOutput {
                 execution,

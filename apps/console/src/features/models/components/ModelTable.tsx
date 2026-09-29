@@ -31,7 +31,7 @@ function requestExample(baseUrl: string, model: string) {
 export default function ModelTable({ models, header }: { models: Model[]; header?: ReactNode }) {
   const { isMobile, setOpenMobile } = useSidebar();
   function chooseAuthor(value: string) { setAuthorsSelected(current => current.includes(value) ? current.filter(id => id !== value) : [...current, value]); setLimit(20); }
-  const { token, workspace } = useConsoleContext();
+  const { token, workspace, session } = useConsoleContext();
   const ranked = useModelPopularity(models, token, workspace?.organization_id, workspace?.id);
   const popularModels = ranked.models;
   const [query, setQuery] = useState('');
@@ -75,7 +75,9 @@ export default function ModelTable({ models, header }: { models: Model[]; header
   if (models.length === 0) return <>{header}<div className="empty-state">
     <div className="empty-icon"><Boxes size={18} /></div>
     <strong>No model routes yet</strong>
-    <span>Your administrator can enable model access for this workspace.</span>
+    {session?.kind === 'installation'
+      ? <><span>Connect an upstream provider and add a model route to this workspace.</span><Button asChild><Link to="/providers/configuration">Connect a provider</Link></Button></>
+      : <span>Ask an installation administrator to add a model route to this workspace.</span>}
   </div></>;
 
   return <div className="models-catalog">
@@ -117,7 +119,7 @@ export default function ModelTable({ models, header }: { models: Model[]; header
       </section>
     </div>}
     {selected ? <aside className="model-route-detail" aria-label={`${selected.id} route details`}>
-      <div className="model-route-detail-heading"><ProviderLogo provider={modelIdentity(selected)} size="small" /><div className="model-route-title"><h1>{selected.catalog?.name || selected.id}</h1>{selected.catalog?.name && selected.catalog.name !== selected.id && <p className="model-developer-label">{selected.id}</p>}</div></div>
+      <div className="model-route-detail-heading"><ProviderLogo provider={modelIdentity(selected)} size="small" /><div className="model-route-title"><h2>{selected.catalog?.name || selected.id}</h2>{selected.catalog?.name && selected.catalog.name !== selected.id && <p className="model-developer-label">{selected.id}</p>}</div></div>
       {selected.catalog?.description && <p>{selected.catalog.description}</p>}
       <dl className="model-route-facts">
         {selected.catalog?.input_price != null && <div><dt>Input price</dt><dd>${Number(selected.catalog.input_price) * 1e6} /M tokens</dd></div>}

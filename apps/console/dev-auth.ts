@@ -1,14 +1,21 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { Plugin } from 'vite';
 
-const marker = randomBytes(32).toString('hex');
-const basePrefix = (process.env.NIU_DEV_BASE ?? '/').replace(/\/+$/, '');
-const brandMark = readFileSync(new URL('../../branding/assets/niu-mark.png', import.meta.url));
 function routePath(url: string | undefined) {
+  const basePrefix = (process.env.NIU_DEV_BASE ?? '/').replace(/\/+$/, '');
   const path = (url ?? '/').split('?', 1)[0];
   return basePrefix && (path === basePrefix || path.startsWith(`${basePrefix}/`)) ? path.slice(basePrefix.length) || '/' : path;
 }
+
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, character => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[character]!);
+}
+
 function localRequest(req: { headers: Record<string, string | string[] | undefined>; socket: { remoteAddress?: string } }, sameOrigin = true) {
   const host = req.headers.host;
   const origin = req.headers.origin;
@@ -17,7 +24,7 @@ function localRequest(req: { headers: Record<string, string | string[] | undefin
   return (!origin || origin === 'http://' + host) && (!sameOrigin || !req.headers['sec-fetch-site'] || req.headers['sec-fetch-site'] === 'same-origin');
 }
 
-function loginPage() {
+function loginPage(basePrefix: string, username: string) {
   const loginPath = `${basePrefix}/login/session` || '/login/session';
   const markPath = `${basePrefix}/__niu_dev_mark.png`;
   const homePath = `${basePrefix}/workspaces/default/`;
@@ -138,10 +145,10 @@ function loginPage() {
     <h1 id="login-heading">Sign in to Niu</h1>
     <p class="intro">Use your Niu development account.</p>
     <form id="login" autocomplete="on">
-      <label>Username<input name="username" value="niu" autocomplete="username" required></label>
+      <label>Username<input name="username" value="${escapeHtml(username)}" autocomplete="username" required></label>
       <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
       <button type="submit">Sign in</button>
-      <p id="error" role="status" aria-live="polite"></p>
+      <p id="error" role="alert" aria-live="polite"></p>
     </form>
   </main>
   <script>
@@ -154,6 +161,7 @@ function loginPage() {
       error.textContent = '';
       button.disabled = true;
       button.textContent = 'Signing in…';
+      form.setAttribute('aria-busy', 'true');
       const data = new FormData(form);
       const username = String(data.get('username') || '');
       const password = String(data.get('password') || '');
@@ -170,6 +178,7 @@ function loginPage() {
             : 'Sign-in failed. Try again.';
           button.disabled = false;
           button.textContent = idleLabel;
+          form.removeAttribute('aria-busy');
           return;
         }
         location.replace(${JSON.stringify(homePath)});
@@ -177,6 +186,7 @@ function loginPage() {
         error.textContent = 'Could not reach the sign-in service.';
         button.disabled = false;
         button.textContent = idleLabel;
+        form.removeAttribute('aria-busy');
       }
     });
   </script>
@@ -185,6 +195,19 @@ function loginPage() {
 }
 
 export function devAuth(): Plugin {
+  const marker = randomBytes(32).toString('hex');
+  const basePrefix = (process.env.NIU_DEV_BASE ?? '/').replace(/\/+$/, '');
+  const brandUrl = new URL('../../branding/assets/niu-mark.png', import.meta.url);
+  const brandPath = brandUrl.protocol === 'file:'
+    ? fileURLToPath(brandUrl)
+    : resolve(process.cwd(), '../../branding/assets/niu-mark.png');
+  const brandMark = readFileSync(brandPath);
+  // The UI is mounted below /niu in development while gateway API paths stay
+  // at the origin root, so the HttpOnly session cookie must cover both.
+  const cookiePath = '/';
+  const sessions = new Map<string, number>();
+  const sessionLifetimeSeconds = 8 * 60 * 60;
+
   return {
     name: 'niu-local-dev-auth',
     apply: 'serve',
@@ -206,8 +229,26 @@ export function devAuth(): Plugin {
           if (!localRequest(req, false)) {
             res.statusCode = 403; res.end(); return;
           }
+          if (hasDevSession(req)) {
+            res.statusCode = 302;
+            res.setHeader('Location', `${basePrefix}/workspaces/default/`);
+            res.end(); return;
+          }
           res.setHeader('Content-Type', 'text/html; charset=utf-8');
-          res.end(loginPage()); return;
+          res.end(loginPage(basePrefix, process.env.NIU_DEV_USERNAME ?? 'niu')); return;
+        }
+        if (path === '/login/session' && req.method === 'DELETE') {
+          res.setHeader('Cache-Control', 'no-store');
+          if (!localRequest(req) || req.headers['x-niu-dev-login'] !== '1') {
+            res.statusCode = 405; res.end(); return;
+          }
+          const cookieHeader = req.headers.cookie;
+          const cookies = Array.isArray(cookieHeader) ? cookieHeader.join(';') : cookieHeader ?? '';
+          const value = cookies.split(';').map(part => part.trim()).find(part => part.startsWith('niu_dev_session='))?.slice('niu_dev_session='.length);
+          if (value) sessions.delete(value);
+          res.setHeader('Set-Cookie', `niu_dev_session=; HttpOnly; SameSite=Strict; Path=${cookiePath}; Max-Age=0`);
+          res.statusCode = 204;
+          res.end(); return;
         }
         if (path === '/login/session') {
           res.setHeader('Cache-Control', 'no-store');
@@ -235,6 +276,13 @@ export function devAuth(): Plugin {
                 res.end(JSON.stringify({ error: 'Invalid username or password.' }));
                 return;
               }
+              const now = Date.now();
+              for (const [session, expiresAt] of sessions) {
+                if (expiresAt <= now) sessions.delete(session);
+              }
+              const session = randomBytes(32).toString('hex');
+              sessions.set(session, now + sessionLifetimeSeconds * 1000);
+              res.setHeader('Set-Cookie', `${sessionCookie(session)}; HttpOnly; SameSite=Strict; Path=${cookiePath}; Max-Age=${sessionLifetimeSeconds}`);
               res.statusCode = 204;
               res.end();
             } catch {
@@ -248,6 +296,9 @@ export function devAuth(): Plugin {
           if (!localRequest(req) || req.method !== 'POST' || req.headers['x-niu-dev-session'] !== '1') {
             res.statusCode = 403; res.end(); return;
           }
+          if (!hasDevSession(req)) {
+            res.statusCode = 401; res.end(); return;
+          }
           res.setHeader('Content-Type', 'application/json');
           res.end(JSON.stringify({ token: marker })); return;
         }
@@ -255,10 +306,38 @@ export function devAuth(): Plugin {
           if (!localRequest(req) || !/^\/(admin|enterprise|v1)(\/|$)/.test(path)) {
             res.statusCode = 403; res.end(); return;
           }
+          if (!hasDevSession(req)) {
+            res.statusCode = 401; res.end(); return;
+          }
           req.headers.authorization = 'Bearer ' + token;
+        }
+        const accept = Array.isArray(req.headers.accept) ? req.headers.accept.join(',') : req.headers.accept ?? '';
+        if (req.method === 'GET' && accept.includes('text/html') && !hasDevSession(req)) {
+          res.statusCode = 302;
+          res.setHeader('Cache-Control', 'no-store');
+          res.setHeader('Location', `${basePrefix}/login` || '/login');
+          res.end(); return;
         }
         next();
       });
+
+      function sessionCookie(value: string) {
+        return `niu_dev_session=${value}`;
+      }
+
+      function hasDevSession(req: { headers: Record<string, string | string[] | undefined> }) {
+        const cookieHeader = req.headers.cookie;
+        const cookies = Array.isArray(cookieHeader) ? cookieHeader.join(';') : cookieHeader ?? '';
+        const value = cookies.split(';').map(part => part.trim()).find(part => part.startsWith('niu_dev_session='))?.slice('niu_dev_session='.length);
+        if (!value) return false;
+        const expiresAt = sessions.get(value);
+        if (expiresAt === undefined) return false;
+        if (expiresAt <= Date.now()) {
+          sessions.delete(value);
+          return false;
+        }
+        return true;
+      }
     },
   };
 }

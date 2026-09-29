@@ -23,11 +23,12 @@ export default function ExecutionsRoute() {
   return <ConnectGate>
     {({ token, models }) => <>
       <GatewayActivity
-        key={`${token}:${workspace?.id ?? ''}`}
+        key={`${token}:${workspace?.id ?? ''}:${params.get('keyId') ?? ''}`}
         token={token}
         models={models.map(model => model.id)}
         initialScope={initialScope}
         preferredModelAlias={params.get('modelAlias') ?? undefined}
+        preferredKeyId={params.get('keyId') ?? undefined}
       />
       {initialScope?.executionId && <ExecutionWorkspace token={token} initialScope={initialScope} embedded />}
     </>}

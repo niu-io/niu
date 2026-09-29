@@ -54,6 +54,7 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
   const root = workspacePath(location.pathname);
   const collectionPath = initialScope ? projectKeyPath(initialScope.organizationId, initialScope.projectId) : '';
   const canIssue = canWrite && Boolean(workspace);
+  const showActions = canWrite && keys.some(key => !key.revoked && !key.expired);
   const exampleModel = secretModel || models[0] || 'your-model';
   const command = useMemo(() => requestExample(baseUrl(), exampleModel), [exampleModel]);
 
@@ -168,12 +169,12 @@ export default function KeysView({ token, models, canWrite, initialScope }: {
     {workspace && <section className="key-list" aria-label="API keys" aria-busy={loading}>
       {loading && !keys.length && <p className="key-list-state" role="status">Loading keys…</p>}
       {!loading && !error && !keys.length && <div className="key-empty"><span><KeyRound size={21} /></span><strong>No API keys yet</strong><p>{canIssue ? 'Create a key for an app or agent to send requests through Niu.' : 'Your session can review keys, but cannot create them.'}</p></div>}
-      {keys.length > 0 && <div className="table-wrap"><Table className="key-table"><TableHeader><TableRow><TableHead>Key</TableHead><TableHead>Model access</TableHead><TableHead>Expires</TableHead><TableHead>Status</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader><TableBody>{keys.map(key => <TableRow key={key.id}>
-        <TableCell><span className="key-name-link"><KeyRound size={15} />{key.name}</span><span className="key-id">{key.id}</span></TableCell>
+      {keys.length > 0 && <div className="table-wrap"><Table className="key-table"><TableHeader><TableRow><TableHead>Key</TableHead><TableHead>Model access</TableHead><TableHead>Expires</TableHead><TableHead>Status</TableHead>{showActions && <TableHead>Actions</TableHead>}</TableRow></TableHeader><TableBody>{keys.map(key => <TableRow key={key.id}>
+        <TableCell><Link className="key-name-link" to={`${root}/keys/${encodeURIComponent(key.id)}`} aria-label={`View key ${key.name}`}><KeyRound size={15} />{key.name}</Link><span className="key-id">{key.id}</span></TableCell>
         <TableCell><span className="key-model-summary" title={key.allowed_models.includes('*') ? 'Every model available in this workspace' : key.allowed_models.join(', ')}>{key.allowed_models.includes('*') ? 'All workspace models' : key.allowed_models.join(', ')}</span></TableCell>
         <TableCell>{new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(key.expires_at_ms))}</TableCell>
         <TableCell><Badge variant={key.revoked || key.expired ? 'secondary' : 'outline'}>{keyStatus(key)}</Badge></TableCell>
-        <TableCell><div className="key-row-actions">{canWrite && !key.revoked && !key.expired && <><Button type="button" size="sm" variant="ghost" onClick={() => { setDialogError(''); setDialog({ kind: 'rotate', key }); }}><RotateCw size={14} />Rotate</Button><Button type="button" size="sm" variant="ghost" className="key-revoke-button" onClick={() => { setDialogError(''); setDialog({ kind: 'revoke', key }); }}><Trash2 size={14} />Revoke</Button></>}</div></TableCell>
+        {showActions && <TableCell><div className="key-row-actions">{!key.revoked && !key.expired && <><Button type="button" size="sm" variant="ghost" onClick={() => { setDialogError(''); setDialog({ kind: 'rotate', key }); }}><RotateCw size={14} />Rotate</Button><Button type="button" size="sm" variant="ghost" className="key-revoke-button" onClick={() => { setDialogError(''); setDialog({ kind: 'revoke', key }); }}><Trash2 size={14} />Revoke</Button></>}</div></TableCell>}
       </TableRow>)}</TableBody></Table></div>}
     </section>}
     {workspace && <section className="key-endpoint"><div><h2>Use your key</h2><p>Send an OpenAI-compatible request to Niu. Provider credentials never leave the gateway.</p></div><dl><div><dt>Base URL</dt><dd><code>{baseUrl()}</code><Button type="button" variant="ghost" size="sm" aria-label="Copy base URL" onClick={() => void copy('base-url', baseUrl())}><Clipboard size={14} />{copied === 'base-url' ? 'Copied' : 'Copy'}</Button></dd></div><div><dt>Authentication</dt><dd><code>Authorization: Bearer $NIU_API_KEY</code></dd></div></dl><Button asChild variant="outline"><Link to={`${root}/playground`}>Open Chat<ArrowUpRight size={14} /></Link></Button></section>}

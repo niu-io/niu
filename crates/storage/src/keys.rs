@@ -31,7 +31,9 @@ pub struct Principal {
 
 impl Principal {
     pub fn allows_model(&self, model: &str) -> bool {
-        self.allowed_models.iter().any(|allowed| allowed == "*" || allowed == model)
+        self.allowed_models
+            .iter()
+            .any(|allowed| allowed == "*" || allowed == model)
     }
 
     pub fn scope(&self) -> TenantScope {
@@ -139,22 +141,18 @@ impl Store {
     pub async fn mark_dispatched(&self, principal: &Principal, id: Uuid) -> Result<(), StoreError> {
         let scope = principal.scope;
         let mut tx = self.pool.begin().await?;
-        let key = sqlx::query("SELECT id FROM api_keys WHERE id = $1 AND organization_id = $2 AND project_id = $3 AND revoked_at IS NULL AND expires_at > clock_timestamp() FOR SHARE")
+        let key = sqlx::query("SELECT k.id FROM api_keys k JOIN projects p ON p.organization_id=k.organization_id AND p.id=k.project_id WHERE k.id=$1 AND k.organization_id=$2 AND k.project_id=$3 AND k.revoked_at IS NULL AND k.expires_at > clock_timestamp() FOR SHARE OF k, p")
             .bind(principal.key_id).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut *tx).await?;
         if key.is_none() {
+            // The composite key foreign key guarantees that a valid key also
+            // has its project. Locking both rows together keeps key revocation
+            // and budget creation ordered with dispatch in a single query.
             return Err(StoreError::Unauthorized);
         }
-        sqlx::query("SELECT id FROM projects WHERE organization_id=$1 AND id=$2 FOR SHARE")
-            .bind(scope.organization_id)
-            .bind(scope.project_id)
-            .fetch_optional(&mut *tx)
-            .await?
-            .ok_or(StoreError::Conflict)?;
-        if let Some(account) = sqlx::query_scalar::<_,Uuid>("SELECT account_id FROM account_assignments WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3")
-            .bind(scope.organization_id).bind(scope.project_id).bind(id).fetch_optional(&mut *tx).await? {
-            let eligible = sqlx::query("SELECT a.id FROM supplier_accounts a JOIN account_assignments s ON s.account_id=a.id WHERE a.id=$1 AND s.attempt_id=$2 AND a.health='ready' AND a.refresh_owner IS NULL AND a.credential_revision=s.credential_revision FOR SHARE OF a")
-                .bind(account).bind(id).fetch_optional(&mut *tx).await?;
-            if eligible.is_none() { return Err(StoreError::AccountUnavailable); }
+        let account_eligible = sqlx::query_scalar::<_, bool>("SELECT a.health='ready' AND a.refresh_owner IS NULL AND a.credential_revision=s.credential_revision FROM account_assignments s JOIN supplier_accounts a ON a.organization_id=s.organization_id AND a.project_id=s.project_id AND a.id=s.account_id WHERE s.organization_id=$1 AND s.project_id=$2 AND s.attempt_id=$3 FOR SHARE OF a")
+            .bind(scope.organization_id).bind(scope.project_id).bind(id).fetch_optional(&mut *tx).await?;
+        if account_eligible == Some(false) {
+            return Err(StoreError::AccountUnavailable);
         }
         if let Some((offer_id, revision)) = sqlx::query_as::<_, (Uuid, Uuid)>(
             "SELECT offer_id,revision_id FROM provider_attempt_offers WHERE attempt_id=$1",

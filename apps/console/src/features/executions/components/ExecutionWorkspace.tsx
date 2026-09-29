@@ -273,7 +273,7 @@ export default function ExecutionWorkspace({ token, initialScope, onOpenSubscrip
             <span className="execution-run-meta">{group.source} <span aria-hidden="true">/</span> {group.records.length} {group.records.length === 1 ? 'event' : 'events'} loaded <span aria-hidden="true">/</span> {formatDate(group.importedAt)}</span>
           </Button>)}
         </div>
-        {!loading && filteredRecords.length === 0 && <div className="execution-empty-list"><Activity size={20} /><strong>{search ? 'No matching tasks' : 'No task evidence yet'}</strong><span>{search ? 'Try another task, source, or record ID.' : 'Connect an agent or add a task record to inspect its work.'}</span>{!search && <Button variant="outline" size="sm" disabled={!project} onClick={() => setImportOpen(true)}><Upload />Add task evidence</Button>}</div>}
+        {!loading && filteredRecords.length === 0 && <div className="execution-empty-list"><Activity size={20} /><strong>{search ? 'No matching tasks' : 'No task evidence yet'}</strong><span>{search ? 'Try another task, source, or record ID.' : 'Import a task record to inspect its calls and outcome evidence.'}</span>{!search && <Button variant="outline" size="sm" disabled={!project} onClick={() => setImportOpen(true)}><Upload />Add task evidence</Button>}</div>}
         {nextCursor && <div className="execution-pagination"><Button variant="outline" disabled={loading} onClick={() => setCursor(nextCursor)}>Load more<ArrowRight /></Button></div>}
         <p className="execution-order-note">Pages use a stable record ID order.</p>
       </aside>

@@ -1,8 +1,8 @@
 //! Bounded inspection of chat SSE frames. Wire bytes remain unchanged.
-use crate::usage::UsageAttempt;
+use crate::{admission::GatewayWrites, usage::UsageAttempt};
 use axum::body::{Body, Bytes};
 use futures_util::{Stream, StreamExt};
-use niu_storage::{Store, TenantScope};
+use niu_storage::TenantScope;
 use serde_json::{Value, json};
 use std::{
     io,
@@ -158,16 +158,17 @@ impl ChatEvidence {
 }
 
 pub struct StreamAttempt {
-    pub store: Store,
+    pub gateway_writes: GatewayWrites,
     pub scope: TenantScope,
     pub id: Uuid,
+    pub priced: bool,
     pub usage: UsageAttempt,
     pub failures: Arc<AtomicU64>,
 }
 
-/// Cancellation drops the upstream stream and leaves durable uncertainty. A
-/// terminal event commits execution evidence before its bytes reach the client.
-/// Financial settlement is intentionally separate.
+/// Cancellation drops the upstream stream and leaves durable uncertainty.
+/// Terminal usage evidence is queued after dispatch intent has been committed;
+/// a priced request retains its durable budget hold until settlement finishes.
 pub fn tracked_body<S>(upstream: S, attempt: StreamAttempt) -> Body
 where
     S: Stream<Item = Result<Bytes, reqwest::Error>> + Send + 'static,
@@ -197,26 +198,49 @@ where
                             stopped = true;
                             let context = attempt.take().expect("active stream context");
                             let provider_model = evidence.provider_model().map(str::to_owned);
-                            match context
-                                .store
-                                .complete_and_settle_with_provider_model(
-                                    context.scope,
-                                    context.id,
-                                    evidence.usage(),
-                                    provider_model.as_deref(),
-                                )
-                                .await
-                            {
-                                Ok(()) => {
-                                    if let Some((prompt, completion)) = evidence.usage() {
-                                        context.usage.report(&json!({"prompt_tokens": prompt, "completion_tokens": completion}));
-                                    }
-                                    Ok(bytes)
+                            let usage = evidence.usage();
+                            if context.priced {
+                                if context
+                                    .gateway_writes
+                                    .complete_priced(crate::admission::PricedGatewayCompletion {
+                                        scope: context.scope,
+                                        attempt_id: context.id,
+                                        usage,
+                                        provider_model,
+                                    })
+                                    .await
+                                    .is_err()
+                                {
+                                    tracing::error!(
+                                        attempt_id = %context.id,
+                                        "priced stream completion writer is unavailable; the durable reservation remains unresolved"
+                                    );
                                 }
-                                Err(_) => {
-                                    context.failures.fetch_add(1, Ordering::Relaxed);
-                                    Err(io::Error::other("unable to persist stream completion"))
+                                if let Some((prompt, completion)) = usage {
+                                    context.usage.report(&json!({"prompt_tokens": prompt, "completion_tokens": completion}));
                                 }
+                                Ok(bytes)
+                            } else {
+                                if context
+                                    .gateway_writes
+                                    .complete_unpriced(niu_storage::GatewayCompletion {
+                                        scope: context.scope,
+                                        attempt_id: context.id,
+                                        usage,
+                                        provider_model,
+                                    })
+                                    .await
+                                    .is_err()
+                                {
+                                    tracing::error!(
+                                        attempt_id = %context.id,
+                                        "unpriced stream completion writer is unavailable; the durable request remains unresolved"
+                                    );
+                                }
+                                if let Some((prompt, completion)) = usage {
+                                    context.usage.report(&json!({"prompt_tokens": prompt, "completion_tokens": completion}));
+                                }
+                                Ok(bytes)
                             }
                         } else {
                             Ok(bytes)

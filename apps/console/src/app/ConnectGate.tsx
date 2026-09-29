@@ -9,6 +9,6 @@ export default function ConnectGate({ children }: {
   const context = useConsoleContext();
   if (context.token) return children(context);
   return <section className="panel">
-    <ConnectPrompt draft={context.draftToken} error={context.error} onChange={context.setDraftToken} onSubmit={context.connect} />
+    <ConnectPrompt />
   </section>;
 }

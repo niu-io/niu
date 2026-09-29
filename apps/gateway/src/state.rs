@@ -1,7 +1,10 @@
 use std::{
     collections::HashMap,
     env,
-    sync::{Arc, atomic::AtomicU64},
+    sync::{
+        Arc,
+        atomic::{AtomicU64, AtomicUsize},
+    },
 };
 
 use axum::http::HeaderMap;
@@ -17,10 +20,21 @@ pub struct AppState {
     pub enterprise: Option<Arc<crate::enterprise::EnterpriseRuntime>>,
     provider_keys: Arc<HashMap<String, String>>,
     pub store: niu_storage::Store,
+    pub(crate) gateway_writes: crate::admission::GatewayWrites,
+    price_revisions: Arc<tokio::sync::RwLock<HashMap<PriceRevisionKey, uuid::Uuid>>>,
     pub admin_tokens: Arc<TokenSet>,
     pub requests: Arc<AtomicU64>,
     pub failures: Arc<AtomicU64>,
+    pub(crate) inference_in_flight: Arc<AtomicUsize>,
     pub usage: Arc<crate::usage::UsageMetrics>,
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+struct PriceRevisionKey {
+    organization_id: uuid::Uuid,
+    project_id: uuid::Uuid,
+    resource_id: String,
+    offer_revision: String,
 }
 
 impl AppState {
@@ -29,9 +43,22 @@ impl AppState {
         let enterprise = crate::enterprise::EnterpriseRuntime::from_env().await?;
         let database_url =
             env::var("NIU_DATABASE_URL").map_err(|_| "NIU_DATABASE_URL is required")?;
-        let store = niu_storage::Store::connect(&database_url)
-            .await
-            .map_err(|_| "Cannot initialize gateway database")?;
+        let max_connections = match env::var("NIU_DATABASE_MAX_CONNECTIONS") {
+            Ok(value) => value
+                .parse::<u32>()
+                .map_err(|_| "NIU_DATABASE_MAX_CONNECTIONS must be an integer from 1 to 256")?,
+            Err(env::VarError::NotPresent) => 10,
+            Err(_) => {
+                return Err("NIU_DATABASE_MAX_CONNECTIONS must be an integer from 1 to 256".into());
+            }
+        };
+        if !(1..=256).contains(&max_connections) {
+            return Err("NIU_DATABASE_MAX_CONNECTIONS must be an integer from 1 to 256".into());
+        }
+        let store =
+            niu_storage::Store::connect_with_max_connections(&database_url, max_connections)
+                .await
+                .map_err(|_| "Cannot initialize gateway database")?;
         let vendor_cipher = env::var("NIU_VENDOR_ENCRYPTION_KEY")
             .ok()
             .map(|key| crate::vendors::crypto::CredentialCipher::new(&key))
@@ -100,15 +127,21 @@ impl AppState {
         admin_tokens: TokenSet,
         provider_keys: HashMap<String, String>,
     ) -> Self {
+        let inference_in_flight = Arc::new(AtomicUsize::new(0));
+        let gateway_writes =
+            crate::admission::GatewayWrites::new(store.clone(), inference_in_flight.clone());
         Self {
             config: Arc::new(config),
             enterprise: None,
             vendor_cipher: None,
             provider_keys: Arc::new(provider_keys),
             store,
+            gateway_writes,
+            price_revisions: Arc::new(tokio::sync::RwLock::new(HashMap::new())),
             admin_tokens: Arc::new(admin_tokens),
             requests: Arc::new(AtomicU64::new(0)),
             failures: Arc::new(AtomicU64::new(0)),
+            inference_in_flight,
             usage: Arc::new(crate::usage::UsageMetrics::default()),
         }
     }
@@ -123,6 +156,43 @@ impl AppState {
 
     pub fn provider_key(&self, name: &str) -> Option<&str> {
         self.provider_keys.get(name).map(String::as_str)
+    }
+
+    pub(crate) async fn publish_price_revision(
+        &self,
+        scope: niu_storage::TenantScope,
+        resource_id: &str,
+        offer_revision: &str,
+        input: niu_storage::PriceInput<'_>,
+    ) -> Result<uuid::Uuid, niu_storage::StoreError> {
+        let key = PriceRevisionKey {
+            organization_id: scope.organization_id,
+            project_id: scope.project_id,
+            resource_id: resource_id.to_owned(),
+            offer_revision: offer_revision.to_owned(),
+        };
+        if let Some(id) = self.price_revisions.read().await.get(&key).copied() {
+            return Ok(id);
+        }
+
+        // Price revisions are immutable. Publish once per workspace and route
+        // revision, then avoid a serialized project-row lookup on every call.
+        let id = self.store.publish_price(scope, input).await?;
+        let mut revisions = self.price_revisions.write().await;
+        if let Some(id) = revisions.get(&key).copied() {
+            return Ok(id);
+        }
+        if revisions.len() >= 4096 {
+            revisions.clear();
+        }
+        revisions.insert(key, id);
+        Ok(id)
+    }
+
+    pub(crate) fn track_inference(&self) -> InferenceRequestGuard {
+        self.inference_in_flight
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        InferenceRequestGuard(self.inference_in_flight.clone())
     }
 
     pub async fn authorize_api(
@@ -189,6 +259,14 @@ impl AppState {
         } else {
             Err(ApiError::forbidden())
         }
+    }
+}
+
+pub(crate) struct InferenceRequestGuard(Arc<AtomicUsize>);
+
+impl Drop for InferenceRequestGuard {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
     }
 }
 

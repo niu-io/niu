@@ -101,6 +101,66 @@ async fn tenant_boundaries_dispatch_races_and_restart(pool: PgPool) {
 
 #[sqlx::test(migrations = "./migrations")]
 #[ignore = "requires PostgreSQL with permission to create test databases"]
+async fn gateway_operation_and_attempt_are_atomic(pool: PgPool) {
+    let store = Store::from_pool(pool.clone());
+    let organization = store
+        .create_organization("gateway admission")
+        .await
+        .unwrap();
+    let scope = store
+        .create_project(organization, "gateway project")
+        .await
+        .unwrap();
+
+    let (operation, attempt) = store
+        .prepare_gateway_attempt(scope, "fast", Some("task-42"), "revision-1")
+        .await
+        .unwrap();
+    let stored_task: Option<String> =
+        sqlx::query_scalar("SELECT task_id FROM operations WHERE id=$1")
+            .bind(operation)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    let stored_operation: uuid::Uuid = sqlx::query_scalar(
+        "SELECT operation_id FROM attempts WHERE id=$1 AND organization_id=$2 AND project_id=$3",
+    )
+    .bind(attempt)
+    .bind(scope.organization_id)
+    .bind(scope.project_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(stored_task.as_deref(), Some("task-42"));
+    assert_eq!(stored_operation, operation);
+
+    let before: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM operations WHERE organization_id=$1 AND project_id=$2",
+    )
+    .bind(scope.organization_id)
+    .bind(scope.project_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(
+        store
+            .prepare_gateway_attempt(scope, "fast", None, "")
+            .await
+            .is_err()
+    );
+    let after: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM operations WHERE organization_id=$1 AND project_id=$2",
+    )
+    .bind(scope.organization_id)
+    .bind(scope.project_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(after, before);
+}
+
+#[sqlx::test(migrations = "./migrations")]
+#[ignore = "requires PostgreSQL with permission to create test databases"]
 async fn collector_key_metadata_is_scoped_and_never_contains_secrets(pool: PgPool) {
     let store = Store::from_pool(pool);
     let first_org = store

@@ -67,38 +67,62 @@ pub(super) async fn begin_attempt(
     task_id: Option<&str>,
 ) -> Result<DispatchContext, ApiError> {
     let scope = principal.scope();
-    let operation = state
-        .store
-        .create_operation_for_task(scope, public_model, task_id)
-        .await
-        .map_err(ApiError::from_store)?;
     let revision = route_revision(model);
-    let attempt = state
-        .store
-        .prepare_attempt(scope, operation, public_model, &revision)
-        .await
-        .map_err(ApiError::from_store)?;
-    state
-        .store
-        .bind_customer_tariff(scope, attempt, public_model)
-        .await
-        .map_err(ApiError::from_store)?;
-    state
-        .store
-        .bind_provider_offer(
-            scope,
-            attempt,
-            public_model,
-            &model.upstream_model,
-            model.api_base.as_deref(),
-        )
-        .await
-        .map_err(ApiError::from_store)?;
+    let (operation, attempt) = if model.pricing.is_some() {
+        let (operation, attempt) = state
+            .store
+            .prepare_gateway_attempt(scope, public_model, task_id, &revision)
+            .await
+            .map_err(ApiError::from_store)?;
+        state
+            .store
+            .bind_customer_tariff(scope, attempt, public_model)
+            .await
+            .map_err(ApiError::from_store)?;
+        state
+            .store
+            .bind_provider_offer(
+                scope,
+                attempt,
+                public_model,
+                &model.upstream_model,
+                model.api_base.as_deref(),
+            )
+            .await
+            .map_err(ApiError::from_store)?;
+        (operation, attempt)
+    } else {
+        state
+            .gateway_writes
+            .admit_unpriced(
+                principal,
+                scope,
+                public_model,
+                &model.upstream_model,
+                model.api_base.as_deref(),
+                task_id,
+                &revision,
+            )
+            .await
+            .map_err(|error| match error {
+                crate::admission::AdmissionError::Unauthorized => ApiError::unauthorized(),
+                crate::admission::AdmissionError::Conflict => {
+                    ApiError::from_store(niu_storage::StoreError::Conflict)
+                }
+                crate::admission::AdmissionError::AccountUnavailable => {
+                    ApiError::from_store(niu_storage::StoreError::AccountUnavailable)
+                }
+                crate::admission::AdmissionError::StorageUnavailable => {
+                    ApiError::storage_unavailable()
+                }
+            })?
+    };
     if let Some(price) = &model.pricing {
         let price_id = state
-            .store
-            .publish_price(
+            .publish_price_revision(
                 scope,
+                public_model,
+                &revision,
                 niu_storage::PriceInput {
                     resource_id: public_model,
                     offer_revision: &revision,
@@ -115,30 +139,30 @@ pub(super) async fn begin_attempt(
             )
             .await
             .map_err(ApiError::from_store)?;
-        state
+        if let Err(error) = state
             .store
-            .reserve_cost(
-                scope,
+            .reserve_and_dispatch_gateway(
+                principal,
                 attempt,
                 price_id,
+                public_model,
+                &revision,
                 price.max_input_tokens,
                 completion_bound.unwrap_or(price.max_output_tokens),
             )
             .await
-            .map_err(ApiError::from_store)?;
-    }
-    if let Err(error) = state.store.mark_dispatched(principal, attempt).await {
-        if model.pricing.is_some() {
+        {
             // A lost commit acknowledgement must not release a dispatched hold.
             // The storage transition proves not_sent before releasing anything.
             let _ = state.store.release_unsent_cost(scope, attempt).await;
+            return Err(ApiError::from_store(error));
         }
-        return Err(ApiError::from_store(error));
     }
     Ok(DispatchContext {
         scope,
         operation,
         attempt,
+        priced: model.pricing.is_some(),
     })
 }
 
@@ -213,18 +237,42 @@ pub(super) async fn finalize_response(
 ) -> Response {
     let mut response = match result {
         Ok(result) if result.completed => {
-            if let Err(error) = state
-                .store
-                .complete_and_settle_with_provider_model(
-                    dispatch.scope,
-                    dispatch.attempt,
-                    result.usage,
-                    result.provider_model.as_deref(),
-                )
-                .await
-            {
-                ApiError::from_store(error).into_response()
+            if dispatch.priced {
+                if state
+                    .gateway_writes
+                    .complete_priced(crate::admission::PricedGatewayCompletion {
+                        scope: dispatch.scope,
+                        attempt_id: dispatch.attempt,
+                        usage: result.usage,
+                        provider_model: result.provider_model,
+                    })
+                    .await
+                    .is_err()
+                {
+                    tracing::error!(
+                        attempt_id = %dispatch.attempt,
+                        "priced gateway completion writer is unavailable; the durable reservation remains unresolved"
+                    );
+                }
+                result.response
             } else {
+                let completion = niu_storage::GatewayCompletion {
+                    scope: dispatch.scope,
+                    attempt_id: dispatch.attempt,
+                    usage: result.usage,
+                    provider_model: result.provider_model,
+                };
+                if state
+                    .gateway_writes
+                    .complete_unpriced(completion)
+                    .await
+                    .is_err()
+                {
+                    tracing::error!(
+                        attempt_id = %dispatch.attempt,
+                        "unpriced completion writer is unavailable; the durable request remains unresolved"
+                    );
+                }
                 result.response
             }
         }
@@ -334,6 +382,7 @@ pub(super) struct DispatchContext {
     pub(super) scope: niu_storage::TenantScope,
     pub(super) operation: Uuid,
     pub(super) attempt: Uuid,
+    pub(super) priced: bool,
 }
 
 pub(super) struct ProviderResponse {

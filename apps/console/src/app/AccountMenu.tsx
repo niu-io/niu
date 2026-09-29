@@ -1,10 +1,7 @@
-import { X } from 'lucide-react';
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { LogOut, KeyRound, Sun, Moon, Monitor, Building2 } from 'lucide-react';
 import { applyTheme, readTheme, saveTheme, type Theme } from './theme';
-import ConnectPrompt from '@/components/ConnectPrompt';
 import type { ConsoleContext } from './console-context';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
@@ -19,9 +16,7 @@ export default function AccountMenu({ context, workspacePath, providerArea = fal
     media.addEventListener('change', update);
     return () => media.removeEventListener('change', update);
   }, [theme]);
-  const [signInOpen, setSignInOpen] = useState(false);
-  const { session, token, draftToken, setDraftToken, error, connect, signOut, organizations, organization, selectOrganization, workspaceLoading, workspaceError } = context;
-  useEffect(() => { if (token) setSignInOpen(false); }, [token]);
+  const { session, token, signOut, organizations, organization, selectOrganization, workspaceLoading, workspaceError } = context;
   const installation = session?.kind === 'installation';
   const supplierOnly = providerArea && !installation && !session?.operator;
   const label = supplierOnly ? installation ? 'Supplier management' : 'Supplier account' : installation ? 'Niu administrator' : session?.operator ? `${session.operator.role[0].toUpperCase()}${session.operator.role.slice(1)}` : 'Administrator access';
@@ -50,21 +45,12 @@ export default function AccountMenu({ context, workspacePath, providerArea = fal
           </>}
           {!supplierOnly && organization && <DropdownMenuItem asChild><Link to={`${workspacePath}/organization`}><Building2 size={18}/>Organization settings</Link></DropdownMenuItem>}
           {token && <DropdownMenuItem onSelect={signOut}><LogOut size={18}/>Sign out</DropdownMenuItem>}
-          {!token && <><DropdownMenuSeparator className="account-separator"/><DropdownMenuItem onSelect={() => setSignInOpen(true)}><KeyRound size={18}/>Administrator sign-in</DropdownMenuItem></>}
+          {!token && <><DropdownMenuSeparator className="account-separator"/><DropdownMenuItem asChild><Link to="/login"><KeyRound size={18}/>Sign in</Link></DropdownMenuItem></>}
           <DropdownMenuSeparator className="account-separator"/>
           <DropdownMenuRadioGroup className="theme-options" data-keyboard-focus={themeKeyboardFocus} onPointerMove={() => setThemeKeyboardFocus(false)} onPointerDown={() => setThemeKeyboardFocus(false)} onKeyDown={() => setThemeKeyboardFocus(true)} aria-label="Appearance" value={theme} onValueChange={value => { const next = value as Theme; setTheme(next); saveTheme(next); }}>
             {([{value: 'light', label: 'Light', icon: Sun}, {value: 'dark', label: 'Dark', icon: Moon}, {value: 'system', label: 'System', icon: Monitor}] as const).map(option => <DropdownMenuRadioItem key={option.value} value={option.value} onSelect={event => event.preventDefault()}><option.icon size={18}/><span>{option.label}</span></DropdownMenuRadioItem>)}
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
     </DropdownMenu>
-    <Dialog open={signInOpen && !token} onOpenChange={setSignInOpen}>
-      <DialogContent className="niu-modal account-dialog" showCloseButton={false}>
-        <DialogHeader className="niu-modal-heading flex-row text-left">
-          <div><DialogTitle>Administrator access</DialogTitle><DialogDescription>Sign in with the bootstrap token for this self-hosted Niu installation. Applications use scoped API keys.</DialogDescription></div>
-          <DialogClose className="niu-modal-close" aria-label="Close dialog"><X size={18} /></DialogClose>
-        </DialogHeader>
-      <ConnectPrompt draft={draftToken} error={error} onChange={setDraftToken} onSubmit={connect}/>
-    </DialogContent>
-    </Dialog>
   </>;
 }

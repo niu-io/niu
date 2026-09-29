@@ -2,12 +2,13 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '
 import { Input } from '@/components/ui/input';
 import { Table as ShadcnTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Activity, ArrowUpRight, ChevronDown, RefreshCw, Timer, Workflow } from 'lucide-react';
-import { Link } from 'react-router';
+import { Activity, ArrowUpRight, ChevronDown, Copy, Coins, RefreshCw, Timer, Workflow } from 'lucide-react';
+import { Link, useLocation } from 'react-router';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import PageHeader from '@/components/PageHeader';
+import { money } from '@/lib/money';
 
 type TaskEvidence = {
   execution_id: string;
@@ -36,6 +37,9 @@ type GatewayRequest = {
   usage_confidence: string;
   prompt_tokens: string | null;
   completion_tokens: string | null;
+  currency: string | null;
+  cash_nanos: string | null;
+  api_equivalent_nanos: string | null;
 };
 type ActivitySummary = {
   request_count: number;
@@ -44,6 +48,8 @@ type ActivitySummary = {
   completion_tokens: string;
   timing_count: number;
   average_duration_ms: number | null;
+  unknown_cost_count: number;
+  settled_costs: Array<{ currency: string; cash_nanos: string; api_equivalent_nanos: string; settled_requests: number }>;
 };
 type ActivityFilters = { from: string; to: string; model: string; keyId: string; status: string };
 type KeyOption = { id: string; name: string; allowed_models: string[]; revoked: boolean; expired: boolean };
@@ -52,6 +58,76 @@ async function get<T>(path: string, token: string, signal?: AbortSignal): Promis
   const response = await fetch(path, { signal, headers: { authorization: `Bearer ${token}` } });
   if (!response.ok) throw new Error(`Could not load gateway activity (${response.status}).`);
   return await response.json() as T;
+}
+
+function amount(values: GatewayRequest[], key: 'cash_nanos' | 'api_equivalent_nanos') {
+  const totals = new Map<string, bigint>();
+  let unknown = 0;
+  for (const item of values) {
+    if (item.execution === 'confirmed_not_executed' || item.execution === 'not_sent') continue;
+    if (!item.currency || item[key] == null) { unknown += 1; continue; }
+    totals.set(item.currency, (totals.get(item.currency) ?? 0n) + BigInt(item[key]!));
+  }
+  return { totals: [...totals].map(([currency, nanos]) => money(nanos.toString(), currency)), unknown };
+}
+
+function totalTokens(values: GatewayRequest[]) {
+  let total = 0n;
+  let known = 0;
+  for (const item of values) {
+    if (item.prompt_tokens != null && item.completion_tokens != null) {
+      total += BigInt(item.prompt_tokens) + BigInt(item.completion_tokens);
+      known += 1;
+    }
+  }
+  return { total: total.toLocaleString(), known };
+}
+
+function countLabel(count: number, singular: string) {
+  return `${count} ${singular}${count === 1 ? '' : 's'}`;
+}
+
+function summaryCosts(summary: ActivitySummary, field: 'cash_nanos' | 'api_equivalent_nanos') {
+  return summary.settled_costs.map(item => money(item[field], item.currency));
+}
+
+function taskTraceURL(workspaceRoot: string, organization: string, project: string, executionId: string) {
+  const query = new URLSearchParams({ organizationId: organization, projectId: project, executionId });
+  return `${workspaceRoot}/tasks?${query.toString()}`;
+}
+
+function shellQuote(value: string) {
+  return `'${value.replaceAll("'", "'\\''")}'`;
+}
+
+function curlRequestExample(baseURL: string, model: string) {
+  const body = JSON.stringify({ model, messages: [{ role: 'user', content: 'Reply with a short greeting.' }] });
+  const continuation = String.fromCharCode(92);
+  const command = [
+    'curl "$NIU_BASE_URL/chat/completions"',
+    '--header "Authorization: Bearer $NIU_API_KEY"',
+    '--header "Content-Type: application/json"',
+    `--data ${shellQuote(body)}`,
+  ].join(` ${continuation}\n  `);
+  return `export NIU_BASE_URL=${shellQuote(baseURL)}\n${command}`;
+}
+
+function groupRequests(requests: GatewayRequest[]) {
+  const groups = new Map<string, GatewayRequest[]>();
+  for (const request of requests) {
+    const key = request.task_id ? `task:${request.task_id}` : `request:${request.operation_id}`;
+    groups.set(key, [...(groups.get(key) ?? []), request]);
+  }
+  return [...groups].map(([key, items]) => ({
+    key,
+    taskId: items[0].task_id,
+    taskEvidence: items.find(item => item.task_evidence)?.task_evidence ?? null,
+    requests: items,
+    tokens: totalTokens(items),
+    cashCosts: amount(items, 'cash_nanos'),
+    apiCosts: amount(items, 'api_equivalent_nanos'),
+    workMs: items.reduce((total, item) => total + (item.duration_ms ?? 0), 0),
+  }));
 }
 
 function timestamp(value: string) {
@@ -109,7 +185,8 @@ export function taskOutcome(evidence: TaskEvidence | null) {
   return 'Unverified';
 }
 
-export default function GatewayActivity({ token, models, initialScope, compact = false, statisticsOnly = false, preferredModelAlias }: { token: string; models: string[]; initialScope?: { organizationId: string; projectId: string } | null; compact?: boolean; statisticsOnly?: boolean; preferredModelAlias?: string }) {
+export default function GatewayActivity({ token, models, initialScope, compact = false, statisticsOnly = false, preferredModelAlias, preferredKeyId }: { token: string; models: string[]; initialScope?: { organizationId: string; projectId: string } | null; compact?: boolean; statisticsOnly?: boolean; preferredModelAlias?: string; preferredKeyId?: string }) {
+  const location = useLocation();
   const organization = initialScope?.organizationId ?? '';
   const project = initialScope?.projectId ?? '';
   const [requests, setRequests] = useState<GatewayRequest[]>([]);
@@ -124,14 +201,30 @@ export default function GatewayActivity({ token, models, initialScope, compact =
   const [summary, setSummary] = useState<ActivitySummary | null>(null);
   const [keys, setKeys] = useState<KeyOption[]>([]);
   const [keyFilterError, setKeyFilterError] = useState('');
-  const [filters, setFilters] = useState<ActivityFilters>({ from: '', to: '', model: '', keyId: '', status: '' });
+  const [filters, setFilters] = useState<ActivityFilters>({ from: '', to: '', model: '', keyId: preferredKeyId ?? '', status: '' });
+  const [modelAlias, setModelAlias] = useState(() => preferredModelAlias && models.includes(preferredModelAlias) ? preferredModelAlias : models[0] ?? '');
+  const [copyNotice, setCopyNotice] = useState('');
   const olderController = useRef<AbortController | null>(null);
   const preferredAliasApplied = useRef('');
+  const clientModels = useMemo(() => {
+    const activeKeys = keys.filter(key => !key.revoked && !key.expired);
+    const granted = new Set(activeKeys.flatMap(key => key.allowed_models ?? []));
+    return activeKeys.length > 0 ? models.filter(model => granted.has(model)) : models;
+  }, [keys, models]);
+
+  useEffect(() => {
+    if (preferredModelAlias && preferredAliasApplied.current !== preferredModelAlias && clientModels.includes(preferredModelAlias)) {
+      preferredAliasApplied.current = preferredModelAlias;
+      setModelAlias(preferredModelAlias);
+      return;
+    }
+    if (!clientModels.includes(modelAlias)) setModelAlias(clientModels[0] ?? '');
+  }, [clientModels, modelAlias, preferredModelAlias]);
 
   const productBase = import.meta.env.BASE_URL.replace(/\/+$/, '');
-  const workspaceRoot = typeof window === 'undefined'
-    ? `${productBase}/workspaces/default`
-    : (window.location.pathname.match(/^(.*\/workspaces\/[^/]+)/)?.[0] ?? `${productBase}/workspaces/default`);
+  const workspaceRoot = location.pathname.match(/^(.*\/workspaces\/[^/]+)/)?.[0] ?? '/workspaces/default';
+  const baseURL = typeof window === 'undefined' ? `${productBase}/v1` : `${window.location.origin}${productBase}/v1`;
+  const requestExample = useMemo(() => curlRequestExample(baseURL, modelAlias), [baseURL, modelAlias]);
   const activityFilterQuery = useMemo(() => filterQuery(filters), [filters]);
   const invalidDateRange = Boolean(filters.from && filters.to && filters.from > filters.to);
   const hasActivityFilters = Boolean(activityFilterQuery);
@@ -145,6 +238,15 @@ export default function GatewayActivity({ token, models, initialScope, compact =
 
   function updateFilter(name: keyof ActivityFilters, value: string) {
     setFilters(current => ({ ...current, [name]: value }));
+  }
+
+  async function copyValue(label: string, value: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopyNotice(`${label} copied`);
+    } catch {
+      setCopyNotice('Clipboard unavailable. Select the value to copy it.');
+    }
   }
 
   useEffect(() => {
@@ -226,10 +328,13 @@ export default function GatewayActivity({ token, models, initialScope, compact =
   }, [requests]);
   const aggregate = summary ?? {
     request_count: 0, usage_count: 0, prompt_tokens: '0', completion_tokens: '0',
-    timing_count: 0, average_duration_ms: null,
+    timing_count: 0, average_duration_ms: null, unknown_cost_count: 0, settled_costs: [],
   };
   const aggregateTokens = (BigInt(aggregate.prompt_tokens) + BigInt(aggregate.completion_tokens)).toLocaleString();
+  const settledTotals = summaryCosts(aggregate, 'cash_nanos');
+  const apiEquivalentTotals = summaryCosts(aggregate, 'api_equivalent_nanos');
   const averageDuration = summary?.average_duration_ms;
+  const groups = useMemo(() => groupRequests(requests), [requests]);
 
   useEffect(() => {
     const prefix = '#gateway-attempt-';
@@ -248,6 +353,16 @@ export default function GatewayActivity({ token, models, initialScope, compact =
     {error && <div role="alert" className="page-error"><span>{error}</span><Button variant="outline" size="sm" onClick={() => setRevision(value => value + 1)}>Try again</Button></div>}
     {!project && <section className="panel empty-state"><strong>Choose a workspace</strong><span>Select or create a workspace to view its activity.</span></section>}
     {project && <>
+      {!compact && !statisticsOnly && <section className="gateway-client-setup panel" aria-label="Niu client settings">
+        <div className="gateway-client-setup-heading"><div><p className="eyebrow">CLIENT SETUP</p><h2>Point your app at Niu</h2><p>Use a workspace key that grants the selected model alias. Provider credentials stay in Niu.</p></div><div><Link to={`${workspaceRoot}/vendors`}>Configure provider<ArrowUpRight size={15} /></Link><Link to={`${workspaceRoot}/keys`}>Manage API keys<ArrowUpRight size={15} /></Link></div></div>
+        <div className="gateway-client-values">
+          <div className="gateway-client-value"><span>Niu base URL</span><div><code>{baseURL}</code><Button type="button" variant="outline" size="sm" aria-label="Copy Niu base URL" onClick={() => void copyValue('Niu base URL', baseURL)}><Copy />Copy</Button></div></div>
+          <div className="gateway-client-value"><span>Model alias</span>{clientModels.length > 1 && <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="w-full justify-between font-normal">{modelAlias || 'Choose a model'}<ChevronDown size={16} /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={modelAlias} onValueChange={setModelAlias}>{clientModels.map(model => <DropdownMenuRadioItem key={model} value={model}>{model}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>}<div><code>{modelAlias || 'No enabled model alias'}</code><Button type="button" variant="outline" size="sm" aria-label="Copy model alias" disabled={!modelAlias} onClick={() => void copyValue('Model alias', modelAlias)}><Copy />Copy</Button></div></div>
+        </div>
+        {modelAlias ? <details className="gateway-request-example"><summary>Try a request from your terminal</summary><div className="gateway-request-content"><div className="gateway-request-heading"><p>Set <code>NIU_API_KEY</code> to a workspace-scoped key before running.</p><Button type="button" variant="outline" size="sm" onClick={() => void copyValue('cURL request', requestExample)}><Copy />Copy cURL request</Button></div><pre><code>{requestExample}</code></pre></div></details> : <p className="gateway-request-unavailable">Publish an enabled model alias and grant it to a workspace key to generate a request example.</p>}
+        {copyNotice && <p className="gateway-copy-notice" role="status">{copyNotice}</p>}
+      </section>}
+
       {!compact && <section className="gateway-activity-filters panel" aria-label="Filter request activity">
         <label>From<Input type="date" value={filters.from} max={filters.to || undefined} onChange={event => updateFilter('from', event.target.value)} /></label>
         <label>To<Input type="date" value={filters.to} min={filters.from || undefined} onChange={event => updateFilter('to', event.target.value)} /></label>
@@ -262,6 +377,8 @@ export default function GatewayActivity({ token, models, initialScope, compact =
         <article className="panel"><span><Activity size={16} />Matching requests</span><strong>{summary ? aggregate.request_count.toLocaleString() : '—'}</strong><small>{summary ? `${requests.length.toLocaleString()} loaded${nextCursor ? ' · more history available' : ' · all matching requests'}` : 'Range total unavailable'}</small></article>
         <article className="panel"><span><Workflow size={16} />Token usage</span><strong>{summary ? aggregateTokens : '—'}</strong><small>{summary ? `${BigInt(aggregate.prompt_tokens).toLocaleString()} prompt · ${BigInt(aggregate.completion_tokens).toLocaleString()} output · ${aggregate.usage_count} with reported usage` : 'Range total unavailable'}</small></article>
         <article className="panel"><span><Timer size={16} />Average model time</span><strong>{averageDuration == null ? '—' : `${averageDuration.toLocaleString()} ms`}</strong><small>{summary ? `${aggregate.timing_count} requests with complete timing` : 'Range total unavailable'}</small></article>
+        <article className="panel"><span><Coins size={16} />Settled gateway cost</span><strong>{summary ? settledTotals.length ? settledTotals.join(' · ') : aggregate.unknown_cost_count ? 'Unknown' : '—' : '—'}</strong><small>{summary ? aggregate.unknown_cost_count ? `${countLabel(aggregate.unknown_cost_count, 'request')} without a settled charge` : 'Settled charges only' : 'Range total unavailable'}</small></article>
+        <article className="panel"><span><Coins size={16} />API-equivalent cost</span><strong>{summary ? apiEquivalentTotals.length ? apiEquivalentTotals.join(' · ') : aggregate.unknown_cost_count ? 'Unknown' : '—' : '—'}</strong><small>{summary ? aggregate.unknown_cost_count ? `${countLabel(aggregate.unknown_cost_count, 'request')} without a known price` : 'Model price estimate' : 'Range total unavailable'}</small></article>
       </section>}
 
       {statisticsOnly && !error && <section className="panel activity-model-breakdown">
@@ -271,21 +388,25 @@ export default function GatewayActivity({ token, models, initialScope, compact =
       </section>}
 
       {!statisticsOnly && <section className={`gateway-task-feed panel${compact ? ' is-compact' : ''}`} aria-labelledby="gateway-task-feed-title" aria-busy={loading}>
-        <div className="gateway-task-feed-heading"><div><h2 id="gateway-task-feed-title">{compact ? 'Recent requests' : 'Requests'}</h2></div><div className="gateway-feed-actions">{compact && <Link to={`${workspaceRoot}/executions`}>View all requests<ArrowUpRight size={15} /></Link>}{!compact && <Badge variant="outline">{requests.length.toLocaleString()} loaded</Badge>}</div></div>
-        {loading && <p role="status" className="execution-loading">Loading requests…</p>}
-        {!loading && !error && requests.length === 0 && <div className="gateway-task-empty"><Activity size={22} /><h3>{hasActivityFilters ? 'No matching requests' : 'No requests yet'}</h3><p>{hasActivityFilters ? 'Adjust or clear the filters to see more activity.' : 'Calls sent through Chat or your application appear here.'}</p>{hasActivityFilters ? <Button type="button" variant="outline" onClick={() => setFilters({ from: '', to: '', model: '', keyId: '', status: '' })}>Clear filters</Button> : !compact && <Link to={`${workspaceRoot}/playground`}>Open Chat<ArrowUpRight size={16} /></Link>}</div>}
-        {!loading && requests.length > 0 && <div className="gateway-request-table-wrap"><ShadcnTable className={`gateway-request-table${compact ? ' is-compact' : ''}`}><TableHeader><TableRow><TableHead>Time</TableHead><TableHead>Model</TableHead><TableHead>Status</TableHead><TableHead>Latency</TableHead>{!compact && <><TableHead>Input tokens</TableHead><TableHead>Output tokens</TableHead><TableHead>API key</TableHead><TableHead>Details</TableHead></>}</TableRow></TableHeader><TableBody>{requests.map(item => <TableRow id={`gateway-attempt-${item.attempt_id}`} tabIndex={-1} key={item.attempt_id}>
-          <TableCell>{timestamp(item.created_at)}</TableCell><TableHead scope="row"><span>{item.model}</span>{item.provider_model && <small>Provider · {item.provider_model}</small>}</TableHead><TableCell><span className={`gateway-table-status ${item.execution === 'confirmed_completed' ? 'is-complete' : item.execution === 'confirmed_not_executed' ? 'is-failed' : 'is-pending'}`}>{statusLabel(item.execution)}</span></TableCell><TableCell>{item.duration_ms == null ? 'Unknown' : `${item.duration_ms.toLocaleString()} ms`}</TableCell>{!compact && <><TableCell>{item.prompt_tokens == null ? 'Unknown' : BigInt(item.prompt_tokens).toLocaleString()}</TableCell><TableCell>{item.completion_tokens == null ? 'Unknown' : BigInt(item.completion_tokens).toLocaleString()}</TableCell><TableCell>{item.key_name ?? 'Unknown'}</TableCell><TableCell><Button variant="ghost" size="sm" onClick={() => setSelectedAttempt(item.attempt_id)}>View details</Button></TableCell></>}
-        </TableRow>)}</TableBody></ShadcnTable></div>}
-        {!compact && !loading && nextCursor && <div className="gateway-task-history"><Button type="button" variant="outline" disabled={loadingOlder} onClick={() => void loadOlder()}>{loadingOlder ? 'Loading older requests…' : 'Load older requests'}</Button></div>}
-        {!compact && !loading && requests.length > 0 && <p className="gateway-task-disclosure">Token counts are shown only when reported. Customer charges and invoices are available in Billing.</p>}
+        <div className="gateway-task-feed-heading"><div><h2 id="gateway-task-feed-title">{compact ? 'Recent requests' : 'Request activity'}</h2>{!compact && <p>Matching <code>X-Niu-Task-ID</code> values group calls. A task ID does not verify a complete task.</p>}</div><div className="gateway-feed-actions">{compact && <Link to={`${workspaceRoot}/executions`}>View activity<ArrowUpRight size={15} /></Link>}{!compact && <Badge variant="outline">{requests.length.toLocaleString()} loaded</Badge>}</div></div>
+        {loading && <p role="status" className="execution-loading">Loading gateway activity…</p>}
+        {!loading && !error && groups.length === 0 && <div className="gateway-task-empty"><Activity size={22} /><h3>{hasActivityFilters ? 'No matching requests' : 'No requests yet'}</h3><p>{hasActivityFilters ? 'Adjust or clear the filters to see more activity.' : 'Send a model call from Chat or your app.'}</p>{hasActivityFilters ? <Button type="button" variant="outline" onClick={() => setFilters({ from: '', to: '', model: '', keyId: '', status: '' })}>Clear filters</Button> : !compact && <Link to={`${workspaceRoot}/playground`}>Open Chat<ArrowUpRight size={16} /></Link>}</div>}
+        {!loading && groups.length > 0 && <div className="gateway-task-groups">{(compact ? groups.slice(0, 3) : groups).map(group => <article className="gateway-task-group" key={group.key}>
+          <div className="gateway-task-group-head"><div><span className="gateway-task-kicker">{group.taskId ? 'CORRELATED REQUESTS' : group.requests.length > 1 ? 'ATTEMPT HISTORY' : 'REQUEST'}</span><h3>{group.taskId ? `Task ID · ${group.taskId}` : group.requests[0].model}</h3><p>{group.requests.length} {group.taskId ? `request${group.requests.length === 1 ? '' : 's'}` : `attempt${group.requests.length === 1 ? '' : 's'}`} · {group.requests.map(item => item.model).filter((model, index, all) => all.indexOf(model) === index).join(', ')}</p>{group.taskEvidence && <p className="gateway-task-quality">Imported task evidence: {taskOutcome(group.taskEvidence)} · {group.taskEvidence.coverage} coverage</p>}{group.taskEvidence?.execution_id && <Link className="gateway-task-trace-link" to={taskTraceURL(workspaceRoot, organization, project, group.taskEvidence.execution_id)}>Open imported task evidence<ArrowUpRight size={14} /></Link>}</div><div className="gateway-task-group-total"><strong>{group.cashCosts.totals.length ? group.cashCosts.totals.join(' · ') : group.cashCosts.unknown ? 'Unknown' : '—'}</strong><span>{group.cashCosts.unknown ? `${countLabel(group.cashCosts.unknown, 'request')} without settled cash · total incomplete` : 'Settled model cash only'}</span><span>API-equivalent: {group.apiCosts.totals.length ? group.apiCosts.totals.join(' · ') : group.apiCosts.unknown ? 'unknown' : '—'}{group.apiCosts.unknown ? ` · ${countLabel(group.apiCosts.unknown, 'request')} without a known price` : ''}</span>{nextCursor && <span>Loaded history only; older calls may add costs.</span>}<span>{group.tokens.total} tokens · {group.workMs ? `${group.workMs.toLocaleString()} ms model time` : 'timing unavailable'}</span></div></div>
+          <div className="gateway-task-request-list">{group.requests.map(item => <div className="gateway-task-request" id={`gateway-attempt-${item.attempt_id}`} tabIndex={-1} key={item.attempt_id}>
+            <span className={`gateway-request-state ${item.execution === 'confirmed_completed' ? 'is-complete' : item.execution === 'confirmed_not_executed' ? 'is-failed' : 'is-pending'}`} aria-hidden="true" />
+            <div className="gateway-request-model"><strong>{item.model}</strong>{item.provider_model && <small>Provider · {item.provider_model}</small>}</div><span>{timestamp(item.created_at)}</span><span>{item.prompt_tokens != null && item.completion_tokens != null ? `${(BigInt(item.prompt_tokens) + BigInt(item.completion_tokens)).toLocaleString()} tokens` : 'Usage unknown'}</span><span>{item.duration_ms == null ? 'Time unknown' : `${item.duration_ms.toLocaleString()} ms`}</span><span>{item.cash_nanos != null && item.currency ? money(item.cash_nanos, item.currency) : item.execution === 'confirmed_completed' ? 'Price unavailable' : 'Unsettled'}</span>{!compact && <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedAttempt(item.attempt_id)}>Details</Button>}
+          </div>)}</div>
+        </article>)}</div>}
+        {!compact && !loading && nextCursor && <div className="gateway-task-history"><Button type="button" variant="outline" disabled={loadingOlder} onClick={() => void loadOlder()}>{loadingOlder ? 'Loading older activity…' : 'Load older activity'}</Button></div>}
+        {!compact && !loading && groups.length > 0 && <p className="gateway-task-disclosure">This view records gateway calls. It does not include tool calls, retries outside Niu, or task acceptance unless imported evidence is shown.</p>}
       </section>}
     </>}
     <Sheet open={Boolean(selectedRequest)} onOpenChange={open => { if (!open) setSelectedAttempt(null); }}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
         <SheetHeader><SheetTitle>Request details</SheetTitle><SheetDescription>{selectedRequest?.model}</SheetDescription></SheetHeader>
         {selectedRequest && <div className="p-6 space-y-6">
-          <div className="gateway-request-detail"><dl><div><dt>Provider model</dt><dd>{selectedRequest.provider_model ?? 'Unknown'}</dd></div><div><dt>Status</dt><dd>{statusLabel(selectedRequest.execution)}</dd></div><div><dt>Time</dt><dd>{timestamp(selectedRequest.created_at)}</dd></div><div><dt>Model time</dt><dd>{selectedRequest.duration_ms == null ? 'Unknown' : `${selectedRequest.duration_ms.toLocaleString()} ms`}</dd></div><div><dt>Prompt tokens</dt><dd>{selectedRequest.prompt_tokens ?? 'Unknown'}</dd></div><div><dt>Output tokens</dt><dd>{selectedRequest.completion_tokens ?? 'Unknown'}</dd></div><div><dt>Usage evidence</dt><dd>{selectedRequest.usage_confidence}</dd></div><div><dt>API key</dt><dd>{selectedRequest.key_name ?? 'Unknown'}</dd></div>{selectedRequest.task_id && <div><dt>Task ID</dt><dd>{selectedRequest.task_id}</dd></div>}<div><dt>Operation ID</dt><dd><code>{selectedRequest.operation_id}</code></dd></div><div><dt>Attempt ID</dt><dd><code>{selectedRequest.attempt_id}</code></dd></div>{selectedRequest.task_evidence && <div><dt>Task evidence</dt><dd>{taskOutcome(selectedRequest.task_evidence)} · {selectedRequest.task_evidence.coverage}</dd></div>}</dl></div>
+          <div className="gateway-request-detail"><dl><div><dt>Provider model</dt><dd>{selectedRequest.provider_model ?? 'Unknown'}</dd></div><div><dt>Status</dt><dd>{statusLabel(selectedRequest.execution)}</dd></div><div><dt>Time</dt><dd>{timestamp(selectedRequest.created_at)}</dd></div><div><dt>Model time</dt><dd>{selectedRequest.duration_ms == null ? 'Unknown' : `${selectedRequest.duration_ms.toLocaleString()} ms`}</dd></div><div><dt>Prompt tokens</dt><dd>{selectedRequest.prompt_tokens ?? 'Unknown'}</dd></div><div><dt>Output tokens</dt><dd>{selectedRequest.completion_tokens ?? 'Unknown'}</dd></div><div><dt>Usage evidence</dt><dd>{selectedRequest.usage_confidence}</dd></div><div><dt>Settled gateway cost</dt><dd>{selectedRequest.cash_nanos != null && selectedRequest.currency ? money(selectedRequest.cash_nanos, selectedRequest.currency) : 'Unknown'}</dd></div><div><dt>API-equivalent estimate</dt><dd>{selectedRequest.api_equivalent_nanos != null && selectedRequest.currency ? money(selectedRequest.api_equivalent_nanos, selectedRequest.currency) : 'Unknown'}</dd></div><div><dt>API key</dt><dd>{selectedRequest.key_name ?? 'Unknown'}</dd></div>{selectedRequest.task_id && <div><dt>Task ID</dt><dd>{selectedRequest.task_id} · correlation only</dd></div>}<div><dt>Operation ID</dt><dd><code>{selectedRequest.operation_id}</code></dd></div><div><dt>Attempt ID</dt><dd><code>{selectedRequest.attempt_id}</code></dd></div>{selectedRequest.task_evidence && <div><dt>Imported task evidence</dt><dd>{taskOutcome(selectedRequest.task_evidence)} · {selectedRequest.task_evidence.coverage}</dd></div>}</dl></div>
           <details><summary>Raw request metadata</summary><pre className="mt-3 overflow-auto rounded-md bg-muted p-4 text-sm">{JSON.stringify(selectedRequest, null, 2)}</pre></details>
           <div className="flex justify-between gap-2">
             <Button variant="outline" disabled={requests.findIndex(item => item.attempt_id === selectedAttempt) <= 0} onClick={() => setSelectedAttempt(requests[requests.findIndex(item => item.attempt_id === selectedAttempt) - 1].attempt_id)}>Previous request</Button>
