@@ -2413,3 +2413,35 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px soli
   .key-not-found { align-items: flex-start; flex-wrap: wrap; }
   .key-not-found a { margin-left: 0; }
 }
+
+/* Keep contextual navigation docked beside the rail on compact desktops.
+   Only phone layouts use the Sidebar's modal drawer. */
+@media (min-width: 641px) {
+  .app-shell > [data-slot="sidebar"] { display: block; }
+  .app-shell [data-slot="sidebar-gap"] { display: block; }
+  .app-shell [data-slot="sidebar-container"].niu-workspace-sidebar {
+    display: flex;
+    clip-path: inset(0);
+    transition: clip-path 200ms ease;
+  }
+  .app-shell [data-slot="sidebar"][data-collapsible="offcanvas"] [data-slot="sidebar-container"].niu-workspace-sidebar {
+    left: var(--rail);
+    clip-path: inset(0 100% 0 0);
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+@media (min-width: 641px) and (max-width: 959px) {
+  .app-shell:has(> [data-slot="sidebar"][data-state="expanded"]) .console-page-header {
+    height: auto;
+    min-height: var(--console-header-height);
+    flex-wrap: wrap;
+    padding-block: 10px;
+  }
+  .app-shell:has(> [data-slot="sidebar"][data-state="expanded"]) .console-page-actions {
+    flex-basis: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+}
