@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   package:
-    if: github.repository == 'niu-io/niu'
+    if: github.repository == 'niu-io/niu' && github.event.deleted != true
     outputs:
       version: ${{ steps.version.outputs.version }}
     runs-on: ubuntu-latest
@@ -49,10 +49,12 @@ jobs:
           node --input-type=module <<'JS'
           import { appendFileSync, readFileSync } from 'node:fs';
           import assert from 'node:assert/strict';
+          import { version as collectorVersion } from './src/telemetry.mjs';
           const read = path => JSON.parse(readFileSync(path, 'utf8'));
           const pkg = read('package.json');
           assert.equal(pkg.name, '@niu-io/collector');
           assert.match(pkg.version, /^\d+\.\d+\.\d+$/);
+          assert.equal(collectorVersion, pkg.version, 'Telemetry version mismatch');
           if (process.env.RELEASE_REF.startsWith('refs/tags/')) {
             assert.equal(process.env.RELEASE_REF, `refs/tags/collector-v${pkg.version}`, 'Tag must match the collector version');
           }
@@ -80,7 +82,7 @@ jobs:
           retention-days: 7
 
   publish:
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/collector-v')
+    if: github.event_name == 'push' && github.event.created && startsWith(github.ref, 'refs/tags/collector-v')
     needs: package
     runs-on: ubuntu-latest
     timeout-minutes: 10
