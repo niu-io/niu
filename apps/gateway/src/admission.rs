@@ -31,7 +31,7 @@ pub(crate) struct GatewayWrites {
 }
 
 enum AdmissionCommand {
-    Admit(PendingAdmission),
+    Admit(Box<PendingAdmission>),
     Shutdown(oneshot::Sender<()>),
 }
 
@@ -88,7 +88,6 @@ impl GatewayWrites {
     pub(crate) async fn admit_unpriced(
         &self,
         principal: &Principal,
-        scope: niu_storage::TenantScope,
         model: &str,
         upstream_model: &str,
         api_base: Option<&str>,
@@ -100,7 +99,7 @@ impl GatewayWrites {
         let record = GatewayAdmission {
             operation_id,
             attempt_id,
-            scope,
+            scope: principal.scope(),
             key_id: principal.key_id(),
             model: model.to_owned(),
             upstream_model: upstream_model.to_owned(),
@@ -110,11 +109,11 @@ impl GatewayWrites {
         };
         let (reply, result) = oneshot::channel();
         self.admissions
-            .send(AdmissionCommand::Admit(PendingAdmission {
+            .send(AdmissionCommand::Admit(Box::new(PendingAdmission {
                 record,
                 batch_candidate: self.inference_in_flight.load(Ordering::Relaxed) > 1,
                 reply,
-            }))
+            })))
             .await
             .map_err(|_| AdmissionError::StorageUnavailable)?;
         match result
@@ -200,11 +199,11 @@ async fn run_admission_writer(store: Store, mut receiver: mpsc::Receiver<Admissi
         match command {
             Some(AdmissionCommand::Admit(first)) => {
                 let mut batch = Vec::with_capacity(MAX_BATCH_SIZE);
-                batch.push(first);
+                batch.push(*first);
                 if !batch[0].batch_candidate {
                     while batch.len() < MAX_BATCH_SIZE {
                         match receiver.try_recv() {
-                            Ok(AdmissionCommand::Admit(admission)) => batch.push(admission),
+                            Ok(AdmissionCommand::Admit(admission)) => batch.push(*admission),
                             Ok(other) => {
                                 deferred = Some(other);
                                 break;
@@ -219,7 +218,7 @@ async fn run_admission_writer(store: Store, mut receiver: mpsc::Receiver<Admissi
                         tokio::select! {
                             _ = &mut deadline => break,
                             next = receiver.recv() => match next {
-                                Some(AdmissionCommand::Admit(admission)) => batch.push(admission),
+                                Some(AdmissionCommand::Admit(admission)) => batch.push(*admission),
                                 Some(other) => {
                                     deferred = Some(other);
                                     break;
@@ -474,14 +473,13 @@ async fn persist_completion_batch(store: &Store, batch: Vec<GatewayCompletion>) 
                         completion.provider_model.as_deref(),
                     )
                     .await
+                    && !matches!(error, niu_storage::StoreError::Conflict)
                 {
-                    if !matches!(error, niu_storage::StoreError::Conflict) {
-                        tracing::warn!(
-                            error = %error,
-                            attempt_id = %completion.attempt_id,
-                            "gateway completion fallback could not be persisted"
-                        );
-                    }
+                    tracing::warn!(
+                        error = %error,
+                        attempt_id = %completion.attempt_id,
+                        "gateway completion fallback could not be persisted"
+                    );
                 }
             }
         }

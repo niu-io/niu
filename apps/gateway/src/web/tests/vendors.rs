@@ -383,9 +383,11 @@ async fn metadata_updates_preserve_exact_prices_without_browser_roundtripping(po
     assert!(cleared["data"]["pricing"].is_null());
 }
 
+type CatalogResponse = (StatusCode, Value, Option<String>);
+
 #[derive(Clone, Default)]
 struct CatalogFixture {
-    response: Arc<Mutex<Option<(StatusCode, Value, Option<String>)>>>,
+    response: Arc<Mutex<Option<CatalogResponse>>>,
     authorization: Arc<Mutex<Option<String>>>,
     redirect_hits: Arc<std::sync::atomic::AtomicUsize>,
 }

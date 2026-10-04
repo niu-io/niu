@@ -578,6 +578,10 @@ impl Store {
     /// Reserve the configured worst-case cost and commit dispatch intent in
     /// one transaction. A provider call can begin only after both transitions
     /// are durable, while avoiding a separate transaction for each one.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Preserve the existing public storage API for the atomic reservation and dispatch transition"
+    )]
     pub async fn reserve_and_dispatch_gateway(
         &self,
         principal: &Principal,

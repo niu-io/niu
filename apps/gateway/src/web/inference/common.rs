@@ -140,7 +140,6 @@ pub(super) async fn begin_attempt(
             .gateway_writes
             .admit_unpriced(
                 principal,
-                scope,
                 public_model,
                 &model.upstream_model,
                 model.api_base.as_deref(),
