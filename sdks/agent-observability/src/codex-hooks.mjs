@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { lstat, readFile, writeFile, unlink, readdir } from 'node:fs/promises';
 import { trace, deliver, privateDirectory } from './telemetry.mjs';
-import { correlationHash, privateJson } from './connection.mjs';
+import { correlationHash, createPrivateJson } from './connection.mjs';
 const tools = new Set(['Bash', 'apply_patch', 'exec_command', 'write_stdin', 'shell', 'Read', 'Edit', 'Write', 'Grep', 'Glob']);
 async function metadata(file) {
   try {
@@ -38,7 +38,8 @@ export async function codexHook(config, input, { now = Date.now, fetcher = fetch
     value = trace(config, { name: session ? 'Codex session' : `Codex tool: ${tool}`, start, end, status: 'unknown',
       ...(session ? {} : { tool, toolStatus: 'unknown' }), recordId: key });
     // Unknown: PostToolUse also runs after failed commands; do not inspect output to infer success.
-    await privateJson(endFile, value);
+    await createPrivateJson(endFile, value);
+    value = await metadata(endFile);
   }
   await deliver(config, value, fetcher);
   await unlink(startFile).catch(error => { if (error.code !== 'ENOENT') throw error; });
