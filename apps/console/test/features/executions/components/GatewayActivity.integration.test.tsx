@@ -68,19 +68,19 @@ describe('gateway activity', () => {
     const user = userEvent.setup();
     const { container } = render(<MemoryRouter><GatewayActivity token="admin-session" models={['fast']} initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} /></MemoryRouter>);
 
-    expect(await screen.findByRole('button', { name: 'View details' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'Details' })).toBeTruthy();
     expect(screen.getByText('1 loaded')).toBeTruthy();
     expect(container.querySelector('.gateway-activity-summary')).toBeNull();
-    expect(screen.queryByText('Niu base URL')).toBeNull();
+    expect(screen.getByText('Niu base URL')).toBeTruthy();
     expect(screen.getByText('Provider · provider-fast-v2')).toBeTruthy();
     expect(screen.queryByRole('columnheader', { name: 'Settled cost' })).toBeNull();
     expect(screen.queryByText('API-equivalent cost')).toBeNull();
     expect(screen.getAllByText('Unknown').length).toBeGreaterThan(0);
 
-    await user.click(screen.getByRole('button', { name: 'Load older requests' }));
+    await user.click(screen.getByRole('button', { name: 'Load older activity' }));
 
-    await waitFor(() => expect(screen.getAllByRole('button', { name: 'View details' })).toHaveLength(2));
-    await user.click(screen.getAllByRole('button', { name: 'View details' })[0]);
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Details' })).toHaveLength(2));
+    await user.click(screen.getAllByRole('button', { name: 'Details' })[0]);
     expect(await screen.findByRole('dialog')).toBeTruthy();
     expect(screen.getByText('attempt-new')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Previous request' }).hasAttribute('disabled')).toBe(true);
@@ -90,7 +90,7 @@ describe('gateway activity', () => {
     await user.keyboard('{Escape}');
     expect(screen.getByText('2 loaded')).toBeTruthy();
     expect(calls.some(call => call.path.endsWith('/requests?limit=100&after=attempt-new'))).toBe(true);
-    expect(screen.queryByRole('button', { name: 'Load older requests' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Load older activity' })).toBeNull();
   });
 
   it('applies date, model, key, and status filters to the scoped feed', async () => {
@@ -127,7 +127,7 @@ describe('gateway activity', () => {
     expect(query.get('limit')).toBe('100');
   });
 
-  it('does not inject client setup into request investigation', async () => {
+  it('provides client setup alongside request investigation', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
       if (path === `${base}/keys`) return { ok: true, status: 200, json: async () => ({ data: [{ id: 'key-1', name: 'Slow key', allowed_models: ['slow'], revoked: false, expired: false }] }) } as Response;
@@ -137,8 +137,8 @@ describe('gateway activity', () => {
 
     render(<MemoryRouter><GatewayActivity token="admin-session" models={['fast', 'slow']} initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} /></MemoryRouter>);
 
-    await screen.findByRole('heading', { name: 'Observability' });
-    expect(screen.queryByText('Niu base URL')).toBeNull();
+    await screen.findByRole('button', { name: 'Refresh' });
+    expect(screen.getByText('Niu base URL')).toBeTruthy();
     expect(screen.queryByText('Investigate gateway requests, outcomes, timing, and cost evidence.')).toBeNull();
     expect(screen.queryByText('Gateway calls, outcomes, and evidence for this workspace.')).toBeNull();
     expect(screen.getByLabelText('Model')).toBeTruthy();
@@ -169,7 +169,7 @@ describe('gateway activity', () => {
 
     const { container } = render(<MemoryRouter><GatewayActivity token="admin-session" models={['fast']} initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} statisticsOnly /></MemoryRouter>);
 
-    expect(await screen.findByRole('heading', { name: 'Usage' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'Refresh' })).toBeTruthy();
     expect(screen.getByText('Matching requests')).toBeTruthy();
     expect(screen.getByText('Model usage')).toBeTruthy();
     expect(container.querySelector('.gateway-task-feed')).toBeNull();
@@ -193,6 +193,7 @@ describe('gateway activity', () => {
 
     await waitFor(() => expect(document.activeElement?.id).toBe('gateway-attempt-attempt-focused'));
     expect(document.getElementById('gateway-attempt-attempt-focused')?.classList.contains('is-focused')).toBe(true);
-    expect(screen.getByLabelText('Model').textContent).toContain('slow');
+    expect(screen.getByLabelText('Model').textContent).toContain('All models');
+    expect(screen.getByText('slow', { selector: 'code' })).toBeTruthy();
   });
 });

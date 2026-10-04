@@ -32,8 +32,9 @@ it('creates a model-scoped Aider key and keeps its copied setup bound to that al
   const user = userEvent.setup();
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
 
-  render(<MemoryRouter><AgentConnectView token="admin-token" workspace={workspace} models={['team/fast', 'team/careful']} canWrite /></MemoryRouter>);
+  render(<MemoryRouter><AgentConnectView codexModels={["fast"]} token="admin-token" workspace={workspace} models={['team/fast', 'team/careful']} canWrite /></MemoryRouter>);
 
+  await user.click(screen.getByRole('button', { name: /Aider/ }));
   await user.click(await screen.findByRole('button', { name: 'Create Aider key' }));
   expect((await screen.findByLabelText('Workspace key · shown once') as HTMLInputElement).value).toBe('niu_once_aider_key');
   const modelDropdown = screen.getByRole('button', { name: 'Model alias' });
@@ -96,7 +97,7 @@ it('creates and revokes a workspace-scoped Claude activity key without putting i
   const user = userEvent.setup();
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
 
-  render(<MemoryRouter><AgentConnectView token="admin-token" workspace={workspace} models={['team/fast']} canWrite /></MemoryRouter>);
+  render(<MemoryRouter><AgentConnectView codexModels={["fast"]} token="admin-token" workspace={workspace} models={['team/fast']} canWrite /></MemoryRouter>);
   await user.click(await screen.findByRole('button', { name: /Claude Code/ }));
 
   expect(await screen.findByText('No active Claude Code activity keys.')).toBeTruthy();

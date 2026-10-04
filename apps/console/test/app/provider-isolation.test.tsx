@@ -17,11 +17,11 @@ describe("Providers shell", () => {
         })}
       />,
     );
-    await screen.findByRole("heading", { name: "Provider access required" });
-    expect(screen.getByRole("navigation", { name: "Provider navigation" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Model offers" }).getAttribute("href")).toBe("/providers/supplier/models");
-    await userEvent.setup().click(screen.getByRole("link", { name: "Settlements" }));
-    expect(screen.getByRole("link", { name: "Settlements" }).getAttribute("aria-current")).toBe("page");
+    await screen.findByRole("heading", { name: "Supplier access required" });
+    expect(screen.getByRole("navigation", { name: "Supplier navigation" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Models & pricing" }).getAttribute("href")).toBe("/providers/supplier/models");
+    await userEvent.setup().click(screen.getByRole("link", { name: "Billing" }));
+    expect(screen.getByRole("link", { name: "Billing" }).getAttribute("aria-current")).toBe("page");
     expect(
       screen.queryByRole("link", { name: "Workspace", exact: true }),
     ).toBeNull();
@@ -34,7 +34,7 @@ describe("Providers shell", () => {
     await userEvent
       .setup()
       .click(screen.getByRole("button", { name: "Account menu" }));
-    expect(await screen.findByText("Provider account")).toBeTruthy();
+    expect(await screen.findByText("Supplier account")).toBeTruthy();
     for (const name of [
       "Workspace",
       "Usage",
@@ -57,13 +57,10 @@ describe("Providers shell", () => {
       />,
     );
     await screen.findByRole("heading", {
-      name: "Provider access required",
+      name: "Supplier access required",
     });
-    expect(
-      screen.getByRole("link", { name: "Provider configuration" }).getAttribute("href"),
-    ).toBe("/providers/configuration");
-    expect(
-      screen.queryByRole("navigation", { name: "Main navigation" }),
-    ).toBeNull();
+    expect(screen.getByRole("navigation", { name: "Supplier navigation" })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Supplier configuration" })).toBeNull();
+    expect(screen.queryByRole("navigation", { name: "Main navigation" })).toBeNull();
   });
 });

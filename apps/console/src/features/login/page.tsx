@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useConsoleContext } from '@/app/console-context';
-import logo from '../../../../branding/assets/niu-mark.png';
+import logo from '../../../../../branding/assets/niu-mark.png';
 
 export default function LoginRoute() {
   const context = useConsoleContext();
