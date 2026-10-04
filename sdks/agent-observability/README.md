@@ -226,7 +226,8 @@ native settings are created in temporary test directories and removed afterwards
 
 Collector publishing uses the separate **Publish collector to npm** GitHub Actions
 workflow (`.github/workflows/publish-collector.yml`). It runs only when manually
-dispatched from `main`; ordinary pushes and pull requests never publish. Enter the
+dispatched from `main`; ordinary pushes and pull requests never publish. Collector
+changes in pull requests and on `main` also run the packaging checks automatically. Enter the
 exact stable version from this package's `package.json`. Keep both plugin manifests
 and the companion version in `src/telemetry.mjs` aligned with that version.
 

@@ -1,6 +1,15 @@
 name: Publish collector to npm
 
 on:
+  pull_request:
+    paths:
+      - .github/workflows/publish-collector.yml
+      - sdks/agent-observability/**
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/publish-collector.yml
+      - sdks/agent-observability/**
   workflow_dispatch:
     inputs:
       version:
@@ -12,12 +21,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: publish-collector
+  group: collector-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   package:
-    if: github.repository == 'niu-io/niu' && github.ref == 'refs/heads/main'
+    if: github.repository == 'niu-io/niu' && (github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:
@@ -31,6 +40,7 @@ jobs:
       - name: Verify release version and plugin manifests
         env:
           RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_EVENT: ${{ github.event_name }}
         run: |
           node --input-type=module <<'JS'
           import { readFileSync } from 'node:fs';
@@ -39,7 +49,7 @@ jobs:
           const pkg = read('package.json');
           assert.equal(pkg.name, '@niu-io/collector');
           assert.match(pkg.version, /^\d+\.\d+\.\d+$/);
-          assert.equal(pkg.version, process.env.RELEASE_VERSION);
+          if (process.env.RELEASE_EVENT === 'workflow_dispatch') assert.equal(pkg.version, process.env.RELEASE_VERSION);
           for (const path of ['plugin.json', '.codex-plugin/plugin.json']) {
             assert.equal(read(path).version, pkg.version, `${path} version mismatch`);
           }
@@ -53,6 +63,8 @@ jobs:
           mkdir -p dist
           npm pack --pack-destination dist
           npm publish dist/*.tgz --access public --dry-run --ignore-scripts
+          npm install --prefix "$RUNNER_TEMP/collector-install" --no-package-lock --ignore-scripts --no-audit --no-fund dist/*.tgz
+          NIU_COLLECTOR_HOME="$RUNNER_TEMP/collector-smoke" "$RUNNER_TEMP/collector-install/node_modules/.bin/niu-collector" status
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: collector-package
@@ -61,6 +73,7 @@ jobs:
           retention-days: 7
 
   publish:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     needs: package
     runs-on: ubuntu-latest
     timeout-minutes: 10
