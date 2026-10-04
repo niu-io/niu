@@ -62,13 +62,13 @@ jobs:
         run: |
           mkdir -p dist
           npm pack --pack-destination dist
-          npm publish dist/*.tgz --access public --dry-run --ignore-scripts
-          npm install --prefix "$RUNNER_TEMP/collector-install" --no-package-lock --ignore-scripts --no-audit --no-fund dist/*.tgz
+          npm publish ./dist/*.tgz --access public --dry-run --ignore-scripts
+          npm install --prefix "$RUNNER_TEMP/collector-install" --no-package-lock --ignore-scripts --no-audit --no-fund ./dist/*.tgz
           NIU_COLLECTOR_HOME="$RUNNER_TEMP/collector-smoke" "$RUNNER_TEMP/collector-install/node_modules/.bin/niu-collector" status
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: collector-package
-          path: sdks/agent-observability/dist/*.tgz
+          path: sdks/agent-observability/./dist/*.tgz
           if-no-files-found: error
           retention-days: 7
 
@@ -94,7 +94,7 @@ jobs:
         run: |
           set -euo pipefail
           node -e 'const [a,b,c]=process.argv[1].split(".").map(Number); if (!(a>11 || (a===11 && (b>5 || (b===5 && c>=1))))) throw Error("npm 11.5.1 or newer is required for trusted publishing")' "$(npm --version)"
-          archive="release/niu-io-collector-${RELEASE_VERSION}.tgz"
+          archive="./release/niu-io-collector-${RELEASE_VERSION}.tgz"
           test -f "$archive"
           npm publish "$archive" --access public --provenance --ignore-scripts --registry https://registry.npmjs.org
           expected=$(sha1sum "$archive" | cut -d ' ' -f 1)
