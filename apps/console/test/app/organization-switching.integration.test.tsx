@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { appRoutes } from '../../src/app/routes';
@@ -28,13 +28,11 @@ describe('organization switching', () => {
       return json({ data: [] });
     }));
     const user = userEvent.setup();
-    const router = createMemoryRouter(appRoutes, { initialEntries: ['/login'] });
+    const router = createMemoryRouter(appRoutes, { initialEntries: ['/login?returnTo=%2Fworkspaces%2Fproject-2%2Fkeys'] });
     render(<RouterProvider router={router} />);
     await user.type(await screen.findByLabelText('Administrator token'), 'admin-token');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
     await waitFor(() => { expect(router.state.location.pathname).not.toBe('/login'); expect(router.state.navigation.state).toBe('idle'); });
-    await screen.findByRole('button', { name: 'Switch workspace' });
-    await act(async () => { await router.navigate('/workspaces/project-2/keys'); });
     await screen.findByRole('heading', { name: 'API keys' });
     await user.click(screen.getByRole('button', { name: 'Account menu' }));
     await user.click(screen.getByRole('menuitem', { name: 'Organization settings' }));

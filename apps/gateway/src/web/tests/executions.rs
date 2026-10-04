@@ -304,7 +304,7 @@ async fn execution_import_api_is_idempotent_scoped_and_deletable(pool: sqlx::PgP
     )
     .unwrap();
     assert_eq!(cohort_body["data"]["records_scanned"], 2);
-    assert_eq!(cohort_body["data"]["outcomes"]["conflicting"], 2);
+    assert_eq!(cohort_body["data"]["outcomes"]["conflicting"], 1);
     assert_eq!(
         cohort_body["data"]["cost_evidence"]["unique_charge_references"],
         3

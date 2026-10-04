@@ -378,7 +378,15 @@ async fn project_operator_cannot_read_sibling_workspace_keys_or_activity(pool: s
         format!("{second_base}/execution-imports"),
     ] {
         let (status, _) = get(&app, &path, &operator.token).await;
-        assert_eq!(status, StatusCode::NOT_FOUND, "unexpected access to {path}");
+        let expected = if path.ends_with("/costs")
+            || path.ends_with("/budget")
+            || path.ends_with("/executions/cohort")
+        {
+            StatusCode::FORBIDDEN
+        } else {
+            StatusCode::NOT_FOUND
+        };
+        assert_eq!(status, expected, "unexpected access to {path}");
     }
     for (method, path, payload) in [
         (
@@ -421,14 +429,15 @@ async fn project_operator_cannot_read_sibling_workspace_keys_or_activity(pool: s
     }
     assert_ne!(first_key.id, second_key.id);
 
-    for suffix in ["requests", "costs"] {
-        let (status, body) = get(&app, &format!("{first_base}/{suffix}"), &operator.token).await;
-        assert_eq!(status, StatusCode::OK);
-        assert!(body["data"].is_array());
-    }
-    let (status, budget) = get(&app, &format!("{first_base}/budget"), &operator.token).await;
+    let (status, requests) = get(&app, &format!("{first_base}/requests"), &operator.token).await;
     assert_eq!(status, StatusCode::OK);
-    assert!(budget["data"].is_null());
+    assert!(requests["data"].is_array());
+    // Procurement and platform cost evidence remain installation-only even
+    // when the operator has access to the requested customer workspace.
+    for suffix in ["costs", "budget", "executions/cohort"] {
+        let (status, _) = get(&app, &format!("{first_base}/{suffix}"), &operator.token).await;
+        assert_eq!(status, StatusCode::FORBIDDEN);
+    }
 }
 
 #[sqlx::test(migrations = "../../crates/storage/migrations")]

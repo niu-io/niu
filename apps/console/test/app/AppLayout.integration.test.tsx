@@ -12,14 +12,13 @@ function renderAt(path: string) {
 
 async function signIn(user: ReturnType<typeof userEvent.setup>, router: ReturnType<typeof createMemoryRouter>, credential: string) {
   const target = router.state.location;
-  await act(async () => { await router.navigate('/login'); });
+  await act(async () => { await router.navigate(`/login?returnTo=${encodeURIComponent(target.pathname + target.search + target.hash)}`); });
   await user.type(await screen.findByLabelText('Administrator token'), credential);
   await user.click(screen.getByRole('button', { name: 'Sign in' }));
   await waitFor(() => {
     expect(router.state.location.pathname).not.toBe('/login');
     expect(router.state.navigation.state).toBe('idle');
   });
-  await act(async () => { await router.navigate(target.pathname + target.search + target.hash); });
 }
 
 function mockHealth() {
@@ -182,6 +181,20 @@ describe('console route layout', () => {
     expect(await screen.findByRole('heading', { name: 'Sign in to Niu' })).toBeTruthy();
     expect(router.state.location.pathname).toBe('/login');
     expect(screen.getByLabelText('Administrator token')).toBeTruthy();
+  });
+
+  it.each(['https://example.com/', '//example.com/', '/\\example.com/'])('rejects an external sign-in return path %s', async returnTo => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => new Response(JSON.stringify(
+      String(input) === '/healthz' ? { status: 'ok' }
+      : String(input) === '/admin/v1/session' ? { data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } }
+      : { data: [] },
+    ))));
+    const user = userEvent.setup();
+    const router = renderAt(`/login?returnTo=${encodeURIComponent(returnTo)}`);
+    await user.type(await screen.findByLabelText('Administrator token'), 'admin-token');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/default/'));
+    expect(await screen.findByRole('heading', { name: 'Overview' })).toBeTruthy();
   });
 
   it('loads a feature route directly and shows a route-specific connection state', async () => {

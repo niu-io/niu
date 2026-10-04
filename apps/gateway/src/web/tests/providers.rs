@@ -256,7 +256,7 @@ async fn inference_accrues_customer_and_provider_ledgers_at_independent_rates(po
     ));
     let store = state.store.clone();
     let scope = store.default_workspace().await.unwrap();
-    let app = router(state);
+    let app = router(state.clone());
     let (status,vendor)=call(&app,Method::POST,"/admin/v1/vendors",ADMIN,Some(json!({"name":"Billing fixture","adapter":"openai","api_base":format!("http://{address}/v1"),"api_key":"fixture-key"}))).await;
     assert_eq!(status, StatusCode::CREATED);
     let vendor = vendor["data"]["id"].as_str().unwrap();
@@ -308,6 +308,16 @@ async fn inference_accrues_customer_and_provider_ledgers_at_independent_rates(po
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
+    let attempt: Uuid = response.headers()["x-niu-attempt-id"]
+        .to_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    wait_for_completed_attempt(&state, scope, attempt).await;
+    // The application recovery loop accrues commercial ledgers separately from
+    // gateway completion persistence. Drive that loop explicitly in this fixture.
+    store.recover_customer_charges(None).await.unwrap();
+    store.recover_provider_earnings(None).await.unwrap();
     assert_eq!(
         store.customer_billing(scope).await.unwrap()["balances"][0]["charged_nanos"],
         "12000"

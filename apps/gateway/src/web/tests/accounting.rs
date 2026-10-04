@@ -77,6 +77,11 @@ async fn priced_streaming_settles_only_terminal_usage(pool: sqlx::PgPool) {
             captured.0.lock().unwrap().as_ref().unwrap().1["stream_options"]["include_usage"],
             true
         );
+        if settled {
+            wait_for_settled_attempt(&state, scope, id).await;
+        } else if completed {
+            wait_for_completed_attempt(&state, scope, id).await;
+        }
         state.store.recover_settlements(None).await.unwrap();
         let budget = state.store.budget(scope).await.unwrap().unwrap();
         assert_eq!(
@@ -180,12 +185,8 @@ async fn priced_inference_reserves_settles_and_blocks_exhaustion(pool: sqlx::PgP
                 .parse()
                 .unwrap();
             assert_eq!(
-                state
-                    .store
-                    .attempt(scope, attempt)
+                wait_for_settled_attempt(&state, scope, attempt)
                     .await
-                    .unwrap()
-                    .unwrap()
                     .settlement,
                 "settled"
             );
@@ -266,7 +267,11 @@ async fn missing_usage_and_provider_failures_remain_unsettled(pool: sqlx::PgPool
             .unwrap()
             .parse()
             .unwrap();
-        let evidence = state.store.attempt(scope, id).await.unwrap().unwrap();
+        let evidence = if execution == "confirmed_completed" {
+            wait_for_completed_attempt(&state, scope, id).await
+        } else {
+            state.store.attempt(scope, id).await.unwrap().unwrap()
+        };
         assert_eq!(evidence.execution, execution);
         assert_eq!(evidence.settlement, settlement);
         assert_eq!(evidence.usage_confidence, "unknown");
@@ -336,7 +341,11 @@ async fn streaming_persists_terminal_evidence_and_keeps_interruptions_unknown(po
         if complete {
             assert_eq!(collected.unwrap().to_bytes().as_ref(), wire.as_bytes());
         }
-        let attempt = state.store.attempt(scope, id).await.unwrap().unwrap();
+        let attempt = if complete {
+            wait_for_completed_attempt(&state, scope, id).await
+        } else {
+            state.store.attempt(scope, id).await.unwrap().unwrap()
+        };
         assert_eq!(
             attempt.execution,
             if complete {
