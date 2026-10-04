@@ -14,12 +14,12 @@ You can also pack and install it from the Niu source tree:
 ```sh
 cd sdks/agent-observability
 npm pack
-npm install --global ./niu-io-collector-0.1.0.tgz
+npm install --global ./niu-io-collector-0.1.1.tgz
 niu-collector --help
 ```
 
 In Niu, open **Agent Observability → Connection settings → Connect agent**.
-Use source `coding-agent` and companion version `0.1.0`. Consent to metadata
+Use source `coding-agent` and companion version `0.1.1`. Consent to metadata
 collection and copy the ingestion key once. Set these variables in a private
 shell environment or secret manager; do not commit the key:
 
@@ -221,3 +221,29 @@ bypass only for the reviewed fixture during that isolated invocation; normal set
 must use Codex's hook review. Tests route inference to a local mock service and do
 not change your provider or persist Codex sessions. Collector connection state and
 native settings are created in temporary test directories and removed afterwards.
+
+## Publishing a collector release
+
+Collector publishing uses the separate **Publish collector to npm** GitHub Actions
+workflow (`.github/workflows/publish-collector.yml`). It runs only when manually
+dispatched from `main`; ordinary pushes and pull requests never publish. Enter the
+exact stable version from this package's `package.json`. Keep both plugin manifests
+and the companion version in `src/telemetry.mjs` aligned with that version.
+
+The first job checks the release version, runs syntax checks and the metadata
+collection tests, and uploads the packed archive. The second job publishes that
+exact archive with provenance and verifies its checksum against npm. The installed
+Codex integration fixtures remain opt-in (`NIU_TEST_CODEX=1`) and require a reviewed
+Codex/plugin installation; ordinary release tests do not invoke a live coding agent.
+
+Configure the package's npm **Trusted Publisher** once:
+
+- Publisher: GitHub Actions.
+- Organization: `niu-io`; repository: `niu`.
+- Workflow filename: `publish-collector.yml`.
+- Environment: leave blank (the workflow does not use a GitHub environment).
+- Allowed action: direct `npm publish`.
+
+The publisher uses GitHub OIDC, so no `NPM_TOKEN` repository secret or interactive
+npm login is required in Actions. npm's package administrator must approve the
+initial trust configuration. See [npm's trusted publishing documentation](https://docs.npmjs.com/trusted-publishers/).
