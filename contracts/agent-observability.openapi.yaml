@@ -1,0 +1,225 @@
+openapi: 3.1.0
+info:
+  title: Niu Personal Agent Traces
+  version: 0.1.0
+  description: Metadata-only personal telemetry, independent of workspace inference and procurement accounting. All responses use Cache-Control no-store. Internal identifiers are transport references and must not be displayed in product views or exports.
+paths:
+  /admin/v1/agent-observability/connections:
+    get:
+      operationId: listPersonalAgentConnections
+      security: [{ personalSession: [] }]
+      responses:
+        '200':
+          description: Only the signed-in owner's connections; ingestion secrets are never returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Connection' } }
+        '401': { description: Personal authentication required. }
+        '403': { description: Installation credentials cannot impersonate a personal owner. }
+    post:
+      operationId: createPersonalAgentConnection
+      security: [{ personalSession: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name, source, client_version, consent_version]
+              properties:
+                name: { $ref: '#/components/schemas/Label' }
+                source: { type: string, pattern: '^[A-Za-z0-9._-]{1,64}$' }
+                client_version: { $ref: '#/components/schemas/Label' }
+                consent_version: { type: string, const: agent-trace-metadata-v1 }
+      responses:
+        '201':
+          description: Dedicated write-only key, returned once and expiring after 90 days. No personal read, workspace inference or administrative permission.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, token]
+                properties:
+                  id: { type: string, format: uuid }
+                  token: { type: string, description: Sensitive ingestion credential returned only on creation. }
+        '400': { description: Invalid metadata or missing consent. }
+        '401': { description: Personal authentication required. }
+        '403': { description: Personal owner required. }
+  /admin/v1/agent-observability/connections/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    put:
+      operationId: pauseOrResumePersonalAgentConnection
+      security: [{ personalSession: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [paused]
+              properties:
+                paused: { type: boolean }
+                consent_version: { type: [string, 'null'], enum: [agent-trace-metadata-v1, null], description: Renewed consent required when paused is false. }
+      responses:
+        '204': { description: Owner's unexpired active connection updated. Saved history is retained. }
+        '400': { description: Invalid update or missing renewed consent. }
+        '401': { description: Personal authentication required. }
+        '403': { description: Personal owner required. }
+        '409': { description: Foreign, absent, expired or revoked connection. }
+    delete:
+      operationId: disconnectPersonalAgent
+      security: [{ personalSession: [] }]
+      responses:
+        '204': { description: Owner's ingestion key revoked. Saved traces and client-side pending metadata are retained. }
+        '401': { description: Personal authentication required. }
+        '403': { description: Personal owner required. }
+        '409': { description: Foreign or absent connection. }
+  /admin/v1/agent-observability/traces:
+    post:
+      operationId: ingestPersonalAgentTrace
+      security: [{ ingestionKey: [] }]
+      description: Source must match the connection. Metadata-only, at most 1 MiB and 1000 spans. Workspace charge references are forbidden. Identical record delivery is idempotent within an owner and connection; conflicting reuse is rejected without mutation. Reported root status remains separate from failed-span counts. No prompts, tool payloads, credentials or procurement data are accepted as structured fields.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name, record]
+              properties:
+                name: { $ref: '#/components/schemas/Label' }
+                record: { $ref: './openapi.yaml#/components/schemas/ExecutionRecordV1' }
+                session_key:
+                  type: string
+                  pattern: '^[a-f0-9]{64}$'
+                  description: Optional hashed session correlation. The task root must be session- followed by this key. Immutable event record_ids assemble into one chronological session projection; retries do not add steps or usage. Sessions continue in numbered parts at the trace size limit. Raw session identifiers must never be sent.
+                span_names:
+                  type: object
+                  description: Meaningful non-sensitive labels keyed by span references present in the record.
+                  additionalProperties: { $ref: '#/components/schemas/Label' }
+      responses:
+        '200':
+          description: Durable acceptance; created is false for an identical retry.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, created]
+                properties:
+                  id: { type: string, format: uuid }
+                  created: { type: boolean }
+        '400': { description: Invalid record or mismatched source. }
+        '401': { description: Invalid, paused, revoked or expired ingestion credential. Personal session and workspace inference credentials cannot ingest traces. }
+        '409': { description: Conflicting reuse of the same record reference. }
+        '413': { description: Request exceeds the body limit. }
+    get:
+      operationId: listPersonalAgentTraces
+      security: [{ personalSession: [] }]
+      parameters:
+        - { name: from_ms, in: query, required: true, schema: { type: integer, minimum: 0 }, description: Inclusive observed start or receipt time when start is missing. }
+        - { name: to_ms, in: query, required: true, schema: { type: integer, minimum: 1 }, description: Exclusive boundary; interval must be positive and at most 366 days. }
+        - { name: source, in: query, schema: { type: string, maxLength: 120 }, description: Exact source match. }
+        - { name: search, in: query, schema: { type: string, maxLength: 120 }, description: Case-insensitive literal substring of the run name. }
+        - { name: status, in: query, schema: { type: string, enum: [running, completed, failed, cancelled, unknown] } }
+        - { name: include_unassembled, in: query, schema: { type: boolean, default: false }, description: Include retained native events that lack recoverable session correlation. Superseded fragments remain excluded. }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, maximum: 100000, default: 0 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 25 } }
+      responses:
+        '200':
+          description: Owner-scoped page and full-range aggregates in one repeatable-read snapshot. Pagination does not change summary or UTC day totals. P50/P95 are continuous percentiles of known root durations; an empty timing sample returns null. Later page reads remain live.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [rows, summary, by_day, offset, limit]
+                    properties:
+                      rows: { type: array, items: { $ref: '#/components/schemas/Trace' } }
+                      summary: { type: object, description: Exact decimal-string counts for trace_count, completed, failed, unknown_status, partial, untimed, span_count, error_count, model_calls and tool_calls; nullable numeric p50_duration_ms and p95_duration_ms. }
+                      by_day: { type: array, items: { type: object, required: [day, trace_count, failed], properties: { day: { type: string, format: date }, trace_count: { type: string, pattern: '^[0-9]+$' }, failed: { type: string, pattern: '^[0-9]+$' } } } }
+                      offset: { type: integer }
+                      limit: { type: integer }
+        '400': { description: Invalid range or filters. }
+        '401': { description: Personal authentication required; ingestion keys cannot read. }
+        '403': { description: Personal owner required. }
+  /admin/v1/agent-observability/traces/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      operationId: getPersonalAgentTrace
+      security: [{ personalSession: [] }]
+      responses:
+        '200':
+          description: Owner's trace metadata and explicitly reported relationships. No charge lookup or content enrichment.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    allOf:
+                      - { $ref: '#/components/schemas/Trace' }
+                      - type: object
+                        properties:
+                          received_at: { type: string, format: date-time }
+                          record: { $ref: './openapi.yaml#/components/schemas/ExecutionRecordV1' }
+                          span_names: { type: object, additionalProperties: { $ref: '#/components/schemas/Label' } }
+        '401': { description: Personal authentication required. }
+        '403': { description: Personal owner required. }
+        '404': { description: Missing or foreign trace. }
+    delete:
+      operationId: deletePersonalAgentTrace
+      security: [{ personalSession: [] }]
+      responses:
+        '204': { description: Owner's live trace metadata deleted; connection and other history retained. Backups follow installation policy. }
+        '401': { description: Personal authentication required. }
+        '403': { description: Personal owner required. }
+        '409': { description: Missing or foreign trace. }
+components:
+  securitySchemes:
+    personalSession: { type: http, scheme: bearer, description: Authenticated personal operator session; loopback development also supports its authenticated individual session cookie. }
+    ingestionKey: { type: http, scheme: bearer, description: Dedicated personal connection key. Write-only for trace submission. }
+  schemas:
+    Label: { type: string, minLength: 1, maxLength: 120, description: Nonblank metadata-only display label, excluding control characters and internal UUID display names. No arbitrary sensitive-content detection is claimed. }
+    Connection:
+      type: object
+      required: [id, name, source, client_version, paused, revoked, expired, created_at, expires_at, last_received_at]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        source: { type: string }
+        client_version: { type: string }
+        paused: { type: boolean }
+        revoked: { type: boolean }
+        expired: { type: boolean }
+        created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        last_received_at: { type: [string, 'null'], format: date-time }
+    Trace:
+      type: object
+      required: [id, name, source, occurred_at, time_basis, status, coverage, duration_ms, span_count, error_count, model_calls, tool_calls]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        source: { type: string }
+        occurred_at: { type: string, format: date-time }
+        time_basis: { type: string, enum: [observed, received] }
+        status: { type: string, enum: [running, completed, failed, cancelled, unknown] }
+        coverage: { type: string, enum: [complete, partial, unknown] }
+        duration_ms: { type: [integer, 'null'], minimum: 0 }
+        span_count: { type: integer, minimum: 1 }
+        error_count: { type: integer, minimum: 0, description: All reported failed spans, including a failed root when present. }
+        model_calls: { type: integer, minimum: 0 }
+        tool_calls: { type: integer, minimum: 0 }
