@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { lstat, readFile, writeFile, unlink, readdir } from 'node:fs/promises';
 import { trace, deliver, privateDirectory } from './telemetry.mjs';
 import { correlationHash, createPrivateJson } from './connection.mjs';
+import { sessionKey } from './codex.mjs';
 const tools = new Set(['Bash', 'apply_patch', 'exec_command', 'write_stdin', 'shell', 'Read', 'Edit', 'Write', 'Grep', 'Glob']);
 async function metadata(file) {
   try {
@@ -37,6 +38,14 @@ export async function codexHook(config, input, { now = Date.now, fetcher = fetch
     const tool = tools.has(input.tool_name) ? input.tool_name : 'Other tool';
     value = trace(config, { name: session ? 'Codex session' : `Codex tool: ${tool}`, start, end, status: 'unknown',
       ...(session ? {} : { tool, toolStatus: 'unknown' }), recordId: key });
+    const group = sessionKey(input.session_id), previousRoot = value.record.task_id;
+    value.session_key = group;
+    value.name = 'Codex session';
+    value.record.task_id = `session-${group}`;
+    value.record.spans[0].id = value.record.task_id;
+    value.span_names[value.record.task_id] = 'Codex session';
+    delete value.span_names[previousRoot];
+    for (const edge of value.record.links) if (edge.from === previousRoot) edge.from = value.record.task_id;
     // Unknown: PostToolUse also runs after failed commands; do not inspect output to infer success.
     await createPrivateJson(endFile, value);
     value = await metadata(endFile);

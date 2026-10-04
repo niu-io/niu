@@ -128,13 +128,18 @@ confirmed one completion with 12 input, 3 output and 4 cached tokens. No live
 OpenAI inference was used. Run it with `NIU_TEST_CODEX=1 npm test` in this package
 when Codex is installed; normal tests do not require Codex.
 
-Coverage remains partial: each event is a separate trace, the overall task outcome
-is unknown, and completion timing is not inference duration. Codex's configured
+Native events with a conversation key assemble into one chronological Codex
+session trace. Correlation is hashed locally; raw session identifiers are excluded.
+Event receipts remain immutable, retries do not add steps or usage, and long
+sessions continue in numbered parts at 1,000 spans or the payload size limit.
+Coverage remains partial: the overall task outcome is unknown, the root interval
+is the observed activity window, and completion timing is not inference duration. Codex's configured
 model tag is recorded as requested model, not confirmed response model. Native
 counters appear as source-reported estimates in trace details; the separate
 subscription Metrics report is not populated by this adapter yet. Reasoning-token
-breakdowns, cross-event conversation trees, subscription/API attribution and
-Codex desktop collection require further integration and qualification.
+breakdowns and subscription/API attribution require further integration.
+Desktop collection has been observed locally; comprehensive desktop qualification
+remains separate from the CLI fixture.
 
 
 ## Codex plugin: collect across sessions
@@ -189,8 +194,9 @@ hook. All hooks remain silent and return success even if collection is unavailab
 PreToolUse/PostToolUse pair tool timing without reading arguments or outputs;
 SessionStart/SessionEnd pair session duration. Tool and session outcomes stay
 unknown because those hook events do not establish success or task acceptance.
-Native request/completion events are additional partial traces, not a merged
-conversation tree. Source-reported token counters do not populate subscription
+With native export enabled, tool hooks are omitted to avoid duplicate steps.
+Native events and session-end hooks share the same hashed session root.
+Source-reported token counters do not populate subscription
 Metrics or establish billing attribution.
 
 Disable native export while retaining hook collection, or disconnect completely:

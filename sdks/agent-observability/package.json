@@ -1,6 +1,6 @@
 {
   "name": "@niu-io/collector",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Opt-in metadata telemetry companion for coding agents",
   "license": "MIT",
   "type": "module",

@@ -3,7 +3,7 @@ import { mkdir, lstat, readFile, writeFile, unlink, readdir } from 'node:fs/prom
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-export const version = '0.1.0';
+export const version = '0.1.1';
 const hash = value => createHash('sha256').update(value).digest('hex');
 const supported = new Set(['Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep', 'WebFetch', 'WebSearch', 'Agent', 'Task', 'NotebookEdit', 'TodoWrite']);
 export function configuration(env = process.env) {

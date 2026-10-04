@@ -5,7 +5,8 @@ import { deliver } from './telemetry.mjs';
 
 const digest = value => createHash('sha256').update(value).digest('hex');
 const events = new Map([
-  ['codex.api_request', ['Codex API request', 'model_invocation']],
+  ['codex.api_request', ['Codex API request', 'attempt']],
+  ['codex.websocket_request', ['Codex API request', 'attempt']],
   ['codex.sse_event', ['Codex response completion', 'model_invocation']],
   ['codex.websocket_event', ['Codex response completion', 'model_invocation']],
   ['codex.tool_result', ['Codex tool', 'tool_invocation']],
@@ -26,10 +27,18 @@ function count(value) {
 function timestamp(value) {
   if (!/^\d{1,20}$/.test(String(value ?? ''))) return null;
   const ms = Number(BigInt(value) / 1_000_000n);
-  return Number.isSafeInteger(ms) && ms >= 0 ? ms : null;
+  return Number.isSafeInteger(ms) && ms > 0 ? ms : null;
 }
 function model(value) {
   return typeof value === 'string' && /^[A-Za-z0-9._:/-]{1,120}$/.test(value) && !/[a-f0-9]{8}-[a-f0-9]{4}-/i.test(value) ? value : null;
+}
+const toolNames = new Set(['exec_command', 'write_stdin', 'apply_patch', 'shell', 'Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep', 'WebSearch', 'WebFetch']);
+export const sessionKey = value => typeof value === 'string' && value.length > 0 && value.length <= 256 ? digest(`codex-session-v1:${value}`) : null;
+function milliseconds(value) {
+  if (typeof value === 'number') return value;
+  if (typeof value !== 'string') return NaN;
+  const match = /^(\d+(?:\.\d+)?)\s*(ms|s|µs|us|ns)?$/.exec(value);
+  return match ? Number(match[1]) * ({ s: 1000, 'µs': 0.001, us: 0.001, ns: 0.000001 }[match[2]] ?? 1) : NaN;
 }
 /** OTLP JSON input is discarded after extraction. Never serialize raw resource, body or attributes. */
 export function codexRecords(config, input) {
@@ -45,12 +54,14 @@ export function codexRecords(config, input) {
         if (completion && fields['event.kind'] !== 'response.completed' && fields.kind !== 'response.completed') continue;
         // Codex 0.154 emits both a timing event and a distinct usage event for completion.
         if (completion && fields.input_token_count === undefined && fields.output_token_count === undefined) continue;
-        const end = timestamp(log.timeUnixNano);
+        const eventTime = typeof fields['event.timestamp'] === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/.test(fields['event.timestamp']) ? fields['event.timestamp'] : null;
+        const parsedTime = eventTime ? Date.parse(eventTime) : NaN;
+        const end = Number.isSafeInteger(parsedTime) && parsedTime >= 0 ? parsedTime : timestamp(log.timeUnixNano);
         if (end === null) continue; // Receipt time cannot replace source time for duplicate delivery.
-        const duration = Number(fields.duration_ms);
+        const duration = milliseconds(fields.duration_ms);
         const start = !completion && Number.isFinite(duration) && duration >= 0 && duration <= end ? Math.trunc(end - duration) : null;
         const status = (completion && fields.success !== false && fields.success !== 'false') || fields.success === true || fields.success === 'true' ? 'completed' : fields.success === false || fields.success === 'false' ? 'failed' : 'unknown';
-        const correlation = [fields['conversation.id'], fields.conversation_id, fields['response.id'], fields.response_id, log.traceId, log.spanId].map(value => typeof value === 'string' ? value : null);
+        const correlation = [fields['conversation.id'], fields.conversation_id, fields['response.id'], fields.response_id, fields.call_id, log.traceId, log.spanId].map(value => typeof value === 'string' && value.length <= 256 ? value : null);
         // Identity includes only permitted metadata; secret/output changes cannot create extra observations.
         const usage = completion ? {
           authority: 'agent_reported_estimate', agent_version: typeof fields['app.version'] === 'string' && /^[0-9A-Za-z.+-]{1,64}$/.test(fields['app.version']) ? fields['app.version'] : null, request_count: 1, retry_count: 0,
@@ -59,12 +70,15 @@ export function codexRecords(config, input) {
           cache_read_tokens: count(fields.cached_token_count ?? fields.cached_input_token_count ?? fields.cached_input_tokens),
           cache_creation_tokens: count(fields.cache_write_token_count), cost_nanos: null, currency: null,
         } : undefined;
-        const identity = digest(JSON.stringify([event, log.timeUnixNano, correlation, status, start, model(fields.model), usage]));
-        const root = `task-${identity}`, child = `event-${identity}`;
+        const identity = digest(JSON.stringify([event, eventTime ?? log.timeUnixNano, correlation, count(fields.tool_result_seq), status, start, model(fields.model), usage]));
+        const session = sessionKey(fields['conversation.id'] ?? fields.conversation_id);
+        const root = session ? `session-${session}` : `task-${identity}`, child = `event-${identity}`;
+        const tool = toolNames.has(fields.tool_name) ? fields.tool_name : 'Tool call';
+        const label = definition[1] === 'tool_invocation' ? tool : completion ? 'Model response' : 'API request';
         const base = { started_at_ms: start, ended_at_ms: end, charge_ref: null, requested_model: null, reported_model: null };
-        output.push({ name: definition[0], span_names: { [root]: definition[0], [child]: definition[0] }, record: {
+        output.push({ name: session ? 'Codex session' : definition[0], ...(session ? { session_key: session } : {}), span_names: { [root]: session ? 'Codex session' : definition[0], [child]: label }, record: {
           schema_version: 1, source: config.source, record_id: identity, task_id: root, coverage: 'partial',
-          spans: [{ ...base, id: root, kind: 'task', status: 'unknown' },
+          spans: [{ ...base, started_at_ms: session ? start ?? end : start, id: root, kind: 'task', status: 'unknown' },
             { ...base, id: child, kind: definition[1], status, requested_model: definition[1] === 'model_invocation' ? model(fields.model) : null }],
           links: [{ from: root, to: child, kind: 'contains' }], outcomes: [], ...(usage ? { external_usage: usage } : {}),
         } });
