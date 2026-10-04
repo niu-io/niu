@@ -225,11 +225,21 @@ native settings are created in temporary test directories and removed afterwards
 ## Publishing a collector release
 
 Collector publishing uses the separate **Publish collector to npm** GitHub Actions
-workflow (`.github/workflows/publish-collector.yml`). It runs only when manually
-dispatched from `main`; ordinary pushes and pull requests never publish. Collector
-changes in pull requests and on `main` also run the packaging checks automatically. Enter the
-exact stable version from this package's `package.json`. Keep both plugin manifests
-and the companion version in `src/telemetry.mjs` aligned with that version.
+workflow (`.github/workflows/publish-collector.yml`). Push a new tag such as
+`collector-v0.1.1` on a commit already merged into `main` to publish that version.
+The workflow rejects tags whose commit is not on `main` or whose version does not
+exactly match `package.json`. Ordinary branch pushes and pull requests run packaging
+checks without publishing. Keep both plugin manifests and the companion version in
+`src/telemetry.mjs` aligned with the package version.
+
+After merging the release commit into `main`:
+
+```sh
+git switch main
+git pull --ff-only origin main
+git tag collector-v0.1.1
+git push origin collector-v0.1.1
+```
 
 The first job checks the release version, runs syntax checks and the metadata
 collection tests, and uploads the packed archive. The second job publishes that
