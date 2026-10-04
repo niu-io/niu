@@ -1,4 +1,4 @@
-import { mkdir, lstat, readFile, writeFile, rename, unlink, readdir } from 'node:fs/promises';
+import { mkdir, lstat, readFile, writeFile, rename, unlink, readdir, link } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { randomBytes, createHash } from 'node:crypto';
@@ -24,6 +24,13 @@ export async function privateJson(file, value) {
   await writeFile(temporary, JSON.stringify(value), { mode: 0o600, flag: 'wx' });
   await rename(temporary, file);
 }
+export async function createPrivateJson(file, value) {
+  const temporary = `${file}.${randomBytes(8).toString('hex')}.tmp`;
+  await writeFile(temporary, JSON.stringify(value), { mode: 0o600, flag: 'wx' });
+  try { await link(temporary, file); return true; }
+  catch (error) { if (error.code === 'EEXIST') return false; throw error; }
+  finally { await unlink(temporary); }
+}
 export async function readConnection(env = process.env) {
   const directory = await privateHome(env), file = join(directory, 'connection.json');
   let value;
@@ -45,7 +52,7 @@ export async function connect(env = process.env, { consent = false, fetcher = fe
   if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('Invalid collector port.');
   const now = Date.now();
   await send(config, trace(config, { name: 'Collector connection verification', start: now, end: now, status: 'completed' }), fetcher);
-  await privateJson(join(directory, 'connection.json'), { token: config.token, endpoint: config.endpoint, source: config.source, consent: 'metadata-v1', port, secret: randomBytes(32).toString('hex'), connected_at: now });
+  if (!await createPrivateJson(join(directory, 'connection.json'), { token: config.token, endpoint: config.endpoint, source: config.source, consent: 'metadata-v1', port, secret: randomBytes(32).toString('hex'), connected_at: now })) throw new Error('Disconnect the existing collector before connecting another credential.');
 }
 async function receiverRequest(connection, path, fetcher = fetch) {
   return fetcher(`http://127.0.0.1:${connection.port}${path}`, { method: path === '/shutdown' ? 'POST' : 'GET', headers: { authorization: `Bearer ${connection.secret}` }, redirect: 'error', signal: AbortSignal.timeout(500) });

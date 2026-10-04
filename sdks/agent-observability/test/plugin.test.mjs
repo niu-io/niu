@@ -88,3 +88,13 @@ test('marketplace and both manifests include supported hooks and package resourc
   assert.equal(hooks.hooks.SessionEnd[0].hooks[0].timeout, 3);
   for (const items of Object.values(hooks.hooks)) assert.match(items[0].hooks[0].command, /\$\{PLUGIN_ROOT\}/);
 });
+
+test('concurrent duplicate tool completions produce one immutable record', async t => {
+  const {env,fetcher}=await fixture(t);await connect(env,{consent:true,fetcher});
+  const {config}=await readConnection(env),values=[];
+  const input={hook_event_name:'PostToolUse',session_id:'concurrent-session',tool_use_id:'concurrent-tool',tool_name:'Bash'};
+  const sender=async (_,options)=>{values.push(JSON.parse(options.body));return Response.json({id:'receipt',created:true});};
+  await Promise.all(Array.from({length:8},(_,index)=>codexHook(config,input,{now:()=>100+index,fetcher:sender})));
+  assert.equal(values.length,8);
+  for(const value of values)assert.deepEqual(value,values[0]);
+});
