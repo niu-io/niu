@@ -30,6 +30,10 @@ Follow established patterns from mature products rather than inventing layouts b
 
 Before delivery, compare the rendered result directly against both the reference and equivalent Niu pages at desktop and narrow widths. Fix visible deviations and inconsistencies within the authorized scope; do not merely describe them or wait for the user to point them out. If a departure is required by a concrete product or technical constraint, explain that constraint rather than silently substituting a new design. When no reference is supplied, inspect a relevant established product pattern before choosing a new layout.
 
+## Surface styling
+
+Use Manus as the reference for the shared visual treatment of agent-product surfaces. Prefer subtle solid background tones and spacing to separate navigation, content, and sections. Avoid repeated bordered cards and decorative shadows. Reserve elevation for floating panels, menus, and dialogs; retain meaningful input, focus, selection, and data-table affordances. Preserve Niu branding and use shared theme rules rather than page-by-page overrides.
+
 ## Supplier terminology
 
 Use **Supplier** for model-supply businesses, their offers, memberships, earnings and settlements. Keep **Provider** for upstream API services/adapters such as OpenRouter and OpenAI. Preserve existing provider-named API, route and storage contracts; apply Supplier terminology at the business-facing product boundary.
