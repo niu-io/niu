@@ -50,3 +50,37 @@ test('timing-only completion is omitted and native cache field is retained', () 
   assert.equal(record.record.spans[1].reported_model, null);
   assert.equal(record.record.spans[1].status, 'completed');
 });
+
+test('session correlation groups native steps without transmitting source identifiers', () => {
+  const [a] = codexRecords(config, input({ 'conversation.id': 'private-session-one' }));
+  const [b] = codexRecords(config, input({ 'conversation.id': 'private-session-one', output_token_count: '4' }));
+  const [c] = codexRecords(config, input({ 'conversation.id': 'private-session-two' }));
+  assert.equal(a.session_key, b.session_key);
+  assert.notEqual(a.session_key, c.session_key);
+  assert.equal(a.record.task_id, b.record.task_id);
+  assert.notEqual(a.record.record_id, b.record.record_id);
+  assert.equal(a.name, 'Codex session');
+  assert.equal(a.record.spans[0].started_at_ms, 1700000000000);
+  assert.doesNotMatch(JSON.stringify(a), /private-session/);
+});
+
+test('native tool names are allowlisted and duration strings produce observed intervals', () => {
+  const batch = input({ 'conversation.id': 'same-session', 'event.name': 'codex.tool_result', duration_ms: '1.5s', tool_name: 'exec_command' });
+  const [value] = codexRecords(config, batch);
+  assert.equal(value.record.spans[1].ended_at_ms - value.record.spans[1].started_at_ms, 1500);
+  assert.equal(value.span_names[value.record.spans[1].id], 'exec_command');
+  const [unknown] = codexRecords(config, input({ 'event.name': 'codex.tool_result', tool_name: 'secret-customer-tool', duration_ms: 'bad' }));
+  assert.equal(unknown.span_names[unknown.record.spans[1].id], 'Tool call');
+  assert.equal(unknown.record.spans[1].started_at_ms, null);
+  assert.doesNotMatch(JSON.stringify(unknown), /secret-customer-tool/);
+});
+
+test('distinct tool calls in one exporter batch cannot collide and event time wins over batch time', () => {
+  const extra={ 'conversation.id':'same-session', 'event.name':'codex.tool_result', 'event.timestamp':'2026-10-04T14:00:00.123456Z', duration_ms:'100ms', tool_name:'exec_command' };
+  const [a]=codexRecords(config,input({...extra,call_id:'private-call-one'}));
+  const [b]=codexRecords(config,input({...extra,call_id:'private-call-two'}));
+  assert.notEqual(a.record.record_id,b.record.record_id);
+  assert.equal(a.record.spans[1].ended_at_ms,Date.parse(extra['event.timestamp']));
+  assert.doesNotMatch(JSON.stringify(a), /private-call/);
+  assert.equal(a.record.record_id,codexRecords(config,input({...extra,call_id:'private-call-one',output:'changed private output'}))[0].record.record_id);
+});

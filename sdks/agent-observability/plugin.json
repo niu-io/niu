@@ -1,6 +1,6 @@
 {
   "name": "niu-collector",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Opt-in metadata collection for Niu Agent Observability. Node.js 22+ required. Native tokens require explicit telemetry setup.",
   "author": { "name": "Niu", "url": "https://niu.io" },
   "license": "MIT",

@@ -24,8 +24,12 @@ async function main() {
       for await (const chunk of process.stdin) { size += chunk.length; if (size > 1_048_576) return; input += chunk; }
       const event = JSON.parse(input), connection = await readConnection();
       if (!connection) return;
+      let native = false;
+      try { await access(join(connection.directory, 'native.json')); native = true; } catch { /* hook-only connection */ }
+      // Native tool results already include timing and success. Do not report each tool twice.
+      if (native && ['PreToolUse', 'PostToolUse'].includes(event.hook_event_name)) return;
       if (event.hook_event_name === 'SessionStart') {
-        try { await access(join(connection.directory, 'native.json')); await ensureReceiver(); } catch { /* native collection not enabled */ }
+        if (native) await ensureReceiver();
       }
       await codexHook(connection.config, event);
     } catch { /* advisory: no model context, output or decisions */ }

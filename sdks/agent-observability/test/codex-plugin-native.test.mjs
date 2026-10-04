@@ -47,7 +47,8 @@ provider.closeAllConnections();await new Promise(resolve=>provider.close(resolve
 assert.equal(code,0,'Native Codex mock-provider run must succeed');
 const usage=saved.filter(value=>value.record.external_usage);
 assert.ok(usage.length>=1);
-assert.ok(saved.some(value=>value.name==='Codex tool: Bash' || value.name==='Codex tool: exec_command'), 'Plugin tool hook must execute');
-assert.equal(saved.filter(value=>value.name==='Codex session').length,2,'Plugin must collect both ordinary sessions using one receiver');
+assert.equal(saved.filter(value=>value.record.spans.some(span=>span.kind==='tool_invocation')).length,1,'Native tool result must not be duplicated by tool hooks');
+assert.equal(saved.filter(value=>value.name==='Codex session' && value.record.spans.length===1).length,2,'Session-end hooks must collect both ordinary sessions');
+assert.equal(new Set(saved.filter(value=>value.name==='Codex session').map(value=>value.session_key)).size,2,'Native and hook evidence must share exactly two session roots');
 assert.doesNotMatch(JSON.stringify(saved), /Reply OK|user.email|user.account_id|transcript|collector-selftest/);
 });
