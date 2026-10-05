@@ -258,3 +258,10 @@ Configure the package's npm **Trusted Publisher** once:
 The publisher uses GitHub OIDC, so no `NPM_TOKEN` repository secret or interactive
 npm login is required in Actions. npm's package administrator must approve the
 initial trust configuration. See [npm's trusted publishing documentation](https://docs.npmjs.com/trusted-publishers/).
+
+New versions may take several minutes to become installable while npm performs
+[publish-time scanning](https://github.blog/changelog/2026-07-28-npm-publish-time-malware-scanning-and-dual-use-metadata/).
+The workflow waits up to 20 minutes for registry availability and verifies the
+exact archive checksum. A rerun accepts an already published matching archive;
+a different archive for the same version fails without publishing. If scanning
+exceeds the deadline, check the package publishing status before retrying.

@@ -85,7 +85,7 @@ jobs:
     if: github.event_name == 'push' && github.event.created && startsWith(github.ref, 'refs/tags/collector-v')
     needs: package
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     permissions:
       contents: read
       id-token: write
@@ -105,15 +105,28 @@ jobs:
           node -e 'const [a,b,c]=process.argv[1].split(".").map(Number); if (!(a>11 || (a===11 && (b>5 || (b===5 && c>=1))))) throw Error("npm 11.5.1 or newer is required for trusted publishing")' "$(npm --version)"
           archive="./release/niu-io-collector-${RELEASE_VERSION}.tgz"
           test -f "$archive"
-          npm publish "$archive" --access public --provenance --ignore-scripts --registry https://registry.npmjs.org
           expected=$(sha1sum "$archive" | cut -d ' ' -f 1)
-          for attempt in 1 2 3 4 5; do
-            actual=$(npm view "@niu-io/collector@${RELEASE_VERSION}" dist.shasum --registry https://registry.npmjs.org 2>/dev/null || true)
+          registry_checksum() {
+            npm view "@niu-io/collector@${RELEASE_VERSION}" dist.shasum --registry https://registry.npmjs.org --fetch-retries=0 --fetch-timeout=10000 2>/dev/null || true
+          }
+          actual=$(registry_checksum)
+          if [ -z "$actual" ]; then
+            npm publish "$archive" --access public --provenance --ignore-scripts --registry https://registry.npmjs.org
+          fi
+          # npm scans new versions before making them installable. Allow 20 minutes.
+          deadline=$((SECONDS + 1200))
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            actual=$(registry_checksum)
             if [ "$actual" = "$expected" ]; then
               printf 'Published @niu-io/collector@%s; registry archive verified.\n' "$RELEASE_VERSION" >> "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
-            sleep 5
+            if [ -n "$actual" ]; then
+              echo 'The registry contains a different archive for this version; refusing to overwrite it.' >&2
+              exit 1
+            fi
+            echo 'Waiting for npm publish-time scanning and registry availability...'
+            sleep 10
           done
-          echo 'Registry archive verification failed.' >&2
+          echo 'npm accepted the publish, but the version is still unavailable after 20 minutes. Check its publishing status before retrying.' >&2
           exit 1
