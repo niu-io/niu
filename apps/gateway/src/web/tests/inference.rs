@@ -314,12 +314,7 @@ async fn tool_calls_require_route_opt_in_and_persist_provider_usage(pool: PgPool
     assert_eq!(forwarded["model"], "provider-secret-model");
     assert_eq!(forwarded["tools"], request["tools"]);
     assert_eq!(forwarded["tool_choice"], "required");
-    let attempt = state
-        .store
-        .attempt(scope, attempt_id)
-        .await
-        .unwrap()
-        .unwrap();
+    let attempt = wait_for_completed_attempt(&state, scope, attempt_id).await;
     assert_eq!(attempt.execution, "confirmed_completed");
     assert_eq!(attempt.usage_confidence, "provider_reported");
     assert_eq!(
@@ -363,12 +358,7 @@ async fn tool_calls_require_route_opt_in_and_persist_provider_usage(pool: PgPool
         forwarded_schema["response_format"],
         structured_request["response_format"]
     );
-    let structured_persisted = state
-        .store
-        .attempt(scope, structured_attempt)
-        .await
-        .unwrap()
-        .unwrap();
+    let structured_persisted = wait_for_completed_attempt(&state, scope, structured_attempt).await;
     assert_eq!(structured_persisted.execution, "confirmed_completed");
     assert_eq!(structured_persisted.prompt_tokens, Some(11));
 
@@ -488,12 +478,7 @@ async fn streaming_tool_deltas_preserve_wire_bytes_and_terminal_usage(pool: PgPo
     assert_eq!(forwarded["model"], "provider-secret-model");
     assert_eq!(forwarded["tools"], request["tools"]);
     assert_eq!(forwarded["stream_options"]["include_usage"], true);
-    let attempt = state
-        .store
-        .attempt(scope, attempt_id)
-        .await
-        .unwrap()
-        .unwrap();
+    let attempt = wait_for_completed_attempt(&state, scope, attempt_id).await;
     assert_eq!(attempt.execution, "confirmed_completed");
     assert_eq!(attempt.usage_confidence, "provider_reported");
     assert_eq!(
@@ -651,12 +636,7 @@ async fn openrouter_uses_compatible_chat_route_and_preserves_openrouter_usage_st
     assert!(
         stream_body.contains("\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]")
     );
-    let stream_attempt = state
-        .store
-        .attempt(scope, stream_attempt)
-        .await
-        .unwrap()
-        .unwrap();
+    let stream_attempt = wait_for_completed_attempt(&state, scope, stream_attempt).await;
     assert_eq!(stream_attempt.execution, "confirmed_completed");
     assert_eq!(stream_attempt.usage_confidence, "provider_reported");
     assert_eq!(
@@ -771,12 +751,7 @@ async fn responses_are_opt_in_text_only_and_persist_reported_usage(pool: PgPool)
     assert_eq!(forwarded["model"], "provider-secret-model");
     assert_eq!(forwarded["input"], "hi");
     assert_eq!(forwarded["max_output_tokens"], 10);
-    let attempt = state
-        .store
-        .attempt(scope, attempt_id)
-        .await
-        .unwrap()
-        .unwrap();
+    let attempt = wait_for_settled_attempt(&state, scope, attempt_id).await;
     assert_eq!(attempt.execution, "confirmed_completed");
     assert_eq!(attempt.usage_confidence, "provider_reported");
     assert_eq!(
@@ -961,6 +936,11 @@ async fn embeddings_use_scoped_admission_and_settle_input_usage(pool: PgPool) {
         .await
         .unwrap();
     assert_eq!(batch.status(), StatusCode::OK);
+    let batch_attempt: Uuid = batch.headers()["x-niu-attempt-id"]
+        .to_str()
+        .unwrap()
+        .parse()
+        .unwrap();
     let batch_output: Value =
         serde_json::from_slice(&batch.into_body().collect().await.unwrap().to_bytes()).unwrap();
     assert_eq!(batch_output["data"].as_array().unwrap().len(), 2);
@@ -970,18 +950,14 @@ async fn embeddings_use_scoped_admission_and_settle_input_usage(pool: PgPool) {
     assert_eq!(batch_body["input"], json!(["hi", "there"]));
     assert_eq!(batch_body["encoding_format"], "base64");
 
-    let attempt = state
-        .store
-        .attempt(scope, attempt_id)
-        .await
-        .unwrap()
-        .unwrap();
+    let attempt = wait_for_settled_attempt(&state, scope, attempt_id).await;
     assert_eq!(attempt.execution, "confirmed_completed");
     assert_eq!(attempt.usage_confidence, "provider_reported");
     assert_eq!(
         (attempt.prompt_tokens, attempt.completion_tokens),
         (Some(5), Some(0))
     );
+    wait_for_settled_attempt(&state, scope, batch_attempt).await;
     let budget = state.store.budget(scope).await.unwrap().unwrap();
     assert_eq!((budget.spent_nanos, budget.reserved_nanos), (10, 0));
     let entries = state.store.cost_entries(scope, None, 10).await.unwrap();
@@ -1168,12 +1144,7 @@ async fn chat_uses_server_routing_and_credentials_not_client_control_fields(pool
         .unwrap()
         .parse()
         .unwrap();
-    let attempt = state
-        .store
-        .attempt(scope, attempt_id)
-        .await
-        .unwrap()
-        .unwrap();
+    let attempt = wait_for_completed_attempt(&state, scope, attempt_id).await;
     assert_eq!(attempt.execution, "confirmed_completed");
     assert_eq!(attempt.prompt_tokens, Some(2));
     assert_eq!(attempt.completion_tokens, Some(1));

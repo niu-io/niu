@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { appRoutes } from '../../src/app/routes';
@@ -8,6 +8,17 @@ function renderAt(path: string) {
   const router = createMemoryRouter(appRoutes, { initialEntries: [path] });
   render(<RouterProvider router={router} />);
   return router;
+}
+
+async function signIn(user: ReturnType<typeof userEvent.setup>, router: ReturnType<typeof createMemoryRouter>, credential: string) {
+  const target = router.state.location;
+  await act(async () => { await router.navigate(`/login?returnTo=${encodeURIComponent(target.pathname + target.search + target.hash)}`); });
+  await user.type(await screen.findByLabelText('Administrator token'), credential);
+  await user.click(screen.getByRole('button', { name: 'Sign in' }));
+  await waitFor(() => {
+    expect(router.state.location.pathname).not.toBe('/login');
+    expect(router.state.navigation.state).toBe('idle');
+  });
 }
 
 function mockHealth() {
@@ -40,11 +51,11 @@ describe('console route layout', () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({status: online ? 'ok' : 'down'}), {status: online ? 200 : 503})));
     renderAt('/workspaces/default/models');
     expect(await screen.findByRole('heading', {name: 'Restore your gateway connection'})).toBeTruthy();
-    expect(screen.queryByRole('heading', {name: 'Models'})).toBeNull();
+    expect(screen.getByRole('heading', {name: 'Models'})).toBeTruthy();
     online = true;
     await user.click(screen.getByRole('button', {name: 'Retry connection'}));
-    expect(await screen.findByText('Administrator access required')).toBeTruthy();
-    await waitFor(() => expect(within(screen.getByLabelText('Breadcrumb')).getByText('Models')).toBeTruthy());
+    expect(await screen.findByText('Sign in to continue')).toBeTruthy();
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Models' })).toBeTruthy());
     expect(screen.queryByText('Gateway online')).toBeNull();
   });
   it('explains a workspace API version mismatch and retries the real request', async () => {
@@ -60,9 +71,8 @@ describe('console route layout', () => {
       if (path === '/admin/v1/workspaces') return new Response(JSON.stringify({ error: { message: 'Not found' } }), { status: 404 });
       throw new Error(`Unexpected request: ${path}`);
     }));
-    renderAt('/workspaces/default/');
-    await user.type(await screen.findByLabelText('Installation admin token'), 'admin-token');
-    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    const router = renderAt('/workspaces/default/');
+    await signIn(user, router, 'admin-token');
 
     expect(await screen.findByRole('heading', { name: 'This console and gateway are out of sync' })).toBeTruthy();
     expect(screen.getByText('GET /admin/v1/workspaces')).toBeTruthy();
@@ -77,15 +87,15 @@ describe('console route layout', () => {
     const router = renderAt('/workspaces/default/');
 
     expect(await screen.findByRole('heading', { name: 'Overview' })).toBeTruthy();
-    expect(screen.getAllByRole('link', { name: /Explore models/ }).length).toBeGreaterThan(0);
-    expect(screen.queryByRole('link', { name: 'Connect a provider' })).toBeNull();
+    expect(screen.getByRole('link', { name: /Connect a provider/ })).toBeTruthy();
+    expect(screen.getByRole('link', { name: /Create a workspace API key/ })).toBeTruthy();
     expect(screen.getByRole('navigation', { name: 'Gateway workflow' })).toBeTruthy();
-    expect(screen.getByLabelText('Installation admin token')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Sign in', exact: true })).toBeTruthy();
     expect(screen.queryByText('Requests today')).toBeNull();
 
     await user.click(screen.getByRole('link', { name: 'Usage', exact: true }));
-    expect(await screen.findByText('Administrator access required')).toBeTruthy();
-    await waitFor(() => expect(within(screen.getByLabelText('Breadcrumb')).getByText('Usage')).toBeTruthy());
+    expect(await screen.findByText('Sign in to continue')).toBeTruthy();
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Usage' })).toBeTruthy());
     expect(screen.getByRole('link', { name: 'Usage' }).getAttribute('aria-current')).toBe('page');
     expect(router.state.location.pathname).toBe('/workspaces/default/usage');
   });
@@ -124,7 +134,7 @@ describe('console route layout', () => {
     expect(screen.getByRole('button', { name: 'Switch workspace' })).toBeTruthy();
     expect(sidebar.getByRole('link', { name: 'Usage' })).toBeTruthy();
     expect(sidebar.queryByRole('link', { name: 'Agent Connect' })).toBeNull();
-    expect(sidebar.queryByRole('link', { name: 'Benchmarks' })).toBeNull();
+    expect(sidebar.getByRole('link', { name: 'Benchmarks' })).toBeTruthy();
     expect(rail.queryByRole('link', { name: 'Platform settings' })).toBeNull();
     expect(rail.getByRole('link', { name: 'Workspace' }).className).toContain('selected');
     await user.click(screen.getByRole('button', { name: 'Collapse workspace navigation' }));
@@ -135,8 +145,8 @@ describe('console route layout', () => {
     expect(await screen.findByRole('navigation', { name: 'Main navigation' })).toBeTruthy();
 
     await user.click(rail.getByRole('link', { name: 'Models', exact: true }));
-    expect(await screen.findByText('Administrator access required')).toBeTruthy();
-    await waitFor(() => expect(within(screen.getByLabelText('Breadcrumb')).getByText('Models')).toBeTruthy());
+    expect(await screen.findByText('Sign in to continue')).toBeTruthy();
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Models' })).toBeTruthy());
     expect(screen.queryByRole('complementary')).toBeNull();
     expect(screen.getByRole('banner')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /workspace navigation/ })).toBeNull();
@@ -149,7 +159,7 @@ describe('console route layout', () => {
 
     await user.click(rail.getByRole('link', { name: 'Chat · compare model responses' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/chat'));
-    expect(rail.getByRole('link', { name: 'Chat · compare model responses' }).className).toContain('selected');
+    await waitFor(() => expect(rail.getByRole('link', { name: 'Chat · compare model responses' }).className).toContain('selected'));
     expect(screen.queryByRole('complementary')).toBeNull();
     expect(screen.queryByRole('navigation', { name: 'Model views' })).toBeNull();
     await user.click(rail.getByRole('link', { name: 'Workspace' }));
@@ -158,28 +168,41 @@ describe('console route layout', () => {
     expect(within(screen.getByRole('navigation', { name: 'Main navigation' })).getByRole('link', { name: 'Overview' })).toBeTruthy();
   });
 
-  it('opens account actions and a keyboard-dismissable connection dialog', async () => {
+  it('opens account actions and navigates to the dedicated sign-in page', async () => {
     mockHealth();
     const user = userEvent.setup();
-    renderAt('/workspaces/default/benchmarks');
-    expect(await screen.findByText('Administrator access required')).toBeTruthy();
-    const trigger = screen.getByRole('button', { name: 'Account menu' });
-    trigger.focus();
+    const router = renderAt('/workspaces/default/benchmarks');
+    await screen.findByText('Sign in to continue');
+    screen.getByRole('button', { name: 'Account menu' }).focus();
     await user.keyboard('{Enter}');
-    expect(await screen.findByRole('menuitem', { name: 'Usage' })).toBeTruthy();
+    expect(await screen.findByRole('menuitemradio', { name: 'System' })).toBeTruthy();
     expect(screen.queryByRole('menuitem', { name: 'Administration' })).toBeNull();
-    await user.click(screen.getByRole('menuitem', { name: 'Administrator sign-in' }));
-    expect(await screen.findByRole('dialog')).toBeTruthy();
-    await user.keyboard('{Escape}');
-    expect(screen.queryByRole('dialog')).toBeNull();
+    await user.click(screen.getByRole('menuitem', { name: 'Sign in' }));
+    expect(await screen.findByRole('heading', { name: 'Sign in to Niu' })).toBeTruthy();
+    expect(router.state.location.pathname).toBe('/login');
+    expect(screen.getByLabelText('Administrator token')).toBeTruthy();
+  });
+
+  it.each(['https://example.com/', '//example.com/', '/\\example.com/'])('rejects an external sign-in return path %s', async returnTo => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => new Response(JSON.stringify(
+      String(input) === '/healthz' ? { status: 'ok' }
+      : String(input) === '/admin/v1/session' ? { data: { kind: 'installation', operator: null, permissions: { read: true, write: true, manage_operators: true } } }
+      : { data: [] },
+    ))));
+    const user = userEvent.setup();
+    const router = renderAt(`/login?returnTo=${encodeURIComponent(returnTo)}`);
+    await user.type(await screen.findByLabelText('Administrator token'), 'admin-token');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/default/'));
+    expect(await screen.findByRole('heading', { name: 'Overview' })).toBeTruthy();
   });
 
   it('loads a feature route directly and shows a route-specific connection state', async () => {
     mockHealth();
     renderAt('/workspaces/production/usage');
 
-    expect(await screen.findByText('Administrator access required')).toBeTruthy();
-    expect(screen.getByText('Administrator access required')).toBeTruthy();
+    expect(await screen.findByText('Sign in to continue')).toBeTruthy();
+    expect(screen.getByText('Sign in to continue')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Usage' }).getAttribute('aria-current')).toBe('page');
   });
 
@@ -211,8 +234,7 @@ describe('console route layout', () => {
     const user = userEvent.setup();
     const originalPath = `/workspaces/${workspaceId}/keys`;
     const router = renderAt(`${originalPath}?tab=active#list`);
-    await user.type(await screen.findByLabelText('Installation admin token'), 'admin-token');
-    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    await signIn(user, router, 'admin-token');
     await waitFor(() => expect(calls).toContain('/admin/v1/workspaces'));
     expect(router.state.location.pathname).toBe(originalPath);
     expect(calls.filter(path => path.endsWith('/keys'))).toEqual([]);
@@ -254,8 +276,7 @@ describe('console route layout', () => {
     }));
     const user = userEvent.setup();
     const router = renderAt('/workspaces/project-1/keys?tab=active#list');
-    await user.type(await screen.findByLabelText('Installation admin token'), 'admin-token');
-    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    await signIn(user, router, 'admin-token');
     await screen.findByRole('heading', { name: 'API keys' });
 
     await user.click(screen.getByRole('button', { name: 'Switch workspace' }));
@@ -287,9 +308,8 @@ describe('console route layout', () => {
       throw new Error(`Unexpected request: ${path}`);
     }));
     const user = userEvent.setup();
-    renderAt('/workspaces/project-1/keys');
-    await user.type(await screen.findByLabelText('Installation admin token'), 'admin-token');
-    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    const router = renderAt('/workspaces/project-1/keys');
+    await signIn(user, router, 'admin-token');
     await screen.findByRole('heading', { name: 'API keys' });
 
     const trigger = screen.getByRole('button', { name: 'Switch workspace' });
@@ -325,9 +345,8 @@ describe('console route layout', () => {
     }));
 
     const user = userEvent.setup();
-    renderAt('/workspaces/project-1/keys');
-    await user.type(await screen.findByLabelText('Installation admin token'), 'admin-token');
-    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    const router = renderAt('/workspaces/project-1/keys');
+    await signIn(user, router, 'admin-token');
     await waitFor(() => expect(firstKeyRequestSignal).not.toBeNull());
     await waitFor(() => expect(screen.getByRole('button', { name: 'Switch workspace' })).toBeTruthy());
     await user.click(screen.getByRole('button', { name: 'Switch workspace' }));
@@ -366,8 +385,7 @@ describe('console route layout', () => {
 
     const user = userEvent.setup();
     const router = renderAt('/workspaces/project-1/keys?tab=active#list');
-    await user.type(await screen.findByLabelText('Installation admin token'), 'admin-token');
-    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    await signIn(user, router, 'admin-token');
     await screen.findByRole('heading', { name: 'API keys' });
 
     await user.click(screen.getByRole('button', { name: 'Switch workspace' }));
@@ -410,9 +428,8 @@ describe('console route layout', () => {
     }));
 
     const user = userEvent.setup();
-    renderAt('/workspaces/default/operators');
-    await user.type(await screen.findByLabelText('Installation admin token'), 'owner-session-token');
-    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    const router = renderAt('/workspaces/default/operators');
+    await signIn(user, router, 'owner-session-token');
 
     expect(await screen.findByRole('heading', { name: 'Directory' })).toBeTruthy();
     expect(calls[0]).toEqual({ path: '/healthz', authorization: undefined });
@@ -462,14 +479,14 @@ describe('console route layout', () => {
     }));
 
     const user = userEvent.setup();
-    renderAt('/workspaces/default/operators');
-    await user.type(await screen.findByLabelText('Installation admin token'), 'owner-session-token');
-    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    const router = renderAt('/workspaces/default/operators');
+    await signIn(user, router, 'owner-session-token');
     await user.click(await screen.findByRole('button', { name: /Current owner/ }));
     await user.click(await screen.findByRole('button', { name: 'Revoke' }));
     await user.click(await screen.findByRole('button', { name: 'Confirm revoke' }));
 
-    expect(await screen.findByText('Administrator access required')).toBeTruthy();
+    expect(await screen.findByText('Sign in to continue')).toBeTruthy();
+    await user.click(screen.getByRole('link', { name: 'Sign in', exact: true }));
     expect((await screen.findByRole('alert')).textContent).toContain('This admin session has expired or been revoked.');
   });
 

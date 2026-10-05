@@ -770,14 +770,14 @@ async fn concurrent_budgets_idempotent_settlement_and_unknown_holds(pool: PgPool
         charges.entries,
         vec![store.settle_cost(scope, winner).await.unwrap()]
     );
-    assert_eq!(charges.unresolved, vec!["charge-2"]);
+    assert_eq!(charges.unresolved, vec!["charge-2", "charge-3"]);
     let isolated_scope = store.create_project(org, "isolated charges").await.unwrap();
     let isolated = store
         .execution_charges(isolated_scope, &record)
         .await
         .unwrap();
     assert!(isolated.entries.is_empty());
-    assert_eq!(isolated.unresolved.len(), 2);
+    assert_eq!(isolated.unresolved.len(), 3);
 
     assert!(
         store
@@ -1443,7 +1443,7 @@ async fn execution_cohort_deduplicates_scoped_costs_and_keeps_unknowns_explicit(
         };
         if accepted {
             record.outcomes.push(Outcome {
-                span_id: "task".into(),
+                span_id: record.task_id.clone(),
                 evidence_id: format!("agent-{record_id}"),
                 authority: OutcomeAuthority::AgentClaim,
                 result: OutcomeResult::Accepted,

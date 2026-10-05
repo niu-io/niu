@@ -28,10 +28,11 @@ describe('organization switching', () => {
       return json({ data: [] });
     }));
     const user = userEvent.setup();
-    const router = createMemoryRouter(appRoutes, { initialEntries: ['/workspaces/project-2/keys'] });
+    const router = createMemoryRouter(appRoutes, { initialEntries: ['/login?returnTo=%2Fworkspaces%2Fproject-2%2Fkeys'] });
     render(<RouterProvider router={router} />);
-    await user.type(await screen.findByLabelText('Installation admin token'), 'admin-token');
+    await user.type(await screen.findByLabelText('Administrator token'), 'admin-token');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    await waitFor(() => { expect(router.state.location.pathname).not.toBe('/login'); expect(router.state.navigation.state).toBe('idle'); });
     await screen.findByRole('heading', { name: 'API keys' });
     await user.click(screen.getByRole('button', { name: 'Account menu' }));
     await user.click(screen.getByRole('menuitem', { name: 'Organization settings' }));

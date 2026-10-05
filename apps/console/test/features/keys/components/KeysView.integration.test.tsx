@@ -34,7 +34,7 @@ it('issues a workspace API key and makes its one-time secret easy to copy', asyn
 
   render(<MemoryRouter initialEntries={['/workspaces/production/keys']}><KeysView token="admin-token" models={['fast', 'careful']} canWrite initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} /></MemoryRouter>);
 
-  expect(await screen.findByRole('heading', { name: 'API keys' })).toBeTruthy();
+  expect(await screen.findByRole('region', { name: 'API keys' })).toBeTruthy();
   expect(await screen.findByText('No API keys yet')).toBeTruthy();
   expect(screen.getAllByRole('button', { name: /New API key|Create your first key/ })).toHaveLength(1);
   await user.click(screen.getByRole('button', { name: 'New API key' }));
@@ -66,7 +66,7 @@ it('keeps an operator viewer in read-only key administration', async () => {
 
   render(<MemoryRouter initialEntries={['/workspaces/production/keys']}><KeysView token="viewer-token" models={['fast']} canWrite={false} initialScope={{ organizationId: 'org-1', projectId: 'project-1' }} /></MemoryRouter>);
 
-  expect(await screen.findByRole('heading', { name: 'API keys' })).toBeTruthy();
+  expect(await screen.findByRole('region', { name: 'API keys' })).toBeTruthy();
   expect(screen.getByText('Frontend')).toBeTruthy();
   expect(screen.queryByText(/admin-token/)).toBeNull();
   expect(screen.queryByRole('button', { name: 'New API key' })).toBeNull();

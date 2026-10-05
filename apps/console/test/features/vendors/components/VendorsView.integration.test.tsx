@@ -115,7 +115,6 @@ describe('vendor administration workflow', () => {
     const refreshWorkspace = vi.fn(async () => {});
     render(<VendorsView token="installation-token" session={installationSession} refreshWorkspace={refreshWorkspace} />);
 
-    expect(screen.getByRole('heading', { name: 'Suppliers', level: 1 })).toBeTruthy();
     expect(await screen.findByRole('heading', { name: 'Suppliers', level: 2 })).toBeTruthy();
     await user.click((await screen.findAllByRole('button', { name: 'Add supplier' }))[0]);
     await user.type(await screen.findByLabelText('Supplier name'), 'OpenRouter primary');

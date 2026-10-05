@@ -1,18 +1,22 @@
 import { useEffect } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useConsoleContext } from '@/app/console-context';
-import logo from '../../../../branding/assets/niu-mark.png';
+import logo from '../../../../../branding/assets/niu-mark.png';
 
 export default function LoginRoute() {
   const context = useConsoleContext();
   const navigate = useNavigate();
+  const [search] = useSearchParams();
+  const requested = search.get('returnTo');
+  const destination = requested?.startsWith('/') && !requested.startsWith('//') && !requested.includes('\\') && !requested.startsWith('/login')
+    ? requested : '/workspaces/default/';
 
   useEffect(() => {
-    if (context.token) navigate('/workspaces/default/', { replace: true });
-  }, [context.token, navigate]);
+    if (context.token) navigate(destination, { replace: true });
+  }, [context.token, destination, navigate]);
 
   return <main className="console-login">
     <section className="console-login-card" aria-labelledby="console-login-title">

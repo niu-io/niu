@@ -1,5 +1,5 @@
 import { cleanup } from '@testing-library/react';
-import { afterEach, beforeAll, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, vi } from 'vitest';
 
 beforeAll(() => {
   if (!globalThis.ResizeObserver) {
@@ -21,6 +21,12 @@ beforeAll(() => {
       this.dispatchEvent(new Event('close'));
     },
   });
+});
+
+beforeEach(() => {
+  localStorage.clear();
+  sessionStorage.clear();
+  window.history.replaceState({}, "", "/");
 });
 
 afterEach(() => {

@@ -18,9 +18,10 @@ describe('workspace navigation URLs', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/research'));
     await user.click(screen.getByRole('button', { name: 'Account menu' }));
     const menu = within(await screen.findByRole('menu'));
-    expect(menu.getByRole('menuitem', { name: 'Workspace', exact: true }).getAttribute('href')).toBe('/workspaces/research');
-    expect(menu.getByRole('menuitem', { name: 'API keys', exact: true }).getAttribute('href')).toBe('/workspaces/research/keys');
-    await user.click(menu.getByRole('menuitem', { name: 'API keys', exact: true }));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/workspaces/research/keys'));
+    expect(menu.getByRole('menuitem', { name: 'Sign in', exact: true }).getAttribute('href')).toBe('/login');
+    expect(menu.queryByRole('menuitem', { name: 'Organization settings' })).toBeNull();
+    await user.click(menu.getByRole('menuitem', { name: 'Sign in', exact: true }));
+    expect(await screen.findByLabelText('Administrator token')).toBeTruthy();
+    expect(router.state.location.pathname).toBe('/login');
   });
 });

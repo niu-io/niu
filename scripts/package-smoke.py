@@ -668,7 +668,7 @@ def main():
     assert_route_error("/unknown-product-page", 404)
 
     workspace_html = request("GET", "/workspaces/default/")[1]
-    assert "niu.io Console" in workspace_html
+    assert "<title>niu.io</title>" in workspace_html, "the packaged workspace omitted its Niu page title"
     bundle_match = re.search(r'<script[^>]+src="([^"]+\.js)"', workspace_html)
     assert bundle_match, "the packaged console HTML did not reference its JavaScript bundle"
     bundle_status, bundle, _ = request("GET", bundle_match.group(1))

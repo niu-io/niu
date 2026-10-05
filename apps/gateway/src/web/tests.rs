@@ -252,3 +252,46 @@ mod quota;
 mod vendors;
 
 mod providers;
+
+// Completion evidence is queued after the provider response. Tests must observe
+// the committed result rather than assume the background writer has run already.
+async fn wait_for_attempt_evidence(
+    state: &AppState,
+    scope: niu_storage::TenantScope,
+    attempt_id: Uuid,
+    settled: bool,
+) -> niu_storage::Attempt {
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        loop {
+            let attempt = state
+                .store
+                .attempt(scope, attempt_id)
+                .await
+                .unwrap()
+                .unwrap();
+            if attempt.execution == "confirmed_completed"
+                && (!settled || attempt.settlement == "settled")
+            {
+                return attempt;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("gateway completion evidence was not persisted")
+}
+
+async fn wait_for_completed_attempt(
+    state: &AppState,
+    scope: niu_storage::TenantScope,
+    attempt_id: Uuid,
+) -> niu_storage::Attempt {
+    wait_for_attempt_evidence(state, scope, attempt_id, false).await
+}
+async fn wait_for_settled_attempt(
+    state: &AppState,
+    scope: niu_storage::TenantScope,
+    attempt_id: Uuid,
+) -> niu_storage::Attempt {
+    wait_for_attempt_evidence(state, scope, attempt_id, true).await
+}
