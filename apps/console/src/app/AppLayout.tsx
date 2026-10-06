@@ -134,8 +134,7 @@ function WorkspaceSidebarToggle({ buttonRef, providerArea = false, modelsArea = 
 }
 
 function WorkspaceRailLink({ to, onActivate, children, onClick, ...props }: NavLinkProps & { onActivate?: () => void }) {
-  const { isMobile, setOpen, setOpenMobile } = useSidebar();
-  return <NavLink to={to} {...props} onClick={event => { onActivate?.(); if (isMobile) setOpenMobile(true); else setOpen(true); onClick?.(event); }}>{children}</NavLink>;
+  return <NavLink to={to} {...props} onClick={event => { onActivate?.(); onClick?.(event); }}>{children}</NavLink>;
 }
 
 export default function AppLayout() {
@@ -520,6 +519,7 @@ export default function AppLayout() {
   }, [title]);
 
   const sidebarViewportWidth = useRef(typeof window !== 'undefined' ? window.innerWidth : sidebarBreakpoint);
+  const [phoneNavigation, setPhoneNavigation] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 580);
   const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth >= sidebarBreakpoint);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -549,6 +549,7 @@ export default function AppLayout() {
   useEffect(() => {
     const closeOnCompactViewport = () => {
       const width = window.innerWidth;
+      setPhoneNavigation(width <= 580);
       if (sidebarViewportWidth.current >= sidebarBreakpoint && width < sidebarBreakpoint) {
         setSidebarOpen(false);
         if (sidebarRef.current?.contains(document.activeElement)) toggleRef.current?.focus();
@@ -569,7 +570,7 @@ export default function AppLayout() {
     <WorkspaceCreateDialog context={context} open={workspaceCreateOpen} onOpenChange={setWorkspaceCreateOpen} />
     <nav className="app-rail" aria-label="Product navigation">
       <a className="rail-logo" href={import.meta.env.BASE_URL} aria-label="niu.io home"><img src={logo} alt="" /></a>
-      {(!providerArea || isInstallation) && <WorkspaceRailLink to={activeWorkspacePath} end onActivate={() => {}} className={`rail-item${hasSidebar && !providerArea ? ' selected' : ''}`} aria-label="Workspace" title="Workspace">{hasSidebar ? <FolderOpenDot size={21} /> : <FolderDot size={21} />}</WorkspaceRailLink>}
+      {(!providerArea || isInstallation) && <WorkspaceRailLink to={activeWorkspacePath} end onActivate={() => {}} className={`rail-item${destination === 'Workspace' && !providerArea ? ' selected' : ''}`} aria-label="Workspace" title="Workspace">{hasSidebar ? <FolderOpenDot size={21} /> : <FolderDot size={21} />}</WorkspaceRailLink>}
       {(!providerArea || isInstallation) && <><NavLink to="/chat" className={`rail-item${destination === 'Global' ? ' selected' : ''}`} aria-label="Chat · compare model responses" title="Chat · compare model responses"><MessagesSquare size={21} /></NavLink>
       <NavLink to={`${activeWorkspacePath}/models`} className={`rail-item${destination === 'Models' ? ' selected' : ''}`} aria-label="Models" title="Models"><Boxes size={21} /></NavLink></>}
       <div className="rail-bottom">{isInstallation || session?.provider_memberships?.length ? <NavLink to={isInstallation ? '/providers' : `/providers/${session!.provider_memberships![0].id}`} className={`rail-item${providerArea ? ' selected' : ''}`} aria-label="Suppliers" title="Suppliers"><ServerCog size={21} aria-hidden="true" /></NavLink> : null}<NavLink className={`rail-item${helpArea ? ' selected' : ''}`} to="/help/" aria-label="Documentation" title="Documentation"><CircleHelp size={21} /></NavLink><AccountMenu context={context} workspacePath={activeWorkspacePath} providerArea={providerArea}/></div>
@@ -583,11 +584,12 @@ export default function AppLayout() {
       collapsible="offcanvas"
       className="niu-workspace-sidebar"
       mobileClassName="niu-workspace-sidebar-mobile"
-      mobileStyle={{ left: 'var(--rail)', top: 'var(--console-header-height)', right: 0, bottom: 0, width: 'min(var(--context), calc(100vw - var(--rail)))', height: 'auto' }}
+      mobileStyle={{ left: 'var(--rail)', top: 0, right: 0, bottom: 0, width: 'min(var(--context), calc(100vw - var(--rail)))', height: 'auto' }}
     >
       {providerArea ? <SupplierNav context={context} /> : <WorkspaceNav context={context} activeWorkspacePath={activeWorkspacePath} models={models} activePath={activePath} scopeLabel={scopeLabel} onCreateWorkspace={() => setWorkspaceCreateOpen(true)} />}
     </Sidebar>}
     <SidebarInset className="main-panel">
+      {phoneNavigation && !hasSidebar && !isGlobalChat && (destination !== 'Models' || activePath.startsWith('models/')) && <nav className="mobile-product-navigation" aria-label="Product navigation"><a href={import.meta.env.BASE_URL} aria-label="niu.io home"><img src={logo} alt="" /></a><AccountMenu context={context} workspacePath={activeWorkspacePath} providerArea={providerArea} mobile /></nav>}
       {!isGlobalChat && !helpArea && <header className="console-page-header">
         {(hasSidebar || (destination === 'Models' && !activePath.startsWith('models/'))) && <WorkspaceSidebarToggle buttonRef={toggleRef} providerArea={providerArea} modelsArea={destination === 'Models'} />}
         <div className="breadcrumbs"><span>{providerArea ? 'Suppliers' : platform ? 'Platform' : destination === 'Global' ? 'Niu' : destination === 'Organization' ? 'Organization' : 'Workspace'}</span><span className="crumb-divider" aria-hidden="true">/</span><h1 className="console-route-title">{destination === 'Models' && activePath.startsWith('models/') ? <NavLink to={`${activeWorkspacePath}/models`}>Models</NavLink> : title}</h1></div>

@@ -2457,3 +2457,20 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px soli
 .gateway-task-feed, .gateway-task-feed:not(.is-compact) { border: 0; border-radius: 0; background: transparent; }
 .gateway-task-feed-heading { border-bottom: 0; }
 [data-slot="dialog-content"], [data-slot="sheet-content"] { background: var(--popover); box-shadow: var(--shadow-overlay); }
+
+@media (max-width: 580px) {
+  .app-shell { --rail: 0px; --console-header-height: 56px; }
+  .app-rail { display: none; width: 54px; padding-inline: 5px; }
+  .app-rail-spacer { display: none; }
+  body:has(.niu-workspace-sidebar-mobile[data-state="open"]) .app-rail { display: flex; }
+  .niu-workspace-sidebar-mobile { --rail: 54px; }
+}
+/* Shared header controls across rail sections. */
+.app-shell .sidebar-toggle { width: 36px; height: 36px; flex: 0 0 36px; }
+.app-shell .sidebar-toggle svg { width: 18px; height: 18px; }
+.app-shell .playground-chat-toolbar { min-height: var(--console-header-height); padding: 10px 16px; align-items: center; flex-direction: row; }
+.niu-workspace-sidebar-mobile .playground-history-list { display: flex; flex-direction: column; }
+
+.mobile-product-navigation { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; min-height: 52px; padding: 6px 12px; border-bottom: 1px solid var(--border); background: var(--background); }
+.mobile-product-navigation > a { display: flex; align-items: center; }
+.mobile-product-navigation img { width: 30px; height: 30px; object-fit: contain; }

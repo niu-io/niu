@@ -69,6 +69,11 @@ function SidebarProvider({
   const isMobile = useIsMobile()
   const [openMobile, setOpenMobile] = React.useState(false)
 
+  // A dismissed desktop drawer must not reappear when returning to mobile.
+  React.useEffect(() => {
+    if (!isMobile) setOpenMobile(false)
+  }, [isMobile])
+
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
   const [_open, _setOpen] = React.useState(defaultOpen)
@@ -186,7 +191,7 @@ function Sidebar({
 
   if (isMobile) {
     return (
-      <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
+      <Sheet modal={false} open={openMobile} onOpenChange={setOpenMobile} {...props}>
         <SheetContent
           data-sidebar="sidebar"
           data-slot="sidebar"

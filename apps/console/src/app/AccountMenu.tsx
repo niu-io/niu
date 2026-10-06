@@ -1,11 +1,12 @@
+import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { LogOut, KeyRound, Sun, Moon, Monitor, Building2 } from 'lucide-react';
+import { ChevronDown, FolderDot as FolderKey, MessagesSquare as SquareSparkles, Boxes, ServerCog as Warehouse, CircleHelp, LogOut, KeyRound, Sun, Moon, Monitor, Building2 } from 'lucide-react';
 import { applyTheme, readTheme, saveTheme, type Theme } from './theme';
 import type { ConsoleContext } from './console-context';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
-export default function AccountMenu({ context, workspacePath, providerArea = false }: { context: ConsoleContext; workspacePath: string; providerArea?: boolean }) {
+export default function AccountMenu({ context, workspacePath, providerArea = false, mobile = false }: { context: ConsoleContext; workspacePath: string; providerArea?: boolean; mobile?: boolean }) {
   const [themeKeyboardFocus, setThemeKeyboardFocus] = useState(false);
   const [theme, setTheme] = useState<Theme>(readTheme);
   useEffect(() => {
@@ -22,10 +23,20 @@ export default function AccountMenu({ context, workspacePath, providerArea = fal
   const label = supplierOnly ? installation ? 'Supplier management' : 'Supplier account' : installation ? 'Niu administrator' : session?.operator ? `${session.operator.role[0].toUpperCase()}${session.operator.role.slice(1)}` : 'Administrator access';
   return <>
     <DropdownMenu>
-      <DropdownMenuTrigger className="rail-avatar account-trigger" aria-label="Account menu" title="Account">
+      {mobile ? <DropdownMenuTrigger asChild><Button variant="ghost" aria-label="Open navigation menu">Navigation<ChevronDown size={16} /></Button></DropdownMenuTrigger> : <DropdownMenuTrigger className="rail-avatar account-trigger" aria-label="Account menu" title="Account">
         {session ? label[0] : 'N'}
-      </DropdownMenuTrigger>
-        <DropdownMenuContent className="account-menu" onKeyDownCapture={() => setThemeKeyboardFocus(true)} side="right" align="end" sideOffset={12} collisionPadding={12}>
+      </DropdownMenuTrigger>}
+        <DropdownMenuContent className="account-menu" onKeyDownCapture={() => setThemeKeyboardFocus(true)} side={mobile ? "bottom" : "right"} align="end" sideOffset={12} collisionPadding={12}>
+          {mobile && <>
+            {(!providerArea || installation) && <>
+              <DropdownMenuItem asChild><Link to={workspacePath}><FolderKey />Workspace</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild><Link to="/chat"><SquareSparkles />Chat</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild><Link to={`${workspacePath}/models`}><Boxes />Models</Link></DropdownMenuItem>
+            </>}
+            <DropdownMenuItem asChild><Link to={installation ? '/providers' : session?.provider_memberships?.length ? `/providers/${session.provider_memberships[0].id}` : '/providers'}><Warehouse size={16} />Suppliers</Link></DropdownMenuItem>
+            <DropdownMenuItem asChild><Link to="/help/"><CircleHelp />Documentation</Link></DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>}
           <DropdownMenuLabel className="account-identity">
             <strong>{label}</strong>
             <span>{supplierOnly ? 'Model supply and earnings' : installation ? 'All organizations and workspaces' : session?.operator ? 'Scoped workspace access' : 'Sign in to manage this installation'}</span>

@@ -1,4 +1,5 @@
-import { Sidebar, SidebarHeader, SidebarContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
+import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Sidebar, SidebarHeader, SidebarContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, useSidebar } from '@/components/ui/sidebar';
 import { Textarea } from '@/components/ui/textarea';
 import { Table as ShadcnTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { X } from 'lucide-react';
@@ -245,7 +246,7 @@ export default function PlaygroundView({ token, models, initialScope }: {
   models: string[];
   initialScope: Scope | null;
 }) {
-  const { isMobile, setOpenMobile } = useSidebar();
+  const { isMobile, setOpenMobile, openMobile, open, toggleSidebar } = useSidebar();
   const location = useLocation();
   const comparisonController = useRef<AbortController | null>(null);
   const customizedModels = useRef(false);
@@ -472,7 +473,7 @@ export default function PlaygroundView({ token, models, initialScope }: {
 
   return <div className="playground-view">
     <div className="playground-chat-layout">
-      <Sidebar className="niu-workspace-sidebar playground-history" mobileClassName="niu-workspace-sidebar-mobile" mobileStyle={{ left: 'var(--rail)', top: 0, bottom: 0, height: '100dvh', width: 'min(var(--context), calc(100vw - var(--rail)))' }} aria-label="Recent comparisons">
+      <Sidebar id="chat-history" className="niu-workspace-sidebar playground-history" mobileClassName="niu-workspace-sidebar-mobile" mobileStyle={{ left: 'var(--rail)', top: 0, bottom: 0, height: '100dvh', width: 'min(var(--context), calc(100vw - var(--rail)))' }} aria-label="Recent comparisons">
         <SidebarHeader className="playground-history-heading"><h2>Recent</h2><Button type="button" variant="ghost" size="sm" onClick={startNewComparison} disabled={running}><MessageSquarePlus size={16} />New</Button>{isMobile && <Button variant="ghost" size="icon" aria-label="Close chat history" onClick={() => setOpenMobile(false)}><X size={16} /></Button>}</SidebarHeader>
         <SidebarContent className="playground-history-list"><SidebarMenu>
           {history.length === 0
@@ -484,7 +485,7 @@ export default function PlaygroundView({ token, models, initialScope }: {
       </Sidebar>
 
       <section className="playground-chat-main" aria-label="Model comparison chat">
-        <header className="playground-chat-toolbar"><SidebarTrigger aria-label="Toggle chat history" />
+        <header className="playground-chat-toolbar"><Button type="button" variant="ghost" size="icon" className="sidebar-toggle" onClick={toggleSidebar} aria-label="Toggle chat history" aria-controls="chat-history" aria-expanded={isMobile ? openMobile : open}>{(isMobile ? openMobile : open) ? <PanelLeftClose aria-hidden="true" /> : <PanelLeftOpen aria-hidden="true" />}</Button>
           <div className="playground-toolbar-models">
             <span className="playground-toolbar-label">Models</span>
             <div className="playground-toolbar-chips">

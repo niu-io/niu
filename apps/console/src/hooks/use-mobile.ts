@@ -1,7 +1,7 @@
 import * as React from "react"
 
-// Match the shell breakpoint where the persistent product rail disappears.
-const MOBILE_BREAKPOINT = 641
+// All context sidebars become drawers below the shared shell breakpoint.
+const MOBILE_BREAKPOINT = 960
 
 export function useIsMobile() {
   const [isMobile, setIsMobile] = React.useState<boolean | undefined>(undefined)
