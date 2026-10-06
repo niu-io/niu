@@ -71,7 +71,7 @@ jobs:
         run: |
           mkdir -p dist
           npm pack --pack-destination dist
-          npm publish ./dist/*.tgz --access public --dry-run --ignore-scripts
+          npm pack ./dist/*.tgz --dry-run --offline --ignore-scripts
           npm install --prefix "$RUNNER_TEMP/collector-install" --no-package-lock --ignore-scripts --no-audit --no-fund ./dist/*.tgz
           NIU_COLLECTOR_HOME="$RUNNER_TEMP/collector-smoke" "$RUNNER_TEMP/collector-install/node_modules/.bin/niu-collector" status
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
