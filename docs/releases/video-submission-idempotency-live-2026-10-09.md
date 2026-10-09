@@ -87,3 +87,21 @@ HTTP 409 under the authorized owner session. Independent database counts before
 and after remained one original attempt, identity, bound job and submission span,
 with no customer ledger entries. All temporary operators and keys were revoked.
 This covers scoped API sessions, not browser cookie/session integration.
+
+## Saved result retrieval after subsequent backend restarts
+
+After the later optimized-gateway rebuilds and restarts, a fresh short-lived
+model-granted key in the original workspace allowed a workspace-scoped viewer to
+read the existing succeeded job and download its video. No new generation or
+refresh request was submitted. The downloaded file was exactly 80,948 bytes with
+SHA-256 `d7703aa1bd9cddd01f343369f642cf0b624d05d5690d27c9162789a46d40351c`,
+matching the original generation artifact. FFmpeg decoded the complete file with
+no reported errors.
+
+A viewer scoped to another workspace received HTTP 403 for the same result URL.
+After revoking the newly selected model key, the authorized workspace viewer
+received HTTP 401 through that key's route. Temporary viewer credentials were
+also revoked. Historical data survives key rotation/revocation, but this selected-
+key result API requires a currently valid key with the model grant; revocation
+must not be described as deleting the saved result. These observations cover this
+existing video's read/recovery boundary, not new generation or commercial billing.
