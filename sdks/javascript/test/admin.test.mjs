@@ -134,7 +134,7 @@ test('top-ups reject rounded, coercible, overprecise and overflowing amounts bef
   const client = new NiuAdminClient({adminToken:'test', fetch: async()=>{calls++; return Response.json({});}});
   const valid = {amount_nanos:'1000000000', payment_method:'wxpaynative', idempotency_key:id};
   for (const amount_nanos of [0, 1000000000, null, undefined, '0', '-1', '+1000000000', '1e9', '1.00', '1', '1000000001', '9223372036860000000', '9'.repeat(100)]) {
-    assert.throws(()=>client.createCustomerTopup(id,{...valid,amount_nanos}),/exact positive CNY/);
+    assert.throws(()=>client.createCustomerTopup(id,{...valid,amount_nanos}),/exact positive amount/);
   }
   for (const payment_method of ['', '../foreign', 'x'.repeat(65), null, 1]) {
     assert.throws(()=>client.createCustomerTopup(id,{...valid,payment_method}),/payment method/);
