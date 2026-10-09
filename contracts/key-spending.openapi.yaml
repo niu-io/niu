@@ -11,6 +11,7 @@ paths:
       - $ref: '#/components/parameters/Workspace'
       - $ref: '#/components/parameters/Key'
     get:
+      security: [{ bearerAuth: [] }]
       operationId: listKeySpendingLimits
       description: Scoped readers may inspect customer commitments. Rotated keys share the original spending identity. Personal upstream routes do not consume customer funds. No Supplier costs or company balance are exposed.
       responses:
@@ -42,6 +43,7 @@ paths:
       - $ref: '#/components/parameters/Key'
       - $ref: '#/components/parameters/Currency'
     put:
+      security: [{ bearerAuth: [] }]
       operationId: setKeySpendingLimit
       description: Workspace/company owner or installation administrator. Cap includes settled customer charges minus refunds plus unreleased reservations, across secret rotations. Lowering below committed liability is rejected. Account and workspace limits still apply. Writes do not add funds. Null explicitly restores unlimited; omission is rejected.
       requestBody:
@@ -81,6 +83,7 @@ paths:
       - $ref: '#/components/parameters/Key'
       - $ref: '#/components/parameters/Currency'
     get:
+      security: [{ bearerAuth: [] }]
       operationId: listKeySpendingLimitHistory
       parameters:
         - { name: before_revision, in: query, schema: { type: integer, minimum: 1 } }

@@ -6,6 +6,24 @@ info:
 servers:
   - url: /
 paths:
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit:
+    $ref: './key-spending.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1spending-limit'
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}:
+    $ref: './key-spending.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1spending-limit~1{currency}'
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}/history:
+    $ref: './key-spending.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1spending-limit~1{currency}~1history'
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy:
+    $ref: './key-ip.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1ip-policy'
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy/history:
+    $ref: './key-ip.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1ip-policy~1history'
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/request-rate-limit:
+    $ref: './key-request-rate.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1request-rate-limit'
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/request-rate-limit/history:
+    $ref: './key-request-rate.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1request-rate-limit~1history'
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit:
+    $ref: './key-concurrency.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1concurrency-limit'
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit/history:
+    $ref: './key-concurrency.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1concurrency-limit~1history'
   /v1/media/image-ingestions:
     get:
       operationId: listImageIngestions
@@ -5039,7 +5057,7 @@ components:
     KeyInput:
       type: object
       additionalProperties: false
-      description: Unknown fields are rejected. Key creation does not configure a per-key spending limit; customer workspace spending limits use the separate spending-limit API.
+      description: Unknown fields are rejected. Configure per-key customer spending, IP allowlist, rolling request rate and concurrent-request limits through their separate key management APIs. Key creation does not set these policies. Workspace and company financial limits still apply; rotation preserves the key lineage policies.
       required: [name, ttl_seconds]
       properties:
         name:

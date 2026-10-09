@@ -11,6 +11,7 @@ paths:
       - $ref: '#/components/parameters/Workspace'
       - $ref: '#/components/parameters/Key'
     get:
+      security: [{ bearerAuth: [] }]
       operationId: getKeyRequestRateLimit
       description: Scoped readers may inspect the policy shared across secret rotations.
       responses:
@@ -28,6 +29,7 @@ paths:
         '403': { description: Workspace access denied }
         '404': { description: Workspace is outside operator scope, or key is absent from authorized workspace }
     put:
+      security: [{ bearerAuth: [] }]
       operationId: setKeyRequestRateLimit
       description: Owner or installation administrator only. Rotation preserves this policy. Does not cancel already admitted requests.
       requestBody:
@@ -71,6 +73,7 @@ paths:
       - $ref: '#/components/parameters/Workspace'
       - $ref: '#/components/parameters/Key'
     get:
+      security: [{ bearerAuth: [] }]
       operationId: listKeyRequestRateLimitHistory
       description: Scoped readers receive descending revisions shared across rotations. Use the last revision as the next page cursor.
       parameters:
