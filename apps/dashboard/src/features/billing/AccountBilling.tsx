@@ -80,6 +80,9 @@ export default function AccountBilling({token, organization, canConfigure = fals
   if (!editing || !canConfigure || saving || conflict || !warningChanged) return;
   setSaveError(''); setConflict(false);
   let nanos: string | null = null;
+  if (warningEnabled && threshold.trim().startsWith('-')) {
+   setSaveError('Enter a threshold of zero or greater.'); return;
+  }
   try {
    if (warningEnabled) nanos = /^0+(?:\.0{1,9})?$/.test(threshold.trim()) ? '0' : amountToNanos(threshold);
   } catch (error) {setSaveError(error instanceof Error ? error.message : 'Enter a valid amount.');return;}
