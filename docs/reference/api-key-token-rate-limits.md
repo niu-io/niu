@@ -81,8 +81,8 @@ continued to block admission after rotation, a gateway restart and another 61-se
 observation period. Independent SQL still showed one unresolved dispatch. Temporary
 secrets were revoked without fabricating completion or releasing unknown usage.
 
-Paid accounting, Responses/embedding live behavior under this policy, mixed-key
-batch fallback, estimator overruns and sustained performance remain unverified.
+Paid accounting, mixed-key batch fallback, cross-protocol concurrent workload
+behavior, estimator overruns and sustained performance remain unverified.
 Fixture outcomes do not establish any behavior described here.
 
 A further actual Chat request omitted its output limit under a finite budget. It
@@ -91,3 +91,26 @@ attempt, zero dispatches, no recorded token usage, no customer ledger entries an
 no customer balance reservations. The recent token-usage endpoint stayed empty.
 The temporary key was revoked. This negative personal-route check does not prove
 successful paid reservation or settlement.
+
+## Responses and embeddings (2026-10-10)
+
+Two temporary private model mappings reused the existing personal Supplier
+credential without modifying its original model mapping. Each key was first
+configured with zero token budget, then with a sufficient finite budget.
+
+- Responses: the zero-budget request returned 429. The sufficient-budget request
+  returned a real model response within its explicit output limit. Independent SQL
+  confirmed exactly one dispatched/completed attempt and prompt/completion usage
+  matching the response.
+- Text embeddings: the zero-budget request returned 429. The sufficient-budget
+  request returned two distinct 1536-dimensional vectors for two text inputs. Every
+  vector element was numeric and finite, and neither vector was all zero. SQL
+  confirmed one dispatched/completed attempt, matching prompt usage and zero
+  completion tokens. A hash of the returned vector artifact was retained privately.
+
+The embedding model and request protocol were checked against the
+[OpenRouter embeddings API documentation](https://openrouter.ai/docs/api/api-reference/embeddings/create-embeddings).
+Both temporary model mappings were disabled and both keys revoked after the runs.
+These are actual personal-route protocol checks, not commercial-supply or prepaid
+settlement evidence. They do not qualify every input format, embedding dimension,
+streaming Responses, concurrent mixed-protocol traffic or estimator accuracy.
