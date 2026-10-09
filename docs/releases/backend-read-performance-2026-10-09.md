@@ -140,3 +140,29 @@ not a fabricated 100-row dataset. In 30.007 seconds at concurrency eight it read
 The pre/post API documents matched and independent SQL confirmed all 29 returned
 attempt references. The temporary viewer was revoked. This verifies the tool's
 actual read path at this data size, not large-history capacity.
+
+## Optimized native build
+
+The release build from source `32f49dd` was compiled locally and started using the
+existing database, encryption identity and private configuration. Process command
+inspection confirmed the release executable was serving requests. Its SHA-256
+was `fcaa9b6f6385859a3de579a0551e1e59aa1a9e0d3334ae6bcb4436debcdd612a`.
+No image build or container acceptance was involved.
+
+Using the committed read tool, the same 29-row `limit=100` page and eight persistent
+connections completed 57,351 matching responses in 30.002 seconds (1,911.55/s),
+with zero errors or changed documents. Latency was P50 3.538 ms, P95 4.723 ms,
+P99 5.486 ms and maximum 24.209 ms. Independent PostgreSQL reads confirmed all
+29 returned references. The temporary scoped viewer was revoked. This separates
+optimized-build observations from the earlier debug baseline; client throughput,
+small data size and short duration still preclude a production capacity claim.
+A few payment-inventory and saved-video authorization checks ran concurrently,
+so this is not a strictly isolated comparative experiment.
+
+The release service also returned the documented payment inventory with the
+same authorization denials and unchanged company balance. Saved video replay
+retained one original submission and rejected changed input and unauthorized
+scopes. After the read measurement, an actual personal streaming request
+completed and its saved timing/usage record was retrieved. Temporary credentials
+were revoked. These cover the exercised native release paths, not every payment
+or video lifecycle or the full performance matrix.
