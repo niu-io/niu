@@ -31,6 +31,22 @@ fn transport_error(error: reqwest::Error) -> ResultError {
         ResultError::Transport
     }
 }
+
+/// Signed/content URLs may have a query. DNS authorization depends on the
+/// authority; keep the exact query on the GET, never on diagnostics or pool keys.
+pub(crate) async fn client_for_result_endpoint(
+    endpoint: &str,
+    timeout: Duration,
+) -> Result<reqwest::Client, ResultError> {
+    if !crate::public_https(endpoint, 8192) {
+        return Err(ResultError::EndpointRejected);
+    }
+    let mut address = url::Url::parse(endpoint).map_err(|_| ResultError::EndpointRejected)?;
+    address.set_query(None);
+    niu_upstream::client_for_endpoint(address.as_str(), timeout)
+        .await
+        .map_err(|_| ResultError::EndpointRejected)
+}
 fn format(kind: ResultKind, mime: &str, body: &[u8]) -> Option<&'static str> {
     match (kind, mime) {
         (ResultKind::Video, "video/mp4") if body.len() >= 12 && &body[4..8] == b"ftyp" => {
@@ -57,7 +73,7 @@ fn format(kind: ResultKind, mime: &str, body: &[u8]) -> Option<&'static str> {
         _ => None,
     }
 }
-async fn read(
+pub(crate) async fn read(
     mut response: reqwest::Response,
     kind: ResultKind,
     maximum_bytes: usize,
@@ -131,9 +147,7 @@ pub async fn fetch_result(
         return Err(ResultError::EndpointRejected);
     }
     let work = async {
-        let client = niu_upstream::client_for_endpoint(endpoint, timeout)
-            .await
-            .map_err(|_| ResultError::EndpointRejected)?;
+        let client = client_for_result_endpoint(endpoint, timeout).await?;
         let response = client
             .get(endpoint)
             .header(reqwest::header::ACCEPT_ENCODING, "identity")

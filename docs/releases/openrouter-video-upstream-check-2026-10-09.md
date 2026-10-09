@@ -41,3 +41,27 @@ an independently measured artifact duration by itself proves the Provider's
 billable quantity. Keep owner-funded requests separate from customer pricing.
 End-to-end Niu submission, restart recovery, scoped result retrieval and billing
 remain unverified. No fixture-test outcome is evidence for this checkpoint.
+
+## Rust protocol and result transport increment
+
+`niu_media::openrouter` now implements strict text-request translation, bounded
+authenticated job queries and content retrieval. Queries require the saved job
+identity; an optional upstream model field must match the saved route. Missing
+reported quantity and provider timestamps remain missing. Upstream cost is not
+converted into customer usage. The translator rejects controls it cannot forward.
+
+Result authentication is restricted to the pinned job's exact same-origin
+content path. At most three independently validated HTTPS redirects are followed;
+all requests after the first omit credentials. Size, timeout and media-container
+checks remain enforced. The generic result transport also now accepts URL query
+parameters: DNS validation and connection pooling use an address without the
+query, while the GET retains the original result URL. This fixes the observed
+pre-network rejection of OpenRouter's `?index=0` content URL without weakening
+host/address checks or enabling redirects in generic result retrieval.
+
+A private executable using the actual modified Rust crate queried the already
+completed real upstream job and retrieved its content. It observed completion
+with missing reported quantity. The downloaded bytes matched the independently
+decoded original MP4 exactly. No additional generation was submitted for this
+check. Gateway lifecycle wiring and submission translation are not yet verified;
+this increment does not enable an OpenRouter channel in Niu's video API.

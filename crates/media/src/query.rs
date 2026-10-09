@@ -45,12 +45,12 @@ pub struct QueryObservation {
     pub quantity: ReportedQuantity,
     pub times: ProviderTimes,
     pub has_provider_error: bool,
-    upstream_job: String,
-    upstream_model: String,
-    video_url: Option<String>,
-    last_frame_url: Option<String>,
-    protocol_revision: String,
-    meter: String,
+    pub(crate) upstream_job: String,
+    pub(crate) upstream_model: String,
+    pub(crate) video_url: Option<String>,
+    pub(crate) last_frame_url: Option<String>,
+    pub(crate) protocol_revision: String,
+    pub(crate) meter: String,
 }
 impl QueryObservation {
     /// Content-free durable evidence. Excludes private URLs, upstream identity,
