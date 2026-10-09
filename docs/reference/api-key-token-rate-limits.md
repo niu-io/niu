@@ -84,3 +84,10 @@ secrets were revoked without fabricating completion or releasing unknown usage.
 Paid accounting, Responses/embedding live behavior under this policy, mixed-key
 batch fallback, estimator overruns and sustained performance remain unverified.
 Fixture outcomes do not establish any behavior described here.
+
+A further actual Chat request omitted its output limit under a finite budget. It
+returned 422 `key_token_bound_required`. Independent SQL confirmed one prepared
+attempt, zero dispatches, no recorded token usage, no customer ledger entries and
+no customer balance reservations. The recent token-usage endpoint stayed empty.
+The temporary key was revoked. This negative personal-route check does not prove
+successful paid reservation or settlement.
