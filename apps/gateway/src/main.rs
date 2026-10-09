@@ -175,7 +175,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ));
 
     tracing::info!(address = %address, "Niu gateway listening");
-    axum::serve(listener, app)
+    // Finalize routes once instead of repeating with_state for every connection.
+    axum::serve(listener, app.into_make_service())
         .with_graceful_shutdown(shutdown_signal())
         .await?;
     gateway_writes.shutdown().await;

@@ -77,3 +77,29 @@ samples are not a controlled repeated causal estimate. The remaining debug-build
 CPU cost still needs profiling; no backend optimization or production capacity
 claim follows from this comparison. Future reports must state connection reuse
 explicitly rather than conflating per-connection work with steady-state reads.
+
+## Eager router finalization
+
+Inspection of the installed Axum implementation identified a concrete connection
+cost: serving `Router` directly calls `self.clone().with_state(())` for each
+incoming connection. `into_make_service()` performs that finalization once when
+constructing the service. The gateway entry point now uses this explicit service
+conversion, retaining the same router, layers and graceful shutdown.
+
+After compilation and a graceful restart using the existing database/encryption
+configuration, the same eight-client fresh-connection run completed 30,498 reads
+in 30.009 seconds (1,016.31 requests/s). Latency was P50 7.37 ms, P95 10.12 ms,
+P99 11.41 ms and maximum 127.54 ms. Thirty process samples recorded peak CPU
+485.0% and RSS from 31,616 to 39,552 KiB. All response documents matched;
+independent SQL confirmed the returned references and foreign-workspace access
+remained HTTP 404. The maximum latency and startup memory growth prevent a
+blanket claim of uniformly lower latency or steady memory consumption. These
+sequential development measurements are not a production capacity estimate.
+
+Post-restart business checks also exercised the built administration SDK's saved
+video replay: owner access succeeded, viewer/foreign scope and missing model
+grants were denied, changed input conflicted, and database submission counts
+stayed unchanged. An actual personal streaming model request completed and its
+persisted usage/timing record was independently read. Temporary keys and operators
+were revoked. Compilation and formatting were checked; no fixture outcome is
+used as evidence for this change.
