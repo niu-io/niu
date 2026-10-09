@@ -76,6 +76,18 @@ blockers. Preserve the dependency order: Supplier credentials and model/rate
 configuration → workspace API-key access → inference → durable usage, customer
 charges and diagnostic records. Keep container qualification deferred.
 
+Backend readiness is assessed separately from external account activation.
+Payment acceptance requires a documented supported-integration list and verified
+internal configuration, authorization, order, callback, accounting and recovery
+capabilities; it does not require a real transaction through every listed gateway.
+Merchant entitlements, enabled channels and live callback connectivity are
+installation-specific checks. Likewise, commercial Supplier onboarding is distinct
+from internal adapter readiness. Record unverified external behavior explicitly;
+do not use missing external access to block independent backend performance work.
+The [payment integration inventory](../reference/payment-aggregators.md#supported-integration-list-and-readiness-boundary)
+defines the supported scope. Existing live-commercial checklist items below track
+deployment qualification and do not override this internal-readiness boundary.
+
 Video generation is required for the first release. Work follows the dependency sequence below; deliver the relevant customer controls and diagnostics with each backend increment, rather than postponing all UI work until phase 4.
 
 | Priority | Work package | Required coverage | Ready to proceed when |

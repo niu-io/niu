@@ -1,6 +1,37 @@
 # Payment aggregator integration
 
-Status: protocol foundation only; checkout and payment settlement are not release-qualified. Reviewed 2026-10-07.
+Status: supported adapter inventory and implementation checkpoints. Reviewed 2026-10-09.
+
+## Supported integration list and readiness boundary
+
+Niu separates supported payment integrations from the methods enabled on a
+particular installation, following the structure of
+[New API payment settings](https://docs.newapi.pro/zh/docs/guide/console/settings/payment-settings).
+Supporting an adapter does not require opening a merchant account or completing
+a real transaction with every payment operator. Merchant onboarding and live
+collection are deployment-specific checks, not prerequisites for internal backend
+readiness or performance work.
+
+| Integration | Configuration required | Implemented scope | Deployment-specific checks |
+| --- | --- | --- | --- |
+| Classic EPay-compatible gateways | API address, merchant PID/key, callback/return addresses, enabled channel identifiers | Checkout creation and signed notification handling for saved CNY orders; encrypted administrator configuration | Operator compatibility, enabled Alipay/WeChat or other channels, public callback delivery |
+| Stripe | Merchant configuration alias, API and webhook secrets, explicit test/live mode, return address, enabled methods | Checkout creation, signed notifications and bound-session query recovery | Merchant eligibility, enabled methods/currencies and live webhook delivery |
+| Native Zhifux / PaymentFM | Native API address, merchant credentials, checkout origins, enabled payType values and callback configuration | Native order creation, signed notifications and order-query reconciliation | Merchant API entitlements, enabled channels and callback delivery |
+
+The native Zhifux adapter is separate from EPay compatibility; neither establishes
+that the other interface is enabled for a given merchant. Other New API gateways
+are references, not supported Niu adapters unless implemented here.
+
+Administration may list supported integrations even before configuration.
+Customer checkout exposes only explicitly enabled, completely configured methods.
+Listing an integration never grants balance or claims a successful live payment.
+Internal acceptance still requires configuration validation, authorization,
+protocol handling, durable order identity, exact amount/currency validation,
+signed evidence, duplicate protection and safe failure/recovery behavior. Browser
+returns never authorize funding. Unsupported refund or recovery capabilities
+remain explicit; fixture outcomes do not establish readiness. Historical
+checkpoints below describe implementation work, not blanket acceptance.
+
 
 The preferred domestic candidate is 支付FM (zhifux.com), using signed merchant channels. Its [official compatibility documentation](https://docs.zhifux.com/read/zhifufm/api-epay) explicitly describes an EPay-compatible interface. The existing Zhifux code uses its native API; the generic classic EPay protocol foundation is separate and has not been qualified against Zhifux’s compatibility interface. Its [product guide](https://docs.zhifux.com/read/zhifufm/paytype) distinguishes signed merchant channels from monitoring-based personal collection methods. Merchant eligibility, actual enabled methods, settlement and end-to-end acceptance still require qualification.
 
