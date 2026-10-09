@@ -105,3 +105,19 @@ also revoked. Historical data survives key rotation/revocation, but this selecte
 key result API requires a currently valid key with the model grant; revocation
 must not be described as deleting the saved result. These observations cover this
 existing video's read/recovery boundary, not new generation or commercial billing.
+
+## Bounded concurrent result retrieval
+
+A single group of eight synchronized public result-download requests exercised
+the saved video with a freshly issued model-granted key. Four returned HTTP 200
+in 1,400.89–1,449.56 ms; each complete response matched the original 80,948-byte
+file and SHA-256. Four returned HTTP 503 with `media_result_busy` in
+9.46–9.87 ms. The key was revoked afterwards. No generation, refresh or automatic
+retry was requested. This is a bounded observation of the four-download admission
+limit, not a sustained throughput or production-capacity qualification.
+
+Persistence here means the saved job and encrypted upstream result reference.
+The gateway fetches the video from the upstream service for each download; it
+does not durably cache the video bytes locally. The successful restart/retrieval
+checks therefore do not promise availability after upstream content expiry or
+removal. Report the measured download latency as including upstream transport.
