@@ -245,14 +245,14 @@ impl Store {
     /// Rebuild scheduling from durable jobs after a crash between receipt and
     /// enqueue. Only existing owner-funded direct jobs enter this initial queue.
     pub async fn enqueue_pending_personal_media_queries(&self) -> Result<u64, StoreError> {
-        Ok(sqlx::query("INSERT INTO media_query_schedule(attempt_id) SELECT a.id FROM attempts a JOIN media_jobs j ON j.attempt_id=a.id JOIN media_recovery_routes r ON r.attempt_id=a.id JOIN personal_attempt_routes p ON p.attempt_id=a.id JOIN vendor_models m ON m.alias=a.resource_id AND m.vendor_id=r.vendor_id WHERE a.execution='may_have_executed' AND a.api_key_id IS NOT NULL AND m.capabilities->'video_schema'->>'channel' IN ('ark-direct-v1','openrouter-video-v1') AND NOT EXISTS(SELECT 1 FROM media_query_schedule existing WHERE existing.attempt_id=a.id) ORDER BY a.id LIMIT 100 ON CONFLICT(attempt_id) DO NOTHING").execute(&self.pool).await?.rows_affected())
+        Ok(sqlx::query("INSERT INTO media_query_schedule(attempt_id) SELECT a.id FROM attempts a JOIN media_jobs j ON j.attempt_id=a.id JOIN media_recovery_routes r ON r.attempt_id=a.id JOIN media_recovery_protocols protocol ON protocol.attempt_id=r.attempt_id JOIN personal_attempt_routes p ON p.attempt_id=a.id JOIN vendor_models m ON m.alias=a.resource_id AND m.vendor_id=r.vendor_id WHERE a.execution='may_have_executed' AND a.api_key_id IS NOT NULL AND protocol.channel IN ('ark-direct-v1','openrouter-video-v1') AND NOT EXISTS(SELECT 1 FROM media_query_schedule existing WHERE existing.attempt_id=a.id) ORDER BY a.id LIMIT 100 ON CONFLICT(attempt_id) DO NOTHING").execute(&self.pool).await?.rows_affected())
     }
 
     /// Reconstruct direct-channel polling from original jobs and accounting
     /// bindings. Completed customer jobs with unposted liability remain eligible
     /// after a crash; a terminal generation label is not settlement evidence.
     pub async fn enqueue_pending_media_queries(&self) -> Result<u64, StoreError> {
-        Ok(sqlx::query("INSERT INTO media_query_schedule(attempt_id) SELECT a.id FROM attempts a JOIN media_jobs j ON j.attempt_id=a.id JOIN media_recovery_routes r ON r.attempt_id=a.id JOIN vendor_models m ON m.alias=a.resource_id AND m.vendor_id=r.vendor_id WHERE a.api_key_id IS NOT NULL AND m.capabilities->'video_schema'->>'channel' IN ('ark-direct-v1','openrouter-video-v1') AND (EXISTS(SELECT 1 FROM personal_attempt_routes p WHERE p.attempt_id=a.id) OR (EXISTS(SELECT 1 FROM customer_media_attempt_pricing p WHERE p.attempt_id=a.id) AND EXISTS(SELECT 1 FROM provider_attempt_offers o WHERE o.attempt_id=a.id) AND EXISTS(SELECT 1 FROM customer_media_liability_bounds b WHERE b.attempt_id=a.id))) AND (a.execution='may_have_executed' OR (a.execution='confirmed_completed' AND EXISTS(SELECT 1 FROM customer_media_attempt_pricing p WHERE p.attempt_id=a.id) AND NOT EXISTS(SELECT 1 FROM customer_media_charges c WHERE c.attempt_id=a.id AND (EXISTS(SELECT 1 FROM customer_balance_entries e WHERE e.attempt_id=c.attempt_id AND e.kind='charge') OR (c.amount_nanos=0 AND NOT EXISTS(SELECT 1 FROM customer_balance_reservations h WHERE h.attempt_id=c.attempt_id AND h.released_at IS NULL)))))) AND NOT EXISTS(SELECT 1 FROM media_query_schedule existing WHERE existing.attempt_id=a.id) ORDER BY a.id LIMIT 100 ON CONFLICT(attempt_id) DO NOTHING").execute(&self.pool).await?.rows_affected())
+        Ok(sqlx::query("INSERT INTO media_query_schedule(attempt_id) SELECT a.id FROM attempts a JOIN media_jobs j ON j.attempt_id=a.id JOIN media_recovery_routes r ON r.attempt_id=a.id JOIN media_recovery_protocols protocol ON protocol.attempt_id=r.attempt_id JOIN vendor_models m ON m.alias=a.resource_id AND m.vendor_id=r.vendor_id WHERE a.api_key_id IS NOT NULL AND protocol.channel IN ('ark-direct-v1','openrouter-video-v1') AND (EXISTS(SELECT 1 FROM personal_attempt_routes p WHERE p.attempt_id=a.id) OR (EXISTS(SELECT 1 FROM customer_media_attempt_pricing p WHERE p.attempt_id=a.id) AND EXISTS(SELECT 1 FROM provider_attempt_offers o WHERE o.attempt_id=a.id) AND EXISTS(SELECT 1 FROM customer_media_liability_bounds b WHERE b.attempt_id=a.id))) AND (a.execution='may_have_executed' OR (a.execution='confirmed_completed' AND EXISTS(SELECT 1 FROM customer_media_attempt_pricing p WHERE p.attempt_id=a.id) AND NOT EXISTS(SELECT 1 FROM customer_media_charges c WHERE c.attempt_id=a.id AND (EXISTS(SELECT 1 FROM customer_balance_entries e WHERE e.attempt_id=c.attempt_id AND e.kind='charge') OR (c.amount_nanos=0 AND NOT EXISTS(SELECT 1 FROM customer_balance_reservations h WHERE h.attempt_id=c.attempt_id AND h.released_at IS NULL)))))) AND NOT EXISTS(SELECT 1 FROM media_query_schedule existing WHERE existing.attempt_id=a.id) ORDER BY a.id LIMIT 100 ON CONFLICT(attempt_id) DO NOTHING").execute(&self.pool).await?.rows_affected())
     }
 
     /// Stop only on generation failure/conflict or successfully reconciled
@@ -625,6 +625,18 @@ impl Store {
         if !same {
             return Err(StoreError::Conflict);
         }
+        sqlx::query("INSERT INTO media_recovery_protocols(attempt_id,channel) VALUES($1,$2) ON CONFLICT(attempt_id) DO NOTHING")
+            .bind(attempt).bind(&schema.channel).execute(&mut *tx).await?;
+        let same_protocol: bool = sqlx::query_scalar(
+            "SELECT channel=$2 FROM media_recovery_protocols WHERE attempt_id=$1",
+        )
+        .bind(attempt)
+        .bind(&schema.channel)
+        .fetch_one(&mut *tx)
+        .await?;
+        if !same_protocol {
+            return Err(StoreError::Conflict);
+        }
         tx.commit().await?;
         Ok(())
     }
@@ -724,14 +736,15 @@ impl Store {
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_optional(&self.pool).await?)
     }
 
-    /// A changed or disabled credential/model blocks recovery. Never silently
-    /// use a replacement account or replay generation to recover a job.
+    /// Model edits cannot change a saved job's protocol or upstream identity.
+    /// Credential changes and disabled routes still block egress; never use a
+    /// replacement account or replay generation to recover a job.
     pub async fn media_recovery_route(
         &self,
         scope: TenantScope,
         attempt: Uuid,
     ) -> Result<Option<MediaRecoveryRoute>, StoreError> {
-        let row = sqlx::query("SELECT r.vendor_id,m.capabilities->'video_schema'->>'channel' AS channel,j.upstream_job_id,r.upstream_model,r.adapter,r.api_base,v.credential_ciphertext,(v.enabled AND m.enabled AND v.revision=r.vendor_revision AND m.revision=r.model_revision AND m.upstream_model=r.upstream_model AND v.adapter=r.adapter AND v.api_base=r.api_base AND m.capabilities->'video_schema'->>'revision'=r.schema_revision AND NOT EXISTS(SELECT 1 FROM personal_vendor_ownership o WHERE o.vendor_id=v.id AND o.organization_id<>r.organization_id)) AS current FROM media_recovery_routes r JOIN media_jobs j ON j.attempt_id=r.attempt_id JOIN vendors v ON v.id=r.vendor_id LEFT JOIN vendor_models m ON m.alias=(SELECT resource_id FROM attempts WHERE id=r.attempt_id) AND m.vendor_id=r.vendor_id WHERE r.organization_id=$1 AND r.project_id=$2 AND r.attempt_id=$3")
+        let row = sqlx::query("SELECT r.vendor_id,protocol.channel,j.upstream_job_id,r.upstream_model,r.adapter,r.api_base,v.credential_ciphertext,(protocol.channel IS NOT NULL AND v.enabled AND m.enabled AND v.revision=r.vendor_revision AND v.adapter=r.adapter AND v.api_base=r.api_base AND NOT EXISTS(SELECT 1 FROM personal_vendor_ownership o WHERE o.vendor_id=v.id AND o.organization_id<>r.organization_id)) AS current FROM media_recovery_routes r LEFT JOIN media_recovery_protocols protocol ON protocol.attempt_id=r.attempt_id JOIN media_jobs j ON j.attempt_id=r.attempt_id JOIN vendors v ON v.id=r.vendor_id LEFT JOIN vendor_models m ON m.alias=(SELECT resource_id FROM attempts WHERE id=r.attempt_id) AND m.vendor_id=r.vendor_id WHERE r.organization_id=$1 AND r.project_id=$2 AND r.attempt_id=$3")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_optional(&self.pool).await?;
         let Some(row) = row else {
             return Ok(None);

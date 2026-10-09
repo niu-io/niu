@@ -139,6 +139,19 @@ A missing reference returns reconciliation required; it never creates another ge
 
 ## Opt-in query recovery
 
+Recovery pins the protocol at submission alongside the original upstream model,
+job identity and output snapshot. Editing the current model constraints does not
+reinterpret or strand an existing task. Query scheduling uses the saved protocol.
+The model must still be enabled and attached to its original credential; current
+access and Guardrails still apply. A changed credential configuration revision,
+disabled credential or ownership mismatch continues to block upstream access.
+
+Migration `0203` adds immutable protocol records. Existing jobs are backfilled
+only when their original credential/model/schema revisions still match the
+available configuration. Missing historical evidence is not guessed; those jobs
+remain blocked for reconciliation. New video dispatch requires a saved protocol.
+See the [mapping-change checkpoint](../releases/video-mapping-recovery-2026-10-09.md).
+
 Set `NIU_VIDEO_POLLING=true` to enable direct-channel recovery for bound personal and prepaid jobs. It discovers existing bound jobs from durable dispatch records, including a crash before enqueue. Per-job 90-second leases coordinate replicas; expired leases permit another query, never generation. Normal progress waits ten seconds between polls, and failures back off up to five minutes. A worker processes one job at a time and skips missed ticks.
 
 Original key validity, model access, policy and pinned route are rechecked for each query. Revoked/expired keys stop upstream queries. Saved successful customer usage can still reconcile the original financial obligation locally without egress; revocation does not forgive an already committed charge. Failed/conflicting jobs stop polling while retaining unresolved financial evidence. Successful prepaid jobs stop only after a posted debit or a zero charge with its reservation released; missing usage and unposted liability remain eligible for recovery. Jobs without upstream references remain reconciliation work and are never submitted again. Polling is off by default; enabling it does not qualify live channels, notification delivery, complete charge/refund rules or production recovery. Discovery also includes completed customer jobs with unposted liability. A ledger write failure retries from saved success/usage/pricing, without another upstream query or generation submission.
