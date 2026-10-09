@@ -14,6 +14,7 @@ export default function PlatformConfiguration() {
   const { token } = useDashboardContext();
   const [configuration, setConfiguration] = useState<Configuration | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [savedSettings, setSavedSettings] = useState<Settings | null>(null);
   const [key, setKey] = useState('');
   const [error, setError] = useState('');
   const [revision, setRevision] = useState(0);
@@ -22,7 +23,7 @@ export default function PlatformConfiguration() {
   useEffect(() => {
     const controller = new AbortController(); setError('');
     void Promise.all([request<{data: Configuration}>(token, '/admin/v1/platform/configuration', 'GET', undefined, controller.signal),request<{data: Settings}>(token, '/admin/v1/platform/payments/epay', 'GET', undefined, controller.signal)])
-      .then(([status, payment]) => { if (!controller.signal.aborted) {setConfiguration(status.data); setSettings(payment.data);setKey('');} }).catch(reason => { if (!controller.signal.aborted) setError(reason.message); });
+      .then(([status, payment]) => { if (!controller.signal.aborted) {setConfiguration(status.data); setSettings(payment.data);setSavedSettings(payment.data);setKey('');} }).catch(reason => { if (!controller.signal.aborted) setError(reason.message); });
     return () => controller.abort();
   }, [token, revision]);
   async function save(event: FormEvent) {
@@ -31,7 +32,7 @@ export default function PlatformConfiguration() {
     const {revision: expected_revision, has_key: _hasKey, ...input} = settings;
     try {
       const result = await request<{data: Settings}>(token, '/admin/v1/platform/payments/epay', 'PUT', {...input, key, expected_revision});
-      setSettings(result.data);setKey('');setOpen(false);setRevision(value => value + 1);
+      setSettings(result.data);setSavedSettings(result.data);setKey('');setOpen(false);setRevision(value => value + 1);
     } catch (reason) {setError(reason instanceof Error ? reason.message : 'Payment configuration could not be saved.');}
     finally {setBusy(false);}
   }
@@ -40,11 +41,11 @@ export default function PlatformConfiguration() {
     {!configuration ? <p role="status">Loading payment gateways…</p> : <Table className="payment-gateway-table">
       <TableHeader><TableRow><TableHead>Gateway</TableHead><TableHead className="hidden sm:table-cell">Status</TableHead><TableHead className="w-28"><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
       <TableBody>{configuration.payment_gateways.filter(gateway => gateway.name === 'EPay' || gateway.configured).map(gateway => {
-        const status = gateway.name === 'EPay' ? settings?.enabled ? 'Enabled' : 'Disabled' : gateway.configured ? 'Configured' : 'Not configured';
+        const status = gateway.name === 'EPay' ? savedSettings?.enabled ? 'Enabled' : 'Disabled' : gateway.configured ? 'Configured' : 'Not configured';
         return <TableRow key={gateway.name}>
           <TableCell className="whitespace-normal">{gateway.name === 'EPay' ? 'EPay · Alipay / WeChat Pay' : gateway.name}<dl className="mt-2 sm:hidden"><dt className="text-xs text-muted-foreground">Status</dt><dd>{status}</dd></dl></TableCell>
           <TableCell className="hidden sm:table-cell">{status}</TableCell>
-          <TableCell className="text-right align-top sm:align-middle">{gateway.name === 'EPay' && <Button variant="outline" size="sm" disabled={!settings} onClick={() => {setError('');setOpen(true);}}>Configure</Button>}</TableCell>
+          <TableCell className="text-right align-top sm:align-middle">{gateway.name === 'EPay' && <Button variant="outline" size="sm" disabled={!savedSettings} onClick={() => {setSettings(savedSettings);setKey('');setError('');setOpen(true);}}>Configure</Button>}</TableCell>
         </TableRow>;
       })}</TableBody>
     </Table>}
