@@ -81,3 +81,29 @@ response fixture was used. External merchant/Supplier activation remains separat
 from internal readiness under the updated first-release acceptance boundary;
 the earlier dependency wording in this historical checkpoint does not block
 independent backend performance work.
+
+## Supplier text-price revision concurrency
+
+A current-input run against the running gateway and PostgreSQL created a new,
+non-public, disabled model mapping on the existing personal-test Supplier. It
+saved an inactive USD text offer with exact decimal-string rates of `123456789`
+and `987654321` nanounits per million prompt/completion tokens. This exercises
+configuration persistence, not an agreed commercial rate or upstream inference.
+
+Eight concurrent administration API requests then replaced the same initial
+revision with distinct prompt rates. Exactly one returned HTTP 200 and seven
+returned HTTP 409. The administration read returned the winning revision and
+exact price. Independent PostgreSQL reads confirmed exactly two stored price
+versions, the unchanged original prompt/completion rates, and the winning new
+prompt rate with unchanged completion rate. The model remained disabled and the
+offer remained inactive and unqualified; existing model mappings were unchanged.
+
+An organization-owner credential received HTTP 403 for both the procurement
+administration read and price publication. An installation-authorized reread
+confirmed that this denied write did not change the offers. The temporary owner
+credential was revoked. The disabled mapping and inactive price revisions remain
+as audit records; no qualification evidence or customer charge was created.
+
+This evidence covers saved text-price version replacement and customer-owner
+access boundaries. It does not establish commercial settlement correctness,
+media-price behavior, or live payment acceptance. No fixture outcome is used.
