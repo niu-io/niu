@@ -656,13 +656,13 @@ export class NiuAdminClient {
     return this.request(`/organizations/${uuid(organizationId)}/billing/balance`, undefined, options);
   }
 
-  /** Create/replay a CNY top-up; preserve the idempotency key after uncertainty. No automatic retry. */
+  /** Create/replay a supported-currency top-up; preserve the idempotency key after uncertainty. No automatic retry. */
   createCustomerTopup(organizationId: string, input: CustomerTopupInput, options?: RequestOptions): Promise<{ data: CustomerTopup }> {
     if (input.payment_gateway !== undefined && !['epay', 'stripe', 'zhifux'].includes(input.payment_gateway)) throw new Error('Choose a supported payment gateway');
     if (input.currency !== undefined && !/^[A-Z]{3}$/.test(input.currency)) throw new Error('Provide a three-letter uppercase currency');
     if (typeof input.amount_nanos !== 'string' || !/^\d{1,19}$/.test(input.amount_nanos)
       || BigInt(input.amount_nanos) <= 0n || BigInt(input.amount_nanos) > 9223372036854775807n
-      || BigInt(input.amount_nanos) % 10000000n !== 0n) throw new TypeError('Use an exact positive CNY amount with at most two decimal places');
+      || BigInt(input.amount_nanos) % 10000000n !== 0n) throw new TypeError('Use an exact positive amount with at most two decimal places');
     if (typeof input.payment_method !== 'string' || !/^[A-Za-z0-9.-]{1,64}$/.test(input.payment_method)) throw new TypeError('Choose an enabled payment method');
     if (typeof input.idempotency_key !== 'string') throw new TypeError('Use a UUID idempotency key');
     return this.request(`/organizations/${uuid(organizationId)}/billing/topups`, {

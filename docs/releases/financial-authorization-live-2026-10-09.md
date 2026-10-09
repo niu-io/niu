@@ -101,3 +101,19 @@ The balance API response remained unchanged, and an independent PostgreSQL read
 confirmed zero top-up orders. Invalid-token, viewer and lowercase-currency
 requests still returned 401, 403 and 400 respectively. This verifies invalid-input
 handling; it does not establish successful funding or reconciliation.
+
+## Payment-method contract validation
+
+The checkout endpoint now enforces the published payment-method identifier
+contract before integration selection: 1–64 ASCII alphanumeric, dot or hyphen
+characters. On the updated optimized gateway, actual submissions containing an
+empty identifier, 65 characters, whitespace, slash, Chinese characters or a
+newline returned HTTP 400. Balance reads were unchanged and independent
+PostgreSQL reads confirmed zero top-up orders. The eight invalid-amount requests
+were repeated on this binary and again returned HTTP 400 without creating orders.
+
+The JavaScript SDK's checkout description and amount error now refer to supported
+currencies instead of incorrectly describing all top-ups as CNY-only. Existing
+Stripe support remains USD/CNY; this change adds no currency or merchant support.
+SDK type checking/build and gateway release compilation completed. These checks
+do not establish successful payment collection.

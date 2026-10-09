@@ -408,6 +408,17 @@ pub(crate) async fn create_topup(
             "Provide an exact positive top-up amount within the supported integer range",
         ));
     }
+    if input.payment_method.is_empty()
+        || input.payment_method.len() > 64
+        || !input
+            .payment_method
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-'))
+    {
+        return Err(ApiError::invalid_request(
+            "Choose an enabled payment method",
+        ));
+    }
     // Reject unauthorized or malformed requests before joining the checkout
     // configuration queue, which may be held across an upstream request.
     let _configuration_guard = state.payment_configuration_guard.lock().await;
