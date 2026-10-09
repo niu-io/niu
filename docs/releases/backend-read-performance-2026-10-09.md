@@ -103,3 +103,40 @@ stayed unchanged. An actual personal streaming model request completed and its
 persisted usage/timing record was independently read. Temporary keys and operators
 were revoked. Compilation and formatting were checked; no fixture outcome is
 used as evidence for this change.
+
+## Repeating request-history measurements
+
+Use `scripts/request-read-benchmark.py` against an existing workspace containing
+saved requests. Supply a short-lived scoped viewer credential through
+`NIU_BENCHMARK_TOKEN` in the process environment, never as a command argument.
+For example, after setting the environment privately:
+
+```sh
+python3 scripts/request-read-benchmark.py \
+  --endpoint 'http://127.0.0.1:2567/admin/v1/organizations/ORG_UUID/projects/WORKSPACE_UUID/requests?limit=100' \
+  --concurrency 8 --seconds 30
+```
+
+Replace the URL placeholders with the workspace's API identifiers. The tool only
+accepts the request-history route and an explicit page limit of 1–100. It does
+not follow redirects, generate inference, or print response contents, workspace
+identifiers or credentials. Default connection reuse is per worker; pass
+`--fresh-connections` to measure new connections. Run against a quiescent scope:
+new requests or changing diagnostics cause response mismatches and a nonzero
+exit, not silently accepted timing samples. A worker stops on transport/status/
+parsing failure without retry. Reads have a ten-second socket timeout and a
+4 MiB response bound, so an in-flight read can finish after the admission window.
+
+The JSON report contains full-body latency for matching responses, separate
+error/mismatch counts and observed throughput. Empty baseline pages are rejected.
+The comparison is against a current API read, not a fixture; independent database
+or artifact verification is still required before accepting the returned data.
+
+The committed tool was exercised with a new scoped viewer against the running
+post-change gateway at `limit=100`: the existing workspace held 29 returned rows,
+not a fabricated 100-row dataset. In 30.007 seconds at concurrency eight it read
+26,583 matching responses, with zero transport/status errors or changed documents
+(885.91 requests/s; P50 8.178 ms, P95 11.377 ms, P99 12.628 ms, maximum 16.066 ms).
+The pre/post API documents matched and independent SQL confirmed all 29 returned
+attempt references. The temporary viewer was revoked. This verifies the tool's
+actual read path at this data size, not large-history capacity.
