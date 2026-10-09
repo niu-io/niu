@@ -10,7 +10,7 @@ Niu selectively imports the following Rust packages from the LiteLLM source tree
 - License: MIT, preserved in [`vendor/litellm-rust/LICENSE`](vendor/litellm-rust/LICENSE)
 - Source comparison: imported package files match the selected source checkout at the pinned commit; Niu has not edited those packages
 
-Niu uses these packages as a provider and protocol layer inside its own gateway application. Niu owns the application entry point, route coordination, management APIs, console, API contracts, persistence, SDKs, and packaging. No upstream Python gateway, dashboard, enterprise tree, examples, full repository history, or full repository archive is included.
+Niu uses these packages as a provider and protocol layer inside its own gateway application. Niu owns the application entry point, route coordination, management APIs, dashboard, API contracts, persistence, SDKs, and packaging. No upstream Python gateway, dashboard, enterprise tree, examples, full repository history, or full repository archive is included.
 
 ## LiteLLM Rust cost engine
 
@@ -22,6 +22,10 @@ Niu uses these packages as a provider and protocol layer inside its own gateway 
 
 The pricing engine is a calculation component. Durable accounting and strict spending controls are Niu-owned work.
 
-## shadcn/ui console components
+## shadcn/ui dashboard components
 
-The components in `apps/console/src/components/ui/` were selected from the official shadcn/ui new-york registry on 2026-09-25 using its CLI. They are adapted to the local class utility and niu.io theme. Upstream: https://github.com/shadcn-ui/ui. Copyright (c) 2023 shadcn, MIT; the full license is retained in `apps/console/licenses/shadcn-ui.txt`. Lucide React supplies the console icons through the package dependency.
+The components in `apps/dashboard/src/components/ui/` were selected from the official shadcn/ui new-york registry on 2026-09-25 using its CLI. They are adapted to the local class utility and niu.io theme. Upstream: https://github.com/shadcn-ui/ui. Copyright (c) 2023 shadcn, MIT; the full license is retained in `apps/dashboard/licenses/shadcn-ui.txt`. Lucide React supplies the dashboard icons through the package dependency.
+
+## Dashboard activity charts
+
+The Chart primitive was installed from the official shadcn/ui registry using its CLI on 2026-10-07 and retains the shadcn/ui MIT license above. Charts use Recharts 3.8.0 (https://github.com/recharts/recharts, MIT). Recharts depends on victory-vendor 37.3.6 (https://github.com/FormidableLabs/victory), whose package declares MIT AND ISC and retains the individual vendored D3 license files. These are package dependencies, not copied source modules.

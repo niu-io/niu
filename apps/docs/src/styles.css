@@ -1,3 +1,21 @@
+@layer theme, base, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+@source '../../dashboard/src/components/ui/button.tsx';
+@source '../../dashboard/src/components/ui/dropdown-menu.tsx';
+@source './components/ThemeMenu.tsx';
+@custom-variant dark (&:is(.dark *));
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+}
 @import '../../../branding/tokens.css';
 
 /* Adapt the shared Niu palette to Starlight in both theme modes. */
@@ -122,3 +140,22 @@ starlight-toc a {
 }
 
 .site-title { text-decoration: none; font-weight: 600; }
+
+.sl-link-card {
+  border: 0;
+  border-radius: var(--radius-panel);
+  background: var(--card);
+  box-shadow: none;
+  padding: 1.25rem;
+}
+.sl-link-card:hover { background: var(--muted); box-shadow: none; }
+
+.hero { padding-block: 2rem; }
+@media (min-width: 50rem) { .hero { padding-block: 2.5rem; } }
+
+/* Swap guides without crossfading overlapping article text. */
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation: none !important;
+}
+::view-transition-old(*) { display: none; }

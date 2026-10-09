@@ -37,6 +37,7 @@ impl OperatorScope {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct OperatorPrincipal {
     pub id: Uuid,
+    pub platform_admin: bool,
     pub role: OperatorRole,
     pub scope: OperatorScope,
 }
@@ -128,6 +129,7 @@ impl TryFrom<OperatorRow> for OperatorView {
 #[derive(FromRow)]
 struct PrincipalRow {
     id: Uuid,
+    platform_admin: bool,
     role: String,
     organization_id: Uuid,
     project_id: Option<Uuid>,
@@ -188,7 +190,7 @@ impl Store {
         }
         let digest = token_hash(token);
         let principal: Option<PrincipalRow> = sqlx::query_as(
-            "SELECT o.id, o.role, o.organization_id, o.project_id \
+            "SELECT o.id, o.platform_admin, o.role, o.organization_id, o.project_id \
              FROM admin_sessions s JOIN admin_operators o ON o.id=s.operator_id \
              WHERE s.token_hash=$1 AND s.expires_at_unix > extract(epoch FROM now())::bigint \
                AND s.revoked_at IS NULL AND o.revoked_at IS NULL",
@@ -199,6 +201,7 @@ impl Store {
         let principal = principal.ok_or(StoreError::Unauthorized)?;
         Ok(OperatorPrincipal {
             id: principal.id,
+            platform_admin: principal.platform_admin,
             role: OperatorRole::parse(&principal.role)?,
             scope: OperatorScope {
                 organization_id: principal.organization_id,
@@ -421,7 +424,7 @@ impl Store {
     }
 }
 
-async fn issue_session(
+pub(crate) async fn issue_session(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     operator_id: Uuid,
     expires_in_seconds: i64,

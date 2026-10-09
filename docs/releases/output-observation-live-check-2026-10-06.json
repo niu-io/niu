@@ -1,0 +1,15 @@
+{
+  "date": "2026-10-06",
+  "protocol": "nonstreaming_chat",
+  "model": "openai/gpt-4.1-mini",
+  "savedPolicyReloaded": true,
+  "observedMatch": true,
+  "originalResponsePreserved": true,
+  "reportedTokens": 13,
+  "customerChargeCount": 0,
+  "keyPolicyAssignedThenCleared": true,
+  "reviewBaselineRestored": true,
+  "temporaryKeyRevoked": true,
+  "browserAccess": "installation_administration",
+  "narrowViewportQualified": false
+}

@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-09",
+  "platform": "linux/arm64",
+  "image": "sha256:ebb7aa34fc6af4ed09a85a56b5cfe240b1cd11c46132ef6c4a20937aabb1aefc",
+  "image_source_record": "package-2026-10-09-0201.json",
+  "harness_sha256": {
+    "scripts/package-smoke.py": "a52e254459d09ca21eb884c0d402c22cedead033ab0fdee6806ddc203c86a337",
+    "scripts/package_image_admission.py": "36239b523dcb036d048f430732870464c5075906e132fe8d35c0471fee4031b8"
+  },
+  "passed": [
+    "Direct container and Compose: image admission checks before and after application restart",
+    "Customer image APIs reject absent authentication and installation administrator tokens",
+    "Source preparation rejects caller verdicts and absent inspection consent",
+    "Unavailable source/group/authorization cannot establish ingestion consent; absent ingestion/readiness observations return 404",
+    "Missing-source erasure is opaque HTTP 204",
+    "Denied operations leave inspected sources, ingestion consents/claims/outcomes, readiness claims/outcomes, attempts and customer accounting counts unchanged",
+    "Existing direct and Compose lifecycle smoke completed successfully"
+  ],
+  "limitations": [
+    "This checkpoint tests the pinned 0201 image, not subsequent native command-validation, availability or diagnostic changes.",
+    "No positive inspected-source, ingestion dispatch or readiness refresh is qualified by these negative tests.",
+    "No live Provider, public HTTPS fetch, entitlement, discounted supply or full customer journey is qualified."
+  ]
+}

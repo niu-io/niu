@@ -1,0 +1,358 @@
+{
+  "date": "2026-10-06",
+  "mode": "owner-funded personal testing",
+  "input": "fixed short text; maximum 16 output tokens",
+  "checks": [
+    {
+      "model": "anthropic/claude-fable-5",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": true,
+      "reported_usage": {
+        "prompt_tokens": 13,
+        "completion_tokens": 4,
+        "total_tokens": 17
+      },
+      "elapsed_ms": 3294
+    },
+    {
+      "model": "anthropic/claude-fable-5.1",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": true,
+      "reported_usage": {
+        "prompt_tokens": 15,
+        "completion_tokens": 4,
+        "total_tokens": 19
+      },
+      "elapsed_ms": 3177
+    },
+    {
+      "model": "anthropic/claude-opus-5.5",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": true,
+      "reported_usage": {
+        "prompt_tokens": 15,
+        "completion_tokens": 4,
+        "total_tokens": 19
+      },
+      "elapsed_ms": 2105
+    },
+    {
+      "model": "anthropic/claude-sonnet-5.5",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": true,
+      "reported_usage": {
+        "prompt_tokens": 15,
+        "completion_tokens": 4,
+        "total_tokens": 19
+      },
+      "elapsed_ms": 1449
+    },
+    {
+      "model": "deepseek/deepseek-v4-flash",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": false,
+      "reported_usage": {
+        "prompt_tokens": 8,
+        "completion_tokens": 16,
+        "total_tokens": 24
+      },
+      "elapsed_ms": 1035
+    },
+    {
+      "model": "deepseek/deepseek-v4-flash-0731",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": true,
+      "reported_usage": {
+        "prompt_tokens": 87,
+        "completion_tokens": 11,
+        "total_tokens": 98
+      },
+      "elapsed_ms": 728
+    },
+    {
+      "model": "deepseek/deepseek-v4.1-flash",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": false,
+      "reported_usage": {
+        "prompt_tokens": 34,
+        "completion_tokens": 16,
+        "total_tokens": 50
+      },
+      "elapsed_ms": 455
+    },
+    {
+      "model": "google/gemini-2.5-flash",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": true,
+      "reported_usage": {
+        "prompt_tokens": 4,
+        "completion_tokens": 1,
+        "total_tokens": 5
+      },
+      "elapsed_ms": 704
+    },
+    {
+      "model": "google/gemini-3.1-flash-lite",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": true,
+      "reported_usage": {
+        "prompt_tokens": 4,
+        "completion_tokens": 2,
+        "total_tokens": 6
+      },
+      "elapsed_ms": 1165
+    },
+    {
+      "model": "google/gemini-3.1-pro-preview",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": false,
+      "reported_usage": {
+        "prompt_tokens": 4,
+        "completion_tokens": 13,
+        "total_tokens": 17
+      },
+      "elapsed_ms": 2319
+    },
+    {
+      "model": "nvidia/nemotron-3-ultra-550b-a55b",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": true,
+      "reported_usage": {
+        "prompt_tokens": 20,
+        "completion_tokens": 14,
+        "total_tokens": 34
+      },
+      "elapsed_ms": 485
+    },
+    {
+      "model": "openai/gpt-4.1-mini",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": true,
+      "reported_usage": {
+        "prompt_tokens": 11,
+        "completion_tokens": 2,
+        "total_tokens": 13
+      },
+      "elapsed_ms": 892
+    },
+    {
+      "model": "openai/gpt-5.6-luna",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": true,
+      "reported_usage": {
+        "prompt_tokens": 10,
+        "completion_tokens": 5,
+        "total_tokens": 15
+      },
+      "elapsed_ms": 859
+    },
+    {
+      "model": "openai/gpt-5.6-sol",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": true,
+      "reported_usage": {
+        "prompt_tokens": 10,
+        "completion_tokens": 5,
+        "total_tokens": 15
+      },
+      "elapsed_ms": 1381
+    },
+    {
+      "model": "openai/gpt-6-astra",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": true,
+      "reported_usage": {
+        "prompt_tokens": 10,
+        "completion_tokens": 5,
+        "total_tokens": 15
+      },
+      "elapsed_ms": 1160
+    },
+    {
+      "model": "openai/gpt-6-luna",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": true,
+      "reported_usage": {
+        "prompt_tokens": 10,
+        "completion_tokens": 16,
+        "total_tokens": 26
+      },
+      "elapsed_ms": 1397
+    },
+    {
+      "model": "openai/gpt-6-sol",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": true,
+      "reported_usage": {
+        "prompt_tokens": 10,
+        "completion_tokens": 16,
+        "total_tokens": 26
+      },
+      "elapsed_ms": 1614
+    },
+    {
+      "model": "qwen/qwen3.8-flash",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": false,
+      "reported_usage": {
+        "prompt_tokens": 65,
+        "completion_tokens": 16,
+        "total_tokens": 81
+      },
+      "elapsed_ms": 1251
+    },
+    {
+      "model": "qwen/qwen3.8-max-0902",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": false,
+      "reported_usage": {
+        "prompt_tokens": 65,
+        "completion_tokens": 16,
+        "total_tokens": 81
+      },
+      "elapsed_ms": 1485
+    },
+    {
+      "model": "tencent/hy4-preview",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": false,
+      "reported_usage": {
+        "prompt_tokens": 25,
+        "completion_tokens": 16,
+        "total_tokens": 41
+      },
+      "elapsed_ms": 2057
+    },
+    {
+      "model": "x-ai/grok-4.7",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": true,
+      "reported_usage": {
+        "prompt_tokens": 1246,
+        "completion_tokens": 33,
+        "total_tokens": 1279
+      },
+      "elapsed_ms": 1398
+    },
+    {
+      "model": "xiaomi/mimo-v2.6-flash",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": true,
+      "reported_usage": {
+        "prompt_tokens": 11,
+        "completion_tokens": 14,
+        "total_tokens": 25
+      },
+      "elapsed_ms": 1975
+    },
+    {
+      "model": "xiaomi/mimo-v2.6-pro",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": true,
+      "reported_usage": {
+        "prompt_tokens": 11,
+        "completion_tokens": 14,
+        "total_tokens": 25
+      },
+      "elapsed_ms": 2366
+    },
+    {
+      "model": "z-ai/glm-5.3",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": false,
+      "reported_usage": {
+        "prompt_tokens": 16,
+        "completion_tokens": 16,
+        "total_tokens": 32
+      },
+      "elapsed_ms": 453
+    },
+    {
+      "model": "z-ai/glm-5.3-flash",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": false,
+      "reported_usage": {
+        "prompt_tokens": 16,
+        "completion_tokens": 16,
+        "total_tokens": 32
+      },
+      "elapsed_ms": 1453
+    }
+  ],
+  "qualification": "bounded text observations only; not full protocol conformance, discounted supply or production availability"
+}

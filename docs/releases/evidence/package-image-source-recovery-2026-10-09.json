@@ -1,0 +1,25 @@
+{
+  "date": "2026-10-09",
+  "platform": "linux/arm64",
+  "image": "sha256:ebb7aa34fc6af4ed09a85a56b5cfe240b1cd11c46132ef6c4a20937aabb1aefc",
+  "image_source_record": "package-2026-10-09-0201.json",
+  "harness_sha256": {
+    "scripts/package-smoke.py": "59e477edbea7bbb0bd4ed54abe01cf4a334bc5a6dc208cb3cd76d5fbf72b1f31",
+    "scripts/package_image_admission.py": "fcc1c1595f352ffb794fc87abb40d23e7cd071cb48f628a512bba6d6ca221ba4",
+    "tests/fixtures/mock-openai-compatible.py": "8b86af857b719464a555362c2548b6b1ad23940b11758398db87c22fc0896d62"
+  },
+  "passed": [
+    "Direct-container and Compose positive inspected-source preparation with explicit processing consent",
+    "Source retention across application and PostgreSQL restart",
+    "All public table/sequence fingerprints match after pg_dump restore; restored database promoted and app restarted",
+    "Source ciphertext hash preserved through database recovery",
+    "Foreign-key opaque deletion preserves restored content; original-key repeated erasure removes content with one tombstone",
+    "Baseline direct/Compose lifecycle smoke and negative image admission passed in the same runs"
+  ],
+  "limitations": [
+    "No recovered-source decryption/delivery request is exercised by this checkpoint; identical ciphertext and ownership persistence are verified.",
+    "Controlled loopback detector does not qualify live effectiveness or rights.",
+    "Ingestion dispatch/readiness, public HTTPS fetching and complete customer journey remain open.",
+    "Pinned image excludes subsequent native validation, availability and diagnostic changes."
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "date": "2026-10-08",
+  "scope": "automated source checks only; no complete release, live Supplier or browser qualification",
+  "rust_workspace": {
+    "command": "cargo test --workspace",
+    "passed": 301,
+    "failed": 0,
+    "ignored": 279,
+    "captured_input_files": 399,
+    "captured_input_manifest_sha256": "f551815e6ef09c6d4247f686c65acfbf7df7f91c33d1cafdb504befb4b61ded0",
+    "captured_inputs_unchanged": true,
+    "ignored_cases_qualified": false
+  },
+  "rust_format": {
+    "command": "cargo fmt --all --check",
+    "passed": true
+  },
+  "rust_clippy": {
+    "command": "cargo clippy --locked --workspace --all-targets -- -D warnings",
+    "passed": true
+  },
+  "javascript_sdk": {
+    "passed": 168,
+    "failed": 0,
+    "skipped": 0,
+    "built_before_tests": true
+  },
+  "public_boundary": {
+    "files": 1278,
+    "passed": true,
+    "build_inputs_checked": true
+  },
+  "dashboard": {
+    "passed": 525,
+    "failed": 0,
+    "files_passed": 74,
+    "types_passed": true,
+    "complete_run_passed": true,
+    "source_manifest_sha256": "bac75ad2852c301d8d879adb95cc02dfb73800a0610aaabbeead840b1845f0cc",
+    "snapshot_inputs_unchanged": true,
+    "dependencies_unchanged": true,
+    "earlier_full_run_timeouts_resolved_by_current_pass": true,
+    "live_or_rendered_acceptance": false
+  },
+  "gateway_postgres": {
+    "command": "python3 scripts/test-postgres.py ''",
+    "passed": 123,
+    "failed": 0,
+    "ignored": 0,
+    "isolated_database": true,
+    "includes_process_replacement_tests": 5,
+    "scope": "Controlled gateway database fixtures only; storage integration, browser and live Supplier acceptance remain separate.",
+    "corrected_test_sha256": {
+      "apps/gateway/src/web/tests/executions.rs": "24c79f4d77622451572570ef9e0c6445f8b72b2a323833df5673bf9d2f8e5dea",
+      "apps/gateway/src/web/tests/providers.rs": "6da654031f1ab819b7fff4ef196ee2650fde7ad3aa7930b1059fd43b3413bea9"
+    }
+  },
+  "storage_postgres": {
+    "command": "python3 scripts/test-postgres.py '' --package niu-storage",
+    "passed": 155,
+    "failed": 0,
+    "ignored": 0,
+    "targets": 29,
+    "isolated_database": true,
+    "captured_storage_inputs": 260,
+    "captured_storage_inputs_unchanged": true,
+    "scope": "Controlled storage database fixtures; no live Supplier or rendered acceptance."
+  }
+}

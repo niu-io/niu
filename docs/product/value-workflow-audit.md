@@ -1,20 +1,18 @@
 # Product workflow audit: gateway-first cost optimization
 
-This audit corrects a conflict between the first-release plan and the product
-workflow established in prior design discussions. The [first-release matrix](../releases/first-release.md)
-remains authoritative, with the amendments below.
+Status: historical workflow audit, superseded on 2026-09-29 by [product focus](product-focus.md) and the [current release matrix](../releases/first-release.md). Task-economics requirements below are no longer Niu release obligations. Gateway evidence and accounting cautions remain useful, but this audit does not amend the current scope. R-row references refer to the [legacy release plan](../releases/first-release-legacy.md).
 
 ## Root cause
 
 The previous plan described a standalone metadata-import workflow as the first
 delivery, called imported task investigation complete, and treated gateway
-inference as a separate optional path. The console could therefore satisfy its
+inference as a separate optional path. The dashboard could therefore satisfy its
 written requirements with a JSON importer and basic configuration tables while
 failing the product's central job: route model calls through Niu, retain their
 usage and cost evidence, and help the user make better decisions about complex
 agent work. R09 also asked for management screens without requiring those
 screens to complete a usable request-to-analysis journey. R20's narrow API smoke
-was mistaken for proof that the console made that journey simple.
+was mistaken for proof that the dashboard made that journey simple.
 
 These were specification errors. The corrected product is gateway-first.
 
@@ -37,7 +35,7 @@ routes, external collection, and task-level economics remain later phases.
 4. The gateway automatically retains request metadata and the corresponding
    attempt, usage, latency, route, status, and settled cost. Request/response
    content stays out of the record by default.
-5. The console analyzes those records without asking the user to export or
+5. The dashboard analyzes those records without asking the user to export or
    upload logs.
 
 ## Reference product review and decisions
@@ -114,11 +112,11 @@ Do not infer task boundaries, elapsed task time, tool work, or acceptance from
 gateway request traffic alone. When a task ID or agent event is absent, show
 captured model requests as ungrouped activity and say what evidence is missing.
 
-## Console acceptance rules
+## Dashboard acceptance rules
 
 - The clean-install path connects a provider/model, creates a project key,
   configures a client or supported agent to use Niu, completes a request, and
-  finds the automatically captured result in the console.
+  finds the automatically captured result in the dashboard.
 - The user gets the Niu base URL, the project-key purpose, a usable model alias,
   and the exact next action in the relevant screen. The installation admin
   credential is never presented as an application key.
@@ -157,12 +155,12 @@ captured model requests as ungrouped activity and say what evidence is missing.
 
 R20's clean-install gateway path has now passed end-to-end against a local
 OpenAI-compatible provider fixture. Starting with no configured providers or
-models, the console created the provider route, model alias, first workspace,
+models, the dashboard created the provider route, model alias, first workspace,
 project, and scoped key; a standard request returned provider usage and appeared
 automatically in Tasks with its task ID, latency, copyable Niu base URL, and
 model alias. No execution import was used. Pricing was unset, so cost remained
 explicitly unknown, and the validation key was revoked after the request. This
 is functional local-fixture evidence, not live upstream qualification. R09
-remains partial for its broader console and operational requirements. R17 also
+remains partial for its broader dashboard and operational requirements. R17 also
 remains partial pending broader adapter runtime and causal-link coverage plus
 matched-task cost/quality analysis.

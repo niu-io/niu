@@ -1,0 +1,735 @@
+{
+  "measurement": "synthetic_chat_preview_http",
+  "percentiles": "nearest_rank_of_valid_results",
+  "inference_calls": 0,
+  "cases": [
+    {
+      "stage": "input",
+      "mode": null,
+      "text_bytes": 4096,
+      "request_bytes": 4249,
+      "rules": 1,
+      "concurrency": 1,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 60,
+      "status_counts": {
+        "200": 60
+      },
+      "elapsed_seconds": 0.08,
+      "valid_results_per_second": 753.398,
+      "p50_ms": 1.193,
+      "p95_ms": 1.876,
+      "p99_ms": 1.98
+    },
+    {
+      "stage": "input",
+      "mode": null,
+      "text_bytes": 4096,
+      "request_bytes": 4249,
+      "rules": 1,
+      "concurrency": 4,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 60,
+      "status_counts": {
+        "200": 60
+      },
+      "elapsed_seconds": 0.04,
+      "valid_results_per_second": 1498.648,
+      "p50_ms": 2.376,
+      "p95_ms": 3.819,
+      "p99_ms": 4.186
+    },
+    {
+      "stage": "input",
+      "mode": null,
+      "text_bytes": 4096,
+      "request_bytes": 4249,
+      "rules": 1,
+      "concurrency": 8,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 60,
+      "status_counts": {
+        "200": 60
+      },
+      "elapsed_seconds": 0.041,
+      "valid_results_per_second": 1452.547,
+      "p50_ms": 4.773,
+      "p95_ms": 6.886,
+      "p99_ms": 8.297
+    },
+    {
+      "stage": "input",
+      "mode": null,
+      "text_bytes": 4096,
+      "request_bytes": 6193,
+      "rules": 32,
+      "concurrency": 1,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 60,
+      "status_counts": {
+        "200": 60
+      },
+      "elapsed_seconds": 0.179,
+      "valid_results_per_second": 336.059,
+      "p50_ms": 2.787,
+      "p95_ms": 3.593,
+      "p99_ms": 3.776
+    },
+    {
+      "stage": "input",
+      "mode": null,
+      "text_bytes": 4096,
+      "request_bytes": 6193,
+      "rules": 32,
+      "concurrency": 4,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 60,
+      "status_counts": {
+        "200": 60
+      },
+      "elapsed_seconds": 0.067,
+      "valid_results_per_second": 897.839,
+      "p50_ms": 4.136,
+      "p95_ms": 5.716,
+      "p99_ms": 6.331
+    },
+    {
+      "stage": "input",
+      "mode": null,
+      "text_bytes": 4096,
+      "request_bytes": 6193,
+      "rules": 32,
+      "concurrency": 8,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 45,
+      "status_counts": {
+        "200": 45,
+        "503": 15
+      },
+      "elapsed_seconds": 0.055,
+      "valid_results_per_second": 813.483,
+      "p50_ms": 7.452,
+      "p95_ms": 9.901,
+      "p99_ms": 11.469
+    },
+    {
+      "stage": "input",
+      "mode": null,
+      "text_bytes": 65536,
+      "request_bytes": 65689,
+      "rules": 1,
+      "concurrency": 1,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 60,
+      "status_counts": {
+        "200": 60
+      },
+      "elapsed_seconds": 0.121,
+      "valid_results_per_second": 496.602,
+      "p50_ms": 1.813,
+      "p95_ms": 2.596,
+      "p99_ms": 3.459
+    },
+    {
+      "stage": "input",
+      "mode": null,
+      "text_bytes": 65536,
+      "request_bytes": 65689,
+      "rules": 1,
+      "concurrency": 4,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 60,
+      "status_counts": {
+        "200": 60
+      },
+      "elapsed_seconds": 0.052,
+      "valid_results_per_second": 1153.405,
+      "p50_ms": 3.33,
+      "p95_ms": 4.179,
+      "p99_ms": 5.606
+    },
+    {
+      "stage": "input",
+      "mode": null,
+      "text_bytes": 65536,
+      "request_bytes": 65689,
+      "rules": 1,
+      "concurrency": 8,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 60,
+      "status_counts": {
+        "200": 60
+      },
+      "elapsed_seconds": 0.05,
+      "valid_results_per_second": 1208.567,
+      "p50_ms": 6.093,
+      "p95_ms": 8.504,
+      "p99_ms": 9.56
+    },
+    {
+      "stage": "input",
+      "mode": null,
+      "text_bytes": 65536,
+      "request_bytes": 67633,
+      "rules": 32,
+      "concurrency": 1,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 60,
+      "status_counts": {
+        "200": 60
+      },
+      "elapsed_seconds": 0.729,
+      "valid_results_per_second": 82.269,
+      "p50_ms": 12.003,
+      "p95_ms": 12.993,
+      "p99_ms": 13.737
+    },
+    {
+      "stage": "input",
+      "mode": null,
+      "text_bytes": 65536,
+      "request_bytes": 67633,
+      "rules": 32,
+      "concurrency": 4,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 60,
+      "status_counts": {
+        "200": 60
+      },
+      "elapsed_seconds": 0.232,
+      "valid_results_per_second": 258.416,
+      "p50_ms": 15.219,
+      "p95_ms": 17.1,
+      "p99_ms": 18.22
+    },
+    {
+      "stage": "input",
+      "mode": null,
+      "text_bytes": 65536,
+      "request_bytes": 67633,
+      "rules": 32,
+      "concurrency": 8,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 20,
+      "status_counts": {
+        "200": 20,
+        "503": 40
+      },
+      "elapsed_seconds": 0.087,
+      "valid_results_per_second": 229.229,
+      "p50_ms": 20.615,
+      "p95_ms": 24.426,
+      "p99_ms": 26.93
+    },
+    {
+      "stage": "output",
+      "mode": "buffered_full",
+      "text_bytes": 4096,
+      "request_bytes": 4292,
+      "rules": 1,
+      "concurrency": 1,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 60,
+      "status_counts": {
+        "200": 60
+      },
+      "elapsed_seconds": 0.097,
+      "valid_results_per_second": 615.502,
+      "p50_ms": 1.476,
+      "p95_ms": 2.103,
+      "p99_ms": 2.378
+    },
+    {
+      "stage": "output",
+      "mode": "buffered_full",
+      "text_bytes": 4096,
+      "request_bytes": 4292,
+      "rules": 1,
+      "concurrency": 4,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 60,
+      "status_counts": {
+        "200": 60
+      },
+      "elapsed_seconds": 0.045,
+      "valid_results_per_second": 1337.854,
+      "p50_ms": 2.704,
+      "p95_ms": 3.919,
+      "p99_ms": 4.075
+    },
+    {
+      "stage": "output",
+      "mode": "buffered_full",
+      "text_bytes": 4096,
+      "request_bytes": 4292,
+      "rules": 1,
+      "concurrency": 8,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 60,
+      "status_counts": {
+        "200": 60
+      },
+      "elapsed_seconds": 0.045,
+      "valid_results_per_second": 1323.021,
+      "p50_ms": 5.559,
+      "p95_ms": 7.35,
+      "p99_ms": 9.367
+    },
+    {
+      "stage": "output",
+      "mode": "buffered_full",
+      "text_bytes": 4096,
+      "request_bytes": 6236,
+      "rules": 32,
+      "concurrency": 1,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 60,
+      "status_counts": {
+        "200": 60
+      },
+      "elapsed_seconds": 0.195,
+      "valid_results_per_second": 307.371,
+      "p50_ms": 3.065,
+      "p95_ms": 3.788,
+      "p99_ms": 4.03
+    },
+    {
+      "stage": "output",
+      "mode": "buffered_full",
+      "text_bytes": 4096,
+      "request_bytes": 6236,
+      "rules": 32,
+      "concurrency": 4,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 60,
+      "status_counts": {
+        "200": 60
+      },
+      "elapsed_seconds": 0.074,
+      "valid_results_per_second": 805.704,
+      "p50_ms": 4.412,
+      "p95_ms": 6.456,
+      "p99_ms": 7.023
+    },
+    {
+      "stage": "output",
+      "mode": "buffered_full",
+      "text_bytes": 4096,
+      "request_bytes": 6236,
+      "rules": 32,
+      "concurrency": 8,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 46,
+      "status_counts": {
+        "200": 46,
+        "503": 14
+      },
+      "elapsed_seconds": 0.057,
+      "valid_results_per_second": 802.172,
+      "p50_ms": 7.762,
+      "p95_ms": 11.04,
+      "p99_ms": 12.313
+    },
+    {
+      "stage": "output",
+      "mode": "buffered_full",
+      "text_bytes": 65536,
+      "request_bytes": 65732,
+      "rules": 1,
+      "concurrency": 1,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 60,
+      "status_counts": {
+        "200": 60
+      },
+      "elapsed_seconds": 0.355,
+      "valid_results_per_second": 169.069,
+      "p50_ms": 5.839,
+      "p95_ms": 6.406,
+      "p99_ms": 6.524
+    },
+    {
+      "stage": "output",
+      "mode": "buffered_full",
+      "text_bytes": 65536,
+      "request_bytes": 65732,
+      "rules": 1,
+      "concurrency": 4,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 60,
+      "status_counts": {
+        "200": 60
+      },
+      "elapsed_seconds": 0.117,
+      "valid_results_per_second": 511.841,
+      "p50_ms": 7.668,
+      "p95_ms": 9.02,
+      "p99_ms": 9.689
+    },
+    {
+      "stage": "output",
+      "mode": "buffered_full",
+      "text_bytes": 65536,
+      "request_bytes": 65732,
+      "rules": 1,
+      "concurrency": 8,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 29,
+      "status_counts": {
+        "200": 29,
+        "503": 31
+      },
+      "elapsed_seconds": 0.064,
+      "valid_results_per_second": 455.335,
+      "p50_ms": 10.965,
+      "p95_ms": 16.368,
+      "p99_ms": 19.118
+    },
+    {
+      "stage": "output",
+      "mode": "buffered_full",
+      "text_bytes": 65536,
+      "request_bytes": 67676,
+      "rules": 32,
+      "concurrency": 1,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 60,
+      "status_counts": {
+        "200": 60
+      },
+      "elapsed_seconds": 0.95,
+      "valid_results_per_second": 63.141,
+      "p50_ms": 15.7,
+      "p95_ms": 16.58,
+      "p99_ms": 18.066
+    },
+    {
+      "stage": "output",
+      "mode": "buffered_full",
+      "text_bytes": 65536,
+      "request_bytes": 67676,
+      "rules": 32,
+      "concurrency": 4,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 60,
+      "status_counts": {
+        "200": 60
+      },
+      "elapsed_seconds": 0.293,
+      "valid_results_per_second": 204.692,
+      "p50_ms": 19.39,
+      "p95_ms": 21.026,
+      "p99_ms": 22.308
+    },
+    {
+      "stage": "output",
+      "mode": "buffered_full",
+      "text_bytes": 65536,
+      "request_bytes": 67676,
+      "rules": 32,
+      "concurrency": 8,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 12,
+      "status_counts": {
+        "503": 48,
+        "200": 12
+      },
+      "elapsed_seconds": 0.074,
+      "valid_results_per_second": 162.579,
+      "p50_ms": 24.91,
+      "p95_ms": 31.547,
+      "p99_ms": 31.547
+    },
+    {
+      "stage": "output",
+      "mode": "observe_only",
+      "text_bytes": 4096,
+      "request_bytes": 4291,
+      "rules": 1,
+      "concurrency": 1,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 60,
+      "status_counts": {
+        "200": 60
+      },
+      "elapsed_seconds": 0.098,
+      "valid_results_per_second": 614.269,
+      "p50_ms": 1.461,
+      "p95_ms": 2.209,
+      "p99_ms": 2.316
+    },
+    {
+      "stage": "output",
+      "mode": "observe_only",
+      "text_bytes": 4096,
+      "request_bytes": 4291,
+      "rules": 1,
+      "concurrency": 4,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 60,
+      "status_counts": {
+        "200": 60
+      },
+      "elapsed_seconds": 0.044,
+      "valid_results_per_second": 1370.268,
+      "p50_ms": 2.681,
+      "p95_ms": 3.84,
+      "p99_ms": 3.962
+    },
+    {
+      "stage": "output",
+      "mode": "observe_only",
+      "text_bytes": 4096,
+      "request_bytes": 4291,
+      "rules": 1,
+      "concurrency": 8,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 60,
+      "status_counts": {
+        "200": 60
+      },
+      "elapsed_seconds": 0.045,
+      "valid_results_per_second": 1328.936,
+      "p50_ms": 5.359,
+      "p95_ms": 7.437,
+      "p99_ms": 8.405
+    },
+    {
+      "stage": "output",
+      "mode": "observe_only",
+      "text_bytes": 4096,
+      "request_bytes": 6235,
+      "rules": 32,
+      "concurrency": 1,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 60,
+      "status_counts": {
+        "200": 60
+      },
+      "elapsed_seconds": 0.194,
+      "valid_results_per_second": 309.554,
+      "p50_ms": 3.038,
+      "p95_ms": 3.826,
+      "p99_ms": 4.148
+    },
+    {
+      "stage": "output",
+      "mode": "observe_only",
+      "text_bytes": 4096,
+      "request_bytes": 6235,
+      "rules": 32,
+      "concurrency": 4,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 60,
+      "status_counts": {
+        "200": 60
+      },
+      "elapsed_seconds": 0.073,
+      "valid_results_per_second": 825.826,
+      "p50_ms": 4.409,
+      "p95_ms": 5.919,
+      "p99_ms": 7.964
+    },
+    {
+      "stage": "output",
+      "mode": "observe_only",
+      "text_bytes": 4096,
+      "request_bytes": 6235,
+      "rules": 32,
+      "concurrency": 8,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 40,
+      "status_counts": {
+        "200": 40,
+        "503": 20
+      },
+      "elapsed_seconds": 0.055,
+      "valid_results_per_second": 733.891,
+      "p50_ms": 8.269,
+      "p95_ms": 10.816,
+      "p99_ms": 12.656
+    },
+    {
+      "stage": "output",
+      "mode": "observe_only",
+      "text_bytes": 65536,
+      "request_bytes": 65731,
+      "rules": 1,
+      "concurrency": 1,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 60,
+      "status_counts": {
+        "200": 60
+      },
+      "elapsed_seconds": 0.349,
+      "valid_results_per_second": 172.064,
+      "p50_ms": 5.762,
+      "p95_ms": 6.207,
+      "p99_ms": 6.469
+    },
+    {
+      "stage": "output",
+      "mode": "observe_only",
+      "text_bytes": 65536,
+      "request_bytes": 65731,
+      "rules": 1,
+      "concurrency": 4,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 60,
+      "status_counts": {
+        "200": 60
+      },
+      "elapsed_seconds": 0.114,
+      "valid_results_per_second": 525.124,
+      "p50_ms": 7.483,
+      "p95_ms": 8.561,
+      "p99_ms": 11.931
+    },
+    {
+      "stage": "output",
+      "mode": "observe_only",
+      "text_bytes": 65536,
+      "request_bytes": 65731,
+      "rules": 1,
+      "concurrency": 8,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 35,
+      "status_counts": {
+        "200": 35,
+        "503": 25
+      },
+      "elapsed_seconds": 0.07,
+      "valid_results_per_second": 497.134,
+      "p50_ms": 10.423,
+      "p95_ms": 15.884,
+      "p99_ms": 16.76
+    },
+    {
+      "stage": "output",
+      "mode": "observe_only",
+      "text_bytes": 65536,
+      "request_bytes": 67675,
+      "rules": 32,
+      "concurrency": 1,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 60,
+      "status_counts": {
+        "200": 60
+      },
+      "elapsed_seconds": 0.943,
+      "valid_results_per_second": 63.597,
+      "p50_ms": 15.67,
+      "p95_ms": 15.929,
+      "p99_ms": 16.139
+    },
+    {
+      "stage": "output",
+      "mode": "observe_only",
+      "text_bytes": 65536,
+      "request_bytes": 67675,
+      "rules": 32,
+      "concurrency": 4,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 60,
+      "status_counts": {
+        "200": 60
+      },
+      "elapsed_seconds": 0.296,
+      "valid_results_per_second": 202.928,
+      "p50_ms": 19.415,
+      "p95_ms": 21.104,
+      "p99_ms": 21.745
+    },
+    {
+      "stage": "output",
+      "mode": "observe_only",
+      "text_bytes": 65536,
+      "request_bytes": 67675,
+      "rules": 32,
+      "concurrency": 8,
+      "warmup_calls": 3,
+      "warmup_valid_results": 3,
+      "samples": 60,
+      "valid_results": 14,
+      "status_counts": {
+        "200": 14,
+        "503": 46
+      },
+      "elapsed_seconds": 0.083,
+      "valid_results_per_second": 167.975,
+      "p50_ms": 24.571,
+      "p95_ms": 30.071,
+      "p99_ms": 30.071
+    }
+  ]
+}

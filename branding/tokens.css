@@ -1,8 +1,9 @@
 :root {
   --radius: 0.625rem;
   --radius-control: 0.625rem;
-  --radius-panel: 0.75rem;
-  --radius-overlay: 0.875rem;
+  --radius-panel: 1.25rem;
+  --radius-overlay: 1rem;
+  --radius-dialog: 1.5rem;
   --shadow-overlay: 0 12px 48px oklch(0 0 0 / 16%);
   --background: oklch(0.985 0.001 255);
   --foreground: oklch(0.22 0.008 255);

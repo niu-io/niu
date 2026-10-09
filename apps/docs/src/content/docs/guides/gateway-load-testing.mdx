@@ -1,0 +1,54 @@
+---
+title: Gateway load testing
+description: Run repeatable gateway load tests and interpret their limits.
+---
+
+## Reproduce a gateway load run
+
+The repository includes a dependency-free HTTP load client for OpenAI-compatible
+chat completions. It supports fixed concurrency and scheduled request-rate
+profiles, reuses one connection per worker, excludes warm-up calls, and writes
+latency percentiles, HTTP status counts, throughput, scheduled-start lag, and
+transport errors to JSON. An optional bearer key is read from an environment
+variable and is never copied to the report.
+
+```sh
+python3 scripts/gateway-benchmark.py \
+  http://localhost:2555/v1/chat/completions \
+  --model fast \
+  --bearer-env NIU_BENCHMARK_TOKEN \
+  --mode concurrency --workers 64 --duration 30 \
+  --out gateway-run.json
+```
+
+To use a fixed arrival rate, pass `--mode rate --rate 500 --workers 64` instead.
+Rate runs count starts that exceed `--max-start-lag-ms` as dropped and return a
+nonzero exit status for drops or failed responses. Repeat each configuration at
+least five times, use the same machine and provider fixture, rotate test order,
+and retain every JSON report. Measure CPU and resident memory separately for the
+gateway and PostgreSQL; record the database version, pool size, schema revision,
+gateway commit, container image, host resources, and provider fixture. After a
+run, reconcile accepted requests, attempts, usage, reservations, and settlements
+from the gateway's persisted records.
+
+The client measures end-to-end HTTP time, including upstream and response-body
+time. Warm-up calls are excluded from the report but still execute and may be
+billable against a live provider. Use a deterministic local provider to avoid
+provider variability and spend. The client does not report isolated proxy
+overhead, time to first token, PostgreSQL resource use, or model quality. Keep
+unpriced traffic separate from priced
+admission and settlement runs, since those paths exercise different storage
+work. Do not treat a chat-throughput result as an accepted-task economics
+benchmark.
+
+Vendor benchmark claims are methodology references, not independent evidence
+or an apples-to-apples Niu comparison. LiteLLM's published page describes a
+single-client run against a deterministic mock upstream. Bifrost's open
+[benchmark tooling](https://github.com/maximhq/bifrost-benchmarking) provides
+Vegeta-based fixed-rate and fixed-user runs, a mock provider, latency and
+throughput reports, and optional gateway RSS sampling. Pin the releases and
+match the protocol, payload, routing and authentication work, fixture, load
+profile, hardware, and measurement definitions before comparing results. Keep
+measured gateway-added latency separate from end-to-end request latency.
+References: [LiteLLM's published benchmark](https://www.litellm.ai/ai-gateway)
+and [Bifrost's benchmark repository](https://github.com/maximhq/bifrost-benchmarking).

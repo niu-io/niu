@@ -26,6 +26,9 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
       - name: Install Rust toolchain
         run: rustup toolchain install 1.98.0 --profile minimal --component rustfmt --component clippy
       - name: Check formatting
@@ -41,7 +44,7 @@ jobs:
       - name: Test PostgreSQL storage integration
         env:
           DATABASE_URL: postgres://niu_test:niu_test@127.0.0.1:5432/niu_test
-        run: cargo +1.98.0 test --locked -p niu-storage --test postgres -- --ignored
+        run: cargo +1.98.0 test --locked -p niu-storage --tests -- --ignored
       - name: Test PostgreSQL gateway integration
         env:
           DATABASE_URL: postgres://niu_test:niu_test@127.0.0.1:5432/niu_test
@@ -55,10 +58,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
       - name: Check public source boundary and build inputs
         run: |
           python3 scripts/check-public-boundary.py --root . --tracked-tree --check-build-inputs
-          python3 -m unittest discover -s scripts/tests -p 'test_public_boundary.py'
+          python3 -m unittest discover -s scripts/tests
       - uses: pnpm/action-setup@v4
         with:
           version: 11.25.0
@@ -78,12 +84,12 @@ jobs:
           name: javascript-license-report
           path: ${{ runner.temp }}/niu-js-license-report.json
           if-no-files-found: ignore
-      - name: Test console
-        run: pnpm --filter @niu-io/console test
-      - name: Check console types
-        run: pnpm --filter @niu-io/console check
-      - name: Build console
-        run: pnpm --filter @niu-io/console build
+      - name: Test dashboard
+        run: pnpm --filter @niu-io/dashboard test
+      - name: Check dashboard types
+        run: pnpm --filter @niu-io/dashboard check
+      - name: Build dashboard
+        run: pnpm --filter @niu-io/dashboard build
       - name: Check documentation
         run: pnpm --filter @niu-io/docs check
       - name: Build documentation
@@ -93,13 +99,19 @@ jobs:
       - name: Build public catalog
         run: pnpm build:catalog
       - name: Scan generated public artifacts
-        run: python3 scripts/check-public-boundary.py --root . apps/console/dist apps/docs/dist apps/catalog/dist
+        run: python3 scripts/check-public-boundary.py --root . apps/dashboard/dist apps/docs/dist apps/catalog/dist
       - name: Test JavaScript SDK
         run: pnpm --dir sdks/javascript run test
       - name: Check JavaScript SDK types
         run: pnpm --dir sdks/javascript run check
       - name: Build JavaScript SDK
         run: pnpm --dir sdks/javascript run build
+      - name: Test Agent Connect SDK
+        run: pnpm --dir sdks/agent-connect run test
+      - name: Check Agent Connect SDK types
+        run: pnpm --dir sdks/agent-connect run check
+      - name: Build Agent Connect SDK
+        run: pnpm --dir sdks/agent-connect run build
 
   package:
     runs-on: ubuntu-latest
@@ -108,13 +120,27 @@ jobs:
       - web
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
       - uses: docker/setup-buildx-action@v3
+      - uses: actions/checkout@v4
+        if: ${{ github.event_name == 'pull_request' || github.event.before != '0000000000000000000000000000000000000000' }}
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          path: previous-source
+      - name: Check released migration immutability
+        if: ${{ github.event_name == 'pull_request' || github.event.before != '0000000000000000000000000000000000000000' }}
+        run: python3 scripts/check-migration-history.py previous-source/crates/storage/migrations crates/storage/migrations
+      - name: Build previous package for upgrade qualification
+        if: ${{ github.event_name == 'pull_request' || github.event.before != '0000000000000000000000000000000000000000' }}
+        run: docker buildx build --load --tag niu-io/niu:previous ./previous-source
       - name: Build single-container product
         run: docker buildx build --load --tag niu-io/niu:ci .
       - name: Inspect runtime package contents
         run: |
           test "$(docker image inspect --format '{{.Config.User}}' niu-io/niu:ci)" = "10001:10001"
-          docker run --rm --entrypoint /bin/sh niu-io/niu:ci -c 'set -- /app/console/assets/*.js; test -x /usr/local/bin/niu-gateway && test -s /app/console/index.html && test -s "$1" && test -s /app/docs/index.html && test -s /app/docs/pagefind/pagefind.js && test -s /app/catalog/models/index.html && set -- /app/catalog/_catalog/*.css && test -s "$1" && test -s /app/catalog/catalog-assets/brand/niu-mark.png && test -s /app/catalog/catalog-assets/models.js && test ! -e /app/Cargo.toml && test ! -e /app/node_modules'
+          docker run --rm --entrypoint /bin/sh niu-io/niu:ci -c 'set -- /app/dashboard/assets/*.js; test -x /usr/local/bin/niu-gateway && test -s /app/dashboard/index.html && test -s "$1" && test -s /app/docs/index.html && test -s /app/docs/pagefind/pagefind.js && test -s /app/catalog/models/index.html && set -- /app/catalog/_catalog/*.css && test -s "$1" && test -s /app/catalog/catalog-assets/brand/niu-mark.png && test -s /app/catalog/catalog-assets/models.js && test ! -e /app/Cargo.toml && test ! -e /app/node_modules'
       - name: Scan final runtime assets
         run: |
           container=$(docker create niu-io/niu:ci)
@@ -125,8 +151,21 @@ jobs:
       - name: Smoke test the packaged application with PostgreSQL
         env:
           NIU_IMAGE: niu-io/niu:ci
+          NIU_PACKAGE_BRANDING: "1"
         run: python3 scripts/package-smoke.py
       - name: Smoke test Compose persistence and PostgreSQL backup/restore
         env:
           NIU_IMAGE: niu-io/niu:ci
+          NIU_PACKAGE_BRANDING: "1"
         run: python3 scripts/package-smoke.py --compose
+      - id: package-images
+        if: ${{ github.event_name == 'pull_request' || github.event.before != '0000000000000000000000000000000000000000' }}
+        run: |
+          echo "previous=$(docker image inspect --format '{{.Id}}' niu-io/niu:previous)" >> "$GITHUB_OUTPUT"
+          echo "current=$(docker image inspect --format '{{.Id}}' niu-io/niu:ci)" >> "$GITHUB_OUTPUT"
+      - name: Smoke test package upgrade and migration recovery
+        if: ${{ github.event_name == 'pull_request' || github.event.before != '0000000000000000000000000000000000000000' }}
+        env:
+          NIU_PREVIOUS_IMAGE: ${{ steps.package-images.outputs.previous }}
+          NIU_IMAGE: ${{ steps.package-images.outputs.current }}
+        run: python3 scripts/package-upgrade-smoke.py

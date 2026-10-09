@@ -136,6 +136,15 @@ impl Store {
         sqlx::query("SELECT id FROM supplier_accounts WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")
             .bind(scope.organization_id).bind(scope.project_id).bind(id).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
         let owner = Uuid::new_v4();
+        if sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS(SELECT 1 FROM codex_connections WHERE account_id=$1)",
+        )
+        .bind(id)
+        .fetch_one(&mut *tx)
+        .await?
+        {
+            return Err(StoreError::AccountUnavailable);
+        }
         let changed = sqlx::query("UPDATE supplier_accounts SET refresh_owner=$4 WHERE id=$3 AND organization_id=$1 AND project_id=$2 AND authentication_mode='oauth_refresh' AND refresh_owner IS NULL AND health <> 'disabled' AND NOT EXISTS (SELECT 1 FROM account_assignments WHERE account_id=$3 AND state='held')")
             .bind(scope.organization_id).bind(scope.project_id).bind(id).bind(owner).execute(&mut *tx).await?.rows_affected();
         if changed != 1 {
@@ -176,6 +185,15 @@ impl Store {
         let mut tx = self.pool.begin().await?;
         let row = sqlx::query("SELECT health,refresh_owner,credential_revision,concurrency_limit FROM supplier_accounts WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")
             .bind(scope.organization_id).bind(scope.project_id).bind(account).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
+        if sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS(SELECT 1 FROM codex_connections WHERE account_id=$1)",
+        )
+        .bind(account)
+        .fetch_one(&mut *tx)
+        .await?
+        {
+            return Err(StoreError::AccountUnavailable);
+        }
         if row.get::<String, _>("health") != "ready"
             || row.get::<Option<Uuid>, _>("refresh_owner").is_some()
         {

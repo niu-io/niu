@@ -1,0 +1,29 @@
+{
+  "date": "2026-10-09",
+  "platform": "linux/arm64",
+  "through_migration": 188,
+  "image": "sha256:e96d32e63a994065954b96d58e23eea6860035687bed78accbd4a5b80427e1f3",
+  "previous_image": "sha256:74fe048d1488876ca6d113550c1e80f237688348ebb916b932ebe21892d4967c",
+  "source_snapshot_sha256": "c5874102b5d4cc2555a549dc4175db435731f9aac8abf0069899f23c562923d1",
+  "source_file_count": 1343,
+  "harness_sha256": {
+    "scripts/package-smoke.py": "5cb9075ecc37065a2b6575b62d3eb3d481675d5a95ae3eff2ff430305eedcc4e",
+    "scripts/package-upgrade-smoke.py": "11f19dfca073221797e8ffed1ff961ddd4887b464286384a6fc48c60b77886e0",
+    "scripts/package_asset_updates.py": "8acdc5d044487458477734665921be8f1f60384f74c463238c754ced14bcd695",
+    "scripts/package_asset_listing.py": "cad4dd8487b89419951abc839bf4e380f415f9d8db2ff6f5a811c7af155252b7"
+  },
+  "passed": [
+    "frozen public-source build and full exported-source boundary check",
+    "direct-container smoke with video and encrypted asset recovery",
+    "Compose restart and backup/restore with encrypted asset recovery",
+    "0178 to 0187 upgrade previously qualified separately; 0187 to 0188 upgrade passed with injected DDL failure and immutable receipt preservation",
+    "native original-0174 checksum compatibility and unknown-checksum rejection tested separately"
+  ],
+  "limitations": [
+    "All video and asset upstream fixtures are synthetic; no live entitlement established.",
+    "Original-0174 history has native database and development startup evidence, not its own container upgrade fixture.",
+    "Compose does not generate video.",
+    "Unpinned source Git identity rejects Enterprise manifests.",
+    "Full F01\u2013F10 and rendered/live acceptance remain incomplete."
+  ]
+}

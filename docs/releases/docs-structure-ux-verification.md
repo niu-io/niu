@@ -1,0 +1,17 @@
+# Documentation structure review
+
+October 7, 2026. OpenRouter’s current Quickstart was inspected: everyday guides, API reference and SDK material have distinct navigation scopes. Niu keeps its Starlight shell.
+
+Request logs now focuses on inspecting gateway requests and links to a dedicated Execution imports reference. Supplemental import schemas, SDK adapters, ingest credentials and cohort limitations moved together, without changing API contracts. The new reference has a sidebar entry and links back to Logs. Related API/benchmarking links were updated. Prose and setup environment variables use workspace terminology while compatibility API paths and SDK property names remain unchanged.
+
+The docs build generated 16 pages, including the new route. Both real dashboard help routes were inspected in the browser and their correct page headings confirmed. The preceding 390px Logs-guide rendering remains relevant to its unchanged layout; the new long reference has not yet received its own narrow interaction review. Existing advanced-section fragments on the old Logs URL need a compatibility review before considering the docs migration fully qualified.
+
+Compatibility routing now maps the seven moved legacy section fragments to Execution imports through the existing documentation navigation bridge; the retired Project cohort fragment maps to Workspace cohort. A real dashboard help URL ending in #import-a-record redirected to the new help route with its fragment and rendered Execution imports. The new reference was inspected at 390px, including its expanded mobile table of contents; no clipping was observed. Docs build passes. Standalone route behavior and every legacy fragment are not individually browser-qualified yet.
+
+All seven standalone legacy fragments were individually opened in the real browser; each reached Execution imports with the expected destination fragment, including Project cohort → Workspace cohort. A rapid dashboard-route batch was inconclusive because subsequent navigations interrupted iframe loading; it is not treated as failure or successful rendered acceptance. The separately completed dashboard import-a-record check remains qualified, and the final ingest-credential dashboard route was rechecked after loading.
+
+The remaining five dashboard legacy links were subsequently opened in independent tabs to avoid interrupting loads. Each reached the expected Execution imports help route and rendered its heading. Together with the earlier import-a-record and ingest-credential checks, all seven dashboard legacy fragment mappings are now browser-qualified. This supersedes the inconclusive rapid batch above. Verification tabs were closed.
+
+## Platform cohort clarification
+
+The execution-import reference now labels cohort reports as platform administration, matching the existing authorize_platform gate in the gateway handler. It no longer presents configured-rate platform calculations as customer workspace billing. The API reference links adapter setup to Execution imports and uses workspace terminology in the corrected guidance. Legacy project-cohort and workspace-cohort anchors remain available. The guide and legacy workspace-cohort anchor were inspected in the running browser at desktop and in a 390×640 viewport; content wraps within the article. The documentation build passed for 16 pages. No backend permissions or accounting behavior changed, and this check does not establish a complete commercial-data audit.

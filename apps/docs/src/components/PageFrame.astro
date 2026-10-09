@@ -1,12 +1,23 @@
 ---
+import { ClientRouter } from 'astro:transitions';
 import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
 ---
+<ClientRouter />
 <PageFrame><slot name="header" slot="header" /><slot name="sidebar" slot="sidebar" /><slot /></PageFrame>
 <script>
-  // Inside console Help, keep article navigation in the parent router so the
-  // shared shell, account menu and browser history remain owned by the console.
+  import { navigate } from 'astro:transitions/client';
+
   if (window.parent !== window) {
-    document.addEventListener('click', (event) => {
+    // The dashboard owns browser history; Astro swaps articles without blanking
+    // the iframe or rebuilding the documentation shell.
+    window.addEventListener('message', (event) => {
+      if (event.origin !== location.origin || event.source !== parent || event.data?.type !== 'niu-docs-navigate' || typeof event.data.path !== 'string') return;
+      const url = new URL(event.data.path, location.origin);
+      if (url.origin === location.origin && url.pathname.startsWith('/docs/')) {
+        void navigate(url.pathname + url.search + url.hash, { history: 'replace' });
+      }
+    });
+    window.addEventListener('click', (event) => {
       const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>('a[href]') : null;
       if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || link.target || link.hasAttribute('download')) return;
       const url = new URL(link.href, location.href);
@@ -17,6 +28,6 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
         link.target = '_blank';
         link.rel = 'noopener';
       }
-    });
+    }, { capture: true });
   }
 </script>

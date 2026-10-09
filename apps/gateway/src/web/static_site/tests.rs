@@ -20,7 +20,7 @@ impl Fixture {
             ("website/docs/index.html", "must not shadow docs"),
             (
                 "website/workspaces/default/index.html",
-                "must not shadow console",
+                "must not shadow dashboard",
             ),
             ("website/admin/v1/missing", "must not shadow APIs"),
             ("website/site-assets/brand.png", "marketing image"),
@@ -32,8 +32,8 @@ impl Fixture {
             ("catalog/catalog-assets/models.js", "catalog script"),
             ("catalog/_catalog/style.css", "catalog CSS"),
             ("catalog/favicon.ico", "community favicon"),
-            ("console/index.html", "workspace shell"),
-            ("console/assets/app.js", "workspace script"),
+            ("dashboard/index.html", "workspace shell"),
+            ("dashboard/assets/app.js", "workspace script"),
             ("docs/index.html", "public docs"),
             ("docs/getting-started/index.html", "getting started"),
             ("docs/404.html", "docs missing"),
@@ -51,7 +51,7 @@ impl Fixture {
             marketing.then(|| website.to_str().unwrap()),
             self.0.join("catalog").to_str().unwrap(),
             self.0.join("docs").to_str().unwrap(),
-            self.0.join("console").to_str().unwrap(),
+            self.0.join("dashboard").to_str().unwrap(),
         )
     }
 }
@@ -91,6 +91,22 @@ async fn separate_artifacts_share_one_origin_without_route_or_asset_collisions()
         ("/docs/", "public docs"),
         ("/help/", "workspace shell"),
         ("/help/getting-started/", "workspace shell"),
+        ("/login", "workspace shell"),
+        ("/installation", "workspace shell"),
+        ("/admin", "workspace shell"),
+        ("/admin/suppliers", "workspace shell"),
+        ("/admin/suppliers/models", "workspace shell"),
+        ("/settings", "workspace shell"),
+        ("/settings/billing", "workspace shell"),
+        ("/generations", "workspace shell"),
+        ("/generations?mode=video&new=1", "workspace shell"),
+        ("/chat", "workspace shell"),
+        ("/activity", "workspace shell"),
+        ("/activity/logs", "workspace shell"),
+        ("/suppliers", "workspace shell"),
+        ("/suppliers/manage/models", "workspace shell"),
+        ("/providers", "workspace shell"),
+        ("/providers/manage/models", "workspace shell"),
         ("/workspaces/default/", "workspace shell"),
         ("/workspaces/default/operators", "workspace shell"),
         ("/site-assets/brand.png", "marketing image"),
@@ -145,4 +161,53 @@ async fn community_build_does_not_require_marketing_artifacts() {
     );
     body(&app, "/site-assets/brand.png", StatusCode::NOT_FOUND).await;
     body(&app, "/_astro/style.css", StatusCode::NOT_FOUND).await;
+}
+
+#[tokio::test]
+async fn dashboard_entry_documents_require_revalidation() {
+    let fixture = Fixture::new();
+    let app = fixture.router(false);
+    for path in [
+        "/generations",
+        "/generations?mode=video&new=1",
+        "/chat",
+        "/activity",
+        "/activity/logs",
+        "/login",
+        "/installation",
+        "/admin/suppliers",
+        "/settings/billing",
+        "/suppliers",
+        "/workspaces/default/",
+    ] {
+        let response = app
+            .clone()
+            .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK, "{path}");
+        assert_eq!(response.headers()["cache-control"], "no-cache", "{path}");
+    }
+}
+
+#[tokio::test]
+async fn workspace_catalog_context_uses_dashboard_without_shadowing_public_catalog() {
+    let fixture = Fixture::new();
+    let app = fixture.router(true);
+    assert_eq!(
+        body(&app, "/models/?workspace=demo", StatusCode::OK).await,
+        "workspace shell"
+    );
+    assert_eq!(
+        body(&app, "/models/openai/model?workspace=demo", StatusCode::OK).await,
+        "workspace shell"
+    );
+    assert_eq!(
+        body(&app, "/models/", StatusCode::OK).await,
+        "public catalog"
+    );
+    assert_eq!(
+        body(&app, "/models/?workspace=", StatusCode::OK).await,
+        "public catalog"
+    );
 }

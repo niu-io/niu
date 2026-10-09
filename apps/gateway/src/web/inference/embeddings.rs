@@ -14,7 +14,7 @@ use super::common::*;
 pub(in crate::web) async fn embeddings(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Json(body): Json<Value>,
+    Json(mut body): Json<Value>,
 ) -> Result<Response, ApiError> {
     let _in_flight = state.track_inference();
     let principal = state.authorize_api_headers(&headers).await?;
@@ -27,19 +27,44 @@ pub(in crate::web) async fn embeddings(
     if !principal.allows_model(&public_model) {
         return Err(ApiError::not_found());
     }
-    let resolved = crate::vendors::resolve_model(&state, &public_model).await?;
+    let resolved = crate::vendors::resolve_scoped_model(
+        &state,
+        principal.scope().organization_id,
+        &public_model,
+    )
+    .await?;
     let model = &resolved.model;
+    let inspected_snapshot = inspect_request_input(
+        &state,
+        &principal,
+        &public_model,
+        model,
+        crate::guardrails::input::Protocol::Embeddings,
+        &mut body,
+    )
+    .await?;
     // Only OpenAI-compatible embedding routes are implemented. Reject before
     // creating an operation or dispatch attempt for other providers.
     if !model.protocol().is_openai_compatible() {
-        return Err(ApiError::unsupported());
+        return Err(ApiError::unsupported_message(
+            "Embeddings require an OpenAI-compatible model route.",
+        ));
     }
     let input_bounds = validate_embedding_request(&body)?;
-    if !model.supports_embeddings
-        || (input_bounds.dimensions.is_some() && !model.supports_embedding_dimensions)
-        || (input_bounds.encoding_format == "base64" && !model.supports_embedding_base64)
-    {
-        return Err(ApiError::unsupported());
+    if !model.supports_embeddings {
+        return Err(ApiError::unsupported_message(
+            "Embeddings are not enabled for this model. Choose an embedding model.",
+        ));
+    }
+    if input_bounds.dimensions.is_some() && !model.supports_embedding_dimensions {
+        return Err(ApiError::unsupported_message(
+            "Configurable embedding dimensions are not enabled for this model. Omit dimensions or choose a model supporting custom dimensions.",
+        ));
+    }
+    if input_bounds.encoding_format == "base64" && !model.supports_embedding_base64 {
+        return Err(ApiError::unsupported_message(
+            "Base64 embeddings are not enabled for this model. Use float encoding or choose a model with base64 support.",
+        ));
     }
     if let Some(price) = &model.pricing
         && input_bounds.utf8_bytes > price.max_input_tokens as usize
@@ -55,15 +80,21 @@ pub(in crate::web) async fn embeddings(
     let endpoint = format!("{}/embeddings", base.trim_end_matches('/'));
     let client = crate::upstream::client_for_endpoint(&endpoint, timeout)
         .await
-        .map_err(|_| ApiError::unavailable())?;
+        .map_err(ApiError::from_endpoint)?;
     state.requests.fetch_add(1, Ordering::Relaxed);
     let dispatch = begin_attempt(
         &state,
         &principal,
-        &public_model,
-        model,
-        Some(0),
-        task_id.as_deref(),
+        AttemptRequest {
+            personal_route: resolved.personal_route.as_ref(),
+            public_model: &public_model,
+            model,
+            completion_bound: Some(0),
+            task_id: task_id.as_deref(),
+            snapshot: inspected_snapshot,
+            request_body: &body,
+            protocol: crate::guardrails::input::Protocol::Embeddings,
+        },
     )
     .await?;
     let result = execute_embeddings(
@@ -253,25 +284,70 @@ async fn execute_embeddings(
         return Err(ApiError::upstream());
     }
     let provider_model = provider_reported_model(&value);
-    let usage = value["usage"]["prompt_tokens"]
-        .as_u64()
-        .map(|prompt_tokens| {
-            // Embedding requests produce no completion tokens; that zero follows
-            // from the operation contract rather than missing provider evidence.
-            usage_attempt.report(&json!({
-                "prompt_tokens": prompt_tokens,
-                "completion_tokens": 0
-            }));
-            (prompt_tokens, 0)
-        });
+    let usage = embedding_usage(&value).map(|(prompt_tokens, _)| {
+        // Embedding requests produce no completion tokens; that zero follows
+        // from the operation contract rather than missing provider evidence.
+        usage_attempt.report(&json!({
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": 0
+        }));
+        (prompt_tokens, 0)
+    });
     if let Some(object) = value.as_object_mut() {
         object.insert("object".to_owned(), json!("list"));
         object.insert("model".to_owned(), json!(public_model));
     }
+    crate::customer_response::sanitize(&mut value);
     Ok(ProviderResponse {
+        finish_reasons: None,
+        token_categories: None,
         response: Json(value).into_response(),
         completed: true,
         usage,
         provider_model,
     })
+}
+
+fn embedding_usage(response: &Value) -> Option<(u64, u64)> {
+    let usage = response.get("usage")?;
+    let input = usage.get("prompt_tokens")?.as_u64()?;
+    if input > i64::MAX as u64
+        || usage
+            .get("total_tokens")
+            .is_some_and(|reported| reported.as_u64() != Some(input))
+    {
+        return None;
+    }
+    Some((input, 0))
+}
+
+#[cfg(test)]
+mod usage_tests {
+    use super::*;
+
+    #[test]
+    fn embedding_usage_requires_exact_bounded_consistent_input_evidence() {
+        for usage in [
+            json!({"prompt_tokens": 5}),
+            json!({"prompt_tokens": 5, "total_tokens": 5}),
+            json!({"prompt_tokens": 0, "total_tokens": 0}),
+        ] {
+            assert_eq!(
+                embedding_usage(&json!({"usage": usage})),
+                Some((usage["prompt_tokens"].as_u64().unwrap(), 0))
+            );
+        }
+        for usage in [
+            json!({}),
+            json!({"prompt_tokens": -1}),
+            json!({"prompt_tokens": "5"}),
+            json!({"prompt_tokens": u64::MAX}),
+            json!({"prompt_tokens": 5, "total_tokens": 6}),
+            json!({"prompt_tokens": 5, "total_tokens": null}),
+            json!({"prompt_tokens": 5, "total_tokens": "5"}),
+            json!({"prompt_tokens": 5, "total_tokens": 5.5}),
+        ] {
+            assert_eq!(embedding_usage(&json!({"usage": usage})), None);
+        }
+    }
 }

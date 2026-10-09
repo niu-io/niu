@@ -1,0 +1,25 @@
+{
+  "date": "2026-10-09",
+  "platform": "linux/arm64",
+  "image": "sha256:ebb7aa34fc6af4ed09a85a56b5cfe240b1cd11c46132ef6c4a20937aabb1aefc",
+  "image_source_record": "package-2026-10-09-0201.json",
+  "harness_sha256": {
+    "scripts/package-smoke.py": "09f6764ab3ab7b3de4a00db9d4a8039f1dda2a10a1711b50c9cf608d887c97ef",
+    "scripts/package_image_admission.py": "83aa784c9f6509c63c7ac19302001a21343f04c45e7a69113e65e382950858e6",
+    "tests/fixtures/mock-openai-compatible.py": "8b86af857b719464a555362c2548b6b1ad23940b11758398db87c22fc0896d62"
+  },
+  "passed": [
+    "Direct-container positive source preparation through configured loopback image inspector and explicit current workspace consent",
+    "A second API key cannot erase the original key retained source; HTTP 204 remains opaque",
+    "Prepared source content survives application restart",
+    "Original API key erasure removes retained content; repeated erasure leaves one durable tombstone",
+    "Negative image admission and existing direct lifecycle smoke passed in the same run"
+  ],
+  "limitations": [
+    "Controlled clear verdict does not qualify real inspection effectiveness or rights.",
+    "Positive source subset currently runs in direct-container mode only.",
+    "Ingestion dispatch, readiness, public HTTPS source fetching and live Provider entitlement remain open.",
+    "Pinned 0201 image does not include subsequent native validation, availability or diagnostic changes.",
+    "Full release and rendered customer journeys remain incomplete."
+  ]
+}

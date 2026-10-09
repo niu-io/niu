@@ -1,0 +1,86 @@
+{
+  "upstream": {
+    "date": "2026-10-03",
+    "supplier": "OpenRouter demo",
+    "model": "google/gemini-2.5-flash",
+    "scope": "direct_upstream_only",
+    "probes": [
+      {
+        "capability": "nonstreaming_function_tool",
+        "passed": true,
+        "http_status": 200,
+        "reported_usage": {
+          "prompt_tokens": 20,
+          "completion_tokens": 14
+        },
+        "max_output_tokens": 128
+      },
+      {
+        "capability": "nonstreaming_json_schema",
+        "passed": true,
+        "http_status": 200,
+        "reported_usage": {
+          "prompt_tokens": 6,
+          "completion_tokens": 5
+        },
+        "max_output_tokens": 128
+      }
+    ]
+  },
+  "gateway": {
+    "date": "2026-10-03",
+    "supplier": "OpenRouter demo",
+    "model": "google/gemini-2.5-flash",
+    "scope": "niu_gateway_nonstreaming_only",
+    "probes": [
+      {
+        "capability": "nonstreaming_function_tool",
+        "passed": true,
+        "http_status": 200,
+        "reported_usage": {
+          "prompt_tokens": 20,
+          "completion_tokens": 5
+        },
+        "durable": {
+          "charges": 1,
+          "attempts": 1,
+          "payloads": 0
+        },
+        "max_output_tokens": 128
+      },
+      {
+        "capability": "nonstreaming_json_schema",
+        "passed": true,
+        "http_status": 200,
+        "reported_usage": {
+          "prompt_tokens": 6,
+          "completion_tokens": 6
+        },
+        "durable": {
+          "charges": 1,
+          "attempts": 1,
+          "payloads": 0
+        },
+        "max_output_tokens": 128
+      }
+    ],
+    "original_route_configuration_restored": true,
+    "temporary_key_revoked": true
+  },
+  "schema_enforcement": {
+    "validator": "jsonschema 0.58.5",
+    "external_retrieval": false,
+    "max_schema_bytes": 65536,
+    "max_json_nodes": 4096,
+    "max_depth": 32,
+    "regex_backtrack_limit": 10000,
+    "regex_size_limit_bytes": 1048576,
+    "regex_dfa_size_limit_bytes": 1048576,
+    "gateway_tests_passed": 136,
+    "process_replacement_test_passed": true,
+    "clippy_warnings_denied_passed": true,
+    "dependency_license_check_passed": true,
+    "docs_build_passed": true,
+    "release_gate_complete": false
+  }
+}

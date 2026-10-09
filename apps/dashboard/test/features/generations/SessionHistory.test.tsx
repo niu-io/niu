@@ -1,0 +1,76 @@
+import {afterEach,expect,it,vi} from 'vitest';
+import {act,render,screen,waitFor} from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import {MemoryRouter} from 'react-router';
+import {SidebarProvider} from '@/components/ui/sidebar';
+import SessionHistory from '@/features/generations/SessionHistory';
+import type {DashboardContext} from '@/app/dashboard-context';
+const a={id:'workspace-a',organization_id:'company',name:'A',organization_name:'Company'};
+const b={...a,id:'workspace-b',name:'B'};
+const context={token:'member',workspace:a,workspaces:[a,b]} as DashboardContext;
+afterEach(()=>vi.unstubAllGlobals());
+it('merges saved chat and video sessions across accessible workspaces and preserves original key links and pagination',async()=>{
+ const calls:string[]=[];
+ vi.stubGlobal('fetch',vi.fn(async(path:string)=>{
+  calls.push(path);
+  if(path.endsWith('/chat-sessions'))return Response.json({data:[{id:'chat-b',title:'Other workspace conversation',prompt:'B',createdAt:200}]});
+  if(path.endsWith('/keys'))return Response.json({data:[{id:path.includes('workspace-a')?'key-a':'key-b',revoked:false,expired:false}]});
+  if(path.includes('key-b/video/jobs'))return Response.json({data:[],has_more:false,next_before:null});
+  if(path.includes('before='))return Response.json({data:[{id:'older-video',model:'Older model',status:'succeeded',created_at_ms:'50'}],has_more:false,next_before:null});
+  return Response.json({data:[{id:'video-a',model:'Video model',status:'succeeded',created_at_ms:'300'}],has_more:true,next_before:'cursor'});
+ }));
+ const open=vi.fn();
+ render(<MemoryRouter><SidebarProvider><SessionHistory context={context} chats={[{id:'chat-a',title:'Current conversation',prompt:'A',createdAt:100}]} onChat={open}/></SidebarProvider></MemoryRouter>);
+ const video=await screen.findByRole('link',{name:'Video · Video model'});
+ expect(screen.queryByRole('textbox',{name:'Search sessions'})).toBeNull();
+ await userEvent.click(screen.getByRole('button',{name:'Search sessions'}));
+ await userEvent.type(screen.getByRole('textbox',{name:'Search sessions'}),'Current conversation');
+ expect(screen.queryByRole('link',{name:'Video · Video model'})).toBeNull();
+ await userEvent.keyboard('{Escape}');
+ expect(screen.queryByRole('textbox',{name:'Search sessions'})).toBeNull();
+ await userEvent.click(screen.getByRole('button',{name:'Search sessions'}));
+ expect((screen.getByRole('textbox',{name:'Search sessions'}) as HTMLInputElement).value).toBe('Current conversation');
+ await userEvent.click(screen.getByRole('button',{name:'Reset search'}));
+ await userEvent.keyboard('{Escape}');
+ expect(video.getAttribute('href')).toContain('key=key-a');
+ expect(video.getAttribute('href')).toContain('workspace=workspace-a');
+ expect(screen.getByRole('link',{name:'Other workspace conversation'}).getAttribute('href')).toContain('workspace=workspace-b');
+ await userEvent.click(screen.getByRole('button',{name:'Current conversation'}));expect(open).toHaveBeenCalledWith('chat-a');
+ await userEvent.click(screen.getByRole('button',{name:'Load more sessions'}));
+ await screen.findByRole('link',{name:'Video · Older model'});
+ expect(calls.some(path=>path.includes('key-a/video/jobs?limit=25&before=cursor'))).toBe(true);
+ expect(screen.queryByRole('button',{name:'Load more sessions'})).toBeNull();
+ expect(screen.queryByRole('alert')).toBeNull();
+} );
+it('discards history that resolves after the account and workspace change',async()=>{
+ let finish!:(value:Response)=>void;
+ vi.stubGlobal('fetch',vi.fn(async(path:string)=>{
+  if(path.includes('workspace-a')&&path.endsWith('/chat-sessions'))return new Promise<Response>(resolve=>{finish=resolve;});
+  if(path.endsWith('/chat-sessions'))return Response.json({data:[{id:'current',title:'Current account session',prompt:'',createdAt:100}]});
+  if(path.endsWith('/keys'))return Response.json({data:[]});
+  throw new Error('Unexpected request');
+ }));
+ const tree=(ctx:DashboardContext)=><MemoryRouter><SidebarProvider><SessionHistory context={ctx}/></SidebarProvider></MemoryRouter>;
+ const mounted=render(tree({...context,workspaces:[a]}));
+ await waitFor(()=>expect(finish).toBeTypeOf('function'));
+ mounted.rerender(tree({...context,token:'different-member',workspace:b,workspaces:[b]}));
+ await screen.findByRole('link',{name:'Current account session'});
+ await act(async()=>finish(Response.json({data:[{id:'old',title:'Previous account session',prompt:'',createdAt:200}]})));
+ expect(screen.queryByText('Previous account session')).toBeNull();
+ expect(screen.getByRole('link',{name:'Current account session'})).toBeTruthy();
+});
+it('keeps available chat and video history when earlier workspaces or individual keys fail',async()=>{
+ const workspaces=['bad1','bad2','bad3','bad4','good'].map(id=>({...a,id,name:id}));
+ vi.stubGlobal('fetch',vi.fn(async(path:string)=>{
+  if(!path.includes('/good/'))return Response.json({error:{message:'Unavailable'}},{status:403});
+  if(path.endsWith('/chat-sessions'))return Response.json({data:[{id:'available-chat',title:'Available conversation',prompt:'',createdAt:100}]});
+  if(path.endsWith('/keys'))return Response.json({data:[{id:'bad-key',revoked:false,expired:false},{id:'good-key',revoked:false,expired:false}]});
+  if(path.includes('/bad-key/'))return Response.json({error:{message:'Unavailable'}},{status:403});
+  return Response.json({data:[{id:'available-video',model:'Available video',status:'succeeded',created_at_ms:'200'}],has_more:false});
+ }));
+ render(<MemoryRouter><SidebarProvider><SessionHistory context={{...context,workspace:workspaces[0],workspaces}}/></SidebarProvider></MemoryRouter>);
+ await screen.findByRole('link',{name:'Available conversation'});
+ expect(screen.getByRole('link',{name:'Video · Available video'}).getAttribute('href')).toContain('key=good-key');
+ expect(screen.getByRole('alert').textContent).toBe('Some sessions could not be loaded.');
+ expect(screen.queryByText('No sessions yet')).toBeNull();
+});

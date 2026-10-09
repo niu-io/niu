@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-09",
+  "status": "failed_before_compilation",
+  "migration_max": 196,
+  "source_snapshot_sha256": "ee91aa640ee30e70562fdec53edabff53c1cfe508a5ab7eb7a553c05e48ab586",
+  "source_file_count": 1378,
+  "public_boundary": {
+    "passed": true,
+    "scanned_files": 1377,
+    "build_inputs_checked": true
+  },
+  "image": null,
+  "failure": {
+    "stage": "base_image_metadata",
+    "registry": "registry-1.docker.io",
+    "reason": "TLS handshake timeout while resolving Debian base image metadata",
+    "tls_verification_bypassed": false
+  },
+  "qualified": false,
+  "limitations": [
+    "No current image built",
+    "No direct-container, Compose, restart, restore or upgrade acceptance for this snapshot"
+  ]
+}

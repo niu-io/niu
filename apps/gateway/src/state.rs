@@ -15,7 +15,15 @@ use crate::{config::AppConfig, error::ApiError};
 
 #[derive(Clone)]
 pub struct AppState {
+    pub(crate) password_auth: Option<Arc<crate::admin::passwords::Runtime>>,
+    pub(crate) payments: Option<Arc<crate::payments::Runtime>>,
+    pub(crate) epay_payments: Option<Arc<crate::payments::EPayRuntime>>,
+    pub(crate) payment_configuration_guard: Arc<tokio::sync::Mutex<()>>,
+    pub(crate) stripe_payments: Option<Arc<crate::payments::StripeRuntime>>,
+    pub(crate) codex: Arc<crate::codex::Runtime>,
     pub config: Arc<AppConfig>,
+    pub(crate) detectors: Arc<HashMap<String, crate::guardrails::detector::Runtime>>,
+    pub(crate) image_detectors: Arc<HashMap<String, niu_media::image_detector::Runtime>>,
     pub(crate) vendor_cipher: Option<Arc<crate::vendors::crypto::CredentialCipher>>,
     pub enterprise: Option<Arc<crate::enterprise::EnterpriseRuntime>>,
     provider_keys: Arc<HashMap<String, String>>,
@@ -64,6 +72,19 @@ impl AppState {
             .map(|key| crate::vendors::crypto::CredentialCipher::new(&key))
             .transpose()?
             .map(Arc::new);
+        let codex_connections = store
+            .codex_connection_secrets()
+            .await
+            .map_err(|_| "Cannot read private Codex connections")?;
+        if !codex_connections.is_empty() && vendor_cipher.is_none() {
+            return Err("NIU_VENDOR_ENCRYPTION_KEY is required for saved Codex connections".into());
+        }
+        if let Some(cipher) = &vendor_cipher {
+            for connection in codex_connections {
+                cipher.open(connection.account_id,&connection.credential_ciphertext)
+                    .map_err(|_| "Cannot decrypt saved Codex credentials with the configured encryption key")?;
+            }
+        }
         crate::vendors::seed_from_env(&store, vendor_cipher.as_deref()).await?;
         if !store
             .vendors()
@@ -118,6 +139,30 @@ impl AppState {
         let mut state =
             Self::new(config, store, admin_tokens, provider_keys).with_enterprise(enterprise);
         state.vendor_cipher = vendor_cipher;
+        state.payments = crate::payments::Runtime::from_env().await?.map(Arc::new);
+        state.epay_payments = crate::payments::EPayRuntime::from_env()?.map(Arc::new);
+        state.stripe_payments = crate::payments::StripeRuntime::from_env()?.map(Arc::new);
+        state.password_auth = crate::admin::passwords::Runtime::from_env()
+            .await?
+            .map(Arc::new);
+        if let Ok(origin) = env::var("NIU_DEV_MEMBER_ORIGIN") {
+            if state.password_auth.is_some() {
+                return Err(
+                    "Development member origin cannot override production authentication".into(),
+                );
+            }
+            let email = env::var("NIU_DEV_USERNAME")?;
+            let password = env::var("NIU_DEV_PASSWORD")?;
+            let bind: std::net::SocketAddr = env::var("NIU_BIND")?.parse()?;
+            if !bind.ip().is_loopback() {
+                return Err("Development member login requires a loopback bind".into());
+            }
+            let runtime = crate::admin::passwords::Runtime::local(&origin).await?;
+            runtime
+                .provision_local_account(&state.store, &email, &password)
+                .await?;
+            state.password_auth = Some(Arc::new(runtime));
+        }
         Ok(state)
     }
 
@@ -130,7 +175,34 @@ impl AppState {
         let inference_in_flight = Arc::new(AtomicUsize::new(0));
         let gateway_writes =
             crate::admission::GatewayWrites::new(store.clone(), inference_in_flight.clone());
+        let detectors = config
+            .detectors
+            .iter()
+            .map(|(name, config)| {
+                (
+                    name.clone(),
+                    crate::guardrails::detector::Runtime::new(config.clone()),
+                )
+            })
+            .collect();
+        let image_detectors = config
+            .image_detectors
+            .iter()
+            .filter_map(|(name, config)| {
+                niu_media::image_detector::Runtime::new(config.clone())
+                    .ok()
+                    .map(|runtime| (name.clone(), runtime))
+            })
+            .collect();
         Self {
+            image_detectors: Arc::new(image_detectors),
+            password_auth: None,
+            detectors: Arc::new(detectors),
+            payments: None,
+            stripe_payments: None,
+            epay_payments: None,
+            payment_configuration_guard: Arc::new(tokio::sync::Mutex::new(())),
+            codex: Arc::new(crate::codex::Runtime::default()),
             config: Arc::new(config),
             enterprise: None,
             vendor_cipher: None,
@@ -238,6 +310,26 @@ impl AppState {
         .await
     }
 
+    /// Resolve a selected workspace key through existing session/role checks.
+    /// Dashboard callers never receive the key secret. Dispatch still revalidates
+    /// the selected key and policy in its transaction.
+    pub(crate) async fn authorize_dashboard_key(
+        &self,
+        headers: &HeaderMap,
+        scope: niu_storage::TenantScope,
+        key: uuid::Uuid,
+        permission: niu_storage::AdminPermission,
+    ) -> Result<niu_storage::Principal, ApiError> {
+        let authorization = self.authorize_admin_headers(headers, permission).await?;
+        if !authorization.permits_project(scope) {
+            return Err(ApiError::forbidden());
+        }
+        self.store
+            .dashboard_key(scope, key)
+            .await
+            .map_err(ApiError::from_store)
+    }
+
     pub async fn authorize_admin(
         &self,
         header: Option<&str>,
@@ -259,6 +351,53 @@ impl AppState {
         } else {
             Err(ApiError::forbidden())
         }
+    }
+
+    pub(crate) async fn authorize_admin_headers(
+        &self,
+        headers: &HeaderMap,
+        permission: niu_storage::AdminPermission,
+    ) -> Result<AdminAuthorization, ApiError> {
+        if headers.get_all("authorization").iter().count() > 1 {
+            return Err(ApiError::unauthorized());
+        }
+        let browser_marker = headers.get("authorization").and_then(|v| v.to_str().ok())
+            == Some("Bearer niu-browser-member-session");
+        if (!headers.contains_key("authorization") || browser_marker)
+            && let Some(runtime) = self.password_auth.as_deref()
+            && let Some(token) = crate::admin::passwords::member_cookie(headers, runtime)?
+        {
+            let runtime = self
+                .password_auth
+                .as_deref()
+                .ok_or_else(ApiError::unauthorized)?;
+            runtime.check_cookie_request(headers)?;
+            // Never compare a browser cookie against installation credentials.
+            let member = self
+                .store
+                .authenticate_operator(&token)
+                .await
+                .map_err(ApiError::from_store)?;
+            return if member.role.permits(permission) {
+                Ok(AdminAuthorization::Operator(member))
+            } else {
+                Err(ApiError::forbidden())
+            };
+        }
+        if browser_marker {
+            return Err(ApiError::unauthorized());
+        }
+        self.authorize_admin(
+            headers.get("authorization").and_then(|h| h.to_str().ok()),
+            permission,
+        )
+        .await
+    }
+
+    pub(crate) fn development_member_enabled(&self) -> bool {
+        self.password_auth
+            .as_deref()
+            .is_some_and(|runtime| runtime.is_local())
     }
 }
 
@@ -284,10 +423,32 @@ impl AdminAuthorization {
         matches!(self, Self::Installation)
     }
 
+    pub fn can_manage_platform(self) -> bool {
+        match self {
+            Self::Installation => true,
+            Self::Operator(member) => member.platform_admin,
+        }
+    }
+
     pub fn permits_organization(self, organization_id: uuid::Uuid) -> bool {
         match self {
             Self::Installation => true,
             Self::Operator(operator) => operator.scope.organization_id == organization_id,
+        }
+    }
+
+    /// Shared company funds require organization-wide financial access.
+    pub fn permits_billing_account(self, organization_id: uuid::Uuid) -> bool {
+        match self {
+            Self::Installation => true,
+            Self::Operator(operator) => {
+                operator.scope.organization_id == organization_id
+                    && operator.scope.project_id.is_none()
+                    && matches!(
+                        operator.role,
+                        niu_storage::OperatorRole::Owner | niu_storage::OperatorRole::Admin
+                    )
+            }
         }
     }
 
@@ -490,6 +651,32 @@ mod tests {
         }
     }
 
+    #[test]
+    fn platform_administration_does_not_expand_customer_scope() {
+        let organization_id = Uuid::new_v4();
+        let project_id = Uuid::new_v4();
+        let mut authorization =
+            operator_authorization(organization_id, Some(project_id), OperatorRole::Owner);
+        assert!(!authorization.can_manage_platform());
+        let AdminAuthorization::Operator(ref mut member) = authorization else {
+            unreachable!();
+        };
+        member.platform_admin = true;
+        assert!(authorization.can_manage_platform());
+        assert!(!authorization.is_installation());
+        assert!(authorization.permits_project(TenantScope {
+            organization_id,
+            project_id
+        }));
+        assert!(!authorization.permits_organization(Uuid::new_v4()));
+        assert!(!authorization.permits_project(TenantScope {
+            organization_id,
+            project_id: Uuid::new_v4(),
+        }));
+        assert!(!authorization.permits_project_creation(organization_id));
+        assert!(AdminAuthorization::Installation.can_manage_platform());
+    }
+
     fn operator_authorization(
         organization_id: Uuid,
         project_id: Option<Uuid>,
@@ -497,6 +684,7 @@ mod tests {
     ) -> AdminAuthorization {
         AdminAuthorization::Operator(OperatorPrincipal {
             id: Uuid::new_v4(),
+            platform_admin: false,
             role,
             scope: OperatorScope {
                 organization_id,

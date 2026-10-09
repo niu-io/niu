@@ -117,9 +117,97 @@ impl VendorRouteRow {
 }
 
 impl Store {
+    /// Assign an installation-managed personal credential to one account.
+    /// This does not activate routes, qualify commercial offers or grant credit.
+    pub async fn assign_personal_vendor_owner(
+        &self,
+        vendor: Uuid,
+        organization: Uuid,
+        expected_revision: i64,
+    ) -> Result<(), StoreError> {
+        let mut tx = self.pool.begin().await?;
+        let revision: i64 =
+            sqlx::query_scalar("SELECT revision FROM vendors WHERE id=$1 FOR UPDATE")
+                .bind(vendor)
+                .fetch_optional(&mut *tx)
+                .await?
+                .ok_or(StoreError::Conflict)?;
+        let existing: Option<Uuid> = sqlx::query_scalar(
+            "SELECT organization_id FROM personal_vendor_ownership WHERE vendor_id=$1",
+        )
+        .bind(vendor)
+        .fetch_optional(&mut *tx)
+        .await?;
+        if let Some(existing) = existing {
+            if existing != organization {
+                return Err(StoreError::Conflict);
+            }
+            tx.commit().await?;
+            return Ok(());
+        }
+        if revision != expected_revision {
+            return Err(StoreError::Conflict);
+        }
+        sqlx::query(
+            "INSERT INTO personal_vendor_ownership(vendor_id,organization_id) VALUES($1,$2)",
+        )
+        .bind(vendor)
+        .bind(organization)
+        .execute(&mut *tx)
+        .await
+        .map_err(map_vendor_write_error)?;
+        sqlx::query("UPDATE vendors SET revision=revision+1,updated_at=now() WHERE id=$1")
+            .bind(vendor)
+            .execute(&mut *tx)
+            .await?;
+        insert_audit(
+            &mut tx,
+            vendor,
+            None,
+            "personal_owner_assigned",
+            revision + 1,
+        )
+        .await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    /// Routing metadata only; never returns encrypted or plaintext credentials.
+    pub async fn personal_vendor_organization(
+        &self,
+        vendor: Uuid,
+    ) -> Result<Option<Uuid>, StoreError> {
+        Ok(sqlx::query_scalar(
+            "SELECT organization_id FROM personal_vendor_ownership WHERE vendor_id=$1",
+        )
+        .bind(vendor)
+        .fetch_optional(&self.pool)
+        .await?)
+    }
+
     pub async fn vendors(&self) -> Result<Vec<VendorView>, StoreError> {
         let query = format!("SELECT {VENDOR_COLUMNS} FROM vendors ORDER BY name,id LIMIT 1000");
         Ok(sqlx::query_as::<_, VendorView>(&query)
+            .fetch_all(&self.pool)
+            .await?)
+    }
+
+    /// Read credential configuration ownership without returning encrypted keys.
+    pub async fn vendors_with_supplier(
+        &self,
+        supplier: Option<Uuid>,
+    ) -> Result<Vec<Value>, StoreError> {
+        Ok(sqlx::query_scalar(
+            "SELECT jsonb_build_object('id',v.id,'name',v.name,'adapter',v.adapter,             'api_base',v.api_base,'enabled',v.enabled,'revision',v.revision,             'has_credential',v.credential_ciphertext IS NOT NULL, 'owner_funded',EXISTS (SELECT 1 FROM personal_vendor_ownership po WHERE po.vendor_id=v.id),             'supplier',CASE WHEN p.id IS NULL THEN NULL ELSE jsonb_build_object('id',p.id,'name',p.name) END)              FROM vendors v LEFT JOIN vendor_supplier_ownership o ON o.vendor_id=v.id              LEFT JOIN provider_businesses p ON p.id=o.provider_id              WHERE ($1::uuid IS NULL OR p.id=$1) ORDER BY p.name NULLS LAST,v.name,v.id LIMIT 1000"
+        ).bind(supplier).fetch_all(&self.pool).await?)
+    }
+
+    pub async fn supplier_vendors(&self, supplier: Uuid) -> Result<Vec<VendorView>, StoreError> {
+        let query = format!(
+            "SELECT {VENDOR_COLUMNS} FROM vendors WHERE id IN (SELECT vendor_id FROM vendor_supplier_ownership WHERE provider_id=$1) ORDER BY name,id LIMIT 1000"
+        );
+        Ok(sqlx::query_as::<_, VendorView>(&query)
+            .bind(supplier)
             .fetch_all(&self.pool)
             .await?)
     }
@@ -163,9 +251,124 @@ impl Store {
             .await?)
     }
 
+    pub async fn vendor_supplier(&self, vendor: Uuid) -> Result<Option<Value>, StoreError> {
+        Ok(sqlx::query_scalar("SELECT jsonb_build_object('id',p.id,'name',p.name) FROM vendor_supplier_ownership o JOIN provider_businesses p ON p.id=o.provider_id WHERE o.vendor_id=$1")
+            .bind(vendor).fetch_optional(&self.pool).await?)
+    }
+
+    pub async fn associate_vendor_supplier(
+        &self,
+        vendor: Uuid,
+        supplier: Uuid,
+        expected_revision: i64,
+    ) -> Result<(), StoreError> {
+        let mut tx = self.pool.begin().await?;
+        let revision: i64 =
+            sqlx::query_scalar("SELECT revision FROM vendors WHERE id=$1 FOR UPDATE")
+                .bind(vendor)
+                .fetch_optional(&mut *tx)
+                .await?
+                .ok_or(StoreError::Conflict)?;
+        let existing: Option<Uuid> = sqlx::query_scalar(
+            "SELECT provider_id FROM vendor_supplier_ownership WHERE vendor_id=$1",
+        )
+        .bind(vendor)
+        .fetch_optional(&mut *tx)
+        .await?;
+        if let Some(existing) = existing {
+            if existing != supplier {
+                return Err(StoreError::Conflict);
+            }
+            tx.commit().await?;
+            return Ok(());
+        }
+        if revision != expected_revision {
+            return Err(StoreError::Conflict);
+        }
+        let conflicting_offer: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM provider_offers WHERE vendor_id=$1 AND provider_id<>$2)",
+        )
+        .bind(vendor)
+        .bind(supplier)
+        .fetch_one(&mut *tx)
+        .await?;
+        if conflicting_offer {
+            return Err(StoreError::Conflict);
+        }
+
+        let exists: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM provider_businesses WHERE id=$1 AND deleted_at IS NULL)",
+        )
+        .bind(supplier)
+        .fetch_one(&mut *tx)
+        .await?;
+        if !exists {
+            return Err(StoreError::Conflict);
+        }
+        sqlx::query("INSERT INTO vendor_supplier_ownership(vendor_id,provider_id) VALUES($1,$2)")
+            .bind(vendor)
+            .bind(supplier)
+            .execute(&mut *tx)
+            .await?;
+        sqlx::query("UPDATE vendors SET revision=revision+1,updated_at=now() WHERE id=$1")
+            .bind(vendor)
+            .execute(&mut *tx)
+            .await?;
+        insert_audit(&mut tx, vendor, None, "supplier_associated", revision + 1).await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
     pub async fn create_vendor(&self, input: VendorInput) -> Result<VendorView, StoreError> {
+        self.create_vendor_with_supplier(input, false).await
+    }
+
+    /// Opt-in business creation shares the configuration transaction: a failed
+    /// configuration write cannot leave an orphan Supplier or ownership record.
+    pub async fn create_vendor_with_supplier(
+        &self,
+        input: VendorInput,
+        create_supplier: bool,
+    ) -> Result<VendorView, StoreError> {
+        self.create_vendor_for_supplier(input, create_supplier, None)
+            .await
+    }
+
+    /// Create a credential configuration and its business ownership atomically.
+    pub async fn create_vendor_for_supplier(
+        &self,
+        input: VendorInput,
+        create_supplier: bool,
+        existing_supplier: Option<Uuid>,
+    ) -> Result<VendorView, StoreError> {
         validate_vendor(&input)?;
+        if create_supplier && existing_supplier.is_some() {
+            return Err(StoreError::InvalidVendor);
+        }
         let mut transaction = self.pool.begin().await?;
+        if let Some(id) = existing_supplier {
+            let exists: Option<Uuid> =
+                sqlx::query_scalar("SELECT id FROM provider_businesses WHERE id=$1 AND deleted_at IS NULL FOR KEY SHARE")
+                    .bind(id)
+                    .fetch_optional(&mut *transaction)
+                    .await?;
+            if exists.is_none() {
+                return Err(StoreError::Conflict);
+            }
+        }
+        let supplier = if create_supplier {
+            let id = Uuid::new_v4();
+            sqlx::query("INSERT INTO provider_businesses(id,name) VALUES($1,$2)")
+                .bind(id)
+                .bind(input.name.trim())
+                .execute(&mut *transaction)
+                .await?;
+            sqlx::query("INSERT INTO provider_audit_events(provider_id,action,resource_id) VALUES($1,'provider_created',$1)")
+                .bind(id).execute(&mut *transaction).await?;
+            Some(id)
+        } else {
+            existing_supplier
+        };
         let query = format!(
             "INSERT INTO vendors(id,name,adapter,api_base,enabled,credential_ciphertext) \
              VALUES($1,$2,$3,$4,$5,$6) RETURNING {VENDOR_COLUMNS}"
@@ -188,6 +391,23 @@ impl Store {
             vendor.revision,
         )
         .await?;
+        if let Some(supplier) = supplier {
+            sqlx::query(
+                "INSERT INTO vendor_supplier_ownership(vendor_id,provider_id) VALUES($1,$2)",
+            )
+            .bind(vendor.id)
+            .bind(supplier)
+            .execute(&mut *transaction)
+            .await?;
+            insert_audit(
+                &mut transaction,
+                vendor.id,
+                None,
+                "supplier_associated",
+                vendor.revision,
+            )
+            .await?;
+        }
         transaction.commit().await?;
         Ok(vendor)
     }
@@ -236,6 +456,29 @@ impl Store {
             .bind(id)
             .fetch_all(&self.pool)
             .await?)
+    }
+
+    /// Management read: availability uses the same eligibility checks as dispatch.
+    /// Keep this read-only field out of model configuration writes.
+    pub async fn vendor_models_with_availability(
+        &self,
+        id: Uuid,
+    ) -> Result<Vec<Value>, StoreError> {
+        Ok(sqlx::query_scalar::<_, Value>(
+            "SELECT jsonb_build_object(
+                'alias',m.alias,'vendor_id',m.vendor_id,'upstream_model',m.upstream_model,
+                'public_catalog',m.public_catalog,'enabled',m.enabled,
+                'owner_funded',EXISTS (SELECT 1 FROM personal_vendor_ownership o WHERE o.vendor_id=v.id),
+                'capabilities',m.capabilities,'pricing',m.pricing,'revision',m.revision,
+                'available',m.enabled AND v.enabled AND v.credential_ciphertext IS NOT NULL
+                    AND (EXISTS (SELECT 1 FROM personal_vendor_ownership o WHERE o.vendor_id=v.id)
+                         OR niu_supplier_model_route_available(m.alias)))
+             FROM vendor_models m JOIN vendors v ON v.id=m.vendor_id
+             WHERE m.vendor_id=$1 ORDER BY m.alias LIMIT 1000",
+        )
+        .bind(id)
+        .fetch_all(&self.pool)
+        .await?)
     }
 
     pub async fn upsert_vendor_model(
@@ -308,6 +551,75 @@ impl Store {
             .fetch_optional(&self.pool)
             .await?
             .map(VendorRouteRow::into_route))
+    }
+
+    /// Read an enabled personal route only for its immutable owning account.
+    /// Ownership and both enabled flags are checked in the same database query;
+    /// callers must still pin these revisions at admission before dispatch.
+    pub async fn personal_vendor_route(
+        &self,
+        organization_id: Uuid,
+        alias: &str,
+    ) -> Result<Option<VendorRoute>, StoreError> {
+        let query = route_query(
+            "WHERE m.alias=$1 AND m.enabled AND v.enabled AND EXISTS \
+             (SELECT 1 FROM personal_vendor_ownership o \
+              WHERE o.vendor_id=v.id AND o.organization_id=$2)",
+        );
+        Ok(sqlx::query_as::<_, VendorRouteRow>(&query)
+            .bind(alias)
+            .bind(organization_id)
+            .fetch_optional(&self.pool)
+            .await?
+            .map(VendorRouteRow::into_route))
+    }
+
+    pub async fn personal_vendor_routes(
+        &self,
+        organization_id: Uuid,
+    ) -> Result<Vec<VendorRoute>, StoreError> {
+        let query = route_query(
+            "WHERE m.enabled AND v.enabled AND EXISTS \
+             (SELECT 1 FROM personal_vendor_ownership o \
+              WHERE o.vendor_id=v.id AND o.organization_id=$1)",
+        );
+        Ok(sqlx::query_as::<_, VendorRouteRow>(&query)
+            .bind(organization_id)
+            .fetch_all(&self.pool)
+            .await?
+            .into_iter()
+            .map(VendorRouteRow::into_route)
+            .collect())
+    }
+
+    /// Pin personal credential and model revisions on an undispatched attempt.
+    /// This records ownership evidence; it does not itself authorize dispatch.
+    pub async fn bind_personal_attempt_route(
+        &self,
+        scope: crate::TenantScope,
+        attempt_id: Uuid,
+        route: &VendorRoute,
+    ) -> Result<(), StoreError> {
+        let changed = sqlx::query(
+            "INSERT INTO personal_attempt_routes \
+             (attempt_id,vendor_id,vendor_revision,model_revision) \
+             SELECT id,$4,$5,$6 FROM attempts \
+             WHERE id=$1 AND organization_id=$2 AND project_id=$3",
+        )
+        .bind(attempt_id)
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(route.vendor.id)
+        .bind(route.vendor.revision)
+        .bind(route.model.revision)
+        .execute(&self.pool)
+        .await
+        .map_err(map_vendor_write_error)?
+        .rows_affected();
+        if changed != 1 {
+            return Err(StoreError::Conflict);
+        }
+        Ok(())
     }
 
     /// Return disabled routes too so the caller can shadow same-named static
@@ -510,6 +822,14 @@ fn validate_model(input: &VendorModelInput) -> Result<(), StoreError> {
     {
         return Err(StoreError::InvalidVendor);
     }
+    if let Some(value) = input.capabilities.get("video_schema") {
+        let schema: niu_media::VideoSchema =
+            serde_json::from_value(value.clone()).map_err(|_| StoreError::InvalidVendor)?;
+        schema.validate().map_err(|_| StoreError::InvalidVendor)?;
+        if schema.model_alias != input.alias || schema.upstream_model != input.upstream_model {
+            return Err(StoreError::InvalidVendor);
+        }
+    }
     Ok(())
 }
 
@@ -532,7 +852,7 @@ fn map_vendor_write_error(error: sqlx::Error) -> StoreError {
     if error.as_database_error().is_some_and(|database_error| {
         database_error
             .code()
-            .is_some_and(|code| matches!(code.as_ref(), "23503" | "23505"))
+            .is_some_and(|code| matches!(code.as_ref(), "23503" | "23505" | "P0008"))
     }) {
         StoreError::Conflict
     } else {
@@ -540,9 +860,570 @@ fn map_vendor_write_error(error: sqlx::Error) -> StoreError {
     }
 }
 
+impl Store {
+    /// Update only descriptive catalog metadata for existing mappings, preserving billing and routing.
+    pub async fn refresh_vendor_catalog(
+        &self,
+        vendor_id: Uuid,
+        entries: Vec<(String, Value)>,
+    ) -> Result<u64, StoreError> {
+        let mut tx = self.pool.begin().await?;
+        let mut updated = 0;
+        for (upstream, metadata) in entries {
+            if !metadata.is_object() || json_size(&metadata) > MAX_JSON_BYTES {
+                return Err(StoreError::InvalidVendor);
+            }
+            updated += sqlx::query("UPDATE vendor_models SET capabilities=jsonb_set(capabilities, '{catalog}', $3), revision=revision+1 WHERE vendor_id=$1 AND upstream_model=$2 AND capabilities->'catalog' IS DISTINCT FROM $3")
+                .bind(vendor_id).bind(upstream).bind(metadata).execute(&mut *tx).await?.rows_affected();
+        }
+        tx.commit().await?;
+        Ok(updated)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[sqlx::test(migrations = "./migrations")]
+    #[ignore = "requires PostgreSQL"]
+    async fn personal_attempt_binding_pins_owner_and_revisions(pool: sqlx::PgPool) {
+        let store = Store::from_pool(pool.clone());
+        let scope = store.default_prepaid_workspace().await.unwrap();
+        let vendor = Uuid::new_v4();
+        sqlx::query("INSERT INTO vendors(id,name,adapter,api_base,credential_ciphertext) VALUES($1,'personal binding fixture','openai','https://example.com/v1',$2)")
+            .bind(vendor).bind(vec![1u8;48]).execute(&pool).await.unwrap();
+        sqlx::query("INSERT INTO vendor_models(alias,vendor_id,upstream_model,capabilities) VALUES('personal-bind',$1,'upstream',$2)")
+            .bind(vendor).bind(serde_json::json!({})).execute(&pool).await.unwrap();
+        let revision: i64 = sqlx::query_scalar("SELECT revision FROM vendors WHERE id=$1")
+            .bind(vendor)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        store
+            .assign_personal_vendor_owner(vendor, scope.organization_id, revision)
+            .await
+            .unwrap();
+        let route = store
+            .personal_vendor_route(scope.organization_id, "personal-bind")
+            .await
+            .unwrap()
+            .unwrap();
+        let (_, attempt) = store
+            .prepare_gateway_attempt(scope, "personal-bind", None, "fixture")
+            .await
+            .unwrap();
+        store
+            .bind_personal_attempt_route(scope, attempt, &route)
+            .await
+            .unwrap();
+        assert!(
+            store
+                .bind_personal_attempt_route(scope, attempt, &route)
+                .await
+                .is_err()
+        );
+        assert!(
+            sqlx::query("DELETE FROM personal_attempt_routes WHERE attempt_id=$1")
+                .bind(attempt)
+                .execute(&pool)
+                .await
+                .is_err()
+        );
+        // Deliberately unknown commercial references prove the personal guard
+        // rejects before foreign-key validation, without fabricating funding.
+        for statement in [
+            "INSERT INTO customer_attempt_tariffs(attempt_id,revision_id) VALUES($1,$2)",
+            "INSERT INTO provider_attempt_offers(attempt_id,provider_id,offer_id,revision_id) VALUES($1,$2,$2,$2)",
+            "INSERT INTO customer_attempt_balance_accounts(attempt_id,organization_id,project_id,account_id,currency) SELECT id,organization_id,project_id,$2,'USD' FROM attempts WHERE id=$1",
+        ] {
+            let error = sqlx::query(statement)
+                .bind(attempt)
+                .bind(Uuid::new_v4())
+                .execute(&pool)
+                .await
+                .unwrap_err();
+            assert_eq!(
+                error.as_database_error().unwrap().code().as_deref(),
+                Some("P0008")
+            );
+        }
+        let (_, stale) = store
+            .prepare_gateway_attempt(scope, "personal-bind", None, "fixture")
+            .await
+            .unwrap();
+        sqlx::query("UPDATE vendors SET revision=revision+1 WHERE id=$1")
+            .bind(vendor)
+            .execute(&pool)
+            .await
+            .unwrap();
+        assert!(
+            store
+                .bind_personal_attempt_route(scope, stale, &route)
+                .await
+                .is_err()
+        );
+        let count: i64 = sqlx::query_scalar("SELECT count(*) FROM personal_attempt_routes")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(count, 1);
+        let execution: String = sqlx::query_scalar("SELECT execution FROM attempts WHERE id=$1")
+            .bind(attempt)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(execution, "not_sent");
+        let key = store
+            .issue_key(scope, "Personal dispatch", &["personal-bind".into()], 3600)
+            .await
+            .unwrap();
+        let principal = store.authenticate(&key.token).await.unwrap();
+        let snapshot = store
+            .guardrail_snapshot(scope, key.id)
+            .await
+            .unwrap()
+            .unwrap();
+        store
+            .bind_inspected_guardrails(scope, attempt, key.id, &snapshot)
+            .await
+            .unwrap();
+        store
+            .set_attempt_dispatch_provider(scope, attempt, "openai")
+            .await
+            .unwrap();
+        // The existing binding predates the rotation above and cannot dispatch.
+        assert!(matches!(
+            store.mark_dispatched(&principal, attempt).await,
+            Err(StoreError::Conflict)
+        ));
+        let current = store
+            .personal_vendor_route(scope.organization_id, "personal-bind")
+            .await
+            .unwrap()
+            .unwrap();
+        let (_, ready) = store
+            .prepare_gateway_attempt(scope, "personal-bind", None, "fixture")
+            .await
+            .unwrap();
+        store
+            .bind_personal_attempt_route(scope, ready, &current)
+            .await
+            .unwrap();
+        store
+            .set_attempt_dispatch_provider(scope, ready, "openai")
+            .await
+            .unwrap();
+        // Personal dispatch must carry the policy inspection evidence.
+        assert!(matches!(
+            store.mark_dispatched(&principal, ready).await,
+            Err(StoreError::Conflict)
+        ));
+        store
+            .bind_inspected_guardrails(scope, ready, key.id, &snapshot)
+            .await
+            .unwrap();
+        store.mark_dispatched(&principal, ready).await.unwrap();
+        assert!(store.mark_dispatched(&principal, ready).await.is_err());
+        let reservations: i64 =
+            sqlx::query_scalar("SELECT count(*) FROM customer_balance_reservations")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        let entries: i64 = sqlx::query_scalar("SELECT count(*) FROM customer_balance_entries")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!((reservations, entries), (0, 0));
+        let (_, disabled) = store
+            .prepare_gateway_attempt(scope, "personal-bind", None, "fixture")
+            .await
+            .unwrap();
+        store
+            .bind_personal_attempt_route(scope, disabled, &current)
+            .await
+            .unwrap();
+        store
+            .bind_inspected_guardrails(scope, disabled, key.id, &snapshot)
+            .await
+            .unwrap();
+        store
+            .set_attempt_dispatch_provider(scope, disabled, "openai")
+            .await
+            .unwrap();
+        sqlx::query("UPDATE vendor_models SET enabled=false WHERE alias='personal-bind'")
+            .execute(&pool)
+            .await
+            .unwrap();
+        assert!(matches!(
+            store.mark_dispatched(&principal, disabled).await,
+            Err(StoreError::Conflict)
+        ));
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    #[ignore = "requires PostgreSQL"]
+    async fn personal_route_reads_require_owner_and_enabled_configuration(pool: sqlx::PgPool) {
+        let store = Store::from_pool(pool.clone());
+        let owner = store
+            .create_prepaid_organization("Owner", "USD")
+            .await
+            .unwrap();
+        let foreign = store
+            .create_prepaid_organization("Foreign", "USD")
+            .await
+            .unwrap();
+        let vendor = Uuid::new_v4();
+        sqlx::query("INSERT INTO vendors(id,name,adapter,api_base,credential_ciphertext) VALUES($1,'personal read fixture','openai','https://example.com/v1',$2)")
+            .bind(vendor).bind(vec![1u8;48]).execute(&pool).await.unwrap();
+        sqlx::query("INSERT INTO vendor_models(alias,vendor_id,upstream_model,capabilities) VALUES('personal-read',$1,'upstream',$2)")
+            .bind(vendor).bind(serde_json::json!({})).execute(&pool).await.unwrap();
+        assert!(
+            store
+                .personal_vendor_route(owner, "personal-read")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        let revision: i64 = sqlx::query_scalar("SELECT revision FROM vendors WHERE id=$1")
+            .bind(vendor)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        store
+            .assign_personal_vendor_owner(vendor, owner, revision)
+            .await
+            .unwrap();
+        let reopened = Store::from_pool(pool.clone());
+        let listed = store.vendors_with_supplier(None).await.unwrap();
+        assert_eq!(
+            listed
+                .iter()
+                .find(|value| value["id"] == vendor.to_string())
+                .unwrap()["owner_funded"],
+            true
+        );
+        assert_eq!(
+            reopened
+                .vendor_models_with_availability(vendor)
+                .await
+                .unwrap()[0]["available"],
+            true
+        );
+        assert_eq!(
+            reopened
+                .vendor_models_with_availability(vendor)
+                .await
+                .unwrap()[0]["owner_funded"],
+            true
+        );
+        let route = reopened
+            .personal_vendor_route(owner, "personal-read")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(route.vendor.id, vendor);
+        assert_eq!(route.model.upstream_model, "upstream");
+        assert!(
+            reopened
+                .personal_vendor_route(foreign, "personal-read")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            reopened
+                .personal_vendor_route(owner, "missing")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        sqlx::query("UPDATE vendor_models SET enabled=false WHERE alias='personal-read'")
+            .execute(&pool)
+            .await
+            .unwrap();
+        assert!(
+            reopened
+                .personal_vendor_route(owner, "personal-read")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(
+            reopened
+                .vendor_models_with_availability(vendor)
+                .await
+                .unwrap()[0]["available"],
+            false
+        );
+        sqlx::query("UPDATE vendor_models SET enabled=true WHERE alias='personal-read'")
+            .execute(&pool)
+            .await
+            .unwrap();
+        sqlx::query("UPDATE vendors SET enabled=false WHERE id=$1")
+            .bind(vendor)
+            .execute(&pool)
+            .await
+            .unwrap();
+        assert!(
+            reopened
+                .personal_vendor_route(owner, "personal-read")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(
+            reopened
+                .vendor_models_with_availability(vendor)
+                .await
+                .unwrap()[0]["available"],
+            false
+        );
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    #[ignore = "requires PostgreSQL"]
+    async fn personal_owner_is_durable_immutable_and_never_grants_funds(pool: sqlx::PgPool) {
+        let store = Store::from_pool(pool.clone());
+        let owner = store
+            .create_prepaid_organization("Personal owner", "USD")
+            .await
+            .unwrap();
+        let other = store
+            .create_prepaid_organization("Other owner", "USD")
+            .await
+            .unwrap();
+        let vendor = store
+            .create_vendor(VendorInput {
+                id: Uuid::new_v4(),
+                name: "Owned key".into(),
+                adapter: "openrouter".into(),
+                api_base: "https://openrouter.ai/api/v1".into(),
+                enabled: true,
+                credential_ciphertext: vec![1; 32],
+            })
+            .await
+            .unwrap();
+        assert!(
+            store
+                .assign_personal_vendor_owner(vendor.id, owner, vendor.revision + 1)
+                .await
+                .is_err()
+        );
+        assert_eq!(
+            store.personal_vendor_organization(vendor.id).await.unwrap(),
+            None
+        );
+        store
+            .assign_personal_vendor_owner(vendor.id, owner, vendor.revision)
+            .await
+            .unwrap();
+        store
+            .assign_personal_vendor_owner(vendor.id, owner, vendor.revision)
+            .await
+            .unwrap();
+        let reopened = Store::from_pool(pool.clone());
+        assert_eq!(
+            reopened
+                .personal_vendor_organization(vendor.id)
+                .await
+                .unwrap(),
+            Some(owner)
+        );
+        assert!(
+            reopened
+                .assign_personal_vendor_owner(vendor.id, other, vendor.revision + 1)
+                .await
+                .is_err()
+        );
+        assert!(
+            sqlx::query(
+                "UPDATE personal_vendor_ownership SET organization_id=$2 WHERE vendor_id=$1"
+            )
+            .bind(vendor.id)
+            .bind(other)
+            .execute(&pool)
+            .await
+            .is_err()
+        );
+        assert!(
+            sqlx::query("DELETE FROM personal_vendor_ownership WHERE vendor_id=$1")
+                .bind(vendor.id)
+                .execute(&pool)
+                .await
+                .is_err()
+        );
+        let audit:i64=sqlx::query_scalar("SELECT count(*) FROM vendor_audit_events WHERE vendor_id=$1 AND action='personal_owner_assigned'").bind(vendor.id).fetch_one(&pool).await.unwrap();
+        assert_eq!(audit, 1);
+        let funds: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM customer_balance_entries WHERE organization_id=$1",
+        )
+        .bind(owner)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(funds, 0);
+        let concurrent = store
+            .create_vendor(VendorInput {
+                id: Uuid::new_v4(),
+                name: "Concurrent owner".into(),
+                adapter: "openrouter".into(),
+                api_base: "https://openrouter.ai/api/v1".into(),
+                enabled: true,
+                credential_ciphertext: vec![1; 32],
+            })
+            .await
+            .unwrap();
+        let (first, second) = tokio::join!(
+            store.assign_personal_vendor_owner(concurrent.id, owner, concurrent.revision),
+            reopened.assign_personal_vendor_owner(concurrent.id, other, concurrent.revision),
+        );
+        assert_ne!(first.is_ok(), second.is_ok());
+        let assigned = store
+            .personal_vendor_organization(concurrent.id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(assigned, if first.is_ok() { owner } else { other });
+        assert_eq!(
+            store.vendor(concurrent.id).await.unwrap().unwrap().revision,
+            concurrent.revision + 1
+        );
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    #[ignore = "requires PostgreSQL"]
+    async fn personal_credentials_and_commercial_offer_reviews_are_exclusive(pool: sqlx::PgPool) {
+        let store = Store::from_pool(pool.clone());
+        let owner = store
+            .create_prepaid_organization("Personal owner", "USD")
+            .await
+            .unwrap();
+        let supplier = store
+            .create_provider_business("Commercial fixture")
+            .await
+            .unwrap();
+        let digest = "a".repeat(64);
+        let expiry = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64
+            + 60000;
+        store
+            .qualify_provider_business(
+                supplier,
+                &crate::ProviderQualificationInput {
+                    supply_rights_sha256: digest.clone(),
+                    supply_capability_sha256: digest.clone(),
+                    data_handling_sha256: digest.clone(),
+                    valid_until_ms: expiry,
+                },
+            )
+            .await
+            .unwrap();
+        for personal in [true, false] {
+            let vendor = store
+                .create_vendor(VendorInput {
+                    id: Uuid::new_v4(),
+                    name: if personal {
+                        "Personal fixture"
+                    } else {
+                        "Commercial fixture"
+                    }
+                    .into(),
+                    adapter: "openrouter".into(),
+                    api_base: "https://openrouter.ai/api/v1".into(),
+                    enabled: true,
+                    credential_ciphertext: vec![1; 32],
+                })
+                .await
+                .unwrap();
+            let alias = if personal {
+                "personal-fixture"
+            } else {
+                "commercial-fixture"
+            };
+            store
+                .upsert_vendor_model(
+                    vendor.id,
+                    VendorModelInput {
+                        alias: alias.into(),
+                        upstream_model: "fixture".into(),
+                        public_catalog: false,
+                        enabled: true,
+                        capabilities: serde_json::json!({}),
+                        pricing: None,
+                        expected_revision: None,
+                    },
+                )
+                .await
+                .unwrap();
+            let revision = store
+                .publish_provider_offer(
+                    supplier,
+                    &crate::ProviderOfferInput {
+                        model_alias: alias.into(),
+                        currency: "USD".into(),
+                        prompt_rate: "1".into(),
+                        completion_rate: "1".into(),
+                        expected_revision: None,
+                    },
+                )
+                .await
+                .unwrap();
+            let offer: Uuid =
+                sqlx::query_scalar("SELECT id FROM provider_offers WHERE model_alias=$1")
+                    .bind(alias)
+                    .fetch_one(&pool)
+                    .await
+                    .unwrap();
+            let review = crate::ProviderOfferQualificationInput {
+                rate_revision: revision,
+                model_identity_sha256: digest.clone(),
+                protocol_matrix_sha256: digest.clone(),
+                protocol_matrix_version: "fixture-v1".into(),
+                data_handling_sha256: digest.clone(),
+                availability_sha256: digest.clone(),
+                agreed_rates_sha256: digest.clone(),
+                valid_until_ms: expiry,
+            };
+            let current_revision = store.vendor(vendor.id).await.unwrap().unwrap().revision;
+            if personal {
+                store
+                    .assign_personal_vendor_owner(vendor.id, owner, current_revision)
+                    .await
+                    .unwrap();
+                assert!(
+                    store
+                        .qualify_provider_offer(supplier, offer, &review)
+                        .await
+                        .is_err()
+                );
+                assert!(
+                    sqlx::query("UPDATE provider_offers SET active=TRUE WHERE id=$1")
+                        .bind(offer)
+                        .execute(&pool)
+                        .await
+                        .is_err()
+                );
+            } else {
+                store
+                    .qualify_provider_offer(supplier, offer, &review)
+                    .await
+                    .unwrap();
+                assert!(
+                    store
+                        .assign_personal_vendor_owner(vendor.id, owner, current_revision)
+                        .await
+                        .is_err()
+                );
+                assert_eq!(
+                    store.personal_vendor_organization(vendor.id).await.unwrap(),
+                    None
+                );
+            }
+        }
+    }
 
     #[test]
     fn api_base_accepts_https_and_loopback_http_only() {
@@ -591,26 +1472,5 @@ mod tests {
             })
             .is_err()
         );
-    }
-}
-
-impl Store {
-    /// Update only descriptive catalog metadata for existing mappings, preserving billing and routing.
-    pub async fn refresh_vendor_catalog(
-        &self,
-        vendor_id: Uuid,
-        entries: Vec<(String, Value)>,
-    ) -> Result<u64, StoreError> {
-        let mut tx = self.pool.begin().await?;
-        let mut updated = 0;
-        for (upstream, metadata) in entries {
-            if !metadata.is_object() || json_size(&metadata) > MAX_JSON_BYTES {
-                return Err(StoreError::InvalidVendor);
-            }
-            updated += sqlx::query("UPDATE vendor_models SET capabilities=jsonb_set(capabilities, '{catalog}', $3), revision=revision+1 WHERE vendor_id=$1 AND upstream_model=$2 AND capabilities->'catalog' IS DISTINCT FROM $3")
-                .bind(vendor_id).bind(upstream).bind(metadata).execute(&mut *tx).await?.rows_affected();
-        }
-        tx.commit().await?;
-        Ok(updated)
     }
 }

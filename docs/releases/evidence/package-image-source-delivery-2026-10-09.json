@@ -1,0 +1,23 @@
+{
+  "date": "2026-10-09",
+  "platform": "linux/arm64",
+  "image": "sha256:ebb7aa34fc6af4ed09a85a56b5cfe240b1cd11c46132ef6c4a20937aabb1aefc",
+  "image_source_record": "package-2026-10-09-0201.json",
+  "harness_sha256": {
+    "scripts/package-smoke.py": "59e477edbea7bbb0bd4ed54abe01cf4a334bc5a6dc208cb3cd76d5fbf72b1f31",
+    "scripts/package_image_admission.py": "146235e54752d02cd238baec421e5c071c773ee1f8a0720c363a6c17809c0f5f",
+    "tests/fixtures/mock-openai-compatible.py": "8b86af857b719464a555362c2548b6b1ad23940b11758398db87c22fc0896d62"
+  },
+  "passed": [
+    "Direct-container and Compose: source prepared through consented loopback inspection; encrypted content retained across app/database restart and promoted backup restoration",
+    "After restore, public source delivery decrypts and returns byte-identical original PNG with image/png content type",
+    "Source erasure prevents subsequent public capability delivery with HTTP 404",
+    "Original-key consent API validates the restored source against synthetic original group and reviewed-operation fixture",
+    "Existing negative admission, key isolation, erasure and lifecycle smoke passed in the same runs"
+  ],
+  "limitations": [
+    "Group identity, operation authorization, ingestion claim and source access capability are seeded only in the disposable fixture database after restore; this does not qualify their creation or issuance path.",
+    "No Provider write, public HTTPS source deployment, live entitlement or real inspection effectiveness is qualified.",
+    "Complete ingestion/readiness, customer journey and later native changes remain outside this pinned-image checkpoint."
+  ]
+}

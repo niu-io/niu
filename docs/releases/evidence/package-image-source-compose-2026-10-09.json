@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-09",
+  "platform": "linux/arm64",
+  "image": "sha256:ebb7aa34fc6af4ed09a85a56b5cfe240b1cd11c46132ef6c4a20937aabb1aefc",
+  "image_source_record": "package-2026-10-09-0201.json",
+  "harness_sha256": {
+    "scripts/package-smoke.py": "42f60bc46f9fd4fcca7485f53577824d804aaf245397ce1e0426b43b146d1f55",
+    "scripts/package_image_admission.py": "83aa784c9f6509c63c7ac19302001a21343f04c45e7a69113e65e382950858e6",
+    "tests/fixtures/mock-openai-compatible.py": "8b86af857b719464a555362c2548b6b1ad23940b11758398db87c22fc0896d62"
+  },
+  "passed": [
+    "Compose positive inspected-source preparation with isolated override configuration and explicit processing consent",
+    "Foreign API-key erasure is opaque and preserves original source content",
+    "Source content survives application restart with inspector namespace refreshed",
+    "Original-key erasure removes content; repeated erasure leaves one tombstone",
+    "Negative image admission and existing Compose lifecycle smoke completed in the same run"
+  ],
+  "limitations": [
+    "Positive source is created after the baseline Compose PostgreSQL restart/backup/restore checks; those checks do not qualify source backup/restore.",
+    "Controlled loopback detector does not qualify live effectiveness or rights.",
+    "Ingestion/readiness, public HTTPS fetching and full customer journey remain open.",
+    "Pinned image excludes subsequent native command-validation, availability and diagnostic changes."
+  ]
+}

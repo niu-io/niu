@@ -1,0 +1,57 @@
+{
+  "date": "2026-10-03",
+  "supplier": "OpenRouter demo",
+  "model": "google/gemini-2.5-flash",
+  "scope": "packed_sdk_tool_roundtrips",
+  "roundtrips": [
+    {
+      "mode": "nonstreaming",
+      "declared_function": true,
+      "arguments_matched": true,
+      "client_result_followup": true,
+      "final_answer_matched": true,
+      "usage": [
+        {
+          "prompt_tokens": 30,
+          "completion_tokens": 14
+        },
+        {
+          "prompt_tokens": 42,
+          "completion_tokens": 1
+        }
+      ],
+      "max_output_tokens_per_call": 128
+    },
+    {
+      "mode": "streaming",
+      "declared_function": true,
+      "arguments_matched": true,
+      "client_result_followup": true,
+      "final_answer_matched": true,
+      "usage": [
+        {
+          "prompt_tokens": 30,
+          "completion_tokens": 5
+        },
+        {
+          "prompt_tokens": 42,
+          "completion_tokens": 1
+        }
+      ],
+      "max_output_tokens_per_call": 128
+    }
+  ],
+  "durable": {
+    "charges": 4,
+    "attempts": 4,
+    "payloads": 0
+  },
+  "original_route_configuration_restored": true,
+  "temporary_key_revoked": true,
+  "pinned_customer_tariff_reconciled": true,
+  "reported_usage_matches_saved_usage": true,
+  "all_timings_complete": true,
+  "total_attempts_for_test_key": 4,
+  "packed_sdk_version": "0.1.0",
+  "packed_sdk_sha256": "be35589a93ad7d27e49c894b6027c69e9103402098e0851433edcb9f24df05b2"
+}

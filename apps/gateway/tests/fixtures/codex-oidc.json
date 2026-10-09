@@ -1,0 +1,17 @@
+{
+  "description": "Synthetic signed OIDC tokens for local tests only. Signing key discarded; no real account or permission.",
+  "jwks": {
+    "keys": [
+      {
+        "kid": "codex-test-key",
+        "kty": "RSA",
+        "alg": "RS256",
+        "use": "sig",
+        "n": "otnzwG1AyUp-fvc5TG-gjUjraCXhMvUvo68VoP3ZUq8YjRpJF6HE_9mpZ8NDX9-iw9AZtaBi4nA30oCXCPXHCIHdwI4nzs-UWIx_K_gzgTT5c2VAUrpUpg85jKEdkjHf_8XWikW4wpyankVDITmvah1LnUsSh7DPqDYY3TaFLrXi-fYWjHhdfoBAUEpxCNR2NePGNVWin01DQyekAJdI1lR8NfI3SrWwI-3WA1gOd2zs4PLjqNpPlIa-xmDp5El9sQ6Pd35S7nvIfWu8kAY_jSu1Q26LfquQ4lmRoo-fDivReKqBX8646KNk3_K3yFWjgu0ML-tpSmd7UksExBPs5Q",
+        "e": "AQAB"
+      }
+    ]
+  },
+  "valid_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImNvZGV4LXRlc3Qta2V5In0.eyJpc3MiOiJodHRwczovL2F1dGgub3BlbmFpLmNvbSIsInN1YiI6ImNvZGV4LXRlc3Qtc3ViamVjdCIsImF1ZCI6WyJvYWlhcHBfZml4dHVyZSIsInNlY29uZC1hdWRpZW5jZSJdLCJhenAiOiJvYWlhcHBfZml4dHVyZSIsIm5vbmNlIjoiY29kZXgtdGVzdC1ub25jZSIsImV4cCI6NDEwMjQ0NDgwMCwibmJmIjowfQ.d-nvcW_JlpzxjvfKCoLRudnt3_wp5hSjjg-wZhMixQr0bzNc5WXJ2p-DaIaPv_xg-vOqp5swbODUk8BiTc4CjvyDGa8UECP9mMK4ORICJLj0zpjumABsuI-vR73gIk-_1I5xaCj2s_ZFjo37l8NqDviL9SdiFrFcDQvM2GtMCLVsjNvc3zMiqDr4nMs5h_WUoCEeb6GmSzD3APXqhV9lH8xSQEfzS3q0hNYsSSh2_b4HuCm3zehpQSDIZepiFqIk3LTaRmE1dbV8BkYg6pPU5MelLXW8XYRfXi5dyws75TxKhRiS3AO_3oqL7P6G9viIVY4gJN-yCqySZzgtERbr-Q",
+  "expired_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImNvZGV4LXRlc3Qta2V5In0.eyJpc3MiOiJodHRwczovL2F1dGgub3BlbmFpLmNvbSIsInN1YiI6ImNvZGV4LXRlc3Qtc3ViamVjdCIsImF1ZCI6WyJvYWlhcHBfZml4dHVyZSIsInNlY29uZC1hdWRpZW5jZSJdLCJhenAiOiJvYWlhcHBfZml4dHVyZSIsIm5vbmNlIjoiY29kZXgtdGVzdC1ub25jZSIsImV4cCI6MSwibmJmIjowfQ.ENjZ78Phq0VXU3ZUMk6R4DGiHP6YVZeneldKku-tYYZVDyzXasGfLv4s-RB2Y8nP9Z9o3y0cA5ROjdSm1g4usTNHFnkiCvRgMPGjMIk1iRUzLDOp6u931UVCfpX5JYp8Izg3AVuVfEkW0bhG1aKyYRb6Ro4ZcP1V-WcUKAJYxqKtI3a_U_46r_FiV-pFMGXqZaNnGvC0h2qp3bVwf7P9g5anoG1j-6OeJv98cFNEU01mXJPPWC7UdKc-v7TGOdTcQ2jvoPQfAZTugCTSqGygKQNxPu8SbVWJywUIVz_49r5daKEc56Fpf6IWTjWdGjA-gLHI1gpCO_5gQwm1Bs8NXQ"
+}

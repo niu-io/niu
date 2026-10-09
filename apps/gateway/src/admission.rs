@@ -1,7 +1,4 @@
-use std::{
-    collections::{HashMap, VecDeque},
-    time::Duration,
-};
+use std::{collections::HashMap, time::Duration};
 
 use niu_storage::{
     GatewayAdmission, GatewayAdmissionStatus, GatewayCompletion, Principal, Store, TenantScope,
@@ -31,21 +28,22 @@ pub(crate) struct GatewayWrites {
 }
 
 enum AdmissionCommand {
-    Admit(PendingAdmission),
+    Admit(Box<PendingAdmission>),
     Shutdown(oneshot::Sender<()>),
 }
 
 enum CompletionCommand {
-    Complete(GatewayCompletion),
+    Complete(GatewayCompletion, oneshot::Sender<bool>),
     Shutdown(oneshot::Sender<()>),
 }
 
 enum PricedCompletionCommand {
-    Complete(PricedGatewayCompletion),
+    Complete(PricedGatewayCompletion, oneshot::Sender<bool>),
     Shutdown(oneshot::Sender<()>),
 }
 
 pub(crate) struct PricedGatewayCompletion {
+    pub(crate) token_categories: Option<niu_storage::RequestTokenCategories>,
     pub(crate) scope: niu_storage::TenantScope,
     pub(crate) attempt_id: Uuid,
     pub(crate) usage: Option<(u64, u64)>,
@@ -56,6 +54,17 @@ struct PendingAdmission {
     record: GatewayAdmission,
     batch_candidate: bool,
     reply: oneshot::Sender<Result<GatewayAdmissionStatus, AdmissionError>>,
+}
+
+pub(crate) struct UnpricedAdmissionRequest<'a> {
+    pub inspected_guardrails: niu_storage::GuardrailSnapshot,
+    pub(crate) scope: TenantScope,
+    pub(crate) model: &'a str,
+    pub(crate) upstream_model: &'a str,
+    pub(crate) provider: &'a str,
+    pub(crate) api_base: Option<&'a str>,
+    pub(crate) task_id: Option<&'a str>,
+    pub(crate) revision: &'a str,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -88,33 +97,30 @@ impl GatewayWrites {
     pub(crate) async fn admit_unpriced(
         &self,
         principal: &Principal,
-        scope: niu_storage::TenantScope,
-        model: &str,
-        upstream_model: &str,
-        api_base: Option<&str>,
-        task_id: Option<&str>,
-        revision: &str,
+        request: UnpricedAdmissionRequest<'_>,
     ) -> Result<(Uuid, Uuid), AdmissionError> {
         let operation_id = Uuid::new_v4();
         let attempt_id = Uuid::new_v4();
         let record = GatewayAdmission {
+            inspected_guardrails: Some(request.inspected_guardrails),
             operation_id,
             attempt_id,
-            scope,
+            scope: request.scope,
             key_id: principal.key_id(),
-            model: model.to_owned(),
-            upstream_model: upstream_model.to_owned(),
-            api_base: api_base.map(str::to_owned),
-            task_id: task_id.map(str::to_owned),
-            revision: revision.to_owned(),
+            model: request.model.to_owned(),
+            upstream_model: request.upstream_model.to_owned(),
+            dispatch_provider: request.provider.to_owned(),
+            api_base: request.api_base.map(str::to_owned),
+            task_id: request.task_id.map(str::to_owned),
+            revision: request.revision.to_owned(),
         };
         let (reply, result) = oneshot::channel();
         self.admissions
-            .send(AdmissionCommand::Admit(PendingAdmission {
+            .send(AdmissionCommand::Admit(Box::new(PendingAdmission {
                 record,
                 batch_candidate: self.inference_in_flight.load(Ordering::Relaxed) > 1,
                 reply,
-            }))
+            })))
             .await
             .map_err(|_| AdmissionError::StorageUnavailable)?;
         match result
@@ -133,10 +139,16 @@ impl GatewayWrites {
     /// instead of dropping the outcome; a process stop still leaves the attempt
     /// explicitly unresolved rather than appearing unused.
     pub(crate) async fn complete_unpriced(&self, completion: GatewayCompletion) -> Result<(), ()> {
+        let (reply, result) = oneshot::channel();
         self.completions
-            .send(CompletionCommand::Complete(completion))
+            .send(CompletionCommand::Complete(completion, reply))
             .await
-            .map_err(|_| ())
+            .map_err(|_| ())?;
+        if result.await.map_err(|_| ())? {
+            Ok(())
+        } else {
+            Err(())
+        }
     }
 
     /// Queue provider-reported usage and settlement after the durable budget
@@ -146,10 +158,16 @@ impl GatewayWrites {
         &self,
         completion: PricedGatewayCompletion,
     ) -> Result<(), ()> {
+        let (reply, result) = oneshot::channel();
         self.priced_completions
-            .send(PricedCompletionCommand::Complete(completion))
+            .send(PricedCompletionCommand::Complete(completion, reply))
             .await
-            .map_err(|_| ())
+            .map_err(|_| ())?;
+        if result.await.map_err(|_| ())? {
+            Ok(())
+        } else {
+            Err(())
+        }
     }
 
     /// Drain both bounded buffers before stopping the writer tasks.
@@ -200,11 +218,11 @@ async fn run_admission_writer(store: Store, mut receiver: mpsc::Receiver<Admissi
         match command {
             Some(AdmissionCommand::Admit(first)) => {
                 let mut batch = Vec::with_capacity(MAX_BATCH_SIZE);
-                batch.push(first);
+                batch.push(*first);
                 if !batch[0].batch_candidate {
                     while batch.len() < MAX_BATCH_SIZE {
                         match receiver.try_recv() {
-                            Ok(AdmissionCommand::Admit(admission)) => batch.push(admission),
+                            Ok(AdmissionCommand::Admit(admission)) => batch.push(*admission),
                             Ok(other) => {
                                 deferred = Some(other);
                                 break;
@@ -219,7 +237,7 @@ async fn run_admission_writer(store: Store, mut receiver: mpsc::Receiver<Admissi
                         tokio::select! {
                             _ = &mut deadline => break,
                             next = receiver.recv() => match next {
-                                Some(AdmissionCommand::Admit(admission)) => batch.push(admission),
+                                Some(AdmissionCommand::Admit(admission)) => batch.push(*admission),
                                 Some(other) => {
                                     deferred = Some(other);
                                     break;
@@ -247,26 +265,22 @@ async fn run_admission_writer(store: Store, mut receiver: mpsc::Receiver<Admissi
 
 async fn run_completion_writer(store: Store, mut receiver: mpsc::Receiver<CompletionCommand>) {
     let mut deferred = None;
-    let mut in_flight = JoinSet::new();
     loop {
-        if in_flight.len() >= MAX_IN_FLIGHT_BATCHES {
-            join_one(&mut in_flight, "gateway completion").await;
-        }
         let command = match deferred.take() {
             Some(command) => Some(command),
             None => receiver.recv().await,
         };
         match command {
-            Some(CompletionCommand::Complete(first)) => {
+            Some(CompletionCommand::Complete(first, first_reply)) => {
                 let mut batch = Vec::with_capacity(MAX_BATCH_SIZE);
-                batch.push(first);
+                batch.push((first, first_reply));
                 let deadline = tokio::time::sleep(MAX_COMPLETION_BATCH_DELAY);
                 tokio::pin!(deadline);
                 while batch.len() < MAX_BATCH_SIZE {
                     tokio::select! {
                         _ = &mut deadline => break,
                         next = receiver.recv() => match next {
-                            Some(CompletionCommand::Complete(completion)) => batch.push(completion),
+                            Some(CompletionCommand::Complete(completion, reply)) => batch.push((completion, reply)),
                             Some(other) => {
                                 deferred = Some(other);
                                 break;
@@ -275,18 +289,17 @@ async fn run_completion_writer(store: Store, mut receiver: mpsc::Receiver<Comple
                         }
                     }
                 }
-                let store = store.clone();
-                in_flight.spawn(async move { persist_completion_batch(&store, batch).await });
+                let (completions, replies): (Vec<_>, Vec<_>) = batch.into_iter().unzip();
+                let persisted = persist_completion_batch(&store, completions).await;
+                for (reply, persisted) in replies.into_iter().zip(persisted) {
+                    let _ = reply.send(persisted);
+                }
             }
             Some(CompletionCommand::Shutdown(reply)) => {
-                drain(&mut in_flight, "gateway completion").await;
                 let _ = reply.send(());
                 return;
             }
-            None => {
-                drain(&mut in_flight, "gateway completion").await;
-                return;
-            }
+            None => return,
         }
     }
 }
@@ -296,94 +309,22 @@ async fn run_priced_completion_writer(
     mut receiver: mpsc::Receiver<PricedCompletionCommand>,
 ) {
     let mut deferred = None;
-    let mut in_flight = JoinSet::new();
-    let mut pending: VecDeque<(TenantScope, Vec<GatewayCompletion>)> = VecDeque::new();
     loop {
-        while in_flight.len() < MAX_IN_FLIGHT_BATCHES {
-            let Some((scope, completions)) = pending.pop_front() else {
-                break;
-            };
-            let store = store.clone();
-            in_flight.spawn(async move {
-                if let Err(error) = store
-                    .complete_and_settle_gateway_batch(scope, completions.clone())
-                    .await
-                {
-                    tracing::warn!(
-                        count = completions.len(),
-                        error = %error,
-                        "priced gateway completion batch could not be settled; durable reservations remain available for recovery"
-                    );
-                    if matches!(
-                        error,
-                        niu_storage::StoreError::Conflict
-                            | niu_storage::StoreError::AggregateOverflow
-                            | niu_storage::StoreError::InvalidGatewayAdmissionBatch
-                    ) {
-                        for completion in completions {
-                            let result = store
-                                .complete_and_settle_with_provider_model(
-                                    completion.scope,
-                                    completion.attempt_id,
-                                    completion.usage,
-                                    completion.provider_model.as_deref(),
-                                )
-                                .await;
-                            match result {
-                                Ok(()) => {}
-                                Err(niu_storage::StoreError::Conflict)
-                                    if completion.usage.is_some() =>
-                                {
-                                    if let Err(error) = store
-                                        .settle_cost(
-                                            completion.scope,
-                                            completion.attempt_id,
-                                        )
-                                        .await
-                                    {
-                                        tracing::warn!(
-                                            error = %error,
-                                            attempt_id = %completion.attempt_id,
-                                            "priced gateway completion fallback could not be settled"
-                                        );
-                                    }
-                                }
-                                Err(niu_storage::StoreError::Conflict) => {}
-                                Err(error) => {
-                                    tracing::warn!(
-                                        error = %error,
-                                        attempt_id = %completion.attempt_id,
-                                        "priced gateway completion fallback could not be persisted"
-                                    );
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
-        if in_flight.len() >= MAX_IN_FLIGHT_BATCHES {
-            join_one(&mut in_flight, "priced gateway completion").await;
-            continue;
-        }
-        if !pending.is_empty() {
-            continue;
-        }
         let command = match deferred.take() {
             Some(command) => Some(command),
             None => receiver.recv().await,
         };
         match command {
-            Some(PricedCompletionCommand::Complete(completion)) => {
+            Some(PricedCompletionCommand::Complete(completion, first_reply)) => {
                 let mut batch = Vec::with_capacity(MAX_BATCH_SIZE);
-                batch.push(completion);
+                batch.push((completion, first_reply));
                 let deadline = tokio::time::sleep(MAX_COMPLETION_BATCH_DELAY);
                 tokio::pin!(deadline);
                 while batch.len() < MAX_BATCH_SIZE {
                     tokio::select! {
                         _ = &mut deadline => break,
                         next = receiver.recv() => match next {
-                            Some(PricedCompletionCommand::Complete(completion)) => batch.push(completion),
+                            Some(PricedCompletionCommand::Complete(completion, reply)) => batch.push((completion, reply)),
                             Some(other) => {
                                 deferred = Some(other);
                                 break;
@@ -393,30 +334,85 @@ async fn run_priced_completion_writer(
                     }
                 }
                 let mut grouped = HashMap::new();
-                for completion in batch {
+                for (completion, reply) in batch {
                     let scope = completion.scope;
                     grouped
                         .entry((scope.organization_id, scope.project_id))
                         .or_insert_with(|| (scope, Vec::new()))
                         .1
-                        .push(GatewayCompletion {
-                            scope,
-                            attempt_id: completion.attempt_id,
-                            usage: completion.usage,
-                            provider_model: completion.provider_model,
-                        });
+                        .push((
+                            GatewayCompletion {
+                                token_categories: completion.token_categories,
+                                scope,
+                                attempt_id: completion.attempt_id,
+                                usage: completion.usage,
+                                provider_model: completion.provider_model,
+                            },
+                            reply,
+                        ));
                 }
-                pending.extend(grouped.into_values());
+                for (_, (scope, grouped_batch)) in grouped {
+                    let (records, replies): (Vec<_>, Vec<_>) = grouped_batch.into_iter().unzip();
+                    let persisted = persist_priced_completion_batch(&store, scope, records).await;
+                    for (reply, persisted) in replies.into_iter().zip(persisted) {
+                        let _ = reply.send(persisted);
+                    }
+                }
             }
             Some(PricedCompletionCommand::Shutdown(reply)) => {
-                drain(&mut in_flight, "priced gateway completion").await;
                 let _ = reply.send(());
                 return;
             }
-            None => {
-                drain(&mut in_flight, "priced gateway completion").await;
-                return;
+            None => return,
+        }
+    }
+}
+
+async fn persist_priced_completion_batch(
+    store: &Store,
+    scope: TenantScope,
+    completions: Vec<GatewayCompletion>,
+) -> Vec<bool> {
+    let count = completions.len();
+    match store
+        .complete_and_settle_gateway_batch(scope, completions.clone())
+        .await
+    {
+        Ok(()) => vec![true; count],
+        Err(error) => {
+            tracing::warn!(
+                error = %error,
+                count,
+                "priced gateway completion batch failed; retrying records individually"
+            );
+            let mut persisted = Vec::with_capacity(count);
+            for completion in completions {
+                let result = store
+                    .complete_and_settle_with_provider_model(
+                        completion.scope,
+                        completion.attempt_id,
+                        completion.usage,
+                        completion.provider_model.as_deref(),
+                    )
+                    .await;
+                let completed = match result {
+                    Ok(()) => true,
+                    Err(niu_storage::StoreError::Conflict) if completion.usage.is_some() => store
+                        .settle_cost(completion.scope, completion.attempt_id)
+                        .await
+                        .is_ok(),
+                    Err(error) => {
+                        tracing::warn!(
+                            error = %error,
+                            attempt_id = %completion.attempt_id,
+                            "priced gateway completion fallback could not be persisted"
+                        );
+                        false
+                    }
+                };
+                persisted.push(completed);
             }
+            persisted
         }
     }
 }
@@ -456,33 +452,42 @@ async fn persist_admission_batch(store: &Store, batch: Vec<PendingAdmission>) {
     }
 }
 
-async fn persist_completion_batch(store: &Store, batch: Vec<GatewayCompletion>) {
+async fn persist_completion_batch(store: &Store, batch: Vec<GatewayCompletion>) -> Vec<bool> {
     let count = batch.len();
-    if let Err(error) = store.complete_gateway_batch(batch.clone()).await {
-        tracing::warn!(error = %error, count, "gateway completion batch failed; attempts remain unresolved");
-        if matches!(
-            error,
-            niu_storage::StoreError::Conflict
-                | niu_storage::StoreError::InvalidGatewayAdmissionBatch
-        ) {
-            for completion in batch {
-                if let Err(error) = store
-                    .complete_with_provider_model(
-                        completion.scope,
-                        completion.attempt_id,
-                        completion.usage,
-                        completion.provider_model.as_deref(),
-                    )
-                    .await
-                {
-                    if !matches!(error, niu_storage::StoreError::Conflict) {
-                        tracing::warn!(
-                            error = %error,
-                            attempt_id = %completion.attempt_id,
-                            "gateway completion fallback could not be persisted"
-                        );
+    match store.complete_and_accrue_gateway_batch(batch.clone()).await {
+        Ok(()) => vec![true; count],
+        Err(error) => {
+            tracing::warn!(error = %error, count, "gateway completion batch failed; retrying records individually");
+            if matches!(
+                error,
+                niu_storage::StoreError::Conflict
+                    | niu_storage::StoreError::InvalidGatewayAdmissionBatch
+            ) {
+                let mut persisted = Vec::with_capacity(count);
+                for completion in batch {
+                    let result = store
+                        .complete_and_settle_with_provider_model(
+                            completion.scope,
+                            completion.attempt_id,
+                            completion.usage,
+                            completion.provider_model.as_deref(),
+                        )
+                        .await;
+                    match result {
+                        Ok(()) | Err(niu_storage::StoreError::Conflict) => persisted.push(true),
+                        Err(error) => {
+                            tracing::warn!(
+                                error = %error,
+                                attempt_id = %completion.attempt_id,
+                                "gateway completion fallback could not be persisted"
+                            );
+                            persisted.push(false);
+                        }
                     }
                 }
+                persisted
+            } else {
+                vec![false; count]
             }
         }
     }

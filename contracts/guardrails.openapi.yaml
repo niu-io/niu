@@ -1,0 +1,703 @@
+openapi: 3.1.0
+info: { title: Niu Workspace Guardrails API, version: 0.1.0 }
+servers: [{ url: / }]
+paths:
+  /admin/v1/organizations/{organization}/projects/{project}/guardrails/detectors:
+    parameters:
+      - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      operationId: listWorkspaceDetectors
+      summary: Review processing declarations for this workspace's authorized detectors
+      description: Workspace read access and an existing organization/workspace pair are required. Only deployment-authorized detectors appear. Does not send content or expose endpoints, credential references or workspace allowlists. Conditions are declared and unverified. Cache-Control is no-store.
+      security: [{ adminBearerAuth: [] }]
+      responses:
+        '200':
+          description: Authorized processing descriptions, sorted by detector name.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      allOf:
+                        - { $ref: '#/components/schemas/DetectorProcessingDescription' }
+                        - { required: [detector], properties: { content_sent: { type: string, const: request_text_after_local_redaction } } }
+        '401': { description: Authentication required. }
+        '403': { description: Workspace read access required. }
+        '404': { description: No such organization/workspace pair. }
+  /admin/v1/organizations/{organization}/projects/{project}/guardrails/detector-decisions:
+    parameters:
+      - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      operationId: listInputDetectorDecisions
+      summary: Read the latest 100 metadata-only required input detector receipts
+      description: Workspace read access required. Includes pre-admission denials. Excludes text, matches, raw detector responses, endpoint URLs, credentials, receipt IDs and key IDs. Correlated dispatched decisions also appear on request guardrail details. Cache-Control is no-store.
+      security: [{ adminBearerAuth: [] }]
+      responses:
+        '200':
+          description: Bounded safe audit metadata, newest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, coverage]
+                properties:
+                  coverage: { type: string, const: latest_100_input_detector_decisions }
+                  data:
+                    type: array
+                    maxItems: 100
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required: [detector, configuration_fingerprint, stage, coverage, enforcer_version, outcome, reason, elapsed_ms, key_name, workspace_revision, key_policy_revision, key_assignment_revision, recorded_at]
+                      properties:
+                        detector: { type: string }
+                        configuration_fingerprint: { type: string }
+                        stage: { type: string, const: input }
+                        coverage: { type: string, const: local_text }
+                        enforcer_version: { type: string, const: external-input-v1 }
+                        outcome: { enum: [clear, matched, indeterminate] }
+                        reason: { type: string }
+                        elapsed_ms: { type: integer, minimum: 0 }
+                        key_name: { type: string }
+                        workspace_revision: { type: [integer, 'null'] }
+                        key_policy_revision: { type: [integer, 'null'] }
+                        key_assignment_revision: { type: [integer, 'null'] }
+                        recorded_at: { type: string, format: date-time }
+        '401': { description: Authentication required. }
+        '403': { description: Workspace read access required. }
+  /admin/v1/guardrails/detectors/{detector}:
+    parameters:
+      - { name: detector, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: getExternalDetectorProcessingDescription
+      summary: Review declared processing conditions before a synthetic test
+      description: Installation administration only. No content is sent. Returns declared, unverified conditions and a configuration fingerprint, without endpoint URLs or credential references. Cache-Control is no-store. Required input policies require an authorized workspace, current fingerprint and declared unmetered service. Paid or unknown-cost detectors are synthetic-only.
+      security: [{ adminBearerAuth: [] }]
+      responses:
+        '200':
+          description: Current processing description.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DetectorProcessingDescription' }
+        '401': { description: Installation authentication required. }
+        '403': { description: Workspace identities cannot access installation detectors. }
+        '404': { description: Detector is not configured. }
+  /admin/v1/guardrails/detectors/{detector}/preview:
+    parameters:
+      - { name: detector, in: path, required: true, schema: { type: string } }
+    post:
+      operationId: testExternalDetectorTransport
+      summary: Send explicitly consented synthetic text to a configured detector
+      description: Installation administration only. Requires the fingerprint from the current processing description. Stale consent fails before egress. Does not persist text, activate a policy or invoke inference. External charges remain unknown and customer billing is not integrated. Cache-Control is no-store.
+      security: [{ adminBearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [text, consent_to_external_processing, configuration_fingerprint]
+              properties:
+                text: { type: string, description: Synthetic UTF-8 text; bounded by the configured byte limit. }
+                consent_to_external_processing: { type: boolean, const: true }
+                configuration_fingerprint: { type: string, pattern: '^[a-f0-9]{64}$' }
+      responses:
+        '200':
+          description: Non-enforcing verdict or fixed indeterminate reason. No supplied text or upstream response content.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [outcome, reason, synthetic, enforcement]
+                properties:
+                  outcome: { enum: [clear, matched, indeterminate] }
+                  reason: { enum: [detector_verdict, resource_limit, capacity_exhausted, credential_unavailable, endpoint_unavailable, transport_failure, service_failure, response_limit, invalid_response, timeout] }
+                  synthetic: { type: boolean, const: true }
+                  enforcement: { type: boolean, const: false }
+        '400': { description: Invalid input, missing consent or stale processing fingerprint. }
+        '401': { description: Installation authentication required. }
+        '403': { description: Workspace identities cannot test installation detectors. }
+        '404': { description: Detector is not configured. }
+  /admin/v1/organizations/{organization}/projects/{project}/guardrails/revisions/{revision}:
+    parameters:
+      - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: revision, in: path, required: true, schema: { type: integer, minimum: 1 } }
+    get:
+      operationId: getWorkspaceGuardrailRevision
+      summary: Inspect a preserved workspace policy version before restoring
+      description: Workspace read access required. Returns the original saved policy with input/output rules, without credentials or internal actor identifiers. Cache-Control is no-store. Does not activate or dispatch anything.
+      security: [{ adminBearerAuth: [] }]
+      responses:
+        '200':
+          description: Saved version and policy.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [revision, policy]
+                    properties:
+                      revision: { type: integer, minimum: 1 }
+                      policy: { $ref: '#/components/schemas/Policy' }
+        '400': { description: Invalid revision. }
+        '401': { description: Authentication required. }
+        '403': { description: Workspace read access required. }
+        '404': { description: No such version in this workspace. }
+  /admin/v1/organizations/{organization}/projects/{project}/guardrails/history:
+    parameters:
+      - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      operationId: listWorkspaceGuardrailHistory
+      summary: Browse immutable workspace policy revision metadata
+      description: Workspace read access required. Newest first, at most 100 records per page. Excludes policy content, internal actor identifiers and credentials. Active reflects the workspace head at the time of each page read. Cache-Control is no-store.
+      security: [{ adminBearerAuth: [] }]
+      parameters:
+        - { name: before_revision, in: query, schema: { type: integer, minimum: 1 }, description: Exclusive cursor returned as next_cursor. }
+      responses:
+        '200':
+          description: Revision metadata, including rollback attribution. An empty workspace returns an empty array.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, next_cursor]
+                properties:
+                  next_cursor: { type: [integer, 'null'], minimum: 1 }
+                  data:
+                    type: array
+                    maxItems: 100
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required: [revision, policy_name, active, actor_name, activated_at, restored_from_revision]
+                      properties:
+                        revision: { type: integer, minimum: 1 }
+                        policy_name: { type: string }
+                        active: { type: boolean }
+                        actor_name: { type: string }
+                        activated_at: { type: string, format: date-time }
+                        restored_from_revision: { type: [integer, 'null'], minimum: 1 }
+        '400': { description: Invalid history cursor. Errors do not echo submitted values. }
+        '401': { description: Authentication required, including malformed query requests. }
+        '403': { description: Workspace read access required. }
+  /admin/v1/organizations/{organization}/projects/{project}/guardrails/denials:
+    parameters:
+      - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      operationId: listGuardrailPreparationDenials
+      summary: Read latest 100 workspace pre-admission access denials
+      description: Workspace read access required. Safe immutable metadata only; no request content or internal event/key identifiers. Does not cover dispatch-time race denials or input/output inspection. Cache-Control is no-store.
+      security: [{ adminBearerAuth: [] }]
+      responses:
+        '200':
+          description: Latest 100 preparation denials
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, coverage]
+                properties:
+                  coverage: { const: latest_100_preparation_denials }
+                  data:
+                    type: array
+                    maxItems: 100
+                    items:
+                      type: object
+                      required: [stage, outcome, coverage, enforcer_version, reason, key_name, workspace_policy_name, key_policy_name, workspace_revision, key_policy_revision, key_assignment_revision, recorded_at]
+                      properties:
+                        stage: { const: preparation }
+                        outcome: { const: blocked }
+                        coverage: { enum: [model_provider_access, local_input, output_configuration] }
+                        enforcer_version: { enum: [access-v1, local-input-v1, buffer-mode-v1] }
+                        reason: { enum: [model_denied, provider_denied, unsupported_policy, input_blocked, input_unsupported, input_resource_limit, input_unavailable, output_incompatible] }
+                        key_name: { type: string }
+                        workspace_policy_name: { type: [string, 'null'] }
+                        key_policy_name: { type: [string, 'null'] }
+                        workspace_revision: { type: [integer, 'null'] }
+                        key_policy_revision: { type: [integer, 'null'] }
+                        key_assignment_revision: { type: [integer, 'null'] }
+                        recorded_at: { type: string, format: date-time }
+        '401': { description: Invalid management credential; inference keys cannot read decisions }
+        '403': { description: Workspace outside authorized scope }
+  /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/guardrails:
+    parameters:
+      - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: attempt, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      operationId: getRequestGuardrailDecision
+      summary: Read immutable policy attribution for an allowed dispatch
+      description: Requires workspace read access. Returns data null for attempts without recorded attribution, including historical attempts and denied transitions. Does not reconstruct denial records or claim content inspection. Policy names and revisions are historical; current policy changes do not rewrite them. Responses use Cache-Control no-store and exclude content, credentials, internal identifiers and commercial data.
+      security: [{ adminBearerAuth: [] }]
+      responses:
+        '200':
+          description: Scoped attribution or null.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    oneOf:
+                      - { type: 'null' }
+                      - type: object
+                        additionalProperties: false
+                        required: [stage, outcome, coverage, enforcer_version, workspace_revision, workspace_policy_name, key_policy_revision, key_policy_name, key_assignment_revision, recorded_at, input_inspection, output_inspection, output_observation]
+                        properties:
+                          stage: { const: dispatch }
+                          outcome: { const: allowed }
+                          coverage: { const: model_provider_access }
+                          enforcer_version: { const: access-v1 }
+                          workspace_revision: { type: [integer, 'null'], minimum: 1 }
+                          workspace_policy_name: { type: [string, 'null'] }
+                          key_policy_revision: { type: [integer, 'null'], minimum: 1 }
+                          key_policy_name: { type: [string, 'null'] }
+                          key_assignment_revision: { type: [integer, 'null'], minimum: 1 }
+                          recorded_at: { type: string, format: date-time }
+                          output_inspection:
+                            description: Null means no complete-output decision was recorded. Blocking does not cancel incurred customer charges or Provider usage. No original output is returned in decision metadata.
+                            oneOf:
+                              - { type: 'null' }
+                              - type: object
+                                additionalProperties: false
+                                required: [outcome, reason, mode, coverage, enforcer_version, elapsed_ms]
+                                properties:
+                                  outcome: { enum: [allowed, redacted, blocked, indeterminate] }
+                                  reason: { enum: [inspected_text, pattern_denial, unsupported_content, resource_limit, inspection_unavailable] }
+                                  mode: { const: buffered_full }
+                                  coverage: { const: local_text }
+                                  enforcer_version: { const: local-output-v1 }
+                                  elapsed_ms: { type: integer, minimum: 0 }
+                          output_observation:
+                            description: Non-enforcing inspection of the original complete response. A match does not mean output was withheld. Null means no observation was recorded; no original or matched content is returned.
+                            oneOf:
+                              - { type: 'null' }
+                              - type: object
+                                additionalProperties: false
+                                required: [outcome, reason, mode, enforcement, coverage, enforcer_version, elapsed_ms]
+                                properties:
+                                  outcome: { enum: [clear, matched, indeterminate] }
+                                  reason: { enum: [inspected_text, pattern_match, unsupported_content, resource_limit, inspection_unavailable] }
+                                  mode: { const: observe_only }
+                                  enforcement: { const: false }
+                                  coverage: { const: local_text }
+                                  enforcer_version: { const: local-output-v1 }
+                                  elapsed_ms: { type: integer, minimum: 0 }
+                          input_inspection:
+                            description: Null means no recorded local inspection result; never infer historical content protection. Duration includes local compilation and worker execution, not upstream generation.
+                            oneOf:
+                              - { type: 'null' }
+                              - type: object
+                                additionalProperties: false
+                                required: [outcome, coverage, enforcer_version, elapsed_ms]
+                                properties:
+                                  outcome: { enum: [allowed, redacted] }
+                                  coverage: { const: local_text }
+                                  enforcer_version: { const: local-input-v1 }
+                                  elapsed_ms: { type: integer, minimum: 0 }
+
+        '401': { description: Authentication required. }
+        '403': { description: Workspace read access required. }
+  /admin/v1/organizations/{organization}/projects/{project}/guardrails/input-preview:
+    parameters:
+      - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      operationId: previewGuardrailInput
+      summary: Test synthetic input against local text rules without enforcement
+      description: Requires workspace read permission. Does not save content or policy, create requests, or call inference/detector services. Returns safe outcome codes only, with no original, transformed or matched text. Does not validate route availability or activate content controls. Responses use Cache-Control no-store. Local tests use at most four blocking workers per gateway process with no waiting queue and a five-second response deadline; cancellation does not release a slot until computation finishes.
+      security: [{ adminBearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [protocol, rules, request]
+              properties:
+                protocol: { type: string, enum: [chat, responses, embeddings] }
+                request: { description: Synthetic protocol request to inspect. }
+                rules:
+                  type: array
+                  maxItems: 32
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [action]
+                    oneOf:
+                      - required: [pattern]
+                        not: { required: [preset] }
+                      - required: [preset]
+                        not: { required: [pattern] }
+                    properties:
+                      pattern: { type: string, minLength: 1, description: Regex limited to 4096 UTF-8 bytes and bounded compiled size. }
+                      preset: { type: string, enum: [email_v1, api_key_prefix_v1], description: Versioned syntax patterns; not universal PII or secret detection. }
+                      action: { type: string, enum: [block, redact] }
+      responses:
+        '200':
+          description: Synthetic inspection outcome; unsupported content and resource limits are indeterminate.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [outcome, reason, redacted, synthetic, enforcement]
+                properties:
+                  outcome: { type: string, enum: [allowed, blocked, indeterminate] }
+                  reason: { type: string, enum: [inspected_text, pattern_denial, unsupported_content, resource_limit, invalid_pattern] }
+                  redacted: { type: boolean }
+                  synthetic: { const: true }
+                  enforcement: { const: false }
+        '400': { description: Invalid JSON shape, enum value or oversized/invalid rule set. Errors do not echo submitted content. }
+        '401': { description: Authentication required. }
+        '403': { description: Workspace read access required. }
+        '503': { description: Inspection capacity unavailable, worker failure or response deadline exceeded. No inference is dispatched. }
+  /admin/v1/organizations/{organization}/projects/{project}/guardrails/output-preview:
+    parameters:
+      - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      operationId: previewGuardrailOutput
+      summary: Test synthetic output against local text rules without enforcement
+      description: Requires workspace read permission. Does not save content or policy, create requests, or call inference/detector services. Returns safe outcome codes only, with no original, transformed or matched text. Does not validate route availability or activate content controls. Responses use Cache-Control no-store. The complete synthetic request envelope is limited to 1 MiB. Uses the live buffered-full local output inspector, with a 1 MiB serialized-response and transformed-response limit; unsupported/opaque/tool content is indeterminate. This does not qualify streaming inspection or external detectors. Local tests use at most four blocking workers per gateway process with no waiting queue and a five-second response deadline; cancellation does not release a slot until computation finishes.
+      security: [{ adminBearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [protocol, rules, response]
+              properties:
+                mode: { type: string, enum: [buffered_full, observe_only], default: buffered_full }
+                protocol: { type: string, enum: [chat, responses] }
+                response: { description: Synthetic complete protocol response to inspect. }
+                rules:
+                  type: array
+                  minItems: 1
+                  maxItems: 32
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [action]
+                    oneOf:
+                      - required: [pattern]
+                        not: { required: [preset] }
+                      - required: [preset]
+                        not: { required: [pattern] }
+                    properties:
+                      pattern: { type: string, minLength: 1, description: Regex limited to 4096 UTF-8 bytes and bounded compiled size. }
+                      preset: { type: string, enum: [email_v1, api_key_prefix_v1], description: Versioned syntax patterns; not universal PII or secret detection. }
+                      action: { type: string, enum: [block, redact] }
+      responses:
+        '200':
+          description: Synthetic inspection outcome; unsupported content and resource limits are indeterminate.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [outcome, reason, redacted, synthetic, enforcement, mode, coverage]
+                properties:
+                  outcome: { type: string, enum: [allowed, blocked, clear, matched, indeterminate] }
+                  reason: { type: string, enum: [inspected_text, pattern_denial, pattern_match, unsupported_content, resource_limit, invalid_pattern] }
+                  redacted: { type: boolean }
+                  synthetic: { const: true }
+                  enforcement: { const: false }
+                  mode: { enum: [buffered_full, observe_only] }
+                  coverage: { const: local_text }
+        '400': { description: Invalid JSON shape, enum value or oversized/invalid rule set. Errors do not echo submitted content. }
+        '401': { description: Authentication required. }
+        '403': { description: Workspace read access required. }
+        '503': { description: Inspection capacity unavailable, worker failure or response deadline exceeded. No inference is dispatched. }
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail/history:
+    parameters:
+      - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: key, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      summary: Read immutable key policy assignment history
+      description: Returns at most 100 newest events with assignment/policy revisions, nullable policy name, readable actor name and creation time. Removal events have a null policy revision and name. Internal actor identifiers and credentials are excluded. History before audit support was installed is not reconstructed. Cache-Control is no-store.
+      security: [{ adminBearerAuth: [] }]
+      parameters:
+        - { name: before_assignment_revision, in: query, schema: { type: integer, minimum: 1 }, description: Exclusive cursor from next_cursor. }
+      responses:
+        '200': { description: Data array and nullable next_cursor; an empty history returns an empty array. }
+        '400': { description: Invalid cursor. }
+        '401': { description: Authentication required. }
+        '403': { description: Workspace read access required. }
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail:
+    parameters:
+      - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: key, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      summary: Read a workspace-scoped key policy assignment
+      security: [{ adminBearerAuth: [] }]
+      responses:
+        '200': { description: Data contains assignment_revision, policy_revision and policy, or null when no assignment exists in this workspace. }
+        '401': { description: Authentication required. }
+        '403': { description: Workspace read access required. }
+    put:
+      summary: Assign a preserved workspace policy revision to an active key
+      description: Key restrictions intersect mandatory workspace restrictions and cannot weaken them. Revision zero creates an assignment; subsequent updates require its current assignment revision. An explicit null policy_revision clears only the key assignment while retaining an incremented assignment revision and immutable history. Omission is rejected. Rotation preserves assigned policies; mandatory workspace restrictions remain enforced.
+      security: [{ adminBearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [policy_revision, expected_assignment_revision]
+              properties:
+                policy_revision: { type: [integer, 'null'], minimum: 1 }
+                expected_assignment_revision: { type: integer, minimum: 0 }
+      responses:
+        '200': { description: New assignment_revision. }
+        '400': { description: Invalid revision or unsupported policy. }
+        '401': { description: Authentication required. }
+        '403': { description: Workspace write access required. }
+        '404': { description: Policy revision absent in this workspace. }
+        '409': { description: Stale assignment revision or inactive, expired or foreign key. }
+        '422': { description: Missing required assignment fields or malformed JSON shape. }
+  /admin/v1/organizations/{organization}/projects/{project}/guardrails/rollback:
+    parameters:
+      - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      summary: Restore a preserved policy as a new active revision
+      description: Requires workspace write access. Revalidates the selected policy under the current supported schema. Prior revisions remain unchanged; stale expected revisions conflict.
+      security: [{ adminBearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [expected_revision, target_revision]
+              properties:
+                expected_revision: { type: integer, minimum: 1 }
+                target_revision: { type: integer, minimum: 1 }
+      responses:
+        '200': { description: New revision and restored_from_revision. }
+        '400': { description: Invalid target or unsupported stored policy. }
+        '401': { description: Authentication required. }
+        '403': { description: Workspace write access required. }
+        '404': { description: Target revision absent in this workspace. }
+        '409': { description: Active revision changed. }
+  /admin/v1/organizations/{organization}/projects/{project}/guardrails:
+    parameters:
+      - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      summary: Read active workspace access policy
+      security: [{ adminBearerAuth: [] }]
+      responses:
+        '200': { description: Active revision and policy in data, or null when no policy is configured. }
+        '401': { description: Authentication required. }
+        '403': { description: Workspace read access required. }
+    put:
+      summary: Activate a validated workspace access-policy revision
+      security: [{ adminBearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [expected_revision, policy]
+              properties:
+                expected_revision: { type: integer, minimum: 0 }
+                policy: { $ref: '#/components/schemas/Policy' }
+      responses:
+        '200': { description: Newly activated revision. }
+        '400': { description: Invalid policy. }
+        '401': { description: Authentication required. }
+        '403': { description: Workspace write access required. }
+        '409': { description: Revision conflict; active policy remains unchanged. }
+  /admin/v1/organizations/{organization}/projects/{project}/guardrails/preview:
+    parameters:
+      - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      summary: Preview draft model and Provider access without persistence
+      description: Returns allowed, coverage=model_provider_access and route_availability_checked=false. Does not check route availability, content, retention, budgets or credential grants.
+      security: [{ adminBearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [policy, model, provider]
+              properties:
+                policy: { $ref: '#/components/schemas/Policy' }
+                model: { type: string, minLength: 1, maxLength: 200 }
+                provider: { type: string, minLength: 1, maxLength: 200 }
+      responses:
+        '200': { description: Access-only preview verdict. }
+        '400': { description: Invalid policy or candidate. }
+        '401': { description: Authentication required. }
+        '403': { description: Workspace read access required. }
+  /admin/v1/organizations/{organization}/projects/{project}/guardrails/dispatch-denials:
+    parameters:
+      - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      operationId: listGuardrailDispatchDenials
+      summary: Read recorded dispatch policy exceptions
+      description: Workspace read access required. Latest 100 combined prepared/priced dispatch and rolled-back batch policy exceptions. Excludes per-row eligibility status denials, request content, policy patterns, credentials and internal identifiers. Cache-Control is no-store. Batch records do not establish that an attempt row exists.
+      security: [{ adminBearerAuth: [] }]
+      responses:
+        '200':
+          description: Scoped immutable denial metadata with explicit limited coverage.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, coverage]
+                properties:
+                  coverage: { type: string, enum: [latest_100_dispatch_policy_exceptions] }
+                  data:
+                    type: array
+                    maxItems: 100
+                    items:
+                      type: object
+                      required: [stage, outcome, coverage, reason, key_name, workspace_policy_name, key_policy_name, workspace_revision, key_policy_revision, key_assignment_revision, recorded_at]
+                      properties:
+                        stage: { type: string, enum: [dispatch, batch_admission] }
+                        outcome: { type: string, enum: [blocked] }
+                        coverage: { type: string, enum: [model_provider_access, policy_binding] }
+                        reason: { type: string, enum: [access_denied, input_binding_missing, policy_changed] }
+                        key_name: { type: string }
+                        workspace_policy_name: { type: string, nullable: true }
+                        key_policy_name: { type: string, nullable: true }
+                        workspace_revision: { type: integer, nullable: true }
+                        key_policy_revision: { type: integer, nullable: true }
+                        key_assignment_revision: { type: integer, nullable: true }
+                        recorded_at: { type: string, format: date-time }
+        '401': { description: Authentication required. }
+        '403': { description: Workspace read access required. }
+
+components:
+  securitySchemes:
+    adminBearerAuth: { type: http, scheme: bearer }
+  schemas:
+    DetectorProcessingDescription:
+      type: object
+      additionalProperties: false
+      required: [schema_version, detector_revision, configuration_fingerprint, recipient, region, retention, processing_guarantees, content_sent, credential_source, timeout_ms, concurrency, max_text_bytes, max_response_bytes, external_charge, customer_billing, policy_activation]
+      properties:
+        detector: { type: string, description: Present for workspace-scoped descriptions only. }
+        schema_version: { type: integer, const: 1 }
+        detector_revision: { type: string }
+        configuration_fingerprint: { type: string, pattern: '^[a-f0-9]{64}$' }
+        recipient: { type: string }
+        region: { type: string }
+        retention: { type: string }
+        processing_guarantees: { type: string, const: declared_unverified }
+        content_sent: { enum: [synthetic_text, request_text_after_local_redaction] }
+        credential_source: { type: string, const: server_environment }
+        timeout_ms: { type: integer, minimum: 1, maximum: 30000 }
+        concurrency: { type: integer, minimum: 1, maximum: 16 }
+        max_text_bytes: { type: integer, minimum: 1, maximum: 65536 }
+        max_response_bytes: { type: integer, const: 4096 }
+        external_charge: { enum: [unknown, declared_unmetered] }
+        customer_billing: { type: string, const: not_integrated }
+        policy_activation: { type: boolean, description: Deployment permits live activation in its configured workspace allowlist. }
+    AccessRule:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [mode]
+          properties:
+            mode: { type: string, enum: [inherit, allow_all, deny_all] }
+        - type: object
+          additionalProperties: false
+          required: [mode, values]
+          properties:
+            mode: { type: string, const: allow_list }
+            values:
+              type: array
+              maxItems: 1000
+              items: { type: string, minLength: 1, maxLength: 200 }
+      description: Empty allowlists deny. Values must be exact, nonblank, trimmed identifiers without controls or wildcard; use allow_all explicitly.
+    Policy:
+      type: object
+      additionalProperties: false
+      required: [schema_version, name, models, providers]
+      properties:
+        schema_version: { type: integer, const: 1 }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        models: { $ref: '#/components/schemas/AccessRule' }
+        providers: { $ref: '#/components/schemas/AccessRule' }
+        input_detectors:
+          type: array
+          maxItems: 4
+          description: Required input detectors. Composes workspace and assigned-key restrictions. Only deployment-authorized workspaces and declared unmetered services can activate a current configuration fingerprint. Matched or indeterminate results fail closed before inference admission. Textual content only, after local redaction; unsupported content is denied. Paid and unknown-cost detectors remain synthetic-only.
+          items:
+            type: object
+            additionalProperties: false
+            required: [detector, configuration_fingerprint, consent_to_external_processing]
+            properties:
+              detector: { type: string, minLength: 1, maxLength: 200, pattern: '^[a-zA-Z0-9_-]+$' }
+              configuration_fingerprint: { type: string, pattern: '^[a-f0-9]{64}$' }
+              consent_to_external_processing: { type: boolean, const: true }
+        input_rules:
+          type: array
+          maxItems: 32
+          description: Local text rules enforced before dispatch. Workspace and assigned-key rules compose; unsupported content fails closed. At most 32 combined rules are supported.
+          items:
+            type: object
+            additionalProperties: false
+            required: [action]
+            oneOf:
+              - required: [pattern]
+              - required: [preset]
+            properties:
+              pattern: { type: string, maxLength: 4096 }
+              preset: { enum: [email_v1, api_key_prefix_v1] }
+              action: { enum: [block, redact] }
+        output:
+          type: object
+          additionalProperties: false
+          required: [mode, rules]
+          description: Complete textual output inspection bounded to 1 MiB. Streaming, tools, structured-output requests and Embeddings are incompatible and rejected before inference in both modes. Buffered enforcement withholds indeterminate output; observation records matches or indeterminate coverage without redaction or denial. Observation sees the original response and cannot weaken inherited enforcement. Incurred usage remains chargeable. External output detectors and streaming inspection are not implemented.
+          properties:
+            mode: { enum: [buffered_full, observe_only] }
+            rules:
+              type: array
+              minItems: 1
+              maxItems: 32
+              items:
+                type: object
+                additionalProperties: false
+                required: [action]
+                oneOf:
+                  - required: [pattern]
+                  - required: [preset]
+                properties:
+                  pattern: { type: string, maxLength: 4096 }
+                  preset: { enum: [email_v1, api_key_prefix_v1] }
+                  action: { enum: [block, redact] }

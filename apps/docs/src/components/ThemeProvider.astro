@@ -1,0 +1,15 @@
+{/* Apply the shared preference before paint, including after Astro page swaps. */}
+<script is:inline>
+  (() => {
+    let theme = 'system';
+    try {
+      const saved = localStorage.getItem('niu-dashboard-theme');
+      if (saved === 'light' || saved === 'dark') theme = saved;
+    } catch {}
+    const dark = theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    document.documentElement.classList.toggle('dark', dark);
+    document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+    window.StarlightThemeProvider = { updatePickers() {} };
+  })();
+</script>

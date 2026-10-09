@@ -1,0 +1,48 @@
+openapi: 3.1.0
+info:
+  title: Niu platform configuration API
+  version: 0.1.0
+servers:
+  - url: /
+paths:
+  /admin/v1/platform/payments/epay:
+    get:
+      operationId: getPlatformEPayConfiguration
+      summary: Read EPay configuration with platform administrator read access
+      description: Returns enabled, merchant_id, endpoint, notify_url, return_url, methods, has_key and an exact string revision. Never returns merchant keys. Without a saved configuration, reads sanitized deployment defaults.
+      responses:
+        '200': { description: Sanitized configuration in data }
+        '401': { description: Authentication required }
+        '403': { description: Platform administrator access required }
+    put:
+      operationId: savePlatformEPayConfiguration
+      summary: Save encrypted EPay configuration with platform administrator write access
+      description: Validates enabled checkout configuration before persistence. An empty key retains the stored credential. Exact expected_revision prevents overwriting concurrent edits. Pending EPay orders prevent configuration changes so their original verification settings remain available. Saves an append-only audit event and takes effect without restarting the gateway. This configures the classic EPay protocol; it does not establish merchant eligibility or live payment qualification.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [expected_revision, enabled, merchant_id, key, endpoint, notify_url, return_url, methods]
+              properties:
+                expected_revision: { type: string, pattern: '^[0-9]+$' }
+                enabled: { type: boolean }
+                merchant_id: { type: string }
+                key: { type: string, writeOnly: true }
+                endpoint: { type: string }
+                notify_url: { type: string }
+                return_url: { type: string }
+                methods:
+                  type: array
+                  maxItems: 2
+                  uniqueItems: true
+                  items: { type: string, enum: [alipay, wxpay] }
+      responses:
+        '200': { description: Sanitized saved configuration in data, without key }
+        '400': { description: Invalid configuration }
+        '401': { description: Authentication required }
+        '403': { description: Platform administrator write access required }
+        '409': { description: Revision conflict or unresolved payment orders }
+        '503': { description: Encryption or durable storage unavailable }

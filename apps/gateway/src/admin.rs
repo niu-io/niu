@@ -1,7 +1,16 @@
 //! Administrator endpoints. The configured token bootstraps installation ownership;
 //! durable operator sessions carry role-based access after setup.
+pub mod asset_requests;
+pub mod chat_sessions;
+pub mod guardrails;
 mod operator_audit;
+pub mod passwords;
+pub mod preferences;
+pub mod profile;
+pub mod request_exports;
+pub mod request_payloads;
 mod session;
+pub mod workspace_spending;
 pub use operator_audit::operator_events;
 pub use session::current_session;
 
@@ -11,7 +20,6 @@ use axum::{
     extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
 };
-use niu_execution::observation::ExecutionRecord;
 use niu_storage::{AdminPermission, OperatorAuditActor, OperatorScope, TenantScope};
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -21,6 +29,18 @@ use uuid::Uuid;
 pub struct Name {
     name: String,
 }
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OrganizationInput {
+    name: String,
+    #[serde(default = "default_billing_currency")]
+    currency: String,
+}
+
+fn default_billing_currency() -> String {
+    "USD".to_owned()
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct WorkspaceInput {
@@ -33,6 +53,14 @@ pub struct KeyInput {
     #[serde(default = "all_model_aliases")]
     allowed_models: Vec<String>,
     ttl_seconds: i64,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KeyMetadataInput {
+    name: String,
+    allowed_models: Vec<String>,
+    expected_revision: i64,
 }
 
 fn all_model_aliases() -> Vec<String> {
@@ -65,12 +93,7 @@ async fn authorize(
     headers: &HeaderMap,
     permission: AdminPermission,
 ) -> Result<crate::state::AdminAuthorization, ApiError> {
-    state
-        .authorize_admin(
-            headers.get("authorization").and_then(|h| h.to_str().ok()),
-            permission,
-        )
-        .await
+    state.authorize_admin_headers(headers, permission).await
 }
 
 fn audit_actor(authorization: crate::state::AdminAuthorization) -> OperatorAuditActor {
@@ -104,7 +127,7 @@ async fn authorize_project(
 async fn authorize_platform(state: &AppState, headers: &HeaderMap) -> Result<(), ApiError> {
     if !authorize(state, headers, AdminPermission::Read)
         .await?
-        .is_installation()
+        .can_manage_platform()
     {
         return Err(ApiError::forbidden());
     }
@@ -160,7 +183,7 @@ pub async fn default_workspace(
     }
     let scope = state
         .store
-        .default_workspace()
+        .default_prepaid_workspace()
         .await
         .map_err(ApiError::from_store)?;
     Ok(Json(
@@ -188,6 +211,70 @@ pub async fn workspaces(
     Ok(Json(json!({"data": workspaces})))
 }
 
+pub async fn rename_workspace(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((organization_id, project_id)): Path<(Uuid, Uuid)>,
+    Json(input): Json<Name>,
+) -> Result<Json<Value>, ApiError> {
+    authorize_project(
+        &state,
+        &headers,
+        AdminPermission::Write,
+        organization_id,
+        project_id,
+    )
+    .await?;
+    validate_name(&input.name)?;
+    if !state
+        .store
+        .rename_workspace(
+            TenantScope {
+                organization_id,
+                project_id,
+            },
+            &input.name,
+        )
+        .await
+        .map_err(ApiError::from_store)?
+    {
+        return Err(ApiError::not_found());
+    }
+    Ok(Json(json!({"id":project_id,"name":input.name.trim()})))
+}
+
+pub async fn delete_workspace(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((organization_id, project_id)): Path<(Uuid, Uuid)>,
+) -> Result<StatusCode, ApiError> {
+    let authorization = authorize_project(
+        &state,
+        &headers,
+        AdminPermission::ManageOperators,
+        organization_id,
+        project_id,
+    )
+    .await?;
+    if let crate::state::AdminAuthorization::Operator(operator) = authorization
+        && operator.scope.project_id.is_some()
+    {
+        return Err(ApiError::forbidden());
+    }
+    if !state
+        .store
+        .delete_empty_workspace(TenantScope {
+            organization_id,
+            project_id,
+        })
+        .await
+        .map_err(ApiError::from_store)?
+    {
+        return Err(ApiError::not_found());
+    }
+    Ok(StatusCode::NO_CONTENT)
+}
+
 pub async fn create_workspace(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -212,7 +299,7 @@ pub async fn create_workspace(
         Some(organization) => organization,
         None => state
             .store
-            .create_organization("Personal workspace")
+            .create_prepaid_organization("Personal workspace", "USD")
             .await
             .map_err(ApiError::from_store)?,
     };
@@ -221,27 +308,21 @@ pub async fn create_workspace(
         .create_project(organization_id, &input.name)
         .await
         .map_err(ApiError::from_store)?;
-    let organization_name = state
+    let workspace = state
         .store
-        .organization_name(scope.organization_id)
+        .workspaces(Some(scope.organization_id), Some(scope.project_id))
         .await
         .map_err(ApiError::from_store)?
+        .into_iter()
+        .next()
         .ok_or_else(ApiError::not_found)?;
-    Ok((
-        StatusCode::CREATED,
-        Json(json!({
-            "id": scope.project_id,
-            "name": input.name,
-            "organization_id": scope.organization_id,
-            "organization_name": organization_name,
-        })),
-    ))
+    Ok((StatusCode::CREATED, Json(json!(workspace))))
 }
 
 pub async fn organization(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Json(input): Json<Name>,
+    Json(input): Json<OrganizationInput>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
     if !authorize(&state, &headers, AdminPermission::Write)
         .await?
@@ -250,14 +331,19 @@ pub async fn organization(
         return Err(ApiError::forbidden());
     }
     validate_name(&input.name)?;
+    if input.currency.len() != 3 || !input.currency.bytes().all(|b| b.is_ascii_uppercase()) {
+        return Err(ApiError::invalid_request(
+            "Currency must be a three-letter uppercase code",
+        ));
+    }
     let id = state
         .store
-        .create_organization(&input.name)
+        .create_prepaid_organization(&input.name, &input.currency)
         .await
         .map_err(ApiError::from_store)?;
     Ok((
         StatusCode::CREATED,
-        Json(json!({"id": id, "name": input.name})),
+        Json(json!({"id": id, "name": input.name, "currency": input.currency})),
     ))
 }
 
@@ -299,7 +385,17 @@ pub async fn issue_key(
         project_id,
     )
     .await?;
-    let models = crate::vendors::effective_models(&state).await?;
+    let mut models = crate::vendors::scoped_models(&state, organization_id).await?;
+    models.extend(
+        crate::codex::private_models(
+            &state,
+            TenantScope {
+                organization_id,
+                project_id,
+            },
+        )
+        .await?,
+    );
     let all_models = input.allowed_models.len() == 1 && input.allowed_models[0] == "*";
     if (!all_models && input.allowed_models.iter().any(|m| !models.contains_key(m)))
         || (input.allowed_models.iter().any(|model| model == "*") && !all_models)
@@ -351,6 +447,51 @@ pub async fn revoke_key(
         .await
         .map_err(ApiError::from_store)?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+pub async fn update_key_metadata(
+    State(state): State<AppState>,
+    Path((organization_id, project_id, key_id)): Path<(Uuid, Uuid, Uuid)>,
+    headers: HeaderMap,
+    Json(input): Json<KeyMetadataInput>,
+) -> Result<Json<Value>, ApiError> {
+    let authorization = authorize_project(
+        &state,
+        &headers,
+        AdminPermission::Write,
+        organization_id,
+        project_id,
+    )
+    .await?;
+    let scope = TenantScope {
+        organization_id,
+        project_id,
+    };
+    let mut models = crate::vendors::scoped_models(&state, organization_id).await?;
+    models.extend(crate::codex::private_models(&state, scope).await?);
+    let all_models = input.allowed_models.len() == 1 && input.allowed_models[0] == "*";
+    if (!all_models && input.allowed_models.iter().any(|m| !models.contains_key(m)))
+        || (input.allowed_models.iter().any(|m| m == "*") && !all_models)
+    {
+        return Err(ApiError::invalid_request("Every granted model must exist"));
+    }
+    let actor = match authorization {
+        crate::state::AdminAuthorization::Installation => "installation".to_owned(),
+        crate::state::AdminAuthorization::Operator(operator) => format!("operator:{}", operator.id),
+    };
+    let revision = state
+        .store
+        .update_key_metadata(
+            scope,
+            key_id,
+            &input.name,
+            &input.allowed_models,
+            input.expected_revision,
+            &actor,
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(json!({"revision": revision})))
 }
 
 pub async fn create_account(
@@ -480,7 +621,11 @@ pub async fn observe_quota(
     let token = header
         .and_then(|value| value.strip_prefix("Bearer "))
         .ok_or_else(ApiError::unauthorized)?;
-    let result = if state.admin_tokens.matches(header) {
+    let local_installation = state
+        .authorize_admin_headers(&headers, AdminPermission::Write)
+        .await
+        .is_ok_and(|authorization| authorization.is_installation());
+    let result = if state.admin_tokens.matches(header) || local_installation {
         let Json(input) =
             body.map_err(|_| ApiError::invalid_request("Invalid quota observation JSON"))?;
         state.store.observe_quota(scope, account, &input).await
@@ -754,7 +899,6 @@ pub async fn budget(
     Path((organization_id, project_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
-    authorize_platform(&state, &headers).await?;
     authorize_project(
         &state,
         &headers,
@@ -763,6 +907,7 @@ pub async fn budget(
         project_id,
     )
     .await?;
+    authorize_platform(&state, &headers).await?;
     let budget = state
         .store
         .budget(TenantScope {
@@ -792,7 +937,6 @@ pub async fn costs(
     headers: HeaderMap,
     axum::extract::Query(query): axum::extract::Query<CostQuery>,
 ) -> Result<Json<Value>, ApiError> {
-    authorize_platform(&state, &headers).await?;
     authorize_project(
         &state,
         &headers,
@@ -801,6 +945,7 @@ pub async fn costs(
         project_id,
     )
     .await?;
+    authorize_platform(&state, &headers).await?;
     let limit = query.limit.unwrap_or(50);
     if !(1..=100).contains(&limit) {
         return Err(ApiError::invalid_request("Limit must be between 1 and 100"));
@@ -831,6 +976,8 @@ pub async fn costs(
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GatewayActivityQuery {
+    http_status: Option<String>,
+    sort: Option<String>,
     limit: Option<u16>,
     after: Option<Uuid>,
     from_ms: Option<i64>,
@@ -840,26 +987,9 @@ pub struct GatewayActivityQuery {
     status: Option<String>,
 }
 
-/// Read the request metadata that the gateway records automatically. Bodies,
-/// prompts and model responses are never included.
-pub async fn gateway_activity(
-    State(state): State<AppState>,
-    Path((organization_id, project_id)): Path<(Uuid, Uuid)>,
-    headers: HeaderMap,
-    Query(query): Query<GatewayActivityQuery>,
-) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {
-    let authorization = authorize_project(
-        &state,
-        &headers,
-        AdminPermission::Read,
-        organization_id,
-        project_id,
-    )
-    .await?;
-    let limit = query.limit.unwrap_or(50);
-    if !(1..=100).contains(&limit) {
-        return Err(ApiError::invalid_request("Limit must be between 1 and 100"));
-    }
+pub(super) fn gateway_activity_filter(
+    query: &GatewayActivityQuery,
+) -> Result<niu_storage::GatewayActivityFilter, ApiError> {
     if matches!((query.from_ms, query.to_ms), (Some(from), Some(to)) if from >= to) {
         return Err(ApiError::invalid_request(
             "from_ms must be earlier than to_ms",
@@ -890,21 +1020,107 @@ pub async fn gateway_activity(
     if query.status.as_deref().is_some_and(|status| {
         !matches!(
             status,
-            "not_sent" | "may_have_executed" | "confirmed_completed" | "confirmed_not_executed"
+            "not_sent"
+                | "may_have_executed"
+                | "confirmed_completed"
+                | "confirmed_not_executed"
+                | "output_withheld"
+                | "delivery_failed"
         )
     }) {
         return Err(ApiError::invalid_request("Unsupported request status"));
     }
+    let sort = match query.sort.as_deref().unwrap_or("time_desc") {
+        "time_desc" => niu_storage::GatewayActivitySort::Newest,
+        "time_asc" => niu_storage::GatewayActivitySort::Oldest,
+        "latency_desc" => niu_storage::GatewayActivitySort::Latency,
+        "input_desc" => niu_storage::GatewayActivitySort::InputTokens,
+        "output_desc" => niu_storage::GatewayActivitySort::OutputTokens,
+        _ => return Err(ApiError::invalid_request("Unsupported request sort")),
+    };
+    let delivery_status = match query.http_status.as_deref() {
+        None => None,
+        Some("unknown") => Some(niu_storage::GatewayDeliveryFilter::Unknown),
+        Some(value) if value.len() == 3 && value.bytes().all(|c| c.is_ascii_digit()) => {
+            let code = value
+                .parse::<i32>()
+                .map_err(|_| ApiError::invalid_request("Unsupported HTTP status"))?;
+            if !(100..=599).contains(&code) {
+                return Err(ApiError::invalid_request(
+                    "HTTP status must be 100 to 599 or unknown",
+                ));
+            }
+            Some(niu_storage::GatewayDeliveryFilter::HttpStatus(code))
+        }
+        Some(_) => {
+            return Err(ApiError::invalid_request(
+                "HTTP status must be 100 to 599 or unknown",
+            ));
+        }
+    };
+    Ok(niu_storage::GatewayActivityFilter {
+        sort,
+        delivery_status,
+        from_ms: query.from_ms,
+        to_ms: query.to_ms,
+        model_alias: query.model_alias.clone(),
+        api_key_id: query.key_id,
+        execution: query.status.clone(),
+    })
+}
+
+/// Read the request metadata that the gateway records automatically. Bodies,
+/// prompts and model responses are never included.
+pub async fn gateway_request(
+    State(state): State<AppState>,
+    Path((organization_id, project_id, attempt)): Path<(Uuid, Uuid, Uuid)>,
+    headers: HeaderMap,
+) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {
+    authorize_project(
+        &state,
+        &headers,
+        AdminPermission::Read,
+        organization_id,
+        project_id,
+    )
+    .await?;
+    let data = state
+        .store
+        .gateway_request(
+            TenantScope {
+                organization_id,
+                project_id,
+            },
+            attempt,
+        )
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    Ok(([("cache-control", "no-store")], Json(json!({"data": data}))))
+}
+
+pub async fn gateway_activity(
+    State(state): State<AppState>,
+    Path((organization_id, project_id)): Path<(Uuid, Uuid)>,
+    headers: HeaderMap,
+    Query(query): Query<GatewayActivityQuery>,
+) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {
+    authorize_project(
+        &state,
+        &headers,
+        AdminPermission::Read,
+        organization_id,
+        project_id,
+    )
+    .await?;
+    let limit = query.limit.unwrap_or(50);
+    if !(1..=100).contains(&limit) {
+        return Err(ApiError::invalid_request("Limit must be between 1 and 100"));
+    }
+    let filter = gateway_activity_filter(&query)?;
     let scope = TenantScope {
         organization_id,
         project_id,
-    };
-    let filter = niu_storage::GatewayActivityFilter {
-        from_ms: query.from_ms,
-        to_ms: query.to_ms,
-        model_alias: query.model_alias,
-        api_key_id: query.key_id,
-        execution: query.status,
     };
     let summary = state
         .store
@@ -921,24 +1137,10 @@ pub async fn gateway_activity(
     let next_cursor = has_more
         .then(|| data.last().map(|entry| entry.attempt_id))
         .flatten();
-    let mut data = serde_json::to_value(data)
+    let data = serde_json::to_value(data)
         .map_err(|_| ApiError::invalid_request("Activity serialization failed"))?;
-    let mut summary = serde_json::to_value(summary)
+    let summary = serde_json::to_value(summary)
         .map_err(|_| ApiError::invalid_request("Activity serialization failed"))?;
-    if !authorization.is_installation() {
-        for row in data.as_array_mut().into_iter().flatten() {
-            if let Some(row) = row.as_object_mut() {
-                for field in ["cash_nanos", "api_equivalent_nanos", "currency"] {
-                    row.remove(field);
-                }
-            }
-        }
-        if let Some(summary) = summary.as_object_mut() {
-            for field in ["settled_costs", "unknown_cost_count"] {
-                summary.remove(field);
-            }
-        }
-    }
     Ok((
         [("cache-control", "no-store")],
         Json(json!({"data": data, "next_cursor": next_cursor, "summary": summary})),
@@ -956,208 +1158,6 @@ fn cost_entry_json(e: niu_storage::CostEntry) -> Value {
         "usage_completion_tokens": e.usage_completion_tokens.to_string(),
         "bound_exceeded": e.bound_exceeded
     })
-}
-
-#[derive(Deserialize)]
-pub struct ExecutionImportQuery {
-    after: Option<Uuid>,
-    task_id: Option<String>,
-    limit: Option<u16>,
-}
-
-pub async fn import_execution(
-    State(state): State<AppState>,
-    Path((organization_id, project_id)): Path<(Uuid, Uuid)>,
-    headers: HeaderMap,
-    Json(record): Json<ExecutionRecord>,
-) -> Result<(StatusCode, Json<Value>), ApiError> {
-    let scope = TenantScope {
-        organization_id,
-        project_id,
-    };
-    let token = headers
-        .get("authorization")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.strip_prefix("Bearer "))
-        .ok_or_else(ApiError::unauthorized)?;
-    let collector = !state
-        .admin_tokens
-        .matches(headers.get("authorization").and_then(|v| v.to_str().ok()))
-        && token.starts_with("niu_collector_");
-    if !collector {
-        authorize_project(
-            &state,
-            &headers,
-            AdminPermission::Write,
-            organization_id,
-            project_id,
-        )
-        .await?;
-    }
-    let receipt = state
-        .store
-        .import_execution_with_collector(scope, &record, collector.then_some(token))
-        .await
-        .map_err(ApiError::from_store)?;
-    let status = if receipt.created {
-        StatusCode::CREATED
-    } else {
-        StatusCode::OK
-    };
-    Ok((
-        status,
-        Json(json!({"id": receipt.id, "created": receipt.created})),
-    ))
-}
-
-pub async fn execution_imports(
-    State(state): State<AppState>,
-    Path((organization_id, project_id)): Path<(Uuid, Uuid)>,
-    headers: HeaderMap,
-    Query(query): Query<ExecutionImportQuery>,
-) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {
-    authorize_project(
-        &state,
-        &headers,
-        AdminPermission::Read,
-        organization_id,
-        project_id,
-    )
-    .await?;
-    let limit = query.limit.unwrap_or(50);
-    if !(1..=100).contains(&limit) {
-        return Err(ApiError::invalid_request("Limit must be between 1 and 100"));
-    }
-    let mut entries = state
-        .store
-        .execution_imports(
-            TenantScope {
-                organization_id,
-                project_id,
-            },
-            query.after,
-            query.task_id.as_deref(),
-            i64::from(limit) + 1,
-        )
-        .await
-        .map_err(ApiError::from_store)?;
-    let has_more = entries.len() > usize::from(limit);
-    entries.truncate(usize::from(limit));
-    let next_cursor = has_more
-        .then(|| entries.last().map(|entry| entry.id))
-        .flatten();
-    Ok((
-        [("cache-control", "no-store")],
-        Json(json!({"data": entries, "next_cursor": next_cursor})),
-    ))
-}
-
-pub async fn execution_cohort(
-    State(state): State<AppState>,
-    Path((organization_id, project_id)): Path<(Uuid, Uuid)>,
-    headers: HeaderMap,
-) -> Result<Json<Value>, ApiError> {
-    authorize_platform(&state, &headers).await?;
-    authorize_project(
-        &state,
-        &headers,
-        AdminPermission::Read,
-        organization_id,
-        project_id,
-    )
-    .await?;
-    let report = state
-        .store
-        .execution_cohort(TenantScope {
-            organization_id,
-            project_id,
-        })
-        .await
-        .map_err(ApiError::from_store)?;
-    Ok(Json(json!({"data": report})))
-}
-
-pub async fn execution_import(
-    State(state): State<AppState>,
-    Path((organization_id, project_id, execution_id)): Path<(Uuid, Uuid, Uuid)>,
-    headers: HeaderMap,
-) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {
-    let authorization = authorize_project(
-        &state,
-        &headers,
-        AdminPermission::Read,
-        organization_id,
-        project_id,
-    )
-    .await?;
-    let scope = TenantScope {
-        organization_id,
-        project_id,
-    };
-    let record = state
-        .store
-        .execution_import(scope, execution_id)
-        .await
-        .map_err(ApiError::from_store)?
-        .ok_or_else(ApiError::not_found)?;
-    let linked_accounts = state
-        .store
-        .execution_account_links(scope, &record)
-        .await
-        .map_err(ApiError::from_store)?;
-    let charges = if authorization.is_installation() {
-        let charges = state
-            .store
-            .execution_charges(scope, &record)
-            .await
-            .map_err(ApiError::from_store)?;
-        let entries: Vec<Value> = charges.entries.into_iter().map(cost_entry_json).collect();
-        Some(
-            json!({"entries":entries,"unresolved":charges.unresolved,"attribution":"imported_reference","task_total_complete":false}),
-        )
-    } else {
-        None
-    };
-    Ok((
-        [("cache-control", "no-store")],
-        Json(json!({
-            "id": execution_id,
-            "record": &record,
-            "data": &record,
-            "linked_accounts": linked_accounts,
-            "charges": charges
-        })),
-    ))
-}
-
-pub async fn delete_execution_import(
-    State(state): State<AppState>,
-    Path((organization_id, project_id, execution_id)): Path<(Uuid, Uuid, Uuid)>,
-    headers: HeaderMap,
-) -> Result<StatusCode, ApiError> {
-    authorize_project(
-        &state,
-        &headers,
-        AdminPermission::Write,
-        organization_id,
-        project_id,
-    )
-    .await?;
-    let deleted = state
-        .store
-        .delete_execution_import(
-            TenantScope {
-                organization_id,
-                project_id,
-            },
-            execution_id,
-        )
-        .await
-        .map_err(ApiError::from_store)?;
-    if !deleted {
-        return Err(ApiError::not_found());
-    }
-    Ok(StatusCode::NO_CONTENT)
 }
 
 #[derive(Deserialize)]
@@ -1245,6 +1245,11 @@ pub async fn issue_collector_key(
         project_id,
     )
     .await?;
+    if input.purpose != "quota" {
+        return Err(ApiError::invalid_request(
+            "Only supplier quota collection is supported",
+        ));
+    }
     let issued = state
         .store
         .issue_collector_key_for(

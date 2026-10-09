@@ -11,12 +11,21 @@ name = "niu-gateway"
 path = "src/main.rs"
 
 [dependencies]
+tower = { version = "0.5", features = ["util"] }
+niu-upstream = { path = "../../crates/upstream" }
 axum.workspace = true
 base64 = "0.22"
+image = { version = "=0.25.10", default-features = false, features = ["png"] }
 futures-util.workspace = true
+libc = "0.2"
 ring = "0.17"
+regex = "=1.13.1"
+jsonschema = { version = "=0.58.5", default-features = false }
 niu-execution = { path = "../../crates/execution" }
+niu-media = { path = "../../crates/media" }
+niu-metered-cost = { path = "../../crates/metered-cost" }
 niu-storage = { path = "../../crates/storage" }
+niu-payments = { path = "../../crates/payments" }
 niu-benchmark = { path = "../../crates/benchmark" }
 litellm-core = { path = "../../vendor/litellm-rust/crates/core" }
 reqwest.workspace = true
@@ -35,6 +44,8 @@ url.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
+md-5 = "0.10"
+niu-payments = { path = "../../crates/payments", features = ["test-fixtures"] }
+hmac = "0.12"
 sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "postgres", "macros", "migrate"] }
 http-body-util = "0.1"
-tower = { version = "0.5", features = ["util"] }

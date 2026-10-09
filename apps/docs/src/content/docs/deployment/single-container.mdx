@@ -3,9 +3,9 @@ title: Single-container deployment
 description: Niu's target deployment shape and current packaging status.
 ---
 
-Niu serves documentation, the public model catalog, workspace console, inference API and management API from one origin. The hosted distribution also serves the separately maintained marketing website under `niu.io`. One Rust gateway owns the HTTP listener and serves the built static sites; PostgreSQL stores tenants, scoped API keys, operations and attempt evidence. The application image exposes one public port. Compose starts it with PostgreSQL as the only supporting service.
+Niu serves documentation, the public model catalog, workspace dashboard, inference API and management API from one origin. The hosted distribution also serves the separately maintained marketing website under `niu.io`. One Rust gateway owns the HTTP listener and serves the built static sites; PostgreSQL stores tenants, scoped API keys, operations and attempt evidence. The application image exposes one public port. Compose starts it with PostgreSQL as the only supporting service.
 
-The Dockerfile builds the Rust gateway, TypeScript console and Astro documentation, and packages the static model catalog into one image. The community root redirects to the workspace; a composed hosted build can supply a separate website artifact using `NIU_SITE_DIR`. The product URLs are `/`, `/docs/`, `/models/`, `/workspaces/default/`, `/v1/…` and `/admin/v1/…`.
+The Dockerfile builds the Rust gateway, TypeScript dashboard and Astro documentation, and packages the static model catalog into one image. The community root redirects to the workspace; a composed hosted build can supply a separate website artifact using `NIU_SITE_DIR`. The product URLs are `/`, `/docs/`, `/models/`, `/workspaces/default/`, `/v1/…` and `/admin/v1/…`.
 
 :::caution[Current status]
 The current image is an evaluation build. Initial persistence and migrations are implemented. Budget reservations, financial settlement, operator roles, streaming evidence and recovery workers remain in progress. Container qualification is not complete. Do not use this image for production workloads.
@@ -20,11 +20,20 @@ cp .env.example .env
 docker compose up --build
 ```
 
-The product is available on port `2555`. Open `http://localhost:2555/` for the workspace, `/docs/` for documentation, `/models/` for the public catalog, and `/workspaces/default/` for the console. The example route requires an OpenRouter API key in `OPENROUTER_API_KEY`. Change `config/niu.example.toml` to add or edit model routes before starting the container. Only routes with `public_catalog = true` appear in the public catalog.
+The product is available on port `2555`. Open `http://localhost:2555/` for the workspace, `/docs/` for documentation, `/models/` for the public catalog, and `/workspaces/default/` for the dashboard. The example route requires an OpenRouter API key in `OPENROUTER_API_KEY`. Change `config/niu.example.toml` to add or edit model routes before starting the container. Only routes with `public_catalog = true` appear in the public catalog.
+
+## Included source notices
+
+The runtime image retains the project license and selective-source notices under
+`/app/licenses`, including the LiteLLM MIT license and source manifest and the
+shadcn/ui MIT license. Dashboard and catalog public assets retain their own notices.
+Dependency license auditing runs in CI; these files do not establish that every
+transitive dependency's distribution obligations have been qualified. Complete
+artifact and container qualification remains release work.
 
 ## Release requirements
 
-- One Niu image serves inference, management, health, and console assets on one listener.
+- One Niu image serves inference, management, health, and dashboard assets on one listener.
 - PostgreSQL is the only required external service for durable state.
 - Provider credentials and bootstrap secrets are injected at runtime and never baked into images.
 - Image contents exclude private enterprise code, internal research, and development material.
@@ -32,13 +41,46 @@ The product is available on port `2555`. Open `http://localhost:2555/` for the w
 
 ## One-domain routing
 
-All product pages and APIs use the same origin. The workspace name in `/workspaces/:workspace/…` selects a UI route; it does not grant access. Each management and inference request requires server-validated credentials. Community setup uses an installation administrator token to provision organization/project-scoped operators and API keys. Operators use expiring sessions with owner, admin, or viewer roles; API keys authorize inference only.
+All product pages and APIs use the same origin. The workspace name in `/workspaces/:workspace/…` selects a UI route; it does not grant access. Each management and inference request requires server-validated credentials. Community setup uses an installation administrator token to provision organization/workspace-scoped members and API keys. Members use expiring sessions with owner, admin, or viewer roles; API keys authorize inference only.
 
 The gateway serves HTTP. Terminate HTTPS at the hosting platform's TLS edge and forward requests to the single application port. A unified hostname does not provide TLS by itself. Keep browser API requests same-origin so credentials and logout stay on `niu.io`.
 
-When migrating existing hosts, configure permanent redirects at the TLS edge: `docs.niu.io/<path>` should map to `niu.io/docs/<path>`. Redirect the old console root to `/workspaces/default/` and map prior console sections such as `/keys` and `/usage` to `/workspaces/default/keys` and `/workspaces/default/usage`. In the unified product, `/models/` is the public catalog; the workspace route editor belongs under `/workspaces/default/models`.
+When migrating existing hosts, configure permanent redirects at the TLS edge: `docs.niu.io/<path>` should map to `niu.io/docs/<path>`. Redirect the old dashboard root to `/workspaces/default/` and map prior dashboard sections such as `/keys` and `/usage` to `/workspaces/default/keys` and `/workspaces/default/usage`. In the unified product, `/models/` is the public catalog and `/suppliers` manages Supplier configuration. Model supply is global; workspaces manage scoped keys, requests and customer billing.
 
-The static documentation tree is mounted separately from the console. Missing documentation paths return 404, and unknown `/v1/`, `/catalog/v1/` and `/admin/v1/` endpoints return JSON API errors. Nested workspace links can be opened or refreshed directly. Static routes do not buffer inference responses; streaming remains on the gateway's inference handler.
+The static documentation tree is mounted separately from the dashboard. Missing documentation paths return 404, and unknown `/v1/`, `/catalog/v1/` and `/admin/v1/` endpoints return JSON API errors. Nested workspace links can be opened or refreshed directly. Static routes do not buffer inference responses; streaming remains on the gateway's inference handler.
+
+## Enable member sign-in
+
+Leave `NIU_AUTH_PUBLIC_ORIGIN` blank for installation-only evaluation. To enable
+member password sign-in, set it in `.env` to your exact external HTTPS origin,
+for example `https://niu.example.com`, and recreate the application service:
+
+```sh
+docker compose up -d --build niu
+```
+
+The origin must have no path, credentials, query or fragment. A blank value
+keeps password login disabled; whitespace or an invalid origin fails startup.
+Compose passes this setting to the gateway. Terminate TLS at your hosting edge
+and keep the dashboard and management API under this same origin. HTTP evaluation
+access does not qualify production browser login.
+
+Use `/installation` and the installation administrator credential for initial
+setup. After creating an organization and workspace, provision a member through
+`POST /admin/v1/operators` with the saved organization/workspace references:
+`{"organization_id":"<organization_id>","project_id":"<workspace_id>","name":"Workspace owner","role":"owner","expires_in_seconds":3600}`.
+Then use `PUT /admin/v1/operators/{operator_id}/password` with the member's
+`email` and a password of at least 15 characters and at most 1024 UTF-8 bytes.
+Omit `expected_revision` for first provisioning; use the returned revision for
+later changes. Provisioning revokes the initially issued bearer session. The
+member can now sign in at `/login`; the dashboard restores the backend session
+using a secure HttpOnly cookie. Keep passwords and setup credentials out of
+shared command history and logs. The [member session reference](/docs/reference/api/#operator-roles-and-sessions)
+describes role boundaries, throttling and revocation.
+
+Password login does not create members or implement self-registration. Real
+HTTPS browser acceptance, provisioning UX and packaged authentication journeys
+remain release qualification work.
 
 ## Bootstrap an organization and client key
 
@@ -47,24 +89,24 @@ The static documentation tree is mounted separately from the console. Missing do
 With the gateway running, use your admin bearer token to:
 
 1. `POST /admin/v1/organizations` with `{"name":"My organization"}`.
-2. `POST /admin/v1/organizations/{organization_id}/projects` with `{"name":"My project"}`.
+2. `POST /admin/v1/organizations/{organization_id}/projects` with `{"name":"My workspace"}`.
 3. `POST /admin/v1/organizations/{organization_id}/projects/{project_id}/keys` with `{"name":"Application","ttl_seconds":86400}`. The key can call every model route available in the workspace.
 
 Each POST returns `201`. Use the returned IDs in the next path. The key response returns its `token` once; store it securely and use it as the bearer token for `/v1/models` and `/v1/chat/completions`. Every request requires `Content-Type: application/json` when sending a JSON body. Delete the key at the same keys path with `/{key_id}` appended to revoke it (`204`).
 
-Model listings are filtered by the key's explicit grants. Revocation and expiry are rechecked at dispatch admission. Organization creation and default-workspace setup require the installation bootstrap token. Scoped operators can manage permitted project resources according to their role; operator/session management requires an owner.
+New keys can access all model routes available in their workspace. Keys with explicit model restrictions receive a filtered model listing. Revocation and expiry are rechecked at dispatch admission. Organization creation and default-workspace setup require the installation bootstrap token. Scoped operators can manage permitted workspace resources according to their role; operator/session management requires an owner.
 
 Non-streaming responses include `x-niu-operation-id` and `x-niu-attempt-id` after dispatch, including provider errors. Streaming responses include these IDs on successful establishment. The OpenAI-compatible streaming adapter persists completion and valid usage at the terminal event. Request `stream_options: {"include_usage": true}` when supported by the provider; the JavaScript SDK does this automatically. Missing/conflicting usage stays unknown, and interrupted streams remain uncertain. SSE events larger than 64 KiB are rejected. `/readyz` checks database availability; `/healthz` reports process liveness.
 
 
-## Manage keys in the console
+## Manage keys in the dashboard
 
-Connect with the installation administrator token and open **API keys**. Create or select an organization and project, choose explicit model grants and an expiry, then issue a key. The secret appears once in the tab; dismiss it after saving. It is not stored in browser persistence.
+Select a workspace and open **API keys → New API key**. Enter a name and choose an expiration, then select **Create key**. The key can call every model route available in the workspace. Copy the secret when it appears; it cannot be retrieved later.
 
 Keys can be rotated or revoked from the table. Rotation immediately revokes the old key and preserves its original permissions and absolute expiry. It is atomic: concurrent rotations produce only one replacement. A lost rotation response cannot reveal the replacement secret again; an administrator must revoke the inaccessible key and issue a new one. Key issuance, rotation and revocation append immutable audit events identifying the bootstrap-administrator actor class. Individual operator attribution still requires operator sessions.
 
-The equivalent APIs add `GET` to the organization, project and key collection paths, and `POST .../keys/{key_id}/rotate`. List responses exclude secrets and hashes and currently return at most 1,000 records; pagination remains pending.
+The equivalent APIs add `GET` to the organization, workspace and key collection paths, and `POST .../keys/{key_id}/rotate`. List responses exclude secrets and hashes and currently return at most 1,000 records; pagination remains pending.
 
 ## Optional marketing artifact
 
-The marketing source lives in the separate `niu-io/website` repository. A hosted release pins both repository revisions and installs the website build in its own directory. Set `NIU_SITE_DIR` to that directory to serve `/`, `/site-assets/`, `/_astro/`, favicon, robots, and sitemap. Set `NIU_CATALOG_DIR` to the public catalog build (the community image defaults to `/app/catalog`). Docs and console keep their existing directories. No separate application subdomain or UI server is required. Website output cannot override the catalog, workspace or API routes.
+The marketing source lives in the separate `niu-io/website` repository. A hosted release pins both repository revisions and installs the website build in its own directory. Set `NIU_SITE_DIR` to that directory to serve `/`, `/site-assets/`, `/_astro/`, favicon, robots, and sitemap. Set `NIU_CATALOG_DIR` to the public catalog build (the community image defaults to `/app/catalog`). Docs and dashboard keep their existing directories. No separate application subdomain or UI server is required. Website output cannot override the catalog, workspace or API routes.

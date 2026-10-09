@@ -1,16 +1,22 @@
 ---
 title: Getting started
-description: Set up the Niu monorepo for local development.
+description: Configure model access, create a workspace API key and make a request.
 ---
 
-## Just want to call a model?
+Send your first request through Niu using a workspace API key and a configured model.
 
-You do not need to define tasks, import agent traces, run benchmarks, configure subscriptions or enable pooling.
+## Set up model access
 
-1. Start the gateway using the [single-container guide](/docs/deployment/single-container/), or the development steps below.
-2. Open the console at `http://localhost:2555/workspaces/default/` and use the installation admin session to connect a provider, add its credential, and publish a model alias. For file-managed deployments, configure the same route in `config/niu.example.toml`; the console reports configuration it cannot edit. The example alias is `fast`.
-3. Choose **API keys**, select the model alias your app may use, and create a project key. On a new installation, choose **Create workspace and key** to create the default project and a 30-day key shown once. The installation admin credential is for setup; applications use this scoped client key.
-4. Point your client to Niu's base URL and make a standard chat request:
+1. **Start Niu.** Follow the [deployment guide](/docs/deployment/single-container/), or run `pnpm dev` for local development.
+2. **Open the dashboard.** Sign in with your account. For local development, use the account configured by the launcher.
+3. **Connect a Supplier.** Choose its Provider adapter, save its API credential, and configure model routes using the [model route guide](/docs/configuration/models/). Confirm your route appears in **Models**.
+4. **Create an API key.** Select a workspace and open **API keys → New API key**. Enter a name and expiration, then select **Create key**. The key can call every model route available in the workspace. Copy its secret now; it cannot be retrieved later.
+
+## Make a request
+
+Use your workspace key and a model alias from **Models**. The example below uses
+`fast`, the alias in the example container configuration. Replace it with your
+configured alias.
 
 ```sh
 export NIU_API_KEY='your-issued-client-key'
@@ -20,36 +26,27 @@ curl http://localhost:2555/v1/chat/completions \
   -d '{"model":"fast","messages":[{"role":"user","content":"Hello"}]}'
 ```
 
-The base URL for compatible clients is `http://localhost:2555/v1`. The gateway
-automatically records request metadata, timing and reported usage. Open **Tasks**
-in the console to see the request; no run-log export or import is needed. When a
-price is configured, the console also shows known cash and API-equivalent cost.
-Keep the admin token for administration; applications use scoped client keys.
+The base URL for compatible clients is `http://localhost:2555/v1` in the container,
+or `http://127.0.0.1:2566/v1` in development. Replace `fast` with the actual alias
+available in your workspace when using a dashboard-managed route. The key dialog
+provides the base URL and a client example for your running installation.
 
-Pricing schedules and budgets are optional. If you enable a budget, its reservation requirements apply; see [model pricing](/docs/configuration/models/#optional-text-route-pricing). Task grouping and benchmarking are progressive workflows, not prerequisites for inference or automatic request capture. Provider and model routes still use server-side configuration; the first-run console flow handles workspace and client-key setup.
+Open workspace **Logs** to inspect status, timing, reported tokens, and retained
+request and response payloads. **Usage** shows consumption and customer charges.
+See [request logs](/docs/concepts/execution-observation/) for capture and retention settings.
 
-## Requirements
+Applications authenticate with workspace keys. Keep Supplier credentials and
+installation administrator tokens on the server.
 
-- Rust 1.98.0 for the current selected native runtime modules.
-- Node.js 24 or newer and pnpm 11 for the console and documentation workspace.
-- PostgreSQL 17 for durable state.
-- A configured provider credential for live inference requests.
+## Run Niu locally
 
-## Install workspace dependencies
+For repository setup, requirements, and build commands, follow
+[Local development](/docs/guides/local-development/). For a container installation,
+use the [deployment guide](/docs/deployment/single-container/).
 
-From the repository root, install the JavaScript workspace and build the console and docs:
+## Current limitations
 
-```sh
-pnpm install
-pnpm build:console
-pnpm build:docs
-pnpm build:catalog
-```
-
-Check the Rust workspace with:
-
-```sh
-cargo check --workspace
-```
-
-The gateway expects `NIU_DATABASE_URL`, an admin token, and a model configuration file. Create scoped client keys through the bootstrap administration API. Follow the deployment guide for the configuration format before starting the runtime.
+- Container installations use an administrator credential for initial setup and can issue scoped member sessions. The opt-in [password session API](/docs/reference/api/#operator-roles-and-sessions) supports provisioned members and session restoration behind the configured HTTPS origin. Self-registration and real HTTPS browser qualification remain unfinished.
+- Configuring a route does not qualify its upstream capabilities or supply rights. File-managed deployments can configure routes in `config/niu.example.toml` instead of the dashboard.
+- Request and response payloads are retained for 24 hours by default. Disable capture per request with `x-niu-log-payloads: false` or turn off **Save payloads in Logs** in Chat settings. Expired or uncaptured content is unavailable; request metadata remains. Missing token usage, timing, or customer prices remain unknown.
+- Budgeted workspaces require a supported bounded reservation before dispatch; unpriced requests cannot bypass that requirement. See [model pricing](/docs/configuration/models/#optional-text-route-pricing). Upstream billing bounds still need qualification.

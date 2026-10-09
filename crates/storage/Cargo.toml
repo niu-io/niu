@@ -7,6 +7,8 @@ repository.workspace = true
 
 [dependencies]
 niu-execution = { path = "../execution" }
+niu-metered-cost = { path = "../metered-cost" }
+niu-media = { path = "../media" }
 serde_json.workspace = true
 sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "tls-rustls-ring", "postgres", "uuid", "json", "migrate", "macros"] }
 uuid.workspace = true
@@ -14,6 +16,12 @@ thiserror.workspace = true
 sha2.workspace = true
 serde.workspace = true
 url.workspace = true
+argon2 = "=0.5.3"
+rand_core = { version = "0.6", features = ["getrandom"] }
+tokio.workspace = true
+
+base64 = "0.22"
+image = { version = "=0.25.10", default-features = false, features = ["png"] }
 
 [dev-dependencies]
-tokio.workspace = true
+axum.workspace = true

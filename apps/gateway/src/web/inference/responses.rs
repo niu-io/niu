@@ -34,11 +34,42 @@ pub(in crate::web) async fn responses(
     if !principal.allows_model(&public_model) {
         return Err(ApiError::not_found());
     }
-    let resolved = crate::vendors::resolve_model(&state, &public_model).await?;
+    if public_model.starts_with("codex/") {
+        return super::codex::infer(
+            state,
+            headers,
+            body,
+            principal,
+            super::codex::Protocol::Responses,
+        )
+        .await;
+    }
+    let resolved = crate::vendors::resolve_scoped_model(
+        &state,
+        principal.scope().organization_id,
+        &public_model,
+    )
+    .await?;
     let model = &resolved.model;
+    let inspected_snapshot = inspect_request_input(
+        &state,
+        &principal,
+        &public_model,
+        model,
+        crate::guardrails::input::Protocol::Responses,
+        &mut body,
+    )
+    .await?;
     let bounds = validate_responses_request(&mut body, model.pricing.as_ref())?;
-    if !model.protocol().is_openai_compatible() || !model.supports_responses {
-        return Err(ApiError::unsupported());
+    if !model.protocol().is_openai_compatible() {
+        return Err(ApiError::unsupported_message(
+            "Responses require an OpenAI-compatible model route.",
+        ));
+    }
+    if !model.supports_responses {
+        return Err(ApiError::unsupported_message(
+            "Responses are not enabled for this model. Choose a model with Responses support.",
+        ));
     }
     if let Some(price) = &model.pricing
         && bounds.input_bytes > price.max_input_tokens as usize
@@ -54,15 +85,21 @@ pub(in crate::web) async fn responses(
     let endpoint = format!("{}/responses", base.trim_end_matches('/'));
     let client = crate::upstream::client_for_endpoint(&endpoint, timeout)
         .await
-        .map_err(|_| ApiError::unavailable())?;
+        .map_err(ApiError::from_endpoint)?;
     state.requests.fetch_add(1, Ordering::Relaxed);
     let dispatch = begin_attempt(
         &state,
         &principal,
-        &public_model,
-        model,
-        bounds.max_output_tokens,
-        task_id.as_deref(),
+        AttemptRequest {
+            personal_route: resolved.personal_route.as_ref(),
+            public_model: &public_model,
+            model,
+            completion_bound: bounds.max_output_tokens,
+            task_id: task_id.as_deref(),
+            snapshot: inspected_snapshot,
+            request_body: &body,
+            protocol: crate::guardrails::input::Protocol::Responses,
+        },
     )
     .await?;
     let result =
@@ -95,7 +132,11 @@ pub(in crate::web) fn validate_responses_request(
     }
     match object.get("stream") {
         None | Some(Value::Bool(false)) => {}
-        Some(Value::Bool(true)) => return Err(ApiError::unsupported()),
+        Some(Value::Bool(true)) => {
+            return Err(ApiError::unsupported_message(
+                "Streaming Responses are not supported. Set stream to false or use Chat streaming.",
+            ));
+        }
         _ => return Err(ApiError::invalid_request("stream must be a boolean")),
     }
     let input_bytes = object
@@ -227,7 +268,12 @@ async fn execute_responses(
     if let Some(object) = value.as_object_mut() {
         object.insert("model".to_owned(), json!(public_model));
     }
+    crate::customer_response::sanitize(&mut value);
     Ok(ProviderResponse {
+        finish_reasons: niu_storage::RequestChoiceFinish::from_responses_response(&value),
+        token_categories: usage.and_then(|totals| {
+            niu_storage::RequestTokenCategories::from_responses_usage(&value["usage"], totals)
+        }),
         response: Json(value).into_response(),
         completed: true,
         usage,
@@ -288,13 +334,17 @@ pub(in crate::web) fn valid_responses_response(response: &Value) -> bool {
 }
 
 pub(in crate::web) fn responses_usage(response: &Value) -> Option<(u64, u64)> {
-    response
-        .get("usage")
-        .and_then(|usage| {
-            usage
-                .get("input_tokens")
-                .and_then(Value::as_u64)
-                .zip(usage.get("output_tokens").and_then(Value::as_u64))
-        })
-        .filter(|(input, output)| *input <= i64::MAX as u64 && *output <= i64::MAX as u64)
+    let usage = response.get("usage")?;
+    let input = usage.get("input_tokens")?.as_u64()?;
+    let output = usage.get("output_tokens")?.as_u64()?;
+    let total = input.checked_add(output)?;
+    if input > i64::MAX as u64
+        || output > i64::MAX as u64
+        || usage
+            .get("total_tokens")
+            .is_some_and(|reported| reported.as_u64() != Some(total))
+    {
+        return None;
+    }
+    Some((input, output))
 }

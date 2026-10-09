@@ -2,27 +2,56 @@
 """Exercise single-origin routing, inference, administration, and PostgreSQL persistence."""
 
 import json
+import hashlib
+import importlib.util
 import os
 import re
 import secrets
+import shutil
 import socket
 import subprocess
 import sys
 import tempfile
 import threading
 import time
+import uuid
 from pathlib import Path
 import urllib.error
 import urllib.request
+from urllib.parse import urlsplit
 
 
 IMAGE = os.environ.get("NIU_IMAGE", "niu-io/niu:ci")
 NETWORK = f"niu-package-smoke-{os.getpid()}"
 PROJECT = f"niu-package-smoke-{os.getpid()}"
 ROOT = Path(__file__).resolve().parents[1]
+_video_spec = importlib.util.spec_from_file_location("niu_package_video", ROOT / "scripts/package_video.py")
+PACKAGE_VIDEO = importlib.util.module_from_spec(_video_spec)
+_video_spec.loader.exec_module(PACKAGE_VIDEO)
+_asset_spec = importlib.util.spec_from_file_location("niu_package_assets", ROOT / "scripts/package_asset_upgrade.py")
+PACKAGE_ASSETS = importlib.util.module_from_spec(_asset_spec)
+_asset_spec.loader.exec_module(PACKAGE_ASSETS)
+_listing_spec = importlib.util.spec_from_file_location("niu_package_listings", ROOT / "scripts/package_asset_listing.py")
+PACKAGE_LISTINGS = importlib.util.module_from_spec(_listing_spec)
+_listing_spec.loader.exec_module(PACKAGE_LISTINGS)
+_update_spec = importlib.util.spec_from_file_location("niu_package_updates", ROOT / "scripts/package_asset_updates.py")
+PACKAGE_UPDATES = importlib.util.module_from_spec(_update_spec)
+_update_spec.loader.exec_module(PACKAGE_UPDATES)
+_branding_spec = importlib.util.spec_from_file_location("niu_package_branding", ROOT / "scripts/package_branding.py")
+PACKAGE_BRANDING = importlib.util.module_from_spec(_branding_spec)
+_branding_spec.loader.exec_module(PACKAGE_BRANDING)
+_image_spec = importlib.util.spec_from_file_location("niu_package_images", ROOT / "scripts/package_image_admission.py")
+PACKAGE_IMAGES = importlib.util.module_from_spec(_image_spec)
+_image_spec.loader.exec_module(PACKAGE_IMAGES)
+BRANDING_SMOKE = os.environ.get("NIU_PACKAGE_BRANDING") == "1"
+UPDATE_SMOKE = os.environ.get("NIU_PACKAGE_UPDATES") == "1"
+LISTING_SMOKE = os.environ.get("NIU_PACKAGE_LISTINGS") == "1"
+LOOKUP_SMOKE = os.environ.get("NIU_PACKAGE_LOOKUPS") == "1"
+ASSET_SMOKE = os.environ.get("NIU_PACKAGE_ASSETS") == "1"
 DATABASE = ""
 APP = ""
 PROVIDER = ""
+NETWORK_ANCHOR = ""
 ADMIN_TOKEN = secrets.token_urlsafe(48)
 DATABASE_PASSWORD = secrets.token_urlsafe(32)
 PROVIDER_KEY = secrets.token_urlsafe(32)
@@ -39,10 +68,26 @@ def free_host_port():
 
 HOST_PORT = free_host_port()
 BASE_URL = f"http://127.0.0.1:{HOST_PORT}"
-LOCAL_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+class LocalRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        source, destination = urlsplit(req.full_url), urlsplit(newurl)
+        if req.has_header("Authorization") or destination.username or destination.password:
+            return None
+        if (source.scheme, source.hostname, source.port) != (destination.scheme, destination.hostname, destination.port):
+            return None
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+LOCAL_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}), LocalRedirect())
 COMPOSE_MODE = len(sys.argv) == 2 and sys.argv[1] == "--compose"
 COMPOSE_ENV = None
+COMPOSE_OVERRIDE = None
 PREVIOUS_LOCAL_IMAGE = None
+
+
+def require_container_runtime():
+    if shutil.which("docker") is None:
+        raise SystemExit("Package qualification requires Docker; no resources were created.")
 
 
 def docker(*args):
@@ -50,24 +95,21 @@ def docker(*args):
         ["docker", *args], text=True, capture_output=True
     )
     if result.returncode:
-        detail = result.stderr.strip() or result.stdout.strip()
-        raise RuntimeError(f"docker {' '.join(args)} failed: {detail}")
+        # Arguments and engine output can repeat credentials passed with -e.
+        # Report the operation and status without exposing either source.
+        operation = args[0] if args else "command"
+        raise RuntimeError(f"Docker {operation} failed (exit {result.returncode})")
     return result.stdout.strip()
 
 
 def compose(*args):
     if COMPOSE_ENV is None:
         raise RuntimeError("Compose environment was not initialized")
-    return docker(
-        "compose",
-        "--project-name",
-        PROJECT,
-        "--file",
-        str(ROOT / "compose.yaml"),
-        "--env-file",
-        str(COMPOSE_ENV),
-        *args,
-    )
+    files = ["--file", str(ROOT / "compose.yaml")]
+    if COMPOSE_OVERRIDE:
+        files += ["--file", str(COMPOSE_OVERRIDE)]
+    return docker("compose", "--project-name", PROJECT, *files,
+                  "--env-file", str(COMPOSE_ENV), *args)
 
 
 def request(method, path, *, payload=None, admin=False, bearer_token=None, timeout=5):
@@ -149,6 +191,7 @@ def setup_compose():
         env_file.write(f"NIU_VENDOR_ENCRYPTION_KEY={VENDOR_ENCRYPTION_KEY}\n")
         env_file.write(f"OPENAI_API_KEY={PROVIDER_KEY}\n")
         env_file.write(f"OPENROUTER_API_KEY={PROVIDER_KEY}\n")
+        env_file.write("NIU_AUTH_PUBLIC_ORIGIN=https://package-smoke.example\n")
 
     existing = subprocess.run(
         ["docker", "image", "inspect", "--format", "{{.Id}}", "niu-io/niu:local"],
@@ -168,18 +211,21 @@ def setup_compose():
 def wait_for_application():
     last_error = None
     for _ in range(60):
+        state = subprocess.run(
+            ["docker", "inspect", "--format", "{{.State.Status}}", APP],
+            text=True, capture_output=True,
+        )
+        if state.returncode == 0 and state.stdout.strip() in {"exited", "dead"}:
+            raise RuntimeError("Niu exited before becoming ready")
         try:
             status, body, _ = request("GET", "/readyz")
             if status == 200 and body.get("status") == "ok":
                 return
-            last_error = f"unexpected readiness response: {status} {body!r}"
-        except (OSError, urllib.error.URLError, json.JSONDecodeError) as error:
-            last_error = str(error)
+            last_error = f"unexpected readiness response: HTTP {status}"
+        except (OSError, urllib.error.URLError, json.JSONDecodeError):
+            last_error = "readiness request failed"
         time.sleep(1)
-    logs = subprocess.run(
-        ["docker", "logs", APP], text=True, capture_output=True
-    ).stderr
-    raise RuntimeError(f"Niu did not become ready: {last_error}\n{logs}")
+    raise RuntimeError(f"Niu did not become ready: {last_error}")
 
 
 def assert_admin_list_has_no_credentials(keys):
@@ -233,6 +279,14 @@ def direct_smoke_config():
             f'api_base = "http://127.0.0.1:{MOCK_PROVIDER_PORT}/v1"\n'
             'api_key_env = "PROVIDER_KEY"\n'
             'public_catalog = true\n'
+            '\n[models.fast.pricing]\n'
+            'currency = "USD"\n'
+            'api_prompt_rate = 2000000\n'
+            'api_completion_rate = 4000000\n'
+            'cash_prompt_rate = 1000000\n'
+            'cash_completion_rate = 2000000\n'
+            'max_input_tokens = 4096\n'
+            'max_output_tokens = 64\n'
             '\n[models.hidden]\n'
             'provider = "openai"\n'
             'upstream_model = "private-fixture-model"\n'
@@ -242,10 +296,44 @@ def direct_smoke_config():
     CONFIG_PATH.chmod(0o644)
 
 
+def asset_request(method, path, *, payload=None, admin=False, token=None):
+    status, data, _ = request(method, path, payload=payload, admin=admin, bearer_token=token)
+    return status, data
+
+
 def database_value(sql):
     return docker(
         "exec", DATABASE, "psql", "-At", "-U", "niu", "-d", "niu", "-c", sql
     )
+
+
+def assert_packaged_migration_history():
+    migrations = list((ROOT / 'crates/storage/migrations').glob('*.sql'))
+    expected = sorted(int(path.name.split('_', 1)[0]) for path in migrations)
+    assert expected and len(expected) == len(set(expected)), "source migration versions are invalid"
+    applied = database_value(
+        "SELECT string_agg(version::text, ',' ORDER BY version) FROM _sqlx_migrations WHERE success"
+    )
+    assert applied == ','.join(map(str, expected)), "packaged schema does not match the source migration history"
+    assert database_value("SELECT count(*) FROM _sqlx_migrations WHERE NOT success") == '0'
+    checksums = database_value(
+        "SELECT version::text || ':' || encode(checksum, 'hex') FROM _sqlx_migrations WHERE success ORDER BY version"
+    ).splitlines()
+    expected_checksums = [
+        f"{int(path.name.split('_', 1)[0])}:{hashlib.sha384(path.read_bytes()).hexdigest()}"
+        for path in sorted(migrations, key=lambda path: int(path.name.split('_', 1)[0]))
+    ]
+    assert checksums == expected_checksums, "packaged migration checksums do not match the source files"
+
+
+def assert_video_dispatch_count(expected_creates=2):
+    # The fixture shares the app network namespace; credentials stay in its environment.
+    source = "import os,json,urllib.request; opener=urllib.request.build_opener(urllib.request.ProxyHandler({})); req=urllib.request.Request('http://127.0.0.1:24678/fixture/video-counts',headers={'Authorization':'Bearer '+os.environ['PROVIDER_KEY']}); print(json.dumps(json.load(opener.open(req,timeout=5))))"
+    counts = json.loads(docker("exec", PROVIDER, "python", "-c", source))
+    assert set(counts) == {'creates','queries','requests'} and all(type(value) is int and value >= 0 for value in counts.values())
+    assert counts['requests'] >= counts['creates'] + counts['queries'], 'invalid upstream request counters'
+    assert counts['creates'] == expected_creates and counts['queries'] >= 3, 'video recovery repeated generation or lost the upstream job'
+    return counts
 
 
 def wait_for_mock_provider():
@@ -279,15 +367,65 @@ def wait_for_mock_provider():
         )
         if result.returncode == 0 and result.stdout == "200":
             return
-        last_error = result.stderr.strip() or result.stdout.strip()
+        last_error = f"probe failed (exit {result.returncode})"
         time.sleep(0.2)
-    provider_logs = subprocess.run(
-        ["docker", "logs", PROVIDER], text=True, capture_output=True
-    )
     raise RuntimeError(
-        f"mock provider did not become reachable from the gateway: {last_error}\n"
-        f"Provider logs:\n{provider_logs.stdout}{provider_logs.stderr}"
+        f"mock provider did not become reachable from the gateway: {last_error}"
     )
+
+
+def initialize_prepaid_account(organization_id, payment_reference="package-smoke-settled"):
+    """Create isolated fixture funds; duplicate settlement must never credit twice."""
+    base = f"/admin/v1/organizations/{organization_id}/billing"
+    funding = {"currency": "USD", "amount_nanos": "50000000000",
+               "channel": "package-fixture", "payment_reference": payment_reference}
+    for _ in range(2):
+        status, result, _ = request("POST", base + "/funding/settled", admin=True, payload=funding)
+        assert status == 200 and result["data"]["recorded"] is True
+    status, accounts, _ = request("GET", base + "/balance", admin=True)
+    assert status == 200, "balance lookup failed"
+    assert len(accounts["data"]) == 1
+    account = accounts["data"][0]
+    assert account["currency"] == funding["currency"]
+    assert account["balance_nanos"] == funding["amount_nanos"]
+    assert account["credit_limit_nanos"] == "0"
+    assert account["reserved_nanos"] == "0"
+
+
+def assert_prepaid_reconciled(organization_id, attempt_ids):
+    # Normalize server references before interpolating them into smoke SQL.
+    organization_id = str(uuid.UUID(organization_id))
+    attempt_ids = [str(uuid.UUID(value)) for value in attempt_ids]
+    assert len(set(attempt_ids)) == len(attempt_ids), "duplicate expected attempts"
+    base = f"/admin/v1/organizations/{organization_id}/billing"
+    status, accounts, _ = request("GET", base + "/balance", admin=True)
+    assert status == 200, "balance lookup failed"
+    status, transactions, _ = request("GET", base + "/transactions", admin=True)
+    assert status == 200, "transaction lookup failed"
+    assert not transactions.get("next_cursor"), "transaction history is incomplete"
+    assert transactions.get("has_more") is not True, "transaction history is incomplete"
+    assert len(accounts["data"]) == 1, "expected one fixture currency account"
+    entries = transactions["data"]
+    funding = [entry for entry in entries if entry["kind"] == "funding"]
+    charges = [entry for entry in entries if entry["kind"] == "charge"]
+    assert len(funding) == 1, "duplicate settlement credited the account twice"
+    assert len(charges) == len(attempt_ids), "customer charge ledger did not settle each attempt"
+    assert all(int(entry["amount_nanos"]) < 0 for entry in charges)
+    account = accounts["data"][0]
+    assert account["currency"] == "USD", "unexpected fixture account currency"
+    assert all(entry["currency"] == account["currency"] for entry in entries), "mixed-currency ledger history"
+    assert int(account["balance_nanos"]) == sum(int(entry["amount_nanos"]) for entry in entries)
+    assert account["reserved_nanos"] == "0", "completed requests retained spending reservations"
+    assert account["available_nanos"] == account["balance_nanos"]
+    for attempt_id in attempt_ids:
+        assert database_value(
+            f"SELECT count(*) FROM customer_balance_entries e "
+            f"JOIN customer_activity_charges c ON c.attempt_id=e.attempt_id "
+            f"AND c.organization_id=e.organization_id AND c.project_id=e.project_id "
+            f"AND c.currency=e.currency WHERE c.attempt_id='{attempt_id}' "
+            f"AND c.organization_id='{organization_id}' AND e.kind='charge' "
+            f"AND e.amount_nanos=-c.amount_nanos"
+        ) == "1", "customer charge lacks one exact scoped ledger debit"
 
 
 def verify_packaged_inference(client_token):
@@ -310,18 +448,7 @@ def verify_packaged_inference(client_token):
             operation_id = response.headers.get("x-niu-operation-id", "")
             attempt_id = response.headers.get("x-niu-attempt-id", "")
     except urllib.error.HTTPError as error:
-        response_body = error.read().decode("utf-8", errors="replace")
-        app_result = subprocess.run(
-            ["docker", "logs", APP], text=True, capture_output=True
-        )
-        provider_result = subprocess.run(
-            ["docker", "logs", PROVIDER], text=True, capture_output=True
-        )
-        raise RuntimeError(
-            f"packaged inference returned HTTP {error.code}: {response_body}\n"
-            f"Gateway logs:\n{app_result.stdout}{app_result.stderr}\n"
-            f"Provider logs:\n{provider_result.stdout}{provider_result.stderr}"
-        ) from error
+        raise RuntimeError(f"packaged inference returned HTTP {error.code}") from None
     assert status == 200 and body["model"] == "fast"
     assert body["choices"][0]["message"]["content"] == "fixture completion"
     assert re.fullmatch(r"[0-9a-f-]{36}", operation_id), "inference response omitted its operation id"
@@ -338,6 +465,49 @@ def verify_packaged_inference(client_token):
         f"packaged inference did not persist provider evidence: {attempt}"
     )
     return attempt_id
+
+
+def verify_member_session(token, organization_id, project_id):
+    status, identity, _ = request("GET", "/admin/v1/session", bearer_token=token)
+    assert status == 200 and identity["data"]["kind"] == "operator"
+    assert identity["data"]["permissions"]["platform_admin"] is True
+    assert identity["data"]["operator"]["organization_id"] == organization_id
+    assert identity["data"]["operator"]["project_id"] == project_id
+    assert request("GET", "/admin/v1/vendors", bearer_token=token)[0] == 200
+    _, organizations, _ = request("GET", "/admin/v1/organizations", bearer_token=token)
+    assert [row["id"] for row in organizations["data"]] == [organization_id]
+
+
+def initialize_member_administrator(organization_id, project_id):
+    status, member, _ = request("POST", "/admin/v1/operators", admin=True, payload={
+        "organization_id": organization_id, "project_id": project_id,
+        "name": "Packaged member", "role": "owner", "expires_in_seconds": 3600,
+    })
+    assert status == 201
+    operator = str(uuid.UUID(member["operator"]["id"]))
+    password = secrets.token_urlsafe(32)
+    assert request("PUT", f"/admin/v1/operators/{operator}/password", admin=True,
+                   payload={"email": "package@example.test", "password": password,
+                            "expected_revision": None})[0] == 200
+    status, signed_in, _ = request("POST", "/admin/v1/auth/login",
+                                  payload={"email": "package@example.test", "password": password})
+    assert status == 200
+    token = signed_in["token"]
+    try:
+        request("GET", "/admin/v1/vendors", bearer_token=token)
+    except urllib.error.HTTPError as error:
+        assert error.code == 403, "ordinary member gained platform administration"
+        error.close()
+    else:
+        raise AssertionError("ordinary member gained platform administration")
+    database_value(
+        "WITH changed AS (UPDATE admin_operators SET platform_admin=true "
+        f"WHERE id='{operator}' AND NOT platform_admin RETURNING id) "
+        "INSERT INTO platform_admin_events(operator_id,granted,actor_kind) "
+        "SELECT id,true,'database_administrator' FROM changed"
+    )
+    verify_member_session(token, organization_id, project_id)
+    return token
 
 
 def verify_packaged_streaming(client_token):
@@ -388,9 +558,10 @@ def verify_packaged_streaming(client_token):
     return attempt_id
 
 
-def assert_inference_persisted(attempt_ids):
-    assert database_value("SELECT count(*) FROM operations") == "2"
-    assert database_value("SELECT count(*) FROM attempts") == "2"
+def assert_inference_persisted(attempt_ids, extra_attempts=0):
+    expected = str(len(attempt_ids) + extra_attempts)
+    assert database_value("SELECT count(*) FROM operations") == expected
+    assert database_value("SELECT count(*) FROM attempts") == expected
     assert database_value("SELECT count(*) FROM execution_imports") == "0"
     assert database_value("SELECT count(*) FROM supplier_accounts") == "0"
     for attempt_id in attempt_ids:
@@ -400,7 +571,50 @@ def assert_inference_persisted(attempt_ids):
         ) == "confirmed_completed:provider_reported:3:1"
 
 
+def database_fingerprints(database):
+    if database not in ("niu", "niu_restore_test"):
+        raise ValueError("unsupported smoke database")
+    # Stop the application first. Never print credential-bearing database rows.
+    query = """
+CREATE FUNCTION pg_temp.niu_table_signature(table_name text) RETURNS jsonb
+LANGUAGE plpgsql AS $body$ DECLARE signature jsonb; BEGIN
+EXECUTE format($sql$SELECT jsonb_build_object('count', count(*)::text, 'digest',
+md5(COALESCE(string_agg(to_jsonb(t)::text, chr(10) ORDER BY to_jsonb(t)::text), '')))
+FROM public.%I t$sql$, table_name) INTO signature;
+RETURN signature; END $body$;
+CREATE FUNCTION pg_temp.niu_sequence_signature(sequence_name text) RETURNS jsonb
+LANGUAGE plpgsql AS $body$ DECLARE signature jsonb; BEGIN
+EXECUTE format('SELECT jsonb_build_object(''last_value'', last_value::text, ''is_called'', is_called) FROM public.%I', sequence_name) INTO signature;
+RETURN signature; END $body$;
+SELECT jsonb_build_object(
+'tables', (SELECT COALESCE(jsonb_object_agg(tablename, pg_temp.niu_table_signature(tablename)), '{}'::jsonb) FROM pg_tables WHERE schemaname='public'),
+'sequences', (SELECT COALESCE(jsonb_object_agg(sequencename, (to_jsonb(s) - 'last_value') || pg_temp.niu_sequence_signature(sequencename)), '{}'::jsonb) FROM pg_sequences s WHERE schemaname='public'));
+"""
+    value = docker("exec", DATABASE, "psql", "-Atq", "-v", "ON_ERROR_STOP=1",
+                   "-U", "niu", "-d", database, "-c", query)
+    result = json.loads(value)
+    assert isinstance(result, dict) and isinstance(result.get("tables"), dict) and isinstance(result.get("sequences"), dict), "invalid database fingerprint result"
+    return result
+
+
 def verify_backup_restore(organization_id):
+    if COMPOSE_MODE:
+        compose("stop", "niu")
+    else:
+        docker("stop", "--time", "10", APP)
+    try:
+        restore_database_copy(organization_id)
+    finally:
+        if COMPOSE_MODE:
+            compose("start", "niu")
+        else:
+            docker("start", APP)
+        wait_for_application()
+
+
+def restore_database_copy(organization_id):
+    expected = database_fingerprints("niu")
+    assert expected["tables"], "source database has no public tables"
     backup = subprocess.run(
         ["docker", "exec", DATABASE, "pg_dump", "-U", "niu", "-d", "niu"],
         check=True,
@@ -439,6 +653,18 @@ def verify_backup_restore(organization_id):
         f"SELECT count(*) FROM organizations WHERE id='{organization_id}'",
     )
     assert count == "1", "restored PostgreSQL backup lost the persisted organization"
+    restored = database_fingerprints("niu_restore_test")
+    assert restored == expected, "restored PostgreSQL backup differs from source table records"
+    # The smoke application is stopped. Promote the verified restore so later
+    # startup, saved-key and prepaid assertions exercise restored records.
+    # Keep the original synthetic database until container cleanup.
+    original_name = "niu_backup_source_" + uuid.uuid4().hex
+    docker(
+        "exec", DATABASE, "psql", "-v", "ON_ERROR_STOP=1", "-U", "niu",
+        "-d", "postgres", "-c",
+        f"BEGIN; ALTER DATABASE niu RENAME TO {original_name}; "
+        "ALTER DATABASE niu_restore_test RENAME TO niu; COMMIT;",
+    )
 
 
 def verify_graceful_drain():
@@ -519,15 +745,18 @@ def verify_graceful_drain():
 
 
 def main():
+    if os.environ.get("NIU_PACKAGE_INGESTION_HISTORY") == "1" and os.environ.get("NIU_PACKAGE_IMAGE_SOURCES") != "1":
+        raise SystemExit("NIU_PACKAGE_INGESTION_HISTORY requires NIU_PACKAGE_IMAGE_SOURCES=1")
     if len(sys.argv) > (2 if COMPOSE_MODE else 1):
         raise SystemExit("usage: package-smoke.py [--compose]")
     if COMPOSE_MODE:
         setup_compose()
     else:
-        global DATABASE, APP, PROVIDER
+        global DATABASE, APP, PROVIDER, NETWORK_ANCHOR
         DATABASE = f"niu-package-smoke-db-{os.getpid()}"
         APP = f"niu-package-smoke-app-{os.getpid()}"
         PROVIDER = f"niu-package-smoke-provider-{os.getpid()}"
+        NETWORK_ANCHOR = f"niu-package-smoke-network-{os.getpid()}"
         direct_smoke_config()
         docker("network", "create", NETWORK)
         docker(
@@ -546,15 +775,20 @@ def main():
             "postgres:17",
         )
         wait_for_database()
+        # Keep the loopback fixture's network namespace alive across gateway
+        # restarts without restarting the fixture or losing its call counters.
         docker(
-            "run",
-            "--detach",
+            "run", "--detach", "--name", NETWORK_ANCHOR,
+            "--network", NETWORK,
+            "--publish", f"127.0.0.1:{HOST_PORT}:2555",
+            "python:3.13-slim", "python", "-c", "import time; time.sleep(3600)",
+        )
+        docker(
+            "create",
             "--name",
             APP,
             "--network",
-            NETWORK,
-            "--publish",
-            f"127.0.0.1:{HOST_PORT}:2555",
+            f"container:{NETWORK_ANCHOR}",
             "--env",
             f"NIU_DATABASE_URL=postgres://niu:{DATABASE_PASSWORD}@"
             f"{DATABASE}:5432/niu",
@@ -565,27 +799,30 @@ def main():
             "--env",
             f"PROVIDER_KEY={PROVIDER_KEY}",
             "--env",
+            f"NIU_VENDOR_ENCRYPTION_KEY={VENDOR_ENCRYPTION_KEY}",
+            "--env",
             "NIU_CONFIG_FILE=/app/niu-package-smoke.toml",
-            "--volume",
-            f"{CONFIG_PATH}:/app/niu-package-smoke.toml:ro",
+            "--env",
+            "NIU_AUTH_PUBLIC_ORIGIN=https://package-smoke.example",
             IMAGE,
         )
+        docker("cp", str(CONFIG_PATH), f"{APP}:/app/niu-package-smoke.toml")
+        docker("start", APP)
         wait_for_application()
         docker(
-            "run",
-            "--detach",
+            "create",
             "--name",
             PROVIDER,
             "--network",
             f"container:{APP}",
             "--env",
             f"PROVIDER_KEY={PROVIDER_KEY}",
-            "--volume",
-            f"{ROOT / 'tests/fixtures/mock-openai-compatible.py'}:/mock-provider.py:ro",
             "python:3.13-slim",
             "python",
             "/mock-provider.py",
         )
+        docker("cp", str(ROOT / "tests/fixtures/mock-openai-compatible.py"), f"{PROVIDER}:/mock-provider.py")
+        docker("start", PROVIDER)
         wait_for_mock_provider()
     wait_for_application()
 
@@ -595,6 +832,10 @@ def main():
     with LOCAL_OPENER.open(f"{BASE_URL}/", timeout=5) as response:
         assert response.url.endswith("/workspaces/default/")
         assert "text/html" in response.headers.get("Content-Type", "")
+
+    favicon_status, favicon, favicon_type = request("GET", "/assets/favicon.ico")
+    assert favicon_status == 200 and favicon_type.startswith("image/")
+    assert favicon == (ROOT / "branding/assets/favicon.ico").read_bytes(), "packaged dashboard favicon is missing or changed"
 
     catalog_status, catalog_html, catalog_type = request("GET", "/models/")
     assert catalog_status == 200 and "text/html" in catalog_type
@@ -622,7 +863,7 @@ def main():
 
     docs_status, docs_html, docs_type = request("GET", "/docs/")
     assert docs_status == 200 and "text/html" in docs_type
-    assert "<title>Niu AI Gateway | niu.io</title>" in docs_html
+    assert "<title>Build with Niu | niu.io</title>" in docs_html
     assert 'href="https://niu.io/docs/"' in docs_html, "documentation canonical URL omitted its base path"
     docs_page_status, docs_page, _ = request("GET", "/docs/getting-started/")
     assert docs_page_status == 200 and "Getting started" in docs_page
@@ -651,7 +892,14 @@ def main():
     for route in (
         "/workspaces/default/",
         "/workspaces/smoke/executions?organizationId=org-smoke&projectId=project-smoke&executionId=run-smoke",
-        "/workspaces/smoke/subscriptions?organizationId=org-smoke&projectId=project-smoke&accountId=account-smoke",
+        "/generations",
+        "/generations?mode=video&new=1",
+        "/chat",
+        "/activity",
+        "/activity/logs",
+        "/installation",
+        "/admin/suppliers",
+        "/settings/billing",
     ):
         route_status, route_html, route_content_type = request("GET", route)
         assert route_status == 200 and "text/html" in route_content_type, (
@@ -668,11 +916,11 @@ def main():
     assert_route_error("/unknown-product-page", 404)
 
     workspace_html = request("GET", "/workspaces/default/")[1]
-    assert "niu.io Console" in workspace_html
+    assert "<title>niu.io</title>" in workspace_html
     bundle_match = re.search(r'<script[^>]+src="([^"]+\.js)"', workspace_html)
-    assert bundle_match, "the packaged console HTML did not reference its JavaScript bundle"
+    assert bundle_match, "the packaged dashboard HTML did not reference its JavaScript bundle"
     bundle_status, bundle, _ = request("GET", bundle_match.group(1))
-    assert bundle_status == 200 and len(bundle) > 500, "the console JavaScript bundle was not served"
+    assert bundle_status == 200 and len(bundle) > 500, "the dashboard JavaScript bundle was not served"
 
     organization_status, organization, _ = request(
         "POST", "/admin/v1/organizations", payload={"name": "Package smoke"}, admin=True
@@ -699,26 +947,206 @@ def main():
     )
     assert model_status == 200 and [item["id"] for item in models_for_key["data"]] == ["fast"]
 
+    PACKAGE_IMAGES.assert_image_admission(request, database_value, issued_key["token"])
+    assert models_for_key["data"][0]["customer_pricing"] is None
+    billing_path = f"/admin/v1/organizations/{organization_id}/projects/{project_id}/billing"
+    tariff_status, tariff, _ = request(
+        "POST", billing_path + "/tariffs", admin=True,
+        payload={"model_alias": "fast", "currency": "USD", "prompt_rate": "1234567891",
+                 "completion_rate": "2000000000", "expected_revision": None},
+    )
+    assert tariff_status == 200
+    expected_customer_price = {
+        "revision": tariff["data"]["revision"], "currency": "USD",
+        "unit": "nanounits_per_million_tokens", "prompt_rate": "1234567891",
+        "completion_rate": "2000000000",
+    }
+    priced_status, priced_models, _ = request("GET", "/v1/models", bearer_token=issued_key["token"])
+    assert priced_status == 200
+    assert priced_models["data"][0]["customer_pricing"] == expected_customer_price
+
+    initialize_prepaid_account(organization_id)
+    assert_packaged_migration_history()
+    member_token = initialize_member_administrator(organization_id, project_id)
+    branding_state = PACKAGE_BRANDING.prepare_branding(request, database_value) if BRANDING_SMOKE else None
+    asset_state = PACKAGE_ASSETS.prepare_asset_upgrade(asset_request, database_value, organization_id, project_id) if ASSET_SMOKE else None
+    if UPDATE_SMOKE and not LISTING_SMOKE:
+        raise RuntimeError("NIU_PACKAGE_UPDATES requires NIU_PACKAGE_LISTINGS=1")
+    if LOOKUP_SMOKE and not LISTING_SMOKE:
+        raise RuntimeError("NIU_PACKAGE_LOOKUPS requires NIU_PACKAGE_LISTINGS=1")
+    if LISTING_SMOKE and not asset_state:
+        raise RuntimeError("NIU_PACKAGE_LISTINGS requires NIU_PACKAGE_ASSETS=1")
+    listing_prepared = PACKAGE_ASSETS.prepare_asset_upgrade(asset_request, database_value, organization_id, project_id, name="Package listing recovery fixture") if LISTING_SMOKE else None
+    listing_state = PACKAGE_LISTINGS.prepare_listing_fixture(asset_request, database_value, listing_prepared, VENDOR_ENCRYPTION_KEY, include_lookups=LOOKUP_SMOKE) if LISTING_SMOKE else None
+    update_state = PACKAGE_UPDATES.prepare_update_fixture(asset_request, database_value, listing_state) if UPDATE_SMOKE else None
+    reconciliation_state = PACKAGE_UPDATES.prepare_reconciliation_fixture(
+        asset_request, database_value, listing_state, VENDOR_ENCRYPTION_KEY,
+        PACKAGE_LISTINGS.encrypted_page) if UPDATE_SMOKE else None
+    if listing_state:
+        PACKAGE_LISTINGS.assert_listing_fixture(asset_request, database_value, listing_state)
+    if update_state:
+        PACKAGE_UPDATES.assert_update_fixture(asset_request, database_value, update_state)
+        if update_state['status'] == 'uncertain':
+            PACKAGE_UPDATES.assert_update_replay_denied(asset_request, update_state)
+    if not COMPOSE_MODE:
+        budget_status, _, _ = request(
+            "POST",
+            f"/admin/v1/organizations/{organization_id}/projects/{project_id}/budget",
+            admin=True, payload={"currency": "USD", "limit_nanos": "1000000000"},
+        )
+        assert budget_status == 201, "fixture procurement budget was not established"
     attempt_ids = [] if COMPOSE_MODE else [verify_packaged_inference(issued_key["token"])]
     if not COMPOSE_MODE:
         attempt_ids.append(verify_packaged_streaming(issued_key["token"]))
 
+    video = None
+    if not COMPOSE_MODE:
+        video_configuration = PACKAGE_VIDEO.configure_video(request, organization_id,
+            f"http://127.0.0.1:{MOCK_PROVIDER_PORT}", PROVIDER_KEY,
+            lambda supplier: database_value(f"SELECT id FROM provider_offers WHERE provider_id='{str(uuid.UUID(supplier))}' AND model_alias='package-video'"))
+        video = PACKAGE_VIDEO.create_video(request, organization_id,
+            after_submit=lambda: PACKAGE_VIDEO.replace_fixture_customer_rate(request, organization_id, video_configuration))
+        PACKAGE_VIDEO.assert_replacement_rate_effective(request, video)
+        PACKAGE_VIDEO.create_video_reader(request, organization_id, video)
+        PACKAGE_VIDEO.assert_video_activity_reconciled(request, video)
+        uncertain_video = PACKAGE_VIDEO.create_uncertain_video(request, video_configuration, lambda organization: initialize_prepaid_account(organization, "package-uncertain-settled"))
+        before_unknown = assert_video_dispatch_count()
+        PACKAGE_VIDEO.assert_uncertain_video_retained(request, uncertain_video)
+        assert assert_video_dispatch_count() == before_unknown, 'uncertain recovery contacted upstream'
+    billed_attempts = attempt_ids + ([video['id']] if video else [])
+    assert_prepaid_reconciled(organization_id, billed_attempts)
     if COMPOSE_MODE:
         compose("restart", "niu")
     else:
         docker("restart", APP)
     wait_for_application()
     assert_resources_persist(organization_id, project_id, issued_key)
+    PACKAGE_IMAGES.assert_image_admission(request, database_value, issued_key["token"])
+    verify_member_session(member_token, organization_id, project_id)
+    if branding_state:
+        PACKAGE_BRANDING.assert_branding(request, database_value, branding_state)
+    if asset_state:
+        PACKAGE_ASSETS.assert_asset_upgrade(asset_request, database_value, asset_state)
+    if listing_state:
+        PACKAGE_LISTINGS.assert_listing_fixture(asset_request, database_value, listing_state)
+    if update_state:
+        PACKAGE_UPDATES.assert_update_fixture(asset_request, database_value, update_state)
+        if update_state['status'] == 'uncertain':
+            PACKAGE_UPDATES.assert_update_replay_denied(asset_request, update_state)
+    if update_state:
+        PACKAGE_UPDATES.reconcile_saved_fixture(asset_request, database_value, reconciliation_state)
+        PACKAGE_UPDATES.dispatch_update_fixture(asset_request, database_value, update_state)
+        PACKAGE_UPDATES.assert_update_replay_denied(asset_request, update_state)
+    priced_status, restarted_models, _ = request("GET", "/v1/models", bearer_token=issued_key["token"])
+    assert priced_status == 200
+    assert restarted_models["data"][0]["customer_pricing"] == expected_customer_price
+    if video:
+        PACKAGE_VIDEO.assert_video_recovered(request, video)
+        PACKAGE_VIDEO.assert_video_activity_reconciled(request, video)
+        PACKAGE_VIDEO.assert_replacement_rate_effective(request, video)
+        before_unknown = assert_video_dispatch_count()
+        PACKAGE_VIDEO.assert_uncertain_video_retained(request, uncertain_video)
+        assert assert_video_dispatch_count() == before_unknown, 'uncertain recovery contacted upstream'
+    assert_prepaid_reconciled(organization_id, billed_attempts)
     if attempt_ids:
-        assert_inference_persisted(attempt_ids)
+        assert_inference_persisted(attempt_ids, extra_attempts=2 if video else 0)
 
+    if reconciliation_state:
+        PACKAGE_UPDATES.assert_reconciliation_fixture(asset_request, database_value, reconciliation_state)
+
+    verify_backup_restore(organization_id)
+    assert_resources_persist(organization_id, project_id, issued_key)
+    verify_member_session(member_token, organization_id, project_id)
+    if branding_state:
+        PACKAGE_BRANDING.assert_branding(request, database_value, branding_state)
+    if asset_state:
+        PACKAGE_ASSETS.assert_asset_upgrade(asset_request, database_value, asset_state)
+    if listing_state:
+        PACKAGE_LISTINGS.assert_listing_fixture(asset_request, database_value, listing_state)
+    if update_state:
+        PACKAGE_UPDATES.assert_update_fixture(asset_request, database_value, update_state)
+        if update_state['status'] == 'uncertain':
+            PACKAGE_UPDATES.assert_update_replay_denied(asset_request, update_state)
+    if reconciliation_state:
+        PACKAGE_UPDATES.assert_reconciliation_fixture(asset_request, database_value, reconciliation_state)
+    if video:
+        PACKAGE_VIDEO.assert_video_recovered(request, video)
+        PACKAGE_VIDEO.assert_video_activity_reconciled(request, video)
+        PACKAGE_VIDEO.assert_replacement_rate_effective(request, video)
+        before_unknown = assert_video_dispatch_count()
+        PACKAGE_VIDEO.assert_uncertain_video_retained(request, uncertain_video)
+        assert assert_video_dispatch_count() == before_unknown, 'uncertain recovery contacted upstream'
+    assert_prepaid_reconciled(organization_id, billed_attempts)
     if COMPOSE_MODE:
-        verify_backup_restore(organization_id)
         compose("restart", "postgres")
         wait_for_compose_containers()
         wait_for_database()
         wait_for_application()
         assert_resources_persist(organization_id, project_id, issued_key)
+    if video:
+        PACKAGE_VIDEO.rotate_fixture_credential(request, video_configuration, secrets.token_urlsafe(32))
+        before_rotation = assert_video_dispatch_count()
+        PACKAGE_VIDEO.assert_rotated_recovery_blocked(request, video)
+        PACKAGE_VIDEO.assert_uncertain_video_retained(request, uncertain_video)
+        assert assert_video_dispatch_count() == before_rotation, 'rotated recovery contacted upstream'
+        assert_prepaid_reconciled(organization_id, billed_attempts)
+    if branding_state:
+        PACKAGE_BRANDING.assert_branding(request, database_value, branding_state)
+        PACKAGE_BRANDING.reset_branding(request, branding_state)
+    assert request("POST", "/admin/v1/auth/logout", bearer_token=member_token, payload={})[0] == 204
+    try:
+        request("GET", "/admin/v1/session", bearer_token=member_token)
+    except urllib.error.HTTPError as error:
+        assert error.code == 401, "signed-out member session remained usable"
+        error.close()
+    else:
+        raise AssertionError("signed-out member session remained usable")
+    if os.environ.get("NIU_PACKAGE_IMAGE_SOURCES") == "1":
+        def configure_images(extra):
+            global CONFIG_PATH, COMPOSE_OVERRIDE, PROVIDER
+            if COMPOSE_MODE:
+                fixture = tempfile.NamedTemporaryFile(mode="w", suffix=".toml", prefix=".niu-source-fixture-", dir=ROOT / "config", delete=False)
+                CONFIG_PATH = Path(fixture.name)
+                with fixture:
+                    fixture.write((ROOT / "config/niu.example.toml").read_text() + extra)
+                CONFIG_PATH.chmod(0o644)
+                override = tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", prefix="niu-source-compose-", delete=False)
+                COMPOSE_OVERRIDE = Path(override.name)
+                with override:
+                    override.write("services:\n  niu:\n    environment:\n      PROVIDER_KEY: ${OPENROUTER_API_KEY}\n    volumes:\n      - " + json.dumps(str(CONFIG_PATH) + ":/etc/niu/niu.toml:ro") + "\n")
+                compose("up", "--detach", "--no-build")
+                wait_for_compose_containers()
+                wait_for_application()
+                PROVIDER = f"niu-package-smoke-inspector-{os.getpid()}"
+                docker("create", "--name", PROVIDER, "--network", f"container:{APP}",
+                    "--env", f"PROVIDER_KEY={PROVIDER_KEY}", "python:3.13-slim", "python", "/mock-provider.py")
+                docker("cp", str(ROOT / "tests/fixtures/mock-openai-compatible.py"), f"{PROVIDER}:/mock-provider.py")
+                docker("start", PROVIDER)
+                wait_for_mock_provider()
+            else:
+                CONFIG_PATH.write_text(CONFIG_PATH.read_text() + extra)
+                docker("cp", str(CONFIG_PATH), f"{APP}:/app/niu-package-smoke.toml")
+        def restart_images():
+            docker("restart", APP)
+            wait_for_application()
+            if COMPOSE_MODE:
+                docker("restart", PROVIDER)
+                wait_for_mock_provider()
+        def recover_images():
+            if COMPOSE_MODE:
+                compose("restart", "postgres")
+                wait_for_compose_containers()
+            else:
+                docker("restart", DATABASE)
+            wait_for_database()
+            wait_for_application()
+            verify_backup_restore(organization_id)
+            if COMPOSE_MODE:
+                docker("restart", PROVIDER)
+                wait_for_mock_provider()
+        PACKAGE_IMAGES.assert_source_lifecycle(request, database_value, issued_key["token"],
+            organization_id, project_id, configure_images, restart_images, recover_images,
+            history=os.environ.get("NIU_PACKAGE_INGESTION_HISTORY") == "1")
     verify_graceful_drain()
     if COMPOSE_MODE:
         print("Compose smoke passed: app and PostgreSQL restarts, backup/restore, graceful drain, migrations, and credential-free admin lists.")
@@ -728,6 +1156,8 @@ def main():
 
 def cleanup():
     if COMPOSE_MODE and COMPOSE_ENV is not None:
+        if PROVIDER:
+            subprocess.run(["docker", "rm", "--force", PROVIDER], capture_output=True)
         cleanup_failed = False
         try:
             compose("down", "--volumes", "--remove-orphans")
@@ -735,6 +1165,10 @@ def cleanup():
             cleanup_failed = True
         finally:
             COMPOSE_ENV.unlink(missing_ok=True)
+            if COMPOSE_OVERRIDE:
+                COMPOSE_OVERRIDE.unlink(missing_ok=True)
+            if CONFIG_PATH:
+                CONFIG_PATH.unlink(missing_ok=True)
             if PREVIOUS_LOCAL_IMAGE:
                 restored = subprocess.run(
                     ["docker", "tag", PREVIOUS_LOCAL_IMAGE, "niu-io/niu:local"],
@@ -750,7 +1184,7 @@ def cleanup():
         if cleanup_failed:
             print("Package smoke cleanup was incomplete; inspect its isolated Compose project.", file=sys.stderr)
         return
-    for container in (PROVIDER, APP, DATABASE):
+    for container in (PROVIDER, APP, NETWORK_ANCHOR, DATABASE):
         if container:
             subprocess.run(["docker", "rm", "--force", container], capture_output=True)
     subprocess.run(["docker", "network", "rm", NETWORK], capture_output=True)
@@ -758,7 +1192,9 @@ def cleanup():
         CONFIG_PATH.unlink(missing_ok=True)
 
 
-try:
-    main()
-finally:
-    cleanup()
+if __name__ == "__main__":
+    require_container_runtime()
+    try:
+        main()
+    finally:
+        cleanup()

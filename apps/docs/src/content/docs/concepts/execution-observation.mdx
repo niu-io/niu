@@ -1,157 +1,56 @@
 ---
-title: Execution observation
-description: Inspect gateway-captured model activity and enrich it with optional agent task evidence.
+title: Request logs
+description: Inspect model requests, customer charges, timing, and retained content.
 ---
 
-## Gateway activity is automatic
+## Find a request
 
-Supported model requests sent through Niu are recorded by the gateway as part of
-the request lifecycle. Project activity includes the model alias, attempt and
-operation IDs, timing, execution status, usage confidence, provider-reported
-token counts, and any known settled API-equivalent and cash cost. Niu does not
-put prompts, responses, source code, tool arguments or tool output in this
-activity record. Missing usage or cost remains unknown. See [Automatic gateway
-activity in the API reference](/docs/reference/api/#automatic-gateway-activity-and-task-correlation)
-for the read endpoint and fields.
+Open **Workspace → Logs**, or use **Activity → Logs** on the global rail to browse requests across authorized workspaces. Model calls sent through Niu appear automatically,
+even when no task metadata is supplied.
 
-Route every supported model call through Niu, whether it comes from a custom
-application or a coding agent. A request without task metadata still appears as
-an individual model request. To group calls for one agent task, send the same
-optional `X-Niu-Task-ID` header on each request. It is stored as an opaque
-correlation value and is not forwarded to the provider.
+Filter by model, API key, execution status, HTTP status or date. Select any row
+to open its details. **Previous request** and **Next request** move through the
+loaded list while preserving your filters.
 
-Gateway traffic alone cannot reveal local tool actions, retries that never
-reach the model, validation, or whether a person accepted the result. The
-first-party JavaScript agent adapter keeps supported model calls on Niu, adds
-the task ID header, records local metadata, and submits it with a project-scoped
-execution collector credential. Imports remain supplemental enrichment; they
-are not needed for request capture.
+## Request details
 
-Callers can assign stable IDs to model spans and link an explicitly selected
-replacement with a `fallbacks` edge. This records the caller's route decision;
-it does not trigger automatic model substitution.
+The details sheet contains:
 
-## Supplemental metadata imports
+- **Usage and charge:** reported input and output tokens, cache and reasoning
+  subsets, latency, and the customer charge. Unavailable values remain unknown.
+- **Request timing:** preparation, wait for the first output, and output delivery
+  when those phases were recorded.
+- **Overview:** provider model, execution and delivery status, finish reason,
+  request time, and API key name.
+- **Messages:** retained request and response content.
+- **Raw data:** retained protocol payloads.
 
-The versioned execution-record API is an advanced path for migration, tests,
-and authorized external sources that cannot use a supported adapter. It is not
-needed for gateway request visibility and must not be the normal setup flow.
-Importing a record does not call a model, alter a subscription, or create a
-cost entry.
+The header and request navigation stay visible while you scroll through the
+content.
 
-### Import a record
+## Retained content
 
-Use the administrator API to post one `ExecutionRecordV1` to the project that owns the data:
+Request and response payloads are retained for **24 hours by default**. To disable
+capture for new Chat requests, open composer **Chat settings** and turn off
+**Save payloads in Logs**. API clients can send `x-niu-log-payloads: false` for
+an individual request. Disabling capture does not remove previously saved content.
 
-```sh
-curl -X POST "$NIU_URL/admin/v1/organizations/$ORG/projects/$PROJECT/executions" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
-  -H 'Content-Type: application/json' \
-  --data-binary @execution.v1.json
-```
+Request metadata and payloads have separate retention policies. The details sheet
+shows the content expiry time and identifies incomplete or truncated responses.
+If content was not retained or has expired, request metadata remains available.
 
-The record schema and link types are defined in the [OpenAPI contract](/docs/reference/api/). `source` and `record_id` form an idempotency key inside the authenticated project. Replaying identical content returns the existing ID; reusing that identity with changed content returns `409 Conflict`. Records must use schema version 1, fit within 1 MiB, and pass identifier, interval and acyclic graph validation. Unknown fields are rejected. Tenant scope comes from the URL and administrator authorization, never the imported payload.
+## API and task correlation
 
-### Add task evidence with the JavaScript SDK
+See [Automatic gateway activity](/docs/reference/api/#automatic-gateway-activity-and-task-correlation)
+for the request API and optional task-correlation header.
 
-`@niu-io/sdk` exports `NiuAgentAdapter` for JavaScript agents that should send
-supported model calls through Niu and report task metadata. Provide a
-project-scoped inference key and an execution-purpose collector key; never put
-an installation administrator token in an agent worker or browser. Its
-coverage defaults to `partial` because unwrapped application work is not
-observed.
+## Product scope and task correlation
 
-```ts
-import { NiuAgentAdapter } from '@niu-io/sdk';
+Activity and Logs cover model requests handled by Niu. Clients can attach task
+metadata to correlate multiple requests within the same workspace. Such a view
+represents only the requests recorded by Niu, not a complete agent execution.
 
-const adapter = new NiuAgentAdapter({
-  apiKey: process.env.NIU_API_KEY!,
-  collectorToken: process.env.NIU_EXECUTION_COLLECTOR_TOKEN!,
-  scope: {
-    organizationId: process.env.NIU_ORGANIZATION_ID!,
-    projectId: process.env.NIU_PROJECT_ID!,
-  },
-  apiBaseURL: 'https://gateway.example/v1',
-  adminBaseURL: 'https://gateway.example/admin/v1',
-});
-
-const task = adapter.createTask();
-try {
-  await task.withAgent(async agentId => {
-    const response = await task.chatCompletions({
-      model: 'fast',
-      messages: [{ role: 'user', content: 'Summarize the report.' }],
-    }, { parentSpanId: agentId });
-    await task.withTool(async () => runLocalTool(response), agentId);
-    await task.validate(() => checkResult(), agentId);
-  });
-  await task.finish();
-} catch (error) {
-  await task.finish('failed');
-  throw error;
-}
-```
-
-`createTask()` generates one stable opaque task ID and sends it as
-`X-Niu-Task-ID` on supported model calls. The adapter links returned Niu attempt
-UUIDs to model spans, records retries when the caller uses `task.retry()`, and
-uploads a metadata-only record through its scoped collector. If upload fails,
-call `task.report()` to resubmit the same idempotent record. The adapter does
-not retry inference implicitly or store prompt/response content, tool arguments,
-tool output, or error text. Missing usage and pricing remain unknown; a charge
-reference links to canonical gateway accounting evidence and never creates a
-charge. Agent claims alone remain unverified; only accepted deterministic
-validator or human evidence contributes to an accepted outcome.
-
-The console's **Tasks** view starts with recent gateway-captured model
-activity. Requests sharing a task ID can be grouped; requests without one
-remain visible individually. When matching task metadata exists, the activity
-group links to its metadata-only trace detail. Supplemental records display
-their spans, causal links, source-reported lifecycle status, model identity
-evidence, and outcome authority. A task is the requested piece of
-work; an attempt is one pass at completing it; steps are model requests, tool
-calls and checks within an attempt. Missing status remains unknown; Niu does
-not infer cancellation from an open interval. Task wall-clock is shown
-separately from invocation work, the sum of observed model and tool intervals.
-Enclosing task, agent, step and attempt spans are excluded from that sum; untimed
-calls stay unknown, and parallel invocation time can exceed wall-clock. Coverage
-is a collector assertion, not proof that every event was captured.
-
-## Privacy, attribution and deletion
-
-Version 1 has no prompt, response, source-code, tool-output or credential fields. Missing timestamps, reported model identity, lifecycle status, outcomes, or charge references remain unknown. A `charge_ref` points to canonical accounting evidence; it does not create a second charge. If it exactly matches an Niu attempt UUID assigned to a supplier account, the execution detail links to that account and the account's execution list links back to matching tasks. Other reference namespaces remain unresolved. Import summaries omit the record payload, which is fetched only when an authorized operator opens a record.
-
-Delete an imported record with `DELETE /admin/v1/organizations/{organization}/projects/{project}/executions/{execution}`. This removes that imported metadata record. It does not delete canonical inference attempts or financial ledger entries, which follow their own retention policy. The API accepts organization/project-scoped operator credentials or installation bootstrap credentials. Reading requires read permission; import and deletion require write permission. Dedicated project-scoped execution collector credentials can import metadata but cannot read, delete, manage accounts or dispatch inference. Existing quota collector keys cannot import executions. Source labels remain collector assertions, not verified provenance.
-
-Imported execution records are retained until an authorized project operator
-deletes them; automatic expiration is not implemented. Deletion applies to the
-stored imported record, while canonical gateway attempts and accounting follow
-their separate retention policy.
-
-## Project cohort
-
-`GET /admin/v1/organizations/{organization}/projects/{project}/executions/cohort` scans up to 10,000 imported records in stable UUID order. The console shows record coverage and work counts, distinct source/task groups, task-level outcome classifications, separate agent-claim, deterministic-validator and human-acceptance evidence counts, linked settled costs and quota sample count. An accepted task requires deterministic validator or human acceptance and no conflicting evidence. Agent claims alone remain unverified. Canonical attempt UUID references are deduplicated across records, so a shared or nested reference does not multiply the ledger amount. Costs linked to failed and rejected work remain in cohort spend.
-
-The report keeps API-equivalent cost and configured-rate cash in separate currency totals. Cash is calculated from Niu's configured price schedule and is not a supplier invoice. Invoice cash and subscription fee allocations are marked `not_imported`. Quota samples are capacity observations with task attribution marked unavailable. Missing or unrecognized references, unmatched attempts, unsettled ledger entries, partial source coverage and a truncated scan keep cost evidence incomplete. Per-accepted-completion ratios are returned only with complete evidence and at least one accepted completion. If no completion was accepted, successful-task cost is undefined rather than zero. These ratios should compare matched tasks only when acceptance evidence is available; unknown costs remain explicit and pricing is optional.
-
-Outcome evidence is grouped by source and task ID. Coverage and accounting references remain per imported record. Version 1 does not carry a canonical cross-source task identity, so records from independent collectors that describe one real-world task are not merged. The query is a live view rather than a database snapshot.
-
-## Version 1 limits
-
-The public contract supports task, agent, step, model and tool spans, attempts, validators, human intervention, checkpoints, source-reported cancellation, and containment, delegation, dependency, retry and resume links. The first-party JavaScript adapter covers common Niu chat, Responses and embeddings calls; other agent runtimes and providers still need adapters. Cross-clock uncertainty, provider-native subscription collectors, subscription-window reconciliation, and an isolated paired experiment runner remain future work. See [Subscription observations](/docs/concepts/subscription-observation/) for the separate account and quota snapshot workflow. [Paired benchmark analysis](/docs/concepts/benchmarking/) describes the current offline evaluator; it does not execute work or authorize spending.
-
-
-## Issue an ingest-only execution credential
-
-A project administrator can issue a collector key with `purpose: "execution"`
-through `POST /admin/v1/organizations/{organization}/projects/{project}/collector-keys`:
-
-```json
-{"name":"Task metadata collector","ttl_seconds":3600,"purpose":"execution"}
-```
-
-The token is returned once. Store it in the collector environment, then use the
-existing execution-import API or `scripts/import_execution.py --token-env NIU_COLLECTOR_TOKEN`.
-Omitting purpose preserves the quota-only default. Revoke through the existing
-collector-key DELETE endpoint. Revocation and ingestion share a database lock:
-after revocation commits, a later ingestion cannot commit using that key.
+Niu does not accept external model-call logs, agent tool traces, or imported
+agent usage. Use the application orchestrating the agent for full execution
+observability. Gateway timing, errors, token usage, and customer charges remain
+available for requests that pass through Niu.

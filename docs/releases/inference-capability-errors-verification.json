@@ -1,0 +1,36 @@
+{
+  "date": "2026-10-03",
+  "model": "google/gemini-2.5-flash",
+  "checks": [
+    {
+      "capability": "function_tools",
+      "status": 501,
+      "actionable_message": true,
+      "admission_headers_absent": true
+    },
+    {
+      "capability": "structured_json",
+      "status": 501,
+      "actionable_message": true,
+      "admission_headers_absent": true
+    },
+    {
+      "capability": "embeddings",
+      "status": 501,
+      "actionable_message": true,
+      "admission_headers_absent": true
+    },
+    {
+      "capability": "responses",
+      "status": 501,
+      "actionable_message": true,
+      "admission_headers_absent": true
+    },
+    {
+      "capability": "responses_streaming",
+      "status": 501,
+      "actionable_message": true,
+      "admission_headers_absent": true
+    }
+  ]
+}

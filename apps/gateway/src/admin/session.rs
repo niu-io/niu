@@ -7,7 +7,7 @@ use crate::{
     state::{AdminAuthorization, AppState},
 };
 
-/// Reauthenticate each request so the console never treats cached role hints as authority.
+/// Reauthenticate each request so the dashboard never treats cached role hints as authority.
 pub async fn current_session(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -34,14 +34,26 @@ pub async fn current_session(
             .await
             .map_err(ApiError::from_store)?,
     };
+    let profile = match authorization {
+        AdminAuthorization::Installation => None,
+        AdminAuthorization::Operator(principal) => Some(
+            state
+                .store
+                .member_profile(principal.id)
+                .await
+                .map_err(ApiError::from_store)?,
+        ),
+    };
     Ok(Json(json!({"data": {
         "kind": kind,
         "provider_memberships": provider_memberships,
+        "profile": profile,
         "operator": operator,
         "permissions": {
             "read": true,
             "write": role.is_none_or(|role| role.permits(AdminPermission::Write)),
             "manage_operators": role.is_none_or(|role| role.permits(AdminPermission::ManageOperators)),
+            "platform_admin": authorization.can_manage_platform(),
         },
     }})))
 }

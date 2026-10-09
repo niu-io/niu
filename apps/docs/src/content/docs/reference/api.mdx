@@ -5,28 +5,135 @@ description: Public Niu gateway and management API contracts.
 
 The versioned OpenAPI contract is maintained in [`contracts/openapi.yaml`](https://github.com/niu-io/niu/blob/main/contracts/openapi.yaml). It describes the implemented inference routes and scoped management workflows. The management surface is still partial; the first-release matrix tracks remaining route editing, audit coverage, policy, and reconciliation work.
 
+
 The public API surface must preserve protocol-specific behavior. Unsupported parameters and event types are rejected or passed through according to the operation contract; they are not silently discarded.
 
-Inference routes accept either `Authorization: Bearer <project-key>` or
-`X-Niu-API-Key: <project-key>`. Use the latter when a client must keep a
+Inference routes accept either `Authorization: Bearer <workspace-key>` or
+`X-Niu-API-Key: <workspace-key>`. Use the latter when a client must keep a
 provider credential in `Authorization`; the Niu key remains scoped to its
-workspace/project and is consumed at the gateway. This header only separates
+workspace and is consumed at the gateway. This header only separates
 the two credentials. Provider-specific auth forwarding and subscription
 eligibility still depend on the configured route and supported client protocol.
 
+## Chat drafts
+
+`GET` and `PUT /admin/v1/organizations/{organization}/projects/{project}/chat-draft`
+read and save the authenticated actor's unsent composer state in PostgreSQL.
+This is separate from sent conversation history. Reads require workspace read
+access; writes require workspace write access. Responses use `Cache-Control:
+no-store` and return `{data: {payload, revision}}`. A missing draft has a null
+payload and revision zero.
+
+PUT accepts `expected_revision` and `payload`. The payload contains `sessionId`
+(null for a new chat), `prompt`, `models`, `attachments`, and `settings` with
+`systemPrompt`, `maxTokens`, `temperature`, and `logPayloads`. Up to four unique
+models and four attachments are supported. Text fields are bounded to 12,000
+characters; each attachment contains `name`, `type` (`image` or `text`), and
+`content`. Unknown fields, including credential fields, are rejected. A referenced
+conversation must belong to the same actor and workspace. The request body is
+limited to 24 MiB. Browser writes require the configured same origin.
+
+Saving requires the last read revision. A stale revision returns HTTP 409 without
+replacing the draft. Set `payload` to null to clear it; clearing increments the
+revision so another tab's old write cannot recreate the discarded draft. This
+endpoint does not detect secrets deliberately included in prompt or file content.
+
+## Customer billing
+
+The [customer billing contract](https://github.com/niu-io/niu/blob/main/contracts/billing.openapi.yaml), included by the main OpenAPI document, covers workspace-authorized billing summaries and invoice line reads. Customer charges use explicit selling tariffs, independent from Supplier prices. Unpriced requests are not assumed free; unresolved charges remain unknown. Monetary amounts and aggregate counts are exact decimal integer strings.
+
+Tariff publication, invoice creation and confirmed external-payment recording require installation authority. Invoice intervals use UTC dispatch timestamps with an inclusive `from_ms` and exclusive `to_ms`, bounded to 366 days. Preserve the caller's idempotency key when replaying the same invoice request. Overlapping periods, unresolved priced requests and changed replay parameters produce conflicts; clients must not retry these by inventing a new key.
+
+The JavaScript SDK provides `getCustomerBilling`, `publishCustomerTariff`, `issueCustomerInvoice`, `getCustomerInvoiceLines`, and `recordCustomerInvoicePayment`. Its packaged `inspect-billing.mjs` example reads the latest 100 invoices and reconciles line totals using exact integer arithmetic. Invoice creation does not send an invoice or collect money, and payment recording only records an already confirmed external payment. Keep administration credentials server-side and internal invoice/rate identifiers out of product displays.
+
 ## Public model catalog
 
-`GET /catalog/v1/models` and the `/models/` page list aliases an operator explicitly marks with `public_catalog = true`. The response contains the alias and declared capabilities only; it omits provider names, upstream identifiers, endpoints, credentials and prices. Catalog visibility does not authorize inference. Applications still use scoped keys with `/v1/models` and the inference endpoints.
+`GET /catalog/v1/models` and the `/models/` page list aliases an operator explicitly marks with `public_catalog = true`. The response contains the alias, declared capabilities, and optional descriptive catalog metadata such as name, context limits and modalities; it omits provider names, upstream identifiers, endpoints, credentials and Provider prices. Catalog visibility does not authorize inference. Applications still use scoped keys with `/v1/models` and the inference endpoints.
 
 ## Operator roles and sessions
+
+The `operator` name is an existing administration API contract for a workspace
+member; the dashboard uses **Users**. Accounts sign in with their own credentials
+and receive their assigned role and workspace access. Installation setup
+credentials are separate from member sessions and application API keys.
+The password session API is opt-in through `NIU_AUTH_PUBLIC_ORIGIN`, which must
+be an HTTPS origin without a path, credentials, query or fragment. Deploy it
+behind HTTPS at that origin. Self-registration and
+identity federation remain unimplemented.
+
+`PUT /admin/v1/operators/{operator}/password` lets an installation administrator
+or a scoped owner provision an existing member with `email`, `password` and
+optional `expected_revision`. First provision omits the revision; resets require
+the last returned revision and revoke all prior sessions atomically. Passwords
+require at least 15 characters and at most 1,024 UTF-8 bytes; spaces and Unicode
+are preserved. The response contains the new revision, never the hash.
+
+`POST /admin/v1/auth/login` accepts `email` and `password` and returns a scoped
+eight-hour bearer `token` and session metadata. It grants the member's existing
+role and workspace access, never installation access. Wrong passwords and
+unknown identities return the same HTTP 401 response. Durable admission limits
+allow five attempts per normalized email and 120 per installation in a 60-second
+window; limited requests return HTTP 429 with `Retry-After: 60`. Both routes
+limit JSON bodies to 4 KiB and mark success/error responses `Cache-Control:
+no-store`. A supplied browser Origin must match the configured origin. These
+routes do not set browser cookies; the dashboard uses the separate browser
+endpoints below. Without configuration, password login returns HTTP 501.
+For same-origin browser clients, `POST /admin/v1/auth/browser/login` uses the
+same credentials and limits, requires the configured HTTPS Origin and sets an
+eight-hour Secure, HttpOnly, SameSite=Lax host-only cookie. Its JSON contains
+session metadata without the bearer token. Shared member authorization validates
+the saved session on every request and requires a matching Origin or browser
+`Sec-Fetch-Site: same-origin` metadata; a mismatched Origin always fails.
+Duplicate Authorization headers are rejected. When supplied, Fetch Metadata
+must contain exactly one `same-origin` value even with a matching Origin.
+Installation tokens are never accepted through this cookie path.
+`POST /admin/v1/auth/browser/logout` requires the matching Origin, revokes the
+current session and expires the cookie. Already unusable sessions still clear
+successfully; storage failures do not claim sign-out or clear the cookie.
+The dashboard discovers this mode through `GET /admin/v1/auth/config`, signs in
+with the browser endpoint, and restores the server session without saving a
+bearer token in browser storage. Real HTTPS browser acceptance remains unfinished.
+
+`PUT /admin/v1/auth/password` lets every signed-in member role change its own
+password with `current_password` and `password`. It accepts no member target or
+email; installation credentials cannot use it. Current-password checks share
+sign-in throttling, new passwords follow the same creation policy, and a
+credential revision change during verification returns HTTP 409 without
+replacing the newer credential. Success revokes all sessions for that member and
+returns `sign_in_required: true`; other members remain unaffected. Browser-cookie
+requests require the matching Origin and expire the cookie on success. Failed
+changes preserve sessions. The dashboard provides password changes in account
+settings; rendered review and HTTPS browser qualification remain open.
+
+`GET /admin/v1/auth/preferences` reads the signed-in member's saved color mode.
+`PUT /admin/v1/auth/preferences` accepts `{"color_mode":"system"}`, `"light"`,
+or `"dark"` as the value of `color_mode`. Every member role can change its own
+preference; installation tokens and caller-supplied member targets are rejected.
+The default is `system`. Preferences are stored in PostgreSQL separately from
+profile revisions, and browser storage is only a disposable cache. Dashboard and
+embedded docs controls share this saved preference. Browser-cookie writes use
+the same Origin checks as profile changes; responses are non-cacheable and
+request bodies are limited to 1 KiB. Installation-only display choices have no
+personal account to save to and remain local.
+
+`POST /admin/v1/auth/logout` revokes the member bearer session in the
+Authorization header. Every member role can sign out; other sessions remain
+active. Revocation and its audit record are atomic, responses are non-cacheable,
+and missing, expired or previously revoked credentials return HTTP 401.
+Installation setup tokens are not member sessions. This API is available even
+when password login is not configured. The dashboard uses the browser sign-out
+endpoint for cookie sessions and preserves its session when revocation fails.
+
+The [password session contract](https://github.com/niu-io/niu/blob/main/contracts/password-sessions.openapi.yaml)
+documents request fields, role restrictions, session responses and failure statuses.
 
 `NIU_ADMIN_TOKENS` remains the owner-level installation bootstrap credential. An owner can create persistent operators with `owner`, `admin`, or `viewer` roles through `POST /admin/v1/operators`, and issue additional expiring sessions through `POST /admin/v1/operators/{operator}/sessions`. Creation responses contain the bearer token once and include `Cache-Control: no-store`; list APIs return only identity, role, session IDs, expiry and revocation metadata. Delete an individual session or an operator to revoke access. A revoked or expired token fails the next administrative request.
 
 Operator and session creation/revocation also append immutable, metadata-only audit events in the same database transaction. Events record whether the actor was an installation bootstrap credential or a scoped operator, the actor operator ID when present, target operator/session IDs, tenant scope and timestamp. They never store bearer tokens, token hashes or request bodies. A scoped owner can page through one operator's events with `GET /admin/v1/operators/{operator}/events`; pages are ordered by timestamp and event ID, limited to 1–100 items, and use `next_cursor` for stable continuation.
 
-Owners can manage operators. Admins can read and write management resources but cannot manage operators. Viewers have read access only. Every operator has an `organization_id` and may have a `project_id` that restricts access to a single project. Owners cannot create or manage operators outside their own scope. Workspace IDs in console URLs do not grant authority. `GET /admin/v1/session` returns the caller's current identity, scope, and role permissions without exposing credentials. Interactive identity federation remains unimplemented.
+Owners can manage members. Admins can read and write management resources but cannot manage members. Viewers have read access only. Every member has an `organization_id` and may have a legacy `project_id` that restricts access to a single workspace. Owners cannot create or manage members outside their own scope. Workspace IDs in dashboard URLs do not grant authority. `GET /admin/v1/session` returns the caller's current identity, scope, and role permissions without exposing credentials.
 
-The console's `GET /admin/v1/workspaces` lists project workspaces visible to the current administrator, with each workspace's parent organization. `POST /admin/v1/workspaces` creates one in the requested organization. Organization administrators can create workspaces only inside their organization; installation administrators can select any organization. If an installation has no organization yet, omitting `organization_id` creates a `Personal workspace` organization first. Niu workspaces are project-scoped: API keys, requests, budgets, and usage belong to one workspace.
+The dashboard's `GET /admin/v1/workspaces` lists workspaces visible to the current administrator, with each workspace's parent organization. `POST /admin/v1/workspaces` creates one in the requested organization. Organization administrators can create workspaces only inside their organization; installation administrators can select any organization. If an installation has no organization yet, omitting `organization_id` creates a `Personal workspace` organization first. API keys, requests, budgets, and usage belong to a workspace; `project` names remain only in legacy API and storage contracts.
 
 ## Provider capability matrix
 
@@ -37,7 +144,7 @@ Capabilities are route-specific. Flags in `config/niu.toml` declare operator-ver
 | Chat completion, non-streaming | Supported; tool and structured-output subsets require separate route flags | Basic non-streaming adapter path | Basic non-streaming adapter path |
 | Chat completion, streaming | Supported; tool deltas need `supports_streaming_tool_calls` | Not implemented | Not implemented |
 | Function tools | Non-streaming tool-call pass-through with `supports_tool_calls`; Niu does not execute tools | Not implemented | Not implemented |
-| Structured JSON output | Non-streaming `json_object` and `json_schema` pass-through with `supports_structured_output`; schema semantics are not checked | Not implemented | Not implemented |
+| Structured JSON output | Non-streaming `json_object` requires an object; `json_schema` output is validated against the self-contained schema when `supports_structured_output` is enabled | Not implemented | Not implemented |
 | Text embeddings | Supported only with `supports_embeddings`; dimensions and base64 output require their own flags | Not implemented | Not implemented |
 | Responses | Non-streaming text subset with `supports_responses` | Not implemented | Not implemented |
 
@@ -47,19 +154,23 @@ Non-streaming provider JSON responses are limited to 16 MiB before decoding. Lar
 
 ## Chat function tools and structured output
 
-`POST /v1/chat/completions` accepts OpenAI-compatible function tool definitions, `tool_choice`, and `response_format` values `json_object` or `json_schema` only when the configured OpenAI-compatible route explicitly enables the corresponding capability. Streaming tool-call deltas require the separate `supports_streaming_tool_calls` flag. Requests for disabled capabilities return `501` before an operation or attempt is recorded. Malformed tool definitions, choices, and schemas receive `400`.
+Chat validates common generation parameters before admission or Supplier dispatch: `temperature` from 0 to 2, `top_p` from 0 to 1, and presence/frequency penalties from -2 to 2. Non-null `max_tokens`, `max_completion_tokens` and `n` must be positive signed 64-bit integers; non-null `seed` must be a signed 64-bit integer. Only one non-null output token limit may be supplied. `stream` must be boolean; non-null `stream_options` must be an object and its `include_usage`, when present, must be boolean. Invalid values return clear `400` errors without an operation or attempt. Omitted and nullable optional values preserve their existing semantics; Niu does not inject sampling defaults or clamp explicit values. A configured native adapter or priced route may impose stricter supported bounds.
 
-Niu forwards tool definitions and structured-output schemas to the provider. It does not execute tools. Non-streaming tool-call responses must reference a declared function and contain JSON-object arguments; structured-output responses must contain valid JSON, but Niu does not perform JSON Schema validation. Provider support must be independently verified by the operator. These features are not enabled on native Anthropic or Bedrock routes, priced tool calls are rejected, and structured JSON streaming is unsupported. This subset does not close R04; full Responses compatibility, broader protocol conformance, and provider-specific test fixtures remain release work.
+`POST /v1/chat/completions` accepts OpenAI-compatible function tool definitions, `tool_choice`, and `response_format` values `json_object` or `json_schema` only when the configured OpenAI-compatible route explicitly enables the corresponding capability. Streaming tool-call deltas require the separate `supports_streaming_tool_calls` flag. Requests for disabled capabilities return `501` before an operation or attempt is recorded. The `unsupported_operation_error` message identifies tools, streaming tools or structured JSON and gives a supported alternative. Structured JSON streaming and combined tools plus structured JSON have separate errors; Niu does not silently remove those requested features. Malformed tool definitions, choices, and schemas receive `400`.
+
+Niu forwards tool definitions and structured-output schemas to the provider. It does not execute tools. Non-streaming tool-call responses must reference a declared function and contain JSON-object arguments. Structured-output responses must match the self-contained JSON Schema; `json_object` responses must be objects. Schema compilation cannot retrieve HTTP or file references and has the [documented complexity limits](/docs/configuration/models/). Provider support must be independently verified by the installation administrator. These features are not enabled on native Anthropic or Bedrock routes, priced tool calls are rejected, and structured JSON streaming is unsupported. Full Responses compatibility, broader protocol conformance, and provider-specific qualification remain release work.
+
+If a terminal model response fails output validation, Niu returns `502` without delivering the rejected content. Valid, complete and consistent reported input/output token counts still record upstream completion and accrue the pinned customer charge; a failed delivery can therefore have a charge. Missing, invalid, inconsistent or overflowing usage remains unknown and is not replaced with an estimate. HTTP delivery status and upstream execution evidence describe different facts.
 
 ## Responses API text subset
 
 `POST /v1/responses` accepts a non-empty string `input` and optional string `instructions`, `max_output_tokens`, `temperature`, `top_p`, string-valued `metadata`, and `user`. The model route must set `supports_responses = true`; Niu rewrites the model to the configured upstream name and maps the returned model back to the public alias. Only non-streaming text messages, reasoning items and refusal content are accepted. Usage maps from Responses `input_tokens`/`output_tokens` into durable prompt/completion fields.
 
-Input arrays, images, audio, tools, streaming and conversation state are outside this subset. Unsupported fields or malformed shapes return `400`; a disabled route capability or `stream: true` returns `501` before creating an attempt. When route pricing is enabled, `input` plus `instructions` must fit the configured conservative UTF-8 byte bound and `max_output_tokens` is reserved before dispatch. See [Model routes](/docs/configuration/models/) for current limits. This adapter subset does not imply provider-specific conformance.
+Input arrays, images, audio, tools, streaming and conversation state are outside this subset. Unsupported fields or malformed shapes return `400`; a disabled route capability or `stream: true` returns `501` before creating an attempt. The error distinguishes disabled Responses support from unsupported streaming and points to nonstreaming Responses or Chat streaming. When route pricing is enabled, `input` plus `instructions` must fit the configured conservative UTF-8 byte bound and `max_output_tokens` is reserved before dispatch. See [Model routes](/docs/configuration/models/) for current limits. This adapter subset does not imply provider-specific conformance.
 
 ## OpenAI-compatible text embeddings
 
-`POST /v1/embeddings` accepts a model alias and one non-empty string or an array of 1–2048 non-empty strings. It optionally accepts `dimensions` (1–65536), `encoding_format` (`float` or `base64`), and a `user` string up to 512 bytes. Token-ID arrays, nested inputs, multimodal input, streaming and extra fields are rejected. The configured route must use provider `openai` or `openrouter` and explicitly declare embedding support; dimension and base64 support are separate opt-in route declarations. OpenRouter embeddings are not inferred from chat support. A missing declaration or unsupported provider returns `501` before durable operation and attempt creation. A successful response uses the public model alias and must include one correctly shaped embedding for each input item. See [Model routes](/docs/configuration/models/) for setup and pricing bounds.
+`POST /v1/embeddings` accepts a model alias and one non-empty string or an array of 1–2048 non-empty strings. It optionally accepts `dimensions` (1–65536), `encoding_format` (`float` or `base64`), and a `user` string up to 512 bytes. Token-ID arrays, nested inputs, multimodal input, streaming and extra fields are rejected. The configured route must use provider `openai` or `openrouter` and explicitly declare embedding support; dimension and base64 support are separate opt-in route declarations. OpenRouter embeddings are not inferred from chat support. A missing declaration or unsupported provider returns `501` before durable operation and attempt creation. Errors distinguish basic embeddings, custom dimensions and base64 support; callers can choose an embedding model, omit dimensions or use float encoding as applicable. A successful response uses the public model alias and must include one correctly shaped embedding for each input item. See [Model routes](/docs/configuration/models/) for setup and pricing bounds.
 
 This contract covers the implemented OpenAI-compatible text embedding operation only. The declared route flags are configuration assertions, not conformance results; native Anthropic and Bedrock embeddings, provider-specific conformance suites, and other input modalities are not implemented.
 
@@ -68,30 +179,49 @@ This contract covers the implemented OpenAI-compatible text embedding operation 
 Every model request admitted to a supported Niu inference route is recorded
 automatically with its operation and attempt, public model alias, execution
 status, timing, usage confidence, provider-reported token counts and any known
-settled cost. Request and response bodies, prompts, completions, source code,
-tool arguments and tool output are excluded. Missing usage or cost remains
+settled customer charge. Request and response content is retained separately
+for 24 hours unless explicitly disabled with `x-niu-log-payloads: false`; see
+[Request content in Logs](#request-content-in-logs). Missing usage or cost remains
 unknown. This is the default source for request activity; a user does not need
 to export or import gateway logs.
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}`
+returns one request's metadata independently of list pagination and filters. It
+requires read access to that workspace and returns 404 when the request is absent
+from that scope. The response uses the same customer-safe fields as the request
+list; Supplier costs are excluded. Payload content is retrieved separately.
 
 `GET /admin/v1/organizations/{organization}/projects/{project}/requests?limit=50`
 returns the newest gateway attempts first. Limits range from 1 to 100. Optional
 `from_ms` and `to_ms` bound creation time (`from_ms` inclusive, `to_ms`
-exclusive); `model_alias`, `key_id`, and `status` narrow the same project feed.
-Status values are `not_sent`, `may_have_executed`, `confirmed_completed`, and
-`confirmed_not_executed`. The endpoint returns `data`, a nullable
+exclusive); `model_alias`, `key_id`, and `status` narrow the same workspace feed.
+Status values are `not_sent`, `may_have_executed`, `confirmed_completed`,
+`confirmed_not_executed`, `output_withheld`, and `delivery_failed`. The first four filter Provider
+execution state; `output_withheld` selects recorded blocked or indeterminate
+output inspection. `delivery_failed` selects recorded delivery HTTP errors
+(400–599), independently of Provider execution and customer charges.
+`http_status` accepts an exact code from 100 to 599 or `unknown` for absent
+delivery status; it combines with the other filters. Unknown does not mean
+successful, failed or not charged. The summary's `delivery_statuses` counts
+each recorded code and a nullable unknown category across the full selected
+range in its consistent read snapshot. A Provider-completed request can still have withheld output
+and incurred customer charges. The endpoint returns `data`, a nullable
 `next_cursor`, and a `summary` computed over the complete selected filter range,
 independent of the current page. Pass the previous attempt UUID as `after` to
 continue with older matching entries. Pages are newest first; this is a live
-traversal, not a snapshot across pages. It requires project read permission or
+traversal, not a snapshot across pages. It requires workspace read permission or
 an installation administrator credential. Each record includes `attempt_id`,
 `operation_id`, optional `api_key_id` and `key_name`, optional `task_id`,
 optional `task_evidence`, public `model` alias and the nullable
 `provider_model` reported by the upstream provider,
 `created_at`, `dispatched_at`, `completed_at`,
-`duration_ms`, `execution`, `usage_confidence`, nullable prompt/completion token
-counts, and nullable currency, cash and API-equivalent amounts. Token and money
+`duration_ms`, `execution`, nullable `output_guardrail_outcome`,
+`usage_confidence`, nullable prompt/completion token
+counts, and nullable customer charge currency, amount and status. A null
+`output_guardrail_outcome` means no inspection outcome was recorded; it does
+not establish delivery or content protection. Token and money
 quantities are exact decimal strings. `task_evidence` is the latest supplemental
-execution record for the same task ID in this project; it includes its scoped
+execution record for the same task ID in this workspace; it includes its scoped
 execution ID, source, record ID, coverage assertion and authority/result pairs,
 but no imported spans. Fetch metadata-only spans and causal links from
 `/admin/v1/organizations/{organization}/projects/{project}/executions/{execution}`
@@ -99,11 +229,86 @@ when an operator opens the trace.
 Unsettled or unpriced requests can have unknown cost; their absence from a cost
 ledger does not mean zero spend.
 
+Request listing and CSV export accept `sort=time_desc` (default), `time_asc`,
+`latency_desc`, `input_desc` or `output_desc`. Sorting covers all matching
+requests before pagination. Known measurements precede unknown ones; latency
+uses complete request timing or historical complete duration, never an
+interrupted timing as a complete latency. Time and attempt ID break ties.
+Keep the same filters and sort when passing `next_cursor` as `after`.
+Traversal is live: measurements completing between pages can move a request
+in the ordering. Use CSV for a single-statement view of the selected range.
+Unknown sort values return HTTP 400. Customer charges are not ranked across
+different currencies.
+
+`GET .../requests/export` downloads customer-safe CSV for the same date, model,
+API key and execution-status filters. It reads the range in one database
+statement, independently of the paginated Logs page. Workspace read access is
+required; inference keys cannot export. The response is an attachment with
+`Cache-Control: no-store`. Internal identifiers, task records, payloads,
+credentials and Supplier commercial data are excluded. Unknown values remain
+empty cells, with usage and charge status alongside them. Token counts and
+customer nanounits preserve their exact decimal digits. Formula-like text cells
+are prefixed with an apostrophe for spreadsheet safety. Exports over 10,000
+requests return `413` with instructions to narrow the filters; they are never
+silently truncated. Pagination parameters are rejected.
+
 The range summary reports matched request count, requests with provider-reported
 usage, exact prompt/completion token totals, requests with complete timing,
-average model time, requests without a settled cost entry, and settled cash and
-API-equivalent totals by currency. A missing price or unsettled attempt remains
+average complete gateway duration, matching P50/P95/P99 latency percentiles with sample count and boundary, reported cache-input/reasoning-output category sums with reported and unknown request counts, unresolved and unpriced customer charges, customer charge
+totals by currency, and usage breakdowns by model and workspace API key. A missing price or unsettled attempt remains
 unknown and is not converted to zero.
+
+`charges_by_model` and `charges_by_key` report full-range customer ledger amounts
+separately by currency, within the same summary snapshot and filters. Amounts
+are exact decimal strings in nanos; missing settlement produces null currency
+and amount, with separate unresolved, unpriced and not-charged request counts.
+These counts and charged requests partition each row's request count. Key
+identifiers are API references for scoped drilldowns, not display labels.
+These breakdowns contain no Supplier purchase costs or margins.
+
+### Request phase timing
+
+New admitted requests include a nullable `timing` object in the workspace
+request feed: `dispatch_ms`, `headers_ms`, `first_output_ms`, `total_ms`,
+`complete` and `http_status`. Offsets use a monotonic gateway clock from
+request handling, independent of payload capture. First output is measured
+from a meaningful streamed Chat event, including text, reasoning, refusal or
+tool-call output; role-only events, keepalives and usage records do not count.
+Nonstreamed requests leave `first_output_ms` unknown.
+
+Logs draws preparation, first-output wait and output-stream duration on one
+scale. Preparation includes validation and admission. Wait includes network
+and upstream processing; Niu cannot split those without upstream spans.
+Output duration includes delivery and terminal processing, so tokens per
+second describes the observed output stream, not pure model compute speed.
+Interrupted responses retain an incomplete interval, including cancellation
+after dispatch but before headers; `headers_ms` and `http_status` then stay
+null. Process crashes and cancellation during admission acknowledgement may
+leave phase timing unavailable. Older requests are
+not backfilled.
+
+### Request content in Logs
+
+New Chat Completions, Responses and embeddings requests retain content in Logs
+by default. Send `x-niu-log-payloads: false` to opt out for a request. In dashboard
+Chat, turn off **Save payloads in Logs** in the composer settings before sending.
+This does not apply retrospectively to earlier requests.
+
+Captured content is stored separately from accounting records for 24 hours.
+Capture is bounded to 1 MB per side; a retained request exceeding the request
+capture limit is rejected. Streaming responses are retained as streamed text,
+with incomplete and truncated responses labeled. HTTP headers are not retained.
+Known credential fields in request objects are removed, including Authorization,
+Proxy-Authorization, Cookie, Set-Cookie and API-key header names. Arbitrary secrets
+inside prompts are not automatically redacted. Response capture excludes
+confidential Supplier cost metadata. Historical JSON and SSE responses are also sanitized when read. If a malformed or incomplete structured response cannot be safely serialized, the read returns HTTP 503 without its raw body; accounting and timing metadata remain available independently.
+
+An authorized workspace reader can fetch retained content with
+`GET /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/payloads`.
+The response contains `data` with `request`, `response`, `content_type`,
+`complete`, `truncated` and `expires_at`, or `null` when content was not captured
+or has expired. Workspace write permission is required to delete it using
+`DELETE` at the same path. Content deletion does not delete accounting records. A durable content-free deletion marker prevents late capture or retries from recreating explicitly deleted payloads. Deletion before capture also prevents that attempt’s content from being stored.
 
 An application or agent adapter can send the same optional `X-Niu-Task-ID`
 header on every inference call belonging to one task. Chat completions,
@@ -114,32 +319,9 @@ individual model requests. The header only groups model calls: local tool work,
 validation and acceptance need separate adapter events and are not inferred
 from gateway traffic.
 
-The first-party JavaScript agent adapter adds task IDs to supported model calls,
-records model attempts, retries, local tool timing and explicit validator or
-human evidence, then submits metadata through a project-scoped execution
-collector credential. Coverage defaults to `partial`. Prompts, responses, tool
-arguments, tool output and error text are not recorded. The adapter enriches
-gateway activity; the request and its canonical usage/cost remain gateway
-records. An agent claim alone is not acceptance evidence. See [Execution
-observation](/docs/concepts/execution-observation/) for setup and limitations.
-
-## Supplemental execution observation imports
-
-Versioned execution imports are an advanced migration, testing and external
-source path. They supplement automatically retained gateway activity and are
-not required to view requests made through Niu.
-
-Bootstrap administrators can import and inspect metadata-only task records for a project:
-
-- `POST /admin/v1/organizations/{organization}/projects/{project}/executions` accepts one version 1 record. The response is `201` for a new record and `200` for an identical replay; conflicting content for the same source and record ID returns `409`.
-- `GET /admin/v1/organizations/{organization}/projects/{project}/executions?limit=50` lists metadata rows. Optional `task_id` filters the list; `after` continues a stable UUID cursor. Limits range from 1 to 100.
-- `GET .../executions/cohort` scans up to 10,000 records in UUID order and reports both record and distinct source/task counts. It groups outcome evidence by source and task ID, classifying a task as accepted only when a deterministic validator or human accepts and no conflicting evidence exists; agent claims alone are unverified. Canonical attempt UUID charge references are deduplicated across imported records and resolved only inside this project.
-- `GET .../executions/{execution}` retrieves one record and account links resolved from charge references that match Niu attempt UUIDs assigned to supplier accounts.
-- `DELETE .../executions/{execution}` removes only that imported metadata record.
-
-See [Execution observation](/docs/concepts/execution-observation/) for the schema, privacy rules and current limits. Imports cannot dispatch inference or create ledger entries.
-
-The cohort report includes per-authority agent-claim, deterministic-validator and human-acceptance evidence counts grouped by source/task ID. It includes all resolved settled costs, including failed or rejected work, and provides API-equivalent totals separately from Niu's configured-rate cash calculation. Amounts are integer billionths encoded as decimal strings. Per-accepted-task ratios are emitted only when the bounded import scan, source-reported coverage, billable-work references and scoped settlements are complete; zero accepted tasks has no ratio. Unresolved namespaces, unmatched attempt UUIDs and unsettled attempts remain visible as incomplete evidence. Invoice cash and subscription fee allocations return `not_imported`; quota sample count is reported without task attribution. Independent sources remain separate because schema v1 has no canonical cross-source task identity. This is a live view, not a snapshot.
+Task correlation covers only model requests handled by Niu. External model
+calls, agent tool events, task acceptance, and subscription usage are outside
+Niu's collection scope. Niu does not expose execution or agent-usage import APIs.
 
 ## Paired benchmark analysis
 
@@ -151,21 +333,21 @@ The endpoint only analyzes supplied records. It does not dispatch requests, enfo
 
 Bootstrap administrators can register supplier account metadata and import provider-reported quota snapshots without proxying inference:
 
-- `POST /admin/v1/organizations/{organization}/projects/{project}/accounts` registers a project-scoped account. Provide an opaque `env:` or `secret:` credential reference; the account starts unverified and registration does not enable inference.
+- `POST /admin/v1/organizations/{organization}/projects/{project}/accounts` registers a workspace-scoped account. Provide an opaque `env:` or `secret:` credential reference; the account starts unverified and registration does not enable inference.
 - `POST /admin/v1/organizations/{organization}/projects/{project}/accounts/{account}/quota` accepts a version 1 `QuotaObservationV1` sample. An exact replay returns the original observation ID; a conflicting payload for the same account, window, and timestamp returns `409`.
 - `GET .../accounts` lists account metadata without returning credential references. `GET .../accounts/{account}/quota` returns the latest sample per provider window, including its freshness, validity deadline, reset time, and previous sample baseline.
 - `DELETE .../accounts/{account}/quota?window_key=weekly` permanently removes all imported samples for that account window, including the comparison baseline. The response reports the number deleted; repeating the request is safe.
 - `GET .../accounts/{account}/executions` lists metadata-only tasks with charge references matching attempts assigned to the account, up to 100 records.
 
-The `Subscriptions` console page displays provider-reported units as reported and marks changes between snapshots as unattributed. It does not infer token amounts from percentages or claim that a quota delta was caused by one task. When an execution span's `charge_ref` exactly matches a Niu attempt UUID assigned to an account, task and account views link to each other without exposing execution payloads in the account index. Other charge namespaces remain unresolved. Latest and previous BIGINT quantities are decimal strings for exact browser display. Imports only persist observations: they do not refresh credentials, forward inference, change subscriptions, or reset provider allowances. These endpoints accept scoped operator credentials with the required read/write permission, or installation bootstrap credentials. Quota collection also accepts scoped collector keys; native provider collectors remain unimplemented.
+The `Subscriptions` dashboard page displays provider-reported units as reported and marks changes between snapshots as unattributed. It does not infer token amounts from percentages or claim that a quota delta was caused by one task. When an execution span's `charge_ref` exactly matches a Niu attempt UUID assigned to an account, task and account views link to each other without exposing execution payloads in the account index. Other charge namespaces remain unresolved. Latest and previous BIGINT quantities are decimal strings for exact browser display. Imports only persist observations: they do not refresh credentials, forward inference, change subscriptions, or reset provider allowances. These endpoints accept scoped operator credentials with the required read/write permission, or installation bootstrap credentials. Quota collection also accepts scoped collector keys; native provider collectors remain unimplemented.
 
 :::caution[Current status]
 The current gateway milestone is limited. This reference grows with tested endpoints; it does not claim parity with every LiteLLM operation or provider today.
 :::
 
-## Durable cost reporting
+## Platform upstream cost reporting
 
-Bootstrap administrators can read a project's persisted accounting records:
+Installation administrators can read persisted platform upstream accounting for a workspace. These compatibility endpoints are procurement controls, not customer billing APIs. Ordinary workspace sessions and Supplier memberships do not grant access.
 
 - `GET /admin/v1/organizations/{organization}/projects/{project}/budget` returns `data` with currency, lifetime limit, reserved exposure and settled cash spend, or `null` when no budget exists.
 - `GET /admin/v1/organizations/{organization}/projects/{project}/costs?limit=50` returns settled entries and a nullable `next_cursor`. Pass that UUID as `after` to continue; limits range from 1 to 100.
@@ -174,9 +356,9 @@ All monetary and token values in these responses are decimal strings to preserve
 
 Pages traverse ascending attempt UUIDs, not chronological order. This is a live view: newly settled entries may require a fresh traversal. Unsettled attempts are excluded; an empty page does **not** prove zero cost. Reserved exposure remains visible in the budget. Subscription fee allocations and capacity reports are not yet included.
 
-Reporting accepts scoped operators with read permission or installation bootstrap credentials. The reporting endpoints do not create prices, settle attempts, or enable automatic gateway pricing.
+Reporting requires installation administration even when the caller has workspace read permission. The reporting endpoints do not create prices, settle attempts, or enable automatic gateway pricing. Customer-facing request charges, Usage and Billing are serialized separately and never substitute these upstream amounts for customer charges.
 
-### Create a lifetime cash budget
+### Create a platform upstream budget
 
 Send `POST /admin/v1/organizations/{organization}/projects/{project}/budget` with an administrator token and a body such as:
 
@@ -184,28 +366,9 @@ Send `POST /admin/v1/organizations/{organization}/projects/{project}/budget` wit
 {"currency": "USD", "limit_nanos": "100000000000"}
 ```
 
-This creates a USD 100 lifetime budget. Amounts must be nonnegative decimal integer strings, with no exponent or fractional notation, within the signed 64-bit range. Currency is a three-letter uppercase code; no currency conversion is performed. Concurrent creation has one winner; an existing budget returns 409 without changing its limit, reservations or spend.
+This creates a USD 100 lifetime upstream budget for the workspace. It does not set a customer charge limit or an invoice amount. Amounts must be nonnegative decimal integer strings, with no exponent or fractional notation, within the signed 64-bit range. Currency is a three-letter uppercase code; no currency conversion is performed. Concurrent creation has one winner; an existing budget returns 409 without changing its limit, reservations or spend.
 
-**Current admission behavior:** priced OpenAI-compatible text routes reserve configured token bounds before dispatch; insufficient funds or a missing matching-currency project budget blocks those priced requests. Routes without pricing are not capped by the budget, so a project budget is not a strict spending limit unless every reachable route has a supported price and defensible bounds. Existing dispatched attempts are not retroactively reserved. The console's **Usage & cost** page can create a lifetime project budget; editing and deletion are not yet exposed.
-
-## Supplemental execution import APIs
-
-These versioned endpoints provide the same supplemental metadata-import
-workflow for migrations, tests and authorized external sources. They are not a
-request-log ingestion requirement for applications using the gateway.
-
-These endpoints store externally produced task metadata; they do not route
-inference or replace the automatically retained gateway request feed. Use the
-versioned contract for an authorized export or connector. The synthetic
-repository fixture is suitable for local checks, not a real collector.
-
-- `GET /admin/v1/organizations/{organization}/projects/{project}/execution-imports?limit=50`: list metadata summaries and a nullable `next_cursor`; pass it as `after` to continue. Limits range from 1 to 100. A `task_id` filter is available. UUID ordering is a live traversal, not chronological or a fixed snapshot.
-- `POST /admin/v1/organizations/{organization}/projects/{project}/execution-imports`: import a record. A first import returns 201; an identical replay returns 200 with the same ID; conflicting content for the same source/record identity returns 409. `/executions` is a console-compatible alias.
-- `GET /admin/v1/organizations/{organization}/projects/{project}/execution-imports/{id}`: retrieve the metadata record, scoped account links and explicitly referenced settled charges. The response is marked `Cache-Control: no-store`; the task total is always incomplete.
-- `DELETE /admin/v1/organizations/{organization}/projects/{project}/execution-imports/{id}`: remove the imported metadata row. Referenced canonical financial records remain governed by their own retention policy. Re-import after deletion creates a new stored record.
-- `GET /admin/v1/organizations/{organization}/projects/{project}/executions/cohort`: read a bounded project rollup of outcome and cost evidence. It is a live view, scans at most 10,000 records, groups outcomes by source/task ID, and does not infer task-level quota attribution or invoice/subscription allocation costs.
-
-All execution import and read endpoints require administrator authorization. Inference client keys and quota-only collector credentials cannot access these records. Imports are capped at 1 MiB, reject unknown content fields and invalid graphs, and take project scope from the authenticated API path. Imports neither execute work nor post ledger charges. There is no automatic retention expiry yet; deletion removes the live database record, while backups must follow the operator's retention policy.
+**Current admission behavior:** supported priced routes reserve their configured input/output bounds before dispatch; insufficient funds or a missing matching-currency budget prevents the upstream call. Once a workspace has an upstream budget, further dispatch requires a trusted held reservation. Unpriced requests without such a reservation are rejected rather than bypassing the budget. Existing dispatched attempts are not retroactively reserved. Provider billing bounds still require qualification: understated bounds can produce an overrun, which is recorded as liability. This is not a universal guarantee against upstream billing outside those bounds. Customer Usage does not expose procurement-budget management.
 
 ## Installation vendors
 
@@ -216,6 +379,6 @@ Shared upstream connections persist in PostgreSQL and are managed only with an i
 - `PUT /admin/v1/vendors/{id}` updates metadata, enabled state or the credential using `expected_revision`.
 - `GET /admin/v1/vendors/{id}/models` lists the vendor's mappings.
 - `POST /admin/v1/vendors/{id}/models` creates a mapping without a revision or updates it using the current `expected_revision`.
-- `POST /admin/v1/vendors/{id}/check` with `{ "alias": "team/fast" }` performs a non-inference `GET /models` check. The check is capped at five seconds and 512 KiB, blocks redirects and private-network destinations, and returns only a status plus whether the exact upstream model ID appears in the provider catalog. Provider response content and credentials are never returned. A catalog listing does not prove inference access or quota; use Playground to test a real request through Niu.
+- `POST /admin/v1/vendors/{id}/check` with `{ "alias": "team/fast" }` performs a non-inference `GET /models` check. The check is capped at five seconds and 512 KiB, blocks redirects and private-network destinations, and returns only a status plus whether the exact upstream model ID appears in the provider catalog. Provider response content and credentials are never returned. A catalog listing does not prove inference access or quota; use Chat to test a real request through Niu.
 
-On a model update, omitting `pricing` preserves its exact stored value; explicit `null` clears it. Stale updates return `409`. Responses use `Cache-Control: no-store`. Organization and project operators cannot administer these installation-wide resources. See [Model routes](/docs/configuration/models/) for encryption, precedence and bootstrap behavior.
+On a model update, omitting `pricing` preserves its exact stored value; explicit `null` clears it. Stale updates return `409`. Responses use `Cache-Control: no-store`. Organization and workspace operators cannot administer these installation-wide resources. See [Model routes](/docs/configuration/models/) for encryption, precedence and bootstrap behavior.

@@ -12,7 +12,7 @@ This is a deliberate middle ground: more isolation than importing private Enterp
 
 ## Product and repository ownership
 
-The public Niu repository owns the independently buildable open-source platform: Gateway, core data plane, public control APIs, console shell, documentation, public contracts, and community image. It starts and remains useful without private modules.
+The public Niu repository owns the independently buildable open-source platform: Gateway, core data plane, public control APIs, dashboard shell, documentation, public contracts, and community image. It starts and remains useful without private modules.
 
 The Enterprise repository owns private feature implementations and the Enterprise release composition. Each release pins one immutable public Niu commit and adds independently versioned private services. Enterprise does not keep a long-lived copy of the Niu core, import its private Rust internals, or read its database tables.
 
@@ -22,9 +22,9 @@ The public Niu repository owns the stable integration contracts. Enterprise impl
 
 ## One product domain and runtime shape
 
-All browser, API, and inference traffic uses `niu.io`. The homepage is at `/`, documentation at `/docs/`, model catalog at `/models/`, the console at `/workspaces/{workspace}/…`, public APIs at `/v1/` and `/admin/v1/`, and Enterprise APIs under `/enterprise/api/v1/{module_id}/…`. Enterprise pages live under `/enterprise/` in the same site and console shell; there is no separate application subdomain.
+All browser, API, and inference traffic uses `niu.io`. The homepage is at `/`, documentation at `/docs/`, model catalog at `/models/`, the dashboard at `/workspaces/{workspace}/…`, public APIs at `/v1/` and `/admin/v1/`, and Enterprise APIs under `/enterprise/api/v1/{module_id}/…`. Enterprise pages live under `/enterprise/` in the same site and dashboard shell; there is no separate application subdomain.
 
-Repository boundaries do not create separate domains. The Gateway serves a separately built website artifact through `NIU_SITE_DIR` at `/`, `/site-assets/`, and `/_astro/`, plus `favicon.ico`, `robots.txt`, and `sitemap.xml`. Niu owns `/models/`, `/catalog-assets/`, and `/_catalog/` through `NIU_CATALOG_DIR`; documentation and console artifacts keep their own directories. The website artifact cannot override these product routes or API namespaces. Without `NIU_SITE_DIR`, the community root redirects to `/workspaces/default/` and builds without a website checkout. See [repository ownership](repository-ownership.md).
+Repository boundaries do not create separate domains. The Gateway serves a separately built website artifact through `NIU_SITE_DIR` at `/`, `/site-assets/`, and `/_astro/`, plus `favicon.ico`, `robots.txt`, and `sitemap.xml`. Niu owns `/models/`, `/catalog-assets/`, and `/_catalog/` through `NIU_CATALOG_DIR`; documentation and dashboard artifacts keep their own directories. The website artifact cannot override these product routes or API namespaces. Without `NIU_SITE_DIR`, the community root redirects to `/workspaces/default/` and builds without a website checkout. See [repository ownership](repository-ownership.md).
 
 The Enterprise image contains one pinned Niu Gateway, a supervisor, and the private services selected for that release. Only the Gateway binds the public listener. The supervisor starts each declared service with a private Unix socket. PostgreSQL is an external persistent data service; no database process or data directory belongs in the application image.
 
@@ -78,7 +78,7 @@ Enterprise services access platform features through the exact public HTTP/OpenA
 
 Modules must not forward a user's long-lived bearer token or receive an installation-wide administrator secret. If a required platform operation lacks a public scoped API, it is an integration gap: add and qualify that API in Niu before enabling the Enterprise workflow.
 
-Enterprise UI code is included in the pinned release's site/console build and served under `niu.io/enterprise/`. The shell uses a build-time route/navigation registry. V1 does not download executable frontend code from a running service or let a service rewrite the site's route table at runtime.
+Enterprise UI code is included in the pinned release's site/dashboard build and served under `niu.io/enterprise/`. The shell uses a build-time route/navigation registry. V1 does not download executable frontend code from a running service or let a service rewrite the site's route table at runtime.
 
 ## Compatibility, security, and release rules
 

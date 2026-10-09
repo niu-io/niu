@@ -44,10 +44,40 @@ struct StreamExecution<'a> {
 pub(in crate::web) async fn chat(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Json(mut body): Json<Value>,
+    Json(body): Json<Value>,
 ) -> Result<Response, ApiError> {
     let _in_flight = state.track_inference();
     let principal = state.authorize_api_headers(&headers).await?;
+    chat_as(state, headers, body, principal).await
+}
+
+pub(in crate::web) async fn dashboard_chat(
+    State(state): State<AppState>,
+    axum::extract::Path((organization_id, project_id, key_id)): axum::extract::Path<(
+        Uuid,
+        Uuid,
+        Uuid,
+    )>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Response, ApiError> {
+    let _in_flight = state.track_inference();
+    let scope = niu_storage::TenantScope {
+        organization_id,
+        project_id,
+    };
+    let principal = state
+        .authorize_dashboard_key(&headers, scope, key_id, niu_storage::AdminPermission::Write)
+        .await?;
+    chat_as(state, headers, body, principal).await
+}
+
+async fn chat_as(
+    state: AppState,
+    headers: HeaderMap,
+    mut body: Value,
+    principal: niu_storage::Principal,
+) -> Result<Response, ApiError> {
     let public_model = body
         .get("model")
         .and_then(Value::as_str)
@@ -57,8 +87,33 @@ pub(in crate::web) async fn chat(
     if !principal.allows_model(&public_model) {
         return Err(ApiError::not_found());
     }
-    let resolved = crate::vendors::resolve_model(&state, &public_model).await?;
+    if public_model.starts_with("codex/") {
+        return super::codex::infer(
+            state,
+            headers,
+            body,
+            principal,
+            super::codex::Protocol::Chat,
+        )
+        .await;
+    }
+    let resolved = crate::vendors::resolve_scoped_model(
+        &state,
+        principal.scope().organization_id,
+        &public_model,
+    )
+    .await?;
     let model = &resolved.model;
+    validate_generation_parameters(&body)?;
+    let inspected_snapshot = inspect_request_input(
+        &state,
+        &principal,
+        &public_model,
+        model,
+        crate::guardrails::input::Protocol::Chat,
+        &mut body,
+    )
+    .await?;
     let stream = match body.get("stream") {
         None => false,
         Some(Value::Bool(value)) => *value,
@@ -112,7 +167,7 @@ pub(in crate::web) async fn chat(
         Some(
             crate::upstream::client_for_endpoint(&endpoint, timeout)
                 .await
-                .map_err(|_| ApiError::unavailable())?,
+                .map_err(ApiError::from_endpoint)?,
         )
     } else {
         None
@@ -121,10 +176,16 @@ pub(in crate::web) async fn chat(
     let dispatch = begin_attempt(
         &state,
         &principal,
-        &public_model,
-        model,
-        None,
-        task_id.as_deref(),
+        AttemptRequest {
+            personal_route: resolved.personal_route.as_ref(),
+            public_model: &public_model,
+            model,
+            completion_bound: None,
+            task_id: task_id.as_deref(),
+            snapshot: inspected_snapshot,
+            request_body: &body,
+            protocol: crate::guardrails::input::Protocol::Chat,
+        },
     )
     .await?;
     let result = execute_chat(
@@ -235,7 +296,12 @@ async fn execute_chat(
         object.insert("object".to_owned(), json!("chat.completion"));
         object.insert("model".to_owned(), json!(public_model));
     }
+    crate::customer_response::sanitize(&mut value);
     Ok(ProviderResponse {
+        finish_reasons: niu_storage::RequestChoiceFinish::from_chat_response(&value),
+        token_categories: usage.and_then(|totals| {
+            niu_storage::RequestTokenCategories::from_openai_usage(&value["usage"], totals)
+        }),
         response: Json(value).into_response(),
         completed: true,
         usage,
@@ -317,6 +383,25 @@ async fn complete_openai_compatible(
         || !valid_chat_completion_features(&value, &body)
     {
         state.failures.fetch_add(1, Ordering::Relaxed);
+        // Delivery validation and upstream execution are separate facts. A
+        // terminal completion with valid usage remains accounting evidence
+        // even when its content cannot satisfy the client's output contract.
+        if terminal_chat_envelope(&value)
+            && let Some(usage) = reported_chat_usage(&value)
+        {
+            usage_attempt.report(&value["usage"]);
+            return Ok(ProviderResponse {
+                finish_reasons: niu_storage::RequestChoiceFinish::from_chat_response(&value),
+                token_categories: niu_storage::RequestTokenCategories::from_openai_usage(
+                    &value["usage"],
+                    usage,
+                ),
+                response: ApiError::upstream().into_response(),
+                completed: true,
+                usage: Some(usage),
+                provider_model: provider_reported_model(&value),
+            });
+        }
         return Err(ApiError::upstream());
     }
     let provider_model = provider_reported_model(&value);
@@ -327,16 +412,131 @@ async fn complete_openai_compatible(
         object.insert("object".to_owned(), json!("chat.completion"));
         object.insert("model".to_owned(), json!(public_model));
     }
-    let usage = value["usage"]["prompt_tokens"]
-        .as_u64()
-        .zip(value["usage"]["completion_tokens"].as_u64());
-    usage_attempt.report(&value["usage"]);
+    let usage = reported_chat_usage(&value);
+    if usage.is_some() {
+        usage_attempt.report(&value["usage"]);
+    }
+    crate::customer_response::sanitize(&mut value);
     Ok(ProviderResponse {
+        finish_reasons: niu_storage::RequestChoiceFinish::from_chat_response(&value),
+        token_categories: usage.and_then(|totals| {
+            niu_storage::RequestTokenCategories::from_openai_usage(&value["usage"], totals)
+        }),
         response: Json(value).into_response(),
         completed: true,
         usage,
         provider_model,
     })
+}
+
+fn reported_chat_usage(value: &Value) -> Option<(u64, u64)> {
+    let prompt = value.pointer("/usage/prompt_tokens")?.as_u64()?;
+    let completion = value.pointer("/usage/completion_tokens")?.as_u64()?;
+    let total = prompt.checked_add(completion)?;
+    if prompt > i64::MAX as u64 || completion > i64::MAX as u64 {
+        return None;
+    }
+    if value
+        .pointer("/usage/total_tokens")
+        .is_some_and(|reported| reported.as_u64() != Some(total))
+    {
+        return None;
+    }
+    Some((prompt, completion))
+}
+
+fn validate_generation_parameters(body: &Value) -> Result<(), ApiError> {
+    if body.get("max_tokens").is_some_and(|value| !value.is_null())
+        && body
+            .get("max_completion_tokens")
+            .is_some_and(|value| !value.is_null())
+    {
+        return Err(ApiError::invalid_request(
+            "Specify only one output token limit",
+        ));
+    }
+    if body.get("stream").is_some_and(|value| !value.is_boolean()) {
+        return Err(ApiError::invalid_request("stream must be a boolean"));
+    }
+    if let Some(options) = body.get("stream_options").filter(|value| !value.is_null()) {
+        let options = options
+            .as_object()
+            .ok_or_else(|| ApiError::invalid_request("stream_options must be an object"))?;
+        if options
+            .get("include_usage")
+            .is_some_and(|value| !value.is_boolean())
+        {
+            return Err(ApiError::invalid_request(
+                "stream_options.include_usage must be a boolean",
+            ));
+        }
+    }
+    for (field, minimum, maximum, message) in [
+        (
+            "temperature",
+            0.0,
+            2.0,
+            "temperature must be a number between 0 and 2",
+        ),
+        ("top_p", 0.0, 1.0, "top_p must be a number between 0 and 1"),
+        (
+            "frequency_penalty",
+            -2.0,
+            2.0,
+            "frequency_penalty must be a number between -2 and 2",
+        ),
+        (
+            "presence_penalty",
+            -2.0,
+            2.0,
+            "presence_penalty must be a number between -2 and 2",
+        ),
+    ] {
+        if let Some(value) = body.get(field).filter(|value| !value.is_null())
+            && value
+                .as_f64()
+                .is_none_or(|value| !value.is_finite() || !(minimum..=maximum).contains(&value))
+        {
+            return Err(ApiError::invalid_request(message));
+        }
+    }
+    for (field, message) in [
+        ("max_tokens", "max_tokens must be a positive integer"),
+        (
+            "max_completion_tokens",
+            "max_completion_tokens must be a positive integer",
+        ),
+        ("n", "n must be a positive integer"),
+    ] {
+        if let Some(value) = body.get(field).filter(|value| !value.is_null())
+            && value.as_i64().is_none_or(|value| value <= 0)
+        {
+            return Err(ApiError::invalid_request(message));
+        }
+    }
+    if let Some(value) = body.get("seed").filter(|value| !value.is_null())
+        && value.as_i64().is_none()
+    {
+        return Err(ApiError::invalid_request("seed must be an integer"));
+    }
+    Ok(())
+}
+
+fn terminal_chat_envelope(value: &Value) -> bool {
+    value.get("error").is_none()
+        && value
+            .get("choices")
+            .and_then(Value::as_array)
+            .is_some_and(|choices| {
+                !choices.is_empty()
+                    && choices.iter().all(|choice| {
+                        choice.get("message").is_some_and(Value::is_object)
+                            && matches!(
+                                choice.get("finish_reason").and_then(Value::as_str),
+                                Some("stop" | "length" | "tool_calls" | "content_filter")
+                            )
+                    })
+            })
 }
 
 async fn stream_openai_compatible(
@@ -398,6 +598,7 @@ async fn stream_openai_compatible(
     let mut response = Response::new(crate::streaming::tracked_body(
         upstream.bytes_stream(),
         crate::streaming::StreamAttempt {
+            store: state.store.clone(),
             gateway_writes: state.gateway_writes.clone(),
             scope,
             id: attempt,
@@ -418,6 +619,8 @@ async fn stream_openai_compatible(
         HeaderValue::from_str(public_model).unwrap_or(HeaderValue::from_static("unknown")),
     );
     Ok(ProviderResponse {
+        finish_reasons: None,
+        token_categories: None,
         response,
         completed: false,
         usage: None,
@@ -616,10 +819,14 @@ pub(in crate::web) fn validate_chat_capabilities(
             });
     if has_tool_semantics {
         if !model.supports_tool_calls {
-            return Err(ApiError::unsupported());
+            return Err(ApiError::unsupported_message(
+                "Function tools are not enabled for this model. Choose a model with tool support or remove tool declarations and tool messages.",
+            ));
         }
         if stream && !model.supports_streaming_tool_calls {
-            return Err(ApiError::unsupported());
+            return Err(ApiError::unsupported_message(
+                "Streaming function tools are not enabled for this model. Use nonstreaming tool calls or choose a model with streaming tool support.",
+            ));
         }
     }
 
@@ -630,8 +837,15 @@ pub(in crate::web) fn validate_chat_capabilities(
         match format.get("type").and_then(Value::as_str) {
             Some("text") => {}
             Some("json_object") => {
-                if !model.supports_structured_output || stream {
-                    return Err(ApiError::unsupported());
+                if !model.supports_structured_output {
+                    return Err(ApiError::unsupported_message(
+                        "Structured JSON output is not enabled for this model. Choose a model with structured output support or use text output.",
+                    ));
+                }
+                if stream {
+                    return Err(ApiError::unsupported_message(
+                        "Streaming structured JSON output is not supported. Set stream to false.",
+                    ));
                 }
             }
             Some("json_schema") => {
@@ -654,9 +868,21 @@ pub(in crate::web) fn validate_chat_capabilities(
                         "json_schema requires a name and JSON Schema object",
                     ));
                 }
-                if !model.supports_structured_output || stream {
-                    return Err(ApiError::unsupported());
+                if !model.supports_structured_output {
+                    return Err(ApiError::unsupported_message(
+                        "Structured JSON output is not enabled for this model. Choose a model with structured output support or use text output.",
+                    ));
                 }
+                if stream {
+                    return Err(ApiError::unsupported_message(
+                        "Streaming structured JSON output is not supported. Set stream to false.",
+                    ));
+                }
+                structured_schema_validator(&schema["schema"]).map_err(|_| {
+                    ApiError::invalid_request(
+                        "JSON Schema must be valid, self-contained, at most 64 KiB, and within the supported complexity limits. External references cannot be retrieved.",
+                    )
+                })?;
             }
             _ => {
                 return Err(ApiError::invalid_request(
@@ -673,10 +899,43 @@ pub(in crate::web) fn validate_chat_capabilities(
             Some("json_object" | "json_schema")
         )
     {
-        return Err(ApiError::unsupported());
+        return Err(ApiError::unsupported_message(
+            "Combining function tools and structured JSON output is not supported. Send separate requests.",
+        ));
     }
 
     Ok(())
+}
+
+fn structured_schema_validator(schema: &Value) -> Result<jsonschema::Validator, ()> {
+    // Bound compilation independently of the overall request size. Offline mode
+    // also prevents caller-controlled references from reading files or making requests.
+    if serde_json::to_vec(schema).map_err(|_| ())?.len() > 65_536 {
+        return Err(());
+    }
+    let mut pending = vec![(schema, 0usize)];
+    let mut nodes = 0usize;
+    while let Some((value, depth)) = pending.pop() {
+        nodes += 1;
+        if nodes > 4096 || depth > 32 {
+            return Err(());
+        }
+        match value {
+            Value::Object(object) => pending.extend(object.values().map(|v| (v, depth + 1))),
+            Value::Array(array) => pending.extend(array.iter().map(|v| (v, depth + 1))),
+            _ => {}
+        }
+    }
+    jsonschema::options()
+        .offline()
+        .with_pattern_options(
+            jsonschema::PatternOptions::fancy_regex()
+                .backtrack_limit(10_000)
+                .size_limit(1_048_576)
+                .dfa_size_limit(1_048_576),
+        )
+        .build(schema)
+        .map_err(|_| ())
 }
 
 pub(in crate::web) fn valid_chat_completion_features(response: &Value, request: &Value) -> bool {
@@ -696,6 +955,21 @@ pub(in crate::web) fn valid_chat_completion_features(response: &Value, request: 
             .and_then(Value::as_str),
         Some("json_object" | "json_schema")
     );
+    let schema_validator = if request
+        .pointer("/response_format/type")
+        .and_then(Value::as_str)
+        == Some("json_schema")
+    {
+        let Some(schema) = request.pointer("/response_format/json_schema/schema") else {
+            return false;
+        };
+        let Ok(validator) = structured_schema_validator(schema) else {
+            return false;
+        };
+        Some(validator)
+    } else {
+        None
+    };
 
     choices.iter().all(|choice| {
         let Some(message) = choice.get("message").filter(|value| value.is_object()) else {
@@ -737,14 +1011,193 @@ pub(in crate::web) fn valid_chat_completion_features(response: &Value, request: 
                 }
             }
         }
-        if json_mode && message.get("refusal").and_then(Value::as_str).is_none() {
+        if json_mode
+            && message
+                .get("refusal")
+                .and_then(Value::as_str)
+                .is_none_or(str::is_empty)
+        {
             let Some(content) = message.get("content").and_then(Value::as_str) else {
                 return false;
             };
-            if serde_json::from_str::<Value>(content).is_err() {
+            let Ok(value) = serde_json::from_str::<Value>(content) else {
+                return false;
+            };
+            if schema_validator
+                .as_ref()
+                .is_some_and(|schema| !schema.is_valid(&value))
+                || (schema_validator.is_none() && !value.is_object())
+            {
                 return false;
             }
         }
         true
     })
+}
+
+#[cfg(test)]
+mod native_effort_tests {
+    use super::*;
+
+    #[test]
+    fn generation_parameters_reject_invalid_values_without_changing_defaults() {
+        for invalid in [
+            json!({"temperature":-1}),
+            json!({"temperature":2.1}),
+            json!({"temperature":"1"}),
+            json!({"top_p":1.01}),
+            json!({"top_p":false}),
+            json!({"frequency_penalty":-2.01}),
+            json!({"presence_penalty":2.01}),
+            json!({"max_tokens":0}),
+            json!({"max_completion_tokens":-1}),
+            json!({"max_tokens":1.5}),
+            json!({"n":0}),
+            json!({"seed":0.5}),
+            json!({"max_tokens":u64::MAX}),
+            json!({"max_tokens":1,"max_completion_tokens":2}),
+            json!({"stream":"true"}),
+            json!({"stream_options":true}),
+            json!({"stream_options":{"include_usage":"true"}}),
+        ] {
+            assert!(validate_generation_parameters(&invalid).is_err());
+        }
+        for valid in [
+            json!({}),
+            json!({"temperature":0,"top_p":0,"frequency_penalty":-2}),
+            json!({"temperature":2,"top_p":1,"presence_penalty":2}),
+            json!({"max_tokens":1,"n":1,"seed":-1}),
+            json!({"temperature":null,"max_tokens":null}),
+            json!({"max_tokens":null,"max_completion_tokens":1}),
+            json!({"stream":true,"stream_options":{"include_usage":true}}),
+            json!({"stream_options":null}),
+        ] {
+            let original = valid.clone();
+            assert!(validate_generation_parameters(&valid).is_ok());
+            assert_eq!(valid, original);
+        }
+    }
+
+    #[test]
+    fn rejected_completion_usage_requires_complete_consistent_terminal_evidence() {
+        let mut response = json!({"choices":[{"message":{"content":"invalid JSON"},"finish_reason":"stop"}],
+            "usage":{"prompt_tokens":11,"completion_tokens":3,"total_tokens":14}});
+        assert!(terminal_chat_envelope(&response));
+        assert_eq!(reported_chat_usage(&response), Some((11, 3)));
+        for invalid in [
+            json!({"prompt_tokens":11}),
+            json!({"prompt_tokens":-1,"completion_tokens":3}),
+            json!({"prompt_tokens":11,"completion_tokens":1.5}),
+            json!({"prompt_tokens":11,"completion_tokens":3,"total_tokens":99}),
+            json!({"prompt_tokens":u64::MAX,"completion_tokens":1}),
+        ] {
+            response["usage"] = invalid;
+            assert!(reported_chat_usage(&response).is_none());
+        }
+        response["choices"][0]["finish_reason"] = Value::Null;
+        assert!(!terminal_chat_envelope(&response));
+        response["choices"] = json!([]);
+        assert!(!terminal_chat_envelope(&response));
+        response["choices"] = json!([{"message":{},"finish_reason":"stop"}]);
+        response["error"] = json!({"message":"upstream failure"});
+        assert!(!terminal_chat_envelope(&response));
+    }
+
+    #[test]
+    fn structured_output_enforces_schema_and_object_semantics() {
+        let request = json!({"response_format":{"type":"json_schema","json_schema":{
+            "name":"status","strict":true,"schema":{
+                "$defs":{"status":{"type":"string","enum":["ok"]}},
+                "type":"object","properties":{"status":{"$ref":"#/$defs/status"}},
+                "required":["status"],"additionalProperties":false
+            }
+        }}});
+        let response = |content: &str| json!({"choices":[{"message":{"content":content}}]});
+        assert!(valid_chat_completion_features(
+            &response(r#"{"status":"ok"}"#),
+            &request
+        ));
+        for invalid in [
+            r#"{}"#,
+            r#"{"status":"bad"}"#,
+            r#"{"status":1}"#,
+            r#"{"status":"ok","extra":true}"#,
+            "null",
+            "[]",
+            "not JSON",
+        ] {
+            assert!(!valid_chat_completion_features(
+                &response(invalid),
+                &request
+            ));
+        }
+        let object_request = json!({"response_format":{"type":"json_object"}});
+        assert!(valid_chat_completion_features(
+            &response("{}"),
+            &object_request
+        ));
+        for invalid in ["[]", "null", "42", "true", r#""text""#] {
+            assert!(!valid_chat_completion_features(
+                &response(invalid),
+                &object_request
+            ));
+        }
+        let mut refusal = response("not JSON");
+        refusal["choices"][0]["message"]["refusal"] = json!("Unable to comply");
+        assert!(valid_chat_completion_features(&refusal, &request));
+        refusal["choices"][0]["message"]["refusal"] = json!("");
+        assert!(!valid_chat_completion_features(&refusal, &request));
+    }
+
+    #[test]
+    fn schema_compilation_is_offline_and_bounded() {
+        for schema in [
+            json!({"type":"not-a-type"}),
+            json!({"$ref":"http://127.0.0.1:9/private"}),
+            json!({"$ref":"file:///private/schema.json"}),
+            json!({"$ref":"missing.json"}),
+            json!({"description":"x".repeat(65_536)}),
+            json!({"enum":vec!["x"; 4096]}),
+        ] {
+            assert!(structured_schema_validator(&schema).is_err());
+        }
+        let mut deep = json!({"type":"string"});
+        for _ in 0..33 {
+            deep = json!({"properties":{"nested":deep}});
+        }
+        assert!(structured_schema_validator(&deep).is_err());
+        let pattern =
+            structured_schema_validator(&json!({"type":"string","pattern":"^ok$"})).unwrap();
+        assert!(pattern.is_valid(&json!("ok")));
+        assert!(!pattern.is_valid(&json!("wrong")));
+    }
+
+    #[test]
+    fn native_routes_reject_effort_parameters_instead_of_dropping_them() {
+        for provider in ["anthropic", "bedrock"] {
+            for parameter in [
+                json!({"reasoning_effort":"low"}),
+                json!({"reasoning":{"effort":"high"}}),
+                json!({"thinking":{"type":"enabled","budget_tokens":1024}}),
+            ] {
+                let mut body = json!({"model":"explicit-model","messages":[{
+                    "role":"user","content":"test"}],"max_tokens":32});
+                body.as_object_mut()
+                    .unwrap()
+                    .extend(parameter.as_object().unwrap().clone());
+                assert!(
+                    map_native_chat_params(&body, provider).is_err(),
+                    "unsupported effort must not be silently removed for {provider}"
+                );
+            }
+            assert!(
+                map_native_chat_params(
+                    &json!({"model":"explicit-model",
+                "messages":[{"role":"user","content":"test"}],"max_tokens":32}),
+                    provider
+                )
+                .is_ok()
+            );
+        }
+    }
 }

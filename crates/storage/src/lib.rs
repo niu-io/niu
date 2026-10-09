@@ -1,13 +1,72 @@
 //! Durable tenant ownership and attempt intent. Credentials, prompts and outputs
-//! do not belong in these records. Authorization remains a caller obligation.
+//! do not belong in accounting records. Chat content has separate storage.
+//! Authorization remains a caller obligation.
+mod ingested_image_readiness;
+pub use ingested_image_readiness::ClaimedIngestedImageReadiness;
+mod agent_sessions;
+mod agent_traces;
+pub use agent_traces::*;
+mod agent_observations;
+pub use agent_observations::*;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use uuid::Uuid;
+mod branding;
+pub use branding::BrandingSettings;
 mod accounting;
+mod request_finish_reasons;
+pub use request_finish_reasons::{RequestChoiceFinish, RequestFinishReason};
+mod request_token_categories;
+pub use request_token_categories::RequestTokenCategories;
 mod accounts;
+mod codex_connections;
+pub use codex_connections::{CodexConnectionInput, CodexConnectionSecret, CodexConnectionView};
+mod chat_sessions;
+mod guardrails;
+mod image_processing;
+mod inspected_image_sources;
+pub use guardrails::GuardrailSnapshot;
+pub use image_processing::{ImageApprovalRecord, ImageRequestApproval};
+pub use inspected_image_sources::{
+    AssetImageIngestionConsent, AssetImageIngestionOutcome, AssetImageSourceAccess,
+    ClaimedAssetImageIngestion, InspectedImageSource, InspectedImageSourceInput,
+    VerifiedImageSource, inspected_image_source_aad,
+};
+mod codex_report;
 mod collectors;
+mod member_preferences;
+mod member_profiles;
+pub use member_preferences::ColorMode;
 mod observations;
 mod operator_audit;
 mod operators;
+pub use member_profiles::MemberProfile;
+mod password_logins;
+pub mod passwords;
+pub use password_logins::{PasswordLoginCredential, VerifiedPasswordLogin};
+mod password_workers;
+pub use password_workers::{PasswordWorkError, PasswordWorkers};
+mod asset_authorizations;
+mod asset_group_deletions;
+mod asset_group_intents;
+mod asset_group_reads;
+mod asset_group_updates;
+pub use asset_group_deletions::{
+    AssetGroupDeletionConsent, AssetGroupDeletionOutcome, ClaimedAssetGroupDeletion,
+};
+pub use asset_group_updates::{
+    AssetGroupUpdateOutcome, ClaimedAssetGroupUpdate, PreparedAssetGroupUpdate,
+};
+mod asset_listings;
+mod asset_lookups;
+pub use asset_authorizations::AssetOperationQualification;
+pub use asset_group_reads::ClaimedAssetGroupRead;
+pub use asset_listings::{AssetListingContinuation, AssetListingOutcome, ClaimedAssetListing};
+pub use asset_lookups::{AssetLookupOutcome, ClaimedAssetLookup};
+mod asset_management;
+pub use asset_group_intents::{
+    AssetGroupCreateIntent, AssetGroupReconciliationCandidate, ClaimedAssetGroupCreate,
+};
+pub use asset_management::AssetManagementCredentialRevision;
 mod vendors;
 pub use accounts::{
     AccountHealth, AccountInput, AccountView, AuthMode, BillingMode, QuotaInput, QuotaUnit,
@@ -30,16 +89,51 @@ pub use vendors::{
     VendorInput, VendorModelInput, VendorModelView, VendorRoute, VendorUpdate, VendorView,
 };
 mod billing;
+mod topups;
+mod workspace_spending;
+pub use topups::{TopupInput, TopupOrder};
 mod keys;
+mod media_pricing;
+mod media_rates;
+mod supplier_media;
+mod supplier_media_offers;
+pub use media_rates::{CustomerMediaRateCard, SelectedCustomerMediaRate};
+pub use niu_metered_cost::Dimensions as MediaBillingDimensions;
+pub use supplier_media::SupplierMediaRateCard;
+pub use supplier_media_offers::SupplierMediaOfferInput;
+mod media_jobs;
+mod media_results;
+pub use media_jobs::{
+    MediaJobStatus, MediaQueryLease, MediaRecoveryCandidate, MediaRecoveryRoute,
+    MediaTransportTiming,
+};
+pub use media_pricing::{MediaLiabilityBound, MediaUsageSource, MediaUsageState};
+pub use media_results::MediaResultKind;
 mod pricing;
 mod providers;
 pub use accounting::{
     BudgetSnapshot, CostEntry, GatewayActivityCostSummary, GatewayActivityEntry,
-    GatewayActivityFilter, GatewayActivitySummary,
+    GatewayActivityExportEntry, GatewayActivityFilter, GatewayActivityKeySummary,
+    GatewayActivityModelSummary, GatewayActivitySort, GatewayActivitySummary,
+    GatewayDeliveryFilter, GatewayDeliverySummary, GatewayReservation,
+};
+pub use codex_report::{
+    CodexRateOverride, CodexRateSnapshot, CodexUsageImportFinish, CodexUsageImportStart,
+    CodexUsageResponseInput, CodexUsageTokens,
 };
 pub use keys::{IssuedKey, KeyView, Principal};
 pub use pricing::{PriceInput, TokenRates};
-pub use providers::{ProviderMembership, ProviderOfferInput};
+pub use providers::{
+    ProviderMembership, ProviderOfferInput, ProviderOfferQualificationInput,
+    ProviderQualificationInput, ProviderQualificationRevocationInput, SupplierProfile,
+    SupplierProfileUpdate,
+};
+
+mod request_payloads;
+mod request_timings;
+pub use request_timings::RequestTimingRecord;
+
+mod migration_compatibility;
 
 pub static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!();
 
@@ -63,9 +157,15 @@ pub struct NamedResource {
 #[derive(sqlx::FromRow, serde::Serialize)]
 pub struct WorkspaceResource {
     pub id: Uuid,
+    pub is_default: bool,
     pub name: String,
     pub organization_id: Uuid,
     pub organization_name: String,
+    pub created_at_ms: i64,
+    pub active_key_count: i64,
+    pub requests_30d: i64,
+    pub requests_by_day: serde_json::Value,
+    pub last_request_at_ms: Option<i64>,
 }
 
 #[derive(Debug, sqlx::FromRow)]
@@ -84,12 +184,14 @@ pub struct Attempt {
 /// The operation and attempt identifiers are generated by the gateway before
 /// enqueueing so they remain available for response headers after admission.
 pub struct GatewayAdmission {
+    pub inspected_guardrails: Option<GuardrailSnapshot>,
     pub operation_id: Uuid,
     pub attempt_id: Uuid,
     pub scope: TenantScope,
     pub key_id: Uuid,
     pub model: String,
     pub upstream_model: String,
+    pub dispatch_provider: String,
     pub api_base: Option<String>,
     pub task_id: Option<String>,
     pub revision: String,
@@ -108,6 +210,7 @@ pub enum GatewayAdmissionStatus {
 /// `may_have_executed` and therefore visibly unresolved.
 #[derive(Clone)]
 pub struct GatewayCompletion {
+    pub token_categories: Option<RequestTokenCategories>,
     pub scope: TenantScope,
     pub attempt_id: Uuid,
     pub usage: Option<(u64, u64)>,
@@ -116,6 +219,8 @@ pub struct GatewayCompletion {
 
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {
+    #[error("workspace contains dependent records or is the installation default")]
+    WorkspaceNotEmpty,
     #[error("invalid execution observation")]
     InvalidObservation,
     #[error("database operation failed")]
@@ -134,18 +239,24 @@ pub enum StoreError {
     InvalidPrice,
     #[error("budget has insufficient available funds")]
     BudgetExceeded,
+    #[error("customer workspace spending limit exceeded")]
+    WorkspaceSpendingLimitExceeded,
     #[error("usage or execution remains unresolved")]
     Unresolved,
     #[error("invalid account or quota observation")]
     InvalidAccount,
     #[error("account is unavailable or at its concurrency limit")]
     AccountUnavailable,
+    #[error("encrypted image source storage is at capacity")]
+    ImageSourceCapacityExceeded,
     #[error("aggregate exceeds the supported numeric range")]
     AggregateOverflow,
     #[error("invalid operator name, role, or session lifetime")]
     InvalidOperator,
     #[error("invalid operator audit cursor or page size")]
     InvalidOperatorAuditQuery,
+    #[error("invalid video history cursor or page size")]
+    InvalidMediaQuery,
     #[error("invalid vendor or model configuration")]
     InvalidVendor,
     #[error("database pool size must be positive")]
@@ -170,7 +281,7 @@ impl Store {
             .max_connections(max_connections)
             .connect(url)
             .await?;
-        MIGRATOR.run(&pool).await?;
+        migration_compatibility::run(&pool).await?;
         Ok(Self { pool })
     }
 
@@ -212,7 +323,7 @@ impl Store {
         project_id: Option<Uuid>,
     ) -> Result<Vec<WorkspaceResource>, StoreError> {
         Ok(sqlx::query_as(
-            "SELECT p.id,p.name,o.id AS organization_id,o.name AS organization_name FROM projects p JOIN organizations o ON o.id=p.organization_id WHERE ($1::uuid IS NULL OR o.id=$1) AND ($2::uuid IS NULL OR p.id=$2) ORDER BY o.created_at,o.id,p.created_at,p.id LIMIT 1000",
+            "SELECT p.id,p.name,o.id AS organization_id,o.name AS organization_name,(EXTRACT(EPOCH FROM p.created_at)*1000)::bigint AS created_at_ms,(SELECT COUNT(*) FROM api_keys k WHERE k.organization_id=p.organization_id AND k.project_id=p.id AND k.revoked_at IS NULL AND k.expires_at>now()) AS active_key_count,(SELECT COUNT(*) FROM operations r WHERE r.organization_id=p.organization_id AND r.project_id=p.id AND r.created_at>=now()-interval '30 days') AS requests_30d,(SELECT (EXTRACT(EPOCH FROM MAX(r.created_at))*1000)::bigint FROM operations r WHERE r.organization_id=p.organization_id AND r.project_id=p.id) AS last_request_at_ms,(SELECT jsonb_agg(jsonb_build_object('start_ms',(EXTRACT(EPOCH FROM d.day)*1000)::bigint,'request_count',(SELECT COUNT(*) FROM operations r WHERE r.organization_id=p.organization_id AND r.project_id=p.id AND r.created_at>=d.day AND r.created_at<d.day+interval '1 day')) ORDER BY d.day) FROM generate_series(date_trunc('day',now(), 'UTC')-interval '29 days',date_trunc('day',now(), 'UTC'),interval '1 day') d(day)) AS requests_by_day,EXISTS(SELECT 1 FROM default_workspace d WHERE d.organization_id=p.organization_id AND d.project_id=p.id AND d.singleton) AS is_default FROM projects p JOIN organizations o ON o.id=p.organization_id WHERE ($1::uuid IS NULL OR o.id=$1) AND ($2::uuid IS NULL OR p.id=$2) ORDER BY o.created_at,o.id,p.created_at,p.id LIMIT 1000",
         )
         .bind(organization_id)
         .bind(project_id)
@@ -223,6 +334,19 @@ impl Store {
     /// Explicit installation-admin quick setup. Creates both ownership records
     /// atomically and reuses only the designated default, never a name match.
     pub async fn default_workspace(&self) -> Result<TenantScope, StoreError> {
+        self.default_workspace_with_prepaid(false).await
+    }
+
+    /// First-use customer setup provisions zero-funded shared company funds.
+    /// Reusing an existing default never changes its commercial configuration.
+    pub async fn default_prepaid_workspace(&self) -> Result<TenantScope, StoreError> {
+        self.default_workspace_with_prepaid(true).await
+    }
+
+    async fn default_workspace_with_prepaid(
+        &self,
+        prepaid: bool,
+    ) -> Result<TenantScope, StoreError> {
         let mut tx = self.pool.begin().await?;
         sqlx::query("LOCK TABLE default_workspace IN EXCLUSIVE MODE")
             .execute(&mut *tx)
@@ -241,6 +365,10 @@ impl Store {
                     .bind(organization_id)
                     .execute(&mut *tx)
                     .await?;
+                if prepaid {
+                    sqlx::query("INSERT INTO customer_balance_accounts(id,organization_id,currency) VALUES($1,$2,'USD')")
+                        .bind(Uuid::new_v4()).bind(organization_id).execute(&mut *tx).await?;
+                }
                 sqlx::query("INSERT INTO projects (id,organization_id,name) VALUES ($1,$2,'Default project')")
                     .bind(project_id).bind(organization_id).execute(&mut *tx).await?;
                 sqlx::query(
@@ -286,6 +414,40 @@ impl Store {
             organization_id,
             project_id,
         })
+    }
+
+    /// Rename in tenant scope; identifiers and historical references stay stable.
+    pub async fn rename_workspace(
+        &self,
+        scope: TenantScope,
+        name: &str,
+    ) -> Result<bool, StoreError> {
+        Ok(
+            sqlx::query("UPDATE projects SET name=$3 WHERE organization_id=$1 AND id=$2")
+                .bind(scope.organization_id)
+                .bind(scope.project_id)
+                .bind(name.trim())
+                .execute(&self.pool)
+                .await?
+                .rows_affected()
+                == 1,
+        )
+    }
+
+    /// Foreign keys prohibit deleting credentials, billing, or request history.
+    pub async fn delete_empty_workspace(&self, scope: TenantScope) -> Result<bool, StoreError> {
+        match sqlx::query("DELETE FROM projects WHERE organization_id=$1 AND id=$2")
+            .bind(scope.organization_id)
+            .bind(scope.project_id)
+            .execute(&self.pool)
+            .await
+        {
+            Ok(result) => Ok(result.rows_affected() == 1),
+            Err(sqlx::Error::Database(error)) if error.code().as_deref() == Some("23503") => {
+                Err(StoreError::WorkspaceNotEmpty)
+            }
+            Err(error) => Err(error.into()),
+        }
     }
 
     pub async fn create_operation(
@@ -377,6 +539,7 @@ impl Store {
         }
 
         let admission_count = admissions.len();
+        let rejection_scopes: Vec<_> = admissions.iter().map(|a| (a.scope, a.key_id)).collect();
         let mut operation_ids = Vec::with_capacity(admission_count);
         let mut attempt_ids = Vec::with_capacity(admission_count);
         let mut organization_ids = Vec::with_capacity(admission_count);
@@ -386,8 +549,20 @@ impl Store {
         let mut task_ids = Vec::with_capacity(admission_count);
         let mut revisions = Vec::with_capacity(admission_count);
         let mut upstream_models = Vec::with_capacity(admission_count);
+        let mut dispatch_providers = Vec::with_capacity(admission_count);
         let mut api_bases = Vec::with_capacity(admission_count);
+        let mut tx = self.pool.begin().await?;
         for admission in admissions {
+            if let Some(snapshot) = &admission.inspected_guardrails {
+                Self::insert_inspected_guardrails(
+                    &mut *tx,
+                    admission.scope,
+                    admission.attempt_id,
+                    admission.key_id,
+                    snapshot,
+                )
+                .await?;
+            }
             operation_ids.push(admission.operation_id);
             attempt_ids.push(admission.attempt_id);
             organization_ids.push(admission.scope.organization_id);
@@ -396,13 +571,14 @@ impl Store {
             models.push(admission.model);
             upstream_models.push(admission.upstream_model);
             api_bases.push(admission.api_base);
+            dispatch_providers.push(admission.dispatch_provider);
             task_ids.push(admission.task_id);
             revisions.push(admission.revision);
         }
 
-        let rows: Vec<(Uuid, String)> = sqlx::query_as(
+        let result = sqlx::query_as::<_, (Uuid, String)>(
             "SELECT attempt_id, status FROM niu_admit_unpriced_gateway_batch_with_route(\
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10\
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11\
             )",
         )
         .bind(operation_ids)
@@ -415,8 +591,50 @@ impl Store {
         .bind(revisions)
         .bind(upstream_models)
         .bind(api_bases)
-        .fetch_all(&self.pool)
-        .await?;
+        .bind(dispatch_providers)
+        .fetch_all(&mut *tx)
+        .await;
+        let rows = match result {
+            Ok(rows) => rows,
+            Err(error) => {
+                let database = error.as_database_error();
+                let code = database
+                    .and_then(|d| d.code())
+                    .map(|code| code.into_owned());
+                if code.as_deref() == Some("P0010") {
+                    let metadata = database
+                        .and_then(|d| d.try_downcast_ref::<sqlx::postgres::PgDatabaseError>())
+                        .and_then(|d| d.detail())
+                        .and_then(|detail| serde_json::from_str::<serde_json::Value>(detail).ok());
+                    tx.rollback().await?;
+                    if let Some(metadata) = metadata {
+                        for (scope, key) in rejection_scopes {
+                            if metadata["organization_id"] == scope.organization_id.to_string()
+                                && metadata["project_id"] == scope.project_id.to_string()
+                                && metadata["key_id"] == key.to_string()
+                            {
+                                sqlx::query("INSERT INTO batch_guardrail_rejections(organization_id,project_id,key_id,reason,workspace_revision,key_policy_revision,key_assignment_revision) VALUES($1,$2,$3,$4,$5,$6,$7)")
+                                    .bind(scope.organization_id).bind(scope.project_id).bind(key)
+                                    .bind(metadata["reason"].as_str())
+                                    .bind(metadata["workspace_revision"].as_i64())
+                                    .bind(metadata["key_policy_revision"].as_i64())
+                                    .bind(metadata["key_assignment_revision"].as_i64())
+                                    .execute(&self.pool).await?;
+                                return Err(StoreError::Conflict);
+                            }
+                        }
+                    }
+                    return Err(StoreError::Database(error));
+                }
+                return Err(match code.as_deref() {
+                    Some("P0007") => StoreError::AccountUnavailable,
+                    Some("P0006") => StoreError::Conflict,
+                    _ => StoreError::Database(error),
+                });
+            }
+        };
+
+        tx.commit().await?;
 
         if rows.len() != admission_count {
             return Err(StoreError::InvalidGatewayAdmissionBatch);
@@ -526,6 +744,7 @@ impl Store {
         let mut prompt_tokens = Vec::with_capacity(completion_count);
         let mut completion_tokens = Vec::with_capacity(completion_count);
         let mut provider_models = Vec::with_capacity(completion_count);
+        let mut categories = Vec::new();
         for completion in completions {
             if !seen.insert(completion.attempt_id) {
                 return Err(StoreError::InvalidGatewayAdmissionBatch);
@@ -539,6 +758,23 @@ impl Store {
                     ))
                 })
                 .transpose()?;
+            if let Some(details) = completion.token_categories {
+                let Some((prompt, output)) = usage else {
+                    return Err(StoreError::InvalidUsage);
+                };
+                if details.cached_input_tokens.is_none()
+                    && details.reasoning_output_tokens.is_none()
+                    || details
+                        .cached_input_tokens
+                        .is_some_and(|value| value < 0 || value > prompt)
+                    || details
+                        .reasoning_output_tokens
+                        .is_some_and(|value| value < 0 || value > output)
+                {
+                    return Err(StoreError::InvalidUsage);
+                }
+                categories.push((completion.attempt_id, details));
+            }
             organization_ids.push(completion.scope.organization_id);
             project_ids.push(completion.scope.project_id);
             attempt_ids.push(completion.attempt_id);
@@ -591,6 +827,11 @@ impl Store {
         .await?;
         if updated.len() != completion_count {
             return Err(StoreError::Conflict);
+        }
+        for (attempt, details) in categories {
+            sqlx::query("INSERT INTO request_token_categories (attempt_id,cached_input_tokens,reasoning_output_tokens) VALUES ($1,$2,$3)")
+                .bind(attempt).bind(details.cached_input_tokens).bind(details.reasoning_output_tokens)
+                .execute(&mut *tx).await?;
         }
         tx.commit().await?;
         Ok(())

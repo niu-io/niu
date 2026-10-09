@@ -11,7 +11,7 @@ pub enum OperatorAuditActor {
 }
 
 impl OperatorAuditActor {
-    fn kind_and_id(self) -> (&'static str, Option<Uuid>) {
+    pub(crate) fn kind_and_id(self) -> (&'static str, Option<Uuid>) {
         match self {
             Self::Installation => ("installation", None),
             Self::Operator(id) => ("operator", Some(id)),

@@ -1,10 +1,10 @@
 # Niu architecture
 
-Status: mixed-language monorepo and first gateway runtime slice are under active implementation. Niu targets an open-source Agent Observability and Benchmark product with a complete integrated AI gateway and management runtime. Current behavior is described in the implemented API contract; remaining design goals are not shipped guarantees.
+Status: mixed-language monorepo and first gateway runtime slice are under active implementation. Niu targets lower-cost model API access and transparent consumption, with independently usable gateway and management interfaces. The agreed scope is defined in [product focus](docs/product/product-focus.md). Current behavior is described in the implemented API contract; remaining design goals are not shipped guarantees.
 
 ## Product goals
 
-Niu focuses on performance and cost, with security as its foundation. Performance covers the complete path, including authorization, routing, accounting, required policy, and response delivery. Cost covers provider spend, retry exposure, deployment resources, and the work required to operate and reconcile the system. Compare equivalent tasks, protocol capabilities, and safety requirements.
+Niu focuses on performance and cost, with security as its foundation. Performance covers the complete path, including authorization, routing, accounting, required policy, and response delivery. Cost covers provider spend, retry exposure, deployment resources, and the work required to operate and reconcile the system. Compare customer prices for explicit model usage and protocol capabilities. Customer charges, Supplier liabilities and platform margins remain separate; procurement costs are never exposed as customer charges.
 
 Security constraints are not optimization scores. A candidate that violates tenant permissions, credential ownership, required policy, or data-region rules is ineligible even when it appears faster or cheaper.
 
@@ -13,7 +13,7 @@ Security constraints are not optimization scores. A candidate that violates tena
 ```text
 apps/
   gateway/       Rust API process, inference, control endpoints, workers
-  console/       TypeScript management console, built to static files
+  dashboard/       TypeScript management dashboard, built to static files
   docs/          Astro Starlight documentation site
 contracts/       OpenAPI and versioned wire contracts
 crates/          Niu-owned execution contracts and cost components
@@ -29,14 +29,14 @@ The four-repository ownership boundary remains: `niu` owns the public product, `
 
 ## Runtime shape
 
-The deployment target is one Niu application container and one public port. The Rust process serves inference APIs, management APIs, authentication, health and metrics, background recovery, and the static TypeScript console. The docs site is built and deployed as static documentation outside the inference runtime. PostgreSQL stores tenant identity, scoped keys, operations and attempt evidence; durable financial accounting remains in progress.
+The deployment target is one Niu application container and one public port. The Rust process serves inference APIs, management APIs, authentication, health and metrics, background recovery, and the static TypeScript dashboard. The docs site is built and deployed as static documentation outside the inference runtime. PostgreSQL stores tenant identity, scoped keys, operations and attempt evidence; durable financial accounting remains in progress.
 
 ```mermaid
 flowchart LR
     Client[SDK or browser] --> App[Niu gateway process]
     App --> Inference[Inference APIs]
     App --> Management[Management APIs]
-    App --> Console[Static TypeScript console]
+    App --> Dashboard[Static TypeScript dashboard]
     App --> Worker[Recovery and outbox work]
     Inference --> Auth[Identity and policy]
     Auth --> Plan[Eligible route plan]
@@ -49,21 +49,17 @@ flowchart LR
 
 The gateway uses a read-only TOML model catalog, PostgreSQL identity and attempt storage, and process-local metric counters. Atomic budget reservations, dynamic configuration publishing, financial settlement and crash reconciliation remain required product work.
 
-## Task evidence and standalone observation
+## Gateway consumption evidence
 
-The primary product unit is an accepted task outcome. Imported telemetry and native execution must share task, agent/subagent, step, invocation, attempt and validation identities. Parentage describes containment; typed causal links describe delegation, retries, parallel dependencies and resumed work. A simple request tree cannot represent shared work accurately.
+The product unit is a model request and its attributable attempts, usage and customer charges. External orchestration clients own tasks, subagents, tools, scheduling, acceptance and productivity evaluation. Optional opaque correlation references allow clients to join their own records without moving task ownership into Niu.
 
-Read-only collection and investigation must function without inference forwarding or pooling. Collectors default to metadata, declare coverage and provenance, and never trigger model calls or allowance changes. Subscription observations preserve shared windows and unattributed depletion. Actual model identity requires provider evidence, separate from the requested model.
+Activity and Logs collect only requests handled by Niu. Niu does not accept external LLM-call logs, agent tool traces, or personal subscription usage imports. Supen owns complete agent execution observability; optional correlation references connect its task context to Niu gateway requests.
 
-Costs attach once to canonical execution/charge identities; task membership is an attribution relationship rather than another charge. Outcome records distinguish agent assertions, validators and human acceptance. Wall-clock latency uses observed interval bounds rather than summing parallel durations. Missing events, tool costs and intervals remain explicit gaps.
-
-Benchmarks use the same evidence schema, frozen task setup and acceptance contracts. Diagnostics are labeled hypotheses unless backed by a paired experiment. Private optimizers consume these public contracts and remain subject to core authorization, budgets and side-effect boundaries.
-
-This task-level layer is planned; existing request/attempt storage and the integer ledger are reusable foundations, not proof that task observability is complete.
+Existing task schemas and benchmark code are compatibility artifacts. They do not require a task runner, sandbox, acceptance evaluator or benchmark product in the current scope.
 
 ## Request lifecycle
 
-One Niu coordinator owns each request and its attempts. Model API calls and longer-running tool or agent tasks have distinct capability contracts, but share identity, policy, deadlines, attempt accounting, and outcome reporting. Agent tasks also need explicit workspace isolation and side-effect-aware recovery.
+One Niu coordinator owns each model request and its attempts. Agent orchestration clients independently own task retries, side effects and workspace isolation. A gateway retry is not evidence of a task retry or task completion.
 
 The coordinator authenticates a trusted tenant identity, checks protocol support and permissions, builds the eligible resource set, applies required policy, reserves budgets, persists attempt intent, and invokes one adapter. Retries recheck permissions and eligibility, share the request deadline, obey an explicit attempt limit, and reserve additional cost exposure before dispatch. An explicitly requested model is never silently replaced; automatic selection is opt-in. Unsupported capabilities fail clearly.
 
@@ -73,9 +69,9 @@ The initial shared types live in [`niu-execution`](crates/execution/README.md). 
 
 ## Implementation order
 
-The public product should first make model and task capabilities explicit and give all work one attempt coordinator. Next it should attribute usage, estimates, missing usage, provider cost, customer charge, and platform exposure to individual attempts. A reproducible evaluator then measures cost at a required quality level and quality at a fixed budget, alongside latency and resource use. Durable budget reservations and settlement recovery must be in place before strict spending guarantees. Reference selection, health, quota-aware admission, affinity, and bounded queueing follow on these contracts. Automatic task classification and escalation depend on benchmark evidence and remain opt-in.
+The [current release matrix](docs/releases/first-release.md) governs sequencing: first qualify independent API access and durable consumption investigation; then qualify discounted supply and its customer billing/settlement. Multiple Suppliers for each model, agent routing and task benchmarks are not prerequisites.
 
-The single-container deployment is the delivery shape for this workflow, not a substitute for it. Console work should enable configuration, execution, and evidence review before expanding into presentation features.
+Each advertised offer needs evidence of the Supplier's right and ability to supply, model identity, protocol behavior, data handling, availability and rates. Comparisons use current model-specific customer prices. Supplier procurement details and platform margins remain confidential.
 
 ## Cost path
 
@@ -99,4 +95,4 @@ Enterprise features extend a pinned public Niu release through public versioned 
 
 Niu imports selected Rust packages from LiteLLM's native runtime rather than its full repository. Current imports cover provider operations and protocol transformations, shared types, authentication helpers, secret sources, HTTP transport, and tracing. Exact upstream commit, package paths, per-package hashes, and licenses are recorded in `vendor/litellm-rust/SOURCE-MANIFEST.json` and `THIRD-PARTY-NOTICES.md`.
 
-The public project owns the application, route coordinator, management surface, console, contracts, persistence, and releases. Upstream imports do not imply feature parity; Niu's contracts and release tests determine supported behavior.
+The public project owns the application, route coordinator, management surface, dashboard, contracts, persistence, and releases. Upstream imports do not imply feature parity; Niu's contracts and release tests determine supported behavior.

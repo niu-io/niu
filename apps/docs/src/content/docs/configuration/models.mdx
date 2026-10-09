@@ -7,7 +7,7 @@ A model route maps a public model name to an upstream provider, provider model i
 
 The current development configuration is TOML. The example file is [`config/niu.example.toml`](https://github.com/niu-io/niu/blob/main/config/niu.example.toml). Static credentials are referenced by environment variable name and loaded at startup.
 
-Set `public_catalog = true` on a route to publish its alias and declared capabilities at `/models/` and `GET /catalog/v1/models`. This is an explicit public disclosure. The catalog omits provider names, upstream model identifiers, endpoints, credentials and pricing. Routes default to hidden.
+Set `public_catalog = true` on a route to publish its alias, declared capabilities and descriptive model metadata at `/models/` and `GET /catalog/v1/models`. This is an explicit public disclosure. The catalog omits provider names, upstream model identifiers, endpoints, credentials and pricing. Routes default to hidden.
 
 ```toml
 [models.fast]
@@ -18,15 +18,15 @@ api_key_env = "OPENROUTER_API_KEY"
 
 `openrouter` uses OpenAI-compatible chat completions at `https://openrouter.ai/api/v1` when `api_base` is omitted. OpenAI remains supported with its own default endpoint. Provider names remain distinct in administration and route records.
 
-## Managed vendors
+## Managed suppliers
 
-Installation administrators can manage shared vendors and their model routes in the console or through `/admin/v1/vendors`. OpenRouter is one vendor; the model makers offered through it do not require separate Niu credentials. Vendor records, enabled state, model mappings and revisions persist in PostgreSQL. Updates apply to new requests. Organization and project operators cannot manage shared upstream connections.
+Platform administrators manage shared Suppliers and their model routes in the dashboard or through the compatibility endpoint `/admin/v1/vendors`. A Supplier is the business supplying model access; a Provider identifies the upstream API adapter. OpenRouter can be a Supplier using the `openrouter` Provider adapter. Model developers offered through that Supplier do not require separate Niu credentials. Supplier records, enabled state, model mappings, and revisions persist in PostgreSQL. Updates apply to new requests. Organization and workspace operators cannot manage platform-wide Suppliers.
 
-Set `NIU_VENDOR_ENCRYPTION_KEY` to a separate, high-entropy secret of at least 32 characters before storing a vendor credential. Niu encrypts credentials using AES-256-GCM; API responses never return them. Keep the encryption key in your deployment secret store and back it up separately from PostgreSQL. Changing it without re-encrypting stored credentials makes them unreadable; automatic master-key rotation is not implemented.
+Set `NIU_VENDOR_ENCRYPTION_KEY` to a separate, high-entropy secret of at least 32 characters before storing a Supplier credential. Niu encrypts credentials using AES-256-GCM; API responses never return them. Keep the encryption key in your deployment secret store and back it up separately from PostgreSQL. Changing it without re-encrypting stored credentials makes them unreadable; automatic master-key rotation is not implemented.
 
 A database model alias overrides the same alias in TOML, including when the database route is disabled. A configuration with an empty `[models]` section can use only managed routes. Static file routes remain supported.
 
-Deployment operators may set `NIU_VENDOR_BOOTSTRAP_FILE` to a JSON seed file. It contains vendor metadata, model routes, and the name of the environment variable holding the initial credential. It must contain no secret values. The seed runs once per bootstrap vendor identity and preserves later edits, renames, credential rotations and disabled state.
+Deployment operators may set `NIU_VENDOR_BOOTSTRAP_FILE` to a JSON seed file. It contains Supplier metadata, model routes, and the name of the environment variable holding the initial credential. It must contain no secret values. The seed runs once per bootstrap Supplier identity and preserves later edits, renames, credential rotations and disabled state.
 
 Keep credentials out of TOML, source control, browser storage and public catalog responses.
 
@@ -46,7 +46,7 @@ supports_structured_output = true
 
 `supports_tool_calls` enables non-streaming function definitions and tool-call responses. `supports_streaming_tool_calls` separately enables incremental tool-call deltas and requires `supports_tool_calls`. Niu forwards these declarations to the configured provider; it does not run the requested functions. Keep tool execution and authorization in your application.
 
-`supports_structured_output` enables `response_format` with `json_object` or `json_schema` for non-streaming requests. Niu requires JSON output and rejects malformed JSON, but does not evaluate the output against the schema. Schema enforcement depends on the configured endpoint and model, so verify that behavior before enabling the flag. Structured-output streaming, priced tool calls, and native Anthropic/Bedrock tool or structured-output routes are not supported by this contract.
+`supports_structured_output` enables `response_format` with `json_object` or `json_schema` for non-streaming requests. `json_object` requires a JSON object. For `json_schema`, Niu compiles the self-contained schema before admission and checks returned JSON against it; invalid schemas receive `400`, and a mismatched upstream response receives `502`. Nonempty upstream refusals remain refusals. Schemas are limited to 64 KiB, 4096 JSON nodes and depth 32; regular expression compilation and backtracking are bounded. HTTP and file reference retrieval are disabled, while local references can resolve within the schema. Verify actual endpoint and model behavior before enabling the flag. Structured-output streaming, priced tool calls, and native Anthropic/Bedrock tool or structured-output routes are not supported by this contract.
 
 ## Responses API text subset
 
@@ -90,7 +90,7 @@ The optional route is shown commented out in [`config/niu.example.toml`](https:/
 
 ## Optional text-route pricing
 
-OpenAI-compatible routes can reserve and settle a project's lifetime cash budget. Configure integer rates in **currency nanounits per million tokens**:
+Supported OpenAI-compatible routes can reserve and settle a workspace's platform upstream budget. This installation-only procurement configuration is separate from customer selling tariffs and invoice charges. Configure integer rates in **currency nanounits per million tokens**:
 
 ```toml
 [models.fast.pricing]
@@ -103,11 +103,11 @@ max_input_tokens = 32768
 max_output_tokens = 4096
 ```
 
-These illustrative rates mean USD 1 per million input tokens and USD 2 per million output tokens. Replace them with your provider's verified rates. The API-equivalent and cash schedules are independent. Create a matching-currency project budget before sending priced requests.
+These illustrative rates mean USD 1 per million input tokens and USD 2 per million output tokens. Replace them with the Provider's verified rates. The compatibility API-equivalent and cash schedules are independent upstream accounting fields; neither defines customer prices. Create a matching-currency workspace upstream budget before sending priced requests.
 
 The gateway reserves the full configured input and output bounds, not an estimated token count. The input bound is an operator assertion about the provider's maximum billable input for this route; it is not a locally verified tokenizer limit. Choose bounds from the actual provider/model contract. Understated bounds can incur an overrun: Niu records the full liability and flags the entry instead of hiding the excess. Provider contract validation remains required before production use.
 
-An omitted output limit is set to `max_output_tokens` using the upstream `max_completion_tokens` field. Explicit output limits must be positive and no larger than the configured bound. Providers must support that field. Pricing supports one text chat completion, including optional streaming, the text-only Responses subset above, or text embeddings. Chat pricing rejects tools, audio, images, multiple choices and other billing dimensions. On a priced Responses request, the gateway compares the combined UTF-8 byte length of `input` and `instructions` with `max_input_tokens`, injects the configured output bound when omitted, and reserves both limits before dispatch. Priced embeddings compare total input bytes with `max_input_tokens`, reserve input capacity only, and settle provider-reported prompt usage. These bounds remain operator assertions, not tokenizer measurements. Unpriced routes keep their existing behavior.
+An omitted output limit is set to `max_output_tokens` using the upstream `max_completion_tokens` field. Explicit output limits must be positive and no larger than the configured bound. Providers must support that field. Pricing supports one text chat completion, including optional streaming, the text-only Responses subset above, or text embeddings. Chat pricing rejects tools, audio, images, multiple choices and other billing dimensions. On a priced Responses request, the gateway compares the combined UTF-8 byte length of `input` and `instructions` with `max_input_tokens`, injects the configured output bound when omitted, and reserves both limits before dispatch. Priced embeddings compare total input bytes with `max_input_tokens`, reserve input capacity only, and settle provider-reported prompt usage. These bounds remain operator assertions, not tokenizer measurements. A workspace with an upstream budget cannot dispatch an unpriced request without a trusted held reservation.
 
 The immutable price revision includes the route configuration and pricing. Identical publications reuse a revision. Reservations happen before dispatch; insufficient funds or a missing matching budget prevent the upstream call. Complete provider usage settles cash and API-equivalent cost; missing usage, timeout and interrupted streams retain exposure. A recovery worker retries completed priced settlements without repeating inference.
 

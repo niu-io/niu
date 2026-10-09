@@ -1,0 +1,52 @@
+{
+  "date": "2026-10-03",
+  "model": "google/gemini-2.5-flash",
+  "scope": "packed_sdk_client_cancellation",
+  "client_checks": [
+    {
+      "mode": "iterator_return",
+      "first_output_observed": true,
+      "client_terminal_observed": false,
+      "client_terminal_usage_observed": false,
+      "cancellation_return_ms": 3,
+      "max_output_tokens": 256
+    },
+    {
+      "mode": "abort_signal",
+      "first_output_observed": true,
+      "client_terminal_observed": false,
+      "client_terminal_usage_observed": false,
+      "cancellation_return_ms": 1,
+      "max_output_tokens": 256
+    }
+  ],
+  "preaborted_rejected": true,
+  "attempts_for_test_key": 2,
+  "saved_attempt_states": [
+    {
+      "charges": 0,
+      "payloads": 0,
+      "execution": "may_have_executed",
+      "prompt_tokens": null,
+      "timing_complete": false,
+      "usage_confidence": "unknown",
+      "completion_tokens": null
+    },
+    {
+      "charges": 0,
+      "payloads": 0,
+      "execution": "may_have_executed",
+      "prompt_tokens": null,
+      "timing_complete": false,
+      "usage_confidence": "unknown",
+      "completion_tokens": null
+    }
+  ],
+  "temporary_key_revoked": true,
+  "packed_sdk_version": "0.1.0",
+  "packed_sdk_sha256": "49cc5aee42a16c4dbb3de1e9e353ce32ac7138f8fbdb06ab14514d29a7421283",
+  "sdk_tests_passed": 63,
+  "previous_package_buffered_abort_bug_reproduced": true,
+  "buffered_abort_regression_passed": true,
+  "pending_read_abort_regression_passed": true
+}

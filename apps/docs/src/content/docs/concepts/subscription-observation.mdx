@@ -1,16 +1,20 @@
 ---
-title: Subscription observations
+title: Legacy quota records
 description: Add supplemental provider quota observations alongside automatic gateway activity.
 ---
+
+:::note[Legacy metadata API]
+This page documents retained workspace quota-record APIs. Supplier quota records do not provide measured token usage or customer charges.
+:::
 
 Supplier account metadata and quota observations are independent of inference forwarding. They support an initial capacity report for installations that want to inspect subscription use before enabling a provider route.
 
 ## Register an account
 
-Register provider, plan, authentication mode, billing mode, concurrency limit, and an opaque credential reference on a project:
+Register provider, plan, authentication mode, billing mode, concurrency limit, and an opaque credential reference on a workspace:
 
 ```sh
-curl -X POST "$NIU_URL/admin/v1/organizations/$ORG/projects/$PROJECT/accounts" \
+curl -X POST "$NIU_URL/admin/v1/organizations/$ORG/projects/$WORKSPACE/accounts" \
   -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
   -H 'Content-Type: application/json' \
   --data '{"provider":"provider-name","plan":"team","authentication_mode":"oauth_refresh","billing_mode":"subscription","credential_reference":"env:PROVIDER_ACCOUNT","concurrency_limit":2}'
@@ -38,20 +42,20 @@ cat > quota-observation.v1.json <<JSON
 }
 JSON
 
-curl -X POST "$NIU_URL/admin/v1/organizations/$ORG/projects/$PROJECT/accounts/$ACCOUNT/quota" \
+curl -X POST "$NIU_URL/admin/v1/organizations/$ORG/projects/$WORKSPACE/accounts/$ACCOUNT/quota" \
   -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
   -H 'Content-Type: application/json' \
   --data-binary @quota-observation.v1.json
 ```
 
-Units are `tokens`, `requests`, or `millionths_of_window`. A ratio is retained as a ratio; Niu does not convert it to a token balance. Include provider observation, validity, and reset timestamps. Samples observed in the future are rejected. The latest sample is fresh only while it has a known remaining amount and is before both its validity deadline and reset time. The console also expires a displayed sample as time passes (and checks again when the window regains focus), without contacting the provider. Refresh retrieves newer gateway observations; it does not refresh provider credentials or allowance.
+Units are `tokens`, `requests`, or `millionths_of_window`. A ratio is retained as a ratio; Niu does not convert it to a token balance. Include provider observation, validity, and reset timestamps. Samples observed in the future are rejected. The latest sample is fresh only while it has a known remaining amount and is before both its validity deadline and reset time. The dashboard also expires a displayed sample as time passes (and checks again when the window regains focus), without contacting the provider. Refresh retrieves newer gateway observations; it does not refresh provider credentials or allowance.
 
-Exact replays return the existing observation ID. If another payload uses the same project account, provider window key, and observation timestamp, Niu returns `409 Conflict`. Older samples are retained for comparison but cannot replace the latest sample.
+Exact replays return the existing observation ID. If another payload uses the same workspace account, provider window key, and observation timestamp, Niu returns `409 Conflict`. Older samples are retained for comparison but cannot replace the latest sample.
 
-The **Subscriptions** console lists current account windows, their source and reset, freshness, and change since the preceding snapshot. A change is shown only when consecutive samples have the same unit, maximum capacity, reset timestamp and source. A reset, plan/capacity change or source change starts a new comparison baseline; Niu does not skip intervening samples to find an older match. Changes are labeled unattributed: this release does not reconcile quota deltas to canonical per-attempt usage. If an imported execution span's `charge_ref` is the UUID of an Niu attempt assigned to the account, the account lists that task and the span links back to the account. Other charge references remain unlinked. BIGINT quantities are returned as decimal strings so browser clients do not round them.
+The **Subscriptions** dashboard lists current account windows, their source and reset, freshness, and change since the preceding snapshot. A change is shown only when consecutive samples have the same unit, maximum capacity, reset timestamp and source. A reset, plan/capacity change or source change starts a new comparison baseline; Niu does not skip intervening samples to find an older match. Changes are labeled unattributed: this release does not reconcile quota deltas to canonical per-attempt usage. If an imported execution span's `charge_ref` is the UUID of an Niu attempt assigned to the account, the account lists that task and the span links back to the account. Other charge references remain unlinked. BIGINT quantities are returned as decimal strings so browser clients do not round them.
 
 To remove imported history, delete one account window through `DELETE /admin/v1/organizations/{organization}/projects/{project}/accounts/{account}/quota?window_key=weekly`. Niu permanently removes all stored samples for that account and window, including the previous-sample baseline. Other windows, provider state, inference attempts and ledger entries are unaffected. The deletion is manual; an automatic retention schedule is not implemented.
 
 ## Limits
 
-This is a versioned, manual import workflow. It does not call a provider, dispatch inference, refresh credentials, change a subscription, or reset an allowance. Account drill-down requires an explicit canonical attempt UUID in the trace; it does not automatically reconcile quota windows against attempt usage. Management APIs enforce organization/project-scoped operator permissions or accept installation bootstrap credentials. Quota ingestion additionally accepts scoped collector keys. Native collectors remain future work.
+This is a versioned, manual import workflow. It does not call a provider, dispatch inference, refresh credentials, change a subscription, or reset an allowance. Account drill-down requires an explicit canonical attempt UUID in the trace; it does not automatically reconcile quota windows against attempt usage. Management APIs enforce organization/workspace-scoped operator permissions or accept installation bootstrap credentials. Quota ingestion additionally accepts scoped collector keys. Native collectors remain future work.

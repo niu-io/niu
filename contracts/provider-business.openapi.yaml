@@ -2,12 +2,299 @@ openapi: 3.1.0
 info:
   title: Niu provider business API
   version: 0.1.0
-  description: Supplier memberships, agreed text-token payout rates, independent earnings and confirmed external payment records. These APIs never initiate transfers. All responses use Cache-Control no-store.
+  description: Supplier memberships, separate agreed text and media purchase rates, independent earnings and confirmed external payment records. These APIs never initiate transfers. All responses use Cache-Control no-store.
 servers:
   - url: /
 security:
   - operatorBearer: []
 paths:
+  /admin/v1/providers/{provider}/media-offer-models:
+    parameters:
+      - $ref: '#/components/parameters/provider'
+    get:
+      operationId: listSupplierMediaOfferModels
+      summary: List named draft media offer bindings
+      description: Installation read authority only. Bounded canonical alias traversal includes configured video schemas on explicitly owned Supplier credentials, regardless of activation or qualification. Invalid schemas, personal credentials and aliases owned by another Supplier are excluded. No credential, endpoint, upstream model or prices are returned. Exact revision strings and internal binding identifiers must remain out of product UI. Cursor progression includes invalid rows skipped after validation. A page may have empty data with has_more true; clients must continue with next_after until has_more is false. Multiple credentials belonging to the same Supplier retain their independent model bindings.
+      parameters:
+        - { name: after, in: query, schema: { type: string, minLength: 1, maxLength: 256 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        '200':
+          description: Draft configuration choices, not dispatch qualification
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [data, has_more, next_after]
+                properties:
+                  has_more: { type: boolean }
+                  next_after: { type: [string, 'null'] }
+                  data:
+                    type: array
+                    maxItems: 100
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required: [model_alias, api_key_name, vendor_id, vendor_revision, model_revision, schema_revision, channel, offer_revision]
+                      properties:
+                        model_alias: { type: string }
+                        api_key_name: { type: string }
+                        vendor_id: { type: string, format: uuid }
+                        vendor_revision: { type: string, pattern: '^[1-9][0-9]*$' }
+                        model_revision: { type: string, pattern: '^[1-9][0-9]*$' }
+                        schema_revision: { type: string }
+                        channel: { type: string }
+                        offer_revision: { type: [string, 'null'], format: uuid }
+        '400': { description: Invalid cursor or page size }
+        '401': { description: Valid management session required }
+        '403': { description: Installation administration required }
+        '503': { description: Durable storage unavailable }
+  /admin/v1/providers/{provider}/media-offers:
+    parameters:
+      - $ref: '#/components/parameters/provider'
+    post:
+      operationId: publishSupplierMediaOffer
+      summary: Save an inactive versioned media offer without text-token prices
+      description: Installation write authority only. Requires exact current credential, model and syntactically validated video schema revisions plus explicit Supplier ownership. Personal credentials and foreign aliases are rejected. Publication clears activation and offer qualification. Separate specification-selected purchase and customer selling cards are required for paid video dispatch. Exact receipt replay returns the saved revision without replacing a newer offer, including after configuration changes; a changed document or another Supplier's receipt conflicts. Rebinding is allowed only to another credential explicitly owned by the same Supplier, and original job routes/prices remain pinned. Neither a saved offer nor reviewed digests establish live protocol qualification.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [revision, model_alias, vendor_id, vendor_revision, model_revision, schema_revision]
+              properties:
+                revision: { type: string, format: uuid, description: Client-owned immutable publication receipt. Reuse only for identical explicit replay. }
+                model_alias: { type: string, minLength: 1, maxLength: 256 }
+                vendor_id: { type: string, format: uuid }
+                vendor_revision:
+                  description: Exact positive signed 64-bit revision; decimal strings preserve browser precision.
+                  oneOf:
+                    - { type: integer, format: int64, minimum: 1 }
+                    - { type: string, pattern: '^[1-9][0-9]{0,18}$', maxLength: 19 }
+                model_revision:
+                  description: Exact positive signed 64-bit revision; decimal strings preserve browser precision.
+                  oneOf:
+                    - { type: integer, format: int64, minimum: 1 }
+                    - { type: string, pattern: '^[1-9][0-9]{0,18}$', maxLength: 19 }
+                schema_revision: { type: string, minLength: 1, maxLength: 256 }
+                expected_revision: { type: [string, 'null'], format: uuid, description: Current offer revision, or null for a new offer. }
+      responses:
+        '200':
+          description: Inactive media offer saved or identical receipt replayed
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [revision]
+                    properties:
+                      revision: { type: string, format: uuid }
+        '400': { description: Invalid model binding }
+        '401': { description: Valid management session required }
+        '403': { description: Installation write administration required }
+        '409': { description: Changed receipt, stale binding, foreign ownership or offer revision conflict }
+        '413': { description: Publication exceeds 4 KiB }
+        '422': { description: Malformed JSON document or unexpected fields }
+        '503': { description: Durable storage unavailable }
+  /admin/v1/providers/{provider}/media-rates/replace:
+    parameters:
+      - $ref: '#/components/parameters/provider'
+    post:
+      operationId: replaceSupplierMediaRate
+      summary: Atomically replace agreed media purchase terms
+      description: Installation write authority only. Publishes an immutable replacement and ends the original schedule at the replacement's effective_from in one transaction. Dimensions and meter must match the original; current offer, credential, model and schema bindings are rechecked. Original terms, pinned job prices and earnings remain unchanged. Exact replay is idempotent while the configuration remains eligible. Conflicting cutoff, changed replay or stale binding rejects the whole transaction. No transfers, job cancellations, refunds or automatic retries occur.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [previous_revision, rate]
+              properties:
+                previous_revision: { type: string, minLength: 1, maxLength: 256 }
+                rate: { $ref: '#/components/schemas/SupplierMediaRateCard' }
+      responses:
+        '200':
+          description: Complete transition saved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [revision, effective_from]
+                    properties:
+                      revision: { type: string }
+                      effective_from: { type: string, pattern: '^-?[0-9]+$' }
+        '400': { description: Invalid rate, dimensions, meter or effective period }
+        '401': { description: Valid management session required }
+        '403': { description: Installation administration required }
+        '409': { description: Original or current binding unavailable, cutoff conflict or changed replay }
+        '413': { description: Configuration exceeds 128 KiB }
+        '503': { description: Durable storage unavailable }
+  /admin/v1/providers/{provider}/media-rate-models:
+    parameters:
+      - $ref: '#/components/parameters/provider'
+    get:
+      operationId: listSupplierMediaRateModels
+      summary: List current media pricing configuration choices
+      description: Installation read authority only. Named model and API-key choices include current qualified active offer bindings and syntactically validated media-schema constraints. This does not qualify dispatch protocols or provide prices. Disabled routes, personal credentials, invalid schemas and foreign Suppliers are excluded. Revisions remain exact strings; clients keep binding identifiers out of product UI and publication rechecks current state. Cursor ordering uses model alias, including rows skipped for invalid schemas.
+      parameters:
+        - { name: after, in: query, schema: { type: string, minLength: 1, maxLength: 256 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        '200':
+          description: Bounded configuration choices
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [data, has_more, next_after]
+                properties:
+                  has_more: { type: boolean }
+                  next_after: { type: [string, 'null'] }
+                  data:
+                    type: array
+                    maxItems: 100
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required: [model_alias, api_key_name, offer_revision, vendor_revision, model_revision, schema_revision, channel, resolutions, reference_video]
+                      properties:
+                        model_alias: { type: string }
+                        api_key_name: { type: string }
+                        offer_revision: { type: string, format: uuid }
+                        vendor_revision: { type: string, pattern: '^[1-9][0-9]*$' }
+                        model_revision: { type: string, pattern: '^[1-9][0-9]*$' }
+                        schema_revision: { type: string }
+                        channel: { type: string }
+                        resolutions: { type: array, maxItems: 64, items: { type: string } }
+                        reference_video: { type: boolean }
+        '400': { description: Invalid cursor or page size }
+        '401': { description: Valid management session required }
+        '403': { description: Installation administration required }
+        '503': { description: Durable storage unavailable }
+  /admin/v1/providers/{provider}/media-rates:
+    parameters:
+      - $ref: '#/components/parameters/provider'
+    get:
+      operationId: listSupplierMediaRates
+      summary: Read this Supplier's agreed media purchase schedules
+      description: Installation read access or active membership of this exact Supplier only. Returns published terms and separate retirement cutoffs without customer prices, margins or credentials. Publication times not originally recorded remain null. Amounts, route revisions and effective times are exact strings on reads. The cursor is the last returned revision; page size is bounded and retirement never rewrites the original document.
+      parameters:
+        - { name: after, in: query, schema: { type: string, minLength: 1, maxLength: 256 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        '200':
+          description: Bounded purchase history
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [data, has_more, next_after]
+                properties:
+                  has_more: { type: boolean }
+                  next_after: { type: [string, 'null'] }
+                  data:
+                    type: array
+                    maxItems: 100
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required: [card, retirement_effective_until, created_at]
+                      properties:
+                        card: { $ref: '#/components/schemas/SupplierMediaRateRead' }
+                        retirement_effective_until: { type: [string, 'null'], pattern: '^-?[0-9]+$' }
+                        created_at: { type: [string, 'null'], format: date-time }
+        '400': { description: Invalid page range or cursor }
+        '401': { description: Valid management session required }
+        '404': { description: No active membership for this Supplier }
+        '503': { description: Durable storage unavailable }
+    post:
+      operationId: publishSupplierMediaRate
+      summary: Publish confidential agreed Supplier media purchase terms
+      description: Installation write permission only; Supplier membership and company roles do not authorize procurement configuration. Pins the Supplier's current qualified offer and exact credential/model/schema revisions. Publication is immutable and exact replay is idempotent. Missing, ambiguous, stale or differently metered purchase rates block commercial video dispatch before egress. Customer selling rates are independent. No customer charge or platform margin belongs in this body; owner-funded personal use does not acquire a Supplier earning. Maximum JSON body is 128 KiB.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SupplierMediaRateCard' }
+      responses:
+        '200':
+          description: Saved revision or identical replay
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                additionalProperties: false
+                properties:
+                  data:
+                    type: object
+                    required: [revision]
+                    additionalProperties: false
+                    properties:
+                      revision: { type: string }
+        '400': { description: Invalid tariff or discount }
+        '401': { description: Installation authentication required }
+        '403': { description: Installation write permission required }
+        '409': { description: Changed revision or mismatched/unqualified Supplier route }
+        '413': { description: Body exceeds 128 KiB }
+        '422': { description: Malformed typed JSON }
+        '503': { description: Durable storage unavailable }
+  /admin/v1/providers/{provider}/media-rates/{revision}/retire:
+    parameters:
+      - $ref: '#/components/parameters/provider'
+      - { name: revision, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 256 } }
+    post:
+      operationId: retireSupplierMediaRate
+      summary: End a Supplier purchase schedule's eligibility
+      description: Installation write permission only. Appends an immutable eligibility cutoff within the original interval; the cutoff is exclusive for original-card selection. Publish the replacement with a matching effective start before the cutoff. Exact replay is idempotent; changed cutoff or missing Supplier/revision conflicts. Historical purchase snapshots, earnings and payments are unchanged. Incomplete or overlapping schedules fail closed. Retirement is not cancellation or a refund.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [effective_until]
+              properties:
+                effective_until: { type: integer, format: int64, description: Unix seconds }
+      responses:
+        '200':
+          description: Cutoff saved or exact replay accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                additionalProperties: false
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: false
+                    required: [revision, effective_until]
+                    properties:
+                      revision: { type: string }
+                      effective_until: { type: string, pattern: '^-?[0-9]+$' }
+        '400': { description: Invalid cutoff or revision }
+        '401': { description: Installation authentication required }
+        '403': { description: Installation write permission required }
+        '409': { description: Missing scoped revision or conflicting saved cutoff }
+        '413': { description: Body exceeds 1 KiB }
+        '422': { description: Malformed typed JSON }
+        '503': { description: Durable storage unavailable }
   /admin/v1/provider-memberships:
     get:
       operationId: listProviderMemberships
@@ -20,7 +307,7 @@ paths:
       operationId: listProviderBusinesses
       summary: Installation-only list of registered supplier businesses (up to 1000)
       responses:
-        '200': { description: 'Data array of id, name, and active member count.' }
+        '200': { description: 'Data array of internal routing ID, name, API-key count, configured model count, active member count, and qualification status. Deleted Suppliers are excluded.' }
         '403': { description: Installation access required }
     post:
       operationId: createProviderBusiness
@@ -38,6 +325,34 @@ paths:
       responses:
         '200': { description: Provider ID in data.id }
         '403': { description: Installation access required }
+  /admin/v1/providers/{provider}:
+    parameters:
+      - $ref: '#/components/parameters/provider'
+    patch:
+      operationId: renameSupplierBusiness
+      summary: Rename a Supplier business with platform administrator write access
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 100 }
+      responses:
+        '200': { description: Supplier name updated and audit event retained }
+        '403': { description: Platform administrator write access required }
+        '409': { description: Supplier unavailable or deleted }
+    delete:
+      operationId: deleteSupplierBusiness
+      summary: Remove an unconfigured Supplier from the directory while retaining audit history
+      description: Refuses Suppliers with API keys, offers or memberships. Existing accounting history is never removed.
+      responses:
+        '200': { description: Supplier removed from active directory }
+        '403': { description: Platform administrator write access required }
+        '409': { description: Supplier unavailable or has dependent configuration }
   /admin/v1/providers/{provider}/members/{operator}:
     parameters:
       - $ref: '#/components/parameters/provider'
@@ -115,7 +430,7 @@ paths:
     get:
       operationId: getProviderDashboard
       summary: Supplier-scoped earnings and operations; active explicit membership required
-      description: Returns one repeatable-read snapshot in data. Balances group by currency and include all-time earned_nanos, unpaid_nanos, paid_nanos and period_nanos. All amounts and usage totals are decimal integer strings. Traffic includes admitted requests, completed requests, reported tokens and unresolved earnings in the selected rolling period. Daily earnings use UTC. Offers include agreed rates and availability (up to 1000). Consumption groups verified tokens, request counts, agreed rates, earnings and unpaid amounts by model and payout revision; no request identifiers, customer identities, workspaces or task references are returned; settlements contain the latest 100 all-time external payment records. No customer identity, prompt, credential, endpoint or customer charges are returned. This is an accrual ledger, not a guarantee of payment eligibility or schedule.
+      description: Returns one repeatable-read snapshot in data. Balances group by currency and include all-time earned_nanos, unpaid_nanos, paid_nanos and period_nanos. All amounts and usage totals are decimal integer strings. Traffic includes admitted requests, completed requests, reported tokens and unresolved earnings in the selected rolling period. Daily earnings use UTC. Offers include rate_kind (text or media), model identity and availability (up to 1000). Text offers retain agreed currency, prompt_rate and completion_rate strings. Media offers return null for all three text-price fields; their independent specification-selected purchase cards are available through media-rates. Consumption groups verified text tokens, request counts, agreed rates, earnings and unpaid amounts by model and payout revision; media_consumption separately groups media meter quantities, specifications, agreed purchase prices and earnings. Media earnings have null text-token categories and use the same exact external-payment settlement ledger; no request identifiers, customer identities, workspaces or task references are returned; settlements contain the latest 100 all-time external payment records. No customer identity, prompt, credential, endpoint or customer charges are returned. This is an accrual ledger, not a guarantee of payment eligibility or schedule.
       responses:
         '200': { description: Provider dashboard in data }
         '400': { description: Period must be 7, 30, or 90 days }
@@ -161,6 +476,62 @@ paths:
         '403': { description: Installation access required }
         '409': { description: Entries unavailable or replay conflicts }
 components:
+  schemas:
+    SupplierMediaRateRead:
+      type: object
+      additionalProperties: false
+      required: [revision, offer_revision, vendor_revision, model_revision, schema_revision, tariff, discounts]
+      properties:
+        revision: { type: string }
+        offer_revision: { type: string, format: uuid }
+        vendor_revision: { type: string, pattern: '^[1-9][0-9]*$' }
+        model_revision: { type: string, pattern: '^[1-9][0-9]*$' }
+        schema_revision: { type: string }
+        tariff:
+          type: object
+          additionalProperties: false
+          required: [revision, dimensions, meter, currency, decimal_places, amount_units, per_quantity, minimum_quantity, rounding, effective_from, effective_until]
+          properties:
+            revision: { type: string }
+            dimensions: { $ref: './billing.openapi.yaml#/components/schemas/MediaBillingDimensions' }
+            meter: { type: string }
+            currency: { type: string }
+            decimal_places: { type: integer, minimum: 0, maximum: 9 }
+            amount_units: { type: string, pattern: '^[0-9]+$' }
+            per_quantity: { $ref: './billing.openapi.yaml#/components/schemas/ExactMediaQuantity' }
+            minimum_quantity: { $ref: './billing.openapi.yaml#/components/schemas/ExactMediaQuantity' }
+            rounding: { type: string, enum: [Down, Up, HalfEven] }
+            effective_from: { type: string, pattern: '^-?[0-9]+$' }
+            effective_until: { type: [string, 'null'], pattern: '^-?[0-9]+$' }
+        discounts:
+          type: array
+          maxItems: 64
+          items:
+            type: object
+            additionalProperties: false
+            required: [revision, dimensions, offer, customer, effective_from, effective_until, priority, stacking, multiplier]
+            properties:
+              revision: { type: string }
+              dimensions: { anyOf: [{ $ref: './billing.openapi.yaml#/components/schemas/MediaBillingDimensions' }, { type: 'null' }] }
+              offer: { type: [string, 'null'] }
+              customer: { type: [string, 'null'] }
+              effective_from: { type: string, pattern: '^-?[0-9]+$' }
+              effective_until: { type: [string, 'null'], pattern: '^-?[0-9]+$' }
+              priority: { type: integer }
+              stacking: { type: string, enum: [Exclusive, Multiply] }
+              multiplier: { $ref: './billing.openapi.yaml#/components/schemas/ExactMediaQuantity' }
+    SupplierMediaRateCard:
+      type: object
+      additionalProperties: false
+      required: [revision, offer_revision, vendor_revision, model_revision, schema_revision, tariff, discounts]
+      properties:
+        revision: { type: string, minLength: 1, maxLength: 256 }
+        offer_revision: { type: string, format: uuid }
+        vendor_revision: { type: integer, minimum: 1, format: int64 }
+        model_revision: { type: integer, minimum: 1, format: int64 }
+        schema_revision: { type: string, minLength: 1, maxLength: 256 }
+        tariff: { $ref: './billing.openapi.yaml#/components/schemas/MediaSellingTariff', description: Same exact tariff structure, applied to confidential agreed Supplier purchase terms. }
+        discounts: { type: array, maxItems: 64, items: { $ref: './billing.openapi.yaml#/components/schemas/MediaSellingDiscount' } }
   securitySchemes:
     operatorBearer: { type: http, scheme: bearer }
   parameters:

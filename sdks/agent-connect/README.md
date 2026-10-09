@@ -51,7 +51,7 @@ receiver, disables traces and metrics, and explicitly keeps prompt, assistant,
 tool, and raw API content logging off. Claude Code keeps its current provider
 sign-in, route, and payer. Records are external partial evidence: usage and cost
 are agent-reported estimates, and events are not joined to Niu Gateway attempts
-or treated as accepted task outcomes. The console can issue, list, and revoke
+or treated as accepted task outcomes. The dashboard can issue, list, and revoke
 the scoped collector key. There is no automatic restore flow because the
 wrapper does not modify Claude Code's saved configuration.
 

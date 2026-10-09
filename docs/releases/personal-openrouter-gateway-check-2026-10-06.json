@@ -1,0 +1,63 @@
+{
+  "date": "2026-10-06",
+  "provider": "OpenRouter",
+  "mode": "owner-funded personal credential",
+  "path": "Niu gateway Chat Completions",
+  "upstream_model": "openai/gpt-4.1-mini",
+  "checks": [
+    {
+      "stream": false,
+      "terminal_complete": true,
+      "elapsed_ms": 1385,
+      "reported_usage": {
+        "prompt_tokens": 11,
+        "completion_tokens": 2,
+        "total_tokens": 13
+      },
+      "stored": {
+        "execution": "confirmed_completed",
+        "prompt_tokens": 11,
+        "completion_tokens": 2,
+        "personal_binding": true,
+        "customer_reservations": 0,
+        "customer_tariffs": 0,
+        "supplier_offer_bindings": 0
+      }
+    },
+    {
+      "stream": true,
+      "terminal_complete": true,
+      "elapsed_ms": 1449,
+      "reported_usage": {
+        "prompt_tokens": 11,
+        "completion_tokens": 2,
+        "total_tokens": 13
+      },
+      "stored": {
+        "execution": "confirmed_completed",
+        "prompt_tokens": 11,
+        "completion_tokens": 2,
+        "personal_binding": true,
+        "customer_reservations": 0,
+        "customer_tariffs": 0,
+        "supplier_offer_bindings": 0
+      }
+    }
+  ],
+  "qualification": "personal text inference only; no commercial supply, discounts or release gate qualified",
+  "owning_account_balance_entries_after_checks": 0,
+  "dashboard_check": {
+    "route": "/chat",
+    "model": "openai/gpt-4.1-mini",
+    "completed": true,
+    "reported_total_tokens": 13,
+    "displayed_elapsed_ms": 1305,
+    "saved_response_and_model_selection_survive_reload": true,
+    "desktop_reviewed": true,
+    "phone_width_px": 390,
+    "phone_document_width_px": 390,
+    "personal_model_mappings_visible": 25,
+    "owning_account_balance_entries_after_check": 0,
+    "remaining_copy_issue": "Personal calls display No rate; explicit owner-funded charge status remains to be delivered."
+  }
+}

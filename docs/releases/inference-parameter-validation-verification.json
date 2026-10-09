@@ -1,0 +1,33 @@
+{
+  "date": "2026-10-03",
+  "model": "google/gemini-2.5-flash",
+  "checks": [
+    {
+      "field": "temperature",
+      "http_status": 400,
+      "admission_headers_absent": true
+    },
+    {
+      "field": "top_p",
+      "http_status": 400,
+      "admission_headers_absent": true
+    },
+    {
+      "field": "max_tokens",
+      "http_status": 400,
+      "admission_headers_absent": true
+    },
+    {
+      "field": "max_completion_tokens",
+      "http_status": 400,
+      "admission_headers_absent": true
+    },
+    {
+      "field": "seed",
+      "http_status": 400,
+      "admission_headers_absent": true
+    }
+  ],
+  "saved_attempts": 0,
+  "temporary_key_revoked": true
+}

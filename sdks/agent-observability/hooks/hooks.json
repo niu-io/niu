@@ -1,9 +1,0 @@
-{
-  "description": "Opt-in metadata only. No hook changes decisions or model context.",
-  "hooks": {
-    "SessionStart": [{ "hooks": [{ "type": "command", "command": "node \"${PLUGIN_ROOT}/bin/niu-agent-observability.mjs\" codex-hook", "timeout": 5 }] }],
-    "SessionEnd": [{ "hooks": [{ "type": "command", "command": "node \"${PLUGIN_ROOT}/bin/niu-agent-observability.mjs\" codex-hook", "timeout": 3 }] }],
-    "PreToolUse": [{ "matcher": ".*", "hooks": [{ "type": "command", "command": "node \"${PLUGIN_ROOT}/bin/niu-agent-observability.mjs\" codex-hook", "timeout": 5 }] }],
-    "PostToolUse": [{ "matcher": ".*", "hooks": [{ "type": "command", "command": "node \"${PLUGIN_ROOT}/bin/niu-agent-observability.mjs\" codex-hook", "timeout": 5 }] }]
-  }
-}

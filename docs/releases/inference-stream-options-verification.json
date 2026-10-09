@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-03",
+  "model": "google/gemini-2.5-flash",
+  "checks": [
+    {
+      "case": "ambiguous_output_limits",
+      "http_status": 400,
+      "admission_headers_absent": true
+    },
+    {
+      "case": "stream_boolean",
+      "http_status": 400,
+      "admission_headers_absent": true
+    },
+    {
+      "case": "stream_options_object",
+      "http_status": 400,
+      "admission_headers_absent": true
+    },
+    {
+      "case": "include_usage_boolean",
+      "http_status": 400,
+      "admission_headers_absent": true
+    }
+  ],
+  "saved_attempts": 0,
+  "temporary_key_revoked": true
+}

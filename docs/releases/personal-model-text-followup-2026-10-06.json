@@ -1,0 +1,152 @@
+{
+  "date": "2026-10-06",
+  "mode": "owner-funded personal testing",
+  "input": "fixed short text; maximum 256 output tokens",
+  "checks": [
+    {
+      "model": "deepseek/deepseek-v4-flash",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": true,
+      "finish_reasons": [
+        "stop"
+      ],
+      "reasoning_tokens": 18,
+      "reported_usage": {
+        "prompt_tokens": 8,
+        "completion_tokens": 21,
+        "total_tokens": 29
+      },
+      "elapsed_ms": 2117
+    },
+    {
+      "model": "deepseek/deepseek-v4.1-flash",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": true,
+      "finish_reasons": [
+        "stop"
+      ],
+      "reasoning_tokens": 16,
+      "reported_usage": {
+        "prompt_tokens": 34,
+        "completion_tokens": 19,
+        "total_tokens": 53
+      },
+      "elapsed_ms": 665
+    },
+    {
+      "model": "google/gemini-3.1-pro-preview",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": true,
+      "finish_reasons": [
+        "stop"
+      ],
+      "reasoning_tokens": 83,
+      "reported_usage": {
+        "prompt_tokens": 4,
+        "completion_tokens": 85,
+        "total_tokens": 89
+      },
+      "elapsed_ms": 2728
+    },
+    {
+      "model": "qwen/qwen3.8-flash",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": true,
+      "finish_reasons": [
+        "stop"
+      ],
+      "reasoning_tokens": 30,
+      "reported_usage": {
+        "prompt_tokens": 65,
+        "completion_tokens": 33,
+        "total_tokens": 98
+      },
+      "elapsed_ms": 1654
+    },
+    {
+      "model": "qwen/qwen3.8-max-0902",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": true,
+      "finish_reasons": [
+        "stop"
+      ],
+      "reasoning_tokens": 19,
+      "reported_usage": {
+        "prompt_tokens": 65,
+        "completion_tokens": 22,
+        "total_tokens": 87
+      },
+      "elapsed_ms": 1403
+    },
+    {
+      "model": "tencent/hy4-preview",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": true,
+      "finish_reasons": [
+        "stop"
+      ],
+      "reasoning_tokens": 118,
+      "reported_usage": {
+        "prompt_tokens": 25,
+        "completion_tokens": 121,
+        "total_tokens": 146
+      },
+      "elapsed_ms": 17181
+    },
+    {
+      "model": "z-ai/glm-5.3",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": true,
+      "finish_reasons": [
+        "stop"
+      ],
+      "reasoning_tokens": 36,
+      "reported_usage": {
+        "prompt_tokens": 16,
+        "completion_tokens": 39,
+        "total_tokens": 55
+      },
+      "elapsed_ms": 10585
+    },
+    {
+      "model": "z-ai/glm-5.3-flash",
+      "protocol": "nonstreaming_text_chat",
+      "http_status": 200,
+      "attempt_attributed": true,
+      "returned_alias": true,
+      "output_present": true,
+      "finish_reasons": [
+        "stop"
+      ],
+      "reasoning_tokens": 76,
+      "reported_usage": {
+        "prompt_tokens": 16,
+        "completion_tokens": 59,
+        "total_tokens": 75
+      },
+      "elapsed_ms": 1705
+    }
+  ],
+  "qualification": "bounded text observations only; not full protocol conformance, discounted supply or production availability"
+}

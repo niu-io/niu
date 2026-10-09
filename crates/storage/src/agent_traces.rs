@@ -80,7 +80,13 @@ impl PersonalAgentTraceInput {
             .validate()
             .map_err(|_| StoreError::InvalidObservation)?;
         if !label(&self.name)
-            || self.session_key.as_ref().is_some_and(|key| key.len() != 64 || !key.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)) || self.record.task_id != format!("session-{key}"))
+            || self.session_key.as_ref().is_some_and(|key| {
+                key.len() != 64
+                    || !key
+                        .bytes()
+                        .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+                    || self.record.task_id != format!("session-{key}")
+            })
             || self.record.spans.len() > 1000
             || self.record.spans.iter().any(|s| s.charge_ref.is_some())
             || self
@@ -194,11 +200,15 @@ impl Store {
             return Err(StoreError::InvalidObservation);
         }
         if input.session_key.is_some() {
-            return self.append_personal_agent_session_event(tx, owner, connection, input).await;
+            return self
+                .append_personal_agent_session_event(tx, owner, connection, input)
+                .await;
         }
         let grouped_event: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM personal_agent_trace_events WHERE owner_id=$1 AND connection_id=$2 AND event_id=$3)")
             .bind(owner).bind(connection).bind(&input.record.record_id).fetch_one(&mut *tx).await?;
-        if grouped_event { return Err(StoreError::Conflict); }
+        if grouped_event {
+            return Err(StoreError::Conflict);
+        }
         let root = input
             .record
             .spans
@@ -235,10 +245,17 @@ impl Store {
         } else {
             id
         };
-        if source == "codex" && input.record.task_id == format!("task-{}", input.record.record_id)
-            && matches!(input.name.as_str(), "Codex API request" | "Codex response completion" | "Codex tool") {
+        if source == "codex"
+            && input.record.task_id == format!("task-{}", input.record.record_id)
+            && matches!(
+                input.name.as_str(),
+                "Codex API request" | "Codex response completion" | "Codex tool"
+            )
+        {
             sqlx::query("UPDATE personal_agent_traces SET unassembled_event=TRUE WHERE id=$1")
-                .bind(actual_id).execute(&mut *tx).await?;
+                .bind(actual_id)
+                .execute(&mut *tx)
+                .await?;
         }
         sqlx::query("UPDATE personal_agent_connections SET last_received_at=now() WHERE id=$1")
             .bind(connection)
@@ -281,7 +298,14 @@ impl Store {
         sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
             .execute(&mut *tx)
             .await?;
-        let filter = format!("owner_id=$1 AND superseded_by IS NULL {} AND occurred_at>=to_timestamp($2::double precision/1000) AND occurred_at<to_timestamp($3::double precision/1000) AND ($4::text IS NULL OR source=$4) AND ($5::text IS NULL OR strpos(lower(name),lower($5))>0) AND ($6::text IS NULL OR status=$6)", if q.include_unassembled { "" } else { "AND NOT unassembled_event" });
+        let filter = format!(
+            "owner_id=$1 AND superseded_by IS NULL {} AND occurred_at>=to_timestamp($2::double precision/1000) AND occurred_at<to_timestamp($3::double precision/1000) AND ($4::text IS NULL OR source=$4) AND ($5::text IS NULL OR strpos(lower(name),lower($5))>0) AND ($6::text IS NULL OR status=$6)",
+            if q.include_unassembled {
+                ""
+            } else {
+                "AND NOT unassembled_event"
+            }
+        );
         let rows: Vec<Value>=sqlx::query_scalar(&format!("SELECT jsonb_build_object('id',id,'name',name,'source',source,'occurred_at',occurred_at,'time_basis',time_basis,'unassembled_event',unassembled_event,'status',status,'coverage',coverage,'duration_ms',duration_ms,'span_count',span_count,'error_count',error_count,'model_calls',model_calls,'tool_calls',tool_calls) FROM personal_agent_traces WHERE {filter} ORDER BY occurred_at DESC,id DESC LIMIT $7 OFFSET $8"))
             .bind(owner).bind(q.from_ms).bind(q.to_ms).bind(&q.source).bind(&q.search).bind(&q.status).bind(q.limit).bind(q.offset).fetch_all(&mut *tx).await?;
         let summary: Value=sqlx::query_scalar(&format!("SELECT jsonb_build_object('trace_count',count(*)::text,'completed',count(*) FILTER(WHERE status='completed')::text,'failed',count(*) FILTER(WHERE status='failed')::text,'unknown_status',count(*) FILTER(WHERE status='unknown')::text,'partial',count(*) FILTER(WHERE coverage<>'complete')::text,'untimed',count(*) FILTER(WHERE duration_ms IS NULL)::text,'span_count',COALESCE(sum(span_count),0)::text,'error_count',COALESCE(sum(error_count),0)::text,'model_calls',COALESCE(sum(model_calls),0)::text,'tool_calls',COALESCE(sum(tool_calls),0)::text,'p50_duration_ms',percentile_cont(0.5) WITHIN GROUP(ORDER BY duration_ms),'p95_duration_ms',percentile_cont(0.95) WITHIN GROUP(ORDER BY duration_ms)) FROM personal_agent_traces WHERE {filter}"))

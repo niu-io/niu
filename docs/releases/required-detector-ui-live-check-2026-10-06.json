@@ -1,0 +1,8 @@
+{
+  "status": 403,
+  "modelDispatchAttempts": 0,
+  "detectorOutcome": "matched",
+  "scope": "temporary review workspace",
+  "pinnedKeyPolicyRemainsRequiredAfterWorkspaceRollback": true,
+  "paidModelCalls": 0
+}

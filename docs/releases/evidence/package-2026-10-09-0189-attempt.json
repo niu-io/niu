@@ -1,0 +1,23 @@
+{
+  "date": "2026-10-09",
+  "status": "build_blocked_before_compilation",
+  "platform": "linux/arm64",
+  "through_migration": 189,
+  "source_snapshot_sha256": "51cf10b62aee753004fccb6a9a23578760c0921260e600724675ac81fbf1994f",
+  "source_file_count": 1359,
+  "harness_sha256": {
+    "scripts/package-smoke.py": "e139c6809f8937adfa7f3953c88d1908fa44ce0e39c651df7354c887fdb8236f",
+    "scripts/package_branding.py": "624cc0694880c7d999380b3bab58eca0718cd6df4e8c61506030a509dfae373e",
+    "scripts/tests/test_package_branding.py": "986e6fa8abcbd00f7c711f57b3f4b84302ed1b281cebc040c342ae9779ae23a7"
+  },
+  "passed": [
+    "Frozen exported source public-boundary and build-input checks",
+    "74 package-script tests, including branding persistence assertion failure cases"
+  ],
+  "not_run": [
+    "Current image compilation",
+    "Direct and Compose packaged branding restart and backup/restore",
+    "Upgrade from the migration-0188 image"
+  ],
+  "blocker": "Two build attempts failed resolving official Docker Hub base-image metadata with TLS handshake timeouts. No packaged acceptance claim is made."
+}

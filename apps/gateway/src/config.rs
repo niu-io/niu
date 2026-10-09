@@ -9,17 +9,66 @@ pub struct AppConfig {
     pub server: ServerConfig,
     #[serde(default)]
     pub models: BTreeMap<String, ModelConfig>,
+    #[serde(default)]
+    pub detectors: BTreeMap<String, crate::guardrails::detector::Config>,
+    #[serde(default)]
+    pub image_detectors: BTreeMap<String, niu_media::image_detector::Config>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct ServerConfig {
+    /// Trusted deployment origin for short-lived Supplier image fetches.
+    #[serde(default)]
+    pub image_source_origin: Option<String>,
     #[serde(default = "default_timeout")]
     pub request_timeout_seconds: u64,
+}
+
+impl ServerConfig {
+    pub(crate) fn image_source_url(&self, token: &str) -> Result<String, ConfigError> {
+        let origin = self
+            .image_source_origin
+            .as_deref()
+            .ok_or_else(|| ConfigError::Invalid("Image source origin is not configured".into()))?;
+        let parsed = url::Url::parse(origin)
+            .map_err(|_| ConfigError::Invalid("Invalid image source origin".into()))?;
+        let host = parsed.host_str().unwrap_or_default();
+        if origin.len() > 2048
+            || origin
+                .bytes()
+                .any(|b| b.is_ascii_whitespace() || b.is_ascii_control())
+            || parsed.scheme() != "https"
+            || parsed.port_or_known_default() != Some(443)
+            || !parsed.username().is_empty()
+            || parsed.password().is_some()
+            || parsed.path() != "/"
+            || parsed.query().is_some()
+            || parsed.fragment().is_some()
+            || !host.contains('.')
+            || host.ends_with('.')
+            || host.ends_with(".localhost")
+            || host.ends_with(".local")
+            || host.ends_with(".internal")
+            || host.trim_matches(['[', ']']).parse::<IpAddr>().is_ok()
+            || token.len() != 68
+            || !token.starts_with("nis_")
+            || !token[4..].bytes().all(|b| b.is_ascii_hexdigit())
+        {
+            return Err(ConfigError::Invalid(
+                "Invalid image source origin or capability".into(),
+            ));
+        }
+        Ok(format!(
+            "{}/v1/media/sources/{token}",
+            parsed.as_str().trim_end_matches('/')
+        ))
+    }
 }
 
 impl Default for ServerConfig {
     fn default() -> Self {
         Self {
+            image_source_origin: None,
             request_timeout_seconds: default_timeout(),
         }
     }
@@ -156,6 +205,28 @@ impl AppConfig {
             return Err(ConfigError::Invalid(
                 "request_timeout_seconds must be between 1 and 3600".into(),
             ));
+        }
+        if self.server.image_source_origin.is_some() {
+            self.server
+                .image_source_url(&format!("nis_{}", "0".repeat(64)))?;
+        }
+        for (name, detector) in &self.image_detectors {
+            if name.is_empty()
+                || name.len() > 200
+                || !name
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b"_-".contains(&b))
+            {
+                return Err(ConfigError::Invalid("Invalid image detector name".into()));
+            }
+            detector
+                .validate()
+                .map_err(|_| ConfigError::Invalid("Invalid image detector configuration".into()))?;
+        }
+        for detector in self.detectors.values() {
+            detector.validate().map_err(|_| {
+                ConfigError::Invalid("Invalid external detector configuration".into())
+            })?;
         }
         for (name, model) in &self.models {
             if name.is_empty()
@@ -422,4 +493,77 @@ mod tests {
         .expect("configuration shape should parse");
         assert!(config.validate().is_ok());
     }
+    #[test]
+    fn image_detector_configuration_is_separate_and_validated() {
+        let source = r#"
+            [image_detectors.image_fixture]
+            endpoint = "https://detector.example/inspect"
+            api_key_env = "IMAGE_DETECTOR_KEY"
+            detector_revision = "fixture-v2"
+            recipient = "Fixture"
+            region = "Fixture"
+            retention = "None declared"
+            authorized_workspaces = ["00000000-0000-4000-8000-000000000001"]
+            declared_unmetered = true
+            timeout_ms = 1000
+            maximum_encoded_bytes = 4096
+            maximum_width = 32
+            maximum_height = 32
+            maximum_decoded_bytes = 4096
+            concurrency = 1
+        "#;
+        let config: AppConfig = toml::from_str(source).unwrap();
+        assert!(config.detectors.is_empty());
+        assert_eq!(config.image_detectors.len(), 1);
+        assert!(config.validate().is_ok());
+        for invalid in [
+            source.replace(
+                "https://detector.example/inspect",
+                "http://public.example/inspect",
+            ),
+            source.replace("concurrency = 1", "concurrency = 5"),
+            source.replace("image_fixture", "bad.name"),
+        ] {
+            let parsed = toml::from_str::<AppConfig>(&invalid);
+            assert!(parsed.is_err() || parsed.unwrap().validate().is_err());
+        }
+        let legacy: AppConfig = toml::from_str("").unwrap();
+        assert!(legacy.image_detectors.is_empty());
+    }
+}
+
+#[test]
+fn image_source_origin_is_fixed_public_https_without_request_overrides() {
+    let token = format!("nis_{}", "a".repeat(64));
+    let configured = |origin: &str| ServerConfig {
+        image_source_origin: Some(origin.into()),
+        ..ServerConfig::default()
+    };
+    assert_eq!(
+        configured("https://niu.example")
+            .image_source_url(&token)
+            .unwrap(),
+        format!("https://niu.example/v1/media/sources/{token}")
+    );
+    for origin in [
+        "http://niu.example",
+        "https://localhost",
+        "https://127.0.0.1",
+        "https://[::1]",
+        "https://niu.example:8443",
+        "https://user@niu.example",
+        "https://niu.example/path",
+        "https://niu.example?token=x",
+        "https://niu.example#fragment",
+        "https://x.local",
+        "https://x.internal",
+    ] {
+        assert!(configured(origin).image_source_url(&token).is_err());
+    }
+    assert!(ServerConfig::default().image_source_url(&token).is_err());
+    assert!(
+        configured("https://niu.example")
+            .image_source_url("../secret")
+            .is_err()
+    );
 }

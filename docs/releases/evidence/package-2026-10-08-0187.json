@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-08",
+  "platform": "linux/arm64",
+  "through_migration": 187,
+  "image": "sha256:74fe048d1488876ca6d113550c1e80f237688348ebb916b932ebe21892d4967c",
+  "source_snapshot_sha256": "7c8135ee4711b4a6df71ea58378df4198c6b2c2e65a0b1fa3db8287e6d7e90fe",
+  "source_file_count": 1336,
+  "harness_sha256": {
+    "scripts/package-smoke.py": "5cb9075ecc37065a2b6575b62d3eb3d481675d5a95ae3eff2ff430305eedcc4e",
+    "scripts/package_asset_listing.py": "cad4dd8487b89419951abc839bf4e380f415f9d8db2ff6f5a811c7af155252b7",
+    "scripts/package_asset_updates.py": "8acdc5d044487458477734665921be8f1f60384f74c463238c754ced14bcd695",
+    "scripts/package-upgrade-smoke.py": "11f19dfca073221797e8ffed1ff961ddd4887b464286384a6fc48c60b77886e0"
+  },
+  "passed": [
+    "frozen public-source build and boundary scan",
+    "direct-container package smoke with assets, listings, lookups and updates",
+    "Compose package smoke with assets, listings, lookups and updates",
+    "native saved-read reconciliation restart and restore",
+    "71 package harness tests",
+    "0178 to 0187 upgrade, injected migration failure recovery, immutable receipts, workspace/video/asset preservation"
+  ],
+  "limitations": [
+    "Synthetic asset grants, acknowledgments and results establish no live Supplier entitlement.",
+    "Compose does not generate video.",
+    "Full F01\u2013F10 acceptance remains incomplete."
+  ],
+  "previous_image": "sha256:5148a63ba32c172ab8d1ce373821de28db5d54b26cfd8f725387ad87c7dca27a"
+}

@@ -1,5 +1,5 @@
 packages:
-  - apps/console
+  - apps/dashboard
   - apps/docs
   - apps/catalog
   - sdks/javascript
@@ -8,3 +8,5 @@ allowBuilds:
   esbuild: true
 minimumReleaseAgeExclude:
   - '@astrojs/starlight@0.42.4'
+  - '@astrojs/internal-helpers@0.12.0'
+  - '@astrojs/react@7.0.1'

@@ -1,6 +1,8 @@
 # Supplier accounts and quota observations
 
-Status: registry, storage controls and bootstrap read/create APIs are implemented. Native subscription transport, credential resolution, refresh network calls, quota-aware selection and console workflows remain in progress.
+Status: registry, storage controls and bootstrap read/create APIs are implemented. Native subscription transport, credential resolution, refresh network calls, quota-aware selection and dashboard workflows remain in progress.
+
+The first native adapter is now implemented separately for [private Codex subscription supply](private-codex-supply.md): workspace-owned ChatGPT plan registrations, encrypted token storage, serialized refresh and pool selection, and buffered text inference. The generic registry below still does not dispatch arbitrary subscription credentials. Live Codex qualification requires owner sign-in and a completed provider request.
 
 A supplier account separates provider identity, plan, authentication mode (`api_key` or `oauth_refresh`), billing mode (`metered_api` or `subscription`), health and concurrency. Authentication does not imply a billing model or a verified entitlement. New accounts are `unverified`; registration alone never makes them eligible for dispatch.
 

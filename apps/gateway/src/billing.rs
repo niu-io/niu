@@ -1,8 +1,9 @@
-//! Open-source customer billing. Retail rates and invoice writes are installation-owned.
+//! Customer billing. Text tariff and invoice writes remain installation-owned.
+//! Media pricing also accepts explicitly granted platform administrators.
 use crate::{error::ApiError, state::AppState};
 use axum::{
     Json,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::HeaderMap,
 };
 use niu_storage::{AdminPermission, ProviderOfferInput, TenantScope};
@@ -16,10 +17,7 @@ async fn authorize(
     write: bool,
 ) -> Result<(), ApiError> {
     let auth = state
-        .authorize_admin(
-            headers.get("authorization").and_then(|h| h.to_str().ok()),
-            AdminPermission::Read,
-        )
+        .authorize_admin_headers(headers, AdminPermission::Read)
         .await?;
     if write && !auth.is_installation() {
         return Err(ApiError::forbidden());
@@ -62,6 +60,137 @@ pub async fn tariff(
         json!({"data":{"revision":state.store.publish_customer_tariff(scope,&input).await.map_err(ApiError::from_store)?}}),
     ))
 }
+
+/// Platform-owned customer selling configuration, separate from procurement.
+pub async fn media_rate(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(organization): Path<Uuid>,
+    Json(input): Json<niu_storage::CustomerMediaRateCard>,
+) -> Result<Json<Value>, ApiError> {
+    let authorization = state
+        .authorize_admin_headers(&headers, AdminPermission::Write)
+        .await?;
+    if !authorization.can_manage_platform() {
+        return Err(ApiError::forbidden());
+    }
+    state
+        .store
+        .register_customer_media_rate(organization, &input)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(json!({"data":{"revision":input.revision}})))
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MediaRatePage {
+    after: Option<String>,
+    limit: Option<i64>,
+}
+
+pub async fn media_rate_models(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(_organization): Path<Uuid>,
+    Query(page): Query<MediaRatePage>,
+) -> Result<Json<Value>, ApiError> {
+    let authorization = state
+        .authorize_admin_headers(&headers, AdminPermission::Read)
+        .await?;
+    if !authorization.can_manage_platform() {
+        return Err(ApiError::forbidden());
+    }
+    Ok(Json(
+        state
+            .store
+            .customer_media_rate_models(page.after.as_deref(), page.limit.unwrap_or(50))
+            .await
+            .map_err(ApiError::from_store)?,
+    ))
+}
+
+pub async fn media_rates(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(organization): Path<Uuid>,
+    Query(page): Query<MediaRatePage>,
+) -> Result<Json<Value>, ApiError> {
+    let authorization = state
+        .authorize_admin_headers(&headers, AdminPermission::Read)
+        .await?;
+    if !authorization.can_manage_platform() {
+        return Err(ApiError::forbidden());
+    }
+    Ok(Json(
+        state
+            .store
+            .customer_media_rates(
+                organization,
+                page.after.as_deref(),
+                page.limit.unwrap_or(50),
+            )
+            .await
+            .map_err(ApiError::from_store)?,
+    ))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MediaRateReplacementInput {
+    previous_revision: String,
+    rate: niu_storage::CustomerMediaRateCard,
+}
+
+pub async fn replace_media_rate(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(organization): Path<Uuid>,
+    Json(input): Json<MediaRateReplacementInput>,
+) -> Result<Json<Value>, ApiError> {
+    let authorization = state
+        .authorize_admin_headers(&headers, AdminPermission::Write)
+        .await?;
+    if !authorization.can_manage_platform() {
+        return Err(ApiError::forbidden());
+    }
+    state
+        .store
+        .replace_customer_media_rate(organization, &input.previous_revision, &input.rate)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(
+        json!({"data":{"revision":input.rate.revision,"effective_from":input.rate.tariff.effective_from.to_string()}}),
+    ))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MediaRateRetirementInput {
+    effective_until: i64,
+}
+
+pub async fn retire_media_rate(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((organization, revision)): Path<(Uuid, String)>,
+    Json(input): Json<MediaRateRetirementInput>,
+) -> Result<Json<Value>, ApiError> {
+    let authorization = state
+        .authorize_admin_headers(&headers, AdminPermission::Write)
+        .await?;
+    if !authorization.can_manage_platform() {
+        return Err(ApiError::forbidden());
+    }
+    state
+        .store
+        .retire_customer_media_rate(organization, &revision, input.effective_until)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(
+        json!({"data":{"revision":revision,"effective_until":input.effective_until.to_string()}}),
+    ))
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InvoiceInput {
@@ -130,4 +259,196 @@ pub async fn payment(
         .await
         .map_err(ApiError::from_store)?;
     Ok(Json(json!({"data":{"id":invoice}})))
+}
+
+/// Shared-account read, deliberately separate from workspace billing readers.
+pub async fn account_balance(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(organization): Path<Uuid>,
+) -> Result<Json<Value>, ApiError> {
+    let auth = state
+        .authorize_admin_headers(&headers, AdminPermission::Read)
+        .await?;
+    if !auth.permits_billing_account(organization) {
+        return Err(ApiError::not_found());
+    }
+    Ok(Json(
+        json!({"data":state.store.customer_balance_summary(organization).await.map_err(ApiError::from_store)?}),
+    ))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SettledFundingInput {
+    currency: String,
+    amount_nanos: String,
+    channel: String,
+    payment_reference: String,
+}
+
+/// Trusted administration records an externally verified settled payment.
+/// This is not a customer payment callback or self-service funding endpoint.
+pub async fn settled_funding(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(organization): Path<Uuid>,
+    Json(input): Json<SettledFundingInput>,
+) -> Result<Json<Value>, ApiError> {
+    let auth = state
+        .authorize_admin_headers(&headers, AdminPermission::Write)
+        .await?;
+    if !auth.is_installation() {
+        return Err(ApiError::forbidden());
+    }
+    let amount = input
+        .amount_nanos
+        .parse::<i64>()
+        .map_err(|_| ApiError::invalid_request("Provide a positive exact funding amount."))?;
+    state
+        .store
+        .record_settled_customer_funding(
+            organization,
+            &input.currency,
+            amount,
+            &input.channel,
+            &input.payment_reference,
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(json!({"data":{"recorded":true}})))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BalancePolicyInput {
+    credit_limit_nanos: String,
+    warning_threshold_nanos: Option<String>,
+    expected_revision: String,
+}
+
+pub async fn balance_policy(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((organization, currency)): Path<(Uuid, String)>,
+    Json(input): Json<BalancePolicyInput>,
+) -> Result<Json<Value>, ApiError> {
+    let auth = state
+        .authorize_admin_headers(&headers, AdminPermission::Write)
+        .await?;
+    if !auth.is_installation() {
+        return Err(ApiError::forbidden());
+    }
+    let parse = |v: &str| {
+        v.parse::<i64>().map_err(|_| {
+            ApiError::invalid_request("Use exact nonnegative monetary amounts and revision.")
+        })
+    };
+    let credit = parse(&input.credit_limit_nanos)?;
+    let warning = input
+        .warning_threshold_nanos
+        .as_deref()
+        .map(parse)
+        .transpose()?;
+    let revision = parse(&input.expected_revision)?;
+    let next = state
+        .store
+        .configure_customer_balance_policy(organization, &currency, credit, warning, revision)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(json!({"data":{"revision":next.to_string()}})))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BalanceWarningInput {
+    warning_threshold_nanos: Option<String>,
+    expected_revision: String,
+}
+
+pub async fn balance_warning(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((organization, currency)): Path<(Uuid, String)>,
+    Json(input): Json<BalanceWarningInput>,
+) -> Result<Json<Value>, ApiError> {
+    let auth = state
+        .authorize_admin_headers(&headers, AdminPermission::Write)
+        .await?;
+    if !auth.permits_billing_account(organization) {
+        return Err(ApiError::not_found());
+    }
+    let parse = |v: &str| {
+        v.parse::<i64>()
+            .map_err(|_| ApiError::invalid_request("Use exact nonnegative amounts and revision."))
+    };
+    let threshold = input
+        .warning_threshold_nanos
+        .as_deref()
+        .map(parse)
+        .transpose()?;
+    let revision = parse(&input.expected_revision)?;
+    let next = state
+        .store
+        .configure_customer_balance_warning(organization, &currency, threshold, revision)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(json!({"data":{"revision":next.to_string()}})))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BalanceReversalInput {
+    amount_nanos: String,
+    idempotency_key: Uuid,
+}
+
+pub async fn balance_reversal(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((organization, entry)): Path<(Uuid, Uuid)>,
+    Json(input): Json<BalanceReversalInput>,
+) -> Result<Json<Value>, ApiError> {
+    let auth = state
+        .authorize_admin_headers(&headers, AdminPermission::Write)
+        .await?;
+    if !auth.is_installation() {
+        return Err(ApiError::forbidden());
+    }
+    let amount = input
+        .amount_nanos
+        .parse::<i64>()
+        .map_err(|_| ApiError::invalid_request("Provide a positive exact reversal amount."))?;
+    state
+        .store
+        .reverse_customer_balance_entry(organization, entry, amount, input.idempotency_key)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(json!({"data":{"recorded":true}})))
+}
+
+#[derive(Deserialize, Default)]
+#[serde(deny_unknown_fields)]
+pub struct BalanceTransactionsQuery {
+    before: Option<Uuid>,
+}
+
+pub async fn balance_transactions(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(organization): Path<Uuid>,
+    Query(query): Query<BalanceTransactionsQuery>,
+) -> Result<Json<Value>, ApiError> {
+    let auth = state
+        .authorize_admin_headers(&headers, AdminPermission::Read)
+        .await?;
+    if !auth.permits_billing_account(organization) {
+        return Err(ApiError::not_found());
+    }
+    let (data, next_cursor) = state
+        .store
+        .customer_balance_transaction_page(organization, query.before)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(json!({"data":data,"next_cursor":next_cursor})))
 }

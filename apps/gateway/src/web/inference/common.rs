@@ -1,5 +1,5 @@
 use axum::{
-    http::{HeaderMap, HeaderValue, header},
+    http::{HeaderMap, HeaderValue},
     response::{IntoResponse, Response},
 };
 use serde_json::{Value, json};
@@ -58,20 +58,351 @@ pub(super) fn provider_reported_model(value: &Value) -> Option<String> {
         .then(|| model.to_owned())
 }
 
-pub(super) async fn begin_attempt(
+static LIVE_INPUT_SLOTS: std::sync::LazyLock<std::sync::Arc<tokio::sync::Semaphore>> =
+    std::sync::LazyLock::new(|| std::sync::Arc::new(tokio::sync::Semaphore::new(4)));
+
+pub(super) async fn inspect_request_input(
     state: &AppState,
     principal: &niu_storage::Principal,
     public_model: &str,
     model: &crate::config::ModelConfig,
-    completion_bound: Option<i64>,
-    task_id: Option<&str>,
-) -> Result<DispatchContext, ApiError> {
+    protocol: crate::guardrails::input::Protocol,
+    body: &mut Value,
+) -> Result<niu_storage::GuardrailSnapshot, ApiError> {
+    inspect_request_input_for_provider(
+        state,
+        principal,
+        public_model,
+        &model.provider,
+        protocol,
+        body,
+    )
+    .await
+}
+
+/// Shared inspection without requiring text-inference model configuration.
+pub(super) async fn inspect_request_input_for_provider(
+    state: &AppState,
+    principal: &niu_storage::Principal,
+    public_model: &str,
+    provider: &str,
+    protocol: crate::guardrails::input::Protocol,
+    body: &mut Value,
+) -> Result<niu_storage::GuardrailSnapshot, ApiError> {
+    inspect_request_input_with_image_requirements(
+        state,
+        principal,
+        public_model,
+        provider,
+        protocol,
+        body,
+        false,
+    )
+    .await
+}
+
+/// Only the video admission pipeline may retain image requirements while it
+/// inspects a text projection. Images still require separate runtime approvals.
+pub(super) async fn inspect_request_input_with_image_requirements(
+    state: &AppState,
+    principal: &niu_storage::Principal,
+    public_model: &str,
+    provider: &str,
+    protocol: crate::guardrails::input::Protocol,
+    body: &mut Value,
+    allow_image_requirements: bool,
+) -> Result<niu_storage::GuardrailSnapshot, ApiError> {
+    if allow_image_requirements && protocol != crate::guardrails::input::Protocol::VideoText {
+        return Err(ApiError::forbidden());
+    }
     let scope = principal.scope();
+    let mut snapshot = state
+        .store
+        .guardrail_snapshot(scope, principal.key_id())
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::forbidden)?;
+    let mut rules = Vec::new();
+    let mut detectors = Vec::new();
+    let mut output_rule_count = 0usize;
+    for stored in [&snapshot.workspace_policy, &snapshot.key_policy]
+        .into_iter()
+        .flatten()
+    {
+        let policy = serde_json::from_value::<crate::guardrails::PolicyDraft>(stored.clone());
+        let reason = match policy {
+            Ok(policy)
+                if policy.validate_shape().is_ok()
+                    && (policy.image_detectors.is_empty() || allow_image_requirements)
+                    && !(matches!(protocol, crate::guardrails::input::Protocol::VideoText)
+                        && (!policy.input_detectors.is_empty() || policy.output.is_some())) =>
+            {
+                rules.extend(policy.input_rules);
+                detectors.extend(policy.input_detectors);
+                output_rule_count += policy
+                    .output
+                    .as_ref()
+                    .map_or(0, |output| output.rules.len());
+                if !crate::guardrails::EffectiveAccess::compose([policy.models])
+                    .permits(public_model)
+                {
+                    Some("model_denied")
+                } else if !crate::guardrails::EffectiveAccess::compose([policy.providers])
+                    .permits(provider)
+                {
+                    Some("provider_denied")
+                } else {
+                    None
+                }
+            }
+            _ => Some("unsupported_policy"),
+        };
+        if let Some(reason) = reason {
+            state
+                .store
+                .record_guardrail_preparation_denial(scope, principal.key_id(), &snapshot, reason)
+                .await
+                .map_err(ApiError::from_store)?;
+            return Err(ApiError::forbidden());
+        }
+    }
+    if output_rule_count > 0
+        && (output_rule_count > 32
+            || matches!(
+                protocol,
+                crate::guardrails::input::Protocol::Embeddings
+                    | crate::guardrails::input::Protocol::VideoText
+            )
+            || body.get("stream").and_then(Value::as_bool) == Some(true)
+            || body.get("tools").is_some()
+            || body.get("functions").is_some()
+            || body.get("response_format").is_some())
+    {
+        state
+            .store
+            .record_guardrail_preparation_denial(
+                scope,
+                principal.key_id(),
+                &snapshot,
+                "output_incompatible",
+            )
+            .await
+            .map_err(ApiError::from_store)?;
+        return Err(ApiError::forbidden());
+    }
+    if !rules.is_empty() {
+        let started = std::time::Instant::now();
+        let original = body.clone();
+        let inspected =
+            crate::guardrails::input::run_bounded(LIVE_INPUT_SLOTS.clone(), move || {
+                crate::guardrails::input::CompiledInputPolicy::compile(&rules)
+                    .and_then(|policy| policy.inspect(protocol, &original))
+            })
+            .await;
+        let reason = match inspected {
+            Ok(Ok(transformed)) => {
+                snapshot.input_outcome = Some(
+                    if transformed == *body {
+                        "allowed"
+                    } else {
+                        "redacted"
+                    }
+                    .to_owned(),
+                );
+                snapshot.input_elapsed_ms =
+                    Some(i64::try_from(started.elapsed().as_millis()).unwrap_or(i64::MAX));
+                *body = transformed;
+                None
+            }
+            Ok(Err(crate::guardrails::input::InspectionError::Blocked)) => Some("input_blocked"),
+            Ok(Err(crate::guardrails::input::InspectionError::UnsupportedContent)) => {
+                Some("input_unsupported")
+            }
+            Ok(Err(_)) => Some("input_resource_limit"),
+            Err(_) => Some("input_unavailable"),
+        };
+        if let Some(reason) = reason {
+            state
+                .store
+                .record_guardrail_preparation_denial(scope, principal.key_id(), &snapshot, reason)
+                .await
+                .map_err(ApiError::from_store)?;
+            return Err(ApiError::forbidden());
+        }
+    }
+    if !detectors.is_empty() {
+        if detectors.len() > 8 {
+            return Err(ApiError::forbidden());
+        }
+        let text = crate::guardrails::input::detector_text(protocol, body);
+        for binding in detectors {
+            let started = std::time::Instant::now();
+            let result = match &text {
+                Err(crate::guardrails::input::InspectionError::ResourceLimit) => {
+                    crate::guardrails::detector::InspectionResult {
+                        outcome: crate::guardrails::detector::Outcome::Indeterminate,
+                        reason: "resource_limit",
+                    }
+                }
+                Err(_) => crate::guardrails::detector::InspectionResult {
+                    outcome: crate::guardrails::detector::Outcome::Indeterminate,
+                    reason: "unsupported_content",
+                },
+                Ok(text) => match state.detectors.get(&binding.detector) {
+                    Some(runtime) if runtime.permits_live(scope.project_id, &binding) => {
+                        runtime.inspect(text).await
+                    }
+                    _ => crate::guardrails::detector::InspectionResult {
+                        outcome: crate::guardrails::detector::Outcome::Indeterminate,
+                        reason: "configuration_unavailable",
+                    },
+                },
+            };
+            let decision = json!({"detector":binding.detector,"configuration_fingerprint":binding.configuration_fingerprint,"outcome":result.outcome,"reason":result.reason,"elapsed_ms":i64::try_from(started.elapsed().as_millis()).unwrap_or(i64::MAX)});
+            let id = state
+                .store
+                .record_input_detector_decision(scope, principal.key_id(), &snapshot, &decision)
+                .await
+                .map_err(ApiError::from_store)?;
+            snapshot.input_detector_decision_ids.push(id);
+            if result.outcome != crate::guardrails::detector::Outcome::Clear {
+                let reason = if result.outcome == crate::guardrails::detector::Outcome::Matched {
+                    "detector_blocked"
+                } else if result.reason == "unsupported_content" {
+                    "detector_unsupported"
+                } else {
+                    "detector_unavailable"
+                };
+                state
+                    .store
+                    .record_guardrail_preparation_denial(
+                        scope,
+                        principal.key_id(),
+                        &snapshot,
+                        reason,
+                    )
+                    .await
+                    .map_err(ApiError::from_store)?;
+                return Err(ApiError::forbidden());
+            }
+        }
+    }
+    Ok(snapshot)
+}
+
+pub(super) struct AttemptRequest<'a> {
+    pub personal_route: Option<&'a niu_storage::VendorRoute>,
+    pub public_model: &'a str,
+    pub model: &'a crate::config::ModelConfig,
+    pub completion_bound: Option<i64>,
+    pub task_id: Option<&'a str>,
+    pub snapshot: niu_storage::GuardrailSnapshot,
+    pub request_body: &'a Value,
+    pub protocol: crate::guardrails::input::Protocol,
+}
+
+pub(super) async fn begin_attempt(
+    state: &AppState,
+    principal: &niu_storage::Principal,
+    request: AttemptRequest<'_>,
+) -> Result<DispatchContext, ApiError> {
+    let AttemptRequest {
+        personal_route,
+        public_model,
+        model,
+        completion_bound,
+        task_id,
+        snapshot,
+        request_body,
+        protocol,
+    } = request;
+    let scope = principal.scope();
+    if personal_route.is_none()
+        && model.pricing.is_none()
+        && state
+            .store
+            .customer_balance_enabled(scope.organization_id)
+            .await
+            .map_err(ApiError::from_store)?
+    {
+        return Err(ApiError::invalid_request(
+            "This model has no qualified cost bound for prepaid billing. Choose a priced model.",
+        ));
+    }
+    let retained_input = [&snapshot.workspace_policy, &snapshot.key_policy]
+        .into_iter()
+        .flatten()
+        .any(|policy| {
+            policy
+                .get("input_rules")
+                .and_then(Value::as_array)
+                .is_some_and(|rules| !rules.is_empty())
+        })
+        .then(|| request_body.clone());
+    let mut output_rules = Vec::new();
+    let mut output_observe_rules = Vec::new();
+    for policy in [&snapshot.workspace_policy, &snapshot.key_policy]
+        .into_iter()
+        .flatten()
+    {
+        let policy: crate::guardrails::PolicyDraft =
+            serde_json::from_value(policy.clone()).map_err(|_| ApiError::forbidden())?;
+        if let Some(output) = policy.output {
+            match output.mode {
+                crate::guardrails::OutputMode::BufferedFull => output_rules.extend(output.rules),
+                crate::guardrails::OutputMode::ObserveOnly => {
+                    output_observe_rules.extend(output.rules)
+                }
+            }
+        }
+    }
     let revision = route_revision(model);
-    let (operation, attempt) = if model.pricing.is_some() {
+    let (operation, attempt) = if let Some(route) = personal_route {
+        if model.pricing.is_some() {
+            return Err(ApiError::invalid_request(
+                "Personal routes cannot use commercial pricing",
+            ));
+        }
         let (operation, attempt) = state
             .store
             .prepare_gateway_attempt(scope, public_model, task_id, &revision)
+            .await
+            .map_err(ApiError::from_store)?;
+        state
+            .store
+            .bind_personal_attempt_route(scope, attempt, route)
+            .await
+            .map_err(ApiError::from_store)?;
+        state
+            .store
+            .bind_inspected_guardrails(scope, attempt, principal.key_id(), &snapshot)
+            .await
+            .map_err(ApiError::from_store)?;
+        state
+            .store
+            .set_attempt_dispatch_provider(scope, attempt, &model.provider)
+            .await
+            .map_err(ApiError::from_store)?;
+        state
+            .store
+            .mark_dispatched(principal, attempt)
+            .await
+            .map_err(ApiError::from_store)?;
+        (operation, attempt)
+    } else if model.pricing.is_some() {
+        let (operation, attempt) = state
+            .store
+            .prepare_gateway_attempt(scope, public_model, task_id, &revision)
+            .await
+            .map_err(ApiError::from_store)?;
+        state
+            .store
+            .bind_inspected_guardrails(scope, attempt, principal.key_id(), &snapshot)
+            .await
+            .map_err(ApiError::from_store)?;
+        state
+            .store
+            .set_attempt_dispatch_provider(scope, attempt, &model.provider)
             .await
             .map_err(ApiError::from_store)?;
         state
@@ -96,12 +427,16 @@ pub(super) async fn begin_attempt(
             .gateway_writes
             .admit_unpriced(
                 principal,
-                scope,
-                public_model,
-                &model.upstream_model,
-                model.api_base.as_deref(),
-                task_id,
-                &revision,
+                crate::admission::UnpricedAdmissionRequest {
+                    inspected_guardrails: snapshot,
+                    scope,
+                    model: public_model,
+                    upstream_model: &model.upstream_model,
+                    provider: &model.provider,
+                    api_base: model.api_base.as_deref(),
+                    task_id,
+                    revision: &revision,
+                },
             )
             .await
             .map_err(|error| match error {
@@ -144,11 +479,13 @@ pub(super) async fn begin_attempt(
             .reserve_and_dispatch_gateway(
                 principal,
                 attempt,
-                price_id,
-                public_model,
-                &revision,
-                price.max_input_tokens,
-                completion_bound.unwrap_or(price.max_output_tokens),
+                &niu_storage::GatewayReservation {
+                    price_revision_id: price_id,
+                    resource_id: public_model.to_owned(),
+                    offer_revision: revision.clone(),
+                    prompt_bound: price.max_input_tokens,
+                    completion_bound: completion_bound.unwrap_or(price.max_output_tokens),
+                },
             )
             .await
         {
@@ -158,7 +495,12 @@ pub(super) async fn begin_attempt(
             return Err(ApiError::from_store(error));
         }
     }
+    crate::request_timings::dispatched(attempt);
     Ok(DispatchContext {
+        retained_input,
+        output_rules,
+        output_observe_rules,
+        protocol,
         scope,
         operation,
         attempt,
@@ -230,17 +572,136 @@ mod tests {
     }
 }
 
+async fn inspect_output_rules(
+    protocol: crate::guardrails::input::Protocol,
+    original: &Value,
+    rules: &[crate::guardrails::input::RuleConfig],
+) -> Result<(Value, bool), crate::guardrails::input::InspectionError> {
+    use crate::guardrails::input::{CompiledInputPolicy, InspectionError};
+    let original = original.clone();
+    let rules = rules.to_vec();
+    crate::guardrails::input::run_bounded(LIVE_INPUT_SLOTS.clone(), move || {
+        CompiledInputPolicy::compile(&rules)
+            .and_then(|policy| policy.inspect_output(protocol, &original))
+            .map(|transformed| {
+                let changed = transformed != original;
+                (transformed, changed)
+            })
+    })
+    .await
+    .unwrap_or(Err(InspectionError::InvalidPattern))
+}
+
+async fn inspect_complete_output(
+    state: &AppState,
+    dispatch: &DispatchContext,
+    response: Response,
+) -> Response {
+    use crate::guardrails::input::InspectionError;
+    let started = std::time::Instant::now();
+    let (mut parts, body) = response.into_parts();
+    parts.headers.remove(axum::http::header::CONTENT_LENGTH);
+    // Provider JSON is already bounded at 16 MiB. Allow serialization overhead
+    // here, while inspection itself retains its separate 1 MiB bound.
+    let bytes = axum::body::to_bytes(body, MAX_PROVIDER_JSON_BYTES + 64 * 1024).await;
+    let original = bytes
+        .as_ref()
+        .map_err(|_| InspectionError::ResourceLimit)
+        .and_then(|bytes| {
+            serde_json::from_slice::<Value>(bytes).map_err(|_| InspectionError::UnsupportedContent)
+        });
+    if !dispatch.output_observe_rules.is_empty() {
+        let observation = match &original {
+            Ok(original) => {
+                inspect_output_rules(dispatch.protocol, original, &dispatch.output_observe_rules)
+                    .await
+            }
+            Err(InspectionError::ResourceLimit) => Err(InspectionError::ResourceLimit),
+            Err(_) => Err(InspectionError::UnsupportedContent),
+        };
+        let (outcome, reason) = match observation {
+            Ok((_, false)) => ("clear", "inspected_text"),
+            Ok((_, true)) | Err(InspectionError::Blocked) => ("matched", "pattern_match"),
+            Err(InspectionError::UnsupportedContent) => ("indeterminate", "unsupported_content"),
+            Err(InspectionError::ResourceLimit) => ("indeterminate", "resource_limit"),
+            Err(InspectionError::InvalidPattern) => ("indeterminate", "inspection_unavailable"),
+        };
+        let elapsed = i64::try_from(started.elapsed().as_millis()).unwrap_or(i64::MAX);
+        if state
+            .store
+            .record_output_guardrail_observation(
+                dispatch.scope,
+                dispatch.attempt,
+                outcome,
+                reason,
+                elapsed,
+            )
+            .await
+            .is_err()
+        {
+            // Observation must never become an implicit output blocking rule.
+            tracing::error!(attempt_id = %dispatch.attempt, "output observation could not be saved");
+        }
+    }
+    if dispatch.output_rules.is_empty() {
+        return match bytes {
+            Ok(bytes) => Response::from_parts(parts, axum::body::Body::from(bytes)),
+            Err(_) => ApiError::upstream().into_response(),
+        };
+    }
+    let inspected = match original {
+        Ok(original) => {
+            inspect_output_rules(dispatch.protocol, &original, &dispatch.output_rules).await
+        }
+        Err(error) => Err(error),
+    };
+    let (outcome, reason) = match &inspected {
+        Ok((_, false)) => ("allowed", "inspected_text"),
+        Ok((_, true)) => ("redacted", "inspected_text"),
+        Err(InspectionError::Blocked) => ("blocked", "pattern_denial"),
+        Err(InspectionError::UnsupportedContent) => ("indeterminate", "unsupported_content"),
+        Err(InspectionError::ResourceLimit) => ("indeterminate", "resource_limit"),
+        Err(InspectionError::InvalidPattern) => ("indeterminate", "inspection_unavailable"),
+    };
+    let elapsed = i64::try_from(started.elapsed().as_millis()).unwrap_or(i64::MAX);
+    if state
+        .store
+        .record_output_guardrail_decision(
+            dispatch.scope,
+            dispatch.attempt,
+            outcome,
+            reason,
+            elapsed,
+        )
+        .await
+        .is_err()
+    {
+        return ApiError::forbidden().into_response();
+    }
+    match inspected {
+        Ok((value, _)) => {
+            let (_, body) = axum::Json(value).into_response().into_parts();
+            Response::from_parts(parts, body)
+        }
+        Err(_) => ApiError::forbidden().into_response(),
+    }
+}
+
 pub(super) async fn finalize_response(
     state: &AppState,
     dispatch: DispatchContext,
     result: Result<ProviderResponse, ApiError>,
 ) -> Response {
     let mut response = match result {
-        Ok(result) if result.completed => {
+        Ok(mut result) if result.completed => {
+            if !dispatch.output_rules.is_empty() || !dispatch.output_observe_rules.is_empty() {
+                result.response = inspect_complete_output(state, &dispatch, result.response).await;
+            }
             if dispatch.priced {
                 if state
                     .gateway_writes
                     .complete_priced(crate::admission::PricedGatewayCompletion {
+                        token_categories: result.token_categories,
                         scope: dispatch.scope,
                         attempt_id: dispatch.attempt,
                         usage: result.usage,
@@ -254,9 +715,19 @@ pub(super) async fn finalize_response(
                         "priced gateway completion writer is unavailable; the durable reservation remains unresolved"
                     );
                 }
+                if let Some(choices) = result.finish_reasons.take()
+                    && state
+                        .store
+                        .save_request_finish_reasons(dispatch.scope, dispatch.attempt, choices)
+                        .await
+                        .is_err()
+                {
+                    tracing::error!(attempt_id = %dispatch.attempt, "finish-reason observation could not be saved");
+                }
                 result.response
             } else {
                 let completion = niu_storage::GatewayCompletion {
+                    token_categories: result.token_categories,
                     scope: dispatch.scope,
                     attempt_id: dispatch.attempt,
                     usage: result.usage,
@@ -273,12 +744,26 @@ pub(super) async fn finalize_response(
                         "unpriced completion writer is unavailable; the durable request remains unresolved"
                     );
                 }
+                if let Some(choices) = result.finish_reasons.take()
+                    && state
+                        .store
+                        .save_request_finish_reasons(dispatch.scope, dispatch.attempt, choices)
+                        .await
+                        .is_err()
+                {
+                    tracing::error!(attempt_id = %dispatch.attempt, "finish-reason observation could not be saved");
+                }
                 result.response
             }
         }
         Ok(result) => result.response,
         Err(error) => error.into_response(),
     };
+    if let Some(input) = dispatch.retained_input {
+        response
+            .extensions_mut()
+            .insert(crate::request_payloads::InspectedRequestPayload(input));
+    }
     response.headers_mut().insert(
         "x-niu-operation-id",
         HeaderValue::from_str(&dispatch.operation.to_string()).unwrap(),
@@ -377,8 +862,12 @@ pub(super) fn validate_priced_request(
     Ok(())
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub(super) struct DispatchContext {
+    output_rules: Vec<crate::guardrails::input::RuleConfig>,
+    output_observe_rules: Vec<crate::guardrails::input::RuleConfig>,
+    protocol: crate::guardrails::input::Protocol,
+    retained_input: Option<Value>,
     pub(super) scope: niu_storage::TenantScope,
     pub(super) operation: Uuid,
     pub(super) attempt: Uuid,
@@ -386,14 +875,10 @@ pub(super) struct DispatchContext {
 }
 
 pub(super) struct ProviderResponse {
+    pub(super) finish_reasons: Option<Vec<niu_storage::RequestChoiceFinish>>,
+    pub(super) token_categories: Option<niu_storage::RequestTokenCategories>,
     pub(super) response: Response,
     pub(super) completed: bool,
     pub(super) usage: Option<(u64, u64)>,
     pub(super) provider_model: Option<String>,
-}
-
-pub(in crate::web) fn bearer(headers: &HeaderMap) -> Option<&str> {
-    headers
-        .get(header::AUTHORIZATION)
-        .and_then(|value| value.to_str().ok())
 }

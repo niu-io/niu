@@ -1,0 +1,33 @@
+{
+  "date": "2026-10-09",
+  "platform": "linux/arm64",
+  "through_migration": 201,
+  "image": "sha256:ebb7aa34fc6af4ed09a85a56b5cfe240b1cd11c46132ef6c4a20937aabb1aefc",
+  "previous_image": "sha256:e96d32e63a994065954b96d58e23eea6860035687bed78accbd4a5b80427e1f3",
+  "source_snapshot_sha256": "16920c6ab58c731a4fbe61d171c342137d187bf70dec2b919678fabe70f95e8c",
+  "source_file_count": 1390,
+  "harness_sha256": {
+    "scripts/package-smoke.py": "e139c6809f8937adfa7f3953c88d1908fa44ce0e39c651df7354c887fdb8236f",
+    "scripts/package-upgrade-smoke.py": "11f19dfca073221797e8ffed1ff961ddd4887b464286384a6fc48c60b77886e0",
+    "scripts/package_asset_upgrade.py": "c8299bfc58a1bc37c711097e5ab06491c5e086d0dad360a6a946c28979ebf0eb",
+    "scripts/package_asset_updates.py": "8acdc5d044487458477734665921be8f1f60384f74c463238c754ced14bcd695",
+    "scripts/package_asset_listing.py": "cad4dd8487b89419951abc839bf4e380f415f9d8db2ff6f5a811c7af155252b7",
+    "scripts/package_branding.py": "624cc0694880c7d999380b3bab58eca0718cd6df4e8c61506030a509dfae373e",
+    "scripts/package_video.py": "69ea581c24f9c2c275b50a930531bcb2a764ff7a9689961f7795abfa61bad844"
+  },
+  "passed": [
+    "frozen public-source Linux/arm64 build with digest-pinned previously qualified base images",
+    "full public/build-input boundary check: 1389 files",
+    "direct-container smoke: controlled text/video inference, customer settlement, encrypted listing/lookup/update recovery and branding",
+    "Compose application/PostgreSQL restart, backup/restore, graceful drain, migrations, asset recovery and branding",
+    "0188 to 0201 upgrade: injected DDL failure recovery, immutable migration receipt preservation, workspace/video/charge/liability/asset preservation without replay"
+  ],
+  "limitations": [
+    "Synthetic Supplier responses and grants do not establish live rights, entitlement or discounted supply.",
+    "New inspected-source, ingestion and readiness APIs have native acceptance; complete packaged asset-ingestion/readiness flow is not yet qualified.",
+    "Original-0174 history has native compatibility evidence, not its own container upgrade fixture.",
+    "Compose does not generate video.",
+    "Unpinned Git identity rejects Enterprise manifests.",
+    "Full F01\u2013F10 and rendered/live acceptance remain incomplete."
+  ]
+}

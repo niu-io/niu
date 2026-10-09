@@ -1,0 +1,23 @@
+{
+  "source_manifest_sha256": "4126f3d1d6524ee203e81712c531a79774b431fa39db322b8d5af65991127767",
+  "source_files": 316,
+  "exit_codes": {
+    "tests": 1,
+    "types": 0
+  },
+  "changed_snapshot_inputs": [],
+  "dependency_receipts": {
+    "pnpm-lock.yaml": "2fc2df57b5dd40e8eb074005fbef44348d231ed006b9e8b8ae04a05300bdb1d1",
+    "node_modules/.modules.yaml": "e7fa05845d16553f737de28147cfcf1d7f139bac677555d6d0bce7dd1d800a79"
+  },
+  "dependencies_unchanged": true,
+  "qualified_snapshot": false,
+  "scope": "dashboard automated tests and type checking; no live/rendered acceptance",
+  "date": "2026-10-08",
+  "tests_passed": 530,
+  "tests_failed": 1,
+  "test_files_passed": 73,
+  "test_files_failed": 1,
+  "workers": 1,
+  "failure": "SupplierNav expected retired Supplier-specific Admin sidebar instead of persistent Admin sections"
+}

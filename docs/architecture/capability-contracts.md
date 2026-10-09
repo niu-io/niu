@@ -8,6 +8,10 @@ available as a configured runtime integration. The reference extension uses
 synthetic inputs and does not contact an identity provider, model provider, or
 task runner.
 
+## Product scope
+
+The [current product focus](../product/product-focus.md) limits Niu to model access and consumption observability. Existing task traits and synthetic fixtures remain compatibility artifacts; implementing a task runner or sandbox is not a Niu release requirement. External clients own task execution and acceptance. The historical R13 reference below belongs to the [legacy release plan](../releases/first-release-legacy.md), not the current acceptance matrix.
+
 ## Protocol fidelity
 
 The gateway currently implements one OpenAI-compatible text embedding operation. A model route must explicitly declare embedding support; dimensions and base64 encoding each require their own declaration. These declarations are operator-provided and do not prove upstream conformance. The gateway rejects unsupported providers and capabilities before creating a durable operation or attempt. Native Anthropic and Bedrock embeddings, token-ID and multimodal inputs, and provider conformance suites remain unimplemented.

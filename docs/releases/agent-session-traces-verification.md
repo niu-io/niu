@@ -14,7 +14,7 @@ Validation:
 
 - Collector: 21 passing tests, including installed Codex native export and plugin hooks across ordinary sessions.
 - Storage: 3 passing session-projection unit tests and 4 passing PostgreSQL integration/schema tests, including concurrent ingestion, retry conflicts, continuation parts, owner isolation, deletion, and legacy-fragment reporting.
-- Console: type checking and 7 passing Agent Observability tests, including completion-only selection and zoom without invented timing.
+- Dashboard: type checking and 7 passing Agent Observability tests, including completion-only selection and zoom without invented timing.
 - JavaScript SDK: type checking with the optional session correlation field.
 - Current-machine receiver: healthy after upgrading the local package; pending filtered telemetry flushed successfully.
 

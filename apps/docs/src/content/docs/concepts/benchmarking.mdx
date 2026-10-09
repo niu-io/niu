@@ -1,7 +1,11 @@
 ---
-title: Paired benchmark analysis
+title: Offline evaluator
 description: Analyze matched task observations without treating heuristics as measured savings.
 ---
+
+:::note[Legacy analysis tool]
+This retained offline evaluator is outside Niu’s current product scope. It does not run tasks or establish model quality.
+:::
 
 Niu's paired benchmark evaluator is an offline analysis component built around
 the metadata-only `ExecutionRecordV1` format. Each trial includes the matching
@@ -17,7 +21,7 @@ must use identical task, tool, permission, and acceptance-policy hashes. The
 evaluator keeps observed outcomes, heuristic diagnoses, cost evidence, and
 uncertainty visible.
 
-Before submitting a comparison, the console checks for task snapshots and
+Before submitting a comparison, the dashboard checks for task snapshots and
 policy hashes, complete paired runs, trusted outcome scores, pinned route
 revisions, full trace coverage, and settled gateway charges. The evaluator
 remains authoritative and rejects mismatched ledger evidence.
@@ -45,6 +49,4 @@ trials must already include matching gateway attempt evidence and settled model
 and evaluator amounts; any unreferenced billable span is rejected. No real paired experiment has been run by this tool,
 so its synthetic fixture is not evidence of model quality or cost improvement.
 
-See [execution observation](/docs/concepts/execution-observation/) for the
-gateway-first collection model, optional task correlation and supplemental
-metadata schema.
+See [request logs](/docs/concepts/execution-observation/) for gateway request diagnostics and task correlation.

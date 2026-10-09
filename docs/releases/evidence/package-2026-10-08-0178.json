@@ -1,0 +1,88 @@
+{
+  "verified_on": "2026-10-08",
+  "image": "sha256:5148a63ba32c172ab8d1ce373821de28db5d54b26cfd8f725387ad87c7dca27a",
+  "previous_image": "sha256:7bea921e0e602e5724874b80e279072655dd8d292e2639c9e3d45a9f9d219e71",
+  "platform": "linux/arm64",
+  "snapshot_sha256": "d67d56c55e5828dee2e7f845c71149afb3c161c5b497bd35a575f38a70078aa2",
+  "snapshot_file_count": 1314,
+  "migration_max": 178,
+  "source_matches_worktree_before_evidence_update": true,
+  "checks": {
+    "frozen_source_boundary": {
+      "passed": true,
+      "files": 1313,
+      "reviewed_symlinks": 1
+    },
+    "runtime_assets_boundary": {
+      "passed": true,
+      "files": 221,
+      "dashboard_favicon_matches_brand": true
+    },
+    "package_harness": {
+      "passed": true,
+      "tests": 62
+    },
+    "direct_package": {
+      "passed": true,
+      "text": true,
+      "video_fixture": true,
+      "prepared_asset_restart_restore": true,
+      "encrypted_listing_restart_restore": true,
+      "listing_parent_digest_preserved": true,
+      "unresolved_listing_audit_preserved": true,
+      "favicon_http_check": true
+    },
+    "compose_package": {
+      "passed": true,
+      "video_fixture": false,
+      "prepared_asset_restart_restore": true,
+      "encrypted_listing_restart_restore": true,
+      "listing_parent_digest_preserved": true,
+      "unresolved_listing_audit_preserved": true,
+      "favicon_http_check": true
+    },
+    "distinct_image_upgrade": {
+      "passed": true,
+      "migration_range": [
+        174,
+        178
+      ],
+      "migration_fault_recovery": true,
+      "video_fixture": true,
+      "prepared_assets": true,
+      "fabricated_asset_authorization": false,
+      "asset_dispatch_performed": false,
+      "preexisting_asset_read_results": false,
+      "preexisting_listing_results": false
+    }
+  },
+  "listing_fixture": {
+    "synthetic_review_and_outcomes": true,
+    "live_entitlement_qualified": false,
+    "supplier_request_performed": false,
+    "encryption": "AES-256-GCM with production listing AAD",
+    "host_node_required": true
+  },
+  "unqualified": [
+    "live Supplier entitlement and discounted supply",
+    "live asset creation and complete asset lifecycle",
+    "live result retrieval and advertised video combinations",
+    "live payments",
+    "complete responsive browser acceptance",
+    "Enterprise manifests for an unversioned build",
+    "other architectures",
+    "full F01-F10 release gates",
+    "restart/restore or upgrade preservation of existing encrypted asset-read results",
+    "distinct-image upgrade preservation of preexisting encrypted listing results"
+  ],
+  "verification_harness_sha256": {
+    "scripts/package-smoke.py": "14c2bc3e00e8f4af2570cb964f50ab62cd117322f1a7cfee5f3005816624212a",
+    "scripts/package-upgrade-smoke.py": "11f19dfca073221797e8ffed1ff961ddd4887b464286384a6fc48c60b77886e0",
+    "scripts/package_video.py": "69ea581c24f9c2c275b50a930531bcb2a764ff7a9689961f7795abfa61bad844",
+    "scripts/package_asset_upgrade.py": "c8299bfc58a1bc37c711097e5ab06491c5e086d0dad360a6a946c28979ebf0eb",
+    "scripts/package_asset_listing.py": "3a9fd8a6e6f7a2bab6e63666ae24f453590b0c9cfaa7a313e1a6bc5f8841d77e",
+    "scripts/tests/test_package_asset_upgrade.py": "07dd3c4d71532bfd25da4e573c6b824cd6a19a24af0205fb58774254620144a5",
+    "scripts/tests/test_package_asset_listing.py": "79b546b86cc8bc6c02d0b06ca8864daa6c5d9af6dc2d4fd8e93cdfa9e3d360ed",
+    "compose.yaml": "c0c9c311f8426ce4a9691d4fef7eb7bb2bd06fd9f16e30666f52782496d10d22"
+  }
+}

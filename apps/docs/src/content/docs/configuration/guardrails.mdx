@@ -1,0 +1,53 @@
+---
+title: Guardrails
+description: Configure workspace request policies and test text patterns before saving.
+---
+
+Open **Guardrails** in a workspace to manage its default policy. The workspace
+policy applies to every workspace API key. Key permissions remain enforced;
+a workspace policy does not grant a key access to additional models.
+
+## Configure a policy
+
+Open **Workspace default** and choose the part of the policy to edit:
+
+- **Model & Provider Access** controls available models and API services.
+- **Input rules** block or redact matching text before inference.
+- **External input checks** require an available, authorized detector.
+- **Output rules** inspect generated text before delivery.
+
+Changes remain drafts until you select **Save**. An invalid rule keeps Save
+disabled. **History** lists saved policy versions; **Blocked requests** lists
+recorded blocks before model dispatch. For output blocks, inspect the request
+details in **Logs**. The blocked-request list does not include every admission
+denial.
+
+## Test text patterns
+
+Select a built-in pattern or use **Add pattern** to enter a regular expression.
+Each stage supports up to 32 rules. Custom patterns accept 1–4096 UTF-8 bytes;
+look-around and backreferences are unsupported. Built-in patterns recognize
+specific syntax and do not detect every secret or personal detail.
+
+Choose **Block** or **Redact**, then enter synthetic text under **Test your
+patterns**. Select the request protocol and run **Test patterns**. This previews
+the rules currently shown in the editor; it does not save the policy or send
+the sample to a model.
+
+## Output inspection
+
+**Enforce · buffered output** holds the response until inspection finishes.
+**Observe only** records matches without changing the response; mandatory
+enforcement still applies. In observe-only mode, per-pattern action controls
+show **Observe** and cannot be changed.
+
+Output inspection does not support streaming, tools, structured output, or
+Embeddings. Active input rules also block unsupported tools, images, or opaque
+content. Review these limits before enabling rules for an application.
+
+## External checks
+
+External checks require a deployment administrator to configure a detector and
+authorize it for the workspace. If none is available, **Add external check**
+is disabled. Required checks run before inference; matching content,
+unavailable detector services, and unsupported content block the request.

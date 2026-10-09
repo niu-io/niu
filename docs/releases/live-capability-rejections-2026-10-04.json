@@ -1,0 +1,49 @@
+{
+  "date": "2026-10-04",
+  "scope": "Current demo route disabled-capability rejection; not successful upstream conformance",
+  "model": "google/gemini-2.5-flash",
+  "cases": [
+    {
+      "case": "tools",
+      "http_status": 501,
+      "error_code": 501,
+      "message": "Function tools are not enabled for this model. Choose a model with tool support or remove tool declarations and tool messages."
+    },
+    {
+      "case": "streaming_tools",
+      "http_status": 501,
+      "error_code": 501,
+      "message": "Function tools are not enabled for this model. Choose a model with tool support or remove tool declarations and tool messages."
+    },
+    {
+      "case": "json_object",
+      "http_status": 501,
+      "error_code": 501,
+      "message": "Structured JSON output is not enabled for this model. Choose a model with structured output support or use text output."
+    },
+    {
+      "case": "json_schema",
+      "http_status": 501,
+      "error_code": 501,
+      "message": "Structured JSON output is not enabled for this model. Choose a model with structured output support or use text output."
+    },
+    {
+      "case": "responses",
+      "http_status": 501,
+      "error_code": 501,
+      "message": "Responses are not enabled for this model. Choose a model with Responses support."
+    },
+    {
+      "case": "embeddings",
+      "http_status": 501,
+      "error_code": 501,
+      "message": "Embeddings are not enabled for this model. Choose an embedding model."
+    }
+  ],
+  "attempts_before": 0,
+  "attempts_after": 0,
+  "last_used_at_ms": null,
+  "temporary_key_revoked": true,
+  "route_declarations_changed": false,
+  "independent_egress_capture": false
+}

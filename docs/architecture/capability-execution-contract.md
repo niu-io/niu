@@ -1,6 +1,6 @@
 # Capability and execution contract
 
-Niu routes model API calls and longer-running agent tasks through a shared control plane, but their protocols remain distinct. A model provider advertises capabilities such as chat completions, streaming, tool calls, structured output, media input, and provider-reported usage. An agent runtime may advertise task continuation, cancellation, isolated workspaces, shell execution, and validation support. No feature is inferred from a similar product or model name.
+Niu routes model API calls. External clients own longer-running agent tasks, subagents, tools, environments, scheduling and acceptance. A model provider advertises capabilities such as chat completions, streaming, tool calls, structured output, media input, and provider-reported usage. No feature is inferred from a similar product or model name. Optional task/session references correlate model requests without transferring task ownership to Niu. The [product focus](../product/product-focus.md) governs this boundary; legacy task contracts remain compatibility artifacts rather than current release requirements.
 
 Each versioned resource offer reports support as `native`, `translated`, `limited`, or `unsupported`. A limited capability includes a description and requires explicit acceptance. Unsupported semantics fail before dispatch rather than disappearing silently during translation.
 

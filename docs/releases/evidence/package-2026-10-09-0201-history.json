@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-09",
+  "platform": "linux/arm64",
+  "through_migration": 201,
+  "image": "sha256:ef9754c695fc9169ddb65b3f188a0478086aeb9b2893f5922307abe5bfb7f799",
+  "previous_upgrade_image": "sha256:e96d32e63a994065954b96d58e23eea6860035687bed78accbd4a5b80427e1f3",
+  "source_snapshot_sha256": "9e3356d4b9c09f5eb1c24e8340cd4984bb853c6bfbf5f354bc75d62c9980e645",
+  "source_file_count": 1398,
+  "harness_sha256": {
+    "scripts/package-smoke.py": "52992c10248bb357d21b0a899554d121e626a9c4c6a772833cf7b26cf686f2cb",
+    "scripts/package-upgrade-smoke.py": "11f19dfca073221797e8ffed1ff961ddd4887b464286384a6fc48c60b77886e0",
+    "scripts/package_image_admission.py": "c183aca1f5296242e031b21de49555b82135be7ffcf70be9a13581887b5ebc59",
+    "scripts/package_asset_upgrade.py": "c8299bfc58a1bc37c711097e5ab06491c5e086d0dad360a6a946c28979ebf0eb",
+    "scripts/package_asset_listing.py": "cad4dd8487b89419951abc839bf4e380f415f9d8db2ff6f5a811c7af155252b7",
+    "scripts/package_asset_updates.py": "8acdc5d044487458477734665921be8f1f60384f74c463238c754ced14bcd695",
+    "scripts/package_branding.py": "624cc0694880c7d999380b3bab58eca0718cd6df4e8c61506030a509dfae373e",
+    "scripts/package_video.py": "69ea581c24f9c2c275b50a930531bcb2a764ff7a9689961f7795abfa61bad844",
+    "tests/fixtures/mock-openai-compatible.py": "8b86af857b719464a555362c2548b6b1ad23940b11758398db87c22fc0896d62"
+  },
+  "passed": [
+    "Frozen public-source Linux/arm64 build and full public/build-input check: 1397 files",
+    "Full direct-container and Compose fixture sets: baseline lifecycle, encrypted asset listing/lookup/update recovery and branding",
+    "Positive inspected-source preparation, key isolation, exact delivery, erasure and PostgreSQL restart/backup/restore",
+    "Packaged ingestion history, nullable/saved outcome diagnostics, foreign-key/cursor denial and identical history after restore",
+    "Dispatch/readiness command overrides rejected before ingestion claim creation",
+    "0188-to-current upgrade: injected migration failure recovery, workspace/video/pricing/liability/asset preservation without replay"
+  ],
+  "limitations": [
+    "Synthetic groups, grants, ingestion claims/capabilities and accepted/Active outcomes qualify persistence/authorization only; no live Provider write/read or runtime issuance qualification.",
+    "Complete ingestion dispatch/readiness polling, public HTTPS source fetching and live inspection effectiveness remain open.",
+    "Packaged pagination tie-breaker coverage is native; packaged history fixture uses one saved ingestion.",
+    "Availability erasure behavior has native acceptance; positive packaged history records are already accepted, not unclaimed available records.",
+    "Live Supplier rights, discounted supply, complete customer/browser journeys and full F01\u2013F10 qualification remain incomplete.",
+    "Original-0174 history has native compatibility evidence, not its own container upgrade fixture.",
+    "Unpinned Git identity rejects Enterprise manifests."
+  ]
+}

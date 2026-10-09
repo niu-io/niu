@@ -56,7 +56,7 @@ async fn tool_provider(
     headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Json<Value> {
-    let response = if body.get("response_format").is_some() {
+    let mut response = if body.get("response_format").is_some() {
         let content =
             if body.pointer("/response_format/json_schema/name") == Some(&json!("invalid")) {
                 "not-json"
@@ -96,6 +96,15 @@ async fn tool_provider(
             "usage": {"prompt_tokens": 19, "completion_tokens": 8, "total_tokens": 27}
         })
     };
+    match body
+        .pointer("/response_format/json_schema/name")
+        .and_then(Value::as_str)
+    {
+        Some("usage_missing") => response["usage"] = json!({"prompt_tokens":11}),
+        Some("usage_inconsistent") => response["usage"]["total_tokens"] = json!(99),
+        Some("usage_overflow") => response["usage"]["prompt_tokens"] = json!(u64::MAX),
+        _ => {}
+    }
     *captured.0.lock().expect("capture mutex") = Some((headers, body));
     Json(response)
 }
@@ -151,11 +160,20 @@ async fn responses_provider(
             "content":[{"type":"output_text","text":"Hello from Responses","annotations":[]}]
         }])
     };
+    let total = if body["input"] == "bad-usage" { 7 } else { 6 };
+    let interruption = match body["input"].as_str() {
+        Some("limited") => Some("max_output_tokens"),
+        Some("filtered") => Some("content_filter"),
+        _ => None,
+    };
     *captured.0.lock().expect("capture mutex") = Some((headers, body));
     Json(json!({
-        "id":"resp_test_1","object":"response","status":"completed",
+        "id":"resp_test_1","object":"response","status":if interruption.is_some() { "incomplete" } else { "completed" },
+        "incomplete_details":interruption.map(|reason| json!({"reason":reason})),
         "created_at":1750000000,"model":"provider-secret-model","output":output,
-        "usage":{"input_tokens":4,"output_tokens":2,"total_tokens":6}
+        "usage":{"input_tokens":4,"output_tokens":2,"total_tokens":total,
+            "input_tokens_details":{"cached_tokens":3},
+            "output_tokens_details":{"reasoning_tokens":0}}
     }))
 }
 
@@ -180,12 +198,13 @@ async fn embedding_provider(
             })
         })
         .collect::<Vec<_>>();
+    let total = if body["input"] == "bad" { 6 } else { 5 };
     *captured.0.lock().expect("capture mutex") = Some((headers, body));
     Json(json!({
         "object": "list",
         "data": data,
         "model": "provider-secret-model",
-        "usage": {"prompt_tokens": 5, "total_tokens": 5}
+        "usage": {"prompt_tokens": 5, "total_tokens": total}
     }))
 }
 
@@ -243,12 +262,54 @@ async fn admin_call(app: &Router, path: &str, body: Value) -> Value {
 
 mod accounting;
 mod admin;
+mod codex_connections;
 mod executions;
 mod inference;
 mod operator_audit;
 mod operators;
+mod passwords;
+mod profile;
 mod quota;
+mod request_exports;
+mod video;
+mod video_images;
 
 mod vendors;
 
 mod providers;
+
+#[tokio::test]
+async fn external_agent_ingestion_routes_are_not_available() {
+    // A lazy pool ensures removed routes cannot accidentally reach persistence.
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .connect_lazy("postgres://unused:unused@127.0.0.1:1/unused")
+        .unwrap();
+    let app = router(test_state(None, pool));
+    let scope = "/admin/v1/organizations/00000000-0000-0000-0000-000000000001/projects/00000000-0000-0000-0000-000000000002";
+    for path in [
+        "/admin/v1/agent-observability/connections".to_string(),
+        "/admin/v1/agent-observability/traces".to_string(),
+        "/admin/v1/agent-observability/observations".to_string(),
+        format!("{scope}/codex-usage/imports"),
+        format!("{scope}/execution-imports"),
+        format!("{scope}/executions"),
+    ] {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::post(path)
+                    .header(
+                        "authorization",
+                        "Bearer niu-test-admin-token-that-is-long-1234",
+                    )
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from("{}"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+}
+
+mod branding;

@@ -1,0 +1,18 @@
+{
+  "date": "2026-10-06",
+  "scope": "all currently saved personal-route attempts in the development database, including prior Chat checks and model probes",
+  "checks": {
+    "personal_attempts": 61,
+    "completed": 61,
+    "provider_reported_usage": 61,
+    "with_timing": 61,
+    "complete_timing": 61,
+    "with_token_categories": 61,
+    "with_finish_reasons": 61,
+    "customer_charges": 0,
+    "customer_reservations": 0,
+    "customer_tariffs": 0,
+    "supplier_offer_bindings": 0
+  },
+  "qualification": "aggregate durability/accounting check; not exact per-probe correlation, restart recovery, commercial billing or full release acceptance"
+}

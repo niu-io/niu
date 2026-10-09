@@ -92,6 +92,87 @@ async fn call(
 
 #[sqlx::test(migrations = "../../crates/storage/migrations")]
 #[ignore = "requires PostgreSQL"]
+async fn platform_admin_session_rechecks_grants_without_expanding_customer_scope(
+    pool: sqlx::PgPool,
+) {
+    let state = test_state(None, pool.clone());
+    let scope = state.store.default_workspace().await.unwrap();
+    let issued = state
+        .store
+        .create_operator(
+            OperatorScope {
+                organization_id: scope.organization_id,
+                project_id: Some(scope.project_id),
+            },
+            "Platform administrator",
+            OperatorRole::Owner,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let app = router(state);
+    assert_eq!(
+        call(&app, Method::GET, "/admin/v1/vendors", &issued.token, None)
+            .await
+            .0,
+        StatusCode::FORBIDDEN
+    );
+    sqlx::query("UPDATE admin_operators SET platform_admin=true WHERE id=$1")
+        .bind(issued.operator_id)
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        call(&app, Method::GET, "/admin/v1/vendors", &issued.token, None)
+            .await
+            .0,
+        StatusCode::OK
+    );
+    let (_, identity) = call(&app, Method::GET, "/admin/v1/session", &issued.token, None).await;
+    assert_eq!(identity["data"]["kind"], "operator");
+    assert_eq!(identity["data"]["permissions"]["platform_admin"], true);
+    assert_eq!(
+        identity["data"]["operator"]["project_id"],
+        scope.project_id.to_string()
+    );
+    let (_, organizations) = call(
+        &app,
+        Method::GET,
+        "/admin/v1/organizations",
+        &issued.token,
+        None,
+    )
+    .await;
+    assert_eq!(organizations["data"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        organizations["data"][0]["id"],
+        scope.organization_id.to_string()
+    );
+    let foreign = format!("/admin/v1/organizations/{}/projects", Uuid::new_v4());
+    assert_eq!(
+        call(&app, Method::GET, &foreign, &issued.token, None)
+            .await
+            .0,
+        StatusCode::NOT_FOUND
+    );
+    sqlx::query("UPDATE admin_operators SET platform_admin=false WHERE id=$1")
+        .bind(issued.operator_id)
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        call(&app, Method::GET, "/admin/v1/vendors", &issued.token, None)
+            .await
+            .0,
+        StatusCode::FORBIDDEN
+    );
+    let (_, identity) = call(&app, Method::GET, "/admin/v1/session", &issued.token, None).await;
+    assert_eq!(identity["data"]["permissions"]["platform_admin"], false);
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
 async fn session_identity_rechecks_role_scope_expiry_and_revocation(pool: sqlx::PgPool) {
     let state = test_state(None, pool.clone());
     let store = state.store.clone();
@@ -103,7 +184,7 @@ async fn session_identity_rechecks_role_scope_expiry_and_revocation(pool: sqlx::
     assert!(identity["data"]["operator"].is_null());
     assert_eq!(
         identity["data"]["permissions"],
-        json!({"read":true,"write":true,"manage_operators":true})
+        json!({"read":true,"write":true,"manage_operators":true,"platform_admin":true})
     );
 
     for (role, write, manage) in [
@@ -146,7 +227,7 @@ async fn session_identity_rechecks_role_scope_expiry_and_revocation(pool: sqlx::
         );
         assert_eq!(
             identity["data"]["permissions"],
-            json!({"read":true,"write":write,"manage_operators":manage})
+            json!({"read":true,"write":write,"manage_operators":manage,"platform_admin":false})
         );
         assert!(!identity.to_string().contains(&issued.token));
         store
@@ -428,5 +509,116 @@ async fn operator_http_workflow_enforces_scope_and_revokes_sessions(pool: sqlx::
         .await
         .0,
         StatusCode::CONFLICT
+    );
+}
+
+#[sqlx::test(migrations = "../../crates/storage/migrations")]
+#[ignore = "requires PostgreSQL"]
+async fn workspace_key_last_use_is_reader_safe_and_not_inference_accessible(pool: sqlx::PgPool) {
+    let state = test_state(None, pool.clone());
+    let store = state.store.clone();
+    let scope = store.default_workspace().await.unwrap();
+    let other = store
+        .create_project(scope.organization_id, "Private key activity")
+        .await
+        .unwrap();
+    let key = store
+        .issue_key(scope, "Observed workspace key", &["fast".into()], 3600)
+        .await
+        .unwrap();
+    let unused = store
+        .issue_key(scope, "No recorded dispatch", &["fast".into()], 3600)
+        .await
+        .unwrap();
+    let principal = store.authenticate(&key.token).await.unwrap();
+    let operation = store.create_operation(scope, "fast").await.unwrap();
+    let attempt = store
+        .prepare_attempt(scope, operation, "fast", "fixture")
+        .await
+        .unwrap();
+    store.mark_dispatched(&principal, attempt).await.unwrap();
+    let expected = store
+        .list_keys(scope)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|item| item.id == key.id)
+        .unwrap()
+        .last_used_at_ms
+        .unwrap();
+    let reader = store
+        .create_operator(
+            OperatorScope {
+                organization_id: scope.organization_id,
+                project_id: Some(scope.project_id),
+            },
+            "Workspace activity reader",
+            OperatorRole::Viewer,
+            3600,
+            OperatorAuditActor::Installation,
+        )
+        .await
+        .unwrap();
+    let app = router(state);
+    let path = format!(
+        "/admin/v1/organizations/{}/projects/{}/keys",
+        scope.organization_id, scope.project_id
+    );
+    let (status, body) = call(&app, Method::GET, &path, &reader.token, None).await;
+    assert_eq!(status, StatusCode::OK);
+    let keys = body["data"].as_array().unwrap();
+    assert_eq!(keys.len(), 2);
+    let observed = keys
+        .iter()
+        .find(|item| item["id"] == key.id.to_string())
+        .unwrap();
+    assert_eq!(observed["last_used_at_ms"], expected);
+    assert_eq!(observed["name"], "Observed workspace key");
+    assert!(
+        keys.iter()
+            .find(|item| item["id"] == unused.id.to_string())
+            .unwrap()["last_used_at_ms"]
+            .is_null()
+    );
+    for item in keys {
+        let actual = item
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect::<std::collections::BTreeSet<_>>();
+        let expected = [
+            "id",
+            "revision",
+            "name",
+            "allowed_models",
+            "expires_at_ms",
+            "last_used_at_ms",
+            "revoked",
+            "expired",
+        ]
+        .into_iter()
+        .collect::<std::collections::BTreeSet<_>>();
+        assert_eq!(actual, expected);
+        assert_eq!(item["revision"], 1);
+        assert!(item.get("token").is_none());
+        assert!(item.get("token_hash").is_none());
+        assert!(item.get("supplier_cost").is_none());
+    }
+    assert!(!body.to_string().contains(&key.token));
+    assert!(!body.to_string().contains(&reader.token));
+    assert_eq!(
+        call(&app, Method::GET, &path, &key.token, None).await.0,
+        StatusCode::UNAUTHORIZED
+    );
+    let foreign = format!(
+        "/admin/v1/organizations/{}/projects/{}/keys",
+        other.organization_id, other.project_id
+    );
+    assert_eq!(
+        call(&app, Method::GET, &foreign, &reader.token, None)
+            .await
+            .0,
+        StatusCode::NOT_FOUND
     );
 }

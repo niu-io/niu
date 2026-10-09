@@ -21,9 +21,15 @@ from dataclasses import dataclass, field
 from urllib.parse import urlsplit
 
 
+class ResponseTooLarge(OSError):
+    """The load client rejected a response beyond its declared byte limit."""
+
+
 @dataclass
 class WorkerResult:
     latencies_ms: list[float] = field(default_factory=list)
+    successful_latencies_ms: list[float] = field(default_factory=list)
+    failed_http_latencies_ms: list[float] = field(default_factory=list)
     start_lag_ms: list[float] = field(default_factory=list)
     status_counts: collections.Counter[str] = field(default_factory=collections.Counter)
     errors: collections.Counter[str] = field(default_factory=collections.Counter)
@@ -67,12 +73,20 @@ def request_once(
     path: str,
     headers: dict[str, str],
     body: bytes,
+    max_response_bytes: int = 1024 * 1024,
 ) -> tuple[int, float]:
     started = time.perf_counter()
     try:
         connection.request("POST", path, body=body, headers=headers)
         response = connection.getresponse()
-        response.read()
+        received = 0
+        while True:
+            chunk = response.read(min(65536, max_response_bytes - received + 1))
+            if not chunk:
+                break
+            received += len(chunk)
+            if received > max_response_bytes:
+                raise ResponseTooLarge("Response exceeded the configured byte limit")
         elapsed_ms = (time.perf_counter() - started) * 1000
         return response.status, elapsed_ms
     except (OSError, http.client.HTTPException, TimeoutError, ssl.SSLError):
@@ -100,7 +114,7 @@ def worker(
 
     for _ in range(args.warmup_per_worker):
         try:
-            request_once(connection, path, headers, body)
+            request_once(connection, path, headers, body, args.max_response_bytes)
         except (OSError, http.client.HTTPException, TimeoutError, ssl.SSLError):
             connection = new_connection(host, port, secure, args.timeout)
 
@@ -112,9 +126,10 @@ def worker(
             while time.perf_counter() < stop_at:
                 result.started += 1
                 try:
-                    status, elapsed_ms = request_once(connection, path, headers, body)
+                    status, elapsed_ms = request_once(connection, path, headers, body, args.max_response_bytes)
                     result.status_counts[str(status)] += 1
                     result.latencies_ms.append(elapsed_ms)
+                    (result.successful_latencies_ms if 200 <= status < 300 else result.failed_http_latencies_ms).append(elapsed_ms)
                 except (OSError, http.client.HTTPException, TimeoutError, ssl.SSLError) as error:
                     result.errors[type(error).__name__] += 1
                     connection = new_connection(host, port, secure, args.timeout)
@@ -131,9 +146,10 @@ def worker(
                 result.start_lag_ms.append(lag_ms)
                 result.started += 1
                 try:
-                    status, elapsed_ms = request_once(connection, path, headers, body)
+                    status, elapsed_ms = request_once(connection, path, headers, body, args.max_response_bytes)
                     result.status_counts[str(status)] += 1
                     result.latencies_ms.append(elapsed_ms)
+                    (result.successful_latencies_ms if 200 <= status < 300 else result.failed_http_latencies_ms).append(elapsed_ms)
                 except (OSError, http.client.HTTPException, TimeoutError, ssl.SSLError) as error:
                     result.errors[type(error).__name__] += 1
                     connection = new_connection(host, port, secure, args.timeout)
@@ -146,6 +162,18 @@ def percentile(values: list[float], fraction: float) -> float | None:
         return None
     ordered = sorted(values)
     return round(ordered[max(0, math.ceil(fraction * len(ordered)) - 1)], 3)
+
+
+def latency_summary(values: list[float]) -> dict:
+    return {
+        "samples": len(values),
+        "p50": percentile(values, 0.50),
+        "p90": percentile(values, 0.90),
+        "p95": percentile(values, 0.95),
+        "p99": percentile(values, 0.99),
+        "max": round(max(values), 3) if values else None,
+        "mean": round(sum(values) / len(values), 3) if values else None,
+    }
 
 
 def summarize(
@@ -195,14 +223,16 @@ def summarize(
             "successful_per_second": round(succeeded / args.duration, 3),
             "transport_error_count": transport_errors,
         },
-        "latency_ms": {
-            "p50": percentile(latencies, 0.50),
-            "p90": percentile(latencies, 0.90),
-            "p95": percentile(latencies, 0.95),
-            "p99": percentile(latencies, 0.99),
-            "max": round(max(latencies), 3) if latencies else None,
-            "mean": round(sum(latencies) / len(latencies), 3) if latencies else None,
-        },
+        # Keep the aggregate for compatibility; never treat fast HTTP failures
+        # as successful-inference latency evidence.
+        "latency_population": "all_http_responses_excluding_transport_errors",
+        "latency_ms": latency_summary(latencies),
+        "successful_http_latency_ms": latency_summary([
+            value for result in results for value in result.successful_latencies_ms
+        ]),
+        "failed_http_latency_ms": latency_summary([
+            value for result in results for value in result.failed_http_latencies_ms
+        ]),
         "scheduled_start_lag_ms": {
             "p95": percentile(lags, 0.95) if lags else None,
             "p99": percentile(lags, 0.99) if lags else None,
@@ -224,10 +254,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--warmup-per-worker", type=int, default=10)
     parser.add_argument("--max-start-lag-ms", type=float, default=250.0)
     parser.add_argument("--timeout", type=float, default=30.0, help="per-request timeout in seconds")
+    parser.add_argument("--max-response-bytes", type=int, default=1024 * 1024, help="maximum consumed response bytes per request (default 1 MiB)")
     parser.add_argument("--prompt", default="Return the word OK.")
     parser.add_argument("--bearer-env", help="environment variable containing a gateway key")
     parser.add_argument("--out", help="write the JSON report to this file instead of stdout")
     args = parser.parse_args()
+    if args.max_response_bytes < 1:
+        parser.error("maximum response bytes must be positive")
     if args.workers < 1 or args.duration <= 0 or args.timeout <= 0:
         parser.error("workers, duration, and timeout must be positive")
     if args.warmup_per_worker < 0 or args.max_start_lag_ms < 0:
@@ -335,6 +368,7 @@ def main() -> int:
             "logical_cpu_count": os.cpu_count(),
             "connection_policy": "one persistent HTTP connection per worker",
             "warmup_requests_per_worker": args.warmup_per_worker,
+            "max_response_bytes": args.max_response_bytes,
         },
         "result": summarize(results, args, state, elapsed),
     }

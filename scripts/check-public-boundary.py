@@ -36,6 +36,9 @@ def main() -> int:
         except ValueError as error:
             parser.error(str(error))
 
+    if not files:
+        parser.error("No files selected. Use --tracked-tree or provide a nonempty source/artifact path.")
+
     errors: list[str] = []
     if args.check_build_inputs:
         errors.extend(build_input_errors(root))

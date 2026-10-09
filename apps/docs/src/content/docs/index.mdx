@@ -1,47 +1,37 @@
 ---
-title: Niu AI Gateway
-description: A self-hosted gateway and management platform for model APIs.
+title: Build with Niu
+description: Connect models, make your first API request, and understand your gateway and agent activity.
 template: splash
 hero:
-  tagline: One gateway for performance, cost, and security.
+  tagline: Connect your models. Make a request. See what happened.
   actions:
-    - text: Get started
+    - text: Make your first request
       link: /docs/getting-started/
       icon: right-arrow
-    - text: View on GitHub
-      link: https://github.com/niu-io/niu
-      icon: external
+    - text: API reference
+      link: /docs/reference/api/
+      icon: right-arrow
       variant: minimal
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
 
-Niu brings model providers, compatible APIs, routing, access control, usage, and cost management into one self-hosted product. It is designed as a mixed-language monorepo and ships as one application container with one public entry point.
+Niu gives your applications one API for configured models, with workspace access controls and request logs. Connect coding agents to follow their activity in Metrics and Traces.
 
-:::caution[Pre-release status]
-Niu is under active development, and the first feature-complete release has not been qualified. Guides distinguish implemented behavior from design goals and document unsupported protocol paths and operational gaps.
-:::
-
-## What Niu is building
+## Start building
 
 <CardGrid>
-  <Card title="Performance" icon="rocket">
-    Optimize the complete request path, measure real provider latency, and keep routing overhead visible.
-  </Card>
-  <Card title="Cost" icon="cash">
-    Track provider spend, retries, tenant usage, and deployment cost with auditable accounting.
-  </Card>
-  <Card title="Security" icon="lock">
-    Make identity, tenant boundaries, credential ownership, and policy checks part of every request.
-  </Card>
-  <Card title="One deployment" icon="seti:docker">
-    Run inference, management APIs, and the static console through a single application container and port.
-  </Card>
+  <LinkCard title="Connect models" href="/docs/configuration/models/" description="Configure a Supplier, its API credentials, and the model routes your applications can call." />
+  <LinkCard title="Inspect requests" href="/docs/concepts/execution-observation/" description="Find a request, review its response and timing, and understand reported token usage." />
 </CardGrid>
 
-## Explore the docs
+## Run your gateway
 
-- [Get started](/docs/getting-started/) with the current development workspace.
-- [Configure model routes](/docs/configuration/models/) and provider credentials.
-- [Deploy the application](/docs/deployment/single-container/) as the runtime matures.
-- Review the [API reference](/docs/reference/api/) for implemented public routes.
+<CardGrid>
+  <LinkCard title="Deploy Niu" href="/docs/deployment/single-container/" description="Run the gateway, dashboard, and documentation together. Configure storage and your public endpoint." />
+  <LinkCard title="Manage access" href="/docs/security/overview/" description="Understand administrator credentials, application keys, and workspace security boundaries." />
+</CardGrid>
+
+:::note[Release status]
+Niu is in active development. The first feature-complete release has not yet been qualified; each guide documents supported behavior and current limitations.
+:::

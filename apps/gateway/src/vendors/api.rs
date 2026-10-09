@@ -2,7 +2,7 @@ use super::models::{make_model, validate_model};
 use crate::{error::ApiError, state::AppState};
 use axum::{
     Json,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
 };
 use serde::Deserialize;
@@ -14,13 +14,10 @@ const MAX_MODEL_CATALOG_BYTES: usize = 2 * 1024 * 1024;
 const MAX_DISCOVERED_MODELS: usize = 2_000;
 
 async fn installation(state: &AppState, headers: &HeaderMap) -> Result<(), ApiError> {
-    let token = headers
-        .get("authorization")
-        .and_then(|value| value.to_str().ok());
     let authorization = state
-        .authorize_admin(token, niu_storage::AdminPermission::ManageOperators)
+        .authorize_admin_headers(headers, niu_storage::AdminPermission::ManageOperators)
         .await?;
-    if !authorization.is_installation() {
+    if !authorization.can_manage_platform() {
         return Err(ApiError::forbidden());
     }
     Ok(())
@@ -35,9 +32,41 @@ pub struct CreateVendor {
     api_key: String,
     #[serde(default = "enabled")]
     enabled: bool,
+    #[serde(default)]
+    create_supplier: bool,
+    supplier_id: Option<Uuid>,
 }
 fn enabled() -> bool {
     true
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PersonalOwnerInput {
+    organization_id: Uuid,
+    expected_revision: i64,
+}
+
+/// Installation-owned credentials require explicit administrative assignment.
+/// Account ownership is immutable and does not activate any commercial offer.
+pub async fn assign_personal_owner(
+    State(state): State<AppState>,
+    Path(vendor_id): Path<Uuid>,
+    headers: HeaderMap,
+    Json(input): Json<PersonalOwnerInput>,
+) -> Result<Json<Value>, ApiError> {
+    installation(&state, &headers).await?;
+    if input.expected_revision < 1 {
+        return Err(ApiError::invalid_request(
+            "A positive credential revision is required",
+        ));
+    }
+    state
+        .store
+        .assign_personal_vendor_owner(vendor_id, input.organization_id, input.expected_revision)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(json!({"assigned": true})))
 }
 
 #[derive(Deserialize)]
@@ -90,14 +119,24 @@ impl ModelInput {
     }
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct VendorFilter {
+    supplier: Option<Uuid>,
+}
+
 pub async fn list(
     State(state): State<AppState>,
     headers: HeaderMap,
+    Query(filter): Query<VendorFilter>,
 ) -> Result<Json<Value>, ApiError> {
     installation(&state, &headers).await?;
-    Ok(Json(
-        json!({"data":state.store.vendors().await.map_err(ApiError::from_store)?}),
-    ))
+    let data = state
+        .store
+        .vendors_with_supplier(filter.supplier)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(json!({"data":data})))
 }
 
 pub async fn create(
@@ -106,6 +145,11 @@ pub async fn create(
     Json(input): Json<CreateVendor>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
     installation(&state, &headers).await?;
+    if input.create_supplier && input.supplier_id.is_some() {
+        return Err(ApiError::invalid_request(
+            "Choose a new or existing Supplier, not both",
+        ));
+    }
     validate_model(
         "validation",
         make_model(
@@ -126,16 +170,22 @@ pub async fn create(
         .map_err(ApiError::invalid_request)?;
     let vendor = state
         .store
-        .create_vendor(niu_storage::VendorInput {
-            id,
-            name: input.name,
-            adapter: input.adapter,
-            api_base: input.api_base,
-            enabled: input.enabled,
-            credential_ciphertext: ciphertext,
-        })
+        .create_vendor_for_supplier(
+            niu_storage::VendorInput {
+                id,
+                name: input.name,
+                adapter: input.adapter,
+                api_base: input.api_base,
+                enabled: input.enabled,
+                credential_ciphertext: ciphertext,
+            },
+            input.create_supplier,
+            input.supplier_id,
+        )
         .await
         .map_err(ApiError::from_store)?;
+    let mut vendor = serde_json::to_value(vendor).map_err(|_| ApiError::unavailable())?;
+    vendor["owner_funded"] = json!(false);
     Ok((StatusCode::CREATED, Json(json!({"data":vendor}))))
 }
 
@@ -188,6 +238,14 @@ pub async fn update(
         )
         .await
         .map_err(ApiError::from_store)?;
+    let owner_funded = state
+        .store
+        .personal_vendor_organization(id)
+        .await
+        .map_err(ApiError::from_store)?
+        .is_some();
+    let mut vendor = serde_json::to_value(vendor).map_err(|_| ApiError::unavailable())?;
+    vendor["owner_funded"] = json!(owner_funded);
     Ok(Json(json!({"data":vendor})))
 }
 
@@ -204,12 +262,12 @@ pub async fn list_models(
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::not_found)?;
     Ok(Json(
-        json!({"data":state.store.vendor_models(id).await.map_err(ApiError::from_store)?}),
+        json!({"data":state.store.vendor_models_with_availability(id).await.map_err(ApiError::from_store)?}),
     ))
 }
 
 /// Read the provider's model catalog using its encrypted server-side
-/// credential. Only a small allowlist of model metadata reaches the console.
+/// credential. Only a small allowlist of model metadata reaches the dashboard.
 pub async fn catalog(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -592,4 +650,176 @@ pub async fn refresh_catalog(
         .await
         .map_err(ApiError::from_store)?;
     Ok(Json(json!({"updated": updated})))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SupplierAssociation {
+    supplier_id: Uuid,
+    expected_revision: i64,
+}
+
+pub async fn supplier(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    installation(&state, &headers).await?;
+    let data = state
+        .store
+        .vendor_supplier(id)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(json!({"data":data})))
+}
+
+pub async fn associate_supplier(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    headers: HeaderMap,
+    Json(input): Json<SupplierAssociation>,
+) -> Result<StatusCode, ApiError> {
+    installation(&state, &headers).await?;
+    state
+        .store
+        .associate_vendor_supplier(id, input.supplier_id, input.expected_revision)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AssetManagementInput {
+    expected_revision: i64,
+    upstream_project: String,
+    access_key: String,
+    secret_key: String,
+}
+
+pub async fn asset_management_configuration(
+    State(state): State<AppState>,
+    Path(vendor): Path<Uuid>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    installation(&state, &headers).await?;
+    state
+        .store
+        .vendor(vendor)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    let configured = state
+        .store
+        .asset_management_configuration(vendor)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(
+        json!({"data":configured.map(|(revision,upstream_project,configured)| json!({"revision":revision,"upstream_project":upstream_project,"configured":configured,"dispatch_available":false}))}),
+    ))
+}
+
+pub async fn configure_asset_management(
+    State(state): State<AppState>,
+    Path(vendor): Path<Uuid>,
+    headers: HeaderMap,
+    input: Result<Json<AssetManagementInput>, axum::extract::rejection::JsonRejection>,
+) -> Result<Json<Value>, ApiError> {
+    installation(&state, &headers).await?;
+    let Json(input) = input.map_err(|error| {
+        if error.status() == StatusCode::PAYLOAD_TOO_LARGE {
+            ApiError::request_too_large()
+        } else {
+            ApiError::invalid_request("Invalid asset management configuration")
+        }
+    })?;
+    let revision = input
+        .expected_revision
+        .checked_add(1)
+        .filter(|revision| *revision > 0)
+        .ok_or_else(|| ApiError::invalid_request("Invalid asset management revision"))?;
+    let configuration = state
+        .store
+        .vendor(vendor)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    let origin = url::Url::parse(&configuration.api_base)
+        .map_err(|_| ApiError::invalid_request("A direct Ark account is required"))?;
+    if origin.scheme() != "https"
+        || origin.host_str() != Some("ark.cn-beijing.volcengineapi.com")
+        || origin.port_or_known_default() != Some(443)
+    {
+        return Err(ApiError::invalid_request(
+            "A direct Ark account is required",
+        ));
+    }
+    let cipher = state
+        .vendor_cipher
+        .as_ref()
+        .ok_or_else(|| ApiError::invalid_request("Credential encryption is unavailable"))?;
+    let encrypted = cipher
+        .seal_asset_management(
+            vendor,
+            revision,
+            &input.upstream_project,
+            &input.access_key,
+            &input.secret_key,
+        )
+        .map_err(|_| {
+            ApiError::invalid_request("Invalid asset management credentials or binding")
+        })?;
+    let revision = state
+        .store
+        .save_asset_management_credential_bound(
+            vendor,
+            configuration.revision,
+            input.expected_revision,
+            &input.upstream_project,
+            &encrypted,
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(
+        json!({"data":{"revision":revision,"upstream_project":input.upstream_project,"configured":true,"dispatch_available":false}}),
+    ))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RevokeAssetManagementInput {
+    expected_revision: i64,
+    #[serde(default)]
+    erase_history: bool,
+    #[serde(default)]
+    confirm_erase: bool,
+}
+
+pub async fn revoke_asset_management(
+    State(state): State<AppState>,
+    Path(vendor): Path<Uuid>,
+    headers: HeaderMap,
+    input: Result<Json<RevokeAssetManagementInput>, axum::extract::rejection::JsonRejection>,
+) -> Result<Json<Value>, ApiError> {
+    installation(&state, &headers).await?;
+    let Json(input) = input.map_err(|error| {
+        if error.status() == StatusCode::PAYLOAD_TOO_LARGE {
+            ApiError::request_too_large()
+        } else {
+            ApiError::invalid_request("Invalid asset management revocation")
+        }
+    })?;
+    if input.erase_history && !input.confirm_erase {
+        return Err(ApiError::invalid_request(
+            "Explicit confirmation is required to erase stored asset credentials",
+        ));
+    }
+    let erased = state
+        .store
+        .revoke_asset_management_credentials(vendor, input.expected_revision, input.erase_history)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(
+        json!({"data":{"revision":input.expected_revision,"configured":false,"dispatch_available":false,"erased_revisions":erased}}),
+    ))
 }

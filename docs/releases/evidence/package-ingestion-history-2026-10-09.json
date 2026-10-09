@@ -1,0 +1,25 @@
+{
+  "date": "2026-10-09",
+  "platform": "linux/arm64",
+  "image": "sha256:ebb7aa34fc6af4ed09a85a56b5cfe240b1cd11c46132ef6c4a20937aabb1aefc",
+  "image_source_record": "package-2026-10-09-0201.json",
+  "harness_sha256": {
+    "scripts/package-smoke.py": "59e477edbea7bbb0bd4ed54abe01cf4a334bc5a6dc208cb3cd76d5fbf72b1f31",
+    "scripts/package_image_admission.py": "306ebf6aea94423fa6327fcbd8190fdff38a49722ffd5480d4d038f4f9639c79",
+    "tests/fixtures/mock-openai-compatible.py": "8b86af857b719464a555362c2548b6b1ad23940b11758398db87c22fc0896d62"
+  },
+  "passed": [
+    "Direct-container and Compose: prepared source, synthetic original group/grants/ingestion claim, access capability and saved accepted/Active outcomes all present before database recovery",
+    "Exact source delivery succeeds before and after PostgreSQL restart and promoted backup restoration within original capability lifetime",
+    "Public saved readiness response is identical before and after restore and keeps reuse_available false",
+    "Another API key receives 404 for restored readiness and cannot erase restored source",
+    "All restored public table/sequence fingerprints match; original-key erasure denies later source delivery",
+    "Existing direct/Compose lifecycle and negative admission checks pass in the same runs"
+  ],
+  "limitations": [
+    "Group/grants/claim/capability and accepted/Active outcomes are synthetic fixture rows; this proves preservation and response authorization, not live operations or runtime issuance.",
+    "Source preparation, inspection consent, ingestion consent, status reads, delivery and erasure use real APIs with a controlled detector.",
+    "No live Provider write/read, public HTTPS fetch, entitlement, inspection effectiveness or reusable-reference generation is qualified.",
+    "Pinned image excludes subsequent native validation, availability and diagnostic changes."
+  ]
+}

@@ -1,11 +1,15 @@
 [workspace]
-members = ["apps/gateway", "crates/benchmark", "crates/cost", "crates/execution", "crates/extension-api", "crates/storage", "tests/extensions/reference-extension"]
+members = ["apps/gateway", "crates/benchmark", "crates/cost", "crates/metered-cost", "crates/media", "crates/upstream", "crates/execution", "crates/extension-api", "crates/payments", "crates/storage", "tests/extensions/reference-extension"]
 default-members = [
     "apps/gateway",
     "crates/benchmark",
     "crates/cost",
+    "crates/metered-cost",
+    "crates/media",
+    "crates/upstream",
     "crates/execution",
     "crates/extension-api",
+    "crates/payments",
     "crates/storage",
     "tests/extensions/reference-extension",
 ]
@@ -21,7 +25,7 @@ rust-version = "1.88"
 [workspace.dependencies]
 axum = { version = "0.8", features = ["json", "macros"] }
 futures-util = "0.3"
-reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
+reqwest = { version = "0.12.28", default-features = false, features = ["json", "stream", "rustls-tls"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 sha2 = "0.10"

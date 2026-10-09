@@ -304,6 +304,7 @@ mod tests {
 
         let operator = niu_storage::OperatorPrincipal {
             id: Uuid::new_v4(),
+            platform_admin: false,
             role: niu_storage::OperatorRole::Admin,
             scope: niu_storage::OperatorScope {
                 organization_id: Uuid::new_v4(),
@@ -450,6 +451,7 @@ mod tests {
         assert!(!runtime.ready().await, "required module starts unhealthy");
         let operator = niu_storage::OperatorPrincipal {
             id: Uuid::new_v4(),
+            platform_admin: false,
             role: niu_storage::OperatorRole::Owner,
             scope: niu_storage::OperatorScope {
                 organization_id: Uuid::new_v4(),

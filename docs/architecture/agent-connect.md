@@ -10,6 +10,31 @@ versioned connector for each supported agent and version. A connector can
 support one or both modes below. Niu must not imply that every agent supports
 both.
 
+## Current product boundary
+
+The [product focus](../product/product-focus.md) and [release matrix](../releases/first-release.md) supersede the original two-mode release target. The first subscription feature is usage observation and an API-equivalent value report, subject to real Codex connector qualification. Route mode below describes existing prototype design, not a prerequisite or a claim of supported subscription interception. Task/tool/acceptance events in historical contracts do not make Niu responsible for orchestration or task evaluation.
+
+### Codex usage source investigation
+
+On 2026-09-30, the installed Codex CLI was version 0.154.0. The official
+[Codex App Server reference](https://learn.chatgpt.com/docs/app-server)
+documents `account/usage/read` for account token activity and optional daily
+token buckets. A schema generated locally from that CLI version also exposes
+an optional per-thread usage result grouped by model and token category. This
+is a local source candidate, not a qualified Niu connector: the protocol is
+version-sensitive, the account endpoint requires Codex-backed authentication,
+and account daily buckets do not identify models. The per-thread groups do not
+establish when each unit of usage occurred, so they cannot alone support a
+model-specific estimate for an arbitrary subscription billing period.
+
+Any connector must invoke the local Codex client without reading or forwarding
+its authentication material. Only consented usage measurements may leave the
+device; prompts, outputs, tool content, working directories and conversation
+identifiers are not needed by Niu. API-equivalent value remains unavailable
+when model identity, period attribution, token categories or public rates are
+missing. This investigation does not pass F08; qualify a source with the
+required time and model evidence before enabling collection or report claims.
+
 ## Modes
 
 ### Route through Niu
@@ -80,11 +105,11 @@ agent repository or assume undocumented APIs.
 
 ## Tenant and credential boundary
 
-The workspace and project selected in the console determine the scope. A
+The workspace and project selected in the dashboard determine the scope. A
 connector must never accept tenant IDs from an event payload as authority.
 Routing uses the selected project's inference key. Collection uses a
 separately scoped event-ingest credential with only the required write
-permission. The console can revoke either credential and show the linked agent
+permission. The dashboard can revoke either credential and show the linked agent
 connection. No installation-admin credential is written to an agent's config.
 
 Keys are not printed in logs, committed settings, command history, issue
@@ -123,7 +148,7 @@ The current prototype has two locally exercised paths:
   provider. This validates the request path only; it does not verify a paid
   external provider or subscription eligibility.
 - Claude Code 2.1.211 exported opt-in OpenTelemetry events to Niu while its
-  existing login remained in place. The console groups those partial event
+  existing login remained in place. The dashboard groups those partial event
   records by task and displays agent-reported token and cost estimates. Prompt
   content is not collected. These events do not verify a task outcome.
 

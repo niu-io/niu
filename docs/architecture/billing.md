@@ -30,7 +30,7 @@ A missing selling tariff means the request is excluded from retail billing, not 
 
 ## Usage lifecycle and recovery
 
-Only confirmed completed attempts with provider-reported usage produce charges and earnings. Missing or ambiguous usage remains unresolved, never silently zero. Each attempt can accrue once in each ledger. A bounded background recovery worker retries independently after failures; a malformed record does not starve other records.
+Only confirmed completed attempts with provider-reported usage produce charges and earnings. Missing or ambiguous usage remains unresolved, never silently zero. A dispatched attempt confirmed not executed produces no charge and is excluded from unresolved/unpriced billing counts and invoice reconciliation gates. This does not apply to an attempt that may have executed: unknown execution or usage still requires reconciliation. Each attempt can accrue once in each ledger. A bounded background recovery worker retries independently after failures; a malformed record does not starve other records.
 
 Retries are separate upstream attempts and, if each reports completed usage, each accrues. This version has no automatic retry-credit policy. Known usage must be recorded before issuing bills; there is no implemented manual reconciliation or credit-note API for unresolved usage. Operators must resolve source-of-truth discrepancies before closing affected periods.
 

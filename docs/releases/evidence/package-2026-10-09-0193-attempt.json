@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-09",
+  "status": "failed_before_compilation",
+  "migration_max": 193,
+  "source_snapshot_sha256": "3633a01836f1c9c612d6771404f54eb1f6c01156171e1dde05ad62dd8e835e51",
+  "source_file_count": 1373,
+  "public_boundary": {
+    "passed": true,
+    "scanned_files": 1372,
+    "build_inputs_checked": true
+  },
+  "image": null,
+  "failure": {
+    "stage": "base_image_metadata",
+    "registry": "registry-1.docker.io",
+    "reason": "TLS certificate hostname mismatch; certificate did not cover registry-1.docker.io",
+    "tls_verification_bypassed": false
+  },
+  "qualified": false,
+  "limitations": [
+    "No current image built",
+    "No direct-container, Compose, restart, restore or upgrade acceptance for this snapshot"
+  ]
+}

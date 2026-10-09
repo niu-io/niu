@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import subprocess
 from hashlib import sha256
@@ -94,6 +95,7 @@ def tracked_tree_files(root: Path) -> list[Path]:
 def explicit_path_files(paths: list[Path]) -> list[Path]:
     files: list[Path] = []
     for path in paths:
+        previous_count = len(files)
         if path.is_file() and not path.is_symlink():
             files.append(path)
             continue
@@ -104,6 +106,8 @@ def explicit_path_files(paths: list[Path]) -> list[Path]:
                 continue
             if candidate.is_file() and not candidate.is_symlink():
                 files.append(candidate)
+        if len(files) == previous_count:
+            raise ValueError(f"No files selected from scan path: {path}")
     return files
 
 
@@ -148,6 +152,8 @@ def build_input_errors(root: Path) -> list[str]:
     if missing:
         errors.append(".dockerignore is missing required exclusions: " + ", ".join(missing))
 
+    build_stages = set()
+    stage_count = 0
     for line_number, line in enumerate(
         dockerfile_path.read_text(encoding="utf-8").splitlines(), start=1
     ):
@@ -155,12 +161,41 @@ def build_input_errors(root: Path) -> list[str]:
         if not stripped or stripped.startswith("#"):
             continue
         instruction, _, arguments = stripped.partition(" ")
+        if instruction.upper() == "FROM":
+            build_stages.add(str(stage_count))
+            stage_count += 1
+            stage_alias = re.search(r"\s+AS\s+([A-Za-z0-9_.-]+)\s*$", arguments, re.IGNORECASE)
+            if stage_alias:
+                build_stages.add(stage_alias.group(1).lower())
+            continue
+        if instruction.upper() == "ADD":
+            errors.append(f"Dockerfile:{line_number} uses ADD; use explicit COPY inputs")
+            continue
         if instruction.upper() != "COPY":
             continue
-        parts = arguments.split()
-        if any(part.startswith("--from=") for part in parts):
+        remaining = arguments.strip()
+        flags = []
+        while remaining.startswith("--"):
+            flag, separator, remaining = remaining.partition(" ")
+            flags.append(flag)
+            remaining = remaining.lstrip()
+            if not separator:
+                break
+        from_stages = [flag.split("=", 1)[1] for flag in flags if flag.startswith("--from=")]
+        if from_stages:
+            if len(from_stages) != 1 or from_stages[0].lower() not in build_stages:
+                errors.append(f"Dockerfile:{line_number} copies from an undeclared external image; use a declared build stage")
             continue
-        local_parts = [part for part in parts if not part.startswith("--")]
+        if remaining.startswith("["):
+            try:
+                local_parts = json.loads(remaining)
+            except json.JSONDecodeError:
+                local_parts = None
+            if not isinstance(local_parts, list) or not all(isinstance(part, str) for part in local_parts):
+                errors.append(f"Dockerfile:{line_number} has invalid JSON COPY inputs")
+                continue
+        else:
+            local_parts = remaining.split()
         if len(local_parts) < 2:
             errors.append(f"Dockerfile:{line_number} has an incomplete COPY instruction")
             continue

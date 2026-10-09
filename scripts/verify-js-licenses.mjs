@@ -28,6 +28,8 @@ const commonLicenses = new Set([
   "ISC",
   "MIT",
   "MIT-0",
+  // Recharts uses victory-vendor; both parts require permissive attribution.
+  "MIT AND ISC",
   "OFL-1.1",
   "Python-2.0",
 ]);
@@ -120,7 +122,7 @@ const summary = [
   "",
   `Total package versions checked: ${packages.length}.`,
   "",
-  "The inventory includes Geist fonts under OFL-1.1. Scoped exceptions cover pinned optional sharp libvips platform packages (LGPL-3.0-or-later) and Lightning CSS build packages (MPL-2.0). The runtime image receives generated console assets, not Node dependencies.",
+  "The inventory includes Geist fonts under OFL-1.1. Scoped exceptions cover pinned optional sharp libvips platform packages (LGPL-3.0-or-later) and Lightning CSS build packages (MPL-2.0). The runtime image receives generated dashboard assets, not Node dependencies.",
   "",
 ].join("\n");
 

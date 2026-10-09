@@ -1,0 +1,48 @@
+---
+title: Local development
+description: Run and build Niu from source.
+---
+
+## Requirements
+
+- Rust 1.98.0 for the current selected native runtime modules.
+- Node.js 24 or newer and pnpm 11 for the dashboard and documentation workspace.
+- PostgreSQL 17 for durable state.
+- A configured Supplier credential and usable model route for live inference requests.
+
+## Build from source
+
+From the repository root, install the JavaScript workspace and build the dashboard and docs:
+
+```sh
+pnpm install
+pnpm build:dashboard
+pnpm build:docs
+pnpm build:catalog
+```
+
+Check the Rust workspace with:
+
+```sh
+cargo check --workspace
+```
+
+For container configuration and initial administration, follow the
+[deployment guide](/docs/deployment/single-container/).
+
+
+## Run locally
+
+Run from the repository root:
+
+```sh
+pnpm dev
+```
+
+Open `http://127.0.0.1:2566/workspaces/default/`. The launcher prints the local
+login username and the location of its private password file. You can configure
+`NIU_DEV_USERNAME` and `NIU_DEV_PASSWORD` in the ignored root `.env` file.
+Frontend changes use Vite hot reload; successful Rust rebuilds restart the
+backend. Development starts with an empty model registry: add a Supplier before
+testing inference. The launcher preserves the local database between restarts.
+

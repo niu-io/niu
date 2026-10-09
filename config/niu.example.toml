@@ -1,5 +1,9 @@
 [server]
 request_timeout_seconds = 300
+# Optional ordinary image-asset ingestion. Leave unset until this deployment's
+# HTTPS source endpoint and the Supplier's fetch timing are qualified.
+# Requires the root HTTPS origin, port 443; no path, credentials or query.
+# image_source_origin = "https://niu.example"
 
 [models.fast]
 provider = "openrouter"

@@ -1,0 +1,199 @@
+openapi: 3.1.0
+info:
+  title: Niu private Codex connections
+  version: 0.1.0
+  description: Workspace-owned ChatGPT plan connections for private buffered inference.
+security:
+  - adminBearer: []
+paths:
+  /admin/v1/organizations/{organization}/projects/{project}/codex-connections:
+    parameters:
+      - $ref: '#/components/parameters/organization'
+      - $ref: '#/components/parameters/project'
+    get:
+      operationId: listPrivateCodexConnections
+      description: Requires read access to the workspace. Never returns tokens, client registrations or credential references.
+      responses:
+        '200':
+          description: Workspace-private account metadata. Response uses Cache-Control no-store.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Connection'
+        '401':
+          description: Administrator authentication required.
+        '404':
+          description: Workspace is outside the administrator's scope.
+  /admin/v1/organizations/{organization}/projects/{project}/codex-connections/sign-in:
+    parameters:
+      - $ref: '#/components/parameters/organization'
+      - $ref: '#/components/parameters/project'
+    post:
+      operationId: startPrivateCodexSignIn
+      description: Requires write access. Creates a single-use sign-in attempt lasting ten minutes. New connections use dynamic client registration; reconnecting preserves identity and the issued client ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name, callback_origin]
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                callback_origin:
+                  type: string
+                  format: uri
+                  description: The local dashboard origin using http and 127.0.0.1. OAuth returns to /auth/callback at this exact origin.
+                account_id:
+                  type: string
+                  format: uuid
+                  description: Existing private connection to reauthorize in this workspace.
+      responses:
+        '200':
+          description: Open the URL in the browser. It may contain a retained ID-token hint and must never be logged or cached.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [authorization_url]
+                    properties:
+                      authorization_url:
+                        type: string
+                        format: uri
+        '400':
+          description: Invalid name or callback origin.
+        '401':
+          description: Administrator authentication required.
+        '403':
+          description: Write permission or same-origin validation failed.
+        '404':
+          description: Workspace is outside the administrator's scope.
+        '503':
+          description: Encryption or sign-in attempt capacity is unavailable.
+  /admin/v1/organizations/{organization}/projects/{project}/codex-connections/{id}:
+    parameters:
+      - $ref: '#/components/parameters/organization'
+      - $ref: '#/components/parameters/project'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      operationId: setPrivateCodexConnectionEnabled
+      description: Requires write access. Pause or resume selection without clearing an outstanding lease or revoking the provider session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [enabled]
+              properties:
+                enabled:
+                  type: boolean
+      responses:
+        '200':
+          description: Selection state saved.
+        '401':
+          description: Administrator authentication required.
+        '403':
+          description: Write access required.
+        '404':
+          description: Workspace is outside the administrator's scope.
+        '409':
+          description: The connection does not belong to this workspace or changed state.
+  /auth/callback:
+    get:
+      operationId: completePrivateCodexSignIn
+      security: []
+      description: Validates a pending single-use OAuth state, PKCE exchange, signed identity and plan permissions. Never returns credentials to the browser.
+      parameters:
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: code
+          in: query
+          schema:
+            type: string
+        - name: client_id
+          in: query
+          schema:
+            type: string
+        - name: error
+          in: query
+          schema:
+            type: string
+      responses:
+        '303':
+          description: Returns to Suppliers with connected, cancelled or failed status and the selected workspace on success. Uses no-store and no-referrer.
+        '400':
+          description: Invalid, expired or already consumed sign-in state.
+components:
+  securitySchemes:
+    adminBearer:
+      type: http
+      scheme: bearer
+  parameters:
+    organization:
+      name: organization
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    project:
+      name: project
+      in: path
+      required: true
+      description: Legacy API parameter naming for the Niu workspace.
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    Connection:
+      type: object
+      additionalProperties: false
+      required: [id, name, health, busy, models]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Internal routing identifier; never display it in product UI.
+        name:
+          type: string
+        health:
+          type: string
+          enum: [unverified, ready, cooldown, authentication_expired, disabled]
+        busy:
+          type: boolean
+          description: A durable execution or token-rotation lease is held. Unknown outcomes retain the lease.
+        models:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [slug, display_name]
+            properties:
+              slug:
+                type: string
+              display_name:
+                type: string

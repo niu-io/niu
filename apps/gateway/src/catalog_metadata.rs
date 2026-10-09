@@ -17,6 +17,19 @@ pub struct CatalogMetadata {
 }
 
 impl CatalogMetadata {
+    /// Catalog descriptions are safe for customer surfaces. Provider-advertised
+    /// rates are neither Niu retail tariffs nor evidence of customer charges.
+    pub fn customer_metadata(&self) -> Value {
+        serde_json::json!({
+            "name": self.name,
+            "description": self.description,
+            "context_length": self.context_length,
+            "max_completion_tokens": self.max_completion_tokens,
+            "input_modalities": self.input_modalities,
+            "output_modalities": self.output_modalities,
+        })
+    }
+
     pub fn valid(&self) -> bool {
         self.name.as_ref().is_none_or(|s| s.len() <= 300)
             && self.description.as_ref().is_none_or(|s| s.len() <= 12000)
@@ -77,6 +90,22 @@ impl CatalogMetadata {
 mod tests {
     use super::*;
     use serde_json::json;
+    #[test]
+    fn customer_metadata_excludes_provider_prices_without_losing_descriptions() {
+        let metadata = CatalogMetadata::from_provider(&json!({
+            "name":"Example model", "description":"Model description", "context_length":8192,
+            "pricing":{"prompt":"0.12345","completion":"0.54321"}
+        }));
+        let customer = metadata.customer_metadata();
+        assert_eq!(customer["name"], "Example model");
+        assert_eq!(customer["description"], "Model description");
+        assert_eq!(customer["context_length"], 8192);
+        assert!(customer.get("input_price").is_none());
+        assert!(customer.get("output_price").is_none());
+        assert!(!customer.to_string().contains("0.12345"));
+        assert_eq!(metadata.input_price.as_deref(), Some("0.12345"));
+    }
+
     #[test]
     fn preserves_zero_prices_and_real_metadata_without_guessing_missing_fields() {
         let metadata = CatalogMetadata::from_provider(

@@ -1,0 +1,17 @@
+import { useDashboardContext } from '@/app/dashboard-context';
+import ConnectGate from '@/app/ConnectGate';
+import GatewayActivity from '@/features/executions/components/GatewayActivity';
+
+export default function ActivityRoute() {
+  const { workspace } = useDashboardContext();
+  const scope = workspace ? { organizationId: workspace.organization_id, projectId: workspace.id } : null;
+  return <ConnectGate>
+    {({ token, models }) => <GatewayActivity
+      key={`${token}:${workspace?.id ?? ''}`}
+      token={token}
+      models={models.map(model => model.id)}
+      initialScope={scope}
+      statisticsOnly
+    />}
+  </ConnectGate>;
+}
