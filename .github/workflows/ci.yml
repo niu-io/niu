@@ -10,7 +10,9 @@ permissions:
 
 concurrency:
   group: qualification-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # Frequent main pushes must not starve the full release pipeline. Keep the
+  # active run; GitHub retains only the latest pending run for this group.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   rust:
