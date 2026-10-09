@@ -75,3 +75,15 @@ The temporary key was revoked. No new generation was requested.
 This verifies the SDK-to-running-gateway replay path; it does not qualify the
 video page, commercial charging or merchant payment availability. TypeScript
 compilation was also executed. No fixture outcome is used as product evidence.
+
+### Workspace-session authorization
+
+A subsequent run used freshly issued workspace-scoped operator credentials with
+the built administration SDK against the running gateway. The workspace owner
+replayed the original completed job; a viewer and an owner scoped to another
+workspace received HTTP 403. Selecting a key without the video's model grant
+returned HTTP 404, without exposing the saved job. Changed input still returned
+HTTP 409 under the authorized owner session. Independent database counts before
+and after remained one original attempt, identity, bound job and submission span,
+with no customer ledger entries. All temporary operators and keys were revoked.
+This covers scoped API sessions, not browser cookie/session integration.
