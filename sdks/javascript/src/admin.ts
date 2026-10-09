@@ -1,3 +1,5 @@
+export type KeyRequestRateLimit = { requests_per_minute: number | null; revision: string | null };
+export type KeyRequestRateLimitRevision = KeyRequestRateLimit & { revision: string; recorded_at: string; actor_kind: 'installation' | 'member'; actor_name: string };
 import { NiuAPIError, type RequestOptions, type VideoModelList, type VideoResultAvailability, type VideoCreateRequest, type VideoCreateOptions, type VideoEstimate, type VideoJobHistory, type VideoJobHistoryQuery, type VideoJobState, type VideoJobBilling, type VideoTransportTimings } from './index.js';
 
 /** Deployment display settings only; no credentials or procurement configuration. */
@@ -874,6 +876,31 @@ export class NiuAdminClient {
     }
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/ip-policy/history${params.size ? `?${params}` : ''}`, undefined, options);
   }
+
+  getKeyRequestRateLimit(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: KeyRequestRateLimit }> {
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/request-rate-limit`, undefined, options);
+  }
+
+  /** Null removes the rate limit; zero denies dispatch. Secret rotation preserves the policy. */
+  setKeyRequestRateLimit(scope: TenantScope, keyId: string, input: { requests_per_minute: number | null; expected_revision: string }, options?: RequestOptions): Promise<{ data: { revision: string } }> {
+    if (input.requests_per_minute !== null && (!Number.isInteger(input.requests_per_minute) || input.requests_per_minute < 0 || input.requests_per_minute > 1_000_000)) throw new TypeError('Use an integer request limit from 0 to 1000000, or explicit null');
+    if (typeof input.expected_revision !== 'string' || !/^\d+$/.test(input.expected_revision) || BigInt(input.expected_revision) > 9223372036854775806n) throw new TypeError('Use an exact nonnegative revision');
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/request-rate-limit`, { requests_per_minute: input.requests_per_minute, expected_revision: input.expected_revision }, options, 'PUT');
+  }
+
+  listKeyRequestRateLimitHistory(scope: TenantScope, keyId: string, query: { beforeRevision?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: KeyRequestRateLimitRevision[] }> {
+    const params = new URLSearchParams();
+    if (query.beforeRevision !== undefined) {
+      if (!/^\d+$/.test(query.beforeRevision) || BigInt(query.beforeRevision) < 1n || BigInt(query.beforeRevision) > 9223372036854775807n) throw new TypeError('Invalid history revision');
+      params.set('before_revision', query.beforeRevision);
+    }
+    if (query.limit !== undefined) {
+      if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Invalid history page size');
+      params.set('limit', String(query.limit));
+    }
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/request-rate-limit/history${params.size ? `?${params}` : ''}`, undefined, options);
+  }
+
 
   listKeySpendingLimits(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: WorkspaceSpendingAccount[] }> {
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/spending-limit`, undefined, options);

@@ -301,6 +301,7 @@ pub(crate) fn map_gateway_admission_error(error: sqlx::Error) -> StoreError {
         .and_then(|database_error| database_error.code())
         .map(|code| code.into_owned());
     match code.as_deref() {
+        Some("P0020") => StoreError::KeyRequestRateExceeded,
         Some("P0005") => StoreError::Unauthorized,
         Some("P0006" | "P0010" | "P0011") => StoreError::Conflict,
         Some("P0007") => StoreError::AccountUnavailable,

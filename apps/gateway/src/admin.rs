@@ -4,6 +4,7 @@ pub mod asset_requests;
 pub mod chat_sessions;
 pub mod guardrails;
 pub mod key_ip;
+pub(crate) mod key_request_rate;
 pub mod key_spending;
 mod operator_audit;
 pub mod passwords;

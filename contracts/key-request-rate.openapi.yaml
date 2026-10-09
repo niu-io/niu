@@ -1,0 +1,123 @@
+openapi: 3.1.0
+info:
+  title: Niu API-key request rate limits
+  version: 0.1.0
+security:
+  - bearerAuth: []
+paths:
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/request-rate-limit:
+    parameters:
+      - $ref: '#/components/parameters/Organization'
+      - $ref: '#/components/parameters/Workspace'
+      - $ref: '#/components/parameters/Key'
+    get:
+      operationId: getKeyRequestRateLimit
+      description: Scoped readers may inspect the policy shared across secret rotations.
+      responses:
+        '200':
+          description: Null revision means never configured. Null removes the limit; zero denies dispatch.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Policy'
+        '401': { description: Authentication required }
+        '403': { description: Workspace access denied }
+        '404': { description: Key absent from authorized workspace }
+    put:
+      operationId: setKeyRequestRateLimit
+      description: Owner or installation administrator only. Rotation preserves this policy. Does not cancel already admitted requests.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [requests_per_minute, expected_revision]
+              properties:
+                requests_per_minute:
+                  $ref: '#/components/schemas/RequestLimit'
+                expected_revision:
+                  type: string
+                  pattern: '^[0-9]+$'
+                  description: Zero for initial configuration; maximum 9223372036854775806.
+      responses:
+        '200':
+          description: New policy and immutable history committed atomically. Rolling windows persist across revisions.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [revision]
+                    properties:
+                      revision: { type: string, pattern: '^[1-9][0-9]*$' }
+        '400': { description: Invalid limit or revision }
+        '401': { description: Authentication required }
+        '403': { description: Owner permission required }
+        '404': { description: Key absent from authorized workspace }
+        '409': { description: Stale policy revision }
+        '422': { description: Missing or invalid JSON fields }
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/request-rate-limit/history:
+    parameters:
+      - $ref: '#/components/parameters/Organization'
+      - $ref: '#/components/parameters/Workspace'
+      - $ref: '#/components/parameters/Key'
+    get:
+      operationId: listKeyRequestRateLimitHistory
+      description: Scoped readers receive descending revisions shared across rotations. Use the last revision as the next page cursor.
+      parameters:
+        - { name: before_revision, in: query, schema: { type: integer, minimum: 1 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        '200':
+          description: Immutable policy history; no internal actor identifiers.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required: [requests_per_minute, revision, recorded_at, actor_kind, actor_name]
+                      properties:
+                        requests_per_minute:
+                          $ref: '#/components/schemas/RequestLimit'
+                        revision: { type: string, pattern: '^[1-9][0-9]*$' }
+                        recorded_at: { type: string, format: date-time }
+                        actor_kind: { type: string, enum: [installation, member] }
+                        actor_name: { type: string }
+        '400': { description: Invalid pagination }
+        '401': { description: Authentication required }
+        '403': { description: Workspace access denied }
+        '404': { description: Key absent from authorized workspace }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer }
+  parameters:
+    Organization: { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
+    Workspace: { name: project, in: path, required: true, schema: { type: string, format: uuid } }
+    Key: { name: key, in: path, required: true, schema: { type: string, format: uuid } }
+  schemas:
+    RequestLimit:
+      type: [integer, 'null']
+      minimum: 0
+      maximum: 1000000
+      description: Maximum dispatches per rolling 60 seconds; null is unlimited and zero denies dispatch.
+    Policy:
+      type: object
+      required: [requests_per_minute, revision]
+      properties:
+        requests_per_minute:
+          $ref: '#/components/schemas/RequestLimit'
+        revision: { type: [string, 'null'], pattern: '^[1-9][0-9]*$' }

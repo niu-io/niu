@@ -566,3 +566,5 @@ export type { PaymentIntegration } from './admin.js';
 export type { KeySpendingLimitRevision } from './admin.js';
 
 export type { KeyIpPolicy, KeyIpPolicyRevision } from './admin.js';
+
+export type { KeyRequestRateLimit, KeyRequestRateLimitRevision } from './admin.js';

@@ -27,6 +27,12 @@ impl ApiError {
                 kind: "budget_exceeded",
                 message: "Insufficient available funds for this request",
             },
+            niu_storage::StoreError::KeyRequestRateExceeded => Self {
+                failure: None,
+                status: StatusCode::TOO_MANY_REQUESTS,
+                kind: "key_request_rate_exceeded",
+                message: "This API key's rolling 60-second request limit is exhausted; retry after 60 seconds",
+            },
             niu_storage::StoreError::KeyIpDenied => Self {
                 failure: None,
                 status: StatusCode::FORBIDDEN,
@@ -373,6 +379,12 @@ impl IntoResponse for ApiError {
             }
         });
         let mut response = (self.status, Json(body)).into_response();
+        if self.kind == "key_request_rate_exceeded" {
+            response.headers_mut().insert(
+                axum::http::header::RETRY_AFTER,
+                axum::http::HeaderValue::from_static("60"),
+            );
+        }
         if let Some(failure) = self.failure {
             response.extensions_mut().insert(failure);
         }
