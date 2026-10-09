@@ -55,3 +55,23 @@ This verifies the exercised personal text-video path. Forced crashes at every
 transaction boundary, commercial reservation/charge deduplication, reference
 inputs and frontend behavior remain unqualified. This does not complete the
 first release or authorize performance qualification before the business gates.
+
+## Dashboard SDK replay verification
+
+The administration SDK now accepts `VideoCreateOptions` on
+`createDashboardVideoJob` and forwards the validated `Idempotency-Key` header.
+Previously the dashboard SDK omitted this header even when JavaScript callers
+supplied the option. The README and API reference include the dashboard call.
+
+A current-input run using the built administration SDK and a newly issued,
+model-scoped workspace key replayed the existing completed personal video's
+saved request and identity. The gateway returned the original reference with
+`succeeded` status. Changed content under that identity returned HTTP 409.
+Invalid SDK identity options were rejected locally. Independent database reads
+before and after showed one original-key attempt, one identity claim, one bound
+job and one upstream submission timing record, with no customer ledger entries.
+The temporary key was revoked. No new generation was requested.
+
+This verifies the SDK-to-running-gateway replay path; it does not qualify the
+video page, commercial charging or merchant payment availability. TypeScript
+compilation was also executed. No fixture outcome is used as product evidence.

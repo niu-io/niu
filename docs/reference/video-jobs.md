@@ -127,7 +127,9 @@ Authorization, model/schema validation, Guardrail access, original-route binding
 
 For text-only submissions, supply `Idempotency-Key` (one to 128 visible ASCII
 characters), or call `client.video.jobs.create(request, { signal,
-idempotencyKey })`. Persist the key before sending. It is scoped to the workspace
+idempotencyKey })`. Dashboard callers use
+`admin.createDashboardVideoJob(scope, keyId, request, { signal, idempotencyKey })`.
+Persist the key before sending. It is scoped to the workspace
 and shared by inference-key and dashboard-key creation endpoints. Repeating it
 with the same JSON document returns HTTP 202 and the original job reference,
 with its current saved status. JSON object field order is ignored; array order,

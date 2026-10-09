@@ -652,3 +652,16 @@ the workspace and returns the original job; different input conflicts. Retries
 never dispatch another generation. Interrupted preparation may remain unresolved.
 Do not replace the key to recover uncertain execution. This option currently
 supports text-only video requests; calls without it are not idempotent.
+
+Dashboard callers can use the same saved identity through the administration SDK:
+
+```ts
+const job = await admin.createDashboardVideoJob(scope, workspaceKeyId, request, {
+  idempotencyKey: savedSubmissionKey,
+  signal,
+});
+```
+
+The identity is shared with public video creation in the same workspace. Keep
+both the saved request and identity when resuming through either API. Current
+workspace authorization and the selected key's model grants still apply.

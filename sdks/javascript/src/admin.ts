@@ -1,4 +1,4 @@
-import { NiuAPIError, type RequestOptions, type VideoModelList, type VideoResultAvailability, type VideoCreateRequest, type VideoEstimate, type VideoJobHistory, type VideoJobHistoryQuery, type VideoJobState, type VideoJobBilling, type VideoTransportTimings } from './index.js';
+import { NiuAPIError, type RequestOptions, type VideoModelList, type VideoResultAvailability, type VideoCreateRequest, type VideoCreateOptions, type VideoEstimate, type VideoJobHistory, type VideoJobHistoryQuery, type VideoJobState, type VideoJobBilling, type VideoTransportTimings } from './index.js';
 
 /** Deployment display settings only; no credentials or procurement configuration. */
 export type BrandingSettings = {
@@ -551,7 +551,7 @@ export class NiuAdminClient {
     return this.request(`${this.dashboardVideoPath(scope, keyId)}/estimate`, input, options);
   }
 
-  createDashboardVideoJob(scope: TenantScope, keyId: string, input: VideoCreateRequest, options?: RequestOptions): Promise<VideoJobState> {
+  createDashboardVideoJob(scope: TenantScope, keyId: string, input: VideoCreateRequest, options?: VideoCreateOptions): Promise<VideoJobState> {
     return this.request(`${this.dashboardVideoPath(scope, keyId)}/jobs`, input, options);
   }
 
@@ -1377,10 +1377,18 @@ export class NiuAdminClient {
     return `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/accounts`;
   }
 
-  private async raw(path: string, body: unknown, options: RequestOptions, method?: string, accept = 'application/json'): Promise<Response> {
+  private async raw(path: string, body: unknown, options: VideoCreateOptions, method?: string, accept = 'application/json'): Promise<Response> {
+    const requestMethod = method ?? (body === undefined ? 'GET' : 'POST');
+    const headers: Record<string, string> = { authorization: `Bearer ${this.token}`, accept, ...(body === undefined ? {} : { 'content-type': 'application/json' }) };
+    if (options.idempotencyKey !== undefined) {
+      if (!/^\/organizations\/[^/]+\/projects\/[^/]+\/keys\/[^/]+\/video\/jobs$/.test(path) || requestMethod !== 'POST' || typeof options.idempotencyKey !== 'string' || !/^[\x21-\x7e]{1,128}$/.test(options.idempotencyKey)) {
+        throw new TypeError('idempotencyKey requires video creation and 1 to 128 visible ASCII characters');
+      }
+      headers['idempotency-key'] = options.idempotencyKey;
+    }
     const response = await this.requestFetch(`${this.base}${path}`, {
-      method: method ?? (body === undefined ? 'GET' : 'POST'),
-      headers: { authorization: `Bearer ${this.token}`, accept, ...(body === undefined ? {} : { 'content-type': 'application/json' }) },
+      method: requestMethod,
+      headers,
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: options.signal,
       redirect: 'error',
