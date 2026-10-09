@@ -336,12 +336,14 @@ async fn recovery_keeps_original_account_and_duplicate_jobs_cannot_rebind(pool: 
     .execute(&pool)
     .await
     .unwrap();
-    assert!(fresh.media_recovery_route(scope, ids[0]).await.is_err());
-    // Restoring fixture revision tests credential invalidation separately.
-    sqlx::query("UPDATE vendor_models SET revision=revision-1 WHERE alias='fixture-video'")
-        .execute(&pool)
+    let recovered = fresh
+        .media_recovery_route(scope, ids[0])
         .await
+        .unwrap()
         .unwrap();
+    assert_eq!(recovered.upstream_job_id, "original-job");
+    assert_eq!(recovered.upstream_model, "upstream-video");
+    // Model edits preserve original snapshots; credential invalidation is separate.
     let current = store.vendor(vendor).await.unwrap().unwrap();
     store
         .update_vendor(
@@ -1451,7 +1453,11 @@ async fn result_retention_hardening_upgrades_saved_references_without_extending_
         .prepare_attempt(scope, operation, "fixture-video", "fixture-offer")
         .await
         .unwrap();
-    store.pin_media_recovery_route(scope, id).await.unwrap();
+    // Seed the version-135 schema directly. Current Store route pinning also
+    // writes protocol snapshots introduced later, so it cannot construct an
+    // historical database before the migration under examination runs.
+    sqlx::query("INSERT INTO media_recovery_routes(organization_id,project_id,attempt_id,vendor_id,vendor_revision,model_revision,upstream_model,schema_revision,adapter,api_base) SELECT a.organization_id,a.project_id,a.id,v.id,v.revision,m.revision,m.upstream_model,m.capabilities->'video_schema'->>'revision',v.adapter,v.api_base FROM attempts a JOIN vendor_models m ON m.alias=a.resource_id JOIN vendors v ON v.id=m.vendor_id WHERE a.id=$1")
+        .bind(id).execute(&pool).await.unwrap();
     sqlx::query(
         "UPDATE attempts SET execution='may_have_executed',dispatched_at=now() WHERE id=$1",
     )
