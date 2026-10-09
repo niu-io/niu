@@ -23,9 +23,10 @@ revoked. Private credentials and diagnostic identifiers remain outside Git.
 This verifies the exercised authorization boundaries and absence of financial
 mutation for those denied requests. It does not establish successful checkout,
 paid callback verification, top-up reconciliation, customer request charging,
-refund processing or credit admission under concurrent paid requests. Those
-business paths still require real payment and qualified commercial-supply
-evidence. No fixture-test result is used as evidence.
+refund processing or credit admission under concurrent paid requests. Live external payment and commercial-supply outcomes remain unverified; they
+are deployment checks, not prerequisites for internal integration capability or
+performance work. Internal financial behavior still needs its own evidence. No
+fixture-test result is used as evidence.
 
 ## Concurrent warning-policy writes on the native release service
 
@@ -117,3 +118,23 @@ currencies instead of incorrectly describing all top-ups as CNY-only. Existing
 Stripe support remains USD/CNY; this change adds no currency or merchant support.
 SDK type checking/build and gateway release compilation completed. These checks
 do not establish successful payment collection.
+
+## Personal inference with a zero customer spending limit
+
+A new workspace under the existing personal-credential owner's organization was
+created through the running API. Every available customer spending-account
+currency was assigned an explicit zero workspace limit. A newly issued key was
+restricted to the existing personal model alias, and an actual short OpenRouter
+chat request returned HTTP 200 with nonempty content. An independent PostgreSQL
+read confirmed exactly one completed attempt in that workspace.
+
+The company balance API response and workspace limits/committed amounts were
+identical before and after inference. The temporary key was revoked. The new
+workspace, zero-limit configurations and request remain as audit records.
+
+This verifies the separation between owner-funded upstream inference and customer
+retail spending limits for this request. It does not demonstrate admission or
+settlement of a commercially billed request at a zero limit, concurrent paid
+reservations, or per-key monetary caps. Current API-key controls cover model
+permissions, expiry and revocation; workspace customer spending limits must not
+be described as per-key monetary limits.
