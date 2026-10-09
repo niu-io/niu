@@ -32,6 +32,9 @@ release gate):
 - [Live cancellation and structured output](chat-cancellation-structured-output-2026-10-09.md):
   disconnect uncertainty survives restart; strict nonstreaming JSON is verified,
   with unsupported streaming and invalid schemas rejected before dispatch.
+- [Live request payload lifecycle](request-payload-lifecycle-live-2026-10-09.md):
+  default capture matches delivered content, scoped permissions hold, and
+  explicit deletion survives restart while diagnostics remain available.
 - [Personal funding isolation](personal-funding-isolation-2026-10-09.md) is
   verified for the exercised requests. [Payment merchant access](payment-merchant-check-2026-10-09.md),
   real customer funding/charging and commercial supply qualification remain open.
