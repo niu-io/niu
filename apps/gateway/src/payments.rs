@@ -384,7 +384,6 @@ pub(crate) async fn create_topup(
     Path(organization): Path<Uuid>,
     Json(input): Json<CreateTopup>,
 ) -> Result<Json<Value>, ApiError> {
-    let _configuration_guard = state.payment_configuration_guard.lock().await;
     let auth = state
         .authorize_admin_headers(&headers, AdminPermission::Write)
         .await?;
@@ -398,6 +397,9 @@ pub(crate) async fn create_topup(
             "Provide a three-letter uppercase currency",
         ));
     }
+    // Reject unauthorized or malformed requests before joining the checkout
+    // configuration queue, which may be held across an upstream request.
+    let _configuration_guard = state.payment_configuration_guard.lock().await;
     let epay = configuration::runtime(&state).await?;
     if let Some(runtime) = epay.as_ref()
         && input

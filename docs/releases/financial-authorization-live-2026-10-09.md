@@ -69,3 +69,20 @@ amount matching, paid settlement, or duplicate-payment handling: those checks
 must not be claimed from a request rejected before the adapter is available.
 External merchant activation remains a deployment check, not an internal release
 prerequisite. No fixture result contributes to this observation.
+
+## Checkout authorization before configuration serialization
+
+Checkout creation now performs authentication, billing-account authorization and
+currency-format validation before waiting for the payment configuration mutex.
+The mutex still protects accepted checkout work from concurrent configuration
+changes. Previously even unauthorized requests joined that queue, potentially
+waiting behind an upstream checkout operation.
+
+After building and starting the updated optimized gateway, actual checkout POSTs
+returned HTTP 401 for an invalid token, HTTP 403 for an organization viewer and
+HTTP 400 for lowercase currency submitted with installation authorization. The
+balance API response remained unchanged. An independent PostgreSQL query found
+zero top-up orders after these requests. The temporary viewer was revoked.
+Formatting and release compilation completed. This run verifies rejection on the
+updated binary; it does not measure latency under a held configuration lock or
+establish upstream checkout/settlement acceptance.
