@@ -4,6 +4,16 @@ use serde_json::Value;
 use uuid::Uuid;
 
 impl Store {
+    /// Management history remains readable after revocation, but never outside scope.
+    pub async fn key_spending_scope_exists(
+        &self,
+        scope: TenantScope,
+        key: Uuid,
+    ) -> Result<bool, StoreError> {
+        Ok(sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM api_keys WHERE organization_id=$1 AND project_id=$2 AND id=$3)")
+            .bind(scope.organization_id).bind(scope.project_id).bind(key).fetch_one(&self.pool).await?)
+    }
+
     pub async fn customer_key_spending_limits(
         &self,
         scope: TenantScope,

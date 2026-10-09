@@ -74,3 +74,10 @@ settlement/refund accounting under this new cap and migration across every
 historical deployment state remain unverified. Configuration and rotation
 verification alone do not close those acceptance items. Frontend controls have
 not been implemented by this backend workstream.
+
+A subsequent actual scope check found that missing-key reads initially returned
+an empty successful list. Management now verifies key existence within the
+already authorized workspace: missing keys and keys supplied under the wrong
+workspace returned 404 for list, history and update on the rebuilt gateway.
+Authorized reads through both revoked original and replacement keys still
+returned their four shared policy-history rows. Revocation is not history deletion.

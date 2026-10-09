@@ -34,6 +34,7 @@ paths:
                         committed_nanos: { type: string, pattern: '^[0-9]+$' }
         '401': { description: Authentication required }
         '403': { description: Workspace access denied }
+        '404': { description: Key does not exist in the authorized workspace }
   /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}:
     parameters:
       - $ref: '#/components/parameters/Organization'
@@ -70,7 +71,8 @@ paths:
         '401': { description: Authentication required }
         '402': { description: Proposed limit is below committed key liability }
         '403': { description: Owner permission required }
-        '409': { description: Stale revision, missing account/key, or unresolved attribution }
+        '404': { description: Key does not exist in the authorized workspace }
+        '409': { description: Stale revision, missing account, or unresolved attribution }
         '422': { description: Missing or invalid body fields }
   /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}/history:
     parameters:
@@ -89,6 +91,7 @@ paths:
         '400': { description: Invalid currency or pagination }
         '401': { description: Authentication required }
         '403': { description: Workspace access denied }
+        '404': { description: Key does not exist in the authorized workspace }
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer }

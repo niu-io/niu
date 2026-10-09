@@ -56,6 +56,14 @@ pub async fn list(
         organization_id: organization,
         project_id: workspace,
     };
+    if !state
+        .store
+        .key_spending_scope_exists(scope, key)
+        .await
+        .map_err(ApiError::from_store)?
+    {
+        return Err(ApiError::not_found());
+    }
     Ok(Json(
         json!({"data":state.store.customer_key_spending_limits(scope,key).await.map_err(ApiError::from_store)?}),
     ))
@@ -83,6 +91,14 @@ pub async fn write(
         organization_id: organization,
         project_id: workspace,
     };
+    if !state
+        .store
+        .key_spending_scope_exists(scope, key)
+        .await
+        .map_err(ApiError::from_store)?
+    {
+        return Err(ApiError::not_found());
+    }
     let revision = state
         .store
         .set_customer_key_spending_limit(
@@ -124,6 +140,14 @@ pub async fn history(
         organization_id: organization,
         project_id: workspace,
     };
+    if !state
+        .store
+        .key_spending_scope_exists(scope, key)
+        .await
+        .map_err(ApiError::from_store)?
+    {
+        return Err(ApiError::not_found());
+    }
     Ok(Json(
         json!({"data":state.store.customer_key_limit_history(scope,key,&unit,query.before_revision,limit).await.map_err(ApiError::from_store)?}),
     ))
