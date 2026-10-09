@@ -1,0 +1,123 @@
+openapi: 3.1.0
+info:
+  title: Niu API-key IP policies
+  version: 0.1.0
+security:
+  - bearerAuth: []
+paths:
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy:
+    parameters:
+      - $ref: '#/components/parameters/Organization'
+      - $ref: '#/components/parameters/Workspace'
+      - $ref: '#/components/parameters/Key'
+    get:
+      operationId: getKeyIpPolicy
+      description: Scoped readers may inspect the policy shared across secret rotations.
+      responses:
+        '200':
+          description: Null revision means never configured. Null networks permit all sources; an empty array denies all sources.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Policy'
+        '401': { description: Authentication required }
+        '403': { description: Workspace access denied }
+        '404': { description: Key absent from authorized workspace }
+    put:
+      operationId: setKeyIpPolicy
+      description: Owner or installation administrator only. Rotation preserves this policy. Does not cancel already admitted requests.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [allowed_cidrs, expected_revision]
+              properties:
+                allowed_cidrs:
+                  $ref: '#/components/schemas/Networks'
+                expected_revision:
+                  type: string
+                  pattern: '^[0-9]+$'
+                  description: Zero for initial configuration; maximum 9223372036854775806.
+      responses:
+        '200':
+          description: New policy and immutable history committed atomically.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [revision]
+                    properties:
+                      revision: { type: string, pattern: '^[1-9][0-9]*$' }
+        '400': { description: Invalid network or revision }
+        '401': { description: Authentication required }
+        '403': { description: Owner permission required }
+        '404': { description: Key absent from authorized workspace }
+        '409': { description: Stale policy revision }
+        '422': { description: Missing or invalid JSON fields }
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy/history:
+    parameters:
+      - $ref: '#/components/parameters/Organization'
+      - $ref: '#/components/parameters/Workspace'
+      - $ref: '#/components/parameters/Key'
+    get:
+      operationId: listKeyIpPolicyHistory
+      description: Scoped readers receive descending revisions shared across rotations. Use the last revision as the next page cursor.
+      parameters:
+        - { name: before_revision, in: query, schema: { type: integer, minimum: 1 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        '200':
+          description: Immutable policy history; no internal actor identifiers.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required: [allowed_cidrs, revision, recorded_at, actor_kind, actor_name]
+                      properties:
+                        allowed_cidrs:
+                          $ref: '#/components/schemas/Networks'
+                        revision: { type: string, pattern: '^[1-9][0-9]*$' }
+                        recorded_at: { type: string, format: date-time }
+                        actor_kind: { type: string, enum: [installation, member] }
+                        actor_name: { type: string }
+        '400': { description: Invalid pagination }
+        '401': { description: Authentication required }
+        '403': { description: Workspace access denied }
+        '404': { description: Key absent from authorized workspace }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer }
+  parameters:
+    Organization: { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
+    Workspace: { name: project, in: path, required: true, schema: { type: string, format: uuid } }
+    Key: { name: key, in: path, required: true, schema: { type: string, format: uuid } }
+  schemas:
+    Networks:
+      type: [array, 'null']
+      maxItems: 64
+      items: { type: string, maxLength: 64 }
+      description: IPv4/IPv6 addresses or CIDRs, normalized to network CIDRs. Null permits all; empty denies all.
+    Policy:
+      type: object
+      required: [allowed_cidrs, revision]
+      properties:
+        allowed_cidrs:
+          $ref: '#/components/schemas/Networks'
+        revision: { type: [string, 'null'], pattern: '^[1-9][0-9]*$' }

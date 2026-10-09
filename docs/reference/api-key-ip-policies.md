@@ -7,6 +7,8 @@ Up to 64 IPv4/IPv6 addresses or CIDRs are accepted and normalized to network CID
 
 ## Management API
 
+The machine-readable contract is [key-ip.openapi.yaml](../../contracts/key-ip.openapi.yaml).
+
 Use `/admin/v1/organizations/{organization}/projects/{workspace}/keys/{key}/ip-policy`:
 
 - `GET` returns `data.allowed_cidrs` and `data.revision`; a never-configured policy has null revision.
@@ -60,6 +62,12 @@ missing headers, allowed addresses, nearest-untrusted-hop rejection, trusted-hop
 traversal and malformed headers. It was stopped after verification. Saved-video
 dashboard access rejected a deny-all key, including a forged forwarding header,
 and succeeded after permitting localhost.
+
+Eight simultaneous HTTP policy updates using initial revision zero produced one
+accepted update and seven revision conflicts. An independent database query
+confirmed the winning CIDR, revision one and exactly one history row. The temporary
+key was revoked after verification. This checks configuration write contention;
+it does not check an update racing an in-flight inference request.
 
 These runs do not qualify an actual deployed reverse proxy, IPv6 networking,
 concurrent policy-update races, or cancellation of in-flight inference. They do
