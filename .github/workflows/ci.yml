@@ -172,8 +172,11 @@ jobs:
         run: |
           echo "previous=$(docker image inspect --format '{{.Id}}' niu-io/niu:previous)" >> "$GITHUB_OUTPUT"
           echo "current=$(docker image inspect --format '{{.Id}}' niu-io/niu:ci)" >> "$GITHUB_OUTPUT"
+      - name: Report unchanged runtime package
+        if: ${{ steps.package-images.outputs.previous != '' && steps.package-images.outputs.previous == steps.package-images.outputs.current }}
+        run: echo 'Runtime image is unchanged; no distinct package upgrade exists for this commit. Package smoke checks still ran. Upgrade qualification is not claimed.' >> "$GITHUB_STEP_SUMMARY"
       - name: Smoke test package upgrade and migration recovery
-        if: ${{ github.event_name == 'pull_request' || github.event.before != '0000000000000000000000000000000000000000' }}
+        if: ${{ steps.package-images.outputs.previous != '' && steps.package-images.outputs.previous != steps.package-images.outputs.current }}
         env:
           NIU_PREVIOUS_IMAGE: ${{ steps.package-images.outputs.previous }}
           NIU_IMAGE: ${{ steps.package-images.outputs.current }}
