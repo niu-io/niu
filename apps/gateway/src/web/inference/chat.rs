@@ -373,7 +373,7 @@ async fn complete_openai_compatible(
             "OpenAI-compatible provider returned a non-success response"
         );
         state.failures.fetch_add(1, Ordering::Relaxed);
-        return Err(ApiError::upstream());
+        return Err(provider_rejection(upstream).await);
     }
     let mut value: Value = provider_json(upstream).await.map_err(|_| {
         state.failures.fetch_add(1, Ordering::Relaxed);
@@ -568,7 +568,13 @@ async fn stream_openai_compatible(
         .json(&body)
         .send()
         .await
-        .map_err(|_| {
+        .map_err(|error| {
+            tracing::warn!(
+                model = public_model,
+                timeout = error.is_timeout(),
+                connect = error.is_connect(),
+                "OpenAI-compatible provider stream connection failed"
+            );
             state.failures.fetch_add(1, Ordering::Relaxed);
             ApiError::upstream()
         })?;
@@ -576,7 +582,7 @@ async fn stream_openai_compatible(
         StatusCode::from_u16(upstream.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
     if !status.is_success() {
         state.failures.fetch_add(1, Ordering::Relaxed);
-        return Err(ApiError::upstream());
+        return Err(provider_rejection(upstream).await);
     }
     let content_type = upstream
         .headers()
