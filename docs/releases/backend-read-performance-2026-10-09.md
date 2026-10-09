@@ -213,3 +213,41 @@ updated tool against another actual endpoint, not a comparison with the earlier
 larger-workspace list baselines. Both measurements include loopback client and
 server work on the same machine, are closed-loop and do not establish production
 capacity, a service-level target, inference throughput or large-dataset behavior.
+
+## Key concurrency occupancy read (2026-10-10)
+
+The read-only benchmark now accepts the exact workspace key `concurrency-limit`
+endpoint without query parameters. It requires a positive live `active_requests`
+count and compares the complete JSON response against its initial SHA-256 baseline
+on every read. It does not create inference, rotate credentials or alter policy.
+For this endpoint the report uses `active_requests`, not `page_rows`.
+
+The current release gateway was measured over loopback using installation access,
+eight concurrent persistent connections and a 30-second closed-loop run. The key
+lineage contained a real streaming request disconnected before terminal evidence;
+independent SQL confirmed one unresolved dispatched attempt. The original and
+replacement secrets were already revoked; authorized management could still read
+the saved lineage policy and occupancy.
+
+| Observation | Value |
+| --- | --- |
+| Database scale | 78 attempts, 74 keys |
+| Occupied requests in measured lineage | 1 |
+| Baseline response size | 73 bytes |
+| Matching complete responses | 527,234 |
+| Request errors / changed responses | 0 / 0 |
+| Elapsed time | 30.001 seconds |
+| Matching reads per second | 17,574.10 |
+| P50 / P95 / P99 | 0.398 / 0.890 / 1.201 ms |
+| Maximum observed latency | 7.430 ms |
+
+A separate actual `EXPLAIN (ANALYZE, BUFFERS)` of the occupancy query selected
+`api_keys_spending_root` and a sequential scan of the small attempts table. Its
+single observed execution took 0.048 ms. The unresolved-attempt partial index
+exists, but this small-data plan does not establish large-history query behavior.
+No planner settings were forced and no synthetic history was inserted.
+
+These figures describe a small authenticated management response on this local
+dataset. They do not qualify distributed inference throughput, financial writes,
+large historical datasets, competing updates or production capacity. The workload
+issued no new upstream generation and uses no fixture outcomes as evidence.

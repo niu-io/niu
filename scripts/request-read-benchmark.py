@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Measure actual workspace request-list or detail reads; never generates inference."""
+"""Measure actual workspace request-list, detail or key occupancy reads; never generates inference."""
 import argparse
 import concurrent.futures
 import hashlib
@@ -27,9 +27,10 @@ def main():
     is_list = bool(re.fullmatch(route, url.path)
                    and re.fullmatch(r'limit=(?:[1-9]|[1-9][0-9]|100)', url.query))
     is_detail = bool(re.fullmatch(route + '/' + identifier, url.path) and not url.query)
+    is_occupancy = bool(re.fullmatch(rf'/admin/v1/organizations/{identifier}/projects/{identifier}/keys/{identifier}/concurrency-limit', url.path) and not url.query)
     if (url.scheme not in ('http', 'https') or not url.hostname or url.username
-            or url.password or url.fragment or not (is_list or is_detail)):
-        parser.error('Use a request-list URL with only limit=1..100, or a request-detail URL without query parameters')
+            or url.password or url.fragment or not (is_list or is_detail or is_occupancy)):
+        parser.error('Use a request-list URL with only limit=1..100, or a request-detail/key-concurrency URL without query parameters')
     if not 1 <= args.concurrency <= 64 or not 1 <= args.seconds <= 600:
         parser.error('Concurrency must be 1..64 and seconds 1..600')
     token = os.environ.get(args.token_env, '')
@@ -57,6 +58,12 @@ def main():
             if not isinstance(data, list):
                 raise ValueError('Unexpected response shape')
             records = len(data)
+        elif is_occupancy:
+            if (not isinstance(data, dict) or type(data.get('active_requests')) is not int
+                    or data['active_requests'] < 1 or 'max_concurrent_requests' not in data
+                    or 'revision' not in data):
+                raise ValueError('Use a key with actual unresolved dispatched requests')
+            records = data['active_requests']
         else:
             if (not isinstance(data, dict)
                     or data.get('attempt_id', '').lower() != url.path.rsplit('/', 1)[1].lower()):
@@ -110,11 +117,12 @@ def main():
     def percentile(fraction):
         return round(timings[math.ceil(len(timings) * fraction) - 1], 3) if timings else None
     print(json.dumps({
-        'scope': 'actual saved-request reads; not inference or production capacity',
-        'endpoint_kind': 'list' if is_list else 'detail',
+        'scope': 'actual saved-request or occupancy reads; not inference or production capacity',
+        'endpoint_kind': 'key_occupancy' if is_occupancy else ('list' if is_list else 'detail'),
         'connection_mode': 'fresh' if args.fresh_connections else 'persistent',
         'concurrency': args.concurrency, 'requested_seconds': args.seconds,
-        'elapsed_seconds': round(wall, 3), 'page_rows': row_count,
+        'elapsed_seconds': round(wall, 3),
+        ('active_requests' if is_occupancy else 'page_rows'): row_count,
         'baseline_bytes': byte_count, 'matching_responses': len(timings),
         'errors': errors, 'changed_responses': mismatches,
         'matching_responses_per_second': round(len(timings) / wall, 2),
