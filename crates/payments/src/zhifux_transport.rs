@@ -16,6 +16,8 @@ pub enum Error {
     Transport,
     #[error("Payment service returned an invalid response")]
     Response,
+    #[error("Payment service rejected the request (code {code}); payment status is unverified")]
+    Rejected { code: u16 },
     #[error("Payment is not confirmed paid")]
     NotPaid,
     #[error(transparent)]
@@ -49,10 +51,10 @@ pub enum VerifiedOrder {
     Paid(RecoveredPayment),
 }
 #[derive(Deserialize)]
-struct Envelope<T> {
+struct Envelope {
     success: bool,
     code: u16,
-    data: Option<T>,
+    data: Option<serde_json::Value>,
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -204,11 +206,13 @@ impl Client {
             }
             body.extend_from_slice(&chunk);
         }
-        let envelope: Envelope<T> = serde_json::from_slice(&body).map_err(|_| Error::Response)?;
+        let envelope: Envelope = serde_json::from_slice(&body).map_err(|_| Error::Response)?;
         if !envelope.success || envelope.code != 200 {
-            return Err(Error::Response);
+            return Err(Error::Rejected {
+                code: envelope.code,
+            });
         }
-        envelope.data.ok_or(Error::Response)
+        serde_json::from_value(envelope.data.ok_or(Error::Response)?).map_err(|_| Error::Response)
     }
     pub async fn create_order(
         &self,

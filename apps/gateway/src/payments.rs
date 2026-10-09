@@ -195,10 +195,19 @@ impl Runtime {
             .client
             .query_order(&number, saved.amount_nanos, &saved.payment_method)
             .await
-            .map_err(|_| {
-                ApiError::upstream_message(
-                    "Payment is not independently confirmed; saved order requires reconciliation",
-                )
+            .map_err(|error| {
+                if let niu_payments::zhifux_transport::Error::Rejected { code } = error {
+                    tracing::warn!(code, "Payment query rejected; saved order remains unresolved");
+                    ApiError::upstream_message(if code == 6003 {
+                        "Payment merchant query access is not enabled (code 6003); saved order requires reconciliation"
+                    } else {
+                        "Payment query was rejected; saved order requires reconciliation"
+                    })
+                } else {
+                    ApiError::upstream_message(
+                        "Payment is not independently confirmed; saved order requires reconciliation",
+                    )
+                }
             })?;
         apply_verified_order(&state.store, organization, order, evidence).await
     }
