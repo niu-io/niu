@@ -22,6 +22,11 @@ response metadata, prompts or Supplier prices. HTTP status is a separate fact
 from execution and billing. A refusal does not fabricate zero usage, release an
 uncertain liability, or declare an attempt never executed. A malformed terminal
 completion can still carry independently valid usage that must settle normally.
+Invalid responses return the fixed message `The provider returned an invalid
+response`; arbitrary upstream content never enters this explanation. A known
+finish reason can coexist with a delivery failure, such as malformed tool-call
+arguments. Neither a `tool_calls` reason nor HTTP 502 alone establishes whether
+execution occurred or whether reported usage exists.
 
 The gateway records one scoped, immutable classification before returning its
 failure response. Identical persistence retries are idempotent; conflicting

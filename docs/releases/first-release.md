@@ -17,6 +17,22 @@ A developer can install Niu, configure a qualified Supplier, create a workspace 
 
 ## Release checklist
 
+Current-input backend checkpoints from 2026-10-09 (none qualifies a complete
+release gate):
+
+- [Supplier/workspace calls](supplier-workspace-backend-verification-2026-10-09.md)
+  and [strict key inputs](key-input-backend-verification-2026-10-09.md): independent
+  configuration and actual personal-model access, with the documented limits.
+- [Personal video lifecycle](openrouter-video-gateway-verification-2026-10-09.md)
+  and [model-edit recovery](video-mapping-recovery-2026-10-09.md): actual generation,
+  restart recovery, scoped results and independently decoded artifacts.
+- [Safe failure records](request-failure-backend-verification-2026-10-09.md)
+  and [live Chat finish reasons](chat-finish-reasons-live-2026-10-09.md): durable
+  payload-independent diagnostics, including completed but invalid delivery.
+- [Personal funding isolation](personal-funding-isolation-2026-10-09.md) is
+  verified for the exercised requests. [Payment merchant access](payment-merchant-check-2026-10-09.md),
+  real customer funding/charging and commercial supply qualification remain open.
+
 “Partial” means implementation or limited evidence exists; it does not mean the capability is release-ready. The linked workflow and detailed acceptance requirements are mandatory parts of F01–F10, not optional follow-up work.
 
 | ID | Required result | Current status | Remaining acceptance |

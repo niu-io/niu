@@ -313,7 +313,7 @@ impl ApiError {
     }
 
     pub(crate) fn upstream_invalid_response() -> Self {
-        let mut result = Self::upstream();
+        let mut result = Self::upstream_message("The provider returned an invalid response");
         result.failure = Some(niu_storage::RequestFailure {
             kind: niu_storage::RequestFailureKind::UpstreamInvalidResponse,
             upstream_http_status: None,
