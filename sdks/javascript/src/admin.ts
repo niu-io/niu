@@ -21,6 +21,8 @@ export type TenantScope = { organizationId: string; projectId: string };
 /** Customer limits share history across secret rotation; null means unlimited. */
 export type KeyIpPolicy = { allowed_cidrs: string[] | null; revision: string | null };
 export type KeyIpPolicyRevision = KeyIpPolicy & { revision: string; recorded_at: string; actor_kind: 'installation' | 'member'; actor_name: string };
+/** Remaining key allowance only; company/workspace admission constraints still apply. */
+export type KeySpendingAccount = WorkspaceSpendingAccount & { remaining_nanos: string | null };
 export type KeySpendingLimitRevision = { currency: string; limit_nanos: string | null; revision: string; recorded_at: string; actor_kind: 'installation' | 'member'; actor_name: string };
 export type WorkspaceSpendingLimit = { currency: string; limit_nanos: string; committed_nanos: string; revision: string };
 export type WorkspaceSpendingAccount = { currency: string; limit_nanos: string | null; committed_nanos: string; revision: string | null };
@@ -962,7 +964,7 @@ export class NiuAdminClient {
   }
 
 
-  listKeySpendingLimits(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: WorkspaceSpendingAccount[] }> {
+  listKeySpendingLimits(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: KeySpendingAccount[] }> {
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/spending-limit`, undefined, options);
   }
 

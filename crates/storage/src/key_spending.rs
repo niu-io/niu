@@ -19,7 +19,7 @@ impl Store {
         scope: TenantScope,
         key: Uuid,
     ) -> Result<Vec<Value>, StoreError> {
-        Ok(sqlx::query_scalar("SELECT jsonb_build_object('currency',a.currency,'limit_nanos',l.limit_nanos::text,'revision',l.revision::text,'committed_nanos',niu_customer_key_committed(k.spending_root_id,a.id)::text) FROM api_keys k JOIN customer_balance_accounts a ON a.organization_id=k.organization_id LEFT JOIN customer_key_spending_limits l ON l.spending_root_id=k.spending_root_id AND l.account_id=a.id WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3 ORDER BY a.currency")
+        Ok(sqlx::query_scalar("WITH amounts AS MATERIALIZED (SELECT a.currency,l.limit_nanos,l.revision,niu_customer_key_committed(k.spending_root_id,a.id) AS committed FROM api_keys k JOIN customer_balance_accounts a ON a.organization_id=k.organization_id LEFT JOIN customer_key_spending_limits l ON l.spending_root_id=k.spending_root_id AND l.account_id=a.id WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3) SELECT jsonb_build_object('currency',currency,'limit_nanos',limit_nanos::text,'revision',revision::text,'committed_nanos',committed::text,'remaining_nanos',CASE WHEN limit_nanos IS NULL THEN NULL ELSE GREATEST(limit_nanos::numeric-committed,0)::text END) FROM amounts ORDER BY currency")
             .bind(scope.organization_id).bind(scope.project_id).bind(key).fetch_all(&self.pool).await?)
     }
 

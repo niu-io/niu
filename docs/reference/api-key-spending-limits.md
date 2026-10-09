@@ -31,7 +31,11 @@ are never substituted for customer prices.
 The [API contract](../../contracts/key-spending.openapi.yaml) defines:
 
 - `GET .../keys/{key}/spending-limit`: account currencies, cap, revision and
-  committed customer amount. No company balance or procurement data is returned.
+  committed customer amount, plus `remaining_nanos`. Remaining allowance is
+  `max(limit_nanos - committed_nanos, 0)` as an exact decimal integer string,
+  or `null` when the key is unlimited. It describes only this key's allowance,
+  not company balance or guaranteed admission; workspace and company constraints
+  still apply. No company balance or procurement data is returned.
 - `PUT .../keys/{key}/spending-limit/{currency}`: requires an installation
   administrator or the applicable company/workspace owner, `limit_nanos` and
   `expected_revision`. Use revision `"0"` initially; stale writes return 409.
@@ -41,6 +45,10 @@ The [API contract](../../contracts/key-spending.openapi.yaml) defines:
 
 `NiuAdminClient` exposes `listKeySpendingLimits`, `setKeySpendingLimit` and
 `listKeySpendingLimitHistory`. A replacement key reads the same policy/history.
+The list returns the dedicated `KeySpendingAccount` SDK type, including the
+remaining allowance. Committed spending is computed once per returned currency
+and reused for the remaining amount; concurrent work can change either amount
+after the read, so admission must still enforce limits transactionally.
 The internal spending identity and operator identifiers are not returned.
 Customer admission reports `key_spending_limit_exceeded` (HTTP 402) when the
 proposed bounded charge would exceed the key cap.
@@ -81,3 +89,19 @@ already authorized workspace: missing keys and keys supplied under the wrong
 workspace returned 404 for list, history and update on the rebuilt gateway.
 Authorized reads through both revoked original and replacement keys still
 returned their four shared policy-history rows. Revocation is not history deletion.
+
+## Remaining allowance verification — 2026-10-10
+
+On the updated optimized gateway, a new temporary key initially returned null
+remaining allowance for unrestricted currencies. Actual management writes and
+reads preserved `9007199254740993`, the signed 64-bit maximum
+`9223372036854775807`, zero and explicit unlimited exactly. With no customer
+liabilities, each finite remaining amount equaled its cap. Rotation preserved
+the full returned currency records, including the remaining allowance.
+
+An independent PostgreSQL read confirmed the final exact cap, zero committed
+amount and fifth policy revision. The customer ledger remained empty and the
+temporary keys were revoked. Gateway release compilation, Clippy, SDK type
+checking/build and OpenAPI YAML parsing completed. These observations verify
+the read contract for empty commitments, not paid reservations, overrun clamping,
+settlement, refunds or the full financial lifecycle. No fixture outcome is used.

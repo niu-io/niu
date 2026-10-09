@@ -27,12 +27,16 @@ paths:
                     type: array
                     items:
                       type: object
-                      required: [currency, limit_nanos, revision, committed_nanos]
+                      required: [currency, limit_nanos, revision, committed_nanos, remaining_nanos]
                       properties:
                         currency: { type: string, pattern: '^[A-Z]{3}$' }
                         limit_nanos: { type: [string, 'null'], pattern: '^[0-9]+$' }
                         revision: { type: [string, 'null'], pattern: '^[0-9]+$' }
                         committed_nanos: { type: string, pattern: '^[0-9]+$' }
+                        remaining_nanos:
+                          type: [string, 'null']
+                          pattern: '^[0-9]+$'
+                          description: Maximum of cap minus committed customer amount and zero; null for unlimited. This is key allowance only, not company balance or guaranteed admission.
         '401': { description: Authentication required }
         '403': { description: Workspace access denied }
         '404': { description: Key does not exist in the authorized workspace }
