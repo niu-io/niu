@@ -49,3 +49,23 @@ and exact warning amounts. It does not demonstrate payment settlement, competing
 inference reservations, refunds or commercial charge reconciliation. No merchant
 activation or fabricated payment evidence was needed, and no fixture outcome is
 used as evidence.
+
+## Unconfigured payment-notification ingress
+
+A current-input HTTP run exercised the running gateway's native PaymentFM,
+EPay and Stripe notification endpoints without creating a payment or changing
+merchant configuration. Native notification input used a newly generated unknown
+order reference; EPay and Stripe requests omitted valid payment signatures. All
+three returned HTTP 502 because their notification integrations were unavailable
+in this runtime. A native notification exceeding the 8 KiB request-body limit
+returned HTTP 413.
+
+Independent PostgreSQL snapshots before and after these requests were identical
+for all rows in the order, provider-order binding, settlement, notification,
+balance-entry and balance-account tables. This establishes rejection without
+financial mutation for this runtime's unavailable-integration paths and the
+native body-size limit. It does **not** exercise configured signature validation,
+amount matching, paid settlement, or duplicate-payment handling: those checks
+must not be claimed from a request rejected before the adapter is available.
+External merchant activation remains a deployment check, not an internal release
+prerequisite. No fixture result contributes to this observation.
