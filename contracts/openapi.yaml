@@ -5031,6 +5031,8 @@ components:
         expired: { type: boolean }
     KeyInput:
       type: object
+      additionalProperties: false
+      description: Unknown fields are rejected. Key creation does not configure a per-key spending limit; customer workspace spending limits use the separate spending-limit API.
       required: [name, ttl_seconds]
       properties:
         name:

@@ -48,6 +48,7 @@ pub struct WorkspaceInput {
     organization_id: Option<Uuid>,
 }
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct KeyInput {
     name: String,
     #[serde(default = "all_model_aliases")]
@@ -375,7 +376,7 @@ pub async fn issue_key(
     State(state): State<AppState>,
     Path((organization_id, project_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
-    Json(input): Json<KeyInput>,
+    input: Result<Json<KeyInput>, axum::extract::rejection::JsonRejection>,
 ) -> Result<(StatusCode, [(String, String); 1], Json<Value>), ApiError> {
     authorize_project(
         &state,
@@ -385,6 +386,11 @@ pub async fn issue_key(
         project_id,
     )
     .await?;
+    let Json(input) = input.map_err(|_| {
+        ApiError::invalid_request(
+            "Provide only name, allowed_models and ttl_seconds when creating a workspace API key",
+        )
+    })?;
     let mut models = crate::vendors::scoped_models(&state, organization_id).await?;
     models.extend(
         crate::codex::private_models(
