@@ -9,6 +9,35 @@ use crate::{error::ApiError, state::AppState};
 
 const MAX_PROVIDER_JSON_BYTES: usize = 16 * 1024 * 1024;
 
+/// Read only a bounded error envelope and classify a known regional refusal.
+/// Never expose the upstream message, metadata, URLs or credentials.
+pub(super) async fn provider_rejection(mut response: reqwest::Response) -> ApiError {
+    let status = response.status();
+    let mut body = Vec::new();
+    let read = async {
+        while let Some(chunk) = response.chunk().await.ok().flatten() {
+            if body.len().saturating_add(chunk.len()) > 16 * 1024 {
+                break;
+            }
+            body.extend_from_slice(&chunk);
+        }
+    };
+    let _ = tokio::time::timeout(std::time::Duration::from_secs(2), read).await;
+    let regional = status == axum::http::StatusCode::FORBIDDEN
+        && serde_json::from_slice::<Value>(&body)
+            .ok()
+            .is_some_and(|value| {
+                value.pointer("/error/message").and_then(Value::as_str)
+                    == Some("This model is not available in your region.")
+            });
+    tracing::warn!(
+        upstream_status = status.as_u16(),
+        regional,
+        "Provider rejected inference request"
+    );
+    ApiError::upstream_status(status, regional)
+}
+
 pub(super) async fn provider_json(mut response: reqwest::Response) -> Result<Value, ApiError> {
     if response
         .content_length()

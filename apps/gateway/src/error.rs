@@ -245,6 +245,24 @@ impl ApiError {
         }
     }
 
+    pub(crate) fn upstream_status(status: StatusCode, regional: bool) -> Self {
+        Self {
+            status,
+            kind: "upstream_error",
+            message: if regional {
+                "The provider does not offer this model in the gateway region. Check the configured upstream network route"
+            } else {
+                match status.as_u16() {
+                    401 | 403 => {
+                        "The provider refused this request. Check credential access and regional model availability"
+                    }
+                    429 => "The provider rate or spending limit was reached",
+                    _ => "The provider returned a non-success HTTP response",
+                }
+            },
+        }
+    }
+
     pub fn upstream() -> Self {
         Self::upstream_message("The provider request failed")
     }
