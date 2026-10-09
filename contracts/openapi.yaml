@@ -3896,7 +3896,11 @@ components:
                 width: { type: integer, minimum: 1, maximum: 4294967295 }
                 height: { type: integer, minimum: 1, maximum: 4294967295 }
             duration_seconds: { type: integer, minimum: 1 }
-            frames_per_second: { type: integer, minimum: 1, maximum: 4294967295 }
+            frames_per_second:
+              type: [integer, 'null']
+              minimum: 1
+              maximum: 4294967295
+              description: Null when the seconds estimator has no configured frame rate; required for pixel-based estimation.
             schema_revision: { type: string }
             estimator: { type: string, enum: [SeedancePixelsV1, OutputSecondsV1] }
             estimator_revision: { type: string }
@@ -4212,7 +4216,7 @@ components:
       type: object
       additionalProperties: false
       required: [specifications, estimator, estimator_revision]
-      description: Optional effective output mapping for this schema revision. Requires resolution, ratio, positive duration and positive frames_per_second controls, each with a default or required input. Missing resolution/ratio combinations reject requests before dispatch. Estimates never establish reported usage or maximum liability. Current ark-direct-v1 dispatch qualifies video_tokens only; a seconds estimator remains unavailable through that adapter.
+      description: Optional effective output mapping for this schema revision. Requires resolution, ratio and positive duration controls, each with a default or required input. Pixel estimation additionally requires a positive frames_per_second control; seconds estimation may omit it. Missing resolution/ratio combinations reject requests before dispatch. Estimates never establish reported usage or maximum liability. The ark-direct-v1 adapter qualifies video_tokens only; openrouter-video-v1 supports owner-funded text generation with seconds estimates and unknown reported quantity.
       properties:
         estimator: { type: string, enum: [SeedancePixelsV1, OutputSecondsV1] }
         estimator_revision: { type: string, minLength: 1, maxLength: 256, description: Reviewed configuration reference; at most 256 UTF-8 bytes. }

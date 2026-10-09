@@ -23,7 +23,7 @@ fn defaults_resolve_exact_effective_dimensions_and_estimate_without_claiming_act
         (1280, 720)
     );
     assert_eq!(output.duration_seconds, 5);
-    assert_eq!(output.frames_per_second, 24);
+    assert_eq!(output.frames_per_second, Some(24));
     assert_eq!(output.schema_revision, "output-schema-1");
     assert_eq!(output.estimator_revision, "reviewed-formula-1");
     assert_eq!(
@@ -60,7 +60,7 @@ fn explicit_controls_resolve_orientation_and_unmapped_combinations_fail() {
         (720, 1280)
     );
     assert_eq!(output.duration_seconds, 10);
-    assert_eq!(output.frames_per_second, 60);
+    assert_eq!(output.frames_per_second, Some(60));
     assert!(matches!(
         configured.validate_request(&request(json!({"resolution":"1080p"}))),
         Err(ValidationError::InvalidControl)

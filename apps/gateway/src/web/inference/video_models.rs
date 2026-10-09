@@ -68,6 +68,9 @@ pub(super) async fn models_as(
         .flatten();
         if !route.vendor.enabled
             || !route.model.enabled
+            || (route.model.capabilities["video_schema"]["channel"]
+                == niu_media::openrouter::REVISION
+                && route.vendor.adapter != "openrouter")
             || (!text_permitted && image_limits.is_none())
         {
             continue;
@@ -116,14 +119,26 @@ fn projection_with_images(
     if schema.validate().is_err()
         || schema.model_alias != alias
         || schema.upstream_model != upstream_model
-        || schema.channel != "ark-direct-v1"
+        || (schema.channel != "ark-direct-v1" && schema.channel != niu_media::openrouter::REVISION)
         || schema.required_controls.iter().any(|v| v == "callback_url")
     {
         return None;
     }
     let text = schema.inputs.get("text")?;
     let output = schema.output.as_ref()?;
-    if output.estimator.meter() != "video_tokens" {
+    let openrouter = schema.channel == niu_media::openrouter::REVISION;
+    if output.estimator.meter()
+        != if openrouter {
+            "seconds"
+        } else {
+            "video_tokens"
+        }
+        || (openrouter
+            && (!owner_funded
+                || schema.controls.keys().any(|key| {
+                    !matches!(key.as_str(), "duration" | "resolution" | "ratio" | "seed")
+                })))
+    {
         return None;
     }
     let mut controls = schema.controls.clone();
@@ -165,8 +180,9 @@ fn projection_with_images(
         "exclusive_controls":exclusive,
         "output":{"specifications":output.specifications,"meter":output.estimator.meter(),"estimator":output.estimator}
     });
-    if let (Some(rule), Some((items, bytes, width, height, decoded))) =
-        (schema.inputs.get("image_url"), image_limits)
+    if !openrouter
+        && let (Some(rule), Some((items, bytes, width, height, decoded))) =
+            (schema.inputs.get("image_url"), image_limits)
     {
         let types: Vec<_> = rule
             .data_mime_types

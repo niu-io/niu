@@ -2,11 +2,36 @@
 
 Status: owner-funded direct-channel text submission, persisted-state reads and opt-in polling are implemented. Customer media-rate publication is available to platform administrators. Prepaid text-input submission, explicit refresh and opt-in automatic recovery are implemented for configured qualified offers. Scoped result retrieval and deletion are implemented. Configured, consented inline image-plus-prompt submission has local API coverage. Complete reference-input workflows and live video qualification remain pending.
 
+### Personal OpenRouter video
+
+The `openrouter-video-v1` channel supports personal owner-funded text requests
+on an `openrouter` credential. Configure a private model mapping with a video
+schema based on the actual upstream model capabilities. Supported controls are
+`duration`, `resolution`, `ratio` and `seed`; the adapter converts text content
+to `prompt` and `ratio` to `aspect_ratio`. Unsupported controls and reference
+inputs fail before dispatch. Customer-funded OpenRouter video remains disabled
+because its reported billable quantity has not been qualified.
+
+Use `OutputSecondsV1` for the optional output estimate. This estimator can omit
+the frame-rate control; `effective_output.frames_per_second` is then `null`.
+Clients must omit the FPS label when it is absent. Pixel estimation still
+requires a positive frame rate. Estimates never substitute for reported usage.
+
+Submission, scoped history/status, explicit refresh, opt-in `NIU_VIDEO_POLLING`
+recovery, billing explanation and encrypted result references use the existing
+video APIs. Result download authenticates the pinned OpenRouter content endpoint
+and never forwards that credential across redirects. Actual upstream responses
+without a reported quantity retain unknown usage and no customer charge.
+
+See the [backend lifecycle checkpoint](../releases/openrouter-video-gateway-verification-2026-10-09.md)
+for the exercised model and restart/result evidence. The rendered frontend and
+additional model/input combinations remain unverified.
+
 ## Customer capability discovery
 
 `GET /v1/video/models` (`client.video.models.list()`) returns configured video controls for the current workspace key. The signed-in dashboard uses `GET /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/models`, exposed as `admin.listDashboardVideoModels(scope, keyId)`, with read permission and an active selected key. Key secrets are not required by the dashboard session path.
 
-Each model contains its customer alias, owner-funded/customer mode, text limits, allowed controls/defaults, required/exclusive controls and mapped output dimensions. Only the implemented direct-channel video-token estimator subset is returned. Unmapped resolution/ratio choices, unsupported meters/channels and callback controls are omitted. Current key/model grants, workspace/key Guardrails and Supplier availability apply; personal models remain limited to their owner organization. No upstream mapping, credentials, revisions or purchase rates are exposed.
+Each model contains its customer alias, owner-funded/customer mode, text limits, allowed controls/defaults, required/exclusive controls and mapped output dimensions. The implemented direct-channel video-token subset and personal OpenRouter seconds-estimate subset are returned. Unmapped resolution/ratio choices, unsupported meters/channels and callback controls are omitted. Current key/model grants, workspace/key Guardrails and Supplier availability apply; personal models remain limited to their owner organization. No upstream mapping, credentials, revisions or purchase rates are exposed.
 
 With configured required image detectors and current processing consent,
 `input_types` can also contain `image_url`. Its limits intersect the model schema
@@ -34,8 +59,9 @@ A model-list connectivity check does not qualify video generation. Declaring ima
 The optional `video_schema.output` management contract maps each qualified
 resolution/aspect-ratio pair to positive pixel width and height. It declares
 `estimator` (`SeedancePixelsV1` or `OutputSecondsV1`) and a reviewed
-`estimator_revision`. Resolution, ratio, duration and frame-rate controls must
-have explicit defaults or be required; duration/frame rate must be positive.
+`estimator_revision`. Resolution, ratio and duration controls must have explicit defaults or be
+required. Pixel estimation also requires a positive frame-rate control; seconds
+estimation may omit it. Configured duration/frame rate must be positive.
 Duplicate pairs, unadvertised choices, missing default mappings and invalid
 specifications are rejected. Requests with an unmapped combination fail before
 dispatch. Pricing configuration choices omit resolutions without a mapping.

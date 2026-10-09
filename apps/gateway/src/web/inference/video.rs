@@ -136,9 +136,15 @@ async fn validate_admission(
             .ok_or_else(ApiError::unsupported)?,
     )
     .map_err(|_| ApiError::unsupported())?;
-    if schema.channel != "ark-direct-v1" || body.get("callback_url").is_some() {
+    let openrouter = schema.channel == niu_media::openrouter::REVISION;
+    if (schema.channel != "ark-direct-v1" && !openrouter) || body.get("callback_url").is_some() {
         return Err(ApiError::unsupported_message(
             "This video channel or notification contract is not implemented",
+        ));
+    }
+    if openrouter && (!owner_funded || route.vendor.adapter != "openrouter") {
+        return Err(ApiError::unsupported_message(
+            "OpenRouter video requires a personal route; customer billing is not qualified",
         ));
     }
     let request = schema
@@ -149,10 +155,19 @@ async fn validate_admission(
         .map_err(|_| {
             ApiError::invalid_request("The request does not match this model's video schema")
         })?;
-    if request
-        .effective_output()
-        .is_some_and(|output| output.estimator.meter() != "video_tokens")
-    {
+    if openrouter {
+        niu_media::openrouter::submission_body(&request).map_err(|_| {
+            ApiError::unsupported_message("This OpenRouter video control or input is not supported")
+        })?;
+    }
+    if request.effective_output().is_some_and(|output| {
+        output.estimator.meter()
+            != if openrouter {
+                "seconds"
+            } else {
+                "video_tokens"
+            }
+    }) {
         return Err(ApiError::unsupported_message(
             "This video adapter does not qualify the configured media meter",
         ));
@@ -445,8 +460,13 @@ pub(super) async fn create_as(
         .open(route.vendor.id, &route.credential_ciphertext)
         .map_err(|_| ApiError::unavailable())?;
     let endpoint = format!(
-        "{}/contents/generations/tasks",
-        route.vendor.api_base.trim_end_matches('/')
+        "{}/{}",
+        route.vendor.api_base.trim_end_matches('/'),
+        if schema.channel == niu_media::openrouter::REVISION {
+            "videos"
+        } else {
+            "contents/generations/tasks"
+        }
     );
     let timeout =
         std::time::Duration::from_secs(state.config.server.request_timeout_seconds.min(60));
@@ -578,7 +598,7 @@ pub(super) async fn create_as(
     let result = niu_media::submission::submit_job(
         &endpoint,
         &token,
-        "ark-direct-v1",
+        &schema.channel,
         &request,
         64 * 1024,
         timeout,
@@ -665,7 +685,10 @@ pub(crate) async fn refresh_for_principal(
         .await
         .map_err(ApiError::from_store)?
         .is_some();
-    if route.channel != "ark-direct-v1"
+    let openrouter = route.channel == niu_media::openrouter::REVISION;
+    if (route.channel != "ark-direct-v1" && !openrouter)
+        || (openrouter
+            && (route.adapter != "openrouter" || priced || owner != Some(scope.organization_id)))
         || (owner != Some(scope.organization_id) && !(owner.is_none() && priced))
     {
         return Err(ApiError::unsupported_message(
@@ -722,15 +745,26 @@ pub(crate) async fn refresh_for_principal(
         maximum_url_bytes: 8192,
     };
     let clock = TransportClock::start();
-    let result = niu_media::transport::query_job(
-        &protocol,
-        endpoint.as_str(),
-        &token,
-        &route.upstream_job_id,
-        &route.upstream_model,
-        std::time::Duration::from_secs(state.config.server.request_timeout_seconds.min(60)),
-    )
-    .await;
+    let result = if openrouter {
+        niu_media::openrouter::query_job(
+            &route.api_base,
+            &token,
+            &route.upstream_job_id,
+            &route.upstream_model,
+            std::time::Duration::from_secs(state.config.server.request_timeout_seconds.min(60)),
+        )
+        .await
+    } else {
+        niu_media::transport::query_job(
+            &protocol,
+            endpoint.as_str(),
+            &token,
+            &route.upstream_job_id,
+            &route.upstream_model,
+            std::time::Duration::from_secs(state.config.server.request_timeout_seconds.min(60)),
+        )
+        .await
+    };
     clock.save(state, scope, id, "query", result.is_ok()).await;
     let observation = result.map_err(|_| {
         ApiError::upstream_message(

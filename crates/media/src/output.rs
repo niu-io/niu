@@ -41,7 +41,7 @@ pub struct OutputSchema {
 pub struct EffectiveVideoOutput {
     pub specification: OutputSpecification,
     pub duration_seconds: u64,
-    pub frames_per_second: u32,
+    pub frames_per_second: Option<u32>,
     pub schema_revision: String,
     pub estimator: OutputEstimator,
     pub estimator_revision: String,
@@ -55,6 +55,12 @@ impl OutputSchema {
             return Err(ValidationError::InvalidSchema);
         }
         for name in ["resolution", "ratio", "duration", "frames_per_second"] {
+            if name == "frames_per_second"
+                && self.estimator == OutputEstimator::OutputSecondsV1
+                && !schema.controls.contains_key(name)
+            {
+                continue;
+            }
             let control = schema
                 .controls
                 .get(name)
@@ -66,6 +72,12 @@ impl OutputSchema {
             }
         }
         for name in ["duration", "frames_per_second"] {
+            if name == "frames_per_second"
+                && self.estimator == OutputEstimator::OutputSecondsV1
+                && !schema.controls.contains_key(name)
+            {
+                continue;
+            }
             let Some(Control::Integer {
                 minimum, maximum, ..
             }) = schema.controls.get(name)
@@ -137,12 +149,16 @@ impl OutputSchema {
             .and_then(Value::as_u64)
             .filter(|v| *v > 0)
             .ok_or(ValidationError::InvalidControl)?;
-        let frames_per_second = controls
-            .get("frames_per_second")
-            .and_then(Value::as_u64)
-            .and_then(|v| u32::try_from(v).ok())
-            .filter(|v| *v > 0)
-            .ok_or(ValidationError::InvalidControl)?;
+        let frames_per_second = match controls.get("frames_per_second") {
+            None if self.estimator == OutputEstimator::OutputSecondsV1 => None,
+            value => Some(
+                value
+                    .and_then(Value::as_u64)
+                    .and_then(|v| u32::try_from(v).ok())
+                    .filter(|v| *v > 0)
+                    .ok_or(ValidationError::InvalidControl)?,
+            ),
+        };
         Ok(EffectiveVideoOutput {
             specification,
             duration_seconds,
@@ -161,7 +177,7 @@ impl EffectiveVideoOutput {
         reference_video_seconds: Quantity,
     ) -> Result<Usage, niu_metered_cost::MeterError> {
         if self.duration_seconds == 0
-            || self.frames_per_second == 0
+            || self.frames_per_second == Some(0)
             || self.specification.width == 0
             || self.specification.height == 0
             || !valid_name(&self.schema_revision)
@@ -177,7 +193,10 @@ impl EffectiveVideoOutput {
                 reference_video_seconds,
                 self.specification.width,
                 self.specification.height,
-                Quantity::integer(u128::from(self.frames_per_second)),
+                Quantity::integer(u128::from(
+                    self.frames_per_second
+                        .ok_or(niu_metered_cost::MeterError::InvalidSpecification)?,
+                )),
             ),
             OutputEstimator::OutputSecondsV1 if reference_video_seconds.numerator() == 0 => {
                 Ok(Usage::Known {

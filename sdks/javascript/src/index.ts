@@ -233,7 +233,7 @@ export type VideoCreateRequest = {
 
 export type VideoEffectiveOutput = {
   specification: { resolution: string; ratio: string; width: number; height: number };
-  duration_seconds: number; frames_per_second: number;
+  duration_seconds: number; frames_per_second: number | null;
   schema_revision: string; estimator: 'SeedancePixelsV1' | 'OutputSecondsV1'; estimator_revision: string;
 };
 

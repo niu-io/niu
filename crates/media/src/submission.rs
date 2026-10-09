@@ -56,11 +56,17 @@ pub async fn submit_job(
     .await
     .map_err(|_| SubmissionError::EndpointRejected)?
     .map_err(|_| SubmissionError::EndpointRejected)?;
+    let body = if protocol_revision == crate::openrouter::REVISION {
+        crate::openrouter::submission_body(request)
+            .map_err(|_| SubmissionError::InvalidConfiguration)?
+    } else {
+        request.body().clone()
+    };
     let work = async {
         let mut response = client
             .post(endpoint)
             .bearer_auth(token)
-            .json(request.body())
+            .json(&body)
             .send()
             .await
             .map_err(|_| SubmissionError::Uncertain)?;

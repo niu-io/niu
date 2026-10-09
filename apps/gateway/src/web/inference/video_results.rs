@@ -85,13 +85,37 @@ pub(super) async fn retrieve_as(
         MediaResultKind::Video => (niu_media::result::ResultKind::Video, 64 * 1024 * 1024),
         MediaResultKind::LastFrame => (niu_media::result::ResultKind::LastFrame, 10 * 1024 * 1024),
     };
-    let media = niu_media::result::fetch_result(
-        &url,
-        transport_kind,
-        maximum_bytes,
-        Duration::from_secs(60),
-    )
-    .await
+    let route = state
+        .store
+        .media_recovery_route(scope, id)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    let media = if route.channel == niu_media::openrouter::REVISION {
+        if kind != MediaResultKind::Video || route.adapter != "openrouter" {
+            return Err(ApiError::not_found());
+        }
+        let token = cipher
+            .open(route.vendor_id, &route.credential_ciphertext)
+            .map_err(|_| ApiError::unavailable())?;
+        niu_media::openrouter::fetch_result(
+            &route.api_base,
+            &token,
+            &route.upstream_job_id,
+            &url,
+            maximum_bytes,
+            Duration::from_secs(60),
+        )
+        .await
+    } else {
+        niu_media::result::fetch_result(
+            &url,
+            transport_kind,
+            maximum_bytes,
+            Duration::from_secs(60),
+        )
+        .await
+    }
     .map_err(ApiError::from_media_result)?;
     // Recheck after network work: expiry, deletion and current grants can change
     // while a large result is downloading. Do not deliver that stale access.
