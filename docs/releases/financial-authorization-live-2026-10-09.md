@@ -172,3 +172,24 @@ Formatting and optimized compilation completed. These observations verify the
 exercised rejection paths only. Concurrent successful upstream checkout,
 configuration-write contention and any throughput improvement remain unmeasured;
 no fixture outcome is used to claim those properties.
+
+## Credit-limit configuration and available capacity
+
+A new isolated CNY company, without workspaces or inference keys, was created
+through the running API. Eight concurrent installation-authorized credit-policy
+writes used its initial revision and distinct limits near one CNY. Exactly one
+returned HTTP 200 and seven returned HTTP 409. The balance read exposed the
+winning exact nanounit amount as both approved credit and available capacity;
+posted balance and reservations remained zero, and posted-credit exhaustion
+changed to false.
+
+Independent PostgreSQL inspection confirmed the exact winning credit, one policy
+revision and zero balance-ledger entries. Credit was then restored to zero through
+the API using the current revision. The final balance read showed zero credit,
+zero available capacity and posted-credit exhaustion again. No payment, funding
+record, workspace or inference key was created for this company.
+
+This verifies policy concurrency and available-capacity calculation for an empty
+account. It does not establish settlement at a negative balance, lowering credit
+with active reservations, or concurrent paid inference admission. Configuration
+of diagnostic credit must not be described as receipt of money.
