@@ -8,6 +8,12 @@ The gateway ignores environment HTTP(S) proxy settings and uses DNS-pinned,
 public-address connections with redirects disabled. On a development machine
 using Clash Verge, route `openrouter.ai` through the intended proxy group and
 enable TUN if direct traffic exits through a region unavailable to the model.
+Verify the actual matched rule and selected egress: an automatic group can choose
+an unavailable region even while TUN is running. With DNS-pinned clients, the
+TUN connection may have an IP destination without a domain mapping. TLS domain
+sniffing can restore domain-rule matching without overriding the destination;
+see the [Mihomo domain-sniffing configuration](https://wiki.metacubex.one/config/sniff/).
+Confirm the real selected model completes after any network configuration change.
 Ensure the hostname resolves to real public addresses; fake-IP DNS addresses
 are rejected by the gateway. Do not weaken destination validation or enable
 arbitrary environment proxies to work around a network routing problem.

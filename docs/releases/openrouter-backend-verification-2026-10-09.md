@@ -50,8 +50,9 @@ message. Arbitrary upstream messages, metadata and credentials remain excluded.
 Stream connection failures report safe timeout/connect flags in server logs.
 Transport and malformed-success failures remain 502.
 
-The live invalid-model check qualifies the generic rejection path. A current
-live regional rejection through the modified gateway, rate-limit behavior,
-commercial settlement and broader protocol qualification remain unverified.
+The live invalid-model check qualifies the generic rejection path. The subsequent [Supplier/workspace checkpoint](supplier-workspace-backend-verification-2026-10-09.md)
+also captured a live regional HTTP 403 through the modified gateway and diagnosed
+its TUN egress. Rate-limit behavior, commercial settlement and broader protocol
+qualification remain unverified.
 Build, formatting and scoped Clippy checks provide tooling validation only.
 See [network guidance](../reference/openrouter-network.md).
