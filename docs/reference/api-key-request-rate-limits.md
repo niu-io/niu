@@ -67,7 +67,16 @@ An actual video creation request under a zero limit returned 429. Independent
 SQL inspection confirmed one prepared attempt and zero dispatches for its key.
 No video generation was sent upstream by that run.
 
-Paid settlement, mixed-key unpriced batch fallback, streaming disconnects,
-restart persistence and performance under sustained configured limits are not yet
-verified by these runs. TPM and concurrent-request limits remain unimplemented.
+A separate actual model call occupied a one-request window, followed by a graceful
+restart of the running release gateway using its existing database and encryption
+identity. The next HTTP request, within that window, returned 429. Independent SQL
+confirmed one admission and one dispatched attempt; restarting did not reset the
+window. The temporary key was revoked afterward.
+
+Eight simultaneous configuration writes against initial revision zero produced
+one accepted update and seven revision conflicts. HTTP reads and an independent
+database query agreed on the winning limit, revision one and one history row.
+
+Paid settlement, mixed-key unpriced batch fallback, streaming disconnects and
+performance under sustained configured limits are not yet verified by these runs. TPM and concurrent-request limits remain unimplemented.
 Fixture outcomes are not evidence for any of these claims.
