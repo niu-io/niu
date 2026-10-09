@@ -288,6 +288,9 @@ pub(crate) fn router(state: AppState) -> Router {
             "/admin/v1/organizations/{organization}/projects/{project}/requests/export",
             get(crate::admin::request_exports::csv),
         )
+        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit", get(crate::admin::key_spending::list))
+        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}", axum::routing::put(crate::admin::key_spending::write).layer(DefaultBodyLimit::max(4096)))
+        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}/history", get(crate::admin::key_spending::history))
         .route("/admin/v1/metrics", get(admin_metrics))
         .route(
             "/admin/v1/benchmarks/compare",

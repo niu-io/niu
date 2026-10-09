@@ -10,7 +10,7 @@ internal-readiness gate. Fixture outcomes have no evidentiary weight.
 | Required area | Current actual evidence | Still unverified or incomplete |
 | --- | --- | --- |
 | Supplier configuration | [Independent credentials, scoped routes and price revision concurrency](supplier-workspace-backend-verification-2026-10-09.md) | Complete commercial purchase/selling/settlement journey; broader provider coverage |
-| Workspace API keys | Actual model calls, rotation, revocation/expiry rejection and scope checks in the Supplier report | Independent per-key monetary limits are not implemented; workspace limits are not a substitute |
+| Workspace API keys | Actual model calls, rotation, revocation/expiry rejection and scope checks in the Supplier report | Per-key caps now have configuration/rotation evidence; paid admission and settlement verification remains open |
 | Prepaid and accounting | [Financial authorization, exact credit/warning revisions and available capacity](financial-authorization-live-2026-10-09.md); [supported payment inventory](../reference/payment-aggregators.md) | Full successful internal funding/reservation/debit/reconciliation lifecycle evidence, including concurrent liabilities and reversals |
 | Request diagnostics | Actual request detail and CSV agree with upstream usage and PostgreSQL; customer prices stay separate from procurement | Complete failure, cancellation, media and commercially charged cross-report coverage |
 | Video lifecycle | [Actual generation, idempotency, restart and byte-verified result retrieval](video-submission-idempotency-live-2026-10-09.md) | Commercial video settlement evidence; advertised input/channel coverage. Persisted result references depend on upstream content retention |
@@ -27,8 +27,9 @@ performance. The inspected main commit is
 [`1d4328e97417a043a161a0dd30a5b129be3ace49`](https://github.com/QuantumNous/new-api/commit/1d4328e97417a043a161a0dd30a5b129be3ace49).
 Its [token model](https://github.com/QuantumNous/new-api/blob/1d4328e97417a043a161a0dd30a5b129be3ace49/model/token.go)
 includes independent remaining/used quota, unlimited-quota selection, model
-restrictions, expiration, IP restrictions and group selection. Niu's current
-`KeyView` and key-issuance contract do not contain a monetary cap or an IP policy.
+restrictions, expiration, IP restrictions and group selection. At initial review Niu lacked key caps and IP policy. Separate revisioned key-cap
+management is now implemented; [actual evidence and limitations](../reference/api-key-spending-limits.md)
+remain distinct from complete financial acceptance. IP policy remains unimplemented.
 
 New API's [project introduction](https://github.com/QuantumNous/new-api-docs-v1/blob/main/content/docs/en/guide/wiki/basic-concepts/project-introduction.mdx)
 also describes channel balancing and failover. Its
@@ -42,7 +43,7 @@ separates key-level controls and financial layers into observable requirements.
 
 ## Next implementation priority
 
-Add independently configurable per-key customer spending limits, including exact
+Finish verification of the implemented per-key customer spending limits, including exact
 currency amounts, optimistic revisions and authorized API/SDK management. Enforce
 them in the same durable transaction as customer liability reservation, for both
 text and video; account for committed charges and outstanding holds without

@@ -13,9 +13,9 @@ links existing evidence and the pinned New API reference.
 | Workspace ownership and model allowlist | Implemented; scoped actual calls recorded | A key cannot use another workspace's private route or an ungranted model; dispatch rechecks current permissions |
 | Expiration and revocation | Implemented; actual rejection recorded | Expired/revoked keys cannot dispatch; historical records remain available through authorized management |
 | Rotation | Implemented; actual calls recorded | Old secret stops working, replacement retains intended grants, unrelated keys remain usable |
-| Independent currency spending cap | Not implemented; current priority | Key-level committed charges plus outstanding customer-price reservations cannot admit work beyond the cap; company/workspace limits also apply |
-| Cap lifecycle and history | Not implemented | Exact integer amounts, explicit unlimited state, optimistic revisions, owner authorization, immutable actor history; lowering cannot invalidate liabilities |
-| Cap during rotation | Not implemented | Specify whether the replacement shares the original budget identity; rotating a secret must not silently reset or bypass its spending allowance |
+| Independent currency spending cap | Implemented; paid admission/settlement verification open | Key-level committed charges plus outstanding customer-price reservations cannot admit work beyond the cap; company/workspace limits also apply |
+| Cap lifecycle and history | Implemented; actual configuration/concurrency verified | Exact integer amounts, explicit unlimited state, optimistic revisions, owner authorization, immutable actor history; lowering cannot invalidate liabilities |
+| Cap during rotation | Implemented; actual shared-policy/history verified | Specify whether the replacement shares the original budget identity; rotating a secret must not silently reset or bypass its spending allowance |
 | IP allowlist | Not implemented | Validate addresses/CIDRs; use a defined trusted-proxy policy; reject disallowed origins before upstream dispatch |
 | Key request/token rate limits | Not implemented | Define time windows and distributed concurrency semantics; return actionable limits without consuming upstream capacity on rejection |
 | Key concurrent-request limit | Not implemented | Enforce across supported sync/stream/async lifecycles; release reliably on cancellation, error and recovery |
@@ -46,3 +46,5 @@ unsupported cases instead of inheriting confidence from a different path.
 This checklist is an implementation backlog, not a claim of New API parity.
 External merchant activation remains a deployment concern; internal accounting
 and authorization still need their own implementation and evidence.
+
+See [key spending implementation and current-input evidence](../reference/api-key-spending-limits.md) for the exact supported boundary and remaining financial checks.

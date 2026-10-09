@@ -11,6 +11,8 @@ export type BrandingColorToken = 'background' | 'foreground' | 'primary' | 'prim
 export type BrandingConfiguration = { data: { revision: string; settings: BrandingSettings } };
 
 export type TenantScope = { organizationId: string; projectId: string };
+/** Customer limits share history across secret rotation; null means unlimited. */
+export type KeySpendingLimitRevision = { currency: string; limit_nanos: string | null; revision: string; recorded_at: string; actor_kind: 'installation' | 'member'; actor_name: string };
 export type WorkspaceSpendingLimit = { currency: string; limit_nanos: string; committed_nanos: string; revision: string };
 export type WorkspaceSpendingAccount = { currency: string; limit_nanos: string | null; committed_nanos: string; revision: string | null };
 export type WorkspaceSpendingLimitRevision = { currency: string; limit_nanos: string; revision: string; recorded_at: string | null; source: 'configuration' | 'migration_baseline'; actor_kind: 'unknown' | 'installation' | 'member'; actor_name: string | null };
@@ -845,6 +847,32 @@ export class NiuAdminClient {
 
   getWorkspaceGuardrail(scope: TenantScope, options?: RequestOptions): Promise<{ data: { revision: number; policy: GuardrailPolicy } | null }> {
     return this.request(`${this.guardrailsPath(scope)}`, undefined, options);
+  }
+
+  listKeySpendingLimits(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: WorkspaceSpendingAccount[] }> {
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/spending-limit`, undefined, options);
+  }
+
+  /** Owner-only customer cap. Rotation shares this limit and its lifetime commitments. */
+  setKeySpendingLimit(scope: TenantScope, keyId: string, currency: string, input: { limit_nanos: string | null; expected_revision: string }, options?: RequestOptions): Promise<{ data: { revision: string } }> {
+    if (!/^[A-Z]{3}$/.test(currency)) throw new TypeError('Use an uppercase currency code');
+    const exact = (value: unknown, maximum: bigint) => typeof value === 'string' && /^\d+$/.test(value) && BigInt(value) <= maximum;
+    if ((input.limit_nanos !== null && !exact(input.limit_nanos, 9223372036854775807n)) || !exact(input.expected_revision, 9223372036854775806n)) throw new TypeError('Use exact nonnegative amounts and revision; null explicitly restores unlimited');
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/spending-limit/${currency}`, { limit_nanos: input.limit_nanos, expected_revision: input.expected_revision }, options, 'PUT');
+  }
+
+  listKeySpendingLimitHistory(scope: TenantScope, keyId: string, currency: string, query: { beforeRevision?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: KeySpendingLimitRevision[] }> {
+    if (!/^[A-Z]{3}$/.test(currency)) throw new TypeError('Use an uppercase currency code');
+    const params = new URLSearchParams();
+    if (query.beforeRevision !== undefined) {
+      if (!/^\d+$/.test(query.beforeRevision) || BigInt(query.beforeRevision) < 1n || BigInt(query.beforeRevision) > 9223372036854775807n) throw new TypeError('Invalid history revision');
+      params.set('before_revision', query.beforeRevision);
+    }
+    if (query.limit !== undefined) {
+      if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Invalid history page size');
+      params.set('limit', String(query.limit));
+    }
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/spending-limit/${currency}/history${params.size ? `?${params}` : ''}`, undefined, options);
   }
 
   /** Currency discovery exposes this workspace's commitments, never company funds. */

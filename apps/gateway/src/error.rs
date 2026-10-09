@@ -27,6 +27,12 @@ impl ApiError {
                 kind: "budget_exceeded",
                 message: "Insufficient available funds for this request",
             },
+            niu_storage::StoreError::KeySpendingLimitExceeded => Self {
+                failure: None,
+                status: StatusCode::PAYMENT_REQUIRED,
+                kind: "key_spending_limit_exceeded",
+                message: "This API key's customer spending limit is exhausted",
+            },
             niu_storage::StoreError::WorkspaceSpendingLimitExceeded => Self {
                 failure: None,
                 status: StatusCode::PAYMENT_REQUIRED,

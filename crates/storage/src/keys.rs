@@ -181,7 +181,7 @@ impl Store {
         if changed != 1 {
             return Err(StoreError::Conflict);
         }
-        sqlx::query("INSERT INTO api_keys (id,organization_id,project_id,name,token_hash,allowed_models,expires_at) SELECT $1,organization_id,project_id,name,$2,allowed_models,expires_at FROM api_keys WHERE id=$3")
+        sqlx::query("INSERT INTO api_keys (id,organization_id,project_id,name,token_hash,allowed_models,expires_at,spending_root_id) SELECT $1,organization_id,project_id,name,$2,allowed_models,expires_at,spending_root_id FROM api_keys WHERE id=$3")
             .bind(id).bind(hash).bind(old).execute(&mut *tx).await?;
         sqlx::query("INSERT INTO key_guardrail_assignments (organization_id,project_id,key_id,policy_revision,assignment_revision) SELECT organization_id,project_id,$1,policy_revision,assignment_revision FROM key_guardrail_assignments WHERE organization_id=$2 AND project_id=$3 AND key_id=$4")
             .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(old).execute(&mut *tx).await?;

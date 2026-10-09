@@ -92,6 +92,7 @@ pub use vendors::{
     VendorInput, VendorModelInput, VendorModelView, VendorRoute, VendorUpdate, VendorView,
 };
 mod billing;
+mod key_spending;
 mod topups;
 mod workspace_spending;
 pub use topups::{TopupInput, TopupOrder};
@@ -244,6 +245,8 @@ pub enum StoreError {
     BudgetExceeded,
     #[error("customer workspace spending limit exceeded")]
     WorkspaceSpendingLimitExceeded,
+    #[error("key customer spending limit exceeded")]
+    KeySpendingLimitExceeded,
     #[error("usage or execution remains unresolved")]
     Unresolved,
     #[error("invalid account or quota observation")]

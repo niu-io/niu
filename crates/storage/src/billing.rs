@@ -667,6 +667,11 @@ pub(crate) async fn reserve_customer_balance_in_tx(
     if !within_workspace {
         return Err(StoreError::WorkspaceSpendingLimitExceeded);
     }
+    let within_key: bool = sqlx::query_scalar("SELECT NOT EXISTS(SELECT 1 FROM customer_key_spending_limits l WHERE l.account_id=$1 AND l.spending_root_id=niu_customer_attempt_spending_root($2) AND l.limit_nanos IS NOT NULL AND niu_customer_key_committed(l.spending_root_id,l.account_id)+$3>l.limit_nanos)")
+        .bind(account).bind(attempt).bind(maximum_nanos).fetch_one(&mut **tx).await?;
+    if !within_key {
+        return Err(StoreError::KeySpendingLimitExceeded);
+    }
     sqlx::query("INSERT INTO customer_balance_reservations(attempt_id,organization_id,account_id,currency,amount_nanos) SELECT attempt_id,organization_id,account_id,currency,$2 FROM customer_attempt_balance_accounts WHERE attempt_id=$1")
             .bind(attempt).bind(maximum_nanos).execute(&mut **tx).await?;
     Ok(())
