@@ -59,3 +59,25 @@ selling tariffs, paid request admission, top-up callbacks and exactly-once
 settlement remain unverified. No video-capable entitlement was supplied by the
 personal text-model check. Run those workflows with their actual current inputs
 before beginning integrated performance qualification.
+
+## Concurrent revoked and expired key rejection
+
+A later current-input run against the native release gateway created two temporary
+model-scoped workspace keys. Each successfully authenticated to the model catalog
+before invalidation. One was explicitly revoked through the administration API;
+the other reached its configured two-second lifetime before the inference calls.
+
+For each invalidated key, 32 actual streaming-creation requests were submitted at
+concurrency eight. Every response was HTTP 401. Independent PostgreSQL reads
+found zero attempts for each key, confirming these requests did not enter durable
+execution preparation. Observed maximum full-response latency was 2.56 ms for
+the revoked-key sample and 8.37 ms for the expired-key sample. These tiny rejection
+samples do not establish capacity or tail-latency thresholds. Both temporary key
+records were explicitly revoked at cleanup.
+
+This covers requests admitted after revocation or expiry. It does not claim that
+revocation cancels requests already authenticated or dispatched. No upstream
+response fixture was used. External merchant/Supplier activation remains separate
+from internal readiness under the updated first-release acceptance boundary;
+the earlier dependency wording in this historical checkpoint does not block
+independent backend performance work.
