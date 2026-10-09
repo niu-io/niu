@@ -869,6 +869,17 @@ pub(super) fn validate_priced_request(
             "This priced route supports one text completion without tools or additional billable modalities",
         ));
     }
+    // Match the existing priced input-size admission policy. Include serialized
+    // roles and message framing, not just content characters. This is a byte
+    // guard, not a provider tokenizer or a guarantee against reported overruns.
+    let input_bytes = serde_json::to_vec(&object["messages"])
+        .map_err(|_| ApiError::invalid_request("Invalid Chat messages"))?
+        .len();
+    if price.max_input_tokens <= 0 || input_bytes as u128 > price.max_input_tokens as u128 {
+        return Err(ApiError::invalid_request(
+            "Chat input exceeds the priced route's serialized UTF-8 byte bound",
+        ));
+    }
     if object.contains_key("max_tokens") && object.contains_key("max_completion_tokens") {
         return Err(ApiError::invalid_request(
             "Specify only one output token limit",

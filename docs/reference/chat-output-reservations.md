@@ -31,3 +31,19 @@ SQL confirmed two completed attempts and a completion-token total equal to the
 returned usage. The temporary key was revoked. This verifies those personal
 request paths only; it supplies no paid-reservation evidence and uses no fixture
 outcome as a correctness signal.
+
+## Priced Chat input-size guard
+
+Priced Chat now rejects a serialized `messages` array whose UTF-8 byte length
+exceeds the route's `max_input_tokens` value, matching the existing byte-based
+admission approach used by priced Responses and embeddings. Chat serialization
+includes role labels, JSON framing and escaping as well as text content. A small
+configured limit can therefore reject even a short message. This check runs after
+supported-message validation and before attempt preparation or dispatch.
+
+The legacy configuration field remains named `max_input_tokens`; this input-size
+guard is not an exact provider tokenizer. It does not establish a universal bound
+on hidden prompt framing or provider-reported usage. Reported overruns must still
+be recorded and settled, and TPM remains unimplemented. Compilation and linting
+have been checked; actual paid-path acceptance/rejection and financial effects of
+this new guard remain unverified. Personal routes do not enter this priced guard.
