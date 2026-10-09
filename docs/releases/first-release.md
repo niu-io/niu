@@ -69,10 +69,12 @@ then dependent workspace and inference workflows. Defer image rebuilds and
 container qualification until the feature work is ready; use the existing
 hot-reloading development service for implementation and browser review.
 Packaging remains a release gate, not the current development priority.
-Defer UX redesign and visual polish as well. Prioritize working business paths:
-Supplier credentials and model/rate configuration → workspace API-key access →
-inference → durable usage, customer charges and diagnostic records. Fix functional
-UI blockers when they prevent these paths, without expanding the redesign scope.
+Frontend design, development and browser verification now proceed locally through
+Stitch, while the remote backend workstream owns business implementation and
+performance testing. Both workstreams use main and coordinate API contracts and
+blockers. Preserve the dependency order: Supplier credentials and model/rate
+configuration → workspace API-key access → inference → durable usage, customer
+charges and diagnostic records. Keep container qualification deferred.
 
 Video generation is required for the first release. Work follows the dependency sequence below; deliver the relevant customer controls and diagnostics with each backend increment, rather than postponing all UI work until phase 4.
 

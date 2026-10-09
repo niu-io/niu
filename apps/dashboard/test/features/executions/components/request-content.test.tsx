@@ -5,6 +5,26 @@ import RequestContent from '../../../../src/features/executions/components/Reque
 import { requestMessages, responseMessages } from '../../../../src/features/executions/components/request-content';
 
 describe('retained request content', () => {
+  it('shows retained JSON error messages without exposing error metadata or internal identifiers', () => {
+    const id = '12345678-1234-1234-1234-123456789abc';
+    const response = JSON.stringify({error:{message:`Request rejected ${id}`,metadata:{secret:'private metadata'}}});
+    expect(responseMessages(response,'application/json').messages[0].role).toBe('Error');
+    render(<RequestContent payload={{request:{},response,content_type:'application/json',complete:true,truncated:false}} />);
+    expect(screen.getByText('Request rejected [internal identifier]')).toBeTruthy();
+    expect(screen.queryByText('private metadata')).toBeNull();
+  });
+  it('retains partial streamed output and its error, including failed Responses events', () => {
+    const stream = (events:unknown[]) => events.map(event=>`data: ${JSON.stringify(event)}\n\n`).join('');
+    const chat = responseMessages(stream([{choices:[{index:0,delta:{content:'Partial answer'}}]},{error:{message:'Stream interrupted'}}]),'text/event-stream');
+    expect(chat.messages.map(item=>item.text)).toEqual(['Partial answer','Stream interrupted']);
+    expect(chat.partial).toBe(true);
+    const failed = responseMessages(stream([{type:'response.failed',response:{output:[],error:{message:'Request rejected'}}}]),'text/event-stream');
+    expect(failed.messages).toEqual([{role:'Error',text:'Request rejected',tools:[]}]);
+    expect(failed.partial).toBe(true);
+    const partial = responseMessages(stream([{type:'response.failed',response:{output:[{role:'assistant',content:'Retained answer'}],error:{message:'Request interrupted'}}}]),'text/event-stream');
+    expect(partial.messages.map(item=>item.text)).toEqual(['Retained answer','Request interrupted']);
+    expect(responseMessages('{"error":{"code":"unknown"}}','application/json').messages).toEqual([]);
+  });
   it('preserves Responses tool history in request order without exposing call identifiers', async () => {
     const user = userEvent.setup();
     const request = {input:[

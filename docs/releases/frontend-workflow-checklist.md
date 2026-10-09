@@ -1,0 +1,39 @@
+# Frontend workflow qualification
+
+Status: in progress. Updated 2026-10-09. This checklist supplements, rather than replaces, F01–F10 in [first-release.md](first-release.md).
+
+## Design and delivery
+
+- Use the existing **NIU.IO — Current UX & Design Refinements** Stitch project for visual design and iteration. Inspect the relevant mature-product reference and current rendered page before requesting changes. Preserve Niu brand tokens, installed shadcn primitives and supported behavior.
+- Frontend implementation and browser verification run locally on main at port 2566 with HMR. The remote backend workstream owns API implementation, migrations and performance. Coordinate contract changes and blockers through shared commits and documentation while direct agent communication is unavailable.
+- A row is complete only after its actual interactions are verified at desktop and narrow widths. Record loading, empty and error states where applicable. Automated tests alone do not qualify a workflow.
+- External Agent Observability is separately owned and excluded from edits here. Container qualification remains deferred.
+
+## Workflow checklist
+
+| Flow | Required frontend evidence | Status |
+| --- | --- | --- |
+| Sign-in and session | Protected destination → login → original destination; reload/restoration, expiry and sign-out; installation setup clearly distinct | Open |
+| Models → generation | Global catalog, first-row filter, sort/menu alignment, model details and supported capabilities, selected model preserved when starting a generation | Partial; filter, sort menu and selected-model handoff verified; desktop/narrow qualification open |
+| Workspace API keys | Create with essential values, copy/setup example, grants and limits, rotation/revocation, authorized details and useful failure recovery | Partial; real key list/details, creation dialog/expiration menu/cancel and Generations link verified; writes and narrow qualification open |
+| Chat | Key-based scope, saved-session title/history, streaming/cancellation, actionable upstream failure, backend restoration and matching Logs | Open; successful live response still unqualified |
+| Video | Task category → supported inputs → submission → durable status → preview/download; unavailable, failed, unknown and expired states; matching Logs and customer charges | Open; depends on qualified backend capabilities |
+| Logs | Request filters → payload and response → measured timing waterfall → failure diagnosis; exports, unknown values and customer-only costs | Partial; key drilldown, real retained request/error and timing verified; full workflow and narrow qualification open |
+| Activity | Authorized scope, full-range aggregates → matching Logs; consistent token categories, customer charges and unknown values | Open |
+| Guardrails | Supported input/output controls, preview, safe decision diagnosis and clear coverage; ordinary-role access and denied requests | Open |
+| Settings and billing | Global dialog preserving origin; balance, warning/credit-limit state, history and payment/top-up status; close/reopen/direct URLs | Open |
+| Admin Suppliers | Directory → add/edit/delete → named detail; credentials/model subsets/rates; sidebar sections and detail tabs; customer/admin navigation both available | Open |
+| Admin authentication/payments/branding | Expose only working configuration lifecycles; validation/save/reload/error states; no secret disclosure; branding preview/reset and personal-theme preservation | Open |
+
+## Current observations and dependencies
+
+- The running Models page at `/models?workspace=default-project` restored the authenticated dashboard and displayed 25 catalog models after refresh. Vite reported its HMR connection. This proves page loading, not model availability or the entire workflow.
+- Prior owner-funded Chat verification returned an upstream failure. Backend diagnostic changes have landed, but a successful live Chat response remains to be qualified; do not describe the flow as complete.
+- Direct remote agent communication through Supen currently returns an authentication error. Shared main and contract/blocker documents remain the coordination channel.
+- Filtering the actual catalog by `gpt-4.1` reduced 25 models to one. The sort menu opened with the standard item gutter and aligned to its trigger. The resulting Generations screen used Demo API key; its model dialog confirmed `openai/gpt-4.1-mini` selected. No paid request was submitted in this checkpoint.
+- OpenRouter reference-page browser inspection timed out; its public page content was retrieved separately. Visual equivalence remains unverified.
+- Stitch generated a mobile Models counterpart. Review is required before implementation: the output retains outdated Chat navigation wording, proposes a separate filter sheet, and uses generated example context/copy. Preserve Generations, existing shadcn Sidebar interactions and real catalog data rather than copying those deviations.
+- The browser viewport tool accepted a 390px override, but DOM measurement still reported 659px. The override was reset. This is a verification-tool limitation, not narrow-layout qualification.
+- Models component tests passed: 12 tests in `test/features/models/ModelTable.test.tsx`. An earlier command accidentally started the full dashboard suite and was interrupted after timeout failures; that run is not a passing full-suite result.
+- Generations API-key dialog opens a correctly aligned choice menu with the current Demo API key checked; Escape closes the menu. Manage keys opens the matching workspace list. Creation requires a name, offers 7/30/90-day and one-year expiry choices, and cancellation preserves the one-key list. No credential was created or revoked in this checkpoint.
+- The real key-detail request drilldown preserves its key filter in Logs. The retained failed request shows measured preparation, response-wait and delivery phases, unknown token categories and Own API key charging. Error messages now appear in Messages for JSON and streamed responses, retaining partial output without adding error metadata. The upstream failure itself remains unresolved.

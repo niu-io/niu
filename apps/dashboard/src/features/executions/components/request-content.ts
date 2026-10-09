@@ -37,14 +37,21 @@ export function requestMessages(request: unknown): ContentMessage[] {
   return messages;
 }
 function jsonMessages(root: Record<string, unknown>): ContentMessage[] {
-  if (Array.isArray(root.choices)) return root.choices.flatMap(choice => message(object(choice)?.message) ?? []);
-  if (Array.isArray(root.output)) return root.output.flatMap(item => {
+  const failure = errorMessage(root.error);
+  let messages: ContentMessage[] = [];
+  if (Array.isArray(root.choices)) messages = root.choices.flatMap(choice => message(object(choice)?.message) ?? []);
+  else if (Array.isArray(root.output)) messages = root.output.flatMap(item => {
     const value = object(item);
     if (value?.type === 'function_call' && typeof value.name === 'string') return [{role:'Assistant',text:'',tools:[{name:value.name,arguments:typeof value.arguments === 'string' ? value.arguments : ''}]}];
     return message(value) ?? [];
   });
-  if (typeof root.output_text === 'string') return [{role: 'Assistant', text: root.output_text, tools: []}];
-  return [];
+  else if (typeof root.output_text === 'string') messages = [{role: 'Assistant', text: root.output_text, tools: []}];
+  return failure ? [...messages, failure] : messages;
+}
+function errorMessage(value: unknown): ContentMessage | null {
+  const error = object(value);
+  const detail = typeof value === 'string' ? value : typeof error?.message === 'string' ? error.message : '';
+  return detail.trim() ? {role: 'Error', text: detail, tools: []} : null;
 }
 export function responseMessages(response: string, contentType: string): { messages: ContentMessage[]; partial: boolean } {
   if (!contentType.toLowerCase().includes('text/event-stream')) {
@@ -57,6 +64,7 @@ export function responseMessages(response: string, contentType: string): { messa
   const responseText = new Map<number, Map<number, string>>();
   const responseTools = new Map<number, {name:string;arguments:string}>();
   let terminalMessages: ContentMessage[] | null = null;
+  const failures: ContentMessage[] = [];
   for (const block of response.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n\n')) {
     const data = block.split('\n').filter(line => line.startsWith('data:')).map(line => line.slice(5).replace(/^ /, '')).join('\n');
     if (!data) continue;
@@ -64,7 +72,11 @@ export function responseMessages(response: string, contentType: string): { messa
     try {
       const event = object(JSON.parse(data));
       if (!event) { partial = true; continue; }
-      if (event.error) partial = true;
+      if (event.error) {
+        partial = true;
+        const failure = errorMessage(event.error);
+        if (failure) failures.push(failure);
+      }
       if (event.type === 'response.output_item.added' || event.type === 'response.output_item.done') {
         const item = object(event.item);
         if (item?.type === 'function_call') {
@@ -94,7 +106,7 @@ export function responseMessages(response: string, contentType: string): { messa
       }
       if (event.type === 'response.completed' || event.type === 'response.failed' || event.type === 'response.incomplete') {
         const response = object(event.response);
-        if (response && Array.isArray(response.output)) terminalMessages = jsonMessages(response);
+        if (response && (Array.isArray(response.output) || response.error)) terminalMessages = jsonMessages(response);
         done = event.type === 'response.completed';
         if (!done) partial = true;
         break;
@@ -119,7 +131,7 @@ export function responseMessages(response: string, contentType: string): { messa
   }
   if (terminalMessages !== null || responseText.size || responseTools.size) {
     const indices = [...new Set([...responseText.keys(),...responseTools.keys()])].sort((a,b)=>a-b);
-    return {messages: terminalMessages ?? indices.map(index=>({role:'Assistant',text:[...(responseText.get(index) ?? new Map<number,string>()).entries()].sort(([a],[b])=>a-b).map(([,value])=>value).join('\n'),tools:responseTools.has(index) ? [responseTools.get(index)!] : []})),partial:partial || !done};
+    return {messages: [...(terminalMessages ?? indices.map(index=>({role:'Assistant',text:[...(responseText.get(index) ?? new Map<number,string>()).entries()].sort(([a],[b])=>a-b).map(([,value])=>value).join('\n'),tools:responseTools.has(index) ? [responseTools.get(index)!] : []}))), ...failures],partial:partial || !done};
   }
-  return {messages: [...choices.entries()].sort(([a],[b]) => a-b).map(([,item]) => ({role:item.role,text:item.text,tools:[...item.calls.entries()].sort(([a],[b])=>a-b).map(([,tool])=>tool)})), partial: partial || !done};
+  return {messages: [...[...choices.entries()].sort(([a],[b]) => a-b).map(([,item]) => ({role:item.role,text:item.text,tools:[...item.calls.entries()].sort(([a],[b])=>a-b).map(([,tool])=>tool)})), ...failures], partial: partial || !done};
 }

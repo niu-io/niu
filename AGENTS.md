@@ -32,6 +32,8 @@ For every UI change, run the product and inspect the rendered result in a browse
 
 ## Reference-led UI design
 
+Use Stitch for frontend visual design and iteration. Reuse the existing NIU.IO Stitch project and design system; give Stitch the actual mature-product reference, supported workflow, current screen and Niu constraints before requesting a design. Implement and browser-verify the resulting design with the installed shadcn primitives and existing brand tokens. Do not substitute an independently invented layout or treat generated mock data and unsupported capabilities as product requirements. If Stitch is unavailable, report the blocker before making visual design changes; functional fixes may continue within the established layout.
+
 This is mandatory for every UI task: do not invent a new UX pattern or visual layout. Borrow an existing, proven pattern from a mature product. For features comparable to OpenRouter, use OpenRouter as the default reference unless the user names another product. Inspect the actual relevant page and interaction states before editing; do not work from memory or call a loosely inspired redesign a faithful implementation.
 
 Follow established patterns from mature products rather than inventing layouts based on personal design judgment. When the user supplies a product or page to copy, inspect the actual reference before implementation and treat its page structure, visual hierarchy, spacing, and interactions as requirements, not loose inspiration. Preserve Niu's brand tokens, shared components, and established navigation shell around the referenced content layout. Reuse existing components before introducing custom ones. Do not fabricate data or capabilities to imitate a reference.
