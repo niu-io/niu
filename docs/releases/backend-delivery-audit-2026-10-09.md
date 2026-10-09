@@ -37,6 +37,9 @@ is a reference for async task and billing behavior. Detailed source review and
 comparable current-input measurements remain necessary before any parity claim.
 No upstream source is imported by this audit.
 
+The [backend capability checklist](../product/backend-capability-checklist.md)
+separates key-level controls and financial layers into observable requirements.
+
 ## Next implementation priority
 
 Add independently configurable per-key customer spending limits, including exact
