@@ -104,6 +104,38 @@ paths:
         '401': { description: Authentication required }
         '403': { description: Workspace access denied }
         '404': { description: Workspace is outside operator scope, or key is absent from authorized workspace }
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/token-usage-window:
+    parameters:
+      - $ref: '#/components/parameters/Organization'
+      - $ref: '#/components/parameters/Workspace'
+      - $ref: '#/components/parameters/Key'
+    get:
+      security: [{ bearerAuth: [] }]
+      operationId: getKeyTokenUsageWindow
+      description: Scoped reader access. Dispatches in the rolling 60 seconds ending at window_end, across secret rotations. Known subtotals exclude unknown requests; zero known tokens does not mean zero actual usage. This endpoint does not enforce TPM and exposes no Supplier cost.
+      responses:
+        '200':
+          description: One consistent database snapshot, including an empty window for an unused key.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [window_seconds, window_end, requests, known_usage_requests, unknown_usage_requests, known_prompt_tokens, known_completion_tokens]
+                    properties:
+                      window_seconds: { type: integer, const: 60 }
+                      window_end: { type: string, format: date-time }
+                      requests: { type: integer, minimum: 0 }
+                      known_usage_requests: { type: integer, minimum: 0 }
+                      unknown_usage_requests: { type: integer, minimum: 0 }
+                      known_prompt_tokens: { type: string, pattern: '^[0-9]+$' }
+                      known_completion_tokens: { type: string, pattern: '^[0-9]+$' }
+        '401': { description: Authentication required }
+        '403': { description: Read permission required }
+        '404': { description: Workspace outside operator scope or key absent from workspace }
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer }

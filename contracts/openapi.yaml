@@ -6,6 +6,8 @@ info:
 servers:
   - url: /
 paths:
+  /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/token-usage-window:
+    $ref: './key-request-rate.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1token-usage-window'
   /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit:
     $ref: './key-spending.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1spending-limit'
   /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}:

@@ -42,6 +42,27 @@ pub async fn read(
         json!({"data":state.store.key_request_rate_policy(scope,key).await.map_err(ApiError::from_store)?.ok_or_else(ApiError::not_found)?}),
     ))
 }
+pub async fn usage(
+    State(state): State<AppState>,
+    Path((organization, workspace, key)): Path<(Uuid, Uuid, Uuid)>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    authorize_project(
+        &state,
+        &headers,
+        AdminPermission::Read,
+        organization,
+        workspace,
+    )
+    .await?;
+    let scope = TenantScope {
+        organization_id: organization,
+        project_id: workspace,
+    };
+    Ok(Json(
+        json!({"data":state.store.key_token_usage_window(scope,key).await.map_err(ApiError::from_store)?.ok_or_else(ApiError::not_found)?}),
+    ))
+}
 pub async fn write(
     State(state): State<AppState>,
     Path((organization, workspace, key)): Path<(Uuid, Uuid, Uuid)>,

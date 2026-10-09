@@ -1,3 +1,4 @@
+export type KeyTokenUsageWindow = { window_seconds: 60; window_end: string; requests: number; known_usage_requests: number; unknown_usage_requests: number; known_prompt_tokens: string; known_completion_tokens: string };
 export type KeyConcurrencyLimit = { active_requests: number; max_concurrent_requests: number | null; revision: string | null };
 export type KeyConcurrencyLimitRevision = Omit<KeyConcurrencyLimit, 'active_requests'> & { revision: string; recorded_at: string; actor_kind: 'installation' | 'member'; actor_name: string };
 export type KeyRequestRateLimit = { requests_per_minute: number | null; revision: string | null };
@@ -877,6 +878,11 @@ export class NiuAdminClient {
       params.set('limit', String(query.limit));
     }
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/ip-policy/history${params.size ? `?${params}` : ''}`, undefined, options);
+  }
+
+  /** Read known token subtotals; unknown requests are not zero usage. No TPM enforcement. */
+  getKeyTokenUsageWindow(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: KeyTokenUsageWindow }> {
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/token-usage-window`, undefined, options);
   }
 
   getKeyRequestRateLimit(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: KeyRequestRateLimit }> {

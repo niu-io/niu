@@ -3,6 +3,17 @@ use crate::{OperatorAuditActor, Store, StoreError, TenantScope};
 use serde_json::Value;
 use uuid::Uuid;
 impl Store {
+    /// Provider-reported token subtotals for dispatches in the last 60 seconds.
+    /// Unknown usage is counted explicitly; this is not token admission enforcement.
+    pub async fn key_token_usage_window(
+        &self,
+        scope: TenantScope,
+        key: Uuid,
+    ) -> Result<Option<Value>, StoreError> {
+        Ok(sqlx::query_scalar("SELECT jsonb_build_object('window_seconds',60,'window_end',statement_timestamp(),'requests',count(a.id),'known_usage_requests',count(a.id) FILTER(WHERE a.usage_confidence='provider_reported' AND a.prompt_tokens IS NOT NULL AND a.completion_tokens IS NOT NULL),'unknown_usage_requests',count(a.id) FILTER(WHERE a.usage_confidence IS DISTINCT FROM 'provider_reported' OR a.prompt_tokens IS NULL OR a.completion_tokens IS NULL),'known_prompt_tokens',COALESCE(sum(a.prompt_tokens) FILTER(WHERE a.usage_confidence='provider_reported' AND a.prompt_tokens IS NOT NULL AND a.completion_tokens IS NOT NULL),0)::text,'known_completion_tokens',COALESCE(sum(a.completion_tokens) FILTER(WHERE a.usage_confidence='provider_reported' AND a.prompt_tokens IS NOT NULL AND a.completion_tokens IS NOT NULL),0)::text) FROM api_keys selected LEFT JOIN api_keys lineage ON lineage.spending_root_id=selected.spending_root_id LEFT JOIN attempts a ON a.api_key_id=lineage.id AND a.dispatched_at>statement_timestamp()-interval '60 seconds' AND a.dispatched_at<=statement_timestamp() WHERE selected.organization_id=$1 AND selected.project_id=$2 AND selected.id=$3 GROUP BY selected.id")
+            .bind(scope.organization_id).bind(scope.project_id).bind(key).fetch_optional(&self.pool).await?)
+    }
+
     pub async fn key_request_rate_policy(
         &self,
         scope: TenantScope,

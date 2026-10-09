@@ -95,3 +95,36 @@ Independent SQL inspection confirmed one successful member-attributed history ro
 for this verification key, matching its HTTP history. Responses contained the
 actor name and kind without an internal operator identifier. Temporary keys and
 operators were revoked. This does not verify permission revocation racing a write.
+
+## Recent token-usage diagnosis
+
+`GET /admin/v1/organizations/{organization}/projects/{workspace}/keys/{key}/token-usage-window`
+returns a consistent snapshot for dispatches within the 60 seconds ending at
+`window_end`. Scoped management readers can inspect it, including revoked keys.
+The SDK method is `getKeyTokenUsageWindow`; the primary OpenAPI links the operation.
+
+`requests` is split into `known_usage_requests` and `unknown_usage_requests`.
+Known means both prompt and completion counts are present with provider-reported
+confidence. `known_prompt_tokens` and `known_completion_tokens` are exact decimal
+string subtotals of those known requests only. They are not an estimate of missing
+usage. An empty window has zero counts; a window containing only unknown requests
+also has zero known subtotals but a nonzero unknown count. Secret rotation shares
+the window. No Supplier rates, expenses or margins are returned.
+
+The window uses dispatch time, not completion time. Long-running work dispatched
+before the window is excluded even if it completes inside it. This diagnostic is
+not a TPM limiter or a reservation ledger and must not be treated as one. Migration
+0209 adds a key-and-dispatch-time index for recent-history and latest-use reads.
+It is a regular transactional index migration; its deployment cost on large
+existing history has not been measured.
+
+### Current-input evidence (2026-10-10)
+
+A fresh key initially reported an empty window. One real model request completed;
+a second real streaming request was disconnected after initial bytes. After key
+rotation, the built SDK returned two requests, one known and one unknown, with
+known token subtotals exactly matching the completed response. An independent SQL
+aggregate using the response's exact `window_end` timestamp agreed. Addressing the
+key under another workspace returned 404. Temporary keys were revoked and the
+unknown request remained unresolved. No missing usage was filled with invented
+zero-token completion evidence. These observations do not verify TPM enforcement.
