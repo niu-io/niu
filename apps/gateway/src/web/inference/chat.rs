@@ -180,7 +180,12 @@ async fn chat_as(
             personal_route: resolved.personal_route.as_ref(),
             public_model: &public_model,
             model,
-            completion_bound: None,
+            // Priced validation has already checked or inserted this limit.
+            // Reserve the forwarded bound, not the route's larger default.
+            completion_bound: body
+                .get("max_completion_tokens")
+                .or_else(|| body.get("max_tokens"))
+                .and_then(Value::as_i64),
             task_id: task_id.as_deref(),
             snapshot: inspected_snapshot,
             request_body: &body,
