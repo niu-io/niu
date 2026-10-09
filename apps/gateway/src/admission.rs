@@ -70,6 +70,7 @@ pub(crate) struct UnpricedAdmissionRequest<'a> {
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum AdmissionError {
     RequestRateExceeded,
+    ConcurrencyExceeded,
     Unauthorized,
     Conflict,
     AccountUnavailable,
@@ -444,14 +445,20 @@ async fn persist_admission_batch(store: &Store, batch: Vec<PendingAdmission>) {
                 let _ = reply.send(Ok(status));
             }
         }
-        Err(niu_storage::StoreError::KeyRequestRateExceeded) => {
-            // P0020 proves the whole transaction rolled back before dispatch.
+        Err(
+            niu_storage::StoreError::KeyRequestRateExceeded
+            | niu_storage::StoreError::KeyConcurrencyExceeded,
+        ) => {
+            // A limit rejection proves the whole transaction rolled back before dispatch.
             // Isolate limited keys without replaying ambiguous database failures.
             for (record, reply) in records.into_iter().zip(replies) {
                 let result = match store.admit_unpriced_gateway_batch(vec![record]).await {
                     Ok(mut statuses) if statuses.len() == 1 => Ok(statuses.remove(0)),
                     Err(niu_storage::StoreError::KeyRequestRateExceeded) => {
                         Err(AdmissionError::RequestRateExceeded)
+                    }
+                    Err(niu_storage::StoreError::KeyConcurrencyExceeded) => {
+                        Err(AdmissionError::ConcurrencyExceeded)
                     }
                     Err(niu_storage::StoreError::Unauthorized) => Err(AdmissionError::Unauthorized),
                     Err(niu_storage::StoreError::Conflict) => Err(AdmissionError::Conflict),

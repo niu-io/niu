@@ -568,3 +568,5 @@ export type { KeySpendingLimitRevision } from './admin.js';
 export type { KeyIpPolicy, KeyIpPolicyRevision } from './admin.js';
 
 export type { KeyRequestRateLimit, KeyRequestRateLimitRevision } from './admin.js';
+
+export type { KeyConcurrencyLimit, KeyConcurrencyLimitRevision } from './admin.js';

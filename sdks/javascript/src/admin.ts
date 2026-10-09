@@ -1,3 +1,5 @@
+export type KeyConcurrencyLimit = { max_concurrent_requests: number | null; revision: string | null };
+export type KeyConcurrencyLimitRevision = KeyConcurrencyLimit & { revision: string; recorded_at: string; actor_kind: 'installation' | 'member'; actor_name: string };
 export type KeyRequestRateLimit = { requests_per_minute: number | null; revision: string | null };
 export type KeyRequestRateLimitRevision = KeyRequestRateLimit & { revision: string; recorded_at: string; actor_kind: 'installation' | 'member'; actor_name: string };
 import { NiuAPIError, type RequestOptions, type VideoModelList, type VideoResultAvailability, type VideoCreateRequest, type VideoCreateOptions, type VideoEstimate, type VideoJobHistory, type VideoJobHistoryQuery, type VideoJobState, type VideoJobBilling, type VideoTransportTimings } from './index.js';
@@ -899,6 +901,31 @@ export class NiuAdminClient {
       params.set('limit', String(query.limit));
     }
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/request-rate-limit/history${params.size ? `?${params}` : ''}`, undefined, options);
+  }
+
+
+  getKeyConcurrencyLimit(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: KeyConcurrencyLimit }> {
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/concurrency-limit`, undefined, options);
+  }
+
+  /** Null removes the concurrency limit; zero denies dispatch. Secret rotation preserves the policy. */
+  setKeyConcurrencyLimit(scope: TenantScope, keyId: string, input: { max_concurrent_requests: number | null; expected_revision: string }, options?: RequestOptions): Promise<{ data: { revision: string } }> {
+    if (input.max_concurrent_requests !== null && (!Number.isInteger(input.max_concurrent_requests) || input.max_concurrent_requests < 0 || input.max_concurrent_requests > 10_000)) throw new TypeError('Use an integer request limit from 0 to 10000, or explicit null');
+    if (typeof input.expected_revision !== 'string' || !/^\d+$/.test(input.expected_revision) || BigInt(input.expected_revision) > 9223372036854775806n) throw new TypeError('Use an exact nonnegative revision');
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/concurrency-limit`, { max_concurrent_requests: input.max_concurrent_requests, expected_revision: input.expected_revision }, options, 'PUT');
+  }
+
+  listKeyConcurrencyLimitHistory(scope: TenantScope, keyId: string, query: { beforeRevision?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: KeyConcurrencyLimitRevision[] }> {
+    const params = new URLSearchParams();
+    if (query.beforeRevision !== undefined) {
+      if (!/^\d+$/.test(query.beforeRevision) || BigInt(query.beforeRevision) < 1n || BigInt(query.beforeRevision) > 9223372036854775807n) throw new TypeError('Invalid history revision');
+      params.set('before_revision', query.beforeRevision);
+    }
+    if (query.limit !== undefined) {
+      if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Invalid history page size');
+      params.set('limit', String(query.limit));
+    }
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/concurrency-limit/history${params.size ? `?${params}` : ''}`, undefined, options);
   }
 
 

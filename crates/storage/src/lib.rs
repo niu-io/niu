@@ -92,6 +92,7 @@ pub use vendors::{
     VendorInput, VendorModelInput, VendorModelView, VendorRoute, VendorUpdate, VendorView,
 };
 mod billing;
+mod key_concurrency;
 mod key_ip;
 mod key_request_rate;
 mod key_spending;
@@ -254,6 +255,8 @@ pub enum StoreError {
     KeyIpDenied,
     #[error("API key request rate exhausted")]
     KeyRequestRateExceeded,
+    #[error("API key concurrent request limit reached")]
+    KeyConcurrencyExceeded,
     #[error("usage or execution remains unresolved")]
     Unresolved,
     #[error("invalid account or quota observation")]
@@ -641,6 +644,7 @@ impl Store {
                 }
                 return Err(match code.as_deref() {
                     Some("P0020") => StoreError::KeyRequestRateExceeded,
+                    Some("P0021") => StoreError::KeyConcurrencyExceeded,
                     Some("P0007") => StoreError::AccountUnavailable,
                     Some("P0006") => StoreError::Conflict,
                     _ => StoreError::Database(error),

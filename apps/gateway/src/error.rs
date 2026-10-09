@@ -27,6 +27,12 @@ impl ApiError {
                 kind: "budget_exceeded",
                 message: "Insufficient available funds for this request",
             },
+            niu_storage::StoreError::KeyConcurrencyExceeded => Self {
+                failure: None,
+                status: StatusCode::TOO_MANY_REQUESTS,
+                kind: "key_concurrency_exceeded",
+                message: "This API key has reached its concurrent request limit; wait for active work to finish or resolve uncertain requests",
+            },
             niu_storage::StoreError::KeyRequestRateExceeded => Self {
                 failure: None,
                 status: StatusCode::TOO_MANY_REQUESTS,

@@ -469,6 +469,9 @@ pub(super) async fn begin_attempt(
             )
             .await
             .map_err(|error| match error {
+                crate::admission::AdmissionError::ConcurrencyExceeded => {
+                    ApiError::from_store(niu_storage::StoreError::KeyConcurrencyExceeded)
+                }
                 crate::admission::AdmissionError::RequestRateExceeded => {
                     ApiError::from_store(niu_storage::StoreError::KeyRequestRateExceeded)
                 }

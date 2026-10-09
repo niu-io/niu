@@ -3,6 +3,7 @@
 pub mod asset_requests;
 pub mod chat_sessions;
 pub mod guardrails;
+pub(crate) mod key_concurrency;
 pub mod key_ip;
 pub(crate) mod key_request_rate;
 pub mod key_spending;

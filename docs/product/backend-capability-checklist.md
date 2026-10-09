@@ -19,7 +19,7 @@ links existing evidence and the pinned New API reference.
 | IP allowlist | Implemented; actual direct/proxy, rotation and saved-video access verified | Validate addresses/CIDRs; use a defined trusted-proxy policy; reject disallowed origins before upstream dispatch |
 | Key request rate limit (RPM) | Implemented; actual two-instance admission and video rejection verified | Rolling 60-second dispatch count shared across rotations and gateways; reject before upstream calls |
 | Key token rate limit (TPM) | Not implemented | Define token reservation, unknown usage and window semantics; never treat RPM as token enforcement |
-| Key concurrent-request limit | Not implemented | Enforce across supported sync/stream/async lifecycles; release reliably on cancellation, error and recovery |
+| Key concurrent-request limit | Implemented; actual two-instance admission, completion, disconnect, rotation and restart verified | Enforce across supported sync/stream/async lifecycles; release reliably on cancellation, error and recovery |
 | Key usage attribution | Implemented; partial actual evidence | Calls, provider usage and customer charges agree across key/detail/export views; unknown usage remains unknown |
 
 Supplier-account concurrency limits, login throttles and the global video-download
@@ -53,3 +53,5 @@ See [key spending implementation and current-input evidence](../reference/api-ke
 See [key IP policies](../reference/api-key-ip-policies.md) for source-address trust rules and verification boundaries.
 
 See [key request rate limits](../reference/api-key-request-rate-limits.md) for dispatch-count semantics and remaining verification.
+
+See [key concurrency limits](../reference/api-key-concurrency-limits.md) for unresolved-work occupancy and remaining verification.
