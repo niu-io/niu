@@ -21,7 +21,7 @@ impl Store {
         scope: TenantScope,
         key: Uuid,
     ) -> Result<Option<Value>, StoreError> {
-        Ok(sqlx::query_scalar("SELECT jsonb_build_object('tokens_per_minute',p.tokens_per_minute,'revision',p.revision::text) FROM api_keys k LEFT JOIN key_token_rate_limits p ON p.spending_root_id=k.spending_root_id WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3")
+        Ok(sqlx::query_scalar("SELECT jsonb_build_object('tokens_per_minute',p.tokens_per_minute,'revision',p.revision::text,'snapshot_at',statement_timestamp(),'known_tokens',b.known_tokens::text,'reserved_tokens',b.reserved_tokens::text,'unbounded_requests',b.unbounded_requests,'committed_tokens',CASE WHEN b.unbounded_requests=0 THEN (b.known_tokens+b.reserved_tokens)::text END) FROM api_keys k LEFT JOIN key_token_rate_limits p ON p.spending_root_id=k.spending_root_id CROSS JOIN LATERAL niu_key_token_budget(k.spending_root_id,NULL,statement_timestamp()) b WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3")
             .bind(scope.organization_id).bind(scope.project_id).bind(key).fetch_optional(&self.pool).await?)
     }
     pub async fn key_token_rate_history(

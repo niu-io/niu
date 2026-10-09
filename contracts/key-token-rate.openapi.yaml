@@ -119,8 +119,13 @@ components:
       description: Token budget includes unresolved reservations plus provider-reported usage completed in the last 60 seconds. Null is unlimited; zero denies dispatch.
     Policy:
       type: object
-      required: [tokens_per_minute, revision]
+      required: [tokens_per_minute, revision, snapshot_at, known_tokens, reserved_tokens, unbounded_requests, committed_tokens]
       properties:
         tokens_per_minute:
           $ref: '#/components/schemas/TokenRateLimit'
         revision: { type: [string, 'null'], pattern: '^[1-9][0-9]*$' }
+        snapshot_at: { type: string, format: date-time }
+        known_tokens: { type: string, pattern: '^[0-9]+$', description: Known provider usage completed within 60 seconds. }
+        reserved_tokens: { type: string, pattern: '^[0-9]+$', description: Estimates retained for unresolved usage, without time-based expiry. }
+        unbounded_requests: { type: integer, minimum: 0, description: Unknown dispatched requests without a saved bound. }
+        committed_tokens: { type: [string, 'null'], pattern: '^[0-9]+$', description: Known plus reserved tokens, or null when unbounded requests prevent a complete total. }

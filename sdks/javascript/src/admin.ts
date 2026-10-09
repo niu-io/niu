@@ -1,5 +1,5 @@
-export type KeyTokenRateLimit = { tokens_per_minute: number | null; revision: string | null };
-export type KeyTokenRateLimitRevision = KeyTokenRateLimit & { revision: string; recorded_at: string; actor_kind: 'installation' | 'member'; actor_name: string };
+export type KeyTokenRateLimit = { snapshot_at: string; known_tokens: string; reserved_tokens: string; unbounded_requests: number; committed_tokens: string | null; tokens_per_minute: number | null; revision: string | null };
+export type KeyTokenRateLimitRevision = Omit<KeyTokenRateLimit, 'snapshot_at' | 'known_tokens' | 'reserved_tokens' | 'unbounded_requests' | 'committed_tokens'> & { revision: string; recorded_at: string; actor_kind: 'installation' | 'member'; actor_name: string };
 export type KeyTokenUsageWindow = { window_seconds: 60; window_end: string; requests: number; known_usage_requests: number; unknown_usage_requests: number; known_prompt_tokens: string; known_completion_tokens: string };
 export type KeyConcurrencyLimit = { active_requests: number; max_concurrent_requests: number | null; revision: string | null };
 export type KeyConcurrencyLimitRevision = Omit<KeyConcurrencyLimit, 'active_requests'> & { revision: string; recorded_at: string; actor_kind: 'installation' | 'member'; actor_name: string };

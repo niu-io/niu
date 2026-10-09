@@ -114,3 +114,29 @@ Both temporary model mappings were disabled and both keys revoked after the runs
 These are actual personal-route protocol checks, not commercial-supply or prepaid
 settlement evidence. They do not qualify every input format, embedding dimension,
 streaming Responses, concurrent mixed-protocol traffic or estimator accuracy.
+
+## Budget snapshot and history lookup (2026-10-10)
+
+The policy GET includes `snapshot_at`, `known_tokens`, `reserved_tokens`,
+`unbounded_requests` and `committed_tokens`. Token subtotals are decimal strings.
+The total is null when any unknown request lacks a stored estimate; otherwise it
+is the exact sum of known and reserved amounts. These live fields are not included
+in immutable configuration-history records. A snapshot is diagnostic; admission
+still obtains the policy lock and rechecks the budget in its transaction.
+
+Migration 0211 centralizes the budget calculation used by admission and this read.
+It separates recent known completions from unresolved usage, with partial indexes
+on key/completion time and key/unknown usage. A captured timestamp supplies the
+known-usage window boundary. The change avoids expressing both history classes
+as one time-dependent OR predicate. Large-history performance and migration time
+remain unmeasured; index existence alone is not evidence of production capacity.
+
+Actual HTTP reads checked three persisted states: a bounded disconnected stream,
+a legacy unbounded disconnected stream, and a fresh completed model request.
+Their snapshots respectively exposed the saved reservation, a null total with
+one unbounded request, and known usage matching the new response. An independent
+SQL comparison across every existing key lineage found no differences between
+the prior aggregate and the new shared calculation at the same timestamp. The
+fresh request completed, its next admission returned 429, and independent SQL
+confirmed one dispatch with matching actual token totals. The temporary key was
+revoked. These checks establish current-data behavior, not large-history capacity.
