@@ -107,13 +107,12 @@ open appearance menu, draft-preserving section changes and closing back to the
 original Models query. This is a navigation subset, not full billing or F02
 qualification. See the [navigation checkpoint](admin-settings-navigation-verification.md).
 
-Current prerequisite check (2026-10-07): six Supplier media-offer and ten
-customer selling-rate PostgreSQL tests passed through migration 0149. The
-[Supplier checkpoint](supplier-media-offer-verification.md) records the scope.
-Live video entitlement and complete rendered onboarding remain open; these
-results do not qualify F03/F04 or change the delivery order below. Recent EPay
-checkout/callback/storage checks are tracked in the
-[payment reference](../reference/payment-aggregators.md); F05 remains partial.
+Current backend assessment follows the [backend delivery audit](backend-delivery-audit-2026-10-09.md).
+Historical checkpoint documents describe implementation work; fixture outcomes,
+including their counts, are not evidence of correctness or readiness. Live
+commercial onboarding and rendered workflows remain separate from internal
+adapter capability. Payment support and limitations are listed in the
+[payment reference](../reference/payment-aggregators.md).
 
 1. **Finish the Supplier prerequisites.** Verify independent credentials and model subsets, exact channel capabilities, customer selling tariffs and bounded liability (V01, V04; M01–M05). Extend the existing configuration and pricing foundations. Keep an unqualified channel unavailable; a text-only OpenRouter demo does not qualify video.
 2. **Complete one text-to-video lifecycle.** Verify authorized submission, original-account query/recovery, reported usage, one customer debit and separate Supplier settlement. Cover restart, uncertainty, credential/rate changes and contract-specific failure/refund behavior. Qualify callbacks separately; query recovery must work without them (V02, V05, V06, V13, V14, V19, V20; M05–M08).
