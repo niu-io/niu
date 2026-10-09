@@ -367,7 +367,7 @@ describe('company warning preferences', () => {
   await user.click(screen.getByRole('checkbox',{name:'Enabled'}));
   await user.type(screen.getByLabelText('Threshold (CNY)'),'-1');
   await user.click(screen.getByRole('button',{name:'Save'}));
-  await screen.findByText('Enter an amount with no more than 9 decimal places.');
+  await screen.findByText('Enter a threshold of zero or greater.');
   expect(writes).toEqual([]);
   await user.clear(screen.getByLabelText('Threshold (CNY)'));await user.type(screen.getByLabelText('Threshold (CNY)'),'0.000000000');
   await user.click(screen.getByRole('button',{name:'Save'}));
