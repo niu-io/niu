@@ -397,6 +397,17 @@ pub(crate) async fn create_topup(
             "Provide a three-letter uppercase currency",
         ));
     }
+    if input.amount_nanos.is_empty()
+        || !input.amount_nanos.bytes().all(|byte| byte.is_ascii_digit())
+        || !input
+            .amount_nanos
+            .parse::<i64>()
+            .is_ok_and(|amount| amount > 0)
+    {
+        return Err(ApiError::invalid_request(
+            "Provide an exact positive top-up amount within the supported integer range",
+        ));
+    }
     // Reject unauthorized or malformed requests before joining the checkout
     // configuration queue, which may be held across an upstream request.
     let _configuration_guard = state.payment_configuration_guard.lock().await;

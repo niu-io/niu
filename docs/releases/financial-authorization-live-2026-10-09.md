@@ -86,3 +86,18 @@ zero top-up orders after these requests. The temporary viewer was revoked.
 Formatting and release compilation completed. This run verifies rejection on the
 updated binary; it does not measure latency under a held configuration lock or
 establish upstream checkout/settlement acceptance.
+
+## Amount errors remain client errors without an enabled integration
+
+Actual checkout submissions on the preceding binary returned HTTP 502 for `-1`,
+`0`, `1.5`, and an integer above the signed 64-bit maximum because integration
+selection preceded amount validation. Checkout now validates positive ASCII
+integer nanounits within the supported range before configuration locking and
+adapter selection. Currency-specific minor-unit rules remain adapter-specific.
+
+On the rebuilt optimized gateway, empty, negative, zero, fractional, overflowing,
+space-prefixed, plus-prefixed and non-ASCII-digit amounts each returned HTTP 400.
+The balance API response remained unchanged, and an independent PostgreSQL read
+confirmed zero top-up orders. Invalid-token, viewer and lowercase-currency
+requests still returned 401, 403 and 400 respectively. This verifies invalid-input
+handling; it does not establish successful funding or reconciliation.
