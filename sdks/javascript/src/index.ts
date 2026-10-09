@@ -295,7 +295,7 @@ export class NiuClient {
     retrieve: (id: string, options?: RequestOptions) => Promise<{ data: ImageIngestionConsentStatus }>;
     revoke: (id: string, options?: RequestOptions) => Promise<void>;
   };
-  readonly video: { models: { list: (options?: RequestOptions) => Promise<VideoModelList> }; estimate: (request: VideoCreateRequest, options?: RequestOptions) => Promise<VideoEstimate>; jobs: { results: { status: (id: string, options?: RequestOptions) => Promise<VideoResultAvailability>; retrieve: (id: string, kind: 'video' | 'last_frame', options?: RequestOptions) => Promise<Response>; delete: (id: string, options?: RequestOptions) => Promise<{ deleted: true }> }; list: (query?: VideoJobHistoryQuery, options?: RequestOptions) => Promise<VideoJobHistory>; billing: (id: string, options?: RequestOptions) => Promise<VideoJobBilling>; timings: (id: string, options?: RequestOptions) => Promise<VideoTransportTimings>; refresh: (id: string, options?: RequestOptions) => Promise<VideoJobState>; create: (request: VideoCreateRequest, options?: RequestOptions) => Promise<VideoJobState>; retrieve: (id: string, options?: RequestOptions) => Promise<VideoJobState> } };
+  readonly video: { models: { list: (options?: RequestOptions) => Promise<VideoModelList> }; estimate: (request: VideoCreateRequest, options?: RequestOptions) => Promise<VideoEstimate>; jobs: { results: { status: (id: string, options?: RequestOptions) => Promise<VideoResultAvailability>; retrieve: (id: string, kind: 'video' | 'last_frame', options?: RequestOptions) => Promise<Response>; delete: (id: string, options?: RequestOptions) => Promise<{ deleted: true }> }; list: (query?: VideoJobHistoryQuery, options?: RequestOptions) => Promise<VideoJobHistory>; billing: (id: string, options?: RequestOptions) => Promise<VideoJobBilling>; timings: (id: string, options?: RequestOptions) => Promise<VideoTransportTimings>; refresh: (id: string, options?: RequestOptions) => Promise<VideoJobState>; create: (request: VideoCreateRequest, options?: VideoCreateOptions) => Promise<VideoJobState>; retrieve: (id: string, options?: RequestOptions) => Promise<VideoJobState> } };
   readonly models: { list: (options?: RequestOptions) => Promise<ModelList> };
   readonly embeddings: { create: (request: EmbeddingRequest, options?: RequestOptions) => Promise<EmbeddingResponse> };
   readonly responses: { create: (request: ResponsesRequest, options?: RequestOptions) => Promise<ResponsesResponse> };
@@ -428,8 +428,14 @@ export class NiuClient {
     yield* parseChatStream(response.body, options.signal);
   }
 
-  private async send(path: string, body: unknown, options: RequestOptions, accept: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE' = body === undefined ? 'GET' : 'POST'): Promise<Response> {
+  private async send(path: string, body: unknown, options: RequestOptions & { idempotencyKey?: string }, accept: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE' = body === undefined ? 'GET' : 'POST'): Promise<Response> {
     const headers = new Headers(this.defaultHeaders);
+    if (options.idempotencyKey !== undefined) {
+      if (path !== '/video/jobs' || method !== 'POST' || typeof options.idempotencyKey !== 'string' || !/^[\x21-\x7e]{1,128}$/.test(options.idempotencyKey)) {
+        throw new TypeError('idempotencyKey requires video creation and 1 to 128 visible ASCII characters');
+      }
+      headers.set('idempotency-key', options.idempotencyKey);
+    }
     if (options.logPayloads !== undefined) {
       if (typeof options.logPayloads !== 'boolean') throw new TypeError('logPayloads must be a boolean');
       headers.set('x-niu-log-payloads', String(options.logPayloads));
@@ -460,6 +466,11 @@ export class NiuClient {
     return response;
   }
 }
+
+export type VideoCreateOptions = RequestOptions & {
+  /** Reuse with the same text-video document to recover the original submission. */
+  idempotencyKey?: string;
+};
 
 export type RequestOptions = {
   signal?: AbortSignal;

@@ -125,13 +125,32 @@ Publication appends immutable customer configuration. Identical current-route re
 
 Authorization, model/schema validation, Guardrail access, original-route binding and durable dispatch intent precede the single upstream POST. Local text input rules run before credential retrieval, reservation and dispatch. Blocking prevents upstream submission; redaction preserves controls and is revalidated against the pinned schema. The durable inspection result binds the policy revisions checked at dispatch. External text input detectors and output inspection remain unsupported for video and fail closed. Inline image inspection is separately supported through consented image detectors, immutable exact-content receipts and the final dispatch recheck. Inspection failure prevents attempt creation and reservation; it does not become an unchecked text-only dispatch. Successful receipt binding returns 202 with status `unknown`; the job has not yet been polled. Timeout, HTTP error, malformed response or failed receipt persistence returns the same Niu reference with `submission_unknown`. Durable dispatch intent supports recovery even if an uncertainty marker cannot be saved. No automatic create retry or paid fallback occurs. Personal routes incur no Niu customer charge. Customer-funded routes reserve the qualified maximum quantity before dispatch; an uncertain submission retains that reservation. Saved verified success and agreed reported usage settle the pinned customer price once and release the unused reservation, through explicit refresh or automatic recovery. A pre-dispatch failure can release its hold only when storage confirms nonexecution. Active workspace budgets reject video estimates and submissions explicitly before attempt preparation or customer reservation. The existing budget tracks procurement, so customer video spending limits require a separate selling-rate reservation mechanism; company balance admission does not replace those limits. The locked dispatch check still rejects a budget created after preflight.
 
-Use `client.video.jobs.create(request, { signal })`. A client abort or lost HTTP response is not upstream cancellation; do not automatically repeat creation. Idempotent submission is not supported, and current status reads do not refresh upstream state. This initial path does not complete the video workflow.
+For text-only submissions, supply `Idempotency-Key` (one to 128 visible ASCII
+characters), or call `client.video.jobs.create(request, { signal,
+idempotencyKey })`. Persist the key before sending. It is scoped to the workspace
+and shared by inference-key and dashboard-key creation endpoints. Repeating it
+with the same JSON document returns HTTP 202 and the original job reference,
+with its current saved status. JSON object field order is ignored; array order,
+explicit defaults and numeric representations remain part of the document.
+Changed input under the same key returns HTTP 409. Invalid or repeated headers
+return HTTP 400. Reference-image submissions with this header return HTTP 501.
 
-Both inference-key and dashboard-key creation endpoints reject an
-`Idempotency-Key` header with HTTP 501 before preparing or dispatching a job.
-Ignoring it would falsely suggest that retrying the same key prevents duplicate
-generation. This rejection does not add idempotent submission: recover an
-existing job through its saved reference instead of repeating an uncertain POST.
+The key digest, request digest and original attempt commit atomically before
+route binding, reservation and dispatch. Only the original creator can proceed
+to submission. Concurrent callers and callers after restart never inherit that
+right. A crash or failure during preparation can leave the reference at
+`submission_unknown`; replay preserves this uncertainty and does not rerun the
+preparation or generation. Status reads can retrieve the admitted reference,
+including before dispatch. This is at-most-once submission, not a promise that a
+job was generated or that every interrupted preparation will finish.
+
+Keys do not expire into permission to submit again. No raw prompt or key is saved
+in the idempotency table. Current credentials, workspace scope and model grants
+still apply to replay. A replacement key in the same workspace with the model
+grant can recover the same identity. Requests without `Idempotency-Key` remain
+non-idempotent. A client abort or lost HTTP response is not upstream cancellation;
+never retry an uncertain unkeyed creation. Do not switch to a new identity to
+recover an uncertain keyed submission.
 
 ## Explicit refresh
 

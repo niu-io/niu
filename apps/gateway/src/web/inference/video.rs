@@ -374,23 +374,71 @@ pub(in crate::web) async fn create(
 ) -> Result<(axum::http::StatusCode, Json<Value>), ApiError> {
     let _in_flight = state.track_inference();
     let principal = state.authorize_api_headers(&headers).await?;
-    validate_create_headers(&headers)?;
-    create_as(state, body, principal).await
+    let identity = submission_identity(&headers, &body)?;
+    create_as(state, body, principal, identity).await
 }
 
-pub(super) fn validate_create_headers(headers: &HeaderMap) -> Result<(), ApiError> {
-    if headers.contains_key("idempotency-key") {
-        return Err(ApiError::unsupported_message(
-            "Idempotent video submission is not supported; do not retry an uncertain creation",
+pub(super) struct SubmissionIdentity {
+    key: Vec<u8>,
+    request: Vec<u8>,
+}
+
+pub(super) fn submission_identity(
+    headers: &HeaderMap,
+    body: &Value,
+) -> Result<Option<SubmissionIdentity>, ApiError> {
+    use sha2::{Digest, Sha256};
+    let mut values = headers.get_all("idempotency-key").iter();
+    let Some(value) = values.next() else {
+        return Ok(None);
+    };
+    let key = value.as_bytes();
+    if values.next().is_some()
+        || key.is_empty()
+        || key.len() > 128
+        || !key.iter().all(|b| b.is_ascii_graphic())
+    {
+        return Err(ApiError::invalid_request(
+            "Use one Idempotency-Key containing 1 to 128 visible ASCII characters",
         ));
     }
-    Ok(())
+    let mut canonical = body.clone();
+    canonical.sort_all_objects();
+    let document = serde_json::to_vec(&canonical)
+        .map_err(|_| ApiError::invalid_request("Invalid video request"))?;
+    Ok(Some(SubmissionIdentity {
+        key: Sha256::digest(key).to_vec(),
+        request: Sha256::digest(document).to_vec(),
+    }))
+}
+
+async fn replay_submission(
+    state: &AppState,
+    principal: &niu_storage::Principal,
+    attempt: Uuid,
+    model: &str,
+) -> Result<(axum::http::StatusCode, Json<Value>), ApiError> {
+    let saved = state
+        .store
+        .media_job_state_for_key(principal, attempt)
+        .await
+        .map_err(ApiError::from_store)?;
+    // Preparation may still be running, or the original process may have died
+    // before dispatch. Neither case grants a retry permission to submit.
+    Ok((
+        axum::http::StatusCode::ACCEPTED,
+        Json(saved.unwrap_or_else(|| {
+            serde_json::json!({"id":attempt,"object":"video.job","model":model,
+            "status":"submission_unknown"})
+        })),
+    ))
 }
 
 pub(super) async fn create_as(
     state: AppState,
     mut body: Value,
     principal: niu_storage::Principal,
+    identity: Option<SubmissionIdentity>,
 ) -> Result<(axum::http::StatusCode, Json<Value>), ApiError> {
     let model = body
         .get("model")
@@ -402,6 +450,20 @@ pub(super) async fn create_as(
         return Err(ApiError::not_found());
     }
     let scope = principal.scope();
+    if let Some(identity) = &identity
+        && let Some(attempt) = state
+            .store
+            .media_submission_attempt(scope, &identity.key, &identity.request)
+            .await
+            .map_err(ApiError::from_store)?
+    {
+        return replay_submission(&state, &principal, attempt, model).await;
+    }
+    if identity.is_some() && has_images(&body) {
+        return Err(ApiError::unsupported_message(
+            "Idempotent video submission currently supports text input only",
+        ));
+    }
     let (route, _, selling, _, owner_funded) =
         validate_admission(&state, &principal, &body, model).await?;
     let images_present = has_images(&body);
@@ -490,21 +552,28 @@ pub(super) async fn create_as(
         .iter()
         .map(super::video_images::InspectedImage::binding)
         .collect();
-    let (_, attempt) = state
-        .store
-        .prepare_gateway_attempt(
-            scope,
-            model,
-            None,
-            &selling
-                .as_ref()
-                .map(|rate| rate.pricing.offer().to_owned())
-                .unwrap_or_else(|| {
-                    format!("video:{}:{}", route.vendor.revision, route.model.revision)
-                }),
-        )
-        .await
-        .map_err(ApiError::from_store)?;
+    let revision = selling
+        .as_ref()
+        .map(|rate| rate.pricing.offer().to_owned())
+        .unwrap_or_else(|| format!("video:{}:{}", route.vendor.revision, route.model.revision));
+    let attempt = if let Some(identity) = &identity {
+        let (attempt, fresh) = state
+            .store
+            .prepare_media_submission(scope, model, &revision, &identity.key, &identity.request)
+            .await
+            .map_err(ApiError::from_store)?;
+        if !fresh {
+            return replay_submission(&state, &principal, attempt, model).await;
+        }
+        attempt
+    } else {
+        state
+            .store
+            .prepare_gateway_attempt(scope, model, None, &revision)
+            .await
+            .map_err(ApiError::from_store)?
+            .1
+    };
     if owner_funded {
         state
             .store

@@ -636,3 +636,19 @@ another upstream call. `status: 'succeeded'` means the observation succeeded;
 `asset_status: 'Processing'` still means processing. Active observations do not
 grant reusable-reference rights (`reuse_available` remains false). Each ingestion
 allows one outstanding observation and at most sixty per rolling hour.
+## Retrying text-video creation
+
+Persist a unique submission key before sending a text-video request:
+
+```ts
+const job = await client.video.jobs.create(request, {
+  idempotencyKey: savedSubmissionKey,
+  signal,
+});
+```
+
+Reuse that key and the same JSON document after a lost response. It is scoped to
+the workspace and returns the original job; different input conflicts. Retries
+never dispatch another generation. Interrupted preparation may remain unresolved.
+Do not replace the key to recover uncertain execution. This option currently
+supports text-only video requests; calls without it are not idempotent.

@@ -13,6 +13,7 @@ use uuid::Uuid;
 mod branding;
 pub use branding::BrandingSettings;
 mod accounting;
+mod media_submissions;
 mod request_failures;
 pub use request_failures::{RequestFailure, RequestFailureKind};
 mod request_finish_reasons;

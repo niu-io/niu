@@ -26,9 +26,8 @@ release gate):
 - [Personal video lifecycle](openrouter-video-gateway-verification-2026-10-09.md)
   and [model-edit recovery](video-mapping-recovery-2026-10-09.md): actual generation,
   restart recovery, scoped results and independently decoded artifacts.
-  [Unsupported idempotency headers](video-idempotency-rejection-2026-10-09.md)
-  are explicitly rejected before video dispatch; full submission deduplication
-  remains open.
+  [Text-video submission idempotency](video-submission-idempotency-live-2026-10-09.md)
+  binds concurrent and restarted retries to the original attempt.
 - [Live video result deletion](video-result-deletion-live-2026-10-09.md):
   cleared references stay unavailable after real upstream refresh and restart,
   without changing the saved job state or billing response.

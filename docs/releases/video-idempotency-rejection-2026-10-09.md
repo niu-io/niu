@@ -1,6 +1,9 @@
 # Explicit rejection of unsupported video idempotency
 
-Date: 2026-10-09. Video creation does not implement idempotent submission.
+Historical checkpoint, superseded by optional text-video idempotency described in
+[video jobs](../reference/video-jobs.md).
+
+Date: 2026-10-09. At this checkpoint, video creation did not implement idempotent submission.
 Previously, both creation handlers ignored `Idempotency-Key`, allowing a client
 to submit generation while mistakenly expecting that key to deduplicate retries.
 Both handlers now reject the header with HTTP 501 after authorization and before

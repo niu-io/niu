@@ -429,7 +429,7 @@ impl Store {
         attempt: Uuid,
     ) -> Result<Option<serde_json::Value>, StoreError> {
         let scope = principal.scope();
-        let model: Option<String> = sqlx::query_scalar("SELECT a.resource_id FROM attempts a JOIN media_recovery_routes r ON r.attempt_id=a.id WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=$3 AND a.dispatched_at IS NOT NULL")
+        let model: Option<String> = sqlx::query_scalar("SELECT a.resource_id FROM attempts a WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=$3 AND ((a.dispatched_at IS NOT NULL AND EXISTS(SELECT 1 FROM media_recovery_routes r WHERE r.attempt_id=a.id)) OR EXISTS(SELECT 1 FROM media_submission_keys s WHERE s.attempt_id=a.id))")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_optional(&self.pool).await?;
         let Some(model) = model.filter(|m| principal.allows_model(m)) else {
             return Ok(None);
