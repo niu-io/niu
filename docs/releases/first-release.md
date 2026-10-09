@@ -43,6 +43,9 @@ release gate):
 - [Personal funding isolation](personal-funding-isolation-2026-10-09.md) is
   verified for the exercised requests. [Payment merchant access](payment-merchant-check-2026-10-09.md),
   real customer funding/charging and commercial supply qualification remain open.
+- [Live financial authorization](financial-authorization-live-2026-10-09.md):
+  company/workspace roles cannot self-fund, increase credit, reverse entries or
+  invoke installation reconciliation; denied requests leave funds unchanged.
 
 “Partial” means implementation or limited evidence exists; it does not mean the capability is release-ready. The linked workflow and detailed acceptance requirements are mandatory parts of F01–F10, not optional follow-up work.
 
