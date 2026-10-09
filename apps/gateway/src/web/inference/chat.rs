@@ -360,11 +360,10 @@ async fn complete_openai_compatible(
                 model = public_model,
                 timeout = error.is_timeout(),
                 connect = error.is_connect(),
-                error = ?error.without_url(),
                 "OpenAI-compatible provider request failed"
             );
             state.failures.fetch_add(1, Ordering::Relaxed);
-            ApiError::upstream()
+            ApiError::upstream_transport(&error)
         })?;
     if !upstream.status().is_success() {
         tracing::warn!(
@@ -377,7 +376,7 @@ async fn complete_openai_compatible(
     }
     let mut value: Value = provider_json(upstream).await.map_err(|_| {
         state.failures.fetch_add(1, Ordering::Relaxed);
-        ApiError::upstream()
+        ApiError::upstream_invalid_response()
     })?;
     if !value.get("choices").is_some_and(Value::is_array)
         || !valid_chat_completion_features(&value, &body)
@@ -396,13 +395,13 @@ async fn complete_openai_compatible(
                     &value["usage"],
                     usage,
                 ),
-                response: ApiError::upstream().into_response(),
+                response: ApiError::upstream_invalid_response().into_response(),
                 completed: true,
                 usage: Some(usage),
                 provider_model: provider_reported_model(&value),
             });
         }
-        return Err(ApiError::upstream());
+        return Err(ApiError::upstream_invalid_response());
     }
     let provider_model = provider_reported_model(&value);
     if let Some(object) = value.as_object_mut() {
@@ -576,7 +575,7 @@ async fn stream_openai_compatible(
                 "OpenAI-compatible provider stream connection failed"
             );
             state.failures.fetch_add(1, Ordering::Relaxed);
-            ApiError::upstream()
+            ApiError::upstream_transport(&error)
         })?;
     let status =
         StatusCode::from_u16(upstream.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
@@ -590,7 +589,7 @@ async fn stream_openai_compatible(
         .cloned()
         .ok_or_else(|| {
             state.failures.fetch_add(1, Ordering::Relaxed);
-            ApiError::upstream()
+            ApiError::upstream_invalid_response()
         })?;
     if content_type
         .to_str()
@@ -599,7 +598,7 @@ async fn stream_openai_compatible(
         .is_none_or(|v| !v.trim().eq_ignore_ascii_case("text/event-stream"))
     {
         state.failures.fetch_add(1, Ordering::Relaxed);
-        return Err(ApiError::upstream());
+        return Err(ApiError::upstream_invalid_response());
     }
     let mut response = Response::new(crate::streaming::tracked_body(
         upstream.bytes_stream(),

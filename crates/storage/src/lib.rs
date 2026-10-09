@@ -13,6 +13,8 @@ use uuid::Uuid;
 mod branding;
 pub use branding::BrandingSettings;
 mod accounting;
+mod request_failures;
+pub use request_failures::{RequestFailure, RequestFailureKind};
 mod request_finish_reasons;
 pub use request_finish_reasons::{RequestChoiceFinish, RequestFinishReason};
 mod request_token_categories;

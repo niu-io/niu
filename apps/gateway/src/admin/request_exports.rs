@@ -43,7 +43,7 @@ pub async fn csv(
         return Err(ApiError::export_too_large());
     }
     let mut csv = String::from(
-        "Time (UTC),Model,API key,Delivery HTTP status,Provider status,Usage confidence,Input tokens,Output tokens,Customer charge status,Customer currency,Customer charge nanounits,Observed duration ms,Timing complete,Cached input tokens,Reasoning output tokens,Finish reasons\r\n",
+        "Time (UTC),Model,API key,Delivery HTTP status,Provider status,Usage confidence,Input tokens,Output tokens,Customer charge status,Customer currency,Customer charge nanounits,Observed duration ms,Timing complete,Cached input tokens,Reasoning output tokens,Finish reasons,Failure kind,Upstream HTTP status\r\n",
     );
     for row in rows {
         let values = [
@@ -68,6 +68,14 @@ pub async fn csv(
                 .map(|value| {
                     serde_json::to_string(&value.0).expect("finish metadata is serializable")
                 })
+                .unwrap_or_default(),
+            row.failure
+                .as_ref()
+                .map(|failure| failure.kind.as_str().to_owned())
+                .unwrap_or_default(),
+            row.failure
+                .and_then(|failure| failure.upstream_http_status)
+                .map(|status| status.to_string())
                 .unwrap_or_default(),
         ];
         for (index, value) in values.iter().enumerate() {

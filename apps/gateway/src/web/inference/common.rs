@@ -788,6 +788,18 @@ pub(super) async fn finalize_response(
         Ok(result) => result.response,
         Err(error) => error.into_response(),
     };
+    if let Some(failure) = response
+        .extensions()
+        .get::<niu_storage::RequestFailure>()
+        .copied()
+        && state
+            .store
+            .save_request_failure(dispatch.scope, dispatch.attempt, failure)
+            .await
+            .is_err()
+    {
+        tracing::error!(attempt_id = %dispatch.attempt, "request failure diagnostic could not be saved");
+    }
     if let Some(input) = dispatch.retained_input {
         response
             .extensions_mut()

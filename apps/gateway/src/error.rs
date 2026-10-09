@@ -6,6 +6,7 @@ pub struct ApiError {
     status: StatusCode,
     kind: &'static str,
     message: &'static str,
+    failure: Option<niu_storage::RequestFailure>,
 }
 
 impl ApiError {
@@ -21,16 +22,19 @@ impl ApiError {
                 Self::invalid_request("Invalid price, currency or monetary amount")
             }
             niu_storage::StoreError::BudgetExceeded => Self {
+                failure: None,
                 status: StatusCode::PAYMENT_REQUIRED,
                 kind: "budget_exceeded",
                 message: "Insufficient available funds for this request",
             },
             niu_storage::StoreError::WorkspaceSpendingLimitExceeded => Self {
+                failure: None,
                 status: StatusCode::PAYMENT_REQUIRED,
                 kind: "workspace_spending_limit_exceeded",
                 message: "This request exceeds the workspace spending limit",
             },
             niu_storage::StoreError::Unresolved => Self {
+                failure: None,
                 status: StatusCode::CONFLICT,
                 kind: "reconciliation_required",
                 message: "Execution or usage evidence remains unresolved",
@@ -40,11 +44,13 @@ impl ApiError {
                 Self::invalid_request("Invalid account or quota configuration")
             }
             niu_storage::StoreError::ImageSourceCapacityExceeded => Self {
+                failure: None,
                 status: StatusCode::SERVICE_UNAVAILABLE,
                 kind: "image_source_capacity_exceeded",
                 message: "Image source storage is temporarily full. Try again after content expires or is erased",
             },
             niu_storage::StoreError::AccountUnavailable => Self {
+                failure: None,
                 status: StatusCode::SERVICE_UNAVAILABLE,
                 kind: "account_unavailable",
                 message: "The selected account is unavailable",
@@ -65,16 +71,19 @@ impl ApiError {
                 Self::invalid_request("Invalid video history cursor or page size")
             }
             niu_storage::StoreError::WorkspaceNotEmpty => Self {
+                failure: None,
                 status: StatusCode::CONFLICT,
                 kind: "workspace_not_empty",
                 message: "This workspace has saved records or is the installation default and cannot be deleted",
             },
             niu_storage::StoreError::Conflict => Self {
+                failure: None,
                 status: StatusCode::CONFLICT,
                 kind: "conflict_error",
                 message: "The record is unavailable or its state changed",
             },
             _ => Self {
+                failure: None,
                 status: StatusCode::SERVICE_UNAVAILABLE,
                 kind: "storage_error",
                 message: "Durable storage is unavailable",
@@ -84,6 +93,7 @@ impl ApiError {
 
     pub fn unauthorized() -> Self {
         Self {
+            failure: None,
             status: StatusCode::UNAUTHORIZED,
             kind: "authentication_error",
             message: "A valid bearer token is required",
@@ -92,6 +102,7 @@ impl ApiError {
 
     pub(crate) fn sign_in_failed() -> Self {
         Self {
+            failure: None,
             status: StatusCode::UNAUTHORIZED,
             kind: "authentication_error",
             message: "Email or password is incorrect",
@@ -100,6 +111,7 @@ impl ApiError {
 
     pub(crate) fn sign_in_limited() -> Self {
         Self {
+            failure: None,
             status: StatusCode::TOO_MANY_REQUESTS,
             kind: "authentication_rate_limit",
             message: "Sign-in is temporarily limited. Try again later.",
@@ -108,6 +120,7 @@ impl ApiError {
 
     pub fn forbidden() -> Self {
         Self {
+            failure: None,
             status: StatusCode::FORBIDDEN,
             kind: "permission_denied",
             message: "This administrator role cannot perform the requested action",
@@ -116,6 +129,7 @@ impl ApiError {
 
     pub fn invalid_request(message: &'static str) -> Self {
         Self {
+            failure: None,
             status: StatusCode::BAD_REQUEST,
             kind: "invalid_request_error",
             message,
@@ -124,6 +138,7 @@ impl ApiError {
 
     pub fn request_too_large() -> Self {
         Self {
+            failure: None,
             status: StatusCode::PAYLOAD_TOO_LARGE,
             kind: "invalid_request_error",
             message: "Request exceeds the configured body limit",
@@ -132,6 +147,7 @@ impl ApiError {
 
     pub fn export_too_large() -> Self {
         Self {
+            failure: None,
             status: StatusCode::PAYLOAD_TOO_LARGE,
             kind: "invalid_request_error",
             message: "Export exceeds 10000 requests. Narrow the date range or model/API key filters.",
@@ -140,6 +156,7 @@ impl ApiError {
 
     pub fn not_found() -> Self {
         Self {
+            failure: None,
             status: StatusCode::NOT_FOUND,
             kind: "not_found_error",
             message: "The requested resource is not available",
@@ -148,6 +165,7 @@ impl ApiError {
 
     pub fn unavailable() -> Self {
         Self {
+            failure: None,
             status: StatusCode::SERVICE_UNAVAILABLE,
             kind: "upstream_error",
             message: "The configured provider credential is unavailable",
@@ -156,6 +174,7 @@ impl ApiError {
 
     pub fn storage_unavailable() -> Self {
         Self {
+            failure: None,
             status: StatusCode::SERVICE_UNAVAILABLE,
             kind: "storage_error",
             message: "Durable storage is unavailable",
@@ -177,6 +196,7 @@ impl ApiError {
             }
         };
         Self {
+            failure: None,
             status: StatusCode::SERVICE_UNAVAILABLE,
             kind: "provider_connection_error",
             message,
@@ -185,6 +205,7 @@ impl ApiError {
 
     pub(crate) fn asset_management_busy() -> Self {
         Self {
+            failure: None,
             status: StatusCode::SERVICE_UNAVAILABLE,
             kind: "asset_management_busy",
             message: "Asset management is busy. Try again later.",
@@ -193,6 +214,7 @@ impl ApiError {
 
     pub(crate) fn media_result_busy() -> Self {
         Self {
+            failure: None,
             status: StatusCode::SERVICE_UNAVAILABLE,
             kind: "media_result_busy",
             message: "Result downloads are busy. Try again later.",
@@ -239,6 +261,7 @@ impl ApiError {
             ),
         };
         Self {
+            failure: None,
             status,
             kind,
             message,
@@ -246,6 +269,7 @@ impl ApiError {
     }
 
     pub(crate) fn upstream_status(status: StatusCode, regional: bool) -> Self {
+        use niu_storage::{RequestFailure, RequestFailureKind};
         Self {
             status,
             kind: "upstream_error",
@@ -260,7 +284,41 @@ impl ApiError {
                     _ => "The provider returned a non-success HTTP response",
                 }
             },
+            failure: Some(RequestFailure {
+                kind: if regional {
+                    RequestFailureKind::UpstreamRegionUnavailable
+                } else {
+                    RequestFailureKind::UpstreamHttpError
+                },
+                upstream_http_status: Some(status.as_u16()),
+            }),
         }
+    }
+
+    pub(crate) fn upstream_transport(error: &reqwest::Error) -> Self {
+        use niu_storage::RequestFailureKind;
+        let kind = if error.is_timeout() {
+            RequestFailureKind::UpstreamTimeout
+        } else if error.is_connect() {
+            RequestFailureKind::UpstreamConnectionError
+        } else {
+            RequestFailureKind::UpstreamTransportError
+        };
+        let mut result = Self::upstream();
+        result.failure = Some(niu_storage::RequestFailure {
+            kind,
+            upstream_http_status: None,
+        });
+        result
+    }
+
+    pub(crate) fn upstream_invalid_response() -> Self {
+        let mut result = Self::upstream();
+        result.failure = Some(niu_storage::RequestFailure {
+            kind: niu_storage::RequestFailureKind::UpstreamInvalidResponse,
+            upstream_http_status: None,
+        });
+        result
     }
 
     pub fn upstream() -> Self {
@@ -269,6 +327,7 @@ impl ApiError {
 
     pub fn upstream_message(message: &'static str) -> Self {
         Self {
+            failure: None,
             status: StatusCode::BAD_GATEWAY,
             kind: "upstream_error",
             message,
@@ -283,6 +342,7 @@ impl ApiError {
 
     pub fn unsupported_message(message: &'static str) -> Self {
         Self {
+            failure: None,
             status: StatusCode::NOT_IMPLEMENTED,
             kind: "unsupported_operation_error",
             message,
@@ -300,7 +360,11 @@ impl IntoResponse for ApiError {
                 "code": self.status.as_u16()
             }
         });
-        (self.status, Json(body)).into_response()
+        let mut response = (self.status, Json(body)).into_response();
+        if let Some(failure) = self.failure {
+            response.extensions_mut().insert(failure);
+        }
+        response
     }
 }
 

@@ -314,6 +314,14 @@ export type GatewayActivityEntry = {
   customer_charge_currency: string | null;
   customer_charge_nanos: string | null;
   customer_charge_status: 'charged' | 'owner_funded' | 'pending' | 'unpriced' | 'not_charged';
+  /** Absent on older servers; null means no recorded classification. */
+  failure?: RequestFailure | null;
+};
+/** Content-free gateway diagnosis; it does not establish usage or execution certainty. */
+export type RequestFailure = {
+  kind: 'upstream_http_error' | 'upstream_region_unavailable' | 'upstream_timeout'
+    | 'upstream_connection_error' | 'upstream_transport_error' | 'upstream_invalid_response';
+  upstream_http_status: number | null;
 };
 export type RequestTiming = {
   dispatch_ms: number | null; headers_ms: number | null; first_output_ms: number | null;

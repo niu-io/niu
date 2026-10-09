@@ -4011,6 +4011,11 @@ components:
         completion_tokens: { type: [string, 'null'], pattern: '^[0-9]+$' }
         cached_input_tokens: { type: [string, 'null'], pattern: '^[0-9]+$', description: Explicitly reported subset of prompt tokens. Null means unknown. }
         reasoning_output_tokens: { type: [string, 'null'], pattern: '^[0-9]+$', description: Explicitly reported subset of completion tokens. Null means unknown. }
+        failure:
+          oneOf:
+            - { type: 'null' }
+            - { $ref: './request-observability.openapi.yaml#/components/schemas/RequestFailure' }
+          description: Content-free immutable upstream diagnosis, independent of payload retention. Null means no recorded classification, not a successful request. Does not establish execution, usage or billing certainty.
         finish_reasons:
           type: [array, 'null']
           description: Explicit allowlisted terminal observations, independent of payload retention. Chat indexes identify choices. For nonstreaming Responses interruptions, index zero identifies the whole response; max_output_tokens maps to length and content_filter maps to content_filter. Completed Responses status alone supplies no stop reason. Null means unknown; finish reasons do not establish task success or customer delivery.

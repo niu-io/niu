@@ -51,6 +51,19 @@ components:
       description: Request and sanitized customer response content is retained until 24 hours after the original request creation time by default. Send false (case-insensitive) to disable capture for this request; true or an omitted header retains content. Invalid values or repeated headers are rejected before inference. Requests exceeding the 1 MB capture limit are rejected; response capture is truncated at 1 MB. Does not backfill earlier requests.
       schema: { type: string, enum: ['true', 'false'], default: 'true' }
   schemas:
+    RequestFailure:
+      type: object
+      additionalProperties: false
+      required: [kind, upstream_http_status]
+      properties:
+        kind:
+          type: string
+          enum: [upstream_http_error, upstream_region_unavailable, upstream_timeout, upstream_connection_error, upstream_transport_error, upstream_invalid_response]
+        upstream_http_status:
+          type: [integer, 'null']
+          minimum: 100
+          maximum: 599
+          description: Recorded upstream non-success status. Null for transport or invalid-response classifications. This is independent of the HTTP status delivered by Niu.
     CustomerChargeBreakdown:
       type: object
       description: Full-range customer ledger totals grouped separately by currency; missing amounts stay null. Coverage counts partition each row's requests. Supplier expenses are excluded.
