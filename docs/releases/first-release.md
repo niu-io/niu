@@ -29,6 +29,9 @@ release gate):
   [Unsupported idempotency headers](video-idempotency-rejection-2026-10-09.md)
   are explicitly rejected before video dispatch; full submission deduplication
   remains open.
+- [Live video result deletion](video-result-deletion-live-2026-10-09.md):
+  cleared references stay unavailable after real upstream refresh and restart,
+  without changing the saved job state or billing response.
 - [Safe failure records](request-failure-backend-verification-2026-10-09.md)
   and [live Chat finish reasons](chat-finish-reasons-live-2026-10-09.md): durable
   payload-independent diagnostics, including completed but invalid delivery.
