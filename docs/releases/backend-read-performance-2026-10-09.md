@@ -166,3 +166,25 @@ scopes. After the read measurement, an actual personal streaming request
 completed and its saved timing/usage record was retrieved. Temporary credentials
 were revoked. These cover the exercised native release paths, not every payment
 or video lifecycle or the full performance matrix.
+
+## Release service at 32 concurrent readers
+
+The release service including `0112d9e` was measured for 60.008 seconds with
+32 persistent-connection workers and a scoped viewer. The now-current page held
+38 actual saved requests (46,984 bytes), following additional real streaming
+work. It completed 108,649 matching responses with zero errors and zero changed
+documents: 1,810.57 requests/s, P50 11.924 ms, P95 26.862 ms, P99 36.673 ms and
+maximum 72.039 ms. The pre/post API documents matched, and independent PostgreSQL
+inspection confirmed all 38 references. The temporary viewer was revoked.
+
+On the ten-logical-core host, 60 one-second gateway `ps` samples recorded peak
+CPU 175.3% and RSS from 17,152 to 27,696 KiB. PostgreSQL and load-generator resource
+usage are excluded. The Python client also parses and canonicalizes every full
+response, so its own CPU/locking can constrain throughput. The page size differs
+from the earlier eight-client run; these numbers are not a like-for-like scaling
+ratio or evidence that the server saturated. Startup memory growth and one
+minute of observation do not establish long-duration memory stability.
+
+The measured local envelope is a small, warm, real-history page at up to 32
+readers for one minute. Larger histories, cold caches, concurrent writes,
+steady-state process memory and production-network measurements remain open.
