@@ -53,3 +53,27 @@ The run establishes scoped-session read behavior under a bounded local load.
 It does not establish long-duration stability, production capacity, wider data
 cardinalities or inference throughput. No external merchant activation was
 needed and no paid model generation or accounting mutation was requested.
+
+## Sampling and persistent-connection comparison
+
+A five-second macOS stack sample during another scoped read run showed routing
+service clone/drop work and JSON construction/serialization among active stacks.
+The sample also includes idle waits and SQLx work; recursive frame counts are
+not CPU percentages. It does not establish authentication or PostgreSQL as the
+bottleneck. The profiled run is excluded from latency comparisons because the
+profiler perturbs scheduling.
+
+A separate unprofiled run kept one HTTP connection per worker instead of opening
+one per request. With the same viewer scope, page and eight workers for 30.009
+seconds, it completed 31,011 requests (1,033.39 requests/s): P50 7.02 ms, P95
+10.04 ms, P99 18.67 ms and maximum 48.53 ms. Thirty gateway process samples
+recorded peak CPU 495.1% and RSS from 37,536 to 38,048 KiB. All response documents
+matched, SQL confirmed the same 20 references and foreign-workspace reads still
+returned 404 before and after. The temporary operator was revoked.
+
+Connection reuse increased observed throughput and reduced median/P95 in these
+runs, but P99 was higher than the earlier fresh-connection run. These sequential
+samples are not a controlled repeated causal estimate. The remaining debug-build
+CPU cost still needs profiling; no backend optimization or production capacity
+claim follows from this comparison. Future reports must state connection reuse
+explicitly rather than conflating per-connection work with steady-state reads.
