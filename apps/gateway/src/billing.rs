@@ -287,6 +287,17 @@ pub struct SettledFundingInput {
     payment_reference: String,
 }
 
+fn exact_nonnegative_integer(value: &str) -> Result<i64, ApiError> {
+    if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err(ApiError::invalid_request(
+            "Use an exact nonnegative decimal integer string.",
+        ));
+    }
+    value
+        .parse()
+        .map_err(|_| ApiError::invalid_request("Decimal integer exceeds the supported range."))
+}
+
 /// Trusted administration records an externally verified settled payment.
 /// This is not a customer payment callback or self-service funding endpoint.
 pub async fn settled_funding(
@@ -301,10 +312,7 @@ pub async fn settled_funding(
     if !auth.is_installation() {
         return Err(ApiError::forbidden());
     }
-    let amount = input
-        .amount_nanos
-        .parse::<i64>()
-        .map_err(|_| ApiError::invalid_request("Provide a positive exact funding amount."))?;
+    let amount = exact_nonnegative_integer(&input.amount_nanos)?;
     state
         .store
         .record_settled_customer_funding(
@@ -339,11 +347,7 @@ pub async fn balance_policy(
     if !auth.is_installation() {
         return Err(ApiError::forbidden());
     }
-    let parse = |v: &str| {
-        v.parse::<i64>().map_err(|_| {
-            ApiError::invalid_request("Use exact nonnegative monetary amounts and revision.")
-        })
-    };
+    let parse = exact_nonnegative_integer;
     let credit = parse(&input.credit_limit_nanos)?;
     let warning = input
         .warning_threshold_nanos
@@ -378,10 +382,7 @@ pub async fn balance_warning(
     if !auth.permits_billing_account(organization) {
         return Err(ApiError::not_found());
     }
-    let parse = |v: &str| {
-        v.parse::<i64>()
-            .map_err(|_| ApiError::invalid_request("Use exact nonnegative amounts and revision."))
-    };
+    let parse = exact_nonnegative_integer;
     let threshold = input
         .warning_threshold_nanos
         .as_deref()
@@ -415,10 +416,7 @@ pub async fn balance_reversal(
     if !auth.is_installation() {
         return Err(ApiError::forbidden());
     }
-    let amount = input
-        .amount_nanos
-        .parse::<i64>()
-        .map_err(|_| ApiError::invalid_request("Provide a positive exact reversal amount."))?;
+    let amount = exact_nonnegative_integer(&input.amount_nanos)?;
     state
         .store
         .reverse_customer_balance_entry(organization, entry, amount, input.idempotency_key)
