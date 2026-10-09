@@ -60,6 +60,7 @@ type GatewayRequest = {
   duration_ms: number | null;
   timing?: RequestTimings | null;
   execution: string;
+  failure?: {kind: string; upstream_http_status: number | null} | null;
   output_guardrail_outcome?: 'allowed' | 'redacted' | 'blocked' | 'indeterminate' | null;
   customer_charge_currency: string | null;
   customer_charge_nanos: string | null;
@@ -210,6 +211,14 @@ function requestStatus(item: GatewayRequest) {
   if (item.timing?.http_status != null && item.timing.http_status >= 400) return `Failed · HTTP ${item.timing.http_status}`;
   return item.output_guardrail_outcome === 'redacted' ? `${statusLabel(item.execution)} · Redacted` : statusLabel(item.execution);
 }
+const failureDescriptions: Record<string, string> = {
+  upstream_http_error: 'The upstream service rejected the request.',
+  upstream_region_unavailable: 'This model is unavailable in the upstream account’s region.',
+  upstream_timeout: 'The upstream service timed out before sending response headers.',
+  upstream_connection_error: 'Could not connect to the upstream service.',
+  upstream_transport_error: 'The upstream request failed during transport.',
+  upstream_invalid_response: 'The upstream service returned an invalid response.',
+};
 const filterStatusLabel = (value: string) => value === 'confirmed_completed' ? 'Provider completed' : statusLabel(value);
 
 function filterQuery(filters: ActivityFilters) {
@@ -744,7 +753,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
             endpoint={`/admin/v1/organizations/${organization}/projects/${project}/requests/${selectedRequest.attempt_id}/guardrails`}
             historyPath={`${location.pathname.match(/^\/workspaces\/[^/]+/)?.[0] ?? '/workspaces/default'}/guardrails/history`}
           />
-          <div className="gateway-request-detail"><h3 className="mb-3 text-sm font-medium">Overview</h3><dl><div><dt>Provider model</dt><dd>{selectedRequest.provider_model ?? 'Unknown'}</dd></div><div><dt>Provider status</dt><dd>{statusLabel(selectedRequest.execution)}</dd></div>{selectedRequest.request_kind !== 'video' && <div><dt>Finish reason</dt><dd>{selectedRequest.finish_reasons?.length ? selectedRequest.finish_reasons.map(choice => <span className="block" key={choice.index}>{selectedRequest.finish_reasons!.length > 1 ? `Choice ${choice.index + 1}: ` : ''}{{stop: 'Stopped', length: 'Token limit reached', tool_calls: 'Tool calls', content_filter: 'Content filter', function_call: 'Function call'}[choice.reason] ?? 'Unknown'}</span>) : 'Not reported'}</dd></div>}{selectedRequest.timing?.http_status != null && <div><dt>Delivery status</dt><dd>HTTP {selectedRequest.timing.http_status}</dd></div>}<div><dt>Time</dt><dd>{timestamp(selectedRequest.created_at)}</dd></div><div><dt>API key</dt><dd>{selectedRequest.key_name ?? 'Unknown'}</dd></div></dl></div>
+          <div className="gateway-request-detail"><h3 className="mb-3 text-sm font-medium">Overview</h3><dl>{selectedRequest.failure && <div><dt>Failure reason</dt><dd>{failureDescriptions[selectedRequest.failure.kind] ?? 'Not reported'}{Number.isInteger(selectedRequest.failure.upstream_http_status) && selectedRequest.failure.upstream_http_status! >= 100 && selectedRequest.failure.upstream_http_status! <= 599 && <span className="block">Upstream HTTP {selectedRequest.failure.upstream_http_status}</span>}</dd></div>}<div><dt>Provider model</dt><dd>{selectedRequest.provider_model ?? 'Unknown'}</dd></div><div><dt>Provider status</dt><dd>{statusLabel(selectedRequest.execution)}</dd></div>{selectedRequest.request_kind !== 'video' && <div><dt>Finish reason</dt><dd>{selectedRequest.finish_reasons?.length ? selectedRequest.finish_reasons.map(choice => <span className="block" key={choice.index}>{selectedRequest.finish_reasons!.length > 1 ? `Choice ${choice.index + 1}: ` : ''}{{stop: 'Stopped', length: 'Token limit reached', tool_calls: 'Tool calls', content_filter: 'Content filter', function_call: 'Function call'}[choice.reason] ?? 'Unknown'}</span>) : 'Not reported'}</dd></div>}{selectedRequest.timing?.http_status != null && <div><dt>Delivery status</dt><dd>HTTP {selectedRequest.timing.http_status}</dd></div>}<div><dt>Time</dt><dd>{timestamp(selectedRequest.created_at)}</dd></div><div><dt>API key</dt><dd>{selectedRequest.key_name ?? 'Unknown'}</dd></div></dl></div>
 
           {payloadLoading || payloadOwner !== payloadIdentity ? <p role="status">Loading request content…</p> : payloadError ? <div className="grid justify-items-start gap-3"><p role="alert">{payloadError}</p><Button variant="outline" size="sm" onClick={() => setPayloadRevision(value => value + 1)}>Retry request content</Button></div> : payload ? <div className="space-y-4">
             <RequestContent key={selectedRequest.attempt_id} payload={payload} />

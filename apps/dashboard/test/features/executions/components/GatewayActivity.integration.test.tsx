@@ -46,6 +46,23 @@ const summary = {
 function RouteHash() { return <output aria-label="Selected request URL">{useLocation().hash}</output>; }
 function RouteQuery() { return <output aria-label="Route query">{useLocation().search}</output>; }
 
+it('explains durable failure classifications when request payloads are unavailable', async () => {
+  vi.stubGlobal('fetch',vi.fn<typeof fetch>(async input => {
+    const path=String(input);
+    if(path.endsWith('/keys')) return Response.json({data:[]});
+    if(path.includes('/payload')) return Response.json({data:null});
+    if(path.endsWith('/guardrails')) return Response.json({data:null});
+    return Response.json({data:[{...makeRequest('rejected',null,'fast'),execution:'may_have_executed',failure:{kind:'upstream_region_unavailable',upstream_http_status:403},timing:{http_status:502,total_ms:1200,complete:true}}],next_cursor:null,summary});
+  }));
+  render(<MemoryRouter><GatewayActivity token="test" models={['fast']} initialScope={{organizationId:'org-1',projectId:'project-1'}}/></MemoryRouter>);
+  await userEvent.setup().click(await screen.findByRole('button',{name:'fast',exact:true}));
+  const dialog=await screen.findByRole('dialog',{name:'Request details'});
+  expect(within(dialog).getByText('This model is unavailable in the upstream account’s region.')).toBeTruthy();
+  expect(within(dialog).getByText('Upstream HTTP 403')).toBeTruthy();
+  expect(within(dialog).getByText('Uncertain')).toBeTruthy();
+  expect(await within(dialog).findByText('Request and response bodies were not retained or have expired.')).toBeTruthy();
+});
+
 it('requests a short overview preview while preserving totals and access to the full logs', async () => {
   const fetcher = vi.fn<typeof fetch>(async input => {
     const query = new URL(String(input), 'http://localhost').searchParams;
