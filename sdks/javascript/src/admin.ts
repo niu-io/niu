@@ -510,10 +510,26 @@ export interface AssetManagementConfigurationInput {
   secret_key: string;
 }
 
+export type PaymentIntegration = {
+  id: 'epay' | 'stripe' | 'zhifux';
+  name: string;
+  configuration: 'administration_api' | 'server_environment' | 'server_file';
+  checkout: boolean;
+  signed_notifications: boolean;
+  query_recovery: 'unsupported' | 'bound_session' | 'saved_order';
+  /** Whether this adapter can initiate refunds. */
+  refunds: boolean;
+};
+
 export class NiuAdminClient {
   private readonly token: string;
   private readonly base: string;
   private readonly requestFetch: typeof globalThis.fetch;
+
+  /** Installation-only supported adapters; does not imply merchant activation. */
+  listPaymentIntegrations(options?: RequestOptions): Promise<{ data: PaymentIntegration[] }> {
+    return this.request('/platform/payments/integrations', undefined, options);
+  }
 
   /** Platform administrator read. Public display settings also exist at GET /v1/branding. */
   getBranding(options?: RequestOptions): Promise<BrandingConfiguration> {

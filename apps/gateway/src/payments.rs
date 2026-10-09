@@ -23,6 +23,30 @@ use std::{
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
+/// Product support inventory, independent of merchant activation or live qualification.
+pub(crate) async fn integrations(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    let authorization = state
+        .authorize_admin_headers(&headers, AdminPermission::Read)
+        .await?;
+    if !authorization.is_installation() {
+        return Err(ApiError::forbidden());
+    }
+    Ok(Json(json!({"data": [
+        {"id":"epay", "name":"EPay-compatible gateway", "configuration":"administration_api",
+         "checkout":true, "signed_notifications":true, "query_recovery":"unsupported",
+         "refunds":false},
+        {"id":"stripe", "name":"Stripe", "configuration":"server_environment",
+         "checkout":true, "signed_notifications":true, "query_recovery":"bound_session",
+         "refunds":false},
+        {"id":"zhifux", "name":"PaymentFM native API", "configuration":"server_file",
+         "checkout":true, "signed_notifications":true, "query_recovery":"saved_order",
+         "refunds":false}
+    ]})))
+}
+
 // Not Debug or Serialize: this file contains merchant credentials.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]

@@ -560,3 +560,5 @@ export { NiuAuthClient } from './auth.js';
 export type { NiuAuthOptions, MemberSignIn, MemberSession } from './auth.js';
 
 export type { BrandingSettings, BrandingColorToken, BrandingConfiguration } from './admin.js';
+
+export type { PaymentIntegration } from './admin.js';

@@ -386,3 +386,23 @@ Stripe bound-session recovery: the existing installation-only reconciliation end
 Bound-session gateway recovery verification: an isolated PostgreSQL test passed through Niu’s reconciliation route and a local authenticated merchant HTTP fixture. Paid state creates one funding entry; pending state persists its hosted URL without funding; expired/unpaid state closes the order without funding. The fixture implements only retrieval, so no creation request can succeed. Payment Clippy and public-boundary checks passed. Loopback injection is restricted to the explicit `test-fixtures` crate feature enabled by gateway dev-dependencies; normal distribution must omit that feature and retains the fixed Stripe API origin. This does not prove live merchant behavior, process-restart recovery or unknown-session reconciliation.
 
 Creation/lifecycle integration verification: the gateway/PostgreSQL fixture now exercises customer top-up POST → local merchant creation → durable checkout → repeated POST → authenticated lifecycle reconciliation. Three saved orders produce three creation requests despite six initiation calls. Checkout alone grants no funds; paid/pending/expired reconciliation retains the existing verified behavior. This is a local controlled fixture, not live merchant acceptance, actual restart or uncertain-response recovery.
+
+## Administration support inventory API
+
+`GET /admin/v1/platform/payments/integrations` returns the three supported adapter
+identifiers, display names, configuration mechanisms and capability boundaries.
+Use `admin.listPaymentIntegrations()` in the JavaScript SDK. This is installation
+administrator only; company owners and viewers cannot inspect platform payment
+administration. It does not read merchant secrets or require upstream access.
+
+`query_recovery` is `unsupported` for EPay, `bound_session` for Stripe and
+`saved_order` for native Zhifux. `refunds` means initiating refunds, which is not
+implemented by these adapters. The inventory is not the customer checkout menu:
+continue to use company `payment-methods` for enabled methods. No inventory flag
+claims merchant activation or a successful real transaction.
+
+Current-input verification used the built SDK against the restarted gateway:
+installation access returned exactly the documented fields and three adapters;
+company owner/viewer access returned 403 and an invalid credential returned 401.
+The company balance was unchanged before/after and temporary operators were
+revoked. This verifies inventory serialization and authorization, not settlement.
