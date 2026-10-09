@@ -19,6 +19,12 @@ removes the limit. An absent policy is unrestricted. Stale writes return 409.
 Every successful configuration change appends immutable actor history. History is
 descending, with `before_revision` and `limit` (1–100, default 50).
 
+GET also returns `active_requests`, a consistent database snapshot of unresolved
+dispatches across the lineage. It is available for unconfigured and revoked keys
+through authorized management access. It can change immediately after the read;
+admission always rechecks inside its own transaction. Policy history does not
+include this live count.
+
 The SDK exposes `getKeyConcurrencyLimit`, `setKeyConcurrencyLimit` and
 `listKeyConcurrencyLimitHistory`.
 
@@ -75,3 +81,9 @@ start an upstream video generation.
 Successful video's full occupancy/recovery lifecycle, paid accounting, mixed-key
 unpriced batch fallback, authorization mutation races and sustained performance
 remain unverified by these runs. No fixture-test outcome supports these claims.
+
+The live occupancy read was checked after another gateway restart against the
+actual disconnected request above: original and replacement keys both returned
+`active_requests: 1`, matching an independent SQL count. A newly issued,
+unconfigured key returned zero. History responses omitted the live count. The
+new temporary key was revoked; no additional upstream generation was submitted.

@@ -1,5 +1,5 @@
-export type KeyConcurrencyLimit = { max_concurrent_requests: number | null; revision: string | null };
-export type KeyConcurrencyLimitRevision = KeyConcurrencyLimit & { revision: string; recorded_at: string; actor_kind: 'installation' | 'member'; actor_name: string };
+export type KeyConcurrencyLimit = { active_requests: number; max_concurrent_requests: number | null; revision: string | null };
+export type KeyConcurrencyLimitRevision = Omit<KeyConcurrencyLimit, 'active_requests'> & { revision: string; recorded_at: string; actor_kind: 'installation' | 'member'; actor_name: string };
 export type KeyRequestRateLimit = { requests_per_minute: number | null; revision: string | null };
 export type KeyRequestRateLimitRevision = KeyRequestRateLimit & { revision: string; recorded_at: string; actor_kind: 'installation' | 'member'; actor_name: string };
 import { NiuAPIError, type RequestOptions, type VideoModelList, type VideoResultAvailability, type VideoCreateRequest, type VideoCreateOptions, type VideoEstimate, type VideoJobHistory, type VideoJobHistoryQuery, type VideoJobState, type VideoJobBilling, type VideoTransportTimings } from './index.js';

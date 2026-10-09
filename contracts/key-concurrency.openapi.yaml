@@ -116,8 +116,9 @@ components:
       description: Maximum unresolved dispatched requests; null is unlimited and zero denies dispatch.
     Policy:
       type: object
-      required: [max_concurrent_requests, revision]
+      required: [max_concurrent_requests, revision, active_requests]
       properties:
         max_concurrent_requests:
           $ref: '#/components/schemas/ConcurrencyLimit'
         revision: { type: [string, 'null'], pattern: '^[1-9][0-9]*$' }
+        active_requests: { type: integer, minimum: 0, description: Current unresolved dispatch count shared across rotations; includes work admitted before configuration. }

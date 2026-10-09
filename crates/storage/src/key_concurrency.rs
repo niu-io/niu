@@ -8,7 +8,7 @@ impl Store {
         scope: TenantScope,
         key: Uuid,
     ) -> Result<Option<Value>, StoreError> {
-        Ok(sqlx::query_scalar("SELECT jsonb_build_object('max_concurrent_requests',p.max_concurrent_requests,'revision',p.revision::text) FROM api_keys k LEFT JOIN key_concurrency_limits p ON p.spending_root_id=k.spending_root_id WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3")
+        Ok(sqlx::query_scalar("SELECT jsonb_build_object('max_concurrent_requests',p.max_concurrent_requests,'revision',p.revision::text,'active_requests',(SELECT count(*) FROM attempts a JOIN api_keys lineage ON lineage.id=a.api_key_id WHERE lineage.spending_root_id=k.spending_root_id AND a.dispatched_at IS NOT NULL AND a.execution='may_have_executed')) FROM api_keys k LEFT JOIN key_concurrency_limits p ON p.spending_root_id=k.spending_root_id WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3")
             .bind(scope.organization_id).bind(scope.project_id).bind(key).fetch_optional(&self.pool).await?)
     }
     pub async fn key_concurrency_history(
