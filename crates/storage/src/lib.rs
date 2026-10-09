@@ -96,6 +96,7 @@ mod key_concurrency;
 mod key_ip;
 mod key_request_rate;
 mod key_spending;
+mod key_token_rate;
 mod topups;
 mod workspace_spending;
 pub use topups::{TopupInput, TopupOrder};
@@ -192,6 +193,7 @@ pub struct Attempt {
 /// enqueueing so they remain available for response headers after admission.
 #[derive(Clone)]
 pub struct GatewayAdmission {
+    pub token_bound: Option<i64>,
     pub inspected_guardrails: Option<GuardrailSnapshot>,
     pub operation_id: Uuid,
     pub attempt_id: Uuid,
@@ -257,6 +259,10 @@ pub enum StoreError {
     KeyRequestRateExceeded,
     #[error("API key concurrent request limit reached")]
     KeyConcurrencyExceeded,
+    #[error("API key token rate exhausted")]
+    KeyTokenRateExceeded,
+    #[error("Token admission requires bounded supported input and resolved prior usage")]
+    KeyTokenBoundRequired,
     #[error("usage or execution remains unresolved")]
     Unresolved,
     #[error("invalid account or quota observation")]
@@ -569,6 +575,11 @@ impl Store {
         let mut api_bases = Vec::with_capacity(admission_count);
         let mut tx = self.pool.begin().await?;
         for admission in admissions {
+            if let Some(bound) = admission.token_bound {
+                sqlx::query("INSERT INTO key_attempt_token_bounds(attempt_id,token_bound,estimator) VALUES($1,$2,'serialized-utf8-plus-output-v1')")
+                    .bind(admission.attempt_id).bind(bound).execute(&mut *tx).await?;
+            }
+
             if let Some(snapshot) = &admission.inspected_guardrails {
                 Self::insert_inspected_guardrails(
                     &mut *tx,
@@ -645,6 +656,8 @@ impl Store {
                 return Err(match code.as_deref() {
                     Some("P0020") => StoreError::KeyRequestRateExceeded,
                     Some("P0021") => StoreError::KeyConcurrencyExceeded,
+                    Some("P0022") => StoreError::KeyTokenRateExceeded,
+                    Some("P0023") => StoreError::KeyTokenBoundRequired,
                     Some("P0007") => StoreError::AccountUnavailable,
                     Some("P0006") => StoreError::Conflict,
                     _ => StoreError::Database(error),

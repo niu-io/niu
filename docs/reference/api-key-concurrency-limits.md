@@ -56,7 +56,7 @@ Background recovery can select an active, model-authorized replacement in the
 original rotation lineage; it does not borrow an unrelated workspace key. The
 selected key must still pass current model and guardrail checks. Revocation with
 no eligible replacement does not fabricate task completion or release occupancy.
-TPM is a separate unimplemented control.
+TPM uses a separate [estimated token budget](api-key-token-rate-limits.md).
 
 Rate/concurrency rejection of an unpriced admission batch rolls back that batch
 before any provider call. Individual admission fallback isolates limited keys;

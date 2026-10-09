@@ -330,6 +330,59 @@ pub(super) struct AttemptRequest<'a> {
     pub protocol: crate::guardrails::input::Protocol,
 }
 
+fn request_token_bound(body: &Value, protocol: &crate::guardrails::input::Protocol) -> Option<i64> {
+    use crate::guardrails::input::Protocol;
+    let output = match protocol {
+        Protocol::VideoText => return None,
+        Protocol::Chat => {
+            if body.get("n").is_some_and(|n| n.as_u64() != Some(1))
+                || [
+                    "tools",
+                    "functions",
+                    "function_call",
+                    "tool_choice",
+                    "modalities",
+                    "audio",
+                ]
+                .iter()
+                .any(|field| body.get(*field).is_some())
+                || body
+                    .get("messages")?
+                    .as_array()?
+                    .iter()
+                    .any(|m| !m.get("content").is_some_and(Value::is_string))
+                || (body.get("max_tokens").is_some() && body.get("max_completion_tokens").is_some())
+            {
+                return None;
+            }
+            body.get("max_completion_tokens")
+                .or_else(|| body.get("max_tokens"))?
+                .as_i64()?
+        }
+        Protocol::Responses => {
+            body.get("input")?.as_str()?;
+            body.get("max_output_tokens")?.as_i64()?
+        }
+        Protocol::Embeddings => {
+            let input = body.get("input")?;
+            if !input.is_string()
+                && !input
+                    .as_array()
+                    .is_some_and(|items| !items.is_empty() && items.iter().all(Value::is_string))
+            {
+                return None;
+            }
+            0
+        }
+    };
+    if !(0..=1_000_000).contains(&output) {
+        return None;
+    }
+    i64::try_from(serde_json::to_vec(body).ok()?.len())
+        .ok()?
+        .checked_add(output)
+}
+
 pub(super) async fn begin_attempt(
     state: &AppState,
     principal: &niu_storage::Principal,
@@ -345,6 +398,7 @@ pub(super) async fn begin_attempt(
         request_body,
         protocol,
     } = request;
+    let token_bound = request_token_bound(request_body, &protocol);
     let scope = principal.scope();
     if personal_route.is_none()
         && model.pricing.is_none()
@@ -399,6 +453,11 @@ pub(super) async fn begin_attempt(
             .map_err(ApiError::from_store)?;
         state
             .store
+            .bind_key_token_bound(scope, attempt, token_bound)
+            .await
+            .map_err(ApiError::from_store)?;
+        state
+            .store
             .bind_personal_attempt_route(scope, attempt, route)
             .await
             .map_err(ApiError::from_store)?;
@@ -422,6 +481,11 @@ pub(super) async fn begin_attempt(
         let (operation, attempt) = state
             .store
             .prepare_gateway_attempt(scope, public_model, task_id, &revision)
+            .await
+            .map_err(ApiError::from_store)?;
+        state
+            .store
+            .bind_key_token_bound(scope, attempt, token_bound)
             .await
             .map_err(ApiError::from_store)?;
         state
@@ -457,6 +521,7 @@ pub(super) async fn begin_attempt(
             .admit_unpriced(
                 principal,
                 crate::admission::UnpricedAdmissionRequest {
+                    token_bound,
                     inspected_guardrails: snapshot,
                     scope,
                     model: public_model,
@@ -469,6 +534,12 @@ pub(super) async fn begin_attempt(
             )
             .await
             .map_err(|error| match error {
+                crate::admission::AdmissionError::TokenRateExceeded => {
+                    ApiError::from_store(niu_storage::StoreError::KeyTokenRateExceeded)
+                }
+                crate::admission::AdmissionError::TokenBoundRequired => {
+                    ApiError::from_store(niu_storage::StoreError::KeyTokenBoundRequired)
+                }
                 crate::admission::AdmissionError::ConcurrencyExceeded => {
                     ApiError::from_store(niu_storage::StoreError::KeyConcurrencyExceeded)
                 }

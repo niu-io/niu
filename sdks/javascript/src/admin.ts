@@ -1,3 +1,5 @@
+export type KeyTokenRateLimit = { tokens_per_minute: number | null; revision: string | null };
+export type KeyTokenRateLimitRevision = KeyTokenRateLimit & { revision: string; recorded_at: string; actor_kind: 'installation' | 'member'; actor_name: string };
 export type KeyTokenUsageWindow = { window_seconds: 60; window_end: string; requests: number; known_usage_requests: number; unknown_usage_requests: number; known_prompt_tokens: string; known_completion_tokens: string };
 export type KeyConcurrencyLimit = { active_requests: number; max_concurrent_requests: number | null; revision: string | null };
 export type KeyConcurrencyLimitRevision = Omit<KeyConcurrencyLimit, 'active_requests'> & { revision: string; recorded_at: string; actor_kind: 'installation' | 'member'; actor_name: string };
@@ -907,6 +909,31 @@ export class NiuAdminClient {
       params.set('limit', String(query.limit));
     }
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/request-rate-limit/history${params.size ? `?${params}` : ''}`, undefined, options);
+  }
+
+
+  getKeyTokenRateLimit(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: KeyTokenRateLimit }> {
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/token-rate-limit`, undefined, options);
+  }
+
+  /** Null removes the rate limit; zero denies dispatch. Secret rotation preserves the policy. */
+  setKeyTokenRateLimit(scope: TenantScope, keyId: string, input: { tokens_per_minute: number | null; expected_revision: string }, options?: RequestOptions): Promise<{ data: { revision: string } }> {
+    if (input.tokens_per_minute !== null && (!Number.isInteger(input.tokens_per_minute) || input.tokens_per_minute < 0 || input.tokens_per_minute > 1_000_000_000_000)) throw new TypeError('Use an integer token budget from 0 to 1000000000000, or explicit null');
+    if (typeof input.expected_revision !== 'string' || !/^\d+$/.test(input.expected_revision) || BigInt(input.expected_revision) > 9223372036854775806n) throw new TypeError('Use an exact nonnegative revision');
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/token-rate-limit`, { tokens_per_minute: input.tokens_per_minute, expected_revision: input.expected_revision }, options, 'PUT');
+  }
+
+  listKeyTokenRateLimitHistory(scope: TenantScope, keyId: string, query: { beforeRevision?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: KeyTokenRateLimitRevision[] }> {
+    const params = new URLSearchParams();
+    if (query.beforeRevision !== undefined) {
+      if (!/^\d+$/.test(query.beforeRevision) || BigInt(query.beforeRevision) < 1n || BigInt(query.beforeRevision) > 9223372036854775807n) throw new TypeError('Invalid history revision');
+      params.set('before_revision', query.beforeRevision);
+    }
+    if (query.limit !== undefined) {
+      if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Invalid history page size');
+      params.set('limit', String(query.limit));
+    }
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/token-rate-limit/history${params.size ? `?${params}` : ''}`, undefined, options);
   }
 
 

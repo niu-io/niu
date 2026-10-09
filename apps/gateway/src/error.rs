@@ -27,6 +27,18 @@ impl ApiError {
                 kind: "budget_exceeded",
                 message: "Insufficient available funds for this request",
             },
+            niu_storage::StoreError::KeyTokenRateExceeded => Self {
+                failure: None,
+                status: StatusCode::TOO_MANY_REQUESTS,
+                kind: "key_token_rate_exceeded",
+                message: "This API key's token budget is exhausted; wait for known usage to expire or resolve unknown usage",
+            },
+            niu_storage::StoreError::KeyTokenBoundRequired => Self {
+                failure: None,
+                status: StatusCode::UNPROCESSABLE_ENTITY,
+                kind: "key_token_bound_required",
+                message: "Token admission requires supported text input with an explicit output limit and bounded prior usage",
+            },
             niu_storage::StoreError::KeyConcurrencyExceeded => Self {
                 failure: None,
                 status: StatusCode::TOO_MANY_REQUESTS,

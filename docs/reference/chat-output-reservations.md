@@ -44,6 +44,7 @@ supported-message validation and before attempt preparation or dispatch.
 The legacy configuration field remains named `max_input_tokens`; this input-size
 guard is not an exact provider tokenizer. It does not establish a universal bound
 on hidden prompt framing or provider-reported usage. Reported overruns must still
-be recorded and settled, and TPM remains unimplemented. Compilation and linting
+be recorded and settled. The separate [token budget](api-key-token-rate-limits.md)
+uses an explicit estimate, not an exact tokenizer. Compilation and linting
 have been checked; actual paid-path acceptance/rejection and financial effects of
 this new guard remain unverified. Personal routes do not enter this priced guard.

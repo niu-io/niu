@@ -18,7 +18,7 @@ links existing evidence and the pinned New API reference.
 | Cap during rotation | Implemented; actual shared-policy/history verified | Specify whether the replacement shares the original budget identity; rotating a secret must not silently reset or bypass its spending allowance |
 | IP allowlist | Implemented; actual direct/proxy, rotation and saved-video access verified | Validate addresses/CIDRs; use a defined trusted-proxy policy; reject disallowed origins before upstream dispatch |
 | Key request rate limit (RPM) | Implemented; actual two-instance admission and video rejection verified | Rolling 60-second dispatch count shared across rotations and gateways; reject before upstream calls |
-| Key token rate limit (TPM) | Not implemented | Define token reservation, unknown usage and window semantics; never treat RPM as token enforcement |
+| Key token rate budget (TPM) | Estimated text admission implemented; actual dual-instance Chat verified | Reserve estimated input/output before dispatch; count actual known usage and retain unknown reservations; qualify estimator and unsupported modalities explicitly |
 | Key concurrent-request limit | Implemented; actual two-instance admission, completion, disconnect, rotation and restart verified | Enforce across supported sync/stream/async lifecycles; release reliably on cancellation, error and recovery |
 | Key usage attribution | Implemented; partial actual evidence | Calls, provider usage and customer charges agree across key/detail/export views; unknown usage remains unknown |
 
@@ -55,3 +55,5 @@ See [key IP policies](../reference/api-key-ip-policies.md) for source-address tr
 See [key request rate limits](../reference/api-key-request-rate-limits.md) for dispatch-count semantics and remaining verification.
 
 See [key concurrency limits](../reference/api-key-concurrency-limits.md) for unresolved-work occupancy and remaining verification.
+
+See [key token rate budgets](../reference/api-key-token-rate-limits.md) for estimation limits, window semantics and verification gaps.

@@ -78,7 +78,8 @@ one accepted update and seven revision conflicts. HTTP reads and an independent
 database query agreed on the winning limit, revision one and one history row.
 
 Paid settlement, mixed-key unpriced batch fallback, streaming disconnects and
-performance under sustained configured limits are not yet verified by these runs. TPM and concurrent-request limits remain unimplemented.
+performance under sustained configured limits are not yet verified by these runs. TPM and concurrent-request controls are documented separately in
+[token budgets](api-key-token-rate-limits.md) and [concurrency limits](api-key-concurrency-limits.md).
 Fixture outcomes are not evidence for any of these claims.
 
 ## Scoped management verification (2026-10-10)

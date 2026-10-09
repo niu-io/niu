@@ -572,3 +572,5 @@ export type { KeyRequestRateLimit, KeyRequestRateLimitRevision } from './admin.j
 export type { KeyConcurrencyLimit, KeyConcurrencyLimitRevision } from './admin.js';
 
 export type { KeyTokenUsageWindow } from './admin.js';
+
+export type { KeyTokenRateLimit, KeyTokenRateLimitRevision } from './admin.js';

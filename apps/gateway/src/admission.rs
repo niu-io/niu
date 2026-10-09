@@ -57,6 +57,7 @@ struct PendingAdmission {
 }
 
 pub(crate) struct UnpricedAdmissionRequest<'a> {
+    pub token_bound: Option<i64>,
     pub inspected_guardrails: niu_storage::GuardrailSnapshot,
     pub(crate) scope: TenantScope,
     pub(crate) model: &'a str,
@@ -71,6 +72,8 @@ pub(crate) struct UnpricedAdmissionRequest<'a> {
 pub(crate) enum AdmissionError {
     RequestRateExceeded,
     ConcurrencyExceeded,
+    TokenRateExceeded,
+    TokenBoundRequired,
     Unauthorized,
     Conflict,
     AccountUnavailable,
@@ -104,6 +107,7 @@ impl GatewayWrites {
         let operation_id = Uuid::new_v4();
         let attempt_id = Uuid::new_v4();
         let record = GatewayAdmission {
+            token_bound: request.token_bound,
             inspected_guardrails: Some(request.inspected_guardrails),
             operation_id,
             attempt_id,
@@ -447,7 +451,9 @@ async fn persist_admission_batch(store: &Store, batch: Vec<PendingAdmission>) {
         }
         Err(
             niu_storage::StoreError::KeyRequestRateExceeded
-            | niu_storage::StoreError::KeyConcurrencyExceeded,
+            | niu_storage::StoreError::KeyConcurrencyExceeded
+            | niu_storage::StoreError::KeyTokenRateExceeded
+            | niu_storage::StoreError::KeyTokenBoundRequired,
         ) => {
             // A limit rejection proves the whole transaction rolled back before dispatch.
             // Isolate limited keys without replaying ambiguous database failures.
@@ -456,6 +462,12 @@ async fn persist_admission_batch(store: &Store, batch: Vec<PendingAdmission>) {
                     Ok(mut statuses) if statuses.len() == 1 => Ok(statuses.remove(0)),
                     Err(niu_storage::StoreError::KeyRequestRateExceeded) => {
                         Err(AdmissionError::RequestRateExceeded)
+                    }
+                    Err(niu_storage::StoreError::KeyTokenRateExceeded) => {
+                        Err(AdmissionError::TokenRateExceeded)
+                    }
+                    Err(niu_storage::StoreError::KeyTokenBoundRequired) => {
+                        Err(AdmissionError::TokenBoundRequired)
                     }
                     Err(niu_storage::StoreError::KeyConcurrencyExceeded) => {
                         Err(AdmissionError::ConcurrencyExceeded)
