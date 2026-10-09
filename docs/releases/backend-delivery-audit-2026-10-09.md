@@ -57,7 +57,9 @@ round trips or by a green fixture workflow:
    External merchant activation is not an internal readiness gate. Personal
    upstream-funded requests cannot establish customer debit or commercial supply.
 2. Qualify mixed-key batch admission and mixed-protocol concurrent workloads under
-   the new key limits. TPM uses an explicit byte/output estimate, retains unknown
+   the new key limits. [Distinct-key personal-route isolation](key-limit-isolation-live-2026-10-10.md)
+   is verified for RPM, concurrency and TPM, but does not exercise the batch writer.
+   TPM uses an explicit byte/output estimate, retains unknown
    reservations, and records known overrun debt; it is not an exact tokenizer.
 3. Review routing/failover behavior against the pinned reference. A retry that can
    duplicate uncertain paid execution does not qualify as an improvement. Keep

@@ -21,10 +21,14 @@ links existing evidence and the pinned New API reference.
 | Key token rate budget (TPM) | Estimated text admission implemented; dual-instance Chat and individual Responses/embeddings calls verified | Reserve estimated input/output before dispatch; count actual known usage and retain unknown reservations; qualify estimator and unsupported modalities explicitly |
 | Key concurrent-request limit | Implemented; actual two-instance admission, completion, disconnect, rotation and restart verified | Enforce across supported sync/stream/async lifecycles; release reliably on cancellation, error and recovery |
 | Key usage attribution | Implemented; partial actual evidence | Calls, provider usage and customer charges agree across key/detail/export views; unknown usage remains unknown |
+| Independent-key limit isolation | Actual personal-route RPM/concurrency/TPM isolation verified; batch and paid paths open | Exhausting one key must not reject another eligible key; shared workspace/company constraints still apply |
 
 Supplier-account concurrency limits, login throttles and the global video-download
 semaphore are different controls. They do not satisfy per-key inference limits.
 Workspace spending limits do not satisfy per-key spending limits.
+
+See [actual concurrent distinct-key verification](../releases/key-limit-isolation-live-2026-10-10.md)
+for the independently checked dispatch and usage records and its path limitations.
 
 ## Financial hierarchy
 
