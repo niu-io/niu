@@ -326,6 +326,7 @@ paths:
         '403': { description: Installation administrator required }
         '404': { description: Saved order missing }
         '409': { description: Conflicting immutable identity or terminal evidence }
+        '501': { description: Saved adapter does not support query recovery; EPay remains notification-driven }
         '502': { description: Integration unavailable, pending payment, unresolved evidence or query admission busy/rate limited }
         '503': { description: Durable storage unavailable }
   /payments/epay/notify:

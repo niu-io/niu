@@ -732,8 +732,19 @@ pub(crate) async fn reconcile(
         .await
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::not_found)?;
-    if saved.aggregator == "stripe" {
-        return reconcile_stripe(&state, &saved).await;
+    match saved.aggregator.as_str() {
+        "stripe" => return reconcile_stripe(&state, &saved).await,
+        "zhifux" => {}
+        "epay" => {
+            return Err(ApiError::unsupported_message(
+                "EPay order query recovery is not supported; signed notifications remain available",
+            ));
+        }
+        _ => {
+            return Err(ApiError::unsupported_message(
+                "Order query recovery is not supported for this payment integration",
+            ));
+        }
     }
     let runtime = state
         .payments

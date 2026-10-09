@@ -406,3 +406,18 @@ installation access returned exactly the documented fields and three adapters;
 company owner/viewer access returned 403 and an invalid credential returned 401.
 The company balance was unchanged before/after and temporary operators were
 revoked. This verifies inventory serialization and authorization, not settlement.
+
+### Unsupported reconciliation routing
+
+The installation reconciliation endpoint dispatches only native Zhifux orders to
+its native runtime and Stripe orders to bound-session recovery. Saved EPay orders
+return HTTP 501 with `unsupported_operation_error` before native runtime access;
+other unsupported adapter identifiers also return 501. Authentication and saved
+order lookup precede this decision. EPay signed notifications remain the available
+settlement mechanism. This aligns the endpoint with the support inventory rather
+than reporting a missing native merchant configuration as an EPay upstream fault.
+
+The implementation and contract were inspected and compiled. The current local
+database has no saved top-up orders, so the new EPay order branch has not been
+verified by a current-input end-to-end run. No fake paid order or fixture outcome
+is used to claim that verification.
