@@ -26,7 +26,7 @@ paths:
                     $ref: '#/components/schemas/Policy'
         '401': { description: Authentication required }
         '403': { description: Workspace access denied }
-        '404': { description: Key absent from authorized workspace }
+        '404': { description: Workspace is outside operator scope, or key is absent from authorized workspace }
     put:
       operationId: setKeyRequestRateLimit
       description: Owner or installation administrator only. Rotation preserves this policy. Does not cancel already admitted requests.
@@ -62,7 +62,7 @@ paths:
         '400': { description: Invalid limit or revision }
         '401': { description: Authentication required }
         '403': { description: Owner permission required }
-        '404': { description: Key absent from authorized workspace }
+        '404': { description: Workspace is outside operator scope, or key is absent from authorized workspace }
         '409': { description: Stale policy revision }
         '422': { description: Missing or invalid JSON fields }
   /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/request-rate-limit/history:
@@ -100,7 +100,7 @@ paths:
         '400': { description: Invalid pagination }
         '401': { description: Authentication required }
         '403': { description: Workspace access denied }
-        '404': { description: Key absent from authorized workspace }
+        '404': { description: Workspace is outside operator scope, or key is absent from authorized workspace }
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer }

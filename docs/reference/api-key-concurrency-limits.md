@@ -87,3 +87,18 @@ actual disconnected request above: original and replacement keys both returned
 `active_requests: 1`, matching an independent SQL count. A newly issued,
 unconfigured key returned zero. History responses omitted the live count. The
 new temporary key was revoked; no additional upstream generation was submitted.
+
+## Scoped management verification (2026-10-10)
+
+Actual owner, viewer and foreign-workspace operator credentials exercised this
+policy endpoint and its history. Viewer writes returned 403; owner configuration
+succeeded; repeating the old revision returned 409. The viewer could read the
+configured policy and history. Foreign-workspace operator reads and writes
+returned 404, including history, preserving resource-existence isolation. Even
+installation access returned 404 when a real key was addressed under the wrong
+workspace. Invalid history page size returned 400.
+
+Independent SQL inspection confirmed one successful member-attributed history row
+for this verification key, matching its HTTP history. Responses contained the
+actor name and kind without an internal operator identifier. Temporary keys and
+operators were revoked. This does not verify permission revocation racing a write.

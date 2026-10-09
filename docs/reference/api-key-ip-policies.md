@@ -73,3 +73,18 @@ These runs do not qualify an actual deployed reverse proxy, IPv6 networking,
 concurrent policy-update races, or cancellation of in-flight inference. They do
 not establish paid billing behavior or rate/concurrency limits. No fixture-test
 outcome is used as evidence.
+
+## Scoped management verification (2026-10-10)
+
+Actual owner, viewer and foreign-workspace operator credentials exercised this
+policy endpoint and its history. Viewer writes returned 403; owner configuration
+succeeded; repeating the old revision returned 409. The viewer could read the
+configured policy and history. Foreign-workspace operator reads and writes
+returned 404, including history, preserving resource-existence isolation. Even
+installation access returned 404 when a real key was addressed under the wrong
+workspace. Invalid history page size returned 400.
+
+Independent SQL inspection confirmed one successful member-attributed history row
+for this verification key, matching its HTTP history. Responses contained the
+actor name and kind without an internal operator identifier. Temporary keys and
+operators were revoked. This does not verify permission revocation racing a write.

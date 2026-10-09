@@ -80,3 +80,18 @@ database query agreed on the winning limit, revision one and one history row.
 Paid settlement, mixed-key unpriced batch fallback, streaming disconnects and
 performance under sustained configured limits are not yet verified by these runs. TPM and concurrent-request limits remain unimplemented.
 Fixture outcomes are not evidence for any of these claims.
+
+## Scoped management verification (2026-10-10)
+
+Actual owner, viewer and foreign-workspace operator credentials exercised this
+policy endpoint and its history. Viewer writes returned 403; owner configuration
+succeeded; repeating the old revision returned 409. The viewer could read the
+configured policy and history. Foreign-workspace operator reads and writes
+returned 404, including history, preserving resource-existence isolation. Even
+installation access returned 404 when a real key was addressed under the wrong
+workspace. Invalid history page size returned 400.
+
+Independent SQL inspection confirmed one successful member-attributed history row
+for this verification key, matching its HTTP history. Responses contained the
+actor name and kind without an internal operator identifier. Temporary keys and
+operators were revoked. This does not verify permission revocation racing a write.
