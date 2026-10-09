@@ -50,8 +50,13 @@ request records retain the evidence needed for diagnosis.
 
 A video occupies a slot from initial dispatch until its execution is resolved,
 including background recovery. Status/result reads and recovery polls consume no
-additional slots. Already-dispatched work remains recoverable after key policy
-changes. TPM is a separate unimplemented control.
+additional slots. Already-dispatched work remains recoverable while current
+access permits it.
+Background recovery can select an active, model-authorized replacement in the
+original rotation lineage; it does not borrow an unrelated workspace key. The
+selected key must still pass current model and guardrail checks. Revocation with
+no eligible replacement does not fabricate task completion or release occupancy.
+TPM is a separate unimplemented control.
 
 Rate/concurrency rejection of an unpriced admission batch rolls back that batch
 before any provider call. Individual admission fallback isolates limited keys;
@@ -78,9 +83,8 @@ An actual video submission with limit zero returned 429. Independent SQL confirm
 one prepared attempt and zero dispatched attempts for its key; this run did not
 start an upstream video generation.
 
-Successful video's full occupancy/recovery lifecycle, paid accounting, mixed-key
-unpriced batch fallback, authorization mutation races and sustained performance
-remain unverified by these runs. No fixture-test outcome supports these claims.
+Paid accounting, mixed-key unpriced batch fallback, authorization mutation races
+and sustained performance remain unverified by these runs. No fixture-test outcome supports these claims.
 
 The live occupancy read was checked after another gateway restart against the
 actual disconnected request above: original and replacement keys both returned
@@ -102,3 +106,26 @@ Independent SQL inspection confirmed one successful member-attributed history ro
 for this verification key, matching its HTTP history. Responses contained the
 actor name and kind without an internal operator identifier. Temporary keys and
 operators were revoked. This does not verify permission revocation racing a write.
+
+## Video completion and rotation recovery (2026-10-10)
+
+A new minimal personal video task occupied the one available slot. A second
+submission returned 429 before dispatch. Rotating the key retained occupancy,
+but the initial actual run exposed a recovery defect: the worker used the revoked
+original key and stopped querying the saved job.
+
+The worker now resolves a current key from the original rotation lineage with a
+valid model grant, then applies the existing current-access and guardrail checks.
+Nonterminal schedules stopped because the original key became invalid can resume
+when that lineage has eligible current access. This only queries saved jobs;
+it does not resubmit generation or borrow unrelated credentials.
+
+After deploying the correction and restarting the gateway, the same saved job
+completed. HTTP occupancy became zero and independent SQL returned
+`confirmed_completed` with zero unresolved lineage attempts. A separate
+lineage-wide SQL count confirmed exactly one dispatched generation. Its result
+was 105,708 bytes, 848×480, with a decoded video duration of 1.041667 seconds.
+Full FFmpeg decoding completed without errors. SHA-256:
+`22994fe663364f6ed2fd7e6cd940902f443466b1f94649762feff6d28396f810`.
+Temporary keys were revoked after verification. This is personal upstream-funded
+execution, not evidence of prepaid customer settlement or commercial supply.

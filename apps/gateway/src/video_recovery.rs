@@ -44,7 +44,11 @@ pub(crate) async fn run_once(state: &AppState) -> Result<bool, niu_storage::Stor
             return Err(error);
         }
     }
-    let principal = match state.store.dashboard_key(lease.scope, lease.key_id).await {
+    let principal = match state
+        .store
+        .media_recovery_key(lease.scope, lease.attempt_id)
+        .await
+    {
         Ok(principal) => principal,
         Err(niu_storage::StoreError::Unauthorized) => {
             state.store.finish_media_query(&lease, false, true).await?;

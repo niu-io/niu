@@ -114,6 +114,18 @@ impl Store {
         })
     }
 
+    /// Resolve current access for a saved video query without reusing a revoked secret.
+    /// Only the original rotation lineage, tenant and model grant can authorize recovery.
+    pub async fn media_recovery_key(
+        &self,
+        scope: TenantScope,
+        attempt: Uuid,
+    ) -> Result<Principal, StoreError> {
+        let key: Uuid = sqlx::query_scalar("SELECT current.id FROM attempts a JOIN api_keys original ON original.id=a.api_key_id JOIN api_keys current ON current.spending_root_id=original.spending_root_id AND current.organization_id=a.organization_id AND current.project_id=a.project_id JOIN media_jobs job ON job.attempt_id=a.id WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=$3 AND a.dispatched_at IS NOT NULL AND current.revoked_at IS NULL AND current.expires_at>clock_timestamp() AND ('*'=ANY(current.allowed_models) OR a.resource_id=ANY(current.allowed_models)) ORDER BY (current.id=original.id) DESC,current.created_at DESC,current.id LIMIT 1")
+            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_optional(&self.pool).await?.ok_or(StoreError::Unauthorized)?;
+        self.dashboard_key(scope, key).await
+    }
+
     pub async fn list_keys(&self, scope: TenantScope) -> Result<Vec<KeyView>, StoreError> {
         Ok(sqlx::query_as("SELECT k.id,k.revision,k.name,k.allowed_models,floor(extract(epoch FROM k.expires_at)*1000)::bigint AS expires_at_ms,floor(extract(epoch FROM activity.dispatched_at)*1000)::bigint AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= clock_timestamp() AS expired FROM api_keys k LEFT JOIN LATERAL (SELECT a.dispatched_at FROM attempts a WHERE a.organization_id=k.organization_id AND a.project_id=k.project_id AND a.api_key_id=k.id AND a.dispatched_at IS NOT NULL ORDER BY a.dispatched_at DESC LIMIT 1) activity ON true WHERE k.organization_id=$1 AND k.project_id=$2 ORDER BY k.created_at,k.id LIMIT 1000")
             .bind(scope.organization_id).bind(scope.project_id).fetch_all(&self.pool).await?)
