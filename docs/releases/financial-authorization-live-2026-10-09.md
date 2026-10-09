@@ -153,3 +153,22 @@ request; the CSV header contained no Supplier, procurement or margin fields. The
 viewer credential was revoked after inspection. These observations establish
 consistency for the exercised successful request, not every error, streaming,
 media or commercially charged export case.
+
+## Concurrent checkout configuration readers
+
+The gateway's payment configuration guard is now a read/write lock. Checkout
+requests retain a shared read guard through configuration selection and order
+creation; administrative merchant configuration changes require a write guard.
+Previously one mutex serialized every company's checkout, including time spent
+waiting on an upstream service. Existing database order identity, creation-claim
+and pending-order configuration checks remain in place. This is an in-process
+coordination change, not a new cross-process locking guarantee.
+
+The updated release binary handled 32 actual checkout requests with concurrency
+8 against the currently unavailable integration. All returned HTTP 502; balance
+responses were unchanged, and an independent PostgreSQL read confirmed zero
+orders. Invalid-token/viewer/currency requests retained HTTP 401/403/400 behavior.
+Formatting and optimized compilation completed. These observations verify the
+exercised rejection paths only. Concurrent successful upstream checkout,
+configuration-write contention and any throughput improvement remain unmeasured;
+no fixture outcome is used to claim those properties.

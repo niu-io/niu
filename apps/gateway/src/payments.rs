@@ -420,8 +420,9 @@ pub(crate) async fn create_topup(
         ));
     }
     // Reject unauthorized or malformed requests before joining the checkout
-    // configuration queue, which may be held across an upstream request.
-    let _configuration_guard = state.payment_configuration_guard.lock().await;
+    // configuration queue. Concurrent checkouts share a read guard while
+    // merchant configuration changes require exclusive access.
+    let _configuration_guard = state.payment_configuration_guard.read().await;
     let epay = configuration::runtime(&state).await?;
     if let Some(runtime) = epay.as_ref()
         && input

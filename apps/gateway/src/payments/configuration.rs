@@ -133,7 +133,7 @@ pub(crate) async fn save(
         crate::state::AdminAuthorization::Operator(operator) => Some(operator.id),
         _ => None,
     };
-    let _guard = state.payment_configuration_guard.lock().await;
+    let _guard = state.payment_configuration_guard.write().await;
     let (current_revision, previous) = settings(&state).await?;
     let expected = input
         .expected_revision
