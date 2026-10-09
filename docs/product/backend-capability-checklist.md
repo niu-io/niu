@@ -16,7 +16,7 @@ links existing evidence and the pinned New API reference.
 | Independent currency spending cap | Implemented; paid admission/settlement verification open | Key-level committed charges plus outstanding customer-price reservations cannot admit work beyond the cap; company/workspace limits also apply |
 | Cap lifecycle and history | Implemented; actual configuration/concurrency verified | Exact integer amounts, explicit unlimited state, optimistic revisions, owner authorization, immutable actor history; lowering cannot invalidate liabilities |
 | Cap during rotation | Implemented; actual shared-policy/history verified | Specify whether the replacement shares the original budget identity; rotating a secret must not silently reset or bypass its spending allowance |
-| IP allowlist | Not implemented | Validate addresses/CIDRs; use a defined trusted-proxy policy; reject disallowed origins before upstream dispatch |
+| IP allowlist | Implemented; actual direct/proxy, rotation and saved-video access verified | Validate addresses/CIDRs; use a defined trusted-proxy policy; reject disallowed origins before upstream dispatch |
 | Key request/token rate limits | Not implemented | Define time windows and distributed concurrency semantics; return actionable limits without consuming upstream capacity on rejection |
 | Key concurrent-request limit | Not implemented | Enforce across supported sync/stream/async lifecycles; release reliably on cancellation, error and recovery |
 | Key usage attribution | Implemented; partial actual evidence | Calls, provider usage and customer charges agree across key/detail/export views; unknown usage remains unknown |
@@ -48,3 +48,5 @@ External merchant activation remains a deployment concern; internal accounting
 and authorization still need their own implementation and evidence.
 
 See [key spending implementation and current-input evidence](../reference/api-key-spending-limits.md) for the exact supported boundary and remaining financial checks.
+
+See [key IP policies](../reference/api-key-ip-policies.md) for source-address trust rules and verification boundaries.

@@ -11,6 +11,7 @@ name = "niu-gateway"
 path = "src/main.rs"
 
 [dependencies]
+ipnet = "=2.12.2"
 tower = { version = "0.5", features = ["util"] }
 niu-upstream = { path = "../../crates/upstream" }
 axum.workspace = true

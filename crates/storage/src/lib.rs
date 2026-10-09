@@ -92,6 +92,7 @@ pub use vendors::{
     VendorInput, VendorModelInput, VendorModelView, VendorRoute, VendorUpdate, VendorView,
 };
 mod billing;
+mod key_ip;
 mod key_spending;
 mod topups;
 mod workspace_spending;
@@ -247,6 +248,8 @@ pub enum StoreError {
     WorkspaceSpendingLimitExceeded,
     #[error("key customer spending limit exceeded")]
     KeySpendingLimitExceeded,
+    #[error("request source is not allowed by API key policy")]
+    KeyIpDenied,
     #[error("usage or execution remains unresolved")]
     Unresolved,
     #[error("invalid account or quota observation")]

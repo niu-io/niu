@@ -15,6 +15,7 @@ use crate::{config::AppConfig, error::ApiError};
 
 #[derive(Clone)]
 pub struct AppState {
+    pub(crate) trusted_proxies: Arc<Vec<ipnet::IpNet>>,
     pub(crate) password_auth: Option<Arc<crate::admin::passwords::Runtime>>,
     pub(crate) payments: Option<Arc<crate::payments::Runtime>>,
     pub(crate) epay_payments: Option<Arc<crate::payments::EPayRuntime>>,
@@ -163,6 +164,7 @@ impl AppState {
                 .await?;
             state.password_auth = Some(Arc::new(runtime));
         }
+        state.trusted_proxies = Arc::new(crate::request_source::trusted_proxies()?);
         Ok(state)
     }
 
@@ -195,6 +197,7 @@ impl AppState {
             })
             .collect();
         Self {
+            trusted_proxies: Arc::new(Vec::new()),
             image_detectors: Arc::new(image_detectors),
             password_auth: None,
             detectors: Arc::new(detectors),
@@ -274,10 +277,12 @@ impl AppState {
         let token = header
             .and_then(|h| h.strip_prefix("Bearer "))
             .ok_or_else(ApiError::unauthorized)?;
-        self.store
+        let principal = self
+            .store
             .authenticate(token)
             .await
-            .map_err(ApiError::from_store)
+            .map_err(ApiError::from_store)?;
+        self.authorize_key_source(principal).await
     }
 
     /// Authorize an inference request using Niu's separate credential header
@@ -296,11 +301,12 @@ impl AppState {
             if token.is_empty() || token.trim() != token {
                 return Err(ApiError::unauthorized());
             }
-            return self
+            let principal = self
                 .store
                 .authenticate(token)
                 .await
-                .map_err(ApiError::from_store);
+                .map_err(ApiError::from_store)?;
+            return self.authorize_key_source(principal).await;
         }
         self.authorize_api(
             headers
@@ -324,10 +330,27 @@ impl AppState {
         if !authorization.permits_project(scope) {
             return Err(ApiError::forbidden());
         }
-        self.store
+        let principal = self
+            .store
             .dashboard_key(scope, key)
             .await
-            .map_err(ApiError::from_store)
+            .map_err(ApiError::from_store)?;
+        self.authorize_key_source(principal).await
+    }
+
+    pub(crate) async fn authorize_key_source(
+        &self,
+        principal: niu_storage::Principal,
+    ) -> Result<niu_storage::Principal, ApiError> {
+        self.store
+            .check_key_ip(
+                principal.scope(),
+                principal.key_id(),
+                crate::request_source::current_ip(),
+            )
+            .await
+            .map_err(ApiError::from_store)?;
+        Ok(principal)
     }
 
     pub async fn authorize_admin(

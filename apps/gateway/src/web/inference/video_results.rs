@@ -27,6 +27,7 @@ async fn authorize(state: &AppState, principal: &Principal, id: Uuid) -> Result<
         .dashboard_key(principal.scope(), principal.key_id())
         .await
         .map_err(ApiError::from_store)?;
+    let current = state.authorize_key_source(current).await?;
     let principal = &current;
     let saved = state
         .store

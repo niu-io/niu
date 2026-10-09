@@ -291,6 +291,8 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit", get(crate::admin::key_spending::list))
         .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}", axum::routing::put(crate::admin::key_spending::write).layer(DefaultBodyLimit::max(4096)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}/history", get(crate::admin::key_spending::history))
+        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy", get(crate::admin::key_ip::read).put(crate::admin::key_ip::write).layer(DefaultBodyLimit::max(8192)))
+        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy/history", get(crate::admin::key_ip::history))
         .route("/admin/v1/metrics", get(admin_metrics))
         .route(
             "/admin/v1/benchmarks/compare",
@@ -318,6 +320,10 @@ pub(crate) fn router(state: AppState) -> Router {
         crate::request_payloads::capture,
     ))
     .layer(middleware::from_fn(private_api_cache_control))
+    .layer(middleware::from_fn_with_state(
+        state.clone(),
+        crate::request_source::capture,
+    ))
     .with_state(state)
 }
 

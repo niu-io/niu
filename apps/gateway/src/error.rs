@@ -27,6 +27,12 @@ impl ApiError {
                 kind: "budget_exceeded",
                 message: "Insufficient available funds for this request",
             },
+            niu_storage::StoreError::KeyIpDenied => Self {
+                failure: None,
+                status: StatusCode::FORBIDDEN,
+                kind: "key_ip_not_allowed",
+                message: "This API key does not allow the request source address",
+            },
             niu_storage::StoreError::KeySpendingLimitExceeded => Self {
                 failure: None,
                 status: StatusCode::PAYMENT_REQUIRED,

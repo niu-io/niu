@@ -3,6 +3,7 @@
 pub mod asset_requests;
 pub mod chat_sessions;
 pub mod guardrails;
+pub mod key_ip;
 pub mod key_spending;
 mod operator_audit;
 pub mod passwords;

@@ -6,6 +6,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+ipnet = "=2.12.2"
 niu-execution = { path = "../execution" }
 niu-metered-cost = { path = "../metered-cost" }
 niu-media = { path = "../media" }

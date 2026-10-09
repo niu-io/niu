@@ -12,6 +12,8 @@ export type BrandingConfiguration = { data: { revision: string; settings: Brandi
 
 export type TenantScope = { organizationId: string; projectId: string };
 /** Customer limits share history across secret rotation; null means unlimited. */
+export type KeyIpPolicy = { allowed_cidrs: string[] | null; revision: string | null };
+export type KeyIpPolicyRevision = KeyIpPolicy & { revision: string; recorded_at: string; actor_kind: 'installation' | 'member'; actor_name: string };
 export type KeySpendingLimitRevision = { currency: string; limit_nanos: string | null; revision: string; recorded_at: string; actor_kind: 'installation' | 'member'; actor_name: string };
 export type WorkspaceSpendingLimit = { currency: string; limit_nanos: string; committed_nanos: string; revision: string };
 export type WorkspaceSpendingAccount = { currency: string; limit_nanos: string | null; committed_nanos: string; revision: string | null };
@@ -847,6 +849,30 @@ export class NiuAdminClient {
 
   getWorkspaceGuardrail(scope: TenantScope, options?: RequestOptions): Promise<{ data: { revision: number; policy: GuardrailPolicy } | null }> {
     return this.request(`${this.guardrailsPath(scope)}`, undefined, options);
+  }
+
+  getKeyIpPolicy(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: KeyIpPolicy }> {
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/ip-policy`, undefined, options);
+  }
+
+  /** Null allows all sources; [] denies all. Secret rotation preserves the policy. */
+  setKeyIpPolicy(scope: TenantScope, keyId: string, input: { allowed_cidrs: string[] | null; expected_revision: string }, options?: RequestOptions): Promise<{ data: { revision: string } }> {
+    if (input.allowed_cidrs !== null && (!Array.isArray(input.allowed_cidrs) || input.allowed_cidrs.length > 64 || input.allowed_cidrs.some(value => typeof value !== 'string' || !value || value.length > 64 || value.trim() !== value))) throw new TypeError('Use up to 64 IP addresses or CIDRs, or explicit null');
+    if (typeof input.expected_revision !== 'string' || !/^\d+$/.test(input.expected_revision) || BigInt(input.expected_revision) > 9223372036854775806n) throw new TypeError('Use an exact nonnegative revision');
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/ip-policy`, { allowed_cidrs: input.allowed_cidrs, expected_revision: input.expected_revision }, options, 'PUT');
+  }
+
+  listKeyIpPolicyHistory(scope: TenantScope, keyId: string, query: { beforeRevision?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: KeyIpPolicyRevision[] }> {
+    const params = new URLSearchParams();
+    if (query.beforeRevision !== undefined) {
+      if (!/^\d+$/.test(query.beforeRevision) || BigInt(query.beforeRevision) < 1n || BigInt(query.beforeRevision) > 9223372036854775807n) throw new TypeError('Invalid history revision');
+      params.set('before_revision', query.beforeRevision);
+    }
+    if (query.limit !== undefined) {
+      if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Invalid history page size');
+      params.set('limit', String(query.limit));
+    }
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/ip-policy/history${params.size ? `?${params}` : ''}`, undefined, options);
   }
 
   listKeySpendingLimits(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: WorkspaceSpendingAccount[] }> {

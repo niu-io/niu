@@ -12,6 +12,7 @@ mod guardrails;
 mod payments;
 mod providers;
 mod request_payloads;
+mod request_source;
 mod request_timings;
 mod state;
 mod streaming;
@@ -176,9 +177,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tracing::info!(address = %address, "Niu gateway listening");
     // Finalize routes once instead of repeating with_state for every connection.
-    axum::serve(listener, app.into_make_service())
-        .with_graceful_shutdown(shutdown_signal())
-        .await?;
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown_signal())
+    .await?;
     gateway_writes.shutdown().await;
     recovery.abort();
     if let Some(video_recovery) = video_recovery {

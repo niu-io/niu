@@ -564,3 +564,5 @@ export type { BrandingSettings, BrandingColorToken, BrandingConfiguration } from
 export type { PaymentIntegration } from './admin.js';
 
 export type { KeySpendingLimitRevision } from './admin.js';
+
+export type { KeyIpPolicy, KeyIpPolicyRevision } from './admin.js';
