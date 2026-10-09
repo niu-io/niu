@@ -26,6 +26,9 @@ release gate):
 - [Personal video lifecycle](openrouter-video-gateway-verification-2026-10-09.md)
   and [model-edit recovery](video-mapping-recovery-2026-10-09.md): actual generation,
   restart recovery, scoped results and independently decoded artifacts.
+  [Unsupported idempotency headers](video-idempotency-rejection-2026-10-09.md)
+  are explicitly rejected before video dispatch; full submission deduplication
+  remains open.
 - [Safe failure records](request-failure-backend-verification-2026-10-09.md)
   and [live Chat finish reasons](chat-finish-reasons-live-2026-10-09.md): durable
   payload-independent diagnostics, including completed but invalid delivery.

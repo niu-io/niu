@@ -127,6 +127,12 @@ Authorization, model/schema validation, Guardrail access, original-route binding
 
 Use `client.video.jobs.create(request, { signal })`. A client abort or lost HTTP response is not upstream cancellation; do not automatically repeat creation. Idempotent submission is not supported, and current status reads do not refresh upstream state. This initial path does not complete the video workflow.
 
+Both inference-key and dashboard-key creation endpoints reject an
+`Idempotency-Key` header with HTTP 501 before preparing or dispatching a job.
+Ignoring it would falsely suggest that retrying the same key prevents duplicate
+generation. This rejection does not add idempotent submission: recover an
+existing job through its saved reference instead of repeating an uncertain POST.
+
 ## Explicit refresh
 
 `POST /v1/video/jobs/{id}/refresh`, or `client.video.jobs.refresh(reference, { signal })`, makes one bounded upstream GET for the original `ark-direct-v1` job. Personal ownership or the original customer pricing binding authorizes this recovery context; routes cannot switch accounting modes. Successful customer-funded observations reconcile reported usage against the pinned selling tariff and authoritative company ledger. Missing/conflicting usage or insufficient settlement capacity remains unresolved and retains liability. It rechecks current workspace/model grants and model/Provider policy, and rejects changed or disabled route/credential revisions. The upstream job reference is encoded as one URL path segment.

@@ -73,6 +73,7 @@ pub(in crate::web) async fn create(
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
     let _in_flight = state.track_inference();
     let principal = principal(&state, &headers, path, AdminPermission::Write).await?;
+    video::validate_create_headers(&headers)?;
     video::create_as(state, body, principal).await
 }
 

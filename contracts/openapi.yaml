@@ -379,7 +379,7 @@ paths:
     post:
       operationId: createDashboardVideoJob
       summary: Submit a direct-channel text video job
-      description: Initial ark-direct-v1 adapter with configured video schema. Personal routes are owner-funded. Customer-funded routes require an effective customer selling card, current qualified Supplier offer, exact route/schema, effective resolution and supported video_tokens meter; reserve qualified maximum liability before dispatch. Active workspace budgets fail closed until video budget reservation is supported. Media references, callbacks and required content inspection remain unavailable. Commits authorization and dispatch intent before one POST; no automatic retry. Uncertainty returns the Niu reference and retains customer liability. Successful explicit queries settle reported customer usage once. Client abort is not cancellation/refund. Creation is not idempotent; live channel, result and complete recovery qualification remain pending.
+      description: Initial ark-direct-v1 adapter with configured video schema. Personal routes are owner-funded. Customer-funded routes require an effective customer selling card, current qualified Supplier offer, exact route/schema, effective resolution and supported video_tokens meter; reserve qualified maximum liability before dispatch. Active workspace budgets fail closed until video budget reservation is supported. Media references, callbacks and required content inspection remain unavailable. Commits authorization and dispatch intent before one POST; no automatic retry. Uncertainty returns the Niu reference and retains customer liability. Successful explicit queries settle reported customer usage once. Client abort is not cancellation/refund. Creation is not idempotent; an Idempotency-Key header is rejected with HTTP 501 before job preparation or dispatch. Live channel, result and complete recovery qualification remain pending.
       security: [{ bearerAuth: [] }]
       requestBody:
         required: true
@@ -414,7 +414,7 @@ paths:
         '404': { description: Model access denied }
         '402': { description: Insufficient balance or missing required budget reservation; no upstream submission }
         '409': { description: Route, key, policy or offer changed before dispatch }
-        '501': { description: Unsupported channel, billing, media or callback contract }
+        '501': { description: Unsupported channel, billing, media, callback contract or Idempotency-Key header }
         '503': { description: Qualified offer or original route unavailable }
   /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}:
     get:
@@ -754,7 +754,7 @@ paths:
     post:
       operationId: createOwnerFundedVideoJob
       summary: Submit a direct-channel text video job
-      description: Initial ark-direct-v1 adapter with configured video schema. Personal routes are owner-funded. Customer-funded routes require an effective customer selling card, current qualified Supplier offer, exact route/schema, effective resolution and supported video_tokens meter; reserve qualified maximum liability before dispatch. Active workspace budgets fail closed until video budget reservation is supported. Media references, callbacks and required content inspection remain unavailable. Commits authorization and dispatch intent before one POST; no automatic retry. Uncertainty returns the Niu reference and retains customer liability. Successful explicit queries settle reported customer usage once. Client abort is not cancellation/refund. Creation is not idempotent; live channel, result and complete recovery qualification remain pending.
+      description: Initial ark-direct-v1 adapter with configured video schema. Personal routes are owner-funded. Customer-funded routes require an effective customer selling card, current qualified Supplier offer, exact route/schema, effective resolution and supported video_tokens meter; reserve qualified maximum liability before dispatch. Active workspace budgets fail closed until video budget reservation is supported. Media references, callbacks and required content inspection remain unavailable. Commits authorization and dispatch intent before one POST; no automatic retry. Uncertainty returns the Niu reference and retains customer liability. Successful explicit queries settle reported customer usage once. Client abort is not cancellation/refund. Creation is not idempotent; an Idempotency-Key header is rejected with HTTP 501 before job preparation or dispatch. Live channel, result and complete recovery qualification remain pending.
       security: [{ bearerAuth: [] }, { niuApiKeyAuth: [] }]
       requestBody:
         required: true
@@ -785,7 +785,7 @@ paths:
         '404': { description: Model access denied }
         '402': { description: Insufficient balance or missing required budget reservation; no upstream submission }
         '409': { description: Route, key, policy or offer changed before dispatch }
-        '501': { description: Unsupported channel, billing, media or callback contract }
+        '501': { description: Unsupported channel, billing, media, callback contract or Idempotency-Key header }
         '503': { description: Qualified offer or original route unavailable }
   /v1/video/jobs/{id}/results/{kind}:
     get:

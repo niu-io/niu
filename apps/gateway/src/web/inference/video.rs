@@ -374,7 +374,17 @@ pub(in crate::web) async fn create(
 ) -> Result<(axum::http::StatusCode, Json<Value>), ApiError> {
     let _in_flight = state.track_inference();
     let principal = state.authorize_api_headers(&headers).await?;
+    validate_create_headers(&headers)?;
     create_as(state, body, principal).await
+}
+
+pub(super) fn validate_create_headers(headers: &HeaderMap) -> Result<(), ApiError> {
+    if headers.contains_key("idempotency-key") {
+        return Err(ApiError::unsupported_message(
+            "Idempotent video submission is not supported; do not retry an uncertain creation",
+        ));
+    }
+    Ok(())
 }
 
 pub(super) async fn create_as(
