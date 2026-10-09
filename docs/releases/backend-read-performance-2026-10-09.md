@@ -118,7 +118,9 @@ python3 scripts/request-read-benchmark.py \
 ```
 
 Replace the URL placeholders with the workspace's API identifiers. The tool only
-accepts the request-history route and an explicit page limit of 1–100. It does
+accepts the request-history route with an explicit page limit of 1–100, or
+`/requests/ATTEMPT_UUID` without query parameters for one saved request. Detail
+responses must contain the requested attempt identity. It does
 not follow redirects, generate inference, or print response contents, workspace
 identifiers or credentials. Default connection reuse is per worker; pass
 `--fresh-connections` to measure new connections. Run against a quiescent scope:
@@ -188,3 +190,26 @@ minute of observation do not establish long-duration memory stability.
 The measured local envelope is a small, warm, real-history page at up to 32
 readers for one minute. Larger histories, cold caches, concurrent writes,
 steady-state process memory and production-network measurements remain open.
+
+## Request-detail measurement
+
+The reusable tool now also accepts a saved request-detail URL without query
+parameters, validates its returned attempt identity and hashes the full JSON
+response on every read. List behavior remains available; output identifies the
+endpoint kind. Tokens and response contents remain outside stdout.
+
+On the optimized gateway with source through `1bb7007`, a newly issued scoped
+viewer read the actual completed personal request described in the financial
+verification report. Eight persistent-connection workers ran for 30.001 seconds:
+382,592 matching 974-byte detail responses, zero errors and zero changed
+responses, 12,752.73 reads/second, P50 0.570 ms, P95 0.998 ms, P99 1.266 ms and
+maximum 10.305 ms. The API remained identical before/after; independent PostgreSQL
+inspection confirmed the original 11 input tokens, 2 output tokens and completed
+execution. The viewer was revoked.
+
+A subsequent five-second list-mode check in the same one-request workspace
+returned 10,565 matching responses with zero errors/mismatches. This checks the
+updated tool against another actual endpoint, not a comparison with the earlier
+larger-workspace list baselines. Both measurements include loopback client and
+server work on the same machine, are closed-loop and do not establish production
+capacity, a service-level target, inference throughput or large-dataset behavior.

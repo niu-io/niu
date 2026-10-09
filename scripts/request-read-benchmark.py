@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Measure actual workspace request-history reads; never generates inference."""
+"""Measure actual workspace request-list or detail reads; never generates inference."""
 import argparse
 import concurrent.futures
 import hashlib
@@ -22,17 +22,20 @@ def main():
     parser.add_argument('--fresh-connections', action='store_true')
     args = parser.parse_args()
     url = urlsplit(args.endpoint)
-    route = r'/admin/v1/organizations/[0-9a-fA-F-]{36}/projects/[0-9a-fA-F-]{36}/requests'
+    identifier = r'[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}'
+    route = rf'/admin/v1/organizations/{identifier}/projects/{identifier}/requests'
+    is_list = bool(re.fullmatch(route, url.path)
+                   and re.fullmatch(r'limit=(?:[1-9]|[1-9][0-9]|100)', url.query))
+    is_detail = bool(re.fullmatch(route + '/' + identifier, url.path) and not url.query)
     if (url.scheme not in ('http', 'https') or not url.hostname or url.username
-            or url.password or url.fragment or not re.fullmatch(route, url.path)
-            or not re.fullmatch(r'limit=(?:[1-9]|[1-9][0-9]|100)', url.query)):
-        parser.error('Use a workspace request-history URL with only limit=1..100')
+            or url.password or url.fragment or not (is_list or is_detail)):
+        parser.error('Use a request-list URL with only limit=1..100, or a request-detail URL without query parameters')
     if not 1 <= args.concurrency <= 64 or not 1 <= args.seconds <= 600:
         parser.error('Concurrency must be 1..64 and seconds 1..600')
     token = os.environ.get(args.token_env, '')
     if not token or '\r' in token or '\n' in token:
         parser.error('The token environment variable must contain a credential')
-    path = url.path + '?' + url.query
+    path = url.path + ('?' + url.query if url.query else '')
 
     def connect():
         if url.scheme == 'https':
@@ -49,10 +52,18 @@ def main():
         if response.status != 200 or len(body) > 4 * 1024 * 1024:
             raise ValueError('Unexpected status or oversized response')
         document = json.loads(body)
-        if not isinstance(document, dict) or not isinstance(document.get('data'), list):
-            raise ValueError('Unexpected response shape')
+        data = document.get('data') if isinstance(document, dict) else None
+        if is_list:
+            if not isinstance(data, list):
+                raise ValueError('Unexpected response shape')
+            records = len(data)
+        else:
+            if (not isinstance(data, dict)
+                    or data.get('attempt_id', '').lower() != url.path.rsplit('/', 1)[1].lower()):
+                raise ValueError('Unexpected request detail')
+            records = 1
         digest = hashlib.sha256(json.dumps(document, sort_keys=True).encode()).digest()
-        return elapsed, digest, len(document['data']), len(body)
+        return elapsed, digest, records, len(body)
 
     connection = connect()
     try:
@@ -99,7 +110,8 @@ def main():
     def percentile(fraction):
         return round(timings[math.ceil(len(timings) * fraction) - 1], 3) if timings else None
     print(json.dumps({
-        'scope': 'actual request-history reads; not inference or production capacity',
+        'scope': 'actual saved-request reads; not inference or production capacity',
+        'endpoint_kind': 'list' if is_list else 'detail',
         'connection_mode': 'fresh' if args.fresh_connections else 'persistent',
         'concurrency': args.concurrency, 'requested_seconds': args.seconds,
         'elapsed_seconds': round(wall, 3), 'page_rows': row_count,
