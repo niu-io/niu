@@ -1,6 +1,6 @@
 # Backend delivery audit and New API comparison
 
-Date: 2026-10-09. Backend work continues on main. This is an open delivery audit,
+Created: 2026-10-09. Updated: 2026-10-10. Backend work continues on main. This is an open delivery audit,
 not release acceptance. Frontend/browser work, container qualification and Agent
 Observability are outside this workstream. External merchant activation is not an
 internal-readiness gate. Fixture outcomes have no evidentiary weight.
@@ -10,10 +10,10 @@ internal-readiness gate. Fixture outcomes have no evidentiary weight.
 | Required area | Current actual evidence | Still unverified or incomplete |
 | --- | --- | --- |
 | Supplier configuration | [Independent credentials, scoped routes and price revision concurrency](supplier-workspace-backend-verification-2026-10-09.md) | Complete commercial purchase/selling/settlement journey; broader provider coverage |
-| Workspace API keys | Actual model calls, rotation, revocation/expiry rejection and scope checks in the Supplier report | Per-key caps now have configuration/rotation evidence; paid admission and settlement verification remains open |
+| Workspace API keys | Actual calls, rotation and scope checks; [granular key controls](../product/backend-capability-checklist.md), including spending policy/history, IP policy, distributed RPM/concurrency and estimated TPM | Paid cap admission/settlement; estimator overruns; mixed-key batch fallback and sustained contention |
 | Prepaid and accounting | [Financial authorization, exact credit/warning revisions and available capacity](financial-authorization-live-2026-10-09.md); [supported payment inventory](../reference/payment-aggregators.md) | Full successful internal funding/reservation/debit/reconciliation lifecycle evidence, including concurrent liabilities and reversals |
 | Request diagnostics | Actual request detail and CSV agree with upstream usage and PostgreSQL; customer prices stay separate from procurement | Complete failure, cancellation, media and commercially charged cross-report coverage |
-| Video lifecycle | [Actual generation, idempotency, restart and byte-verified result retrieval](video-submission-idempotency-live-2026-10-09.md) | Commercial video settlement evidence; advertised input/channel coverage. Persisted result references depend on upstream content retention |
+| Video lifecycle | [Actual generation, idempotency, restart and byte-verified result retrieval](video-submission-idempotency-live-2026-10-09.md); [concurrency occupancy and corrected rotation recovery](../reference/api-key-concurrency-limits.md) | Commercial video settlement evidence; advertised input/channel coverage. Persisted result references depend on upstream content retention |
 | Performance | [Native list/detail read measurements](backend-read-performance-2026-10-09.md), [bounded real streaming](streaming-performance-2026-10-09.md), bounded result downloads | Mixed-load, large real datasets, sustained inference/financial contention and explicit operational capacity targets |
 
 These are scoped observations. They do not establish parity or superiority over
@@ -29,7 +29,12 @@ Its [token model](https://github.com/QuantumNous/new-api/blob/1d4328e97417a043a1
 includes independent remaining/used quota, unlimited-quota selection, model
 restrictions, expiration, IP restrictions and group selection. At initial review Niu lacked key caps and IP policy. Separate revisioned key-cap
 management is now implemented; [actual evidence and limitations](../reference/api-key-spending-limits.md)
-remain distinct from complete financial acceptance. IP policy remains unimplemented.
+remain distinct from complete financial acceptance. [IP policy](../reference/api-key-ip-policies.md)
+is also implemented, with actual direct/proxy source checks, rotation continuity
+and scoped management verification. [RPM](../reference/api-key-request-rate-limits.md),
+[concurrency](../reference/api-key-concurrency-limits.md) and
+[estimated token budgets](../reference/api-key-token-rate-limits.md) have their own
+implementation boundaries and actual evidence; they are not interchangeable controls.
 
 New API's [project introduction](https://github.com/QuantumNous/new-api-docs-v1/blob/main/content/docs/en/guide/wiki/basic-concepts/project-introduction.mdx)
 also describes channel balancing and failover. Its
@@ -41,16 +46,47 @@ No upstream source is imported by this audit.
 The [backend capability checklist](../product/backend-capability-checklist.md)
 separates key-level controls and financial layers into observable requirements.
 
-## Next implementation priority
+## Remaining delivery work
 
-Finish verification of the implemented per-key customer spending limits, including exact
-currency amounts, optimistic revisions and authorized API/SDK management. Enforce
-them in the same durable transaction as customer liability reservation, for both
-text and video; account for committed charges and outstanding holds without
-borrowing Supplier prices. Retain company/workspace limits, personal-route
-separation, idempotent settlement and historical attribution. Verify concurrent
-admission and release/reconciliation, not just configuration persistence.
+The following remain open; they are not satisfied by additional key-configuration
+round trips or by a green fixture workflow:
 
-After that, assess IP restrictions and routing/failover against the pinned
-reference, preserving safe handling of uncertain paid execution. A failover that
-can duplicate paid work does not qualify as an improvement.
+1. Obtain actual successful internal funding, customer-priced admission, debit,
+   release and reversal/reconciliation evidence. Include shared-company funds,
+   workspace and key caps, concurrent liabilities and exact historical attribution.
+   External merchant activation is not an internal readiness gate. Personal
+   upstream-funded requests cannot establish customer debit or commercial supply.
+2. Qualify mixed-key batch admission and mixed-protocol concurrent workloads under
+   the new key limits. TPM uses an explicit byte/output estimate, retains unknown
+   reservations, and records known overrun debt; it is not an exact tokenizer.
+3. Review routing/failover behavior against the pinned reference. A retry that can
+   duplicate uncertain paid execution does not qualify as an improvement. Keep
+   attempts and customer charges distinguishable and auditable.
+4. Measure sustained inference/financial contention and larger actual datasets
+   against explicit operational capacity targets. Current read measurements use
+   a small local dataset and do not establish production throughput.
+5. Close advertised media-input/channel coverage and commercial video settlement.
+   Saved upstream result references still depend on upstream content retention.
+
+## Recent concrete corrections
+
+- Per-key budget identity now survives secret rotation; spending limits, IP,
+  RPM, concurrency and estimated TPM have separate management APIs, histories and
+  SDK methods, linked from the primary OpenAPI.
+- Actual video generation exposed polling that stopped on the revoked original
+  key. Recovery now resolves an eligible current key in the same rotation lineage;
+  the original saved job completed after the correction without resubmission.
+- [Chat output reservations](../reference/chat-output-reservations.md) now use the
+  validated request output bound. The priced input-size guard is implemented but
+  its paid end-to-end behavior remains unverified.
+- [Financial integer inputs](../reference/billing-integer-inputs.md) reject signed,
+  fractional, exponent and overflowing forms before storage. Actual invalid-input
+  requests left the ledger unchanged; this does not establish successful payment.
+- Token diagnosis separates known usage, retained estimates and historical unknown
+  requests without an estimate. Snapshot totals remain null when a complete amount
+  cannot be established. Actual Responses and embedding checks supplement Chat;
+  broader cross-protocol contention remains open.
+
+No overall release, New API parity or production-capacity claim follows from these
+increments. The current scope still excludes frontend/browser work, container
+qualification and Agent Observability.
