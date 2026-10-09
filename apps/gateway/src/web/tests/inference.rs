@@ -878,7 +878,7 @@ async fn openrouter_uses_compatible_chat_route_and_preserves_openrouter_usage_st
         )
         .await
         .unwrap();
-    assert_eq!(error_response.status(), StatusCode::BAD_GATEWAY);
+    assert_eq!(error_response.status(), StatusCode::TOO_MANY_REQUESTS);
     let error_body = error_response
         .into_body()
         .collect()
@@ -2302,7 +2302,7 @@ async fn failed_chat_dispatch_is_not_silently_retried(pool: PgPool) {
         )
         .await
         .unwrap();
-    assert_eq!(response.status(), StatusCode::BAD_GATEWAY);
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
     let attempt_id: Uuid = response.headers()["x-niu-attempt-id"]
         .to_str()
         .unwrap()

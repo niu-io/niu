@@ -229,7 +229,7 @@ async fn request_export_is_scoped_exact_filtered_and_never_silently_truncated(po
         text.lines()
             .next()
             .unwrap()
-            .ends_with("Cached input tokens,Reasoning output tokens,Finish reasons")
+            .ends_with("Cached input tokens,Reasoning output tokens,Finish reasons,Failure kind,Upstream HTTP status")
     );
     assert!(
         text.lines()
