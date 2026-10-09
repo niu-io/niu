@@ -138,3 +138,18 @@ settlement of a commercially billed request at a zero limit, concurrent paid
 reservations, or per-key monetary caps. Current API-key controls cover model
 permissions, expiry and revocation; workspace customer spending limits must not
 be described as per-key monetary limits.
+
+## Saved request detail and customer CSV consistency
+
+For the actual personal inference above, a newly issued workspace-scoped viewer
+read the request detail and CSV export through the running gateway. Both reported
+11 input tokens and 2 output tokens, matching the previously captured upstream
+response. An independent PostgreSQL read of that attempt confirmed those exact
+token counts and `confirmed_completed` execution.
+
+The parsed CSV contained one request, a nonnegative observed duration and complete
+timing metadata. Customer currency and charge fields were empty for this personal
+request; the CSV header contained no Supplier, procurement or margin fields. The
+viewer credential was revoked after inspection. These observations establish
+consistency for the exercised successful request, not every error, streaming,
+media or commercially charged export case.
