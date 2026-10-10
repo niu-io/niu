@@ -38,7 +38,7 @@ it('lets Supplier members switch supplier without losing the section or carrying
   vi.stubGlobal('fetch', vi.fn(async () => Response.json({data:[{id:'supplier-a',name:'First supplier'},{id:'supplier-b',name:'Second supplier'}]})));
   const context = {token:'test',session:{kind:'member',operator:null,permissions:{platform_admin:false},provider_memberships:[{id:'supplier-a',name:'First supplier'},{id:'supplier-b',name:'Second supplier'}]}} as unknown as DashboardContext;
   function ScopedNavigation() { const location = useLocation(); return <><SupplierNav context={context}/><output aria-label="Current route">{location.pathname + location.search}</output></>; }
-  render(<MemoryRouter initialEntries={['/suppliers/supplier-a/models?sort=name&properties=supplier']}><SidebarProvider><Routes><Route path="/suppliers/:provider/:section" element={<ScopedNavigation/>}/></Routes></SidebarProvider></MemoryRouter>);
+  render(<MemoryRouter initialEntries={['/suppliers/supplier-a/models?sort=name&properties=supplier']}><SidebarProvider><Routes><Route path="/suppliers/:supplier/:section" element={<ScopedNavigation/>}/></Routes></SidebarProvider></MemoryRouter>);
   const user = userEvent.setup();
   await screen.findByText('First supplier');
   await user.click(screen.getByRole('button', {name:'Switch supplier'}));
