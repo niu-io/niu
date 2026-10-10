@@ -110,7 +110,7 @@ All observations below use the real local service and saved data. Narrow checks 
 - Used the existing owner-funded Demo API key and GPT-4.1 Mini, without changing Supplier routes or commercial qualification. Two preliminary requests completed before the attempted stop; those are not cancellation evidence. A third request visibly generated partial text while Stop generating remained available, then changed to Cancelled when stopped. Full reload restored the same partial text and Cancelled state from backend history. Tokens remained Unknown; restored billing attribution was Own API key, not a fabricated zero customer charge.
 - Its Inspect request link opened the actual corresponding Logs detail. The record retained partial response content, Uncertain upstream state and HTTP 200 delivery status. Measured phases were preparation 72 ms, first-output wait 1.41 s and output stream 10.14 s, with 11.63 s explicitly described as an observed interrupted interval rather than complete latency. No total-token value or complete latency was invented. This does not qualify a durable classified upstream failure.
 - Inspected the restored long response and its Copy/Inspect request actions at measured 390×844 without horizontal overflow. Inspected the matching Logs detail and timing bars at both phone and desktop widths. Restored the temporary output-token setting from 2048 to its original 512; no credential or shared access setting changed. This was live browser qualification of existing behavior, with no UI source change requiring a new component test.
-- Synced the latest backend integration baseline. Key request-rate, concurrency and token-rate configuration/history endpoints are available in the shared contracts but have no customer key-management controls yet. Integrate them through the existing key detail/settings composition after actual reference and Stitch review; preserve explicit null versus zero and expected revisions, and qualify owner/viewer behavior separately.
+- Synced the latest backend integration baseline. Key request-rate, concurrency and token-rate read/edit controls are now integrated in key details. History and ordinary-role browser qualification remain open; see the limits increment below.
 
 ## Frontend review of the generated documentation — 2026-10-10
 
@@ -131,8 +131,9 @@ operations and the root entrypoint check reports 65 registered paths.
 ## API key policy integration inventory
 
 Current `KeyDetailView` supports metadata, model access, expiry display,
-revocation, Guardrails and request activity. It does not yet expose the following
-implemented policies. Backend verification does not close these frontend flows.
+revocation, Guardrails and request activity. RPM, concurrency and TPM now have read/edit controls; their history remains
+open. The other policies below remain to be integrated. Backend verification
+does not close these frontend flows.
 
 | Contract | Frontend integration requirement |
 | --- | --- |
@@ -150,5 +151,30 @@ were inaccessible. Keep the current key detail shell, add compact independent
 policy rows, and edit one policy in the existing rounded Dialog at a time.
 Each save needs its own revision and error recovery; there is no atomic combined
 policy save. At narrow widths, stack labels/values while retaining accessible
-Edit actions and scrollable dialog content. This is design review only; no new
-limit controls or rendered qualification are claimed.
+Edit actions and scrollable dialog content. The subsequent limits increment below records implementation and its bounded
+rendered qualification.
+
+## API key throughput limits increment — 2026-10-10
+
+- Added independent RPM, concurrency and TPM read/edit controls below Guardrails
+  in key details, following the reviewed numeric-form/Dialog pattern. Each write
+  retains its own exact string revision; blank explicitly removes a limit, zero
+  blocks new dispatch, and invalid numeric input cannot submit. Failed reads are
+  unavailable with Retry, not unlimited. Conflict edits remain blocked even after
+  closing/reopening until the saved policy is reloaded.
+- Real Demo API key reads showed three unresolved requests and unknown committed
+  usage with two unbounded requests. This is an observed snapshot, not zero usage.
+  TPM editing explains the finite-policy restriction on video requests.
+- Saved RPM 1,000,000 through the actual local API, reloaded and observed that
+  exact value in the editor, then explicitly restored the original unlimited
+  policy and confirmed it after another reload. No inference was dispatched.
+  Concurrency/TPM reads and editor cancellation were inspected; actual writes for
+  these two policies remain unqualified.
+- Desktop and measured 390×844 views were inspected, including centered rounded
+  dialogs, invalid TPM feedback, cancel/reopen draft restoration and focus return.
+  The phone page had no horizontal overflow; the viewport override was reset.
+- All 34 API-key tests across six files and the dashboard TypeScript check passed.
+  Tests cover exact revisions above JavaScript's safe-integer range, null/zero,
+  conflict reload, failed read retry, failed-write draft retention, invalid bounds,
+  viewer controls and unknown usage. Live viewer authorization, histories, IP
+  policy, spending limits and token usage-window integration remain open.

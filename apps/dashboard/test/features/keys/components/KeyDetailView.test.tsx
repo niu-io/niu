@@ -5,6 +5,7 @@ import { MemoryRouter, Routes, Route } from 'react-router';
 import KeyDetailView from '@/features/keys/components/KeyDetailView';
 vi.mock('@/features/executions/components/GatewayActivity', () => ({ default: () => null }));
 vi.mock('@/features/keys/components/KeyGuardrails', () => ({ default: () => null }));
+vi.mock('@/features/keys/components/KeyLimits', () => ({ default: () => null }));
 it('requires reloading a conflicting key before another edit', async () => {
   let record={id:'saved',revision:1,name:'Original key',allowed_models:['*'],expires_at_ms:Date.now()+86400000,revoked:false,expired:false};
   const fetcher=vi.fn(async (_input:RequestInfo|URL,init?:RequestInit)=> {

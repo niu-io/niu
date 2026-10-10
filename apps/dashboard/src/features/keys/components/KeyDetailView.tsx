@@ -12,6 +12,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuChe
 import { keyRequest, KeyRequestError, keyStatus, keyLastUsed, projectKeyPath, workspacePath, type ProjectKey } from '../api';
 import GatewayActivity from '@/features/executions/components/GatewayActivity';
 import KeyGuardrails from './KeyGuardrails';
+import KeyLimits from './KeyLimits';
 
 type Scope = { organizationId: string; projectId: string };
 
@@ -145,6 +146,7 @@ export default function KeyDetailView({ token, models, canWrite, initialScope }:
         canWrite={canWrite}
         active={!key.revoked && !key.expired}
       />}
+      {initialScope && <KeyLimits token={token} endpoint={`${collectionPath}/${encodeURIComponent(key.id)}`} canWrite={canWrite} active={!key.revoked && !key.expired} />}
       {initialScope && <GatewayActivity
         key={`${token}:${key.id}`}
         compact
