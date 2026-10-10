@@ -170,3 +170,39 @@ This short read-only workload checks the added counter's exercised query overhea
 and consistency. It is not a sustained-load, cold-cache, multi-company scale,
 concurrent-write, inference-admission or production-capacity qualification. No
 process resource measurements or comparison with another gateway are established.
+
+## Thirty-second read workload with Gateway resource observations
+
+After dedicated content-maintenance pool isolation, a native run used a private
+copy of the 600 actual-charge database, two admission connections and one
+maintenance connection. Eight HTTP workers repeatedly read the organization
+reconciliation endpoint for 30 seconds. The host was macOS on Mac16,10 with 10
+logical CPUs and 24 GiB RAM. The existing development runtime and load client
+shared the host; this was not a dedicated benchmark machine.
+
+| Observation | Result |
+| --- | --- |
+| Completed reads | 31,939 |
+| Measured duration | 30.007 seconds |
+| Observed throughput | 1,064.39 reads/second |
+| Client round-trip p50 / p95 / p99 | 7.166 / 9.525 / 11.964 ms |
+| Maximum client round-trip | 21.851 ms |
+| Gateway CPU time delta | 6.29 seconds |
+| Gateway CPU average, one-core equivalent | 20.94% |
+| Maximum sampled Gateway RSS | 17.12 MiB |
+| Resource samples | 103 |
+| Maximum observed admission / maintenance connections | 2 / 1 |
+
+Every response was HTTP 200, carried `no-store`, and matched the same actual
+600-charge totals. Gateway restart preserved the report. Independent reopening
+matched each original actual usage and API-key attribution, recomputed all 600
+customer charges, checked the scoped debits and unchanged financial counts/sums,
+and found no held balance reservations.
+
+CPU is the Gateway process cumulative CPU-time delta, normalized by the sampled
+wall interval; RSS and connection maxima are observations at approximately
+quarter-second sampling, not hard peaks. PostgreSQL and client CPU/RSS were not
+measured. The workload did not create new upstream calls or spend additional
+upstream credit. It does not establish cold-cache performance, larger tenant
+scale, concurrent-write behavior, admission latency under inference load, maximum
+capacity, long-duration stability or a comparison with New API.
