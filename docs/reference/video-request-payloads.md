@@ -59,3 +59,32 @@ This qualifies the exercised creation/uncertainty/retention paths. It does not
 establish that the newly accepted video completed, retained raw upstream transport,
 qualified paid media settlement, exercised populated image capture above its bound,
 or verified the frontend rendering. No fixture outcome supports these findings.
+
+### Inspected content, non-admin access and completed result
+
+A further actual request activated a workspace input-redaction rule before a
+video submission. Its capture retained the inspected text with `[REDACTED]` and
+excluded the original marker; an independent SQL read checked the stored request,
+not only the read API. The upstream returned an actual authentication rejection,
+so the attempt remained uncertain and no customer charge was invented.
+
+A workspace viewer could read the capture with `Cache-Control: no-store` but
+could not delete it (403). A foreign-workspace viewer could neither read it (404)
+nor delete it (403: its role lacks write permission). These refusals preserved the
+capture. A scoped owner could delete it, and replay did not restore it. An initial
+verifier incorrectly expected 404 for the foreign viewer's DELETE; the corrected
+complete run respected the permission-first write check. No fixture result was
+used to diagnose or qualify this behavior.
+
+The previously accepted valid video was subsequently refreshed through the
+current API and reached `succeeded`. After gateway restart, its result downloaded
+through scoped Niu retrieval and passed independent full video decoding. Final
+artifact inspection matched the file bytes and SHA-256 to the decoding report.
+The original creation capture remained identical through refresh, completion and
+result retrieval. PostgreSQL retained one submission for that video, the original
+four attempts from the creation checkpoint, and no customer debit. No new video
+was submitted by this recovery check.
+
+This adds completed-result and non-admin payload-access evidence to the creation
+checkpoint. Positive commercial media usage/settlement, image capture, raw
+upstream transport retention and frontend rendering remain separate work.
