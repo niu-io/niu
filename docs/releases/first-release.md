@@ -294,3 +294,14 @@ Niu must support Seedance-class video models, including the targeted 2.5 and 2.0
 Qualify each Provider's units, rates, media-input support and failure/cancellation/refund rules separately. Official Seedance token metering does not establish FastRouter's forwarding or billing contract. Example rates and promotions belong in configuration/evidence, never fixed product constants; all implementation and release gates remain pending.
 
 - [Admin and Settings navigation checkpoint](admin-settings-navigation-verification.md): canonical Supplier administration, additive admin/customer navigation, global Settings dialog and responsive menu/draft checks; platform configuration and production authentication remain open.
+
+### Local personal video browser checkpoint (2026-10-10)
+
+One explicitly authorized owner-funded Grok Imagine Video 1.5 Lite request
+completed: one second, 480p, 16:9. Submission, queued reload, successful preview
+and MP4 download, same-intent history recovery, and the Video → Logs → result
+round trip have actual desktop evidence in the
+[frontend workflow checklist](frontend-workflow-checklist.md). No commercial
+customer debit or settled upstream price is qualified by this test. Logs still
+lacks retained video payloads and concrete Provider model attribution; failure,
+expired-result, ordinary-role and narrow-width acceptance remain open.
