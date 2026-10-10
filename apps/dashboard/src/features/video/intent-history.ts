@@ -1,5 +1,5 @@
 import { NiuAPIError, type RequestOptions, type VideoJobHistoryQuery } from '../../../../../sdks/javascript/src/index';
-import type { NiuAdminClient, TenantScope, VideoIntentIndexEntry } from '../../../../../sdks/javascript/src/admin';
+import type { NiuAdminClient, TenantScope, VideoIntentIndexEntry, VideoSubmissionIntent } from '../../../../../sdks/javascript/src/admin';
 
 export type VideoIntentHistoryRow = VideoIntentIndexEntry & {
   scope: TenantScope;
@@ -7,6 +7,10 @@ export type VideoIntentHistoryRow = VideoIntentIndexEntry & {
   jobId?: string;
   keyId?: string;
 };
+export function videoSessionTitle(data: Pick<VideoSubmissionIntent, 'request' | 'model'>): string {
+  const prompt=data.request?.content.map(item=>item.text).join('\n').split('\n').find(line=>line.trim())?.trim();
+  return prompt ? `Video · ${prompt.slice(0,120)}` : data.model ? `Video · ${data.model}` : 'Video session';
+}
 type HistoryClient = Pick<NiuAdminClient, 'listVideoIntents' | 'getVideoIntent'>;
 
 /** Read-only discovery. Restricted retained content does not hide erasable metadata. */
@@ -31,8 +35,7 @@ export async function videoIntentHistory(client: HistoryClient, scope: TenantSco
       try {
         const { data } = await client.getVideoIntent(scope, entry.id, options);
         options.signal?.throwIfAborted();
-        const prompt = data.request?.content.map(item => item.text).join('\n').split('\n').find(line => line.trim())?.trim();
-        row.title = prompt ? `Video · ${prompt.slice(0, 120)}` : data.model ? `Video · ${data.model}` : row.title;
+        row.title = data.request || data.model ? videoSessionTitle(data) : row.title;
         row.revision = data.revision;
         row.content_state = data.content_state;
         row.expires_at_ms = data.expires_at_ms;
