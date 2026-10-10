@@ -401,8 +401,8 @@ paths:
                   object: { const: video.estimate }
                   model: { type: string }
                   mode: { type: string, enum: [owner_funded, customer] }
-                  effective_output: { $ref: '#/components/schemas/VideoJobBilling/properties/effective_output' }
-                  estimate: { $ref: '#/components/schemas/VideoJobBilling/properties/estimate' }
+                  effective_output: { $ref: './generated/handler-operations.json#/components/schemas/VideoJobBilling/properties/effective_output' }
+                  estimate: { $ref: './generated/handler-operations.json#/components/schemas/VideoJobBilling/properties/estimate' }
                   maximum_charge_nanos: { type: [string, 'null'], pattern: '^[0-9]+$', description: Customer maximum from separately reviewed liability; not funds reserved by this read. }
                   selected_at: { type: [string, 'null'], pattern: '^[0-9]+$', description: Customer tariff selection time in Unix seconds; does not guarantee future availability. }
         '400': { description: Request violates configured capabilities }
@@ -697,8 +697,8 @@ paths:
                   object: { const: video.estimate }
                   model: { type: string }
                   mode: { type: string, enum: [owner_funded, customer] }
-                  effective_output: { $ref: '#/components/schemas/VideoJobBilling/properties/effective_output' }
-                  estimate: { $ref: '#/components/schemas/VideoJobBilling/properties/estimate' }
+                  effective_output: { $ref: './generated/handler-operations.json#/components/schemas/VideoJobBilling/properties/effective_output' }
+                  estimate: { $ref: './generated/handler-operations.json#/components/schemas/VideoJobBilling/properties/estimate' }
                   maximum_charge_nanos: { type: [string, 'null'], pattern: '^[0-9]+$', description: Customer maximum from separately reviewed liability; not funds reserved by this read. }
                   selected_at: { type: [string, 'null'], pattern: '^[0-9]+$', description: Customer tariff selection time in Unix seconds; does not guarantee future availability. }
         '400': { description: Request violates configured capabilities }
@@ -709,20 +709,7 @@ paths:
         '503': { description: Qualified route or original tariff binding unavailable }
   /v1/video/jobs/{id}/billing:
     get:
-      operationId: retrieveVideoJobBilling
-      summary: Read saved customer video billing
-      description: Current workspace/model authorization applies. This read performs no upstream query or settlement. Exact amounts are decimal strings in billionths of the declared currency. Only a posted customer debit is a charge; unresolved liability remains explicit. Personal owner-funded jobs have no Niu customer price or charge. Procurement terms and internal revision identifiers are excluded.
-      security: [{ bearerAuth: [] }, { niuApiKeyAuth: [] }]
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
-      responses:
-        '200':
-          description: Saved customer accounting snapshot
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/VideoJobBilling' }
-        '401': { description: Invalid credential }
-        '404': { description: Missing job or workspace/model access denied }
+      $ref: './generated/handler-operations.json#/paths/~1v1~1video~1jobs~1{id}~1billing/get'
   /v1/video/jobs/{id}/timings:
     get:
       operationId: retrieveVideoTransportTimings
@@ -792,40 +779,7 @@ paths:
         '502': { description: Query could not be refreshed; original generation is not retried }
   /v1/video/jobs:
     get:
-      operationId: listVideoJobHistory
-      summary: List durable workspace video jobs
-      description: Reads saved dispatched jobs, including uncertain submissions, in newest-first creation order with an ID tie-breaker. Applies current key workspace/model grants and returns no upstream references, prompts, credentials or procurement terms. Listing does not poll or regenerate videos. Cursor jobs must remain accessible under the current key. New head entries do not move existing cursor positions.
-      security: [{ bearerAuth: [] }, { niuApiKeyAuth: [] }]
-      parameters:
-        - { name: before, in: query, schema: { type: string, format: uuid }, description: next_before from the preceding page; scoped to currently accessible jobs. }
-        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 25 } }
-      responses:
-        '200':
-          description: Saved scoped job history
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                required: [data, has_more, next_before]
-                properties:
-                  has_more: { type: boolean }
-                  next_before: { type: [string, 'null'], format: uuid }
-                  data:
-                    type: array
-                    maxItems: 100
-                    items:
-                      type: object
-                      additionalProperties: false
-                      required: [id, object, model, status, created_at_ms]
-                      properties:
-                        id: { type: string, format: uuid }
-                        object: { const: video.job }
-                        model: { type: string }
-                        created_at_ms: { type: string, pattern: '^-?[0-9]+$', description: Exact Unix milliseconds from the saved attempt. }
-                        status: { type: string, enum: [submission_unknown, queued, running, succeeded, failed, unknown, reconciliation_required] }
-        '400': { description: "Invalid limit, unknown query field, malformed or inaccessible cursor" }
-        '401': { description: "Invalid, expired or revoked credential" }
+      $ref: './generated/handler-operations.json#/paths/~1v1~1video~1jobs/get'
     post:
       operationId: createOwnerFundedVideoJob
       summary: Submit a direct-channel text video job
@@ -922,28 +876,7 @@ paths:
         '404': { description: Inaccessible or missing job }
   /v1/video/jobs/{id}:
     get:
-      operationId: retrieveVideoJobState
-      summary: Read persisted video job state
-      description: Requires a current workspace API key with access to the original model. Reads saved evidence only; performs no upstream poll, generation or settlement. Succeeded does not guarantee available results, reported usage or a settled charge. No upstream identifiers, credentials or procurement values are returned.
-      security: [{ bearerAuth: [] }, { niuApiKeyAuth: [] }]
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
-      responses:
-        '200':
-          description: Durable scoped state
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                required: [id, object, model, status]
-                properties:
-                  id: { type: string, format: uuid }
-                  object: { const: video.job }
-                  model: { type: string }
-                  status: { type: string, enum: [submission_unknown, queued, running, succeeded, failed, unknown, reconciliation_required] }
-        '401': { description: "Invalid, expired or revoked credential" }
-        '404': { description: "Missing job, workspace mismatch or model access denied" }
+      $ref: './generated/handler-operations.json#/paths/~1v1~1video~1jobs~1{id}/get'
   /admin/v1/organizations/{organization}/projects/{project}/chat-draft:
     parameters:
       - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
@@ -3374,102 +3307,9 @@ components:
         video: { type: string, enum: [available, missing, unavailable] }
         last_frame: { type: string, enum: [available, missing, unavailable] }
     VideoBillingQuantity:
-      type: object
-      additionalProperties: false
-      required: [numerator, denominator]
-      properties:
-        numerator: { type: string, pattern: '^[0-9]+$' }
-        denominator: { type: string, pattern: '^[1-9][0-9]*$' }
+      $ref: './generated/handler-operations.json#/components/schemas/VideoBillingQuantity'
     VideoJobBilling:
-      type: object
-      additionalProperties: false
-      required: [mode, state, currency, reserved_nanos, charge_nanos, usage, price, bound_exceeded, effective_output, estimate]
-      properties:
-        mode: { type: string, enum: [owner_funded, customer, unavailable] }
-        state: { type: string, enum: [owner_funded, unavailable, reserved, awaiting_usage, awaiting_settlement, settled, reconciliation_required] }
-        currency: { type: [string, 'null'] }
-        reserved_nanos: { type: [string, 'null'], pattern: '^[0-9]+$' }
-        charge_nanos: { type: [string, 'null'], pattern: '^[0-9]+$' }
-        settled_usage:
-          type: [object, 'null']
-          additionalProperties: false
-          description: Immutable quantity behind a posted customer charge, distinct from later usage observations or conflicts.
-          required: [meter, quantity, billable_quantity, provenance]
-          properties:
-            meter: { type: string }
-            quantity: { $ref: '#/components/schemas/VideoBillingQuantity' }
-            billable_quantity: { $ref: '#/components/schemas/VideoBillingQuantity' }
-            provenance: { type: string, enum: [Reported] }
-        bound_exceeded: { type: [boolean, 'null'] }
-        effective_output:
-          type: [object, 'null']
-          additionalProperties: false
-          description: Immutable effective output from submission; absent for legacy jobs. Revisions identify calculation evidence, not current availability.
-          required: [specification, duration_seconds, frames_per_second, schema_revision, estimator, estimator_revision]
-          properties:
-            specification:
-              type: object
-              additionalProperties: false
-              required: [resolution, ratio, width, height]
-              properties:
-                resolution: { type: string }
-                ratio: { type: string }
-                width: { type: integer, minimum: 1, maximum: 4294967295 }
-                height: { type: integer, minimum: 1, maximum: 4294967295 }
-            duration_seconds: { type: integer, minimum: 1 }
-            frames_per_second:
-              type: [integer, 'null']
-              minimum: 1
-              maximum: 4294967295
-              description: Null when the seconds estimator has no configured frame rate; required for pixel-based estimation.
-            schema_revision: { type: string }
-            estimator: { type: string, enum: [SeedancePixelsV1, OutputSecondsV1] }
-            estimator_revision: { type: string }
-        estimate:
-          type: [object, 'null']
-          additionalProperties: false
-          description: Saved estimated quantity priced using the original customer tariff. Neither confirmed usage, maximum liability nor a final charge. Owner-funded or unpriceable amounts remain null.
-          required: [meter, quantity, provenance, currency, amount_nanos]
-          properties:
-            meter: { type: string }
-            quantity: { $ref: '#/components/schemas/VideoBillingQuantity' }
-            provenance: { type: string, enum: [Estimate] }
-            currency: { type: [string, 'null'] }
-            amount_nanos: { type: [string, 'null'], pattern: '^[0-9]+$' }
-
-        usage:
-          type: [object, 'null']
-          additionalProperties: false
-          required: [meter, quantity]
-          properties:
-            meter: { type: string }
-            quantity: { $ref: '#/components/schemas/VideoBillingQuantity' }
-        price:
-          type: [object, 'null']
-          additionalProperties: false
-          required: [meter, amount_units, decimal_places, per_quantity, minimum_quantity, rounding, resolution, reference_video, effective_from, effective_until, discounts]
-          properties:
-            meter: { type: string }
-            amount_units: { type: string, pattern: '^[0-9]+$' }
-            decimal_places: { type: integer, minimum: 0, maximum: 9 }
-            per_quantity: { $ref: '#/components/schemas/VideoBillingQuantity' }
-            minimum_quantity: { $ref: '#/components/schemas/VideoBillingQuantity' }
-            rounding: { type: string, enum: [Down, Up, HalfEven] }
-            resolution: { type: string }
-            reference_video: { type: boolean }
-            effective_from: { type: string, pattern: '^-?[0-9]+$' }
-            effective_until: { type: [string, 'null'], pattern: '^-?[0-9]+$' }
-            discounts:
-              type: array
-              items:
-                type: object
-                additionalProperties: false
-                required: [multiplier, stacking, effective_from, effective_until]
-                properties:
-                  multiplier: { $ref: '#/components/schemas/VideoBillingQuantity' }
-                  stacking: { type: string, enum: [Exclusive, Multiply] }
-                  effective_from: { type: string, pattern: '^-?[0-9]+$' }
-                  effective_until: { type: [string, 'null'], pattern: '^-?[0-9]+$' }
+      $ref: './generated/handler-operations.json#/components/schemas/VideoJobBilling'
     CatalogMetadata:
       $ref: './generated/handler-operations.json#/components/schemas/CatalogMetadata'
     ProviderCatalogModel:

@@ -7823,6 +7823,274 @@ HTTP 429: API key request, concurrency or token rate limit exceeded.
 
 HTTP 503: Durable storage or configured route unavailable.
 
+## List durable workspace video jobs
+
+`GET /v1/video/jobs`
+
+Reads saved dispatched jobs, including uncertain submissions, in newest-first creation order with an ID tie-breaker. Applies current key workspace/model grants and returns no upstream references, prompts, credentials or procurement terms. Listing does not poll or regenerate videos. Cursor jobs must remain accessible under the current key. New head entries do not move existing cursor positions.
+
+Implementation: `implemented`. Operation: `listVideoJobHistory`.
+
+### Supported scope
+
+Reads persisted scoped evidence without upstream dispatch. Available results and customer charge settlement require separate evidence.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
+  }
+]
+```
+
+### Parameters
+
+`before` (query, optional)
+
+next_before from the preceding page; scoped to currently accessible jobs.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 25
+}
+```
+
+### Responses
+
+HTTP 200: Saved scoped job history
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data",
+    "has_more",
+    "next_before"
+  ],
+  "properties": {
+    "has_more": {
+      "type": "boolean"
+    },
+    "next_before": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "data": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "object",
+          "model",
+          "status",
+          "created_at_ms"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "object": {
+            "const": "video.job"
+          },
+          "model": {
+            "type": "string"
+          },
+          "created_at_ms": {
+            "type": "string",
+            "pattern": "^-?[0-9]+$",
+            "description": "Exact Unix milliseconds from the saved attempt."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "submission_unknown",
+              "queued",
+              "running",
+              "succeeded",
+              "failed",
+              "unknown",
+              "reconciliation_required"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid limit, unknown query field, malformed or inaccessible cursor
+
+HTTP 401: Invalid, expired or revoked credential
+
+## Read saved customer video billing
+
+`GET /v1/video/jobs/{id}/billing`
+
+Current workspace/model authorization applies. This read performs no upstream query or settlement. Exact amounts are decimal strings in billionths of the declared currency. Only a posted customer debit is a charge; unresolved liability remains explicit. Personal owner-funded jobs have no Niu customer price or charge. Procurement terms and internal revision identifiers are excluded.
+
+Implementation: `implemented`. Operation: `retrieveVideoJobBilling`.
+
+### Supported scope
+
+Reads persisted scoped evidence without upstream dispatch. Available results and customer charge settlement require separate evidence.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
+  }
+]
+```
+
+### Parameters
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Saved customer accounting snapshot
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/VideoJobBilling"
+}
+```
+
+HTTP 401: Invalid credential
+
+HTTP 404: Missing job or workspace/model access denied
+
+## Read persisted video job state
+
+`GET /v1/video/jobs/{id}`
+
+Requires a current workspace API key with access to the original model. Reads saved evidence only; performs no upstream poll, generation or settlement. Succeeded does not guarantee available results, reported usage or a settled charge. No upstream identifiers, credentials or procurement values are returned.
+
+Implementation: `implemented`. Operation: `retrieveVideoJobState`.
+
+### Supported scope
+
+Reads persisted scoped evidence without upstream dispatch. Available results and customer charge settlement require separate evidence.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
+  }
+]
+```
+
+### Parameters
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Durable scoped state
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "object",
+    "model",
+    "status"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "object": {
+      "const": "video.job"
+    },
+    "model": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "submission_unknown",
+        "queued",
+        "running",
+        "succeeded",
+        "failed",
+        "unknown",
+        "reconciliation_required"
+      ]
+    }
+  }
+}
+```
+
+HTTP 401: Invalid, expired or revoked credential
+
+HTTP 404: Missing job, workspace mismatch or model access denied
+
 ## Shared schemas
 
 Local `#/components/schemas/…` references resolve to these definitions.
@@ -9614,6 +9882,29 @@ Local `#/components/schemas/…` references resolve to these definitions.
 }
 ```
 
+### VideoBillingQuantity
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "numerator",
+    "denominator"
+  ],
+  "properties": {
+    "numerator": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "denominator": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$"
+    }
+  }
+}
+```
+
 ### VideoBooleanControl
 
 ```json
@@ -9787,6 +10078,340 @@ Local `#/components/schemas/…` references resolve to these definitions.
         "null"
       ],
       "format": "int64"
+    }
+  }
+}
+```
+
+### VideoJobBilling
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "mode",
+    "state",
+    "currency",
+    "reserved_nanos",
+    "charge_nanos",
+    "usage",
+    "price",
+    "bound_exceeded",
+    "effective_output",
+    "estimate"
+  ],
+  "properties": {
+    "mode": {
+      "type": "string",
+      "enum": [
+        "owner_funded",
+        "customer",
+        "unavailable"
+      ]
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "owner_funded",
+        "unavailable",
+        "reserved",
+        "awaiting_usage",
+        "awaiting_settlement",
+        "settled",
+        "reconciliation_required"
+      ]
+    },
+    "currency": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "reserved_nanos": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$"
+    },
+    "charge_nanos": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$"
+    },
+    "settled_usage": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "description": "Immutable quantity behind a posted customer charge, distinct from later usage observations or conflicts.",
+      "required": [
+        "meter",
+        "quantity",
+        "billable_quantity",
+        "provenance"
+      ],
+      "properties": {
+        "meter": {
+          "type": "string"
+        },
+        "quantity": {
+          "$ref": "#/components/schemas/VideoBillingQuantity"
+        },
+        "billable_quantity": {
+          "$ref": "#/components/schemas/VideoBillingQuantity"
+        },
+        "provenance": {
+          "type": "string",
+          "enum": [
+            "Reported"
+          ]
+        }
+      }
+    },
+    "bound_exceeded": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "effective_output": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "description": "Immutable effective output from submission; absent for legacy jobs. Revisions identify calculation evidence, not current availability.",
+      "required": [
+        "specification",
+        "duration_seconds",
+        "frames_per_second",
+        "schema_revision",
+        "estimator",
+        "estimator_revision"
+      ],
+      "properties": {
+        "specification": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "resolution",
+            "ratio",
+            "width",
+            "height"
+          ],
+          "properties": {
+            "resolution": {
+              "type": "string"
+            },
+            "ratio": {
+              "type": "string"
+            },
+            "width": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4294967295
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4294967295
+            }
+          }
+        },
+        "duration_seconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "frames_per_second": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 4294967295,
+          "description": "Null when the seconds estimator has no configured frame rate; required for pixel-based estimation."
+        },
+        "schema_revision": {
+          "type": "string"
+        },
+        "estimator": {
+          "type": "string",
+          "enum": [
+            "SeedancePixelsV1",
+            "OutputSecondsV1"
+          ]
+        },
+        "estimator_revision": {
+          "type": "string"
+        }
+      }
+    },
+    "estimate": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "description": "Saved estimated quantity priced using the original customer tariff. Neither confirmed usage, maximum liability nor a final charge. Owner-funded or unpriceable amounts remain null.",
+      "required": [
+        "meter",
+        "quantity",
+        "provenance",
+        "currency",
+        "amount_nanos"
+      ],
+      "properties": {
+        "meter": {
+          "type": "string"
+        },
+        "quantity": {
+          "$ref": "#/components/schemas/VideoBillingQuantity"
+        },
+        "provenance": {
+          "type": "string",
+          "enum": [
+            "Estimate"
+          ]
+        },
+        "currency": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "amount_nanos": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9]+$"
+        }
+      }
+    },
+    "usage": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "meter",
+        "quantity"
+      ],
+      "properties": {
+        "meter": {
+          "type": "string"
+        },
+        "quantity": {
+          "$ref": "#/components/schemas/VideoBillingQuantity"
+        }
+      }
+    },
+    "price": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "meter",
+        "amount_units",
+        "decimal_places",
+        "per_quantity",
+        "minimum_quantity",
+        "rounding",
+        "resolution",
+        "reference_video",
+        "effective_from",
+        "effective_until",
+        "discounts"
+      ],
+      "properties": {
+        "meter": {
+          "type": "string"
+        },
+        "amount_units": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "decimal_places": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9
+        },
+        "per_quantity": {
+          "$ref": "#/components/schemas/VideoBillingQuantity"
+        },
+        "minimum_quantity": {
+          "$ref": "#/components/schemas/VideoBillingQuantity"
+        },
+        "rounding": {
+          "type": "string",
+          "enum": [
+            "Down",
+            "Up",
+            "HalfEven"
+          ]
+        },
+        "resolution": {
+          "type": "string"
+        },
+        "reference_video": {
+          "type": "boolean"
+        },
+        "effective_from": {
+          "type": "string",
+          "pattern": "^-?[0-9]+$"
+        },
+        "effective_until": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^-?[0-9]+$"
+        },
+        "discounts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "multiplier",
+              "stacking",
+              "effective_from",
+              "effective_until"
+            ],
+            "properties": {
+              "multiplier": {
+                "$ref": "#/components/schemas/VideoBillingQuantity"
+              },
+              "stacking": {
+                "type": "string",
+                "enum": [
+                  "Exclusive",
+                  "Multiply"
+                ]
+              },
+              "effective_from": {
+                "type": "string",
+                "pattern": "^-?[0-9]+$"
+              },
+              "effective_until": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^-?[0-9]+$"
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

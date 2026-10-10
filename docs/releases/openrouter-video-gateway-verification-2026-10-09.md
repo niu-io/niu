@@ -58,3 +58,21 @@ Frontend work remains assigned to the frontend machine. Its schema editor must
 allow seconds estimation without FPS, and estimate/billing views must omit the
 FPS label for null values. No frontend file was changed or browser workflow
 qualified in this backend increment.
+
+## Handler-generated read contracts (2026-10-10)
+
+The public history, persisted status and customer billing reads now publish their
+OpenAPI operations from Rust handler comments. The root contract references those
+operations and the shared video billing schemas; the generated documentation and
+downloadable JSON contain the same definitions.
+
+A current-input read used a saved, actually generated personal video and a new
+short-lived model-scoped workspace key. History contained the saved job, status
+remained `succeeded`, and billing remained `owner_funded` with a null customer
+charge. Actual response types, required fields, closed object fields and enums
+matched the generated schemas. Revoking the temporary key denied the subsequent
+status read with HTTP 401. Independent database counts of transport observations,
+customer balance entries and Supplier earnings were unchanged across the reads.
+No upstream query or generation was requested. This verifies these persisted
+personal-job reads, not customer-priced video settlement or current result
+availability.
