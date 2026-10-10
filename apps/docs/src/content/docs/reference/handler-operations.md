@@ -4476,6 +4476,270 @@ HTTP 409: Cursor outside workspace or filters.
 
 HTTP 503: Storage unavailable.
 
+## Discover named platform pricing targets
+
+`GET /admin/v1/pricing/targets`
+
+Explicit platform administration required; ordinary company/workspace roles do not grant access. Configuration only, without usage, balances, statements, content, credentials or procurement. Keyset order is workspace UUID ascending for targets, model alias ascending for tariffs. Pass next_after unchanged as after; null means complete. Limit defaults to 50, maximum 100. Each page is one database snapshot; concurrent inserts before the cursor require refreshing the first page. Missing cursor returns 409. Identifiers are API references, never display labels. Cache-Control no-store. Tariff token rates are exact nanounits per million tokens; minimum and request fees are exact currency nanounits. Empty valid workspace returns an empty page.
+
+Implementation: `implemented`. Operation: `listPlatformPricingTargets`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
+  }
+]
+```
+
+### Parameters
+
+`after` (query, optional)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Configuration page
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "next_after"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "required": [
+          "organization_id",
+          "workspace_id",
+          "organization_name",
+          "workspace_name"
+        ],
+        "properties": {
+          "organization_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "organization_name": {
+            "type": "string"
+          },
+          "workspace_name": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "next_after": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid query
+
+HTTP 401: Invalid management credential
+
+HTTP 403: Platform administration required
+
+HTTP 409: Cursor absent from selected directory
+
+HTTP 503: Storage unavailable
+
+## Page current customer selling tariffs
+
+`GET /admin/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs`
+
+Explicit platform administration required; ordinary company/workspace roles do not grant access. Configuration only, without usage, balances, statements, content, credentials or procurement. Keyset order is workspace UUID ascending for targets, model alias ascending for tariffs. Pass next_after unchanged as after; null means complete. Limit defaults to 50, maximum 100. Each page is one database snapshot; concurrent inserts before the cursor require refreshing the first page. Missing cursor returns 409. Identifiers are API references, never display labels. Cache-Control no-store. Tariff token rates are exact nanounits per million tokens; minimum and request fees are exact currency nanounits. Empty valid workspace returns an empty page.
+
+Implementation: `implemented`. Operation: `listPlatformCustomerTariffs`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
+  }
+]
+```
+
+### Parameters
+
+`after` (query, optional)
+
+```json
+{
+  "type": "string"
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Configuration page
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "next_after"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "required": [
+          "model_alias",
+          "revision",
+          "currency",
+          "created_at",
+          "prompt_rate",
+          "completion_rate",
+          "minimum_charge_nanos",
+          "request_fee_nanos",
+          "cached_prompt_rate"
+        ],
+        "properties": {
+          "model_alias": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "prompt_rate": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "completion_rate": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "minimum_charge_nanos": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "request_fee_nanos": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "cached_prompt_rate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      }
+    },
+    "next_after": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}
+```
+
+HTTP 400: Invalid query
+
+HTTP 401: Invalid management credential
+
+HTTP 403: Platform administration required
+
+HTTP 409: Cursor absent from selected directory
+
+HTTP 503: Storage unavailable
+
+HTTP 404: Company/workspace pair does not exist
+
 ## Read workspace customer charges, tariffs and latest 100 invoices
 
 `GET /admin/v1/organizations/{organization}/projects/{project}/billing`

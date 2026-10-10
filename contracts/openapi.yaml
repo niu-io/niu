@@ -6,6 +6,10 @@ info:
 servers:
   - url: /
 paths:
+  /admin/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1pricing~1organizations~1{organization}~1workspaces~1{project}~1tariffs'
+  /admin/v1/pricing/targets:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1pricing~1targets'
   /admin/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs/{model}/history:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1pricing~1organizations~1{organization}~1workspaces~1{project}~1tariffs~1{model}~1history'
   /admin/v1/vendors/{vendor}/cooldown:

@@ -839,7 +839,19 @@ Internal selection IDs must not appear in product UI. The existing settlement
 write still revalidates unpaid selections and requires confirmed payment evidence.
 Nonempty pagination and full Supplier reconciliation remain unverified.
 
-### Guardrail preparation refusal
+### Platform customer-price configuration reads
+
+Explicit platform administrators can discover named company/workspace pricing
+targets with `GET /admin/v1/pricing/targets`, then read current selling prices at
+`GET /admin/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs`.
+Both use `after`, `limit` (1–100) and `next_after` pagination. Append
+`/{model}/history` to the tariff route for immutable history (`before`, `limit`,
+`next_before`). These reads exclude customer balances, usage, statements,
+request content and Supplier procurement. Customer-scoped billing access remains
+independent. SDK methods are `listPlatformPricingTargets`,
+`listPlatformCustomerTariffs` and `getPlatformCustomerTariffHistory`.
+
+### Guardrail refusal error types
 
 Recorded preparation-policy refusals return HTTP 403 with
 `error.type: "guardrail_denied"`, indicating rejection before model dispatch.

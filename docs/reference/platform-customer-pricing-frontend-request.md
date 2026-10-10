@@ -22,11 +22,21 @@ and SDK `getPlatformCustomerTariffHistory`. It uses explicit platform authority,
 returns only selling-price revisions with the existing `before` / `limit`
 pagination, and sends `Cache-Control: no-store`. Ordinary customer read scope is
 not expanded. The generated handler OpenAPI contains its response schema.
-Named target discovery and a paginated current-price directory remain pending;
-this history endpoint alone does not enable the complete editor.
+Named discovery uses `GET /admin/v1/pricing/targets` (SDK
+`listPlatformPricingTargets`). Rows contain `organization_id`,
+`organization_name`, `workspace_id` and `workspace_name`; display the names and
+retain IDs only for requests. Current prices use
+`GET /admin/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs`
+(SDK `listPlatformCustomerTariffs`). Both accept `limit` (1–100, default 50) and
+`after`; pass the returned `next_after` unchanged, stopping at null. Targets are
+ordered by workspace UUID, prices by model alias. Refresh from the first page
+after changes; pages are separate snapshots. A missing cursor returns 409.
+Current-price rows include revision, model alias, currency, exact rate strings,
+nullable cached rate, fixed fee, minimum charge and creation time. Valid empty
+workspaces return an empty page; invalid company/workspace pairs return 404.
 
-The complete editor contract remains a request. Backend ownership
-remains with the backend workstream. The frontend must then implement the named
+These configuration contracts preserve the independent customer read boundary.
+The frontend must implement the named
 target selection, existing-price editing, conflict reload and saved-history
 restoration in Admin, separately from Supplier purchase prices and customer
 read-only Rates. Actual ordinary platform-administrator browser qualification

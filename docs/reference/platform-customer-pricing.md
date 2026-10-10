@@ -116,5 +116,30 @@ cursor returned 409, a zero page size returned 400, and an inference key returne
 401. Revoking the platform grant made the new read return 403. Independent
 database reopening retained exactly the two configured tariffs/revisions and no
 inference or financial entries. Named target discovery and current-price
-pagination are separate pending integration work; this endpoint alone does not
-complete global price administration.
+pagination are described below; browser price administration remains a separate
+acceptance task.
+
+## Named targets and current-price pages
+
+`GET /admin/v1/pricing/targets` returns named company/workspace pairs under
+explicit platform authority. `GET
+/admin/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs`
+returns current selling-price configurations for the chosen pair. SDK methods
+are `listPlatformPricingTargets` and `listPlatformCustomerTariffs`. Both use
+`after`, `limit` (1–100, default 50) and nullable `next_after`. Target order is
+workspace UUID ascending; tariff order is model alias ascending. Each page uses
+one database snapshot, with an extra row for continuation detection. Restart
+from the first page after changes; a missing cursor returns 409. IDs are routing
+references, not display labels. Customer data permissions remain separate.
+
+Fresh native HTTP verification created two companies/workspaces and four tariff
+configurations. One-row pagination returned both named targets and all three
+prices in the second workspace, with exact rate/fee strings and distinct null
+and configured cache rates. Invalid page sizes returned 400, missing cursors 409,
+mismatched company/workspace pairs 404, inference credentials 401 and revoked
+platform grants 403. Customer-scoped history remained inaccessible to the
+cross-company platform operator. Restart retained identical directory pages.
+Independent reopening found precisely the four scoped tariffs/revisions, no
+attempts, charges, balance entries or reservations, and the platform grant
+removed. Large-directory performance, concurrent pagination edits and frontend
+editor acceptance remain unverified.
