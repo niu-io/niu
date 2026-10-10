@@ -82,3 +82,19 @@ the original rate and exactly one new winning revision, with no inference or
 financial records. Both gateway processes stopped. This extends publication
 conflict verification to two processes; concurrent inference repricing and
 sustained contention performance remain unqualified.
+
+### Rate publication during an actual request
+
+A fresh native run started a real personal OpenRouter completion, observed its
+admitted attempt, and published the new customer tariff before that completion
+returned. Database observations immediately before and after the successful
+price write both showed `may_have_executed`, not completed. The first response
+then delivered its requested marker; a subsequent actual request also completed.
+
+After restart, independent database reopening matched both responses' reported
+usage to their attempts and calculated each charge from its pinned revision:
+the in-flight request used the original rate and the later request used the new
+rate. Both exact debits were present and both holds released, with no duplicate
+charge or tariff revision. This establishes the exercised in-flight price-change
+ordering; it is not a sustained rate-edit stress test or a claim about every
+protocol's admission path.
