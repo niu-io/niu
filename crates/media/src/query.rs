@@ -49,6 +49,7 @@ pub struct QueryObservation {
     pub has_provider_error: bool,
     pub(crate) upstream_job: String,
     pub(crate) upstream_model: String,
+    pub(crate) reported_model: Option<String>,
     pub(crate) video_url: Option<String>,
     pub(crate) last_frame_url: Option<String>,
     pub(crate) protocol_revision: String,
@@ -89,6 +90,10 @@ impl QueryObservation {
 
     pub fn upstream_job(&self) -> &str {
         &self.upstream_job
+    }
+    /// Only an explicit, identity-validated model from the upstream response.
+    pub fn reported_model(&self) -> Option<&str> {
+        self.reported_model.as_deref()
     }
     pub fn upstream_model(&self) -> &str {
         &self.upstream_model
@@ -217,6 +222,10 @@ impl DirectQueryProtocol {
         Ok(QueryObservation {
             upstream_job: expected_job.into(),
             upstream_model: expected_model.into(),
+            reported_model: object
+                .get("model")
+                .and_then(Value::as_str)
+                .map(str::to_owned),
             status,
             quantity,
             times,

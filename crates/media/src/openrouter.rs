@@ -141,6 +141,10 @@ pub fn decode(
         has_provider_error,
         upstream_job: job.into(),
         upstream_model: expected_model.into(),
+        reported_model: value
+            .get("model")
+            .and_then(Value::as_str)
+            .map(str::to_owned),
         video_url,
         last_frame_url: None,
         protocol_revision: REVISION.into(),

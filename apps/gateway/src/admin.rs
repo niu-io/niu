@@ -3146,7 +3146,7 @@ pub async fn gateway_request(
 ///             "string",
 ///             "null"
 ///           ],
-///           "description": "Provider-reported model identity when returned by the provider. It is distinct from the public model alias."
+///           "description": "Provider-reported model identity when explicitly returned, including identity-validated video query responses. Missing video model fields remain unknown and are never filled from configured route mappings. It is distinct from the public model alias."
 ///         },
 ///         "created_at": {
 ///           "type": "string",

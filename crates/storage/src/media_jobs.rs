@@ -516,8 +516,24 @@ impl Store {
         if bytes.len() > 8192 {
             return Err(StoreError::InvalidUsage);
         }
+        let mut tx = self.pool.begin().await?;
         sqlx::query("INSERT INTO media_query_evidence(organization_id,project_id,attempt_id,receipt_sha256,metadata) VALUES($1,$2,$3,$4,$5) ON CONFLICT(attempt_id,receipt_sha256) DO NOTHING")
-            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(Sha256::digest(bytes).to_vec()).bind(metadata).execute(&self.pool).await?;
+            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(Sha256::digest(bytes).to_vec()).bind(metadata).execute(&mut *tx).await?;
+        // Keep reported attribution distinct from the configured recovery route.
+        // A receipt and its attribution commit together; replay cannot overwrite
+        // a different identity or invent a value when the provider omitted it.
+        if let Some(model) = observation
+            .reported_model()
+            .filter(|model| model.len() <= 200)
+        {
+            let changed = sqlx::query("UPDATE attempts SET provider_model=$4 WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND dispatched_at IS NOT NULL AND (provider_model IS NULL OR provider_model=$4)")
+                .bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(model)
+                .execute(&mut *tx).await?.rows_affected();
+            if changed != 1 {
+                return Err(StoreError::Conflict);
+            }
+        }
+        tx.commit().await?;
         let status = match observation.status {
             QueryStatus::Queued => MediaJobStatus::Queued,
             QueryStatus::Running => MediaJobStatus::Running,

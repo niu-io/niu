@@ -712,3 +712,13 @@ conservative `Retry-After: 60`. It does not send another upstream request.
 The SDK provides `getVendorRequestRateLimit`, `setVendorRequestRateLimit` and
 `listVendorRequestRateLimitHistory`. See the
 [dispatch semantics and verification boundary](https://github.com/niu-io/niu/blob/main/docs/reference/upstream-credential-request-limits.md).
+
+
+## Video model attribution in request diagnostics
+
+The existing `provider_model` field now retains a model explicitly returned by
+a validated video query. Missing Provider model fields remain unknown; Niu does
+not substitute the configured mapping. Existing completed jobs can gain this
+field through an authorized refresh that reports it, without another generation.
+A Logs read alone does not query upstream. See
+[model attribution and retention boundaries](https://github.com/niu-io/niu/blob/main/docs/reference/video-model-attribution.md).
