@@ -43,6 +43,7 @@ export default defineConfig({
         { label: 'Concepts', items: ['concepts/request-lifecycle', 'concepts/performance-and-cost'] },
         { label: 'Reference', items: [
           'reference/api',
+          'reference/handler-operations',
           { label: 'Legacy quota records', slug: 'concepts/subscription-observation' },
           { label: 'Offline evaluator', slug: 'concepts/benchmarking' },
         ] },

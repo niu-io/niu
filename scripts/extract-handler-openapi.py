@@ -134,6 +134,18 @@ def main():
             *descriptions,
         ]).rstrip() + '\n',
     }
+    outputs['apps/docs/src/content/docs/reference/handler-operations.md'] = '\n'.join([
+        '---',
+        'title: Implemented API operations',
+        'description: Handler-generated parameters, request bodies, responses and schemas.',
+        '---', '',
+        'Generated from backend handler annotations. Do not edit directly.', '',
+        'This is the annotated subset, not the complete API. '
+        'See the [API overview](/docs/reference/api/) and '
+        '[root OpenAPI contract](https://github.com/niu-io/niu/blob/main/contracts/openapi.yaml) '
+        'for the broader interface.', '',
+        *descriptions,
+    ]).rstrip() + '\n'
     for relative, content in outputs.items():
         target = ROOT / relative
         if args.check:
