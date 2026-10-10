@@ -610,3 +610,20 @@ The existing native service was refreshed without replacing configuration,
 encrypted identity or durable financial records. Its retained integration debit
 is readable through the USD/charge filter, while its refund filter remains empty.
 The docs site's served OpenAPI matches the generated contract.
+
+### Filtered ledger history beyond one hundred refunds
+
+A fresh native run generated two actual OpenRouter charges. Normal reversal API
+calls split the first charge into 107 positive partial refunds, including the
+previously exercised competing two-Gateway refund and its idempotent replay.
+The exact remainder closed the first charge's refund allowance; an additional
+refund was rejected. No external payment or funding receipt was recorded.
+
+SDK traversal returned all 109 company ledger entries and all 107 USD refunds
+through their respective cursors, with no duplicate entry identity. The charge
+filter returned only the two original debits; refund totals exactly matched the
+first charge. Filter-mismatched cursors remained conflicts. Restart preserved
+the complete responses. Independent reopening reconciled both actual usages and
+charges, all 107 refunds referencing the original debit, net debt equal to the
+second charge and no held reservations. This extends populated filtered history
+coverage beyond the page limit, not financial throughput or bank-refund scope.
