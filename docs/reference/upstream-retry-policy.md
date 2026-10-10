@@ -255,3 +255,26 @@ This qualifies peer startup during the observed live stream and subsequent share
 traffic. It does not qualify stopping the gateway that owns an active request,
 zero-downtime rolling deployment, two recovery workers racing for one successor,
 all financial commit failures or a capacity limit.
+
+## Graceful termination during actual streaming
+
+A fresh native gateway received SIGTERM immediately after the client read the
+first content event of a real OpenRouter stream. SQL at that point showed
+`may_have_executed` with unknown usage. The client kept reading: the response
+reached its terminal `[DONE]` and reported token usage, and the gateway then
+exited with status zero. This exercised normal signal-driven shutdown rather
+than closing the client or forcibly killing the process.
+
+Independent inspection re-read the saved raw SSE, matched its SHA-256 and prompt
+marker, and checked terminal usage against the reopened retained database.
+Exactly one attempt was `confirmed_completed` with provider-reported token counts;
+its 1,000,000-nanounit fixed-only customer charge matched one balance debit.
+Customer and procurement holds were released, and complete HTTP 200 timing was
+persisted before process exit. Restart retained one attempt and debit. A new
+request on the exhausted key returned HTTP 402 without another dispatch.
+
+The run used approved internal credit, test rates and a personal upstream account;
+there was no received-cash receipt or commercial supply claim. Original encrypted
+identity stayed unchanged and isolated processes stopped. This qualifies graceful
+drain of the exercised stream, not a maximum drain duration, a stalled upstream,
+forced termination during drain or a full load-balancer deployment transition.

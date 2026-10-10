@@ -129,3 +129,13 @@ exact charges, with no remaining holds or duplicate charges after restart.
 Independent raw-response and reopened-database checks confirmed the results.
 This checks peer startup during live work, not a full zero-downtime rolling
 replacement. See the [startup evidence and remaining boundaries](https://github.com/niu-io/niu/blob/main/docs/reference/upstream-retry-policy.md#joining-a-gateway-during-active-generation).
+
+## Graceful drain of an active stream
+
+A current native run sent SIGTERM after the first actual stream content. The
+client still received terminal output and provider usage; the process exited zero
+after persisting a single exact charge/debit and complete request timing. All
+holds were released. Independent raw-SSE and reopened-database inspection agreed,
+and restart created no duplicate request or charge. This qualifies the exercised
+graceful drain, not stalled upstreams, forced drain deadlines or a complete rolling
+deployment. See the [signal and accounting evidence](https://github.com/niu-io/niu/blob/main/docs/reference/upstream-retry-policy.md#graceful-termination-during-actual-streaming).
