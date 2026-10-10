@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { IconDots as MoreHorizontal, IconPlus as Plus } from '@tabler/icons-react';
-import { request } from './api';
+import { request, writeMayHaveCommitted } from './api';
 
 type Supplier = { id: string; name: string; api_keys?: number; models?: number; members: number; qualification_status: string };
 export default function SupplierList() {
@@ -41,7 +41,12 @@ export default function SupplierList() {
     try {
       await request(token, '/admin/v1/providers' + (selected ? '/' + encodeURIComponent(selected.id) : ''), dialog === 'delete' ? 'DELETE' : 'POST', dialog === 'delete' ? undefined : { name: name.trim() });
       setDialog(''); setRevision(value => value + 1);
-    } catch (reason) { setError(dialog === 'delete' ? 'This Supplier could not be deleted. Suppliers with API keys, offers, or members must retain their records.' : reason instanceof Error ? reason.message : 'Could not save Supplier.'); }
+    } catch (reason) {
+      if (dialog === 'add' && writeMayHaveCommitted(reason)) {
+        setDialog('');
+        setError('Supplier creation could not be confirmed. Refresh the list before adding another Supplier; the previous request may have saved it.');
+      } else setError(dialog === 'delete' ? 'This Supplier could not be deleted. Suppliers with API keys, offers, or members must retain their records.' : reason instanceof Error ? reason.message : 'Could not save Supplier.');
+    }
     finally { setBusy(false); }
   }
   const visible = suppliers;

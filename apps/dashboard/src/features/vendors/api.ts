@@ -85,6 +85,12 @@ export class VendorRequestError extends Error {
   }
 }
 
+// A timeout, transport failure or server error cannot establish that a write
+// was rejected before commit. Explicit client rejections retain correction flow.
+export function writeMayHaveCommitted(reason: unknown): boolean {
+  return !(reason instanceof VendorRequestError && reason.status >= 400 && reason.status < 500 && reason.status !== 408);
+}
+
 export async function request<T>(
   token: string,
   path: string,
