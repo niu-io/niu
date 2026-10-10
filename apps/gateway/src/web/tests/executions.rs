@@ -556,6 +556,7 @@ async fn workspace_activity_reports_customer_charges_without_supplier_costs(pool
                 offer_revision: "route-v1".into(),
                 prompt_bound: 10,
                 completion_bound: 10,
+                can_report_reasoning_tokens: true,
             },
         )
         .await

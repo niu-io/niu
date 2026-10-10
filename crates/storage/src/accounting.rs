@@ -149,6 +149,9 @@ pub struct GatewayReservation {
     pub offer_revision: String,
     pub prompt_bound: i64,
     pub completion_bound: i64,
+    /// Whether this response adapter can report a reasoning output subset.
+    /// This is capability, not a promise that any given response supplies usage.
+    pub can_report_reasoning_tokens: bool,
 }
 
 #[derive(Debug, sqlx::FromRow)]

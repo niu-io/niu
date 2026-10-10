@@ -27,6 +27,12 @@ impl ApiError {
             niu_storage::StoreError::InvalidPrice => {
                 Self::invalid_request("Invalid price, currency or monetary amount")
             }
+            niu_storage::StoreError::UnsupportedTokenPricing => Self {
+                failure: None,
+                status: StatusCode::UNPROCESSABLE_ENTITY,
+                kind: "unsupported_token_pricing",
+                message: "This route requires token usage categories unavailable through the selected protocol",
+            },
             niu_storage::StoreError::BudgetExceeded => Self {
                 failure: None,
                 status: StatusCode::PAYMENT_REQUIRED,

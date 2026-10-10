@@ -69,6 +69,38 @@ impl Store {
             admission.api_base.as_deref(),
         )
         .await?;
+        // Inspect the exact immutable revisions just bound in this transaction,
+        // including operation-pinned retry pricing. A preflight read of current
+        // prices would race with publication and could strand a dispatched hold.
+        if !reservation.can_report_reasoning_tokens {
+            let requires_reasoning: bool = sqlx::query_scalar(
+                "SELECT EXISTS (
+                    SELECT 1 FROM (
+                        SELECT r.reasoning_completion_rate,r.context_tiers
+                        FROM customer_attempt_tariffs b
+                        JOIN customer_tariff_revisions r ON r.id=b.revision_id
+                        WHERE b.attempt_id=$1
+                        UNION ALL
+                        SELECT r.reasoning_completion_rate,r.context_tiers
+                        FROM provider_attempt_offers b
+                        JOIN provider_offer_revisions r ON r.id=b.revision_id
+                        WHERE b.attempt_id=$1 AND r.rate_kind='text'
+                    ) rates
+                    WHERE reasoning_completion_rate IS NOT NULL OR EXISTS (
+                        SELECT 1 FROM jsonb_array_elements(context_tiers) tier
+                        WHERE (tier->>'minimum_input_tokens')::bigint <= $2
+                        AND tier->>'reasoning_completion_rate' IS NOT NULL
+                    )
+                )",
+            )
+            .bind(attempt)
+            .bind(reservation.prompt_bound)
+            .fetch_one(&mut *tx)
+            .await?;
+            if requires_reasoning {
+                return Err(StoreError::UnsupportedTokenPricing);
+            }
+        }
         let dispatched =
             Self::reserve_and_dispatch_gateway_in_tx(&mut tx, principal, attempt, reservation)
                 .await?;

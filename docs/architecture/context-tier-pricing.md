@@ -286,3 +286,35 @@ schedule, and matched the selected threshold, charge, debit and released hold.
 This complements the first-content disconnect observation. It does not establish
 all transport-buffering or simultaneous terminal/cancellation orderings, nor does
 it assert that the server had not already written `[DONE]` before client closure.
+
+### Messages metering compatibility at admission
+
+The native Messages adapter cannot report a reasoning output subset. A bound
+customer tariff or text Supplier offer with a separate reasoning rate in its base
+schedule or any tier reachable within the configured input bound is now rejected
+inside the priced-admission transaction, before dispatch or reservation commits.
+An explicit zero rate still requires a known quantity; null means ordinary output
+pricing. Unreachable tiers do not prevent otherwise compatible calls. The check
+uses the immutable revisions bound to this attempt, including operation-pinned
+prices, rather than a separate read of the current price. Messages returns HTTP
+422, native `invalid_request_error`, and `x-niu-error-code:
+unsupported_token_pricing`, without disclosing procurement rates.
+
+A current-input run first reproduced the defect using a real nonstreaming
+OpenRouter Messages response: completion succeeded, reasoning usage stayed
+unknown, no customer charge was posted, and one reservation survived restart.
+After the change, fresh isolated API runs rejected the base schedule and a
+reachable tier with an explicit zero reasoning rate without creating attempts or
+reservations, including a restart check. A tier above the configured input bound
+permitted a real Messages response and produced the exact customer charge and
+matching debit with no open reservation after restart. Independent verification
+reopened the stopped database and reconciled the saved response against the
+pinned tariff, charge and debit. These runs used personal upstream access and
+explicit internal verification credit/rates, not a commercial Supplier agreement
+or paid top-up.
+
+Nonempty Supplier-offer rejection and concurrent price-publication behavior have
+not been exercised in this checkpoint. This prevents a known unsupported pricing
+combination; it does not implement thinking support or qualify combined
+cache-write and reasoning billing. Previously dispatched unresolved liabilities
+are preserved, not automatically released or treated as zero usage.

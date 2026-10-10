@@ -291,6 +291,8 @@ pub enum StoreError {
     Unauthorized,
     #[error("invalid price, currency or monetary amount")]
     InvalidPrice,
+    #[error("configured token pricing requires unsupported usage categories")]
+    UnsupportedTokenPricing,
     #[error("invalid Supplier history filters or page size")]
     InvalidSupplierHistoryQuery,
     #[error("invalid ledger history filters or page size")]

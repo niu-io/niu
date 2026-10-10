@@ -61,6 +61,7 @@ async fn fixture(store: &Store, mode: Admission) -> Fixture {
             offer_revision: "v1".into(),
             prompt_bound: 10,
             completion_bound: 10,
+            can_report_reasoning_tokens: true,
         })
     } else {
         None

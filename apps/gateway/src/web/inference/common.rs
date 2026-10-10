@@ -538,6 +538,10 @@ pub(super) async fn begin_retry_attempt(
                     offer_revision: revision.clone(),
                     prompt_bound: price.max_input_tokens,
                     completion_bound: completion_bound.unwrap_or(price.max_output_tokens),
+                    can_report_reasoning_tokens: !matches!(
+                        protocol,
+                        crate::guardrails::input::Protocol::Messages
+                    ),
                 },
                 retry.map(|(_, policy)| policy),
             )
