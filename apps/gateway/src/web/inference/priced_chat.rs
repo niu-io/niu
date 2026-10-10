@@ -30,6 +30,7 @@ pub(super) fn validate_priced_request(
         "tools",
         "tool_choice",
         "parallel_tool_calls",
+        "reasoning",
     ];
     if object.keys().any(|k| !ALLOWED.contains(&k.as_str()))
         || object.get("n").is_some_and(|v| v.as_u64() != Some(1))
@@ -106,6 +107,31 @@ pub(super) fn validate_priced_request(
             "max_completion_tokens".into(),
             json!(price.max_output_tokens),
         );
+    }
+    if let Some(reasoning) = object.get("reasoning") {
+        let valid = reasoning.as_object().is_some_and(|options| {
+            options
+                .keys()
+                .all(|key| ["max_tokens", "exclude"].contains(&key.as_str()))
+                && options.get("exclude").is_none_or(Value::is_boolean)
+                && options
+                    .get("max_tokens")
+                    .and_then(Value::as_i64)
+                    .is_some_and(|budget| {
+                        budget > 0
+                            && budget
+                                < object
+                                    .get("max_completion_tokens")
+                                    .or_else(|| object.get("max_tokens"))
+                                    .and_then(Value::as_i64)
+                                    .unwrap_or(0)
+                    })
+        });
+        if !valid {
+            return Err(ApiError::invalid_request(
+                "Priced reasoning requires a positive max_tokens budget below the total output limit and an optional boolean exclude",
+            ));
+        }
     }
     Ok(())
 }

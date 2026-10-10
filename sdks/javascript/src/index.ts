@@ -92,6 +92,8 @@ export type ChatCompletionRequest = {
   tool_choice?: ChatToolChoice;
   parallel_tool_calls?: boolean;
   response_format?: ChatResponseFormat;
+  /** Priced OpenRouter Chat: positive reasoning subset below the total output limit. */
+  reasoning?: { max_tokens: number; exclude?: boolean };
   stream?: false;
   [key: string]: unknown;
 };

@@ -418,3 +418,35 @@ hashes, reopened the stopped database and checked exact category charges and
 matching debits, two total attempts, no funding and no unresolved reservations
 after another restart. This covers successful terminal streaming, not a cache
 write interrupted before terminal usage or simultaneously nonzero reasoning.
+
+### Simultaneous cache-write and reasoning charging
+
+Priced OpenRouter Chat now accepts an explicit
+`reasoning: {"max_tokens": 1024, "exclude": true}` budget. The reasoning budget
+must be a positive integer strictly below the total output limit; `exclude` is
+optional and must be boolean. Other reasoning options are rejected on priced
+routes, and this explicit budget is currently restricted to OpenRouter routes.
+The budget is part of the existing total output ceiling, not additional reserved
+output. See [OpenRouter's reasoning contract](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens).
+Model-specific support remains an upstream responsibility; a connection check
+alone does not establish it. The handler annotation and JavaScript request type
+include this supported shape.
+
+An actual nonstreaming Claude Haiku 4.5 run used a 1,024-token reasoning budget
+inside a 1,536-token total output ceiling and distinct ordinary-output/reasoning
+rates. Its first response reported 5,273 cache-write tokens and 77 reasoning
+tokens simultaneously. After Gateway restart the second response reported 5,273
+cache-read tokens and 78 reasoning tokens. Both returned the requested answer.
+Independent verification reopened the stopped database and reconciled saved
+response hashes, disjoint input/output quantities, separately priced categories,
+exact customer charges and matching debits. Two attempts were dispatched, no
+funding was created, and no customer reservation remained open after restart.
+Invalid or missing reasoning budgets, fractional and out-of-bound budgets,
+nonboolean exclusion and extra options were rejected by the actual API before
+any attempt was created.
+
+This closes the previously unverified nonstreaming customer combination of
+nonzero cache-write and reasoning quantities. It does not establish populated
+Supplier earnings, a nonzero-reasoning streaming combination, or every supported
+model's reasoning behavior. Verification used personal upstream access and
+internal credit/rates, without commercial qualification claims.

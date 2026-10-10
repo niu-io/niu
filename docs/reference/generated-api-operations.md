@@ -14115,6 +14115,23 @@ Local `#/components/schemas/…` references resolve to these definitions.
       "minimum": -2,
       "maximum": 2
     },
+    "reasoning": {
+      "type": "object",
+      "description": "Priced Chat supports explicit reasoning budgets on OpenRouter routes. max_tokens must be a positive integer strictly below the total output limit; it is a subset of that limit. exclude controls whether upstream reasoning text is requested in the response. Other reasoning options on priced routes are rejected. Model support remains upstream-specific.",
+      "required": [
+        "max_tokens"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "max_tokens": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "exclude": {
+          "type": "boolean"
+        }
+      }
+    },
     "max_tokens": {
       "type": [
         "integer",
