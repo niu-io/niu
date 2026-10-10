@@ -734,6 +734,34 @@ impl Store {
             .collect())
     }
 
+    /// Read the shared catalog inputs from one MVCC snapshot. Disabled rows
+    /// remain present to shadow static aliases. The transaction ends before
+    /// compilation or network work; dispatch still checks live eligibility.
+    ///
+    /// This is not a published registry generation: personal routes and pools
+    /// are composed separately by the gateway.
+    pub async fn vendor_catalog_inputs(
+        &self,
+    ) -> Result<(Vec<VendorRoute>, Vec<String>), StoreError> {
+        let mut tx = self.pool.begin().await?;
+        sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+            .execute(&mut *tx)
+            .await?;
+        let routes = sqlx::query_as::<_, VendorRouteRow>(&route_query(""))
+            .fetch_all(&mut *tx)
+            .await?
+            .into_iter()
+            .map(VendorRouteRow::into_route)
+            .collect();
+        let unavailable = sqlx::query_scalar(
+            "SELECT model_alias FROM provider_offers WHERE NOT niu_supplier_model_route_available(model_alias)",
+        )
+        .fetch_all(&mut *tx)
+        .await?;
+        tx.commit().await?;
+        Ok((routes, unavailable))
+    }
+
     /// Import the initial shared vendor once. Its immutable bootstrap name
     /// survives administrative renames, so restarts never recreate or reset
     /// administrator-owned records or refill missing model aliases.

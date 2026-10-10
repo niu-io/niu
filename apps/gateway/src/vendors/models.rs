@@ -286,12 +286,12 @@ pub(crate) async fn effective_models(
 /// Shared/static mappings before personal routes and candidate pools are applied.
 async fn base_models(state: &AppState) -> Result<BTreeMap<String, ModelConfig>, ApiError> {
     let mut models = state.config.models.clone();
-    for route in state
+    let (routes, unavailable) = state
         .store
-        .all_vendor_routes()
+        .vendor_catalog_inputs()
         .await
-        .map_err(ApiError::from_store)?
-    {
+        .map_err(ApiError::from_store)?;
+    for route in routes {
         // A disabled database route still shadows its static predecessor.
         models.remove(&route.model.alias);
         // Personal credentials must never enter the shared or public catalog.
@@ -302,12 +302,7 @@ async fn base_models(state: &AppState) -> Result<BTreeMap<String, ModelConfig>, 
             models.insert(route.model.alias.clone(), stored_model(&route)?);
         }
     }
-    for alias in state
-        .store
-        .unavailable_supplier_models()
-        .await
-        .map_err(ApiError::from_store)?
-    {
+    for alias in unavailable {
         models.remove(&alias);
     }
     Ok(models)

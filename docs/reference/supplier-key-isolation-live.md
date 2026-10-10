@@ -261,3 +261,36 @@ This verifies disabled-credential shadowing and re-enablement for this shared
 static/database alias, not a unified immutable route publication, concurrent
 catalog mutations, model deletion semantics or commercial Supplier qualification.
 The run used internal verification credit/rates and no fixture result.
+
+
+## Shared catalog inputs use one database snapshot — 2026-10-11
+
+Shared model mappings and Supplier-unavailable aliases are now read in one
+short, read-only repeatable-read transaction. Previously these were separate
+pool queries and could observe different committed database states. Disabled
+mappings still shadow static aliases. The transaction ends before model
+compilation, personal/pool composition or inference; live dispatch checks remain
+in force. This adds transaction round trips to catalog reads; its performance
+impact has not yet been qualified.
+
+An isolated current-input run held an exclusive lock on the offer table while a
+real HTTP model-list request reached its second catalog query. PostgreSQL activity
+showed an active transaction snapshot whose transaction began before that query.
+A normal management API update disabled the credential while the reader waited.
+After releasing the lock, the pending response retained the earlier catalog;
+subsequent responses hid the disabled alias, including after restart. New inference
+requests returned 404 without attempts, despite a same-name static mapping.
+
+The independent second credential completed a real request while the first was
+disabled. Re-enabling the first restored a real request after restart. Independent
+reopening checked saved catalog responses, both actual response artifacts, their
+managed credential bindings and exact customer charge/debit pairs. Only those two
+attempts existed; no customer reservation remained open. No commercial offer,
+qualification or funding record was created, and original runtime data was left
+unchanged.
+
+This verifies the exercised transaction and concurrent-disable lifecycle. It does
+not qualify nonempty commercial-offer mutations, personal/pool snapshot coherence,
+publication generations, rejected publications or generation-pinned attempts.
+Those remain part of the complete immutable registry work. No fixture outcome
+was used as evidence.
