@@ -253,3 +253,23 @@ This covers the exercised in-flight rotation, consumption and concurrency
 combination. The output was an ordinary text stream; combined structured-output
 streaming remains unsupported and was separately rejected before dispatch. No
 external funding receipt or commercial Supplier qualification was introduced.
+
+## Rolling token window across rotation and real-time expiry
+
+A current-input isolated run on 2026-10-10 enabled a finite token-per-minute
+policy before one actual stream. While the stream was in flight, the API showed
+zero known tokens and a positive reserved total matching the independently read
+saved token bound. Rotation retained that policy and shared accounting identity.
+
+After completion, known tokens matched the upstream-reported input plus output
+tokens and independent attempt records; reserved tokens became zero, with no
+unbounded requests. The run then waited for the real 60-second completion window
+without changing clocks or stored timestamps. The API's known and committed
+window totals reached zero when independent completion-time queries no longer
+found a row in that interval.
+
+Expiry did not erase the customer charge or reset cumulative monetary allowance.
+A full-bound request still hit the spending cap, and restart preserved the exact
+charge and remaining monetary allowance. This verifies the exercised known-usage
+transition and expiry; unresolved/unbounded token usage has different retention
+semantics and was not qualified by this run. No browser behavior is claimed.
