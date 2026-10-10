@@ -1078,3 +1078,31 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
 - Shared intent history now rejects contradictory `has_more` / cursor responses, empty continuation cursors and a repeated requested boundary. Job resolution cannot silently treat an inconsistent page as proof that no saved input exists; sidebar history uses the same refusal path.
 - The targeted Video/history group passed 58 checks. A subsequent explicit failure → Reload → original-input restoration check passed with all 23 VideoView checks; it also verifies no estimate or submission was sent. These failure states are test fixtures, not claims that the live backend returned malformed data.
 - Full dashboard regression passed 90 files / 716 checks, and TypeScript checking passed. On the actual service, the retained test session's saved input, title, completed result and history remained readable after HMR. Fresh video-payload browser qualification is still awaiting new single-submission authorization; previous approval was consumed, and no extra generation was made.
+
+## Supplier credential onboarding inspection — 2026-10-11
+
+The running local Admin Supplier configuration was inspected after pulling main
+to `24d76c94`. The existing OpenRouter configuration retained its enabled key,
+26 private model routes, unlimited request limit and inactive cooldown.
+
+The Add API key dialog binds the existing Supplier without creating another
+business. Its upstream service menu exposes OpenRouter and OpenAI; choosing
+OpenAI changed the default endpoint to `https://api.openai.com/v1`. Missing name
+and secret kept submission disabled. Closing the unsaved dialog returned to the
+existing configuration. No credential was entered, replaced or submitted.
+
+The existing key's model dialog displayed its 26 routes. Filtering for
+`gpt-4.1-mini` produced precisely one matching route; opening its editor showed
+the saved alias, upstream model, enabled/private state and revision 4. Cancelling
+preserved the filter and route. These are real rendered read/unsaved interaction
+observations, not independent credential creation or changed-subset acceptance.
+
+Credential entry and replacement require user handoff under the browser tool's
+authentication-credential policy. Do not treat fixture lifecycle tests or the
+backend's isolated atomic-creation evidence as completed browser onboarding.
+The live independent-key and changed-subset qualification remains open.
+
+The newly pulled customer charge reconciliation evidence also demonstrates that
+zero discrepancies can coexist with a completed request awaiting atomic charge
+recovery and a held reservation. A zero-discrepancy report alone must not close
+customer billing or funded-request acceptance.
