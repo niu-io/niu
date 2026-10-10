@@ -49,8 +49,9 @@ reasoning rate returned HTTP 409 without creating a revision; explicit null
 created a flat revision without changing existing charges.
 
 This evidence covers non-streaming customer reasoning pricing with request fees
-and minimum charges. Concurrent admission still requires current-input verification. Combined
-cache/reasoning pricing is verified below. Missing-category retention is verified below;
+and minimum charges. Concurrent admission under an explicit minimum and combined cache/reasoning
+pricing are verified below. Multiple Gateway instances and category-rate-only
+reservation races remain unverified. Missing-category retention is verified below;
 recovering a subsequently supplied category remains unverified. The served
 documentation OpenAPI matches the generated contract, and its reference HTML
 contains the new rate field; visual browser acceptance is not claimed. Supplier reasoning rates,
@@ -89,3 +90,19 @@ by the fee/minimum yielded a total of 12,543,703 currency nanounits, matching
 charges, debits, and invoice total. Stored category quantities and pinned rates,
 refund-adjusted balance, and released holds also matched. These remain explicit
 internal verification rates using a personally funded upstream credential.
+
+
+## Concurrent admission with a minimum charge
+
+Two simultaneous actual reasoning requests competed for an internal credit
+limit of 10,000,000 nanounits, equal to the configured minimum charge. One
+returned HTTP 402 while the other request was still running and its reservation
+was visibly held; the accepted request returned the expected marker and reported
+nonzero reasoning usage. Only one attempt, charge, and debit existed. Restarting
+the Gateway preserved the exact charge and exhausted-credit rejection, with no
+remaining hold. An independent database reopen verified the saved response hash,
+charge arithmetic, single attempt/debit, and released reservation.
+
+This qualifies one Gateway's concurrent admission with a minimum charge. It does
+not establish multi-Gateway contention behavior or a reservation bound driven
+solely by the higher reasoning rate.
