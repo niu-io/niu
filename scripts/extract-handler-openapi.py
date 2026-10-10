@@ -67,6 +67,15 @@ def operation_documentation(path, method, operation):
              operation['description'], '',
              f'Implementation: `{operation["x-niu-implementation"]}`. '
              f'Operation: `{operation["operationId"]}`.', '']
+    lines.extend(['### Authentication', ''])
+    security = operation.get('security')
+    if security is None:
+        lines.extend(['Not declared in this annotation; consult the behavior contract above.', ''])
+    elif not security:
+        lines.extend(['No OpenAPI security scheme is required. Signature and other request validation still apply as described above.', ''])
+    else:
+        lines.extend(['Each array entry is an alternative; schemes within one entry are required together.', ''])
+        lines.extend(schema_block(security))
     if operation.get('parameters'):
         lines.extend(['### Parameters', ''])
         for parameter in operation['parameters']:
@@ -85,6 +94,11 @@ def operation_documentation(path, method, operation):
     lines.extend(['### Responses', ''])
     for status, response in operation['responses'].items():
         lines.extend([f'HTTP {status}: {response["description"]}', ''])
+        for name, header in response.get('headers', {}).items():
+            lines.extend([f'Response header: `{name}`.', ''])
+            if header.get('description'):
+                lines.extend([header['description'], ''])
+            lines.extend(schema_block(header.get('schema', header)))
         for media_type, media in response.get('content', {}).items():
             lines.extend([f'Content type: `{media_type}`.', ''])
             lines.extend(schema_block(media['schema']))

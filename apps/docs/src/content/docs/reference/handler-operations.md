@@ -15,6 +15,18 @@ Scoped readers may inspect the policy shared across secret rotations.
 
 Implementation: `implemented`. Operation: `getKeyConcurrencyLimit`.
 
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
 ### Parameters
 
 `organization` (path, required)
@@ -77,6 +89,18 @@ HTTP 404: Workspace is outside operator scope, or key is absent from authorized 
 Owner or installation administrator only. Rotation preserves this policy. Does not cancel already admitted requests.
 
 Implementation: `implemented`. Operation: `setKeyConcurrencyLimit`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
 
 ### Parameters
 
@@ -182,6 +206,18 @@ HTTP 422: Missing or invalid JSON fields
 Scoped readers receive descending revisions shared across rotations. Use the last revision as the next page cursor.
 
 Implementation: `implemented`. Operation: `listKeyConcurrencyLimitHistory`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
 
 ### Parameters
 
@@ -301,6 +337,18 @@ Scoped readers may inspect the policy shared across secret rotations.
 
 Implementation: `implemented`. Operation: `getKeyIpPolicy`.
 
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
 ### Parameters
 
 `organization` (path, required)
@@ -388,6 +436,18 @@ HTTP 404: Workspace is outside operator scope, or key is absent from authorized 
 Owner or installation administrator only. Rotation preserves this policy. Does not cancel already admitted requests.
 
 Implementation: `implemented`. Operation: `setKeyIpPolicy`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
 
 ### Parameters
 
@@ -502,6 +562,18 @@ HTTP 422: Missing or invalid JSON fields
 Scoped readers receive descending revisions shared across rotations. Use the last revision as the next page cursor.
 
 Implementation: `implemented`. Operation: `listKeyIpPolicyHistory`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
 
 ### Parameters
 
@@ -630,6 +702,18 @@ Scoped readers may inspect the policy shared across secret rotations.
 
 Implementation: `implemented`. Operation: `getKeyRequestRateLimit`.
 
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
 ### Parameters
 
 `organization` (path, required)
@@ -692,6 +776,18 @@ HTTP 404: Workspace is outside operator scope, or key is absent from authorized 
 Scoped reader access. Dispatches in the rolling 60 seconds ending at window_end, across secret rotations. Known subtotals exclude unknown requests; zero known tokens does not mean zero actual usage. This endpoint does not enforce TPM and exposes no Supplier cost.
 
 Implementation: `implemented`. Operation: `getKeyTokenUsageWindow`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
 
 ### Parameters
 
@@ -794,6 +890,18 @@ HTTP 404: Workspace outside operator scope or key absent from workspace
 Owner or installation administrator only. Rotation preserves this policy. Does not cancel already admitted requests.
 
 Implementation: `implemented`. Operation: `setKeyRequestRateLimit`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
 
 ### Parameters
 
@@ -899,6 +1007,18 @@ HTTP 422: Missing or invalid JSON fields
 Scoped readers receive descending revisions shared across rotations. Use the last revision as the next page cursor.
 
 Implementation: `implemented`. Operation: `listKeyRequestRateLimitHistory`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
 
 ### Parameters
 
@@ -1018,6 +1138,18 @@ Scoped readers may inspect customer commitments. Rotated keys share the original
 
 Implementation: `implemented`. Operation: `listKeySpendingLimits`.
 
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
 ### Parameters
 
 `organization` (path, required)
@@ -1122,6 +1254,18 @@ HTTP 404: Key does not exist in the authorized workspace
 Workspace/company owner or installation administrator. Cap includes settled customer charges minus refunds plus unreleased reservations, across secret rotations. Lowering below committed liability is rejected. Account and workspace limits still apply. Writes do not add funds. Null explicitly restores unlimited; omission is rejected.
 
 Implementation: `implemented`. Operation: `setKeySpendingLimit`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
 
 ### Parameters
 
@@ -1237,6 +1381,18 @@ HTTP 422: Missing or invalid body fields
 Descending immutable revision history shared across rotations. Use the last returned revision as before_revision for the next page. Returns currency, nullable limit_nanos, revision, recorded_at, actor_kind and actor_name; never an internal actor identifier.
 
 Implementation: `implemented`. Operation: `listKeySpendingLimitHistory`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
 
 ### Parameters
 
@@ -1374,6 +1530,18 @@ Scoped readers may inspect the policy shared across secret rotations.
 
 Implementation: `implemented`. Operation: `getKeyTokenRateLimit`.
 
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
 ### Parameters
 
 `organization` (path, required)
@@ -1436,6 +1604,18 @@ HTTP 404: Workspace is outside operator scope, or key is absent from authorized 
 Owner or installation administrator only. Rotation preserves this policy. Does not cancel already admitted requests.
 
 Implementation: `implemented`. Operation: `setKeyTokenRateLimit`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
 
 ### Parameters
 
@@ -1541,6 +1721,18 @@ HTTP 422: Missing or invalid JSON fields
 Scoped readers receive descending revisions shared across rotations. Use the last revision as the next page cursor.
 
 Implementation: `implemented`. Operation: `listKeyTokenRateLimitHistory`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
 
 ### Parameters
 
@@ -1660,6 +1852,18 @@ Workspace readers may discover company account currencies and this workspace com
 
 Implementation: `implemented`. Operation: `listWorkspaceSpendingLimits`.
 
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
 ### Parameters
 
 `organization` (path, required)
@@ -1718,6 +1922,18 @@ HTTP 400: Invalid currency, decimal value or history query
 Workspace read permission required. Returns data: null when no explicit limit exists. Does not expose company funds or other workspace usage.
 
 Implementation: `implemented`. Operation: `getWorkspaceSpendingLimit`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
 
 ### Parameters
 
@@ -1790,6 +2006,18 @@ HTTP 400: Invalid currency, decimal value or history query
 Scoped owner or installation administrator required. Both input fields are nonnegative decimal strings, not null. expected_revision 0 creates the first limit; later writes require the saved revision. Zero denies new paid liability; there is no null reset on this endpoint. A limit below existing commitment is rejected. Writes append actor history and never change company funds.
 
 Implementation: `implemented`. Operation: `setWorkspaceSpendingLimit`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
 
 ### Parameters
 
@@ -1883,6 +2111,18 @@ HTTP 422: JSON input shape is invalid
 Workspace read permission required. Descending immutable history. before_revision is exclusive. next_before_revision is a decimal string or null; an exactly full final page can yield an empty following page. Baseline timestamps and actor data may be null.
 
 Implementation: `implemented`. Operation: `listWorkspaceSpendingLimitHistory`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
 
 ### Parameters
 
@@ -1982,6 +2222,18 @@ Requires scoped workspace write access. Trims the saved name. Returns the existi
 
 Implementation: `implemented`. Operation: `renameWorkspace`.
 
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
 ### Parameters
 
 `organization` (path, required)
@@ -2068,6 +2320,18 @@ Requires installation authority or company-level membership with member-manageme
 
 Implementation: `implemented`. Operation: `deleteWorkspace`.
 
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
 ### Parameters
 
 `organization` (path, required)
@@ -2111,6 +2375,18 @@ HTTP 503: Storage unavailable
 Requires workspace write access. Changes the saved name and model grants without returning or rotating the secret or extending expiry. Subsequent requests use the current grants; this does not cancel already dispatched requests. expected_revision is an integer, unlike decimal-string policy revisions. A no-op edit retains its revision; a changed edit increments it. Model aliases must exist in the authorized scope. The wildcard must be the sole grant.
 
 Implementation: `implemented`. Operation: `updateKeyMetadata`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
 
 ### Parameters
 
@@ -2222,6 +2498,18 @@ Scoped workspace read access required. Returns persisted metadata, usage, timing
 
 Implementation: `implemented`. Operation: `getGatewayRequest`.
 
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
 ### Parameters
 
 `organization` (path, required)
@@ -2255,6 +2543,15 @@ Implementation: `implemented`. Operation: `getGatewayRequest`.
 
 HTTP 200: Saved request metadata. Cache-Control: no-store.
 
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
 Content type: `application/json`.
 
 ```json
@@ -2284,6 +2581,18 @@ HTTP 404: Workspace or request unavailable in this scope
 Returns enabled, merchant_id, endpoint, notify_url, return_url, methods, has_key and an exact string revision. Never returns merchant keys. Without a saved configuration, reads sanitized deployment defaults.
 
 Implementation: `implemented`. Operation: `getPlatformEPayConfiguration`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
 
 ### Responses
 
@@ -2320,6 +2629,18 @@ HTTP 503: Durable storage unavailable
 Validates enabled checkout configuration before persistence. An empty key retains the stored credential. Exact expected_revision prevents overwriting concurrent edits. Pending EPay orders prevent configuration changes so their original verification settings remain available. Saves an append-only audit event and takes effect without restarting the gateway. This configures the classic EPay protocol; it does not establish merchant eligibility or live payment qualification. Supported method names and uniqueness are validated even when disabled; a disabled draft may use an empty methods list.
 
 Implementation: `implemented`. Operation: `savePlatformEPayConfiguration`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
 
 ### Request body
 
@@ -2423,6 +2744,18 @@ Installation administrator only. Capability inventory is independent of merchant
 
 Implementation: `implemented`. Operation: `listPaymentIntegrations`.
 
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
 ### Responses
 
 HTTP 200: Supported integrations, not enabled customer checkout methods
@@ -2505,6 +2838,18 @@ HTTP 403: Installation administrator required
 Organization-wide owner/admin with write access or installation administrator only. Requires an enabled method and an existing account in the selected integration's currency. Classic EPay and native Zhifux use CNY; Stripe uses its configured supported currency. Exact positive amounts must match the integration's minor-unit precision. No implicit account creation, FX or approved credit. Reuse the same idempotency key and identical intent after an uncertain response. Remote creation is durably claimed before contact and never automatically repeated; EPay saves a deterministic signed checkout locally. Checkout alone grants no balance. Independently verified payment gates funding. Merchant credentials and enabled methods are deployment configuration. An explicit payment_gateway never falls through to another integration. Omission preserves runtime priority for compatibility.
 
 Implementation: `implemented`. Operation: `createCustomerTopup`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
 
 ### Parameters
 
@@ -2656,6 +3001,18 @@ Organization-wide owner/admin with read access or installation administrator onl
 
 Implementation: `implemented`. Operation: `listCustomerTopups`.
 
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
 ### Parameters
 
 `organization` (path, required)
@@ -2776,6 +3133,18 @@ Organization-wide owner/admin with read access or installation administrator onl
 
 Implementation: `implemented`. Operation: `getCustomerPaymentMethods`.
 
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
 ### Parameters
 
 `organization` (path, required)
@@ -2895,6 +3264,18 @@ Organization-wide owner/admin with read access or installation administrator onl
 
 Implementation: `implemented`. Operation: `getCustomerTopup`.
 
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
 ### Parameters
 
 `organization` (path, required)
@@ -2996,6 +3377,10 @@ Server-to-server callback; no installation or workspace bearer token is required
 
 Implementation: `implemented`. Operation: `receiveStripePaymentNotification`.
 
+### Authentication
+
+No OpenAPI security scheme is required. Signature and other request validation still apply as described above.
+
 ### Parameters
 
 `stripe-signature` (header, required)
@@ -3042,6 +3427,10 @@ HTTP 503: Durable storage is unavailable.
 Same verified funding contract as GET. Form bodies are limited to 8192 bytes. Rejects duplicate and unknown fields before verification. Post-body processing has a two-second deadline. Acknowledgment follows durable funding; replay never creates a second credit.
 
 Implementation: `implemented`. Operation: `receiveEPayFormNotification`.
+
+### Authentication
+
+No OpenAPI security scheme is required. Signature and other request validation still apply as described above.
 
 ### Request body
 
@@ -3107,6 +3496,15 @@ Content type: `application/x-www-form-urlencoded`.
 
 HTTP 200: Verified payment committed or replayed; exactly one saved-order credit
 
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
 Content type: `text/plain`.
 
 ```json
@@ -3133,6 +3531,10 @@ HTTP 503: Durable storage unavailable; retry notification
 Bounded to 8192 query bytes. Duplicate or unknown fields are rejected. Verifies the configured merchant and exact saved CNY order, method and amount before binding payment identity and funding exactly once. A browser return is never payment evidence. Post-input processing has a two-second deadline; timeout requires delivery retry. Merchant compatibility and live collection remain unqualified.
 
 Implementation: `implemented`. Operation: `receiveEPayQueryNotification`.
+
+### Authentication
+
+No OpenAPI security scheme is required. Signature and other request validation still apply as described above.
 
 ### Parameters
 
@@ -3220,6 +3622,15 @@ Implementation: `implemented`. Operation: `receiveEPayQueryNotification`.
 
 HTTP 200: Verified payment committed or replayed; exactly one saved-order credit
 
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
 Content type: `text/plain`.
 
 ```json
@@ -3244,6 +3655,18 @@ HTTP 503: Durable storage unavailable; retry notification
 Requires platform management permission. Returns business display metadata and an integer profile revision. Optional descriptive text and URLs are represented as empty strings when unset. Does not return credentials, procurement prices or qualification evidence. Internal identity is for routing, not display.
 
 Implementation: `implemented`. Operation: `getSupplierProfile`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
 
 ### Parameters
 
@@ -3323,6 +3746,18 @@ HTTP 503: Storage unavailable
 Requires platform write authority. Name is required. Omitted or null description/URL fields retain saved values; an empty string clears them. All text is trimmed. Supply the integer expected_revision to reject stale edits; omission or null preserves legacy unconditional updates. Every accepted update increments the profile revision and records an audit event, even if values are unchanged. URLs are stored metadata and are not fetched by this operation.
 
 Implementation: `implemented`. Operation: `renameSupplierBusiness`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
 
 ### Parameters
 
@@ -3457,6 +3892,18 @@ Requires platform management permission. Lists saved memberships ordered by memb
 
 Implementation: `implemented`. Operation: `listSupplierMembers`.
 
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
 ### Parameters
 
 `provider` (path, required)
@@ -3538,6 +3985,18 @@ Requires platform management permission. Returns configuration-presence flags wi
 
 Implementation: `implemented`. Operation: `getPlatformConfiguration`.
 
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
 ### Responses
 
 HTTP 200: Sanitized configuration presence
@@ -3600,6 +4059,18 @@ HTTP 503: Configuration storage unavailable
 Requires workspace write authority and an active selected key in that workspace. The key supplies model grants, IP policy, limits and billing attribution; the member token is not forwarded upstream. Uses the same Chat execution path as /v1/chat/completions, including streaming, tools and supported buffered structured output. No key secret is returned. HTTP 200 starts a stream and does not alone prove completed generation or known usage.
 
 Implementation: `implemented`. Operation: `createDashboardChatCompletion`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
 
 ### Parameters
 
