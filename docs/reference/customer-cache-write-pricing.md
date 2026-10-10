@@ -39,8 +39,8 @@ exact total for both requests. An independent process reopened the stopped
 PostgreSQL database and checked saved response hashes, category quantities,
 pinned rates, invoice total, and ledger debits.
 
-Write-rate-only concurrent admission and combined write/reasoning schedules
-still require current-input verification. Missing-category retention is verified
+Combined write/reasoning schedules still require current-input verification.
+Write-rate-only concurrent admission is verified below. Missing-category retention is verified
 below; later correction/recovery remains unverified. These are
 personal upstream calls with internal prices, not commercial Supplier evidence.
 
@@ -62,3 +62,20 @@ archive inventory check. Configuration hashes, encrypted credential identities
 and revisions, and organization, workspace, media-job and financial-entry counts
 were unchanged. Backup restoration was not performed. Implementation CI run
 38084967023 succeeded; this is separate from the actual accounting evidence.
+
+
+## Two-Gateway write-only admission
+
+Two native Gateway processes shared an isolated database. Ordinary input/output
+rates, fee, and minimum were zero, while the cache-write rate was 1,000,000
+nanounits per million tokens. Internal credit equaled the 32,768-token input
+bound. Two simultaneous actual Messages requests with a unique cached prefix
+produced one HTTP 200 and one HTTP 402. The rejected response arrived while the
+accepted request still held its reservation.
+
+The accepted response reported nonzero cache creation. Independent reopening
+matched its saved response hash and a charge equal to the reported cache-write
+quantity, with one attempt, one debit, and no remaining hold. After restart,
+remaining credit could not cover another full input-bound reservation, so another
+request was refused before dispatch. This checks that a write-only tariff does
+not enter the free-request exemption; it is not sustained performance evidence.
