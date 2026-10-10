@@ -303,5 +303,30 @@ and MP4 download, same-intent history recovery, and the Video → Logs → resul
 round trip have actual desktop evidence in the
 [frontend workflow checklist](frontend-workflow-checklist.md). No commercial
 customer debit or settled upstream price is qualified by this test. Logs still
-lacks retained video payloads and concrete Provider model attribution; failure,
+lacks retained video payloads. Provider model remains Unknown when omitted by
+the upstream, as the attribution contract requires; failure,
 expired-result, ordinary-role and narrow-width acceptance remain open.
+
+### Supplier credential request limits — frontend acceptance
+
+F03 includes the credential-scoped management contract in
+[Upstream credential request limits](../reference/upstream-credential-request-limits.md).
+The Admin Supplier API-key detail must provide:
+
+- Current policy read and actionable loading/error recovery, with explicit
+  Unlimited, zero (new dispatch blocked), and positive requests-per-minute states.
+- An edit dialog with integer validation from zero through 1,000,000, explicit
+  null for Unlimited, cancellation restoring saved values, and save/reload proof.
+- Exact revision-string writes including initial revision zero, with 409 recovery
+  requiring a fresh policy read rather than silently overwriting another edit.
+- Immutable history with meaningful actor names, time, limit and pagination;
+  internal revisions and credential IDs remain out of product labels.
+- Platform-administrator access only; customer and Supplier membership must not
+  expose this procurement control. Credential metadata edits preserve the policy.
+
+Use the existing dialog primitives and current NIU.IO design system after actual
+reference inspection and Stitch iteration. The customer-key limit component
+currently accepts null or positive revisions, whereas this credential contract
+starts with string zero; copying its revision validator would reject the initial
+policy. UI qualification remains open. Backend dispatch/refusal, rolling-window
+recovery and performance evidence are separate from this interface acceptance.
