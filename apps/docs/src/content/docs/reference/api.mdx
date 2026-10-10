@@ -495,6 +495,8 @@ Shared upstream connections persist in PostgreSQL and are managed with installat
 - `POST /admin/v1/vendors/{id}/models` creates a mapping without a revision or updates it using the current `expected_revision`.
 - `POST /admin/v1/vendors/{id}/check` with `{ "alias": "team/fast" }` performs a non-inference `GET /models` check. The check is capped at five seconds and 2 MiB, blocks redirects and private-network destinations, and returns only a status plus whether the exact upstream model ID appears in the provider catalog. Provider response content and credentials are never returned. A catalog listing does not prove inference access or quota; use Chat to test a real request through Niu.
 
+A Supplier can own multiple independently configured credentials, and each credential can bind multiple model aliases. Workspace key grants apply to each requested alias even when aliases share a credential. See the [current multi-key and multi-model verification](https://github.com/niu-io/niu/blob/main/docs/reference/supplier-key-isolation-live.md#multiple-mappings-on-one-credential--current-input-verification) for the exercised update, disable, restart and billing behavior.
+
 On a model update, omitting `pricing` preserves its exact stored value; explicit `null` clears it. Stale updates return `409`. Responses use `Cache-Control: no-store`. Ordinary organization and workspace roles cannot administer these platform resources without an explicit platform-administrator grant. See [Model routes](/docs/configuration/models/) for encryption, precedence and bootstrap behavior.
 
 

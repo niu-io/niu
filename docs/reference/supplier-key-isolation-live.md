@@ -91,3 +91,34 @@ same complete price and updated capability. No inference or ledger entry was
 created. This verifies that an omitted-price edit does not overwrite the stored
 value with JavaScript's rounded representation. It does not make an unsafe JSON
 number safe to edit or resubmit, and does not qualify the browser form itself.
+
+## Multiple mappings on one credential — current-input verification
+
+A fresh native run against backend revision `c15ad4a` exercised one Supplier with
+two credential configurations and three private mappings. The first configuration
+had one mapping; the second had two, each with its own workspace key and customer
+tariff. All configuration was created through management APIs. Both configurations
+used the saved owner's OpenRouter secret; these are independent Niu configurations,
+not independently issued upstream credentials or commercial supply.
+
+After an actual completion on the first configuration, its credential was
+re-encrypted and disabled through a revisioned update. The second configuration's
+ciphertext digest/revision and complete two-model management response remained
+unchanged. One of its models completed before and after gateway restart; the other
+completed after restart. All four strict-JSON responses contained the requested
+fresh marker. Four independently calculated charges totaled 56,792 USD nanounits,
+matching the customer debits; customer holds were released and the reconciliation
+response reported no discrepancies.
+
+The disabled first route returned 404. A key restricted to the second mapping
+also received 404 when requesting the third mapping, despite their shared upstream
+credential. Independent SQL still showed only the four completed-call attempts.
+Supplier filtering returned the original two configurations. Temporary keys were
+revoked, mappings disabled and isolated processes stopped. The original database
+and encrypted identity were preserved.
+
+An earlier execution stopped at a verifier that incorrectly expected 403 for the
+model-allowlist rejection. The handler intentionally returns 404; that execution
+is not recorded as a completed verification. The fresh completed run above used
+the actual contract. This checkpoint does not qualify every provider/model,
+concurrent mapping mutation, external account isolation or browser onboarding.
