@@ -149,3 +149,27 @@ mappings/credential disabled.
 This establishes shared occupancy and release across these three protocols on one
 live gateway. It does not establish mixed-protocol multi-gateway contention, paid
 admission, batch-writer behavior, sustained throughput or media settlement.
+## Actual priced admission across two gateways — 2026-10-10
+
+A separate native PostgreSQL database and two gateway processes using backend
+`5a2449d` received four simultaneous requests for the same key, configured with a
+concurrency limit of one. The route used real personal OpenRouter execution,
+explicit internal tariffs and approved company credit. One request completed
+with the exact requested structured output; three returned HTTP 429 with
+`key_concurrency_exceeded`.
+
+Independent database reads confirmed exactly one attempt and customer charge.
+The debit matched integer arithmetic from the response's reported usage, no
+customer reservation remained, and reconciliation reported no discrepancies.
+The management occupancy read returned zero after completion. No PostgreSQL
+deadlock diagnostic was observed.
+
+Administration then set the limit to zero. Further requests were rejected before
+another attempt, including after both gateways stopped and one restarted.
+Temporary access was revoked, isolated processes stopped and the original saved
+credential and database preserved. No external funding receipt or commercial
+Supplier qualification was created.
+
+This adds priced admission and settlement evidence for the exercised contention
+scenario. It does not qualify sustained mixed workloads, in-flight policy edits
+or every admission interleaving. Fixture outcomes were not used as evidence.
