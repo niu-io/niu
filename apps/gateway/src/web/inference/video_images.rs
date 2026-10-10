@@ -109,7 +109,7 @@ pub(in crate::web) async fn inspect<'a>(
     }
     let bindings = requirements(snapshot)?;
     if !permitted(state, snapshot, principal) {
-        return Err(ApiError::forbidden());
+        return Err(ApiError::image_inspection_required());
     }
     // Validate every binding before disclosing any image to any detector.
     let workspace = principal.scope().project_id.to_string();

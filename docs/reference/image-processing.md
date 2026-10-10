@@ -5,6 +5,24 @@ with a text prompt, current image-processing consent and exact-content inspectio
 approvals. Other reference shapes remain unavailable. These mechanisms do not
 qualify any Supplier or detector; live channel acceptance is a separate gate.
 
+Missing authorized image-inspection prerequisites return HTTP 403 with
+`error.type: "image_inspection_required"`. The message identifies the need for
+an authorized inspector and current workspace processing consent, without
+disclosing detector configuration. This replaces a misleading administrator-role
+message at the shared image-preparation prerequisite check. It does not classify
+every image-related 403 or bypass detector approval. No detector disclosure takes
+place at this failed prerequisite check.
+
+Current-input verification on 2026-10-11 submitted a newly generated valid
+single-pixel PNG through `/v1/media/image-sources` in a fresh native environment
+without an authorized inspector. The old binary returned `permission_denied`;
+the updated binary returned `image_inspection_required`, without echoing image
+content. The refusal persisted after restart. Independent database reopening
+found no processing approval, retained image source, model attempt, customer
+charge, debit or reservation. This verifies the missing-inspector branch only;
+expired consent, positive external inspection and populated retention/recovery
+backlogs remain separately unverified.
+
 ## Configuration
 
 Image detectors use a separate `[image_detectors.<name>]` section. Required settings

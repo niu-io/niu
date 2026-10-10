@@ -192,6 +192,15 @@ impl ApiError {
         }
     }
 
+    pub(crate) fn image_inspection_required() -> Self {
+        Self {
+            failure: None,
+            status: StatusCode::FORBIDDEN,
+            kind: "image_inspection_required",
+            message: "Image processing requires an authorized inspector and current workspace processing consent",
+        }
+    }
+
     pub fn forbidden() -> Self {
         Self {
             failure: None,

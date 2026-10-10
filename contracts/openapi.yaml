@@ -176,7 +176,7 @@ paths:
         '201': { description: "Saved source reference and retention_seconds ceiling; no plaintext, hash, credentials or public source URL" }
         '400': { description: "Invalid, oversized or unsupported input" }
         '401': { description: Active API key required }
-        '403': { description: Current inspection consent or detector approval unavailable }
+        '403': { description: "Current inspection consent or detector approval unavailable. Missing authorized inspection prerequisites use error.type image_inspection_required before detector disclosure; this is not an administrator-role error." }
         '409': { description: Workspace policy changed during preparation }
         '503': { description: "Encryption, preparation capacity or storage capacity unavailable" }
   /v1/media/image-sources/{id}:
