@@ -47,7 +47,7 @@ merchant or upstream integration to be activated.
 | Supplier businesses | `GET/POST /admin/v1/providers`; `GET/PATCH/DELETE /admin/v1/providers/{provider}` | Business identity and membership are separate from credential configuration. See [Supplier contract](../../contracts/provider-business.openapi.yaml). |
 | Supplier credentials | `GET/POST /admin/v1/vendors`; `PUT /admin/v1/vendors/{id}`; `GET/PUT /admin/v1/vendors/{id}/supplier` | Each key configuration has its own endpoint, enabled state, revision and model mappings. Keep procurement administration out of customer pages. |
 | Models and configured prices | `GET/POST /admin/v1/vendors/{id}/models`; `GET/POST /admin/v1/vendors/{id}/catalog`; `POST /admin/v1/vendors/{id}/check` | Catalog/connection success does not prove generation. Keep upstream procurement rates separate from customer retail tariffs. |
-| Workspace keys | `GET/POST W/keys`; `PATCH/DELETE K`; `POST K/rotate` | Create/rotate return a secret for the user to copy; never infer it from list data. Creation requires `ttl_seconds` (1–31,536,000) and model grants. Rotation retains expiry and spending/rate/IP lineage. Revocation preserves historical billing. |
+| Workspace keys | `GET/POST W/keys`; `PATCH/DELETE K`; `POST K/rotate` | Create/rotate return a secret for the user to copy; never infer it from list data. Creation requires `ttl_seconds` (1–31,536,000) and model grants. Metadata PATCH uses an integer `expected_revision`, unlike decimal-string policy revisions. Rotation retains expiry and spending/rate/IP lineage. Revocation preserves historical billing. |
 | Key source restrictions | `GET/PUT K/ip-policy`; `GET K/ip-policy/history` | `allowed_cidrs: null` allows all sources; an empty list denies all. Networks are normalized and policy follows rotation. Only configured trusted proxies may supply forwarding identity. See [IP policy contract](../../contracts/key-ip.openapi.yaml). |
 | Key spending | `GET K/spending-limit`; `PUT K/spending-limit/{currency}`; `GET K/spending-limit/{currency}/history` | Decimal-string limit/revision. See [spending contract](../../contracts/key-spending.openapi.yaml). |
 | Key RPM, concurrency and TPM | `GET/PUT K/request-rate-limit`, `K/concurrency-limit`, `K/token-rate-limit`; each has `GET .../history` | Fields are respectively `requests_per_minute`, `max_concurrent_requests`, `tokens_per_minute`; explicit null removes the limit, zero denies admission. See [RPM](../../contracts/key-request-rate.openapi.yaml), [concurrency](../../contracts/key-concurrency.openapi.yaml), [TPM](../../contracts/key-token-rate.openapi.yaml). |
@@ -281,3 +281,12 @@ no attempt. An allowed client followed only by trusted hops completed an actual
 personal-model request with the exact fresh marker and one persisted attempt.
 The listener stopped and the temporary key was revoked. This validates the
 exercised configured trust chain, not an arbitrary production proxy deployment.
+
+A current-input model-grant edit used two owner-funded aliases and the same key
+secret before and after narrowing access. The removed alias returned 404 without
+creating another attempt, while the retained alias completed a fresh-marker
+model call. A stale metadata revision returned 409. Independent database reads
+confirmed revision two, exactly two successful-call attempts and no customer
+charges. Temporary access and routes were disabled; the original encrypted
+credential remained unchanged. This verifies subsequent admission, not
+cancellation of requests already dispatched before a grant edit.
