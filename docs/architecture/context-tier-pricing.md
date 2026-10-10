@@ -394,9 +394,9 @@ reported zero reasoning tokens. Each produced an exact category charge and
 matching debit. Independent verification reopened the stopped database and
 reconciled saved response hashes, quantities and monetary entries, with no open
 reservations or funding. This verifies nonzero Chat cache writes and reads, not
-simultaneously nonzero cache-write and reasoning usage. Responses cache-write
-usage, streaming cache writes and inconsistent-category upstream responses remain
-unverified in this checkpoint. Personal upstream access and internal verification
+simultaneously nonzero cache-write and reasoning usage. Responses cache-write usage and inconsistent-category upstream responses remain
+unverified in this checkpoint. The following checkpoint extends Chat coverage
+to streaming. Personal upstream access and internal verification
 credit do not qualify commercial supply.
 
 A follow-up actual run enabled a text-redaction rule on the cached prefix and
@@ -406,3 +406,15 @@ private marker was redacted and valid ephemeral cache metadata remained intact.
 Actual write/read quantities were 5,279 tokens across restart; independent saved
 response and database reconciliation again confirmed exact charges and no open
 holds. No claim is made from fixture outcomes.
+
+
+A subsequent actual streaming Chat run reported 5,273 cache-write tokens on its
+first request and 5,273 cache-read tokens after Gateway restart. Each saved SSE
+stream contained one terminal usage object, exactly one final `[DONE]`, the
+requested answer and no error event. Separately priced read/write/reasoning
+categories were reconciled against the final reported quantities (reasoning was
+explicitly zero). Independent verification reread the saved SSE bytes and their
+hashes, reopened the stopped database and checked exact category charges and
+matching debits, two total attempts, no funding and no unresolved reservations
+after another restart. This covers successful terminal streaming, not a cache
+write interrupted before terminal usage or simultaneously nonzero reasoning.
