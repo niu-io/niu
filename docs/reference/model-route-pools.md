@@ -455,3 +455,28 @@ This fixes discovery completeness for the exercised pool population. It does not
 qualify model execution or capacity with thousands of active routes. Database
 fetches are bounded, while the compatibility model list still assembles its full
 response in memory; live traversal is not a cross-page snapshot.
+
+## Single-pass workspace discovery
+
+Workspace discovery previously called shared discovery (including pool resolution)
+and then read/resolved the pools again after adding personal mappings. The shared
+base-mapping reader and pool application are now separate internal functions.
+Public discovery applies pools once to the shared base; workspace discovery adds
+its personal mappings before applying pools once. Alias shadowing and eligibility
+rules remain in the one shared pool application function.
+
+Before/after actual HTTP reads used the same retained native database containing
+106 shared pool configurations plus one personal pool and its model mapping.
+After one warm-up request, eight reads per version returned identical full model
+responses. Private PostgreSQL statement logs recorded four pool-page queries per
+request before and two afterward. Local median response time was 44.23 ms before
+and 31.11 ms afterward. These are small sequential observations on this machine,
+not a capacity target or proof of a general latency improvement.
+
+The owner's response retained both personal aliases; a different company's key
+and the public catalog excluded them. Foreign and owner responses matched their
+respective pre-change results. Restart preserved the owner's exact response.
+Independent SQL still showed no inference attempts or financial entries. Temporary
+keys were revoked, isolated processes stopped and the original database/encrypted
+credential identity remained unchanged. This verifies discovery and its exercised
+visibility boundaries, not actual inference or a cross-query configuration snapshot.

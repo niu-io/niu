@@ -233,6 +233,13 @@ fn stored_model(route: &niu_storage::VendorRoute) -> Result<ModelConfig, ApiErro
 pub(crate) async fn effective_models(
     state: &AppState,
 ) -> Result<BTreeMap<String, ModelConfig>, ApiError> {
+    let mut models = base_models(state).await?;
+    apply_pool_models(state, None, &mut models).await?;
+    Ok(models)
+}
+
+/// Shared/static mappings before personal routes and candidate pools are applied.
+async fn base_models(state: &AppState) -> Result<BTreeMap<String, ModelConfig>, ApiError> {
     let mut models = state.config.models.clone();
     for route in state
         .store
@@ -264,24 +271,6 @@ pub(crate) async fn effective_models(
     {
         models.remove(&alias);
     }
-    for pool in state
-        .store
-        .model_route_pools()
-        .await
-        .map_err(ApiError::from_store)?
-    {
-        models.remove(&pool.alias);
-        if pool.organization_id.is_none() && pool.enabled {
-            let alias = pool.alias.clone();
-            match resolve_pool(state, None, pool, None, None).await {
-                Ok(resolved) => {
-                    models.insert(alias, resolved.model);
-                }
-                Err(error) if error.unavailable_catalog_route() => {}
-                Err(error) => return Err(error),
-            }
-        }
-    }
     Ok(models)
 }
 
@@ -289,7 +278,7 @@ pub(crate) async fn scoped_models(
     state: &AppState,
     organization_id: uuid::Uuid,
 ) -> Result<BTreeMap<String, ModelConfig>, ApiError> {
-    let mut models = effective_models(state).await?;
+    let mut models = base_models(state).await?;
     for route in state
         .store
         .personal_vendor_routes(organization_id)
@@ -301,6 +290,17 @@ pub(crate) async fn scoped_models(
         model.public_catalog = false;
         models.insert(route.model.alias, model);
     }
+    apply_pool_models(state, Some(organization_id), &mut models).await?;
+    Ok(models)
+}
+
+/// Apply each visible pool once; shared pools must not be resolved both before
+/// and after the workspace's personal mappings are added.
+async fn apply_pool_models(
+    state: &AppState,
+    organization_id: Option<uuid::Uuid>,
+    models: &mut BTreeMap<String, ModelConfig>,
+) -> Result<(), ApiError> {
     for pool in state
         .store
         .model_route_pools()
@@ -309,10 +309,10 @@ pub(crate) async fn scoped_models(
     {
         models.remove(&pool.alias);
         if pool.enabled
-            && (pool.organization_id.is_none() || pool.organization_id == Some(organization_id))
+            && (pool.organization_id.is_none() || pool.organization_id == organization_id)
         {
             let alias = pool.alias.clone();
-            match resolve_pool(state, Some(organization_id), pool, None, None).await {
+            match resolve_pool(state, organization_id, pool, None, None).await {
                 Ok(resolved) => {
                     models.insert(alias, resolved.model);
                 }
@@ -321,7 +321,7 @@ pub(crate) async fn scoped_models(
             }
         }
     }
-    Ok(models)
+    Ok(())
 }
 
 pub(crate) async fn resolve_model(

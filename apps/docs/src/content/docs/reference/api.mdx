@@ -110,6 +110,8 @@ Inference model discovery traverses all saved route-pool pages rather than silen
 limiting discovery to the first 1,000 pools. Disabled and unauthorized pools remain
 excluded. The compatibility `/v1/models` response remains a complete list; bounded
 database fetches do not imply a fixed-size response or a cross-page snapshot.
+Workspace discovery applies shared and eligible personal pools once per request; it does
+not resolve the shared inventory again after adding personal mappings.
 
 A revisioned pool update applies to selection for new requests. Disabling a
 candidate does not cancel a generation already dispatched through it. That request
