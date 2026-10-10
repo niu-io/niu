@@ -224,3 +224,49 @@ still completed generation. Independent database reopening matched both actual
 usages, key attribution and exact debits, with no attempted dispatch from the
 refused requests. The generated contract and served docs JSON/reference were
 checked after rebuilding the docs artifact.
+
+
+## Managed Anthropic configuration — 2026-10-11
+
+The management API and appended migration 252 now accept `adapter: anthropic`
+for Supplier API-key configurations. Set `api_base` to
+`https://api.anthropic.com/v1`, use the native upstream model name, and explicitly
+publish `capabilities.supports_messages: true`. Previously the Messages handler
+supported Anthropic, but the stored-credential validator and database constraint
+only accepted OpenAI/OpenRouter, making managed Anthropic configuration impossible.
+An actual management request reproduced that HTTP 400 before the correction.
+
+Model discovery and connection checks now use server-owned `x-api-key` and
+`anthropic-version: 2023-06-01` headers, following the
+[Anthropic Models API](https://platform.claude.com/docs/en/api/models/list).
+They request one page of at most 1,000 entries under the existing timeout and
+2 MiB response bound. Discovery rejects an incomplete or invalid pagination
+indicator instead of reporting a truncated inventory as complete. A model absent
+from an incomplete check page remains unknown; presence still does not qualify
+inference entitlement. Display names may use the native `display_name` field.
+Client authentication headers and arbitrary upstream metadata are not forwarded.
+
+A fresh native run created the Supplier, encrypted credential, personal ownership,
+model mapping and workspace key through management APIs. The credential was
+intentionally invalid; no saved OpenRouter credential was sent to Anthropic.
+Actual upstream model checks, catalog reads and a native Messages request were
+rejected. Client errors remained sanitized, with the native Messages error envelope
+and a persisted upstream refusal on its managed attempt. Unsupported streaming
+and tools were rejected before additional attempts. Restart retained the adapter,
+capability and exact encrypted credential revision/digest. Independent reopening
+verified those records, Supplier ownership and no financial or commercial records.
+
+A separate upgrade used a stopped database copy containing existing encrypted
+credentials, 103 pools and actual charged inference records. Startup applied
+migration 252; all prior migration checksums, credential identities/revisions,
+mappings, pools, attempts and financial counts/sums stayed unchanged. A newly
+created disabled Anthropic configuration survived restart. Independent reopening
+confirmed the upgrade and retained artifacts.
+
+These observations qualify the exercised configuration, upgrade and refusal
+paths. Successful direct Anthropic generation, its successful catalog responses,
+large/malformed catalog handling and native SDK compatibility remain unverified
+with current real inputs. Existing actual OpenRouter Messages evidence does not
+substitute for direct Anthropic qualification. GenerateContent and native
+streaming/tools/media remain outside the implemented Messages subset. No fixture
+outcome was used as evidence.

@@ -10154,7 +10154,7 @@
       "get": {
         "operationId": "listProviderModelCatalog",
         "summary": "Discover upstream models for a Supplier API-key configuration",
-        "description": "Makes a bounded GET to the configured provider /models endpoint using the encrypted server-side credential. No inference request is sent. Redirects are blocked, the response body is capped at 2 MiB, and only allowlisted model IDs and catalog metadata (display name, description, context and output limits, modalities, and advertised USD token prices) are returned. Provider credentials and raw response data are never returned. Requires installation administration or an explicitly granted platform administrator.",
+        "description": "Makes a bounded GET to the configured provider /models endpoint using the encrypted server-side credential. Anthropic uses x-api-key and anthropic-version 2023-06-01, requests at most 1000 models and rejects an incomplete catalog rather than returning a truncated inventory. No inference request is sent. Redirects are blocked, the response body is capped at 2 MiB, and only allowlisted model IDs and catalog metadata (display name, description, context and output limits, modalities, and advertised USD token prices) are returned. Provider credentials and raw response data are never returned. Requires installation administration or an explicitly granted platform administrator.",
         "security": [
           {
             "bearerAuth": []
@@ -10269,7 +10269,7 @@
       "post": {
         "operationId": "checkVendorModel",
         "summary": "Check provider reachability and whether a mapped model is listed",
-        "description": "Performs a bounded GET to the provider's /models endpoint. It does not send an inference request. Redirects are blocked, response bodies are capped at 2 MiB, and provider response content and credentials are never returned. A listed model does not prove inference entitlement or quota. Requires installation administration or an explicitly granted platform administrator.",
+        "description": "Performs a bounded GET to the provider's /models endpoint. Anthropic uses native authentication/version headers and a 1000-model page; absence from an incomplete page remains unknown. It does not send an inference request. Redirects are blocked, response bodies are capped at 2 MiB, and provider response content and credentials are never returned. A listed model does not prove inference entitlement or quota. Requires installation administration or an explicitly granted platform administrator.",
         "security": [
           {
             "bearerAuth": []
@@ -15364,7 +15364,8 @@
             "type": "string",
             "enum": [
               "openrouter",
-              "openai"
+              "openai",
+              "anthropic"
             ]
           },
           "api_base": {
@@ -15428,7 +15429,8 @@
             "type": "string",
             "enum": [
               "openrouter",
-              "openai"
+              "openai",
+              "anthropic"
             ]
           },
           "api_base": {

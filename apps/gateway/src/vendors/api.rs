@@ -13,6 +13,28 @@ use uuid::Uuid;
 const MAX_MODEL_CATALOG_BYTES: usize = 2 * 1024 * 1024;
 const MAX_DISCOVERED_MODELS: usize = 2_000;
 
+/// Diagnostics use only server-owned authentication, never client headers.
+/// Anthropic catalogs are bounded to one maximal page; incomplete catalogs
+/// must not be mistaken for a complete inventory or a missing model.
+fn model_catalog_request(
+    client: &reqwest::Client,
+    endpoint: &str,
+    adapter: &str,
+    api_key: &str,
+) -> reqwest::RequestBuilder {
+    let request = client
+        .get(endpoint)
+        .header(axum::http::header::ACCEPT, "application/json");
+    if adapter == "anthropic" {
+        request
+            .header("x-api-key", api_key)
+            .header("anthropic-version", "2023-06-01")
+            .query(&[("limit", "1000")])
+    } else {
+        request.bearer_auth(api_key)
+    }
+}
+
 pub(super) async fn installation(state: &AppState, headers: &HeaderMap) -> Result<(), ApiError> {
     state.authorize_platform_headers(headers).await?;
     Ok(())
@@ -202,7 +224,8 @@ pub struct VendorFilter {
 ///           "type": "string",
 ///           "enum": [
 ///             "openrouter",
-///             "openai"
+///             "openai",
+///             "anthropic"
 ///           ]
 ///         },
 ///         "api_base": {
@@ -266,7 +289,8 @@ pub struct VendorFilter {
 ///           "type": "string",
 ///           "enum": [
 ///             "openrouter",
-///             "openai"
+///             "openai",
+///             "anthropic"
 ///           ]
 ///         },
 ///         "api_base": {
@@ -1333,7 +1357,7 @@ pub async fn list_models(
 ///   "operation": {
 ///     "operationId": "listProviderModelCatalog",
 ///     "summary": "Discover upstream models for a Supplier API-key configuration",
-///     "description": "Makes a bounded GET to the configured provider /models endpoint using the encrypted server-side credential. No inference request is sent. Redirects are blocked, the response body is capped at 2 MiB, and only allowlisted model IDs and catalog metadata (display name, description, context and output limits, modalities, and advertised USD token prices) are returned. Provider credentials and raw response data are never returned. Requires installation administration or an explicitly granted platform administrator.",
+///     "description": "Makes a bounded GET to the configured provider /models endpoint using the encrypted server-side credential. Anthropic uses x-api-key and anthropic-version 2023-06-01, requests at most 1000 models and rejects an incomplete catalog rather than returning a truncated inventory. No inference request is sent. Redirects are blocked, the response body is capped at 2 MiB, and only allowlisted model IDs and catalog metadata (display name, description, context and output limits, modalities, and advertised USD token prices) are returned. Provider credentials and raw response data are never returned. Requires installation administration or an explicitly granted platform administrator.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1471,10 +1495,7 @@ pub async fn catalog(
             ));
         }
     };
-    let mut response = client
-        .get(endpoint)
-        .bearer_auth(api_key)
-        .header(axum::http::header::ACCEPT, "application/json")
+    let mut response = model_catalog_request(&client, &endpoint, &vendor.adapter, &api_key)
         .send()
         .await
         .map_err(|_| {
@@ -1524,6 +1545,13 @@ pub async fn catalog(
     let catalog: Value = serde_json::from_slice(&body).map_err(|_| {
         ApiError::upstream_message("The provider returned an invalid model catalog.")
     })?;
+    if vendor.adapter == "anthropic"
+        && catalog.get("has_more").and_then(Value::as_bool) != Some(false)
+    {
+        return Err(ApiError::upstream_message(
+            "The Anthropic catalog is incomplete or invalid; Niu cannot report it as a complete inventory.",
+        ));
+    }
     let models = catalog
         .get("data")
         .and_then(Value::as_array)
@@ -1540,6 +1568,7 @@ pub async fn catalog(
             }
             let name = model
                 .get("name")
+                .or_else(|| model.get("display_name"))
                 .and_then(Value::as_str)
                 .filter(|name| !name.is_empty() && name.len() <= 300)
                 .unwrap_or(id);
@@ -1569,7 +1598,7 @@ pub struct CheckModelInput {
 ///   "operation": {
 ///     "operationId": "checkVendorModel",
 ///     "summary": "Check provider reachability and whether a mapped model is listed",
-///     "description": "Performs a bounded GET to the provider's /models endpoint. It does not send an inference request. Redirects are blocked, response bodies are capped at 2 MiB, and provider response content and credentials are never returned. A listed model does not prove inference entitlement or quota. Requires installation administration or an explicitly granted platform administrator.",
+///     "description": "Performs a bounded GET to the provider's /models endpoint. Anthropic uses native authentication/version headers and a 1000-model page; absence from an incomplete page remains unknown. It does not send an inference request. Redirects are blocked, response bodies are capped at 2 MiB, and provider response content and credentials are never returned. A listed model does not prove inference entitlement or quota. Requires installation administration or an explicitly granted platform administrator.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1742,23 +1771,21 @@ pub async fn check_model(
             ));
         }
     };
-    let mut response = match client
-        .get(endpoint)
-        .bearer_auth(api_key)
-        .header(axum::http::header::ACCEPT, "application/json")
-        .send()
-        .await
-    {
-        Ok(response) => response,
-        Err(_) => {
-            return Ok(check_response(
-                "endpoint_unavailable",
-                "unknown",
-                None,
-                started,
-            ));
-        }
-    };
+    let mut response =
+        match model_catalog_request(&client, &endpoint, &route.vendor.adapter, &api_key)
+            .send()
+            .await
+        {
+            Ok(response) => response,
+            Err(_) => {
+                return Ok(check_response(
+                    "endpoint_unavailable",
+                    "unknown",
+                    None,
+                    started,
+                ));
+            }
+        };
     let status = response.status();
     let status_code = status.as_u16();
     if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
@@ -1847,7 +1874,15 @@ pub async fn check_model(
     });
     Ok(check_response(
         "connected",
-        if listed { "listed" } else { "not_listed" },
+        if listed {
+            "listed"
+        } else if route.vendor.adapter == "anthropic"
+            && catalog.get("has_more").and_then(Value::as_bool) != Some(false)
+        {
+            "unknown"
+        } else {
+            "not_listed"
+        },
         Some(status_code),
         started,
     ))

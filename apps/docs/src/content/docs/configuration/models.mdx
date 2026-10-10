@@ -22,6 +22,16 @@ api_key_env = "OPENROUTER_API_KEY"
 
 Platform administrators manage shared Suppliers and their model routes in the dashboard or through the compatibility endpoint `/admin/v1/vendors`. A Supplier is the business supplying model access; a Provider identifies the upstream API adapter. OpenRouter can be a Supplier using the `openrouter` Provider adapter. Model developers offered through that Supplier do not require separate Niu credentials. Supplier records, enabled state, model mappings, and revisions persist in PostgreSQL. Updates apply to new requests. Organization and workspace operators cannot manage platform-wide Suppliers.
 
+Managed configurations accept `openai`, `openrouter` and `anthropic` adapters.
+For native Anthropic Messages, set `api_base` to `https://api.anthropic.com/v1`
+and opt the mapping into `supports_messages`. Connection checks use native
+Anthropic authentication/version headers and a bounded 1,000-model page. An
+incomplete catalog is not presented as a complete inventory; a missing model in
+an incomplete check remains unknown. Configuration persistence and actual
+invalid-credential refusal are verified; successful direct Anthropic generation
+and catalog discovery remain unverified. See the [native protocol boundary](https://github.com/niu-io/niu/blob/main/docs/architecture/native-inference-protocols.md#managed-anthropic-configuration--2026-10-11).
+
+
 Set `NIU_VENDOR_ENCRYPTION_KEY` to a separate, high-entropy secret of at least 32 characters before storing a Supplier credential. Niu encrypts credentials using AES-256-GCM; API responses never return them. Keep the encryption key in your deployment secret store and back it up separately from PostgreSQL. Changing it without re-encrypting stored credentials makes them unreadable; automatic master-key rotation is not implemented.
 
 A database model alias overrides the same alias in TOML, including when the database route is disabled. A configuration with an empty `[models]` section can use only managed routes. Static file routes remain supported.

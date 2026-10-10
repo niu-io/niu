@@ -10484,7 +10484,7 @@ HTTP 401: Invalid or expired administrative credential.
 
 `GET /admin/v1/vendors/{id}/catalog`
 
-Makes a bounded GET to the configured provider /models endpoint using the encrypted server-side credential. No inference request is sent. Redirects are blocked, the response body is capped at 2 MiB, and only allowlisted model IDs and catalog metadata (display name, description, context and output limits, modalities, and advertised USD token prices) are returned. Provider credentials and raw response data are never returned. Requires installation administration or an explicitly granted platform administrator.
+Makes a bounded GET to the configured provider /models endpoint using the encrypted server-side credential. Anthropic uses x-api-key and anthropic-version 2023-06-01, requests at most 1000 models and rejects an incomplete catalog rather than returning a truncated inventory. No inference request is sent. Redirects are blocked, the response body is capped at 2 MiB, and only allowlisted model IDs and catalog metadata (display name, description, context and output limits, modalities, and advertised USD token prices) are returned. Provider credentials and raw response data are never returned. Requires installation administration or an explicitly granted platform administrator.
 
 Implementation: `implemented`. Operation: `listProviderModelCatalog`.
 
@@ -10547,7 +10547,7 @@ HTTP 401: Invalid or expired administrative credential.
 
 `POST /admin/v1/vendors/{id}/check`
 
-Performs a bounded GET to the provider's /models endpoint. It does not send an inference request. Redirects are blocked, response bodies are capped at 2 MiB, and provider response content and credentials are never returned. A listed model does not prove inference entitlement or quota. Requires installation administration or an explicitly granted platform administrator.
+Performs a bounded GET to the provider's /models endpoint. Anthropic uses native authentication/version headers and a 1000-model page; absence from an incomplete page remains unknown. It does not send an inference request. Redirects are blocked, response bodies are capped at 2 MiB, and provider response content and credentials are never returned. A listed model does not prove inference entitlement or quota. Requires installation administration or an explicitly granted platform administrator.
 
 Implementation: `implemented`. Operation: `checkVendorModel`.
 
@@ -16388,7 +16388,8 @@ Local `#/components/schemas/…` references resolve to these definitions.
       "type": "string",
       "enum": [
         "openrouter",
-        "openai"
+        "openai",
+        "anthropic"
       ]
     },
     "api_base": {
@@ -16507,7 +16508,8 @@ Local `#/components/schemas/…` references resolve to these definitions.
       "type": "string",
       "enum": [
         "openrouter",
-        "openai"
+        "openai",
+        "anthropic"
       ]
     },
     "api_base": {

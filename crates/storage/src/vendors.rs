@@ -944,7 +944,7 @@ fn validate_vendor_update(update: &VendorUpdate) -> Result<(), StoreError> {
 
 fn validate_vendor_fields(name: &str, adapter: &str, api_base: &str) -> Result<(), StoreError> {
     validate_text(name, 100)?;
-    if !matches!(adapter, "openrouter" | "openai") {
+    if !matches!(adapter, "openrouter" | "openai" | "anthropic") {
         return Err(StoreError::InvalidVendor);
     }
     validate_api_base(api_base)
