@@ -701,11 +701,16 @@ SELECT jsonb_build_object(
         sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
             .execute(&mut *tx)
             .await?;
-        let balances:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('currency',c.currency,'charged_nanos',SUM(c.amount_nanos)::text,'unbilled_nanos',SUM(CASE WHEN e.invoice_id IS NULL THEN c.amount_nanos ELSE 0 END)::text,'due_nanos',SUM(CASE WHEN e.invoice_id IS NOT NULL AND p.invoice_id IS NULL THEN c.amount_nanos ELSE 0 END)::text,'paid_nanos',SUM(CASE WHEN p.invoice_id IS NOT NULL THEN c.amount_nanos ELSE 0 END)::text) FROM customer_charges c LEFT JOIN customer_invoice_entries e ON e.attempt_id=c.attempt_id LEFT JOIN customer_invoice_payments p ON p.invoice_id=e.invoice_id WHERE c.organization_id=$1 AND c.project_id=$2 GROUP BY c.currency ORDER BY c.currency").bind(scope.organization_id).bind(scope.project_id).fetch_all(&mut *tx).await?;
+        let (balances, invoices): (Value, Value) =
+            sqlx::query_as(include_str!("customer_billing_summary.sql"))
+                .bind(scope.organization_id)
+                .bind(scope.project_id)
+                .fetch_one(&mut *tx)
+                .await?;
         let unresolved:String=sqlx::query_scalar("SELECT COUNT(*)::text FROM attempts a JOIN customer_attempt_tariffs b ON b.attempt_id=a.id LEFT JOIN customer_charges c ON c.attempt_id=a.id WHERE a.organization_id=$1 AND a.project_id=$2 AND a.dispatched_at IS NOT NULL AND a.execution<>'confirmed_not_executed' AND c.attempt_id IS NULL").bind(scope.organization_id).bind(scope.project_id).fetch_one(&mut *tx).await?;
         let unpriced:String=sqlx::query_scalar("SELECT COUNT(*)::text FROM attempts a LEFT JOIN customer_attempt_tariffs b ON b.attempt_id=a.id WHERE a.organization_id=$1 AND a.project_id=$2 AND a.dispatched_at IS NOT NULL AND a.execution<>'confirmed_not_executed' AND b.attempt_id IS NULL AND NOT EXISTS (SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=a.id)").bind(scope.organization_id).bind(scope.project_id).fetch_one(&mut *tx).await?;
         let tariffs:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('model_alias',t.model_alias,'revision',r.id,'currency',r.currency,'prompt_rate',r.prompt_rate::text,'completion_rate',r.completion_rate::text,'cached_prompt_rate',r.cached_prompt_rate::text) FROM customer_tariffs t JOIN customer_tariff_revisions r ON r.id=t.current_revision WHERE t.organization_id=$1 AND t.project_id=$2 ORDER BY t.model_alias LIMIT 1000").bind(scope.organization_id).bind(scope.project_id).fetch_all(&mut *tx).await?;
-        let invoices:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('id',i.id,'from_ms',i.from_ms,'to_ms',i.to_ms,'currency',i.currency,'amount_nanos',i.amount_nanos::text,'created_at',i.created_at,'status',CASE WHEN p.invoice_id IS NULL THEN 'issued' ELSE 'paid' END,'payment_reference',p.payment_reference) FROM customer_invoices i LEFT JOIN customer_invoice_payments p ON p.invoice_id=i.id WHERE i.organization_id=$1 AND i.project_id=$2 ORDER BY i.created_at DESC,i.id LIMIT 100").bind(scope.organization_id).bind(scope.project_id).fetch_all(&mut *tx).await?;
+
         tx.commit().await?;
         Ok(
             json!({"balances":balances,"unresolved":unresolved,"unpriced":unpriced,"tariffs":tariffs,"invoices":invoices}),

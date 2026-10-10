@@ -697,8 +697,12 @@ paths:
                             currency: { type: string }
                             charged_nanos: { $ref: '#/components/schemas/IntegerString' }
                             unbilled_nanos: { $ref: '#/components/schemas/IntegerString' }
-                            due_nanos: { $ref: '#/components/schemas/IntegerString' }
-                            paid_nanos: { $ref: '#/components/schemas/IntegerString' }
+                            due_nanos:
+                              allOf: [{ $ref: '#/components/schemas/IntegerString' }]
+                              description: Invoiced charges without an invoice receipt or matching balance debit.
+                            paid_nanos:
+                              allOf: [{ $ref: '#/components/schemas/IntegerString' }]
+                              description: Charges settled by a balance debit or invoice receipt, counted once, including balance debits before invoicing.
                       unresolved: { $ref: '#/components/schemas/IntegerString' }
                       unpriced: { $ref: '#/components/schemas/IntegerString' }
                       tariffs:
@@ -920,7 +924,10 @@ components:
         currency: { type: string }
         amount_nanos: { $ref: '#/components/schemas/IntegerString' }
         created_at: { type: string, format: date-time }
-        status: { type: string, enum: [issued, paid] }
+        status:
+          type: string
+          enum: [issued, paid]
+          description: Paid when an invoice receipt exists or every included charge is settled by a matching balance debit or has zero value. Credit-backed account debt remains separate.
         payment_reference: { type: [string, 'null'] }
     ExactMediaQuantity:
       type: object

@@ -73,7 +73,7 @@ Video estimates use `niu-metered-cost` integer arithmetic. `niu-cost` can estima
 
 Financial recovery and content maintenance have independent five-second schedules in the gateway. Financial recovery claims one database transaction owner across instances, uses one idle connection from the existing pool and persists per-stage UUID progress. Each batch reads at most 100 eligible attempts; savepoints isolate record errors, and the ledgers commit independently. Content expiry uses a separate ownership key. Both groups use a 250 ms lock timeout and a 2 s statement timeout; they skip acquisition when the pool has no idle connection. Claim checks briefly use connections in competing processes. Payment/video recovery and interrupted ingestion work remain outside these ownership groups. This does not reserve admission capacity or qualify paid backlog recovery. See [financial recovery](docs/reference/financial-recovery-coordination.md) and [content retention](docs/reference/content-retention-recovery.md).
 
-Customer invoices summarize `customer_charges`. Issuing or marking an invoice paid does not credit prepaid balance or grant spending capacity. The current invoice due calculation does not distinguish prepaid debits from receivables, so an already debited charge can still appear unpaid; that read-model gap remains open. Supplier settlement records an external payment against earnings; it does not send that payment.
+Customer invoices summarize `customer_charges`. Issuing or marking an invoice paid does not credit prepaid balance or grant spending capacity. Invoice totals and status share a settlement read model: exact balance debits and invoice receipts discharge the invoice obligation without double-counting. Credit-backed account debt remains in the balance ledger. Positive paid-path verification remains open. Supplier settlement records an external payment against earnings; it does not send that payment.
 
 Configured Stripe, EPay, and Zhifux checkouts can credit a company balance after a verified top-up. Currency conversion, automatic Supplier payout, and a credit-note API are not implemented.
 
@@ -99,7 +99,7 @@ This is a gap inventory, not an implementation order. The product focus and rele
 
 - Qualify successful paid admission/debit, lost commit acknowledgements and nonempty recovery across restart.
 - Qualify connection contention and backlog capacity across gateways, including payment/video and interrupted-ingestion workers.
-- Keep already debited prepaid charges out of invoice amounts shown as owed.
+- Qualify the invoice settlement read model with actual paid and mixed-settlement business flows.
 - Fail over to another supply mapping with a distinct attempt, a new bound, and no resubmit after uncertain execution.
 - Re-encrypt stored credentials under a new master key.
 - Publish one compiled configuration snapshot for file routes and database routes.
