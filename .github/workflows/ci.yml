@@ -52,6 +52,8 @@ jobs:
         run: cargo +1.98.0 install cargo-deny --version 0.20.2 --locked
       - name: Check Rust dependency licenses
         run: cargo deny check licenses
+      - name: Lint workspace
+        run: cargo +1.98.0 clippy --locked --workspace --all-targets -- -D warnings
       - name: Test workspace
         run: cargo +1.98.0 test --locked --workspace
       - name: Test PostgreSQL storage integration
@@ -62,8 +64,6 @@ jobs:
         env:
           DATABASE_URL: postgres://niu_test:niu_test@127.0.0.1:5432/niu_test
         run: cargo +1.98.0 test --locked -p niu-gateway -- --ignored
-      - name: Lint workspace
-        run: cargo +1.98.0 clippy --locked --workspace --all-targets -- -D warnings
       - name: Run paired benchmark fixture
         run: cargo +1.98.0 run --locked -p niu-benchmark -- compare contracts/fixtures/paired-experiment.v1.json
 
@@ -77,7 +77,6 @@ jobs:
       - name: Check public source boundary and build inputs
         run: |
           python3 scripts/check-public-boundary.py --root . --tracked-tree --check-build-inputs
-          python3 -m unittest discover -s scripts/tests
       - uses: pnpm/action-setup@v4
         with:
           version: 11.25.0
@@ -97,8 +96,6 @@ jobs:
           name: javascript-license-report
           path: ${{ runner.temp }}/niu-js-license-report.json
           if-no-files-found: ignore
-      - name: Test dashboard
-        run: pnpm --filter @niu-io/dashboard test
       - name: Check dashboard types
         run: pnpm --filter @niu-io/dashboard check
       - name: Build dashboard
@@ -113,18 +110,25 @@ jobs:
         run: pnpm build:catalog
       - name: Scan generated public artifacts
         run: python3 scripts/check-public-boundary.py --root . apps/dashboard/dist apps/docs/dist apps/catalog/dist
-      - name: Test JavaScript SDK
-        run: pnpm --dir sdks/javascript run test
       - name: Check JavaScript SDK types
         run: pnpm --dir sdks/javascript run check
       - name: Build JavaScript SDK
         run: pnpm --dir sdks/javascript run build
-      - name: Test Agent Connect SDK
-        run: pnpm --dir sdks/agent-connect run test
       - name: Check Agent Connect SDK types
         run: pnpm --dir sdks/agent-connect run check
       - name: Build Agent Connect SDK
         run: pnpm --dir sdks/agent-connect run build
+
+      # Compile, type-check and inspect build artifacts before fixture commands.
+      # Fixture outcomes do not qualify integrated behavior or release readiness.
+      - name: Test Python scripts
+        run: python3 -m unittest discover -s scripts/tests
+      - name: Test dashboard
+        run: pnpm --filter @niu-io/dashboard test
+      - name: Test JavaScript SDK
+        run: pnpm --dir sdks/javascript run test
+      - name: Test Agent Connect SDK
+        run: pnpm --dir sdks/agent-connect run test
 
   package:
     runs-on: ubuntu-latest
