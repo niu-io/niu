@@ -68,7 +68,7 @@ function stubVendorApi({ existing = [], models: modelFixtures = {} }: {
           public_catalog: Boolean(body?.public_catalog),
           enabled: Boolean(body?.enabled),
           capabilities: body?.capabilities,
-          pricing: body?.pricing ?? null,
+          pricing: Object.hasOwn(body ?? {}, 'pricing') ? body!.pricing : previous.find(model => model.alias === body?.alias)?.pricing ?? null,
           revision: Number(body?.expected_revision ?? 0) + 1,
         } as VendorModel;
         models.set(vendorId, [...previous.filter(model => model.alias !== value.alias), value]);
@@ -154,6 +154,27 @@ describe('vendor administration workflow', () => {
     const saved = api.calls.find(call => call.method === 'POST' && call.path.endsWith('/models'))?.body;
     expect(saved?.public_catalog).toBe(false);
     expect(saved).not.toHaveProperty('owner_funded');
+  });
+
+  it('preserves existing procurement pricing when editing a model capability', async () => {
+    const pricing = { currency: 'USD', input_per_million: '1000000000', output_per_million: '2000000000' };
+    const model: VendorModel = { alias: 'team/priced', upstream_model: 'upstream/model', vendor_id: openRouter.id,
+      public_catalog: false, enabled: true, pricing, revision: 7,
+      capabilities: { supports_tool_calls: false, supports_streaming_tool_calls: false, supports_structured_output: false,
+        supports_embeddings: false, supports_embedding_dimensions: false, supports_embedding_base64: false, supports_responses: false } };
+    const api = stubVendorApi({ existing: [openRouter], models: { [openRouter.id]: [model] } });
+    const user = userEvent.setup();
+    render(<SuppliersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
+    await openModels(user);
+    await user.click(await screen.findByRole('button', { name: 'Edit', exact: true }));
+    await user.click(screen.getByRole('checkbox', { name: /Function tools/ }));
+    await user.click(screen.getByRole('button', { name: 'Save mapping' }));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Save mapping' })).toBeNull());
+    const write = api.calls.find(call => call.method === 'POST' && call.path.endsWith('/models'))?.body;
+    expect(write).toMatchObject({ expected_revision: 7, capabilities: { supports_tool_calls: true } });
+    expect(write).not.toHaveProperty('pricing');
+    const response = await api.fetchMock(`/admin/v1/vendors/${openRouter.id}/models`);
+    expect((await response.json()).data[0]).toMatchObject({ pricing, revision: 8, capabilities: { supports_tool_calls: true } });
   });
 
   it('denies scoped owners before requesting any installation vendor data', async () => {
