@@ -29,6 +29,22 @@ describe('platform customer price workflow',()=>{
     expect(screen.queryByText('Customer price published. Future requests use the new price.')).toBeNull();
     expect(writes).toBe(1);
   });
+  it('reads a committed price after a timeout before allowing another publication',async()=>{
+    let writes=0;
+    const committed={...price,revision:'committed-after-timeout',reasoning_completion_rate:'3200000000'};
+    const requests=setup((path,init)=>path.includes('/targets?')?targets():init?.method==='POST'?(++writes===1?Response.json({error:{message:'Timed out'}},{status:408}):Response.json({data:{revision:'next'}})):path.includes('/history?')?Response.json({data:[{...committed,is_current:true}],current_revision:committed.revision,has_more:false,next_before:null}):prices());
+    const user=userEvent.setup();
+    await user.click(await screen.findByRole('button',{name:'Edit example/model'}));
+    await user.click(screen.getAllByRole('button',{name:'Publish price'}).at(-1)!);
+    await screen.findByText('Publication could not be confirmed. Load the current price before trying again.');
+    expect((screen.getAllByRole('button',{name:'Publish price'}).at(-1) as HTMLButtonElement).disabled).toBe(true);
+    expect(writes).toBe(1);
+    await user.click(screen.getByRole('button',{name:'Load current price'}));
+    await waitFor(()=>expect((screen.getAllByRole('button',{name:'Publish price'}).at(-1) as HTMLButtonElement).disabled).toBe(false));
+    await user.click(screen.getAllByRole('button',{name:'Publish price'}).at(-1)!);
+    await screen.findByText('Customer price published. Future requests use the new price.');
+    expect(JSON.parse(String(requests.filter(row=>row.init?.method==='POST')[1].init?.body))).toMatchObject({expected_revision:committed.revision,reasoning_completion_rate:committed.reasoning_completion_rate});
+  });
   it('retains revision history when an older page fails and retries that boundary',async()=>{
     let olderReads=0;
     const requests=setup(path=>path.includes('/targets?')?targets():path.includes('/history?')?(path.includes('&before=older')?(++olderReads===1?Response.json({error:{message:'History temporarily unavailable'}},{status:503}):Response.json({data:[{...price,revision:'previous-revision',created_at:'2026-10-10T00:00:00Z',is_current:false}],current_revision:price.revision,has_more:false,next_before:null})):Response.json({data:[{...price,is_current:true}],current_revision:price.revision,has_more:true,next_before:'older'})):prices());
