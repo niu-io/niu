@@ -105,3 +105,26 @@ temporary keys were revoked. Gateway release compilation, Clippy, SDK type
 checking/build and OpenAPI YAML parsing completed. These observations verify
 the read contract for empty commitments, not paid reservations, overrun clamping,
 settlement, refunds or the full financial lifecycle. No fixture outcome is used.
+
+## Known unsettled media liability
+
+Migration 0214 changes key and workspace commitment calculations to count the
+larger of an open reservation and its immutable known media charge when no debit
+has been posted. Previously both calculations used only the reservation, even
+when media settlement had retained a larger final charge because funds were
+insufficient. Posted charges and linked refunds retain their existing contribution;
+the original reservation is not rewritten.
+
+This is a source-level correction, not paid-workflow acceptance. Actual overrun
+settlement, refund and concurrent admission remain unverified. Company available
+capacity still uses reservation amounts and needs separate reconciliation with
+known unsettled liabilities; correcting key/workspace caps does not close that
+financial hierarchy gap.
+
+After a private database backup, the optimized gateway applied migration 0214
+and became ready on the existing database. Independent catalog inspection
+confirmed both replacement functions and their volatile visibility. Actual
+workspace/key spending reads completed; the temporary key was revoked and the
+customer ledger remained empty. Storage checking and release compilation
+completed. These observations establish migration/read compatibility only, not
+the unexercised paid overrun branch.
