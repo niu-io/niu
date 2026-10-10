@@ -270,3 +270,28 @@ it('does not navigate from an unmounted Video workspace when its create response
   expect(screen.getByLabelText('Current route').textContent).toBe('?mode=video');
   expect(screen.queryByText('Queued')).toBeNull();
 });
+
+it('waits for the new workspace key list instead of querying it with the old key',async()=>{
+  const other={...workspace,id:'55555555-5555-4555-8555-555555555555',name:'Other workspace'};
+  const otherKey='66666666-6666-4666-8666-666666666666';
+  let finish!:(response:Response)=>void;
+  const paths:string[]=[];
+  vi.stubGlobal('fetch',vi.fn(async(input:string)=>{
+    paths.push(input);
+    if(input.endsWith('/chat-sessions'))return Response.json({data:[]});
+    if(input.endsWith('/keys'))return input.includes(other.id) ? new Promise<Response>(resolve=>{finish=resolve;}) : Response.json({data:[{id:key,name:'Original key',revoked:false,expired:false}]});
+    if(input.endsWith('/models'))return Response.json({data:[model]});
+    if(input.includes('/jobs?'))return Response.json({data:[],has_more:false,next_before:null});
+    throw new Error('Unexpected request');
+  }));
+  const context={token:'member',workspace,workspaces:[workspace],session:{permissions:{write:true}}} as DashboardContext;
+  const tree=(scope:typeof workspace)=><MemoryRouter><SidebarProvider><VideoView context={{...context,workspace:scope,workspaces:[scope]}}/></SidebarProvider></MemoryRouter>;
+  const view=render(tree(workspace));await screen.findByRole('button',{name:'Video model'});
+  view.rerender(tree(other));await waitFor(()=>expect(finish).toBeTypeOf('function'));
+  expect(paths.some(path=>path.includes(other.id)&&path.includes(`/keys/${key}/video`))).toBe(false);
+  expect(screen.queryByRole('button',{name:'Video model'})).toBeNull();
+  await act(async()=>finish(Response.json({data:[{id:otherKey,name:'New workspace key',revoked:false,expired:false}]})));
+  await screen.findByRole('button',{name:'Video model'});
+  expect(screen.getByRole('button',{name:'Video API key'}).textContent).toContain('New workspace key');
+  expect(paths.some(path=>path.includes(other.id)&&path.includes(`/keys/${otherKey}/video/models`))).toBe(true);
+});

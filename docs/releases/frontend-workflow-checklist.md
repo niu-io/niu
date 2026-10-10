@@ -363,3 +363,25 @@ rendered qualification.
   contract is not yet integrated into the dashboard; durable submission intent
   and same-identity recovery remain part of the complete journey, not an implied
   permission to retry uncertain unkeyed generation.
+
+### Generation key and history scope isolation (2026-10-10)
+
+- Video API paths now require the selected key to belong to a successfully loaded
+  key list for the current member session and workspace. A workspace switch no
+  longer briefly queries the new workspace with the previous workspace's key.
+  History pagination aborts on scope/list changes and rejects responses from an
+  earlier visit, including leaving and returning to the same workspace.
+- All 41 Video/Generations tests across seven files and dashboard TypeScript
+  passed. New deferred-response regressions verify no old-key Video request while
+  the new workspace key list is pending, and no stale page insertion after an
+  A → B → A transition. Existing submission and history isolation tests passed.
+- Real desktop and 390×844 key-menu checks switched between Demo API key and a
+  separate 90-day key in another workspace, then back. Selected names and URL
+  scopes updated without an error; the opened narrow menu fit within the viewport.
+  Existing saved conversations remained accessible across authorized workspaces.
+  No inference, generation or payment was submitted. The temporary key was
+  revoked, its separate session signed out and private credential file deleted.
+- These checks qualify the exercised key-switch and response-isolation subset.
+  Ordinary-role scope denial, live video creation/result recovery and paid
+  accounting remain separate open gates. The actual demo Video catalog remains
+  empty; no entitlement or model availability was fabricated for this review.

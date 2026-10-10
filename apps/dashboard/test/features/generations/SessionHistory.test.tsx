@@ -74,3 +74,24 @@ it('keeps available chat and video history when earlier workspaces or individual
  expect(screen.getByRole('alert').textContent).toBe('Some sessions could not be loaded.');
  expect(screen.queryByText('No sessions yet')).toBeNull();
 });
+
+it('aborts pagination and rejects an old page after leaving and returning to the same workspace',async()=>{
+ let finish!:(value:Response)=>void;
+ let signal:AbortSignal|undefined;
+ vi.stubGlobal('fetch',vi.fn(async(path:string,init?:RequestInit)=>{
+  if(path.includes('before=')){signal=init?.signal??undefined;return new Promise<Response>(resolve=>{finish=resolve;});}
+  if(path.endsWith('/chat-sessions'))return Response.json({data:[]});
+  if(path.endsWith('/keys'))return Response.json({data:[{id:'history-key',revoked:false,expired:false}]});
+  return Response.json({data:[],has_more:path.includes('workspace-a'),next_before:'cursor'});
+ }));
+ const tree=(workspace:typeof a)=><MemoryRouter><SidebarProvider><SessionHistory context={{...context,workspace,workspaces:[workspace]}}/></SidebarProvider></MemoryRouter>;
+ const view=render(tree(a));
+ await userEvent.click(await screen.findByRole('button',{name:'Load more sessions'}));
+ await waitFor(()=>expect(finish).toBeTypeOf('function'));
+ view.rerender(tree(b));expect(signal?.aborted).toBe(true);
+ await waitFor(()=>expect(screen.getByText('No sessions yet')).toBeTruthy());
+ view.rerender(tree(a));await screen.findByRole('button',{name:'Load more sessions'});
+ await act(async()=>finish(Response.json({data:[{id:'old-page',model:'Outdated video',status:'queued',created_at_ms:'200'}],has_more:false})));
+ expect(screen.queryByRole('link',{name:'Video · Outdated video'})).toBeNull();
+ expect(screen.getByRole('button',{name:'Load more sessions'})).toBeTruthy();
+});

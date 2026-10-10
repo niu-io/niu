@@ -18,7 +18,10 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
   const {token,workspace}=context;
   const {isMobile,setOpenMobile}=useSidebar();
   const identity=useRef('');
-  identity.current=JSON.stringify([token,workspace?.id]);
+  const generation=useRef(0);
+  const pagination=useRef<AbortController|null>(null);
+  const scopeIdentity=JSON.stringify([token,workspace?.id,context.workspaces?.map(item=>[item.organization_id,item.id]),currentKeys,videoKeyId]);
+  if(identity.current!==scopeIdentity){identity.current=scopeIdentity;generation.current+=1;}
   const [savedChats,setSavedChats]=useState<Array<Chat & {workspaceId:string}>>([]);
   const [savedVideos,setSavedVideos]=useState<Video[]>([]);
   const [query,setQuery]=useState('');
@@ -64,7 +67,7 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
       if(!controller.signal.aborted){setSavedChats(chatRows);setSavedVideos(videoRows);setCursors(next);}
       if(!controller.signal.aborted && (failedRead||outcomes.some(item=>item.status==='rejected')))setError('Some sessions could not be loaded.');
     })().finally(()=>{if(!controller.signal.aborted)setLoading(false);});
-    return()=>controller.abort();
+    return()=>{controller.abort();pagination.current?.abort();pagination.current=null;generation.current+=1;};
   },[token,scope,chats===undefined,revision,JSON.stringify(context.workspaces?.map(item=>item.id)),JSON.stringify(currentKeys),videoKeyId]);
   const entries=useMemo(()=>{
     const merged=new Map(savedVideos.map(item=>[item.id,item]));
@@ -75,19 +78,21 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
     ].filter(item=>item.title.toLowerCase().includes(query.trim().toLowerCase())).sort((a,b)=>b.created-a.created||a.id.localeCompare(b.id));
   },[chats,savedChats,savedVideos,videos,workspace?.id,query]);
   async function more(){
-    if(loading||!cursors.length)return;setLoading(true);setError('');
-    const currentIdentity=identity.current;
+    if(loading||!cursors.length||pagination.current)return;setLoading(true);setError('');
+    const request=new AbortController();pagination.current=request;
+    const currentGeneration=generation.current;
     try{
       const next:Array<{keyId:string;before:string;scope:string;workspaceId:string}>=[];const rows:Video[]=[];
       // Sequential page reads bound both concurrency and retained response memory.
       for(const cursor of cursors){
-        const page=await keyRequest<VideoJobHistory>(token,`${cursor.scope}/keys/${cursor.keyId}/video/jobs?limit=25&before=${encodeURIComponent(cursor.before)}`,'GET');
+        if(request.signal.aborted)return;
+        const page=await keyRequest<VideoJobHistory>(token,`${cursor.scope}/keys/${cursor.keyId}/video/jobs?limit=25&before=${encodeURIComponent(cursor.before)}`,'GET',undefined,request.signal);
         rows.push(...page.data.map(item=>({...item,keyId:cursor.keyId,workspaceId:cursor.workspaceId})));
         if(page.has_more&&page.next_before)next.push({...cursor,before:page.next_before});
       }
-      if(currentIdentity!==identity.current)return;
+      if(request.signal.aborted||currentGeneration!==generation.current)return;
       setSavedVideos(current=>[...current,...rows]);setCursors(next);
-    }catch{if(currentIdentity===identity.current)setError('Could not load more sessions.');}finally{if(currentIdentity===identity.current)setLoading(false);}
+    }catch{if(!request.signal.aborted&&currentGeneration===generation.current)setError('Could not load more sessions.');}finally{if(pagination.current===request)pagination.current=null;if(!request.signal.aborted&&currentGeneration===generation.current)setLoading(false);}
   }
   return <>
     <Popover><PopoverTrigger asChild><Button type="button" variant="ghost" size="icon" aria-label="Search sessions" title="Search sessions" className={query ? "text-primary bg-accent" : undefined}><IconSearch size={17}/></Button></PopoverTrigger><PopoverContent align="start" className="w-80 max-w-[calc(100vw-2rem)] space-y-2"><Input autoFocus aria-label="Search sessions" placeholder="Search sessions" value={query} onChange={event=>setQuery(event.target.value)}/>{query && <Button variant="ghost" size="sm" onClick={()=>setQuery('')}>Reset search</Button>}</PopoverContent></Popover>

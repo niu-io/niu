@@ -45,6 +45,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
   const [search,setSearch]=useSearchParams();
   const {toggleSidebar,isMobile,setOpenMobile,open,openMobile}=useSidebar();
   const [keys,setKeys]=useState<ProjectKey[]>([]);
+  const [keysScope,setKeysScope]=useState('');
   const [keysError,setKeysError]=useState('');
   const [keysRevision,setKeysRevision]=useState(0);
   const [keyId,setKeyId]=useState('');
@@ -76,7 +77,8 @@ export default function VideoView({context}:{context:DashboardContext}) {
   const navigate=useNavigate();
   const selected=search.get('job') ?? '';
   const scopePath=workspace ? projectKeyPath(workspace.organization_id,workspace.id) : '';
-  const base=keyId ? `${scopePath}/${encodeURIComponent(keyId)}/video` : '';
+  const keyScopeIdentity=JSON.stringify([token,scopePath]);
+  const base=keyId && keysScope===keyScopeIdentity && keys.some(key=>key.id===keyId) ? `${scopePath}/${encodeURIComponent(keyId)}/video` : '';
   const responseScope = useRef({ identity: '', generation: 0 });
   const responseIdentity = JSON.stringify([token, base]);
   if (responseScope.current.identity !== responseIdentity) responseScope.current = { identity: responseIdentity, generation: responseScope.current.generation + 1 };
@@ -98,11 +100,11 @@ export default function VideoView({context}:{context:DashboardContext}) {
 
   useEffect(()=>{
     const controller=new AbortController();
-    setLoading(true); setKeysError('');
+    setLoading(true); setKeysError('');setKeys([]);setKeysScope('');
     if (!scopePath) {setLoading(false);return;}
     void keyRequest<{data:ProjectKey[]}>(token,scopePath,'GET',undefined,controller.signal).then(payload=>{
       if(controller.signal.aborted)return;
-      const active=payload.data.filter(key=>!key.revoked && !key.expired); setKeys(active);
+      const active=payload.data.filter(key=>!key.revoked && !key.expired); setKeys(active);setKeysScope(keyScopeIdentity);
       setKeyId(current=>active.some(key=>key.id === current) ? current : active.find(key=>key.id === search.get('key'))?.id ?? active[0]?.id ?? '');
     }).catch(error=>{if(!controller.signal.aborted)setKeysError(message(error));}).finally(()=>{if(!controller.signal.aborted)setLoading(false);});
     return()=>controller.abort();
