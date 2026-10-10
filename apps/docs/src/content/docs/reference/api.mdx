@@ -20,6 +20,21 @@ workspace and is consumed at the gateway. This header only separates
 the two credentials. Provider-specific auth forwarding and subscription
 eligibility still depend on the configured route and supported client protocol.
 
+## Frontend integration contract
+
+Use the [implemented API operations](/docs/reference/handler-operations/) to inspect
+method, path, authorization, request fields, response schemas and documented
+errors. Download the [generated OpenAPI JSON](/docs/openapi/handler-operations.json)
+for that annotated subset. Use the root contract above for additional interfaces;
+the generated subset is not the complete backend surface.
+
+Keep HTTP errors distinct from successful empty results. A declared unsupported
+operation must retain its documented error instead of returning fabricated data
+or a successful mutation. Revision conflicts require re-reading current state.
+Preserve the original idempotency identity when recovering an uncertain submission.
+A streaming HTTP 200 is not proof of successful generation: consume the stream's
+terminal state and handle its error event.
+
 ## Chat drafts
 
 `GET` and `PUT /admin/v1/organizations/{organization}/projects/{project}/chat-draft`

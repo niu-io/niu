@@ -77,8 +77,9 @@ Eight simultaneous configuration writes against initial revision zero produced
 one accepted update and seven revision conflicts. HTTP reads and an independent
 database query agreed on the winning limit, revision one and one history row.
 
-Paid settlement, mixed-key unpriced batch fallback, streaming disconnects and
-performance under sustained configured limits are not yet verified by these runs. TPM and concurrent-request controls are documented separately in
+These initial runs do not verify paid settlement, mixed-key unpriced batch fallback,
+streaming disconnects or performance under sustained configured limits. The later
+priced-request checkpoint below provides separate settlement evidence. TPM and concurrent-request controls are documented separately in
 [token budgets](api-key-token-rate-limits.md) and [concurrency limits](api-key-concurrency-limits.md).
 Fixture outcomes are not evidence for any of these claims.
 
@@ -159,3 +160,17 @@ This verifies sequential admission, key isolation, rotation, restart and explici
 policy removal with actual charged traffic. It does not establish concurrent
 request-rate contention, automatic window expiry, every endpoint or production
 rate capacity. No fixture outcome supports this checkpoint.
+
+## Distinguish admission paths when integrating
+
+Personal routes prepare a durable attempt before checking dispatch limits. A
+rejected personal request may therefore leave a `not_sent` attempt. Count actual
+dispatches and inspect execution state when reconciling rate-limit behavior; the
+total number of attempt rows is not a count of upstream calls.
+
+The unpriced batch writer is a separate path from both personal-route preparation
+and priced admission. Concurrent personal requests do not exercise its rollback
+and per-record isolation behavior. A workspace with a customer balance account
+rejects an unpriced shared route before admission because no qualified customer
+liability bound exists. Do not remove billing protections to make that route
+appear ready. Mixed-key batch fallback remains unverified by current live evidence.
