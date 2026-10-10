@@ -17,8 +17,12 @@ A developer can install Niu, configure a qualified Supplier, create a workspace 
 
 ## Release checklist
 
-Current-input backend checkpoints from 2026-10-09 (none qualifies a complete
-release gate):
+Current-input backend checkpoints (none qualifies a complete release gate):
+
+- [Native backend bootstrap and restart](native-backend-bootstrap-live-2026-10-10.md):
+  empty PostgreSQL schema through migration 0218, actual Supplier/workspace/key
+  setup, owner-funded inference, retained content across restart and revocation.
+  This does not qualify packaging, frontend or commercial billing.
 
 - [Supplier/workspace calls](supplier-workspace-backend-verification-2026-10-09.md)
   and [strict key inputs](key-input-backend-verification-2026-10-09.md): independent
