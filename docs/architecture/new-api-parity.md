@@ -53,7 +53,7 @@ commercial activation is distinct from an unfinished integration capability.
 | --- | --- | --- |
 | Automatic failover | A later eligible mapping only after the previous attempt is proven not executed. No second submission after uncertainty or a committed stream | [#8](https://github.com/niu-io/niu/issues/8) |
 | Claude Messages and Gemini GenerateContent | Native nonstreaming Messages text is implemented with explicit capability checks; Gemini, native streaming/tools/media remain open. See [protocol boundary](native-inference-protocols.md) | [#16](https://github.com/niu-io/niu/issues/16) |
-| Tiered and category prices | Customer and Supplier [whole-request context tiers](context-tier-pricing.md), [reasoning rates](../reference/reasoning-output-pricing.md) and [cache-write rates](../reference/customer-cache-write-pricing.md) are implemented. Customer current-input evidence covers tier boundaries, cache categories, pinned revisions, bounded admission and exports. Actual nonstreaming customer calls now cover simultaneous nonzero cache-write/reasoning charging and restart. Correction of previously missing category usage remains unverified. Supplier publication/history is exercised; nonempty category/tier earnings, recovery and settlement remain unverified. | [#17](https://github.com/niu-io/niu/issues/17) |
+| Tiered and category prices | Customer and Supplier [whole-request context tiers](context-tier-pricing.md), [reasoning rates](../reference/reasoning-output-pricing.md) and [cache-write rates](../reference/customer-cache-write-pricing.md) are implemented. Customer current-input evidence covers tier boundaries, cache categories, pinned revisions, bounded admission and exports. Actual nonstreaming and streaming customer calls now cover simultaneous nonzero cache-write/reasoning charging and restart. Correction of previously missing category usage remains unverified. Supplier publication/history is exercised; nonempty category/tier earnings, recovery and settlement remain unverified. | [#17](https://github.com/niu-io/niu/issues/17) |
 
 Priced text admission now saves its attempt, immutable bindings and reservation
 in one transaction; [atomic admission](../reference/priced-admission-atomicity.md)
@@ -85,9 +85,9 @@ readiness evidence.
   and global Settings browser behavior, which is not established by those API
   and database runs.
 - [Category/tier prices (#17)](https://github.com/niu-io/niu/issues/17):
-  cache-read plus reasoning and nonstreaming cache-write plus reasoning have
-  actual combined-charge evidence. Streaming with both categories nonzero remains
-  unverified. The
+  cache-read plus reasoning and cache-write plus reasoning have actual combined
+  charge evidence for nonstreaming and streaming calls, including restart.
+  Interrupted streams and later upstream usage corrections remain separate gaps. The
   [actual tier failover run](../reference/upstream-retry-policy.md#context-tier-pricing-across-an-actual-successor)
   confirms operation-level price pinning across an in-flight tier edit, not
   every category combination or commercial Supplier settlement.

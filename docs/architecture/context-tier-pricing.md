@@ -469,3 +469,22 @@ no funding and no open reservations. This directly exercises the historical
 cache-write/reasoning acceptance case after a tariff edit. It does not qualify
 an upstream correction to previously unknown usage or every overlapping-category
 failure path; those limitations must not be inferred from successful arithmetic.
+
+
+### Streaming with nonzero cache and reasoning categories
+
+An actual streamed Claude Haiku 4.5 run returned 5,269 cache-write tokens and 65
+reasoning tokens together. After Gateway restart, the second stream returned
+5,269 cache-read tokens and 73 reasoning tokens. Each saved stream contained the
+requested answer, exactly one usage object and a final `[DONE]`, without an error
+event. Separate reasoning and ordinary-output rates were applied within the
+reported output total, and cache quantities were subtracted from ordinary input.
+
+Independent verification reread and hashed the saved SSE streams, reopened the
+stopped database and recomputed each charge from the actual quantities. The
+stored category quantities, customer charges and corresponding debits agreed;
+there were two attempts, no funding and no unresolved customer reservation after
+another restart. This extends the successful combined-category evidence to
+streaming. Interrupted streams without terminal usage, subsequent upstream usage
+corrections and nonempty Supplier earnings retain their separate verification
+requirements.
