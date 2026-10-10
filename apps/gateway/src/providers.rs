@@ -455,6 +455,182 @@ pub async fn publish_offer(
 }
 
 /// Historical rates are procurement data, even after an offer is paused.
+/// ```openapi
+/// {
+///   "path": "/admin/v1/providers/{provider}/offers/{offer}/revisions/{revision}",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "getSupplierOfferRevision",
+///     "summary": "Read an immutable Supplier procurement quote",
+///     "description": "Installation administrators or active members of this Supplier may read a quote. Ordinary company/workspace ownership grants no procurement access. Supplier, offer and revision must all match; inaccessible or missing records return 404. Text prices are exact currency nanounits per million tokens. Media revisions have null text prices; use the separate media rate-card contract. This read does not activate, qualify or reprice an offer. Procurement data must never be exposed in customer workspace billing. Internal identifiers are API references, not display labels.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "provider",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "offer",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "revision",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Immutable procurement quote; no upstream credentials or endpoint.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "additionalProperties": false,
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "$ref": "#/components/schemas/SupplierOfferRevision"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Malformed path identifier."
+///       },
+///       "401": {
+///         "description": "Management authentication required."
+///       },
+///       "404": {
+///         "description": "Supplier membership denied or quote identity not found."
+///       },
+///       "503": {
+///         "description": "Storage unavailable."
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   },
+///   "schemas": {
+///     "SupplierOfferRevision": {
+///       "oneOf": [
+///         {
+///           "type": "object",
+///           "additionalProperties": false,
+///           "required": [
+///             "revision",
+///             "model_alias",
+///             "created_at",
+///             "rate_kind",
+///             "currency",
+///             "prompt_rate",
+///             "completion_rate",
+///             "cached_prompt_rate"
+///           ],
+///           "properties": {
+///             "revision": {
+///               "type": "string",
+///               "format": "uuid"
+///             },
+///             "model_alias": {
+///               "type": "string"
+///             },
+///             "created_at": {
+///               "type": "string",
+///               "format": "date-time"
+///             },
+///             "rate_kind": {
+///               "const": "text"
+///             },
+///             "currency": {
+///               "type": "string",
+///               "pattern": "^[A-Z]{3}$"
+///             },
+///             "prompt_rate": {
+///               "type": "string",
+///               "pattern": "^[0-9]+$"
+///             },
+///             "completion_rate": {
+///               "type": "string",
+///               "pattern": "^[0-9]+$"
+///             },
+///             "cached_prompt_rate": {
+///               "type": [
+///                 "string",
+///                 "null"
+///               ],
+///               "pattern": "^[0-9]+$"
+///             }
+///           }
+///         },
+///         {
+///           "type": "object",
+///           "additionalProperties": false,
+///           "required": [
+///             "revision",
+///             "model_alias",
+///             "created_at",
+///             "rate_kind",
+///             "currency",
+///             "prompt_rate",
+///             "completion_rate",
+///             "cached_prompt_rate"
+///           ],
+///           "properties": {
+///             "revision": {
+///               "type": "string",
+///               "format": "uuid"
+///             },
+///             "model_alias": {
+///               "type": "string"
+///             },
+///             "created_at": {
+///               "type": "string",
+///               "format": "date-time"
+///             },
+///             "rate_kind": {
+///               "const": "media"
+///             },
+///             "currency": {
+///               "type": "null"
+///             },
+///             "prompt_rate": {
+///               "type": "null"
+///             },
+///             "completion_rate": {
+///               "type": "null"
+///             },
+///             "cached_prompt_rate": {
+///               "type": "null"
+///             }
+///           }
+///         }
+///       ]
+///     }
+///   }
+/// }
+/// ```
 pub async fn offer_revision(
     State(state): State<AppState>,
     headers: HeaderMap,

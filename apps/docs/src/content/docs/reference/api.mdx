@@ -664,3 +664,21 @@ Actual nonzero-cache completions exercised both an additive fee and a minimum
 above the combined amount. Saved provider usage and reopened database records
 matched the charges, invoice and refund balance. See the
 [formula and verification scope](https://github.com/niu-io/niu/blob/main/docs/reference/cached-input-pricing.md#cached-tokens-combined-with-fixed-fees-and-minimums).
+
+
+## Immutable Supplier quotes
+
+`GET /admin/v1/providers/{provider}/offers/{offer}/revisions/{revision}` reads
+a known historical procurement quote. Installation administration or active
+membership in that Supplier is required; company ownership grants no access.
+The Supplier, offer and revision must match. Missing or inaccessible quotes
+return 404. The JavaScript SDK exposes `getSupplierOfferRevision`.
+
+Text rates remain exact strings, with nullable cached-input pricing. Media
+revisions have null text-price fields and use the separate media rate-card API.
+Reading a quote does not activate or qualify it. Keep procurement information
+out of customer workspace screens. The handler-generated OpenAPI now documents
+the response variants and authorization boundary. Current HTTP reads matched
+four saved text revisions; active Supplier viewer access, company-role denial
+and membership revocation were independently checked against database records.
+Media quote reads remain unverified.
