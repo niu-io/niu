@@ -159,3 +159,18 @@ revisions, with no inference or ledger mutations and the temporary platform
 grant removed. This exercises the SDK method paths and exact-value serialization
 against the native server, not just TypeScript compilation. It does not qualify
 the frontend editor or charge requests during that SDK update.
+
+### Target directory traversal and short read measurement
+
+A fresh native run created 105 workspaces through actual management HTTP and
+traversed the named target directory in 50-row pages. Every created workspace
+appeared exactly once. Forty first-page HTTP reads at four workers each returned
+50 rows and a continuation cursor. Measured local client round-trip times were
+p50 1.27 ms, nearest-rank p95 8.38 ms and maximum 9.38 ms. Restart preserved the
+first page. Independent reopening matched all 105 stored workspace identities
+to the traversal and found no read-induced tariff, inference or financial writes.
+
+These are short local configuration-read observations with an eight-connection
+gateway pool, not inference throughput, saturation, a production latency target
+or a large-directory capacity claim. They do not measure concurrent directory
+changes or current-tariff pages at comparable scale.
