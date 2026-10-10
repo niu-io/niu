@@ -950,3 +950,9 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
 
 - Fixed Logs readable Responses content: an empty failed/incomplete terminal output no longer erases previously received text or function arguments. Preserve those deltas and the terminal error while retaining the partial status; a populated final output still replaces deltas without duplication.
 - All ten request-content tests and TypeScript checking passed. Current browser inspection of the retained CHARGE_OK Chat request verified Messages → Raw data → Messages, the real request body and SSE response, customer-safe Own API key funding and measured timings. No new inference was sent. This existing Chat record does not qualify the Responses failed/incomplete rendering; matching real upstream evidence remains open.
+
+## Saved personal Video narrow workflow
+
+- At a DOM-measured 390×844 viewport (document width 390), restored the existing successful personal video intent. The saved prompt title, Succeeded result, one-second orange-ball preview and download action fit. Loaded the retained preview without a new generation or Supplier status query.
+- Billing showed Own Supplier account and 480p · 1 s without an invented customer debit or FPS. Input retained the original Demo API key, model, prompt, duration, ratio and resolution; saved inputs and Generate remained disabled. The history drawer exposed the unified Chat/Video list; reopening the same video preserved its original intent/job and closed mobile history. Viewport override was reset.
+- This qualifies the inspected success/restoration subset, not narrow download completion, result expiry/deletion, failed/uncertain states, commercial settlement or the complete Video release gate. At c0903bac the complete dashboard suite passed: 87 files, 663 tests, four concurrent workers.
