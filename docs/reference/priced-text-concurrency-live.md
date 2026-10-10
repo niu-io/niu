@@ -172,3 +172,11 @@ long-lived connections or slow readers. It is a small correctness-oriented
 measurement, not a reliable latency distribution or production capacity claim.
 The original database and credentials were preserved and isolated access and
 processes were cleaned up.
+
+
+## Two-process follow-up
+
+The [two-gateway checkpoint](two-gateway-text-load.md) adds 152 actual completions,
+a roughly one-minute paced phase, four database connections per gateway and
+independent post-restart usage/charge inspection. Its timings include upstream
+execution and do not establish production capacity.

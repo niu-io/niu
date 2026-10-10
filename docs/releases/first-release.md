@@ -19,6 +19,11 @@ A developer can install Niu, configure a qualified Supplier, create a workspace 
 
 Current-input backend checkpoints (none qualifies a complete release gate):
 
+- [Two-gateway text load](../reference/two-gateway-text-load.md): 152 actual
+  completions, a roughly one-minute paced phase and independently reconciled
+  per-attempt charges after restart. Capacity, overload and broader workloads
+  remain unqualified.
+
 - [Bounded Chat failover](../reference/upstream-retry-policy.md): actual canonical OpenRouter authentication rejection followed by one distinct-credential successor, pinned price/funding, exact single charge, request-limit/deadline denials, partial-stream nonretry and restart preservation. This narrow policy does not qualify generic provider/status retries or circuit breaking.
 
 - [Structured Chat streaming](../reference/structured-output-streaming.md): actual schema/object streams, explicit invalid-output errors with accurate charges, restart preservation, and eight longer outputs at four concurrent workers. Existing native runtime refreshed without replacing configuration or encrypted identity; sustained-load and broader provider qualification remain open.
