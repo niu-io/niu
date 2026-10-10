@@ -2241,6 +2241,63 @@ impl StripeRuntime {
     }
 }
 
+/// Signed callback for an existing Stripe checkout; never a customer funding command.
+/// ```openapi
+/// {
+///   "path": "/payments/stripe/notify",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "receiveStripePaymentNotification",
+///     "summary": "Receive a signed Stripe checkout notification",
+///     "description": "Server-to-server callback; no installation or workspace bearer token is required. Verifies the signature over the original request bytes before parsing JSON, then requires an existing merchant-bound order and its saved checkout session. Paid evidence must match the saved session, amount, currency and configured live mode. Settlement is idempotent. Creating a checkout or visiting its return URL does not credit a balance. Unsupported or unrelated events are rejected rather than silently acknowledged. Maximum request body: 262144 bytes.",
+///     "security": [],
+///     "x-niu-implementation": "implemented",
+///     "parameters": [
+///       {
+///         "name": "stripe-signature",
+///         "in": "header",
+///         "required": true,
+///         "description": "Stripe timestamp and v1 signature of the unmodified request body.",
+///         "schema": {
+///           "type": "string"
+///         }
+///       }
+///     ],
+///     "requestBody": {
+///       "required": true,
+///       "description": "Original signed Stripe event JSON; proxies must preserve its bytes.",
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": true
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "200": {
+///         "description": "Verified settlement accepted, including an already settled replay; empty response body."
+///       },
+///       "400": {
+///         "description": "Missing or invalid signature, malformed notification, unknown or unbound order, or mismatched paid evidence."
+///       },
+///       "409": {
+///         "description": "Stored order conflicts with settlement."
+///       },
+///       "413": {
+///         "description": "Request body exceeds 262144 bytes."
+///       },
+///       "502": {
+///         "description": "Stripe is not configured or the payment clock is unavailable."
+///       },
+///       "503": {
+///         "description": "Durable storage is unavailable."
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub(crate) async fn stripe_notify(
     State(state): State<AppState>,
     headers: HeaderMap,

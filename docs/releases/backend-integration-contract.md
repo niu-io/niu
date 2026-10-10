@@ -308,3 +308,7 @@ string revisions `1` and `2`, with matching history. Snapshot timestamps may
 change on reads without a policy edit. No inference attempt was created and the
 Demo key's policies were untouched; temporary access was revoked. This is backend
 role verification, not rendered frontend authorization qualification.
+
+### Stripe notification rejection boundary
+
+`POST /payments/stripe/notify` is now included in the handler-generated contract. It is a signed server callback, not a customer funding command. A current-input run against an isolated native gateway and PostgreSQL observed HTTP 502 without Stripe configuration, HTTP 400 for an unsigned notification after configuring a fresh local webhook secret, and HTTP 413 for a body exceeding 262144 bytes. Independent database queries found no top-up orders and no balance entries afterward. No signed paid event or external payment was fabricated; successful settlement is not verified by this run. The existing development database and merchant configuration were unchanged.

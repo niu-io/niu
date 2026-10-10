@@ -6,6 +6,8 @@ info:
 servers:
   - url: /
 paths:
+  /payments/stripe/notify:
+    $ref: './generated/handler-operations.json#/paths/~1payments~1stripe~1notify'
   /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/chat/completions:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1chat~1completions'
   /admin/v1/providers/{provider}/members:

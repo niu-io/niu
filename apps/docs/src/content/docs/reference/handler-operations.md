@@ -2988,6 +2988,53 @@ HTTP 404: Order missing or company billing access not granted
 
 HTTP 503: Durable storage unavailable
 
+## Receive a signed Stripe checkout notification
+
+`POST /payments/stripe/notify`
+
+Server-to-server callback; no installation or workspace bearer token is required. Verifies the signature over the original request bytes before parsing JSON, then requires an existing merchant-bound order and its saved checkout session. Paid evidence must match the saved session, amount, currency and configured live mode. Settlement is idempotent. Creating a checkout or visiting its return URL does not credit a balance. Unsupported or unrelated events are rejected rather than silently acknowledged. Maximum request body: 262144 bytes.
+
+Implementation: `implemented`. Operation: `receiveStripePaymentNotification`.
+
+### Parameters
+
+`stripe-signature` (header, required)
+
+Stripe timestamp and v1 signature of the unmodified request body.
+
+```json
+{
+  "type": "string"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### Responses
+
+HTTP 200: Verified settlement accepted, including an already settled replay; empty response body.
+
+HTTP 400: Missing or invalid signature, malformed notification, unknown or unbound order, or mismatched paid evidence.
+
+HTTP 409: Stored order conflicts with settlement.
+
+HTTP 413: Request body exceeds 262144 bytes.
+
+HTTP 502: Stripe is not configured or the payment clock is unavailable.
+
+HTTP 503: Durable storage is unavailable.
+
 ## Read Supplier business profile
 
 `GET /admin/v1/providers/{provider}`
