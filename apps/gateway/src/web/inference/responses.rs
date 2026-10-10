@@ -244,21 +244,21 @@ async fn execute_responses(
         .json(&body)
         .send()
         .await
-        .map_err(|_| {
+        .map_err(|error| {
             state.failures.fetch_add(1, Ordering::Relaxed);
-            ApiError::upstream()
+            ApiError::upstream_transport(&error)
         })?;
     if !upstream.status().is_success() {
         state.failures.fetch_add(1, Ordering::Relaxed);
-        return Err(ApiError::upstream());
+        return Err(provider_rejection(upstream).await);
     }
     let mut value: Value = provider_json(upstream).await.map_err(|_| {
         state.failures.fetch_add(1, Ordering::Relaxed);
-        ApiError::upstream()
+        ApiError::upstream_invalid_response()
     })?;
     if !valid_responses_response(&value) {
         state.failures.fetch_add(1, Ordering::Relaxed);
-        return Err(ApiError::upstream());
+        return Err(ApiError::upstream_invalid_response());
     }
     let provider_model = provider_reported_model(&value);
     let usage = responses_usage(&value);

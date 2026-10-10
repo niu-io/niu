@@ -138,3 +138,25 @@ Customer response inspection recognizes valid mixed LF, CR and CRLF line endings
 An initial UTF-8 BOM cannot hide upstream commercial fields from inspection. Supplier cost metadata is removed while reported token usage and user content remain intact. Once the terminal event is received, trailing content, contradictory usage, invalid UTF-8 and oversized trailers do not enter customer output or alter settlement.
 
 The fragmented framing regression checks every fragment width for eight valid line-ending combinations using the accounting and customer parsers together, stopping at the same terminal point as the tracked body. Four customer-response tests passed, and the routed PostgreSQL priced-stream regression passed across nine fixtures, including mixed delimiters and a CR-only terminal marker; completed bodies include the terminal marker and exclude Supplier commercial fields. Gateway Clippy passed for all targets with warnings denied. These are local protocol and accounting regressions, not live upstream qualification, packaged acceptance or closure of F04/F05.
+
+### Responses failure diagnostics
+
+The nonstreaming Responses path uses the shared bounded, sanitized upstream HTTP
+rejection classifier, typed transport failures and invalid-response classification.
+It does not return raw upstream error bodies or credentials. A provider rejection
+is still an uncertain execution outcome; the gateway does not automatically retry
+or declare it safe to release a financial liability.
+
+On the optimized current gateway, a real owner-funded OpenRouter request using an
+invalid upstream model returned customer HTTP 400 with the static provider-rejection
+message. Independent PostgreSQL inspection recorded exactly one dispatch and
+`upstream_http_error`, upstream status 400, execution `may_have_executed`. The
+response omitted the upstream model name and API secret. No customer debit was
+created, the original credential remained unchanged, and the temporary workspace
+key, model and credential were revoked or disabled afterward. This verifies HTTP
+rejection diagnostics only; transport interruption and malformed successful-body
+branches remain unverified by an actual upstream run. Responses streaming remains
+unimplemented.
+A subsequent real successful nonstreaming Responses call on the same build also
+matched response totals, cached input and reasoning output against persisted
+records, with no customer ledger mutation and all temporary access disabled.
