@@ -19,6 +19,8 @@ A developer can install Niu, configure a qualified Supplier, create a workspace 
 
 Current-input backend checkpoints (none qualifies a complete release gate):
 
+- [Credit-backed billing workflow](../reference/internal-credit-workflow-live.md): real structured and streamed output, exact customer debits, released holds, invoice settlement, key spending denial, idempotent balance refund and restart preservation in an isolated native environment. No verified merchant funding, Supplier earnings or media charging claim.
+
 - [Native backend bootstrap and restart](native-backend-bootstrap-live-2026-10-10.md):
   empty PostgreSQL schema through migration 0218, actual Supplier/workspace/key
   setup, owner-funded inference, retained content across restart and revocation.

@@ -444,3 +444,5 @@ checks completed. This establishes the changed admission boundary only. Successf
 funded structured generation, positive debit/reconciliation and schema-rejected
 paid output remain unverified by this run; the personal upstream checkpoint above
 does not qualify those financial paths. No fixture outcome supports this result.
+
+The later [isolated credit-backed workflow](internal-credit-workflow-live.md) extends the priced structured-output checkpoint to a successful real response, exact customer debit and post-restart text stream. Merchant funding, media charging and rejected-output financial paths remain outside that evidence.
