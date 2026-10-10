@@ -445,3 +445,26 @@ The implementation and contract were inspected and compiled. The current local
 database has no saved top-up orders, so the new EPay order branch has not been
 verified by a current-input end-to-end run. No fake paid order or fixture outcome
 is used to claim that verification.
+
+## Platform grant and EPay secret lifecycle checkpoint
+
+On 2026-10-10, a current native run exercised EPay configuration with a company
+viewer explicitly granted platform administration by a database administrator.
+The same member session could save a disabled configuration, retain its key by
+sending an empty key field, change a supported method, restart the gateway, and
+explicitly replace the key. All three configuration events retained that member's
+audit identity. Independent AES-GCM decoding of the saved database ciphertext
+confirmed original-key retention and replacement; response inspection found no
+secret values. The supplied keys were fresh private configuration inputs, not
+asserted activated merchant credentials.
+
+Before the grant, both the viewer and an ordinary company owner were denied
+configuration reads. After grant revocation, both reads and writes through the
+same viewer session were denied again. Denied writes left the saved revision and
+ciphertext hash unchanged. Independent database reads found three configuration
+events, no checkout orders and no balance entries. Original development data and
+credentials were preserved; isolated processes were stopped.
+
+This verifies the actual local configuration, encryption, audit and authorization
+workflow. It does not establish merchant eligibility, upstream payment success,
+callback delivery or external settlement, and none was required for this check.
