@@ -141,3 +141,34 @@ qualify verified merchant top-ups, cash collection, positive Supplier earnings,
 media charges, mixed historical receivables, concurrent settlement recovery,
 lost commit acknowledgements, frontend presentation or sustained performance.
 The refund was an internal balance reversal, not an upstream or bank refund.
+## Customer tariff changes on a running gateway
+
+A current-input run on 2026-10-10 using backend `5a2449d` verified price changes
+through the actual management and inference APIs in a separate native database.
+After an actual structured completion, administration published a new customer
+tariff with the prior revision as its optimistic precondition. Replaying that
+stale update returned HTTP 409. Without restarting the gateway, a subsequent
+actual streamed completion used the new tariff.
+
+Independent arithmetic used each response's reported input/output usage and its
+applicable rates. The first rates were 123,456,789 / 987,654,321 USD nanounits per
+million input/output tokens; the new rates were 234,567,891 / 876,543,219. Database
+reads confirmed two distinct immutable charge revisions, with the original
+request still bound to its original revision. Procurement rates were unchanged
+and their separate arithmetic was checked too.
+
+The first response reported 46 input / 10 output tokens and cost 15,556
+nanounits; the second reported 15 / 6 and cost 8,778 nanounits.
+
+The statement contained two revision-specific lines whose sum equaled the exact
+customer debits. No reservation remained and reconciliation reported no
+discrepancy. The same run verified consumed-key-limit rejection, idempotent balance
+refund, and preservation of both charges and invoice settlement after restart.
+No external funding receipt or commercial Supplier qualification was created.
+Temporary access was revoked and isolated processes stopped; the original
+credential revision and encrypted identity were unchanged.
+
+This verifies sequential tariff publication and historical attribution for these
+two real requests. Concurrent publication during dispatch, cached-token tariff
+changes, media rates and multiple gateway instances are outside this run.
+
