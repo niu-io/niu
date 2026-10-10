@@ -203,3 +203,30 @@ maximum observed `ps` CPU 6.2%. The second gateway and PostgreSQL resource usage
 were not measured. This qualifies concurrent distinct operations across two
 gateways, not two gateways racing to append a successor to the same operation,
 rolling restart during active generation, crash recovery, long soak or overload.
+
+## Hard process crash after streamed output
+
+A current native run sent an actual OpenRouter stream through a retry-enabled
+pool with a valid alternative credential. The gateway was killed with SIGKILL
+(exit status −9) immediately after the client read the first content event,
+before reading terminal usage. This bypassed graceful shutdown and the normal
+client-disconnect finalizer. Only the isolated verification gateway was killed.
+
+After restart and background recovery, the request remained `may_have_executed`
+with unknown token usage and a pending customer charge. Its 1,000,000-nanounit
+minimum-charge reservation remained held. No charge, balance debit or successor
+attempt appeared. A new request on the exhausted key returned HTTP 402 before
+dispatch. Rotation retained the same constraint and invalidated the old secret;
+a further restart and key revocation did not forgive the unresolved liability.
+
+Independent inspection parsed the saved raw SSE prefix, confirming content and
+absence of terminal usage in the received prefix. Reopening the stopped retained
+database confirmed exactly one unknown attempt, one held reservation, no customer
+charges or balance entries, and no selection of the alternative mapping. Neither
+the prefix nor the database establishes whether the upstream finished after the
+crash; Niu correctly retains that uncertainty. Original encrypted identity was
+unchanged and the isolated processes were stopped.
+
+This qualifies the exercised crash boundary with internal credit/rates. It does
+not establish later recovery of unavailable upstream usage, rolling restarts with
+another live gateway, or crashes at every financial commit boundary.

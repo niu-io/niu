@@ -107,3 +107,14 @@ and unchanged chains after restarting both gateways. This verifies distinct
 concurrent operations across instances; it does not establish maximum capacity,
 competing successors for one operation or restart during active generation.
 See the [two-gateway evidence and limits](https://github.com/niu-io/niu/blob/main/docs/reference/upstream-retry-policy.md#two-gateway-shared-database-checkpoint).
+
+## Crash safety during a real stream
+
+A separate actual request run killed the isolated gateway with SIGKILL after the
+first streamed content event. Restart retained unknown usage, a pending charge
+and its balance reservation. There was no automatic failover or invented debit;
+the key's exhausted spending allowance still rejected new dispatch after rotation
+and restart. Independent raw-response and database inspection confirmed the final
+state. This is a crash-boundary check, not a throughput measurement or proof that
+unknown upstream usage can later be recovered. See the
+[hard-crash evidence and limits](https://github.com/niu-io/niu/blob/main/docs/reference/upstream-retry-policy.md#hard-process-crash-after-streamed-output).
