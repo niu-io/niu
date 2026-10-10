@@ -939,3 +939,9 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
 
 - Inspected the newly implemented read-only credential cooldown contract. Added its frontend acceptance to F03/F04: distinguish active from expired deadlines and enabled/RPM state, provide refresh/error recovery, expose no manual reset, and preserve dispatched work and saved video recovery.
 - Chat regression now covers credential RPM refusal, credential cooldown and unavailable route pools: actionable public messages, Failed state, one dispatch and no automatic replay/model substitution. All 53 PlaygroundView integration tests passed. These tests do not qualify live rendered 503 states or the pending Admin cooldown display.
+
+## Credential cooldown display checkpoint
+
+- Reviewed existing NIU.IO Stitch screen 7735d33e60ec4840bf6f92ebbaacdd0c. Implemented its compact diagnostic row in the selected credential panel, excluding generated extra navigation, concurrency controls and invented usage. Current state comes only from the administration read endpoint, with refresh, unavailable/retry, returned active deadline and rolling failure count; no manual reset or browser-clock readiness inference.
+- All 39 Supplier tests across seven files and TypeScript checking passed. New tests cover inactive state with a retained expired deadline, malformed-response recovery and ignoring a late previous-credential read.
+- Current localhost:2566 showed No active cooldown and zero qualifying failures. Explicit refresh succeeded. Inspected the real row at 1280px and 390px with readable wrapping and reachable actions, then restored the viewport. No credential or upstream request was changed. Active/error rendered states and ordinary-role exclusion remain unqualified.
