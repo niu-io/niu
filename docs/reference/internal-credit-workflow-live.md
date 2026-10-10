@@ -66,6 +66,42 @@ A fresh complete run used the actual dispatch interval and observed:
 The temporary API key was revoked and the isolated mapping and Supplier disabled.
 No fixture outcome is used as evidence.
 
+## Customer reporting with actual positive charges
+
+A separate current-input run on 2026-10-10 at backend revision `59922df` checked
+the customer/procurement boundary using two new upstream completions and distinct
+internal customer and expense rates. Independent usage-based arithmetic and
+database reads established customer charges of 17,902 and 9,877 USD nanounits,
+totaling 27,779. These configured expense rates are verification inputs, not a
+claim about an external Supplier invoice or commercial margin.
+
+Both a workspace-scoped viewer and the installation administrator read the same
+customer-facing APIs:
+
+- Logs and each request detail exposed the corresponding customer charge, USD
+  currency and `charged` state. Aggregate input/output usage matched the two
+  client responses, and the customer-charge summary totaled 27,779.
+- The billing overview, paid invoice lines and two-row CSV export agreed on that
+  total. Structured responses and CSV headers contained no procurement amount,
+  expense-rate, internal price-revision or margin fields checked by the verifier.
+  Installation access did not add those fields to the customer views.
+- The dedicated platform cost endpoint returned the independently checked
+  internal expense amounts to the installation administrator. The customer
+  viewer received HTTP 403 on that endpoint, demonstrating that the customer
+  views' omission was not caused by absent expense records.
+- A viewer scoped to another workspace received HTTP 404 for the first
+  workspace's Logs, request detail, CSV, billing, invoice and procurement routes.
+
+The same run completed key-cap enforcement, idempotent balance refund and restart
+preservation with zero charge-reconciliation discrepancies. Temporary viewer
+credentials and inference access were revoked, the test mapping disabled, and
+the isolated gateway/database stopped. The original database and encrypted
+credential identity remained unchanged.
+
+This is positive text-charge evidence for the listed APIs and roles. It does not
+qualify Chat persistence, media receipts, every authorization role, frontend
+rendering or all possible serialized fields. No fixture outcome supports it.
+
 ## Limits
 
 This qualifies the described credit-backed text/structured-output workflow with
