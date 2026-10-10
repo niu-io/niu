@@ -2394,7 +2394,7 @@ paths:
     put:
       operationId: assignPersonalCredentialOwner
       summary: Assign a configured personal credential to its account
-      description: Installation administrator only. Ownership is immutable. Exact retries return success without another audit event. This does not activate Supplier offers, grant funds or qualify commercial supply.
+      description: Installation administrator only. Ownership is immutable. Exact retries return success without another audit event. This does not activate Supplier offers, grant funds or qualify commercial supply. Initial assignment rejects credentials with any model route pricing, including disabled mappings; explicitly clear those prices first. Ownership assignment and model publication serialize on the credential row.
       security: [{ adminBearerAuth: [] }]
       requestBody:
         required: true
@@ -2421,7 +2421,7 @@ paths:
         '400': { description: Invalid assignment input. }
         '401': { description: Authentication required. }
         '403': { description: Installation administrator required. }
-        '409': { description: Stale revision, different owner, commercial qualification or unavailable account. }
+        '409': { description: Stale revision, different owner, existing model route pricing, commercial qualification or unavailable account. }
   /admin/v1/vendors/{id}/models:
     parameters:
       - name: id
@@ -4327,7 +4327,7 @@ components:
         enabled: { type: boolean, default: true }
         public_catalog: { type: boolean, default: false }
         capabilities: { $ref: '#/components/schemas/VendorCapabilities' }
-        pricing: { type: [object, 'null'], description: Optional validated route pricing. Null clears pricing; omission preserves existing pricing on updates and leaves cost unknown on creates. }
+        pricing: { type: [object, 'null'], description: Optional validated route pricing. Personal-owned credentials require null pricing; non-null pricing is rejected at save. Null clears pricing; omission preserves existing pricing on updates and leaves cost unknown on creates. }
         expected_revision: { type: [integer, 'null'], minimum: 1 }
     VendorModel:
       type: object

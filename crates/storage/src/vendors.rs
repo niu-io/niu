@@ -148,6 +148,18 @@ impl Store {
         if revision != expected_revision {
             return Err(StoreError::Conflict);
         }
+        // Model publication takes a shared vendor lock before checking ownership.
+        // Our exclusive lock makes price removal and ownership assignment atomic
+        // with respect to concurrent model configuration changes.
+        let priced: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM vendor_models WHERE vendor_id=$1 AND pricing IS NOT NULL)",
+        )
+        .bind(vendor)
+        .fetch_one(&mut *tx)
+        .await?;
+        if priced {
+            return Err(StoreError::Conflict);
+        }
         sqlx::query(
             "INSERT INTO personal_vendor_ownership(vendor_id,organization_id) VALUES($1,$2)",
         )
@@ -488,6 +500,24 @@ impl Store {
     ) -> Result<VendorModelView, StoreError> {
         validate_model(&input)?;
         let mut transaction = self.pool.begin().await?;
+        // Serialize the ownership check with personal-owner assignment, including
+        // initial model creation. Conflicting configuration must fail at save.
+        sqlx::query("SELECT id FROM vendors WHERE id=$1 FOR SHARE")
+            .bind(vendor_id)
+            .fetch_optional(&mut *transaction)
+            .await?
+            .ok_or(StoreError::Conflict)?;
+        if input.pricing.is_some() {
+            let personal: bool = sqlx::query_scalar(
+                "SELECT EXISTS(SELECT 1 FROM personal_vendor_ownership WHERE vendor_id=$1)",
+            )
+            .bind(vendor_id)
+            .fetch_one(&mut *transaction)
+            .await?;
+            if personal {
+                return Err(StoreError::InvalidVendor);
+            }
+        }
         let (model, action) = match input.expected_revision {
             None => {
                 let query = format!(
