@@ -246,3 +246,25 @@ exercise an empty administrator earning page and deny both Supplier members and
 unrelated operators. Supplier dashboard authorization remains separate. Nonempty
 Supplier earning serialization and financial reconciliation remain unverified;
 no synthetic earning or commercial qualification was introduced for this change.
+
+### Interrupted tier-only stream
+
+An actual Chat stream used zero base rates and no minimum, with a threshold-1
+schedule pricing input/output at 1,000,000/2,000,000 nanounits per million tokens.
+Configured bounds of 2,048 input and 512 output required a 3,072-nanounit hold.
+The key spending limit was set to that exact bound. The client closed after the
+first actual content event, before terminal usage.
+
+The attempt remained `may_have_executed` with unknown usage. No charge or debit
+was invented; one balance reservation remained held, and the customer request
+status stayed pending. Another dispatch was rejected by the key limit. Secret
+rotation, Gateway restart over a recovery interval and later key revocation did
+not erase the liability or permit another attempt. The original secret was
+rejected after rotation.
+
+Independent reopening authenticated the saved stream-prefix hash, verified actual
+content without terminal usage, selected the pinned tier schedule, recomputed the
+3,072-nanounit bound, and checked the unknown attempt, absent charges/debits and
+retained reservation. This covers the observed first-content disconnect only;
+it does not prove upstream cancellation, resolve missing usage, or verify a race
+between client disconnect and terminal settlement.
