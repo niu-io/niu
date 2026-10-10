@@ -127,6 +127,48 @@ it('restores the result pane when opening a saved job URL',async()=>{
  expect(screen.getByRole('tab',{name:'Result',exact:true}).getAttribute('aria-selected')).toBe('true');
 });
 
+it('recovers a failed saved-job read without submitting another generation',async()=>{
+  let statusReads=0;
+  const reads:string[]=[];
+  vi.stubGlobal('fetch',vi.fn(async(path:string,init?:RequestInit)=>{
+    reads.push(path);
+    if(path.endsWith('/chat-sessions'))return Response.json({data:[]});
+    if(path.endsWith('/keys'))return Response.json({data:[{id:key,name:'Review key',revoked:false,expired:false}]});
+    if(path.endsWith('/models'))return Response.json({object:'list',data:[model]});
+    if(path.includes('/jobs?'))return Response.json({data:[],has_more:false,next_before:null});
+    if(path.endsWith('/billing'))return Response.json({mode:'customer',charge_nanos:null,reserved_nanos:'2000000000',currency:'CNY'});
+    if(path.endsWith('/timings'))return Response.json({data:[],has_more:false});
+    if(path.endsWith(`/jobs/${job}`)){
+      expect(init?.method).toBe('GET');
+      if(++statusReads===1)return Response.json({error:{message:'Saved status temporarily unavailable'}},{status:503});
+      return Response.json({id:job,object:'video.job',model:model.id,status:'queued'});
+    }
+    throw new Error('Unexpected request');
+  }));
+  mount(true,`/generations?mode=video&key=${key}&job=${job}`);
+  await screen.findByText('Saved status temporarily unavailable');
+  await userEvent.setup().click(screen.getByRole('button',{name:'Reload status',exact:true}));
+  await screen.findByText('Queued');
+  expect(statusReads).toBe(2);
+  expect(screen.queryByText('Saved status temporarily unavailable')).toBeNull();
+  expect(reads.some(path=>path.endsWith('/jobs'))).toBe(false);
+});
+
+it('does not leave a saved job loading forever when no active API key remains',async()=>{
+  const calls:string[]=[];
+  vi.stubGlobal('fetch',vi.fn(async(path:string)=>{
+    calls.push(path);
+    if(path.endsWith('/chat-sessions'))return Response.json({data:[]});
+    if(path.endsWith('/keys'))return Response.json({data:[{id:key,name:'Old key',revoked:true,expired:false}]});
+    throw new Error('No video API should be read without an active key');
+  }));
+  mount(true,`/generations?mode=video&key=${key}&job=${job}`);
+  await screen.findByText('Choose an active API key to load this saved video.');
+  expect(screen.queryByText('Loading saved video…')).toBeNull();
+  expect(calls.some(path=>path.includes('/video/'))).toBe(false);
+  expect(screen.getByRole('link',{name:'Manage API keys'})).toBeTruthy();
+});
+
 it('connects saved lifecycle observations to the result waterfall without new generation',async()=>{
  const calls=mockFetch(undefined,{source:'gateway_observation',submitted_unix_ms:1000,observations:[{status:'running',observed_unix_ms:3000},{status:'succeeded',observed_unix_ms:9000}],conflicting_terminal:false});
  mount(true,`/chat?mode=video&job=${job}`);

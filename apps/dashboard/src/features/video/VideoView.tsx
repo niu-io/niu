@@ -237,7 +237,8 @@ export default function VideoView({context}:{context:DashboardContext}) {
           {(model || selected) && <TabsContent value="result" forceMount className="video-result" aria-label="Video result">
             <div className="video-result-heading"><h2>{job?.model ?? 'Result'}</h2>{job && <Badge variant="secondary">{statusLabel[job.status]}</Badge>}</div>
             {detailError && <p role="alert" className="video-error">{detailError}</p>}
-            {!selected ? <p className="video-muted">Submit a video or select a saved job.</p> : !job && !detailError ? <p role="status">Loading saved video…</p> : job && <>
+            {selected && !job && detailError && <Button variant="outline" onClick={()=>setRevision(value=>value+1)} disabled={Boolean(busy)}>Reload status</Button>}
+            {!selected ? <p className="video-muted">Submit a video or select a saved job.</p> : !base && !loading ? <p className="video-muted">Choose an active API key to load this saved video.</p> : !job && !detailError ? <p role="status">Loading saved video…</p> : job && <>
               {(job.status === 'submission_unknown' || job.status === 'reconciliation_required') && <p>The outcome is unresolved. Do not resubmit this generation.</p>}
               <Tabs defaultValue="status"><TabsList><TabsTrigger value="status">Status</TabsTrigger><TabsTrigger value="billing">Billing</TabsTrigger></TabsList>
                 <TabsContent value="status" className="video-details">

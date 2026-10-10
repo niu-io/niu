@@ -341,3 +341,25 @@ rendered qualification.
   snapshots, refresh loading and aborted old-scope responses. Actual browser
   incomplete-usage and storage-failure states remain unqualified; no backend
   performance or TPM enforcement claim is made by this frontend increment.
+
+### Saved Video read recovery (2026-10-10)
+
+- Fixed two dead ends within the existing Video result layout. A failed initial
+  saved-job read now exposes the same Reload status action used for loaded jobs.
+  Opening a saved-job link without an active workspace key now asks for an active
+  key instead of showing Loading saved video indefinitely. No new visual pattern
+  or unsupported submission-retry capability was introduced.
+- All 34 Video tests across five files and dashboard TypeScript passed. The new
+  regressions cover a failed status read followed by recovery to Queued without
+  a generation POST, and an all-revoked key list that makes no Video API request.
+- Actual desktop and 390×844 browser checks used a nonexistent saved-job reference
+  with the real demo key. Its resource-unavailable response remained actionable
+  through Reload status, with no generation submission. A workspace with only
+  inactive keys rendered the active-key guidance at both widths. Temporary
+  viewport overrides and invalid-job navigation were cleared afterward.
+- The current demo key's real catalog still reports no supported Video route.
+  Live creation, original-account recovery, preview/download and charge diagnosis
+  remain unqualified locally. The existing backend/SDK text-video idempotency
+  contract is not yet integrated into the dashboard; durable submission intent
+  and same-identity recovery remain part of the complete journey, not an implied
+  permission to retry uncertain unkeyed generation.
