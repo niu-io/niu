@@ -99,5 +99,7 @@ public-tree checks completed; no fixture outcome supports this observation.
 
 This removes the serial scheduling dependency. It does not reserve connection
 capacity: a one-connection pool or exhaustion by other work can still defer
-financial recovery. It also does not establish globally single-owner cleanup,
-cleanup statement deadlines, paid-backlog convergence or performance capacity.
+financial recovery. Content expiry subsequently adopted
+[separate ownership and SQL deadlines](content-retention-recovery.md). Interrupted
+ingestion recovery, paid-backlog convergence and performance capacity remain
+unqualified.

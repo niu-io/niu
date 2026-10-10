@@ -12,8 +12,7 @@ impl Store {
         let asset_listing_cleanup = self.purge_expired_asset_listing_results().await;
         let asset_update_cleanup = self.purge_expired_asset_group_update_patches().await;
         let asset_lookup_cleanup = self.purge_expired_asset_lookup_results().await;
-        let payload_cleanup = sqlx::query("DELETE FROM request_payloads WHERE attempt_id IN (SELECT attempt_id FROM request_payloads WHERE expires_at <= now() ORDER BY expires_at,attempt_id LIMIT 500 FOR UPDATE SKIP LOCKED)")
-            .execute(&self.pool)
+        let payload_cleanup = self.execute_content_retention("DELETE FROM request_payloads WHERE attempt_id IN (SELECT attempt_id FROM request_payloads WHERE expires_at <= now() ORDER BY expires_at,attempt_id LIMIT 500 FOR UPDATE SKIP LOCKED)")
             .await;
         asset_cleanup?;
         asset_read_cleanup?;

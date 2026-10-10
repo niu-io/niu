@@ -207,7 +207,7 @@ impl Store {
         Ok(changed)
     }
     pub async fn purge_expired_asset_group_update_patches(&self) -> Result<(), StoreError> {
-        sqlx::query("UPDATE asset_group_update_patches SET ciphertext=NULL,deleted_at=clock_timestamp() WHERE update_id IN (SELECT update_id FROM asset_group_update_patches WHERE ciphertext IS NOT NULL AND expires_at<=clock_timestamp() ORDER BY expires_at,update_id LIMIT 500 FOR UPDATE SKIP LOCKED)").execute(&self.pool).await?;
+        self.execute_content_retention("UPDATE asset_group_update_patches SET ciphertext=NULL,deleted_at=clock_timestamp() WHERE update_id IN (SELECT update_id FROM asset_group_update_patches WHERE ciphertext IS NOT NULL AND expires_at<=clock_timestamp() ORDER BY expires_at,update_id LIMIT 500 FOR UPDATE SKIP LOCKED)").await?;
         Ok(())
     }
     /// Reconcile an acknowledged mutation using its retained patch and a fresh

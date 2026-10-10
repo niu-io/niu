@@ -265,8 +265,7 @@ impl Store {
     }
 
     pub async fn purge_expired_asset_listing_results(&self) -> Result<(), StoreError> {
-        sqlx::query("UPDATE asset_listing_results SET ciphertext=NULL,deleted_at=clock_timestamp() WHERE listing_id IN (SELECT listing_id FROM asset_listing_results WHERE ciphertext IS NOT NULL AND expires_at<=clock_timestamp() ORDER BY expires_at,listing_id LIMIT 500 FOR UPDATE SKIP LOCKED)")
-            .execute(&self.pool).await?;
+        self.execute_content_retention("UPDATE asset_listing_results SET ciphertext=NULL,deleted_at=clock_timestamp() WHERE listing_id IN (SELECT listing_id FROM asset_listing_results WHERE ciphertext IS NOT NULL AND expires_at<=clock_timestamp() ORDER BY expires_at,listing_id LIMIT 500 FOR UPDATE SKIP LOCKED)").await?;
         Ok(())
     }
     /// Durable operational metadata only; no retained content or procurement data.

@@ -91,7 +91,7 @@ impl Store {
     /// Remove expired request content in bounded batches while preserving the
     /// original intent, fingerprint and reconciliation state.
     pub async fn purge_expired_asset_group_requests(&self) -> Result<u64, StoreError> {
-        Ok(sqlx::query("UPDATE asset_group_create_intents SET request_body=NULL WHERE id IN (SELECT id FROM asset_group_create_intents WHERE request_body IS NOT NULL AND request_expires_at<=clock_timestamp() ORDER BY request_expires_at,id LIMIT 500 FOR UPDATE SKIP LOCKED)").execute(&self.pool).await?.rows_affected())
+        self.execute_content_retention("UPDATE asset_group_create_intents SET request_body=NULL WHERE id IN (SELECT id FROM asset_group_create_intents WHERE request_body IS NOT NULL AND request_expires_at<=clock_timestamp() ORDER BY request_expires_at,id LIMIT 500 FOR UPDATE SKIP LOCKED)").await
     }
 
     /// Bounded local discovery only. A candidate is never permission to create

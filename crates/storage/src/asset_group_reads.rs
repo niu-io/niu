@@ -205,8 +205,7 @@ impl Store {
     }
 
     pub async fn purge_expired_asset_group_read_results(&self) -> Result<(), StoreError> {
-        sqlx::query("UPDATE asset_group_read_results SET ciphertext=NULL,deleted_at=clock_timestamp() WHERE read_id IN (SELECT read_id FROM asset_group_read_results WHERE ciphertext IS NOT NULL AND expires_at<=clock_timestamp() ORDER BY expires_at,read_id LIMIT 500 FOR UPDATE SKIP LOCKED)")
-            .execute(&self.pool).await?;
+        self.execute_content_retention("UPDATE asset_group_read_results SET ciphertext=NULL,deleted_at=clock_timestamp() WHERE read_id IN (SELECT read_id FROM asset_group_read_results WHERE ciphertext IS NOT NULL AND expires_at<=clock_timestamp() ORDER BY expires_at,read_id LIMIT 500 FOR UPDATE SKIP LOCKED)").await?;
         Ok(())
     }
     /// Private content and upstream account/identity are excluded. A missing

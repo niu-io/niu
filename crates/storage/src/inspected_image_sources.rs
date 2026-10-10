@@ -670,7 +670,12 @@ impl Store {
     /// Immutable source metadata and approval provenance remain. Locked sources
     /// are skipped so explicit erasure and concurrent workers cannot stall a batch.
     pub async fn purge_expired_inspected_image_sources(&self) -> Result<u64, StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let Some(mut tx) = self
+            .begin_background_work(crate::background_work::BackgroundWork::ContentRetention)
+            .await?
+        else {
+            return Ok(0);
+        };
         let ids: Vec<Uuid> = sqlx::query_scalar(
             "SELECT s.id FROM inspected_image_sources s JOIN inspected_image_source_content c ON c.source_id=s.id WHERE s.expires_at<=clock_timestamp() ORDER BY s.expires_at,s.id LIMIT 16 FOR UPDATE OF s SKIP LOCKED"
         ).fetch_all(&mut *tx).await?;

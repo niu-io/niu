@@ -57,8 +57,7 @@ impl Store {
         Ok(())
     }
     pub async fn purge_expired_media_result_references(&self) -> Result<u64, StoreError> {
-        let result=sqlx::query("UPDATE media_result_references SET ciphertext=NULL,deleted_at=clock_timestamp() WHERE deleted_at IS NULL AND expires_at<=clock_timestamp()").execute(&self.pool).await?;
-        Ok(result.rows_affected())
+        self.execute_content_retention("UPDATE media_result_references SET ciphertext=NULL,deleted_at=clock_timestamp() WHERE (attempt_id,kind) IN (SELECT attempt_id,kind FROM media_result_references WHERE deleted_at IS NULL AND expires_at<=clock_timestamp() ORDER BY expires_at,attempt_id,kind LIMIT 500 FOR UPDATE SKIP LOCKED)").await
     }
 }
 

@@ -79,26 +79,12 @@ impl Store {
         stage: FinancialStage,
         cursor: Option<Option<Uuid>>,
     ) -> Result<Option<(Option<Uuid>, usize)>, StoreError> {
-        let Some(mut connection) = self.pool.try_acquire() else {
+        let Some(mut tx) = self
+            .begin_background_work(crate::background_work::BackgroundWork::Financial)
+            .await?
+        else {
             return Ok(None);
         };
-        let mut tx = connection.begin().await?;
-        let claimed: bool = sqlx::query_scalar(
-            "SELECT pg_try_advisory_xact_lock(hashtextextended('niu:financial-recovery',0))",
-        )
-        .fetch_one(&mut *tx)
-        .await?;
-        if !claimed {
-            tx.rollback().await?;
-            return Ok(None);
-        }
-        // Contended foreground rows must not monopolize the worker connection.
-        sqlx::query("SET LOCAL lock_timeout = '250ms'")
-            .execute(&mut *tx)
-            .await?;
-        sqlx::query("SET LOCAL statement_timeout = '2s'")
-            .execute(&mut *tx)
-            .await?;
         let after = match cursor {
             Some(after) => after,
             None => {
