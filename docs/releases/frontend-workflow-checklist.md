@@ -784,3 +784,10 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
 
 - Supplier API keys & routes now derives the existing authenticated global Models URL from the current workspace context, using the shared workspace path resolver. The component fallback also uses global `/models` rather than the retired nested workspace model route. This preserves context for dashboard entry; it does not change model ownership or public catalog route ownership.
 - Dashboard TypeScript checking passed. On desktop HMR, clicking the actual Model catalog link entered `/models` with the same workspace query as the rail and rendered 25 real models, model details links and Try in Chat actions. No saved configuration or inference was changed. Responsive refinement remains deferred.
+
+## Integrated frontend and populated operation qualification
+
+- On main at `89b04772`, all 85 dashboard test files and 643 tests passed; dashboard TypeScript checking passed. This integrated checkpoint covers the accumulated component changes, not full release or merchant/video acceptance.
+- Read-only API inspection identified the original STREAM_OK request's operation and confirmed exactly one matching attempt and summary count. The actual desktop Logs URL returned that one completed GPT-4.1 Mini request with 13 input and 3 output tokens, Demo API key and owner-funded attribution. The operation identifier appeared only in routing/API data, not rendered content.
+- Exported CSV through the real menu and inspected the downloaded file: exactly one data row for that model, with customer-charge fields and no procurement columns or internal identifiers. The request drawer retained the original prompt and STREAM_OK response, HTTP 200, and measured preparation 181 ms, first-output wait 1.91 s, stream 75 ms, total 2.17 s. Previous/next navigation was disabled for the single-result scope.
+- This closes the populated single-attempt operation list/export/detail subset. Multi-attempt operation qualification, classified live failures and export error browser states remain open. No inference, funding or configuration mutation occurred in this checkpoint.
