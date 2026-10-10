@@ -221,3 +221,19 @@ tombstones remained without expired ciphertext, and both retry tables were empty
 The original database was untouched. This provides nonempty cleanup and payload
 poison-row/restart evidence. A poisoned media row, active media references,
 multi-Gateway nonempty contention and the other content domains remain unverified.
+
+### Media poison-row recovery
+
+A separate fresh restore used the same naturally expired backup records and a
+trigger that rejected erasure of one media reference. The actual background loop
+removed all 15 expired payloads and erased the other two media references. The
+failed media ciphertext remained, with a future retry deadline. Gateway restart
+preserved it. After removing the fault and waiting for the actual retry deadline,
+background maintenance erased the final ciphertext and removed its retry marker.
+Repeated payload/media cleanup returned zero.
+
+Independent reopening verified the absence of expired payloads and media
+ciphertext, retention of media tombstones, and empty retry tables. No retention
+or retry timestamp was rewritten. This exercises a media-row failure separately
+from the payload-row failure above; it still does not qualify multi-Gateway
+nonempty contention, active media preservation or other asset cleanup domains.
