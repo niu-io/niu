@@ -30,7 +30,7 @@ contains no payload, endpoint, credential or Supplier price.
 Migration 0237 extends the failure constraints. Request detail, the shared
 observability contract, generated OpenAPI and JavaScript `RequestFailure` type
 include the new value. Chat and Responses stream handlers use the pending-context
-guard; the current-input verification below exercises Chat.
+guard; separate current-input runs below exercise both protocols.
 
 ## Current-input verification — 2026-10-11
 
@@ -60,9 +60,22 @@ cancelled record retained an incomplete HTTP-200 timing and matching inspected
 request payload with incomplete response capture. There was no credential
 cooldown or extra submission; restart retained the states.
 
+A separate fresh native run exercised `/v1/responses` against the same real
+Provider, with Responses support explicitly enabled on its model binding:
+
+- Closing after an actual `response.output_text.delta` persisted cancellation,
+  unknown usage, incomplete HTTP-200 timing and matching partial payload capture.
+  The original key's concurrency occupancy survived rotation and restart.
+- A normal stream returned its requested fresh marker and one
+  `response.completed` event containing reported input/output usage. Independent
+  reopening recomputed the one charge and ledger debit from those token counts
+  and pinned customer rates; both matched exactly.
+- A one-second deadline retained `upstream_timeout` as its distinct reason.
+  Reopening found exactly three attempts, two uncertain customer/procurement
+  holds, one completed charge and no credential cooldown or extra submission.
+
 The upstream account was personal/self-funded and the customer rates/credit
 were internal verification configuration. No merchant funding or commercial
 Supplier qualification was claimed. Original development data and encrypted
-identity were unchanged. Fixture outcomes were not used as evidence. The full
-Responses cancellation matrix, terminal/cancellation races and forced-loss
-recovery remain separately unverified.
+identity were unchanged. Fixture outcomes were not used as evidence. Terminal/cancellation races, cancellation before the first content event and
+forced-loss recovery remain separately unverified.
