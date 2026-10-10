@@ -140,3 +140,25 @@ the prior aggregate and the new shared calculation at the same timestamp. The
 fresh request completed, its next admission returned 429, and independent SQL
 confirmed one dispatch with matching actual token totals. The temporary key was
 revoked. These checks establish current-data behavior, not large-history capacity.
+## Actual priced admission across two gateways — 2026-10-10
+
+A current-input run on backend `5a2449d` used two gateway processes sharing a
+separate native PostgreSQL database. A key's finite token budget was configured
+through management HTTP to the compact serialized request byte length plus its
+32-token output bound. Four simultaneous actual strict-JSON requests used the
+same key, explicit internal retail rates and approved company credit.
+
+One returned the exact requested output and reported usage; three returned 429
+with `key_token_rate_exceeded`. Independent database reads found exactly one
+attempt and customer charge, an exact debit independently calculated from that
+response's usage, and no open customer reservation. Reconciliation had no
+discrepancy and PostgreSQL had no deadlock diagnostic. Further requests during
+the usage window remained denied, including after stopping both gateways and
+restarting one; no extra attempt was created.
+
+Temporary access was revoked and the isolated processes stopped. Original
+credentials and data were preserved, and no external funding receipt or
+commercial qualification was created. This adds priced accounting evidence for
+the exercised token-budget contention path. It does not establish provider-exact
+estimation, usage overruns, mixed protocols or sustained capacity; no fixture
+outcome supports this checkpoint.
