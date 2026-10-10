@@ -632,3 +632,13 @@ or null. Token rates use nanounits per million tokens; `minimum_charge_nanos` an
 string. The SDK exposes both fee fields on model prices and invoice lines.
 Model discovery does not guarantee admission or upstream availability. See the
 [actual scoped price-read verification](https://github.com/niu-io/niu/blob/main/docs/reference/text-request-fees.md#model-discovery-contract-and-sdk-reads).
+
+## Customer price history
+
+Use `GET /admin/v1/organizations/{organization}/projects/{project}/billing/tariffs/{model}/history`
+or SDK `getCustomerTariffHistory` to read immutable customer text prices. The
+response includes the current revision and newest-first pages with `next_before`;
+all monetary fields remain strings. Follow the cursor to continue and refresh the
+first page to see newly published prices. Missing/foreign cursors return 409;
+inaccessible workspaces or unknown model tariffs return 404. Supplier procurement
+prices are excluded. See the [contract and actual pagination evidence](https://github.com/niu-io/niu/blob/main/docs/reference/customer-tariff-history.md).

@@ -57,6 +57,8 @@ export type SupplierRateInput = {
 /** Customer selling rates, independent from Supplier procurement prices. */
 export type CustomerTariffInput = SupplierRateInput & { minimum_charge_nanos?: string; request_fee_nanos?: string };
 export type CustomerTariff = Omit<CustomerTariffInput, 'expected_revision'> & { revision: string };
+export type CustomerTariffHistoryEntry = CustomerTariff & { created_at: string; is_current: boolean };
+export type CustomerTariffHistory = { current_revision: string | null; data: CustomerTariffHistoryEntry[]; has_more: boolean; next_before: string | null };
 /** Optional versioned output mapping inside model capabilities.video_schema. Estimates are not liability bounds. */
 export type VideoOutputSchema = {
   specifications: Array<{ resolution: string; ratio: string; width: number; height: number }>;
@@ -819,6 +821,16 @@ export class NiuAdminClient {
   /** Customer-safe billing read; server workspace authorization is authoritative. */
   getCustomerBilling(scope: TenantScope, options?: RequestOptions): Promise<{ data: CustomerBilling }> {
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/billing`, undefined, options);
+  }
+
+  /** Scoped immutable selling history; amount strings are never coerced to numbers. */
+  getCustomerTariffHistory(scope: TenantScope, model: string, page: { before?: string; limit?: number } = {}, options?: RequestOptions): Promise<CustomerTariffHistory> {
+    if (!model || new TextEncoder().encode(model).length > 200) throw new TypeError('A model alias of at most 200 bytes is required');
+    if (page.limit !== undefined && (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100)) throw new TypeError('Choose a history page size from 1 to 100');
+    const query = new URLSearchParams();
+    if (page.before !== undefined) query.set('before', uuid(page.before));
+    if (page.limit !== undefined) query.set('limit', String(page.limit));
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/billing/tariffs/${encodeURIComponent(model)}/history${query.size ? `?${query}` : ''}`, undefined, options);
   }
 
   /** Installation-only retail publication. No retry or Supplier-price fallback. */

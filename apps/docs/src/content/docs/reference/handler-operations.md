@@ -5776,6 +5776,132 @@ HTTP 409: Cursor does not belong to this company ledger
 
 HTTP 404: Company account access not granted
 
+## Read immutable customer text price history
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/billing/tariffs/{model}/history`
+
+Same scoped management read permission as workspace billing. Newest first by created_at and revision UUID, with exclusive keyset pagination. A single database statement observes the current revision and page coherently. All prices are exact decimal strings: token rates are nanounits per million tokens, minimum and fixed fees are currency nanounits per known completed request. Includes no Supplier procurement prices or upstream credentials. Unknown model returns 404; an unknown or foreign cursor returns 409. A newer publication can appear on a fresh first page but does not duplicate earlier entries when following an existing cursor. This read does not publish or reprice anything. Revision identifiers are API references, not display labels.
+
+Implementation: `implemented`. Operation: `listCustomerTariffHistory`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`model` (path, required)
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 200
+}
+```
+
+`before` (query, optional)
+
+Exclusive revision cursor belonging to this workspace and model.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Current pointer and immutable bounded history page.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "current_revision",
+    "data",
+    "has_more",
+    "next_before"
+  ],
+  "properties": {
+    "current_revision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "data": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "$ref": "#/components/schemas/CustomerTextTariffHistoryEntry"
+      }
+    },
+    "has_more": {
+      "type": "boolean"
+    },
+    "next_before": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid path, query, model or page limit.
+
+HTTP 401: Management authentication required.
+
+HTTP 404: Workspace access denied or no tariff for this model.
+
+HTTP 409: Cursor does not belong to this workspace/model history.
+
+HTTP 503: Storage unavailable.
+
 ## Read EPay configuration with platform administrator read access
 
 `GET /admin/v1/platform/payments/epay`
@@ -10609,6 +10735,70 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "model",
     "choices"
   ]
+}
+```
+
+### CustomerTextTariffHistoryEntry
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "model_alias",
+    "revision",
+    "currency",
+    "created_at",
+    "is_current",
+    "prompt_rate",
+    "completion_rate",
+    "minimum_charge_nanos",
+    "request_fee_nanos",
+    "cached_prompt_rate"
+  ],
+  "properties": {
+    "model_alias": {
+      "type": "string"
+    },
+    "revision": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "is_current": {
+      "type": "boolean"
+    },
+    "prompt_rate": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "completion_rate": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "minimum_charge_nanos": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "request_fee_nanos": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "cached_prompt_rate": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$"
+    }
+  }
 }
 ```
 
