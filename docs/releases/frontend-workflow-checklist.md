@@ -923,3 +923,9 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
 
 - Through the local administration UI, saved a temporary 1,000,000 request cap from the existing Unlimited policy. A full page reload retained 1,000,000. Cleared the field and saved to restore Unlimited; the page then read the restored policy. No inference or media generation was submitted.
 - Actual history contains the two changes, newest first, with Demo as actor and recorded dates. Reviewed the populated dialog at 390px and 1280px: values, actor and wrapping dates fit. Restored the temporary viewport override after inspection. This qualifies the exercised save/restore and populated-history path, not stale-write/error rendering, pagination or ordinary-role exclusion.
+
+## Supplier credential-limit conflict recovery
+
+- Fixed reopening a conflicted edit: retain the explanation while the field remains disabled and Reload limit is required. The integration regression now closes/reopens the dialog before reloading; both credential-limit tests pass.
+- Current browser input above 1,000,000 showed validation and disabled Save. An independent authenticated administration update kept Unlimited while advancing its revision; the old browser edit then received a real conflict. Closing/reopening retained the explanation, and Reload limit restored the current blank Unlimited field with Save disabled. No rejected edit overwrote the policy and no inference was submitted. History retains the explicit no-value-change administration update.
+- Pagination, transport-error rendering and ordinary-role exclusion remain separate qualification items.
