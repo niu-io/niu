@@ -230,3 +230,26 @@ were revoked afterwards, and the original development identity was unchanged.
 This verifies the exercised two-workspace admission boundary, not a throughput
 limit or every combination of workspace/key caps. No settled funding receipt or
 commercial Supplier qualification was introduced.
+
+## Key rotation during an actual stream
+
+A fresh isolated current-input run on 2026-10-10 rotated a workspace API key after
+the first content chunk of a real stream, while its full customer liability was
+still reserved. The old secret then returned HTTP 401. Its replacement inherited
+the reservation and returned `key_spending_limit_exceeded` (402) for a competing
+request. Increasing only the temporary spending cap exposed the independent
+shared concurrency limit: the replacement returned `key_concurrency_exceeded`
+(429), with no second durable dispatch.
+
+The original stream delivered the requested marker and all 500 ordered values,
+terminal stream evidence and reported usage. Independently calculated charges
+matched exactly one ledger debit; the hold was released. After lowering the cap
+to its original value, a new full-bound request using the replacement returned
+402 because the earlier charge still consumed allowance. Restart preserved the
+remaining allowance, one customer charge and one durable dispatch. Temporary
+keys were revoked and the original development identity remained unchanged.
+
+This covers the exercised in-flight rotation, consumption and concurrency
+combination. The output was an ordinary text stream; combined structured-output
+streaming remains unsupported and was separately rejected before dispatch. No
+external funding receipt or commercial Supplier qualification was introduced.
