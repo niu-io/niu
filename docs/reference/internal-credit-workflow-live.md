@@ -338,3 +338,34 @@ processes stopped and the original encrypted identity remained unchanged. The
 responses retain their existing unpaginated format and proportional memory use;
 this does not qualify arbitrary-size price directories or change pricing math.
 Minimum per-request text charges were separate from that directory correction; the subsequent [minimum-charge implementation](text-minimum-charges.md) records its contract and actual evidence.
+
+## Two currencies and workspace statement isolation — 2026-10-11
+
+A fresh native database configured one company, separate USD/EUR balance
+accounts with explicitly approved internal credit, and two workspaces. Each
+workspace had a distinct customer tariff for the same private model. The saved
+personal OpenRouter credential supplied two actual strict-JSON completions with
+fresh markers. Procurement configuration remained USD; the independent customer
+prices were test inputs, not an exchange rate or a commercial price claim.
+
+For each workspace, invoice issuance and same-key replay returned one statement.
+The complete history contained only that workspace's matching currency/amount,
+with `paid` status. The opposite-currency filter returned no rows. Overview
+charged/paid totals matched the exact statement amount, with zero invoice debt
+and zero unbilled amount. A workspace-scoped viewer could read its own history
+but received 404 for the other workspace. A cursor from the other workspace
+returned 409 even under platform authority. Restart retained both histories.
+
+Independent reopening checked each response's reported tokens against its
+completed attempt and recalculated the customer amount from the pinned rates.
+Both charges matched their original debits and the correct currency account.
+Exactly two invoice entries linked the two charges in their original workspace
+and currency. Customer holds were released. There were exactly two attempts,
+charges, debits and invoices, with no funding receipt, invoice-payment record or
+Supplier earning. No fixture result was used as evidence.
+
+This establishes the exercised positive two-currency, two-workspace text
+statement isolation and invoice replay. It does not qualify FX, mixed-currency
+settlement, every account combination, external funding, media billing or
+browser presentation. Isolated processes stopped and original development data
+and encrypted identity were preserved.
