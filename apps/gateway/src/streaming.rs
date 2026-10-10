@@ -351,6 +351,25 @@ pub struct StreamAttempt {
     pub failures: Arc<AtomicU64>,
 }
 
+async fn persist_stream_failure(context: StreamAttempt, kind: niu_storage::RequestFailureKind) {
+    context.failures.fetch_add(1, Ordering::Relaxed);
+    if context
+        .store
+        .save_request_failure(
+            context.scope,
+            context.id,
+            niu_storage::RequestFailure {
+                kind,
+                upstream_http_status: None,
+            },
+        )
+        .await
+        .is_err()
+    {
+        tracing::error!(attempt_id = %context.id, "stream failure observation could not be saved");
+    }
+}
+
 /// Cancellation drops the upstream stream and leaves durable uncertainty.
 /// Terminal usage evidence is queued after dispatch intent has been committed;
 /// a priced request retains its durable budget hold until settlement finishes.
@@ -396,6 +415,7 @@ where
             }
             let item = upstream.next().await;
             let mut stopped = false;
+            let mut failure_kind = niu_storage::RequestFailureKind::UpstreamInvalidResponse;
             let output = match item {
                 Some(Ok(bytes)) => match evidence.feed(&bytes) {
                     Err(reason) => {
@@ -414,6 +434,9 @@ where
                                     match customer_output.finish_terminal() {
                                         Ok(tail) => bytes.extend(tail),
                                         Err(reason) => {
+                                            if let Some(context) = attempt.take() {
+                                                persist_stream_failure(context, failure_kind).await;
+                                            }
                                             return Some((
                                                 Err(io::Error::other(reason)),
                                                 (
@@ -433,6 +456,9 @@ where
                                 Bytes::from(bytes)
                             }
                             Err(reason) => {
+                                if let Some(context) = attempt.take() {
+                                    persist_stream_failure(context, failure_kind).await;
+                                }
                                 return Some((
                                     Err(io::Error::other(reason)),
                                     ((upstream, evidence, customer_output, attempt, true), timing),
@@ -520,7 +546,12 @@ where
                         }
                     }
                 },
-                Some(Err(_)) => {
+                Some(Err(error)) => {
+                    failure_kind = if error.is_timeout() {
+                        niu_storage::RequestFailureKind::UpstreamTimeout
+                    } else {
+                        niu_storage::RequestFailureKind::UpstreamTransportError
+                    };
                     stopped = true;
                     Err(io::Error::other("upstream stream interrupted"))
                 }
@@ -534,7 +565,7 @@ where
             if output.is_err()
                 && let Some(context) = attempt.take()
             {
-                context.failures.fetch_add(1, Ordering::Relaxed);
+                persist_stream_failure(context, failure_kind).await;
             }
             Some((
                 output,

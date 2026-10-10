@@ -236,3 +236,24 @@ retained unknown occupancy. Neither run changed customer ledgers. Temporary acce
 was revoked/disabled and the original credential remained unchanged. This qualifies
 the output-limit terminal case only; content-filter termination, paid settlement
 and malformed/contradictory terminal events remain unverified.
+
+### Durable failures after stream headers
+
+The shared Chat/Responses stream lifecycle now persists safe classifications for
+upstream timeout, other transport errors, invalid SSE and EOF without terminal
+evidence. Sanitization failures also record invalid-response diagnostics instead
+of only increasing an in-memory counter. The observation never changes execution
+confirmation, invents token usage, releases a liability or retries the request.
+Client cancellation remains distinct from an observed upstream transport error.
+
+An independent optimized gateway instance used the existing database/encryption
+identity, a separate local port and an isolated request-timeout configuration.
+Two initial real Responses requests finished normally before their deadlines;
+they do not qualify the timeout branch. A subsequent real long-form text request
+with a three-second deadline delivered text deltas before the stream failed.
+Independent PostgreSQL inspection found exactly one dispatch, `upstream_timeout`,
+`may_have_executed`, unknown usage and incomplete delivery. No customer ledger
+entry was created, and the original credential revision/ciphertext digest stayed
+unchanged. The temporary instance exited, verification keys were revoked and its
+personal model/credential disabled. Other transport errors and malformed upstream
+SSE remain unverified by current-input runs; fixture outcomes supply no evidence.
