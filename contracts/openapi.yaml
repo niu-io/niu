@@ -3067,6 +3067,9 @@ paths:
         '401': {description: Member or installation session required; inference keys are not accepted.}
         '403': {description: Workspace write permission required.}
         '404': {description: Workspace outside the authorized scope.}
+  /admin/v1/organizations/{organization}/billing/accounts/{currency}/policy/history:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1policy~1history'
+
 components:
   schemas:
     BrandingConfiguration:

@@ -91,6 +91,7 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/admin/v1/organizations/{organization}/billing/topups/{order}", get(crate::payments::topup_status))
         .route("/admin/v1/organizations/{organization}/billing/entries/{entry}/reversal", axum::routing::post(crate::billing::balance_reversal))
         .route("/admin/v1/organizations/{organization}/billing/accounts/{currency}/warning-threshold", axum::routing::put(crate::billing::balance_warning))
+        .route("/admin/v1/organizations/{organization}/billing/accounts/{currency}/policy/history", get(crate::billing::balance_policy_history::history))
         .route("/admin/v1/organizations/{organization}/billing/accounts/{currency}/policy", axum::routing::put(crate::billing::balance_policy))
         .route("/admin/v1/organizations/{organization}/billing/balance", get(crate::billing::account_balance))
         .route("/admin/v1/organizations/{organization}/billing/charge-reconciliation", get(crate::billing::charge_reconciliation))

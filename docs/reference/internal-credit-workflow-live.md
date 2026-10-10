@@ -546,3 +546,28 @@ usages and exact charges/debits, correct refund totals and no held reservations.
 Together with the preceding no-hold reduction, these runs exercise the distinct
 accepted and rejected cases without synthesizing an upstream response. They do
 not establish every ordering of simultaneous admissions and credit changes.
+
+### Customer credit-policy history API and SDK
+
+`GET /admin/v1/organizations/{organization}/billing/accounts/{currency}/policy/history`
+now exposes immutable credit/warning revisions with the same company-wide
+financial read authority as balances. SDK method
+`getCustomerBalancePolicyHistory` supports bounded revision-descending pages.
+Exact-string amounts and revision cursors avoid precision loss; one SQL snapshot
+keeps each page's current pointer and markers consistent. The response excludes
+internal account identifiers and procurement information. No migration is needed.
+
+A fresh native current-input run configured, reduced and restored credit through
+the SDK, paging each resulting history with limit one and checking older markers.
+Missing cursors returned 409; invalid queries returned 400 and an absent currency
+account returned 404. Company owner/admin reads succeeded with no-store caching;
+company viewer, workspace-only owner and foreign-company owner reads returned
+404. An inference key and a revoked session returned 401. Restart preserved the
+complete three-revision response. Actual structured and streamed completions,
+charges and refunds were independently reconciled after reopening PostgreSQL.
+
+The native development service was refreshed with its existing configuration and
+encryption identity preserved. Its populated integration company now exposes the
+retained policy revision through this endpoint. The documentation site's served
+OpenAPI matches the generated contract. This does not create funding or broaden
+credit-policy write permission.

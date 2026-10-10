@@ -157,6 +157,11 @@ export type CustomerTopup = {
   id: string; currency: string; amount_nanos: string; payment_method: string;
   status: 'reconciliation_required' | 'pending' | 'paid' | 'closed'; checkout_url: string | null;
 };
+/** Customer-safe immutable credit and warning policy history. */
+export type CustomerBalancePolicyHistory = {
+  current_revision: string; next_before: string | null;
+  data: Array<{ revision: string; credit_limit_nanos: string; warning_threshold_nanos: string | null; created_at: string; is_current: boolean }>;
+};
 /** Exact nonnegative nanounits and optimistic revision for installation credit policy. */
 export type CustomerBalancePolicyInput = {
   credit_limit_nanos: string; warning_threshold_nanos: string | null; expected_revision: string;
@@ -873,6 +878,21 @@ export class NiuAdminClient {
     const { before, ...transport } = options ?? {};
     const query = before === undefined ? '' : `?before=${uuid(before)}`;
     return this.request(`/organizations/${uuid(organizationId)}/billing/transactions${query}`, undefined, transport);
+  }
+
+  /** Company-scoped immutable credit/warning revisions. Pass next_before for older pages. */
+  getCustomerBalancePolicyHistory(organizationId: string, currency: string, page: { before?: string; limit?: number } = {}, options?: RequestOptions): Promise<CustomerBalancePolicyHistory> {
+    if (!/^[A-Z]{3}$/.test(currency)) throw new TypeError('Use an uppercase currency code');
+    const query = new URLSearchParams();
+    if (page.before !== undefined) {
+      if (typeof page.before !== 'string' || !/^[1-9][0-9]{0,18}$/.test(page.before) || BigInt(page.before) > 9223372036854775807n) throw new TypeError('Use an exact positive revision cursor');
+      query.set('before', page.before);
+    }
+    if (page.limit !== undefined) {
+      if (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100) throw new TypeError('Choose a page size from 1 to 100');
+      query.set('limit', String(page.limit));
+    }
+    return this.request(`/organizations/${uuid(organizationId)}/billing/accounts/${currency}/policy/history${query.size ? '?' + query : ''}`, undefined, options);
   }
 
   /** Installation-only approved credit policy. Changes borrowing capacity, never posts received funds. No automatic retry. */

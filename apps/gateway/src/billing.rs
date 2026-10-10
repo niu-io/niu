@@ -1,5 +1,6 @@
 //! Customer billing. Text/media pricing accepts explicit platform administrators.
 //! Invoice and financial policy writes retain their separate authority.
+pub(crate) mod balance_policy_history;
 pub(crate) mod invoice_history;
 pub(crate) mod platform_pricing;
 use crate::{error::ApiError, state::AppState};

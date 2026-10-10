@@ -4281,6 +4281,144 @@ HTTP 401: Administrator authentication required.
 
 HTTP 400: Invalid path or query parameter.
 
+## Read immutable company credit and warning policy revisions
+
+`GET /admin/v1/organizations/{organization}/billing/accounts/{currency}/policy/history`
+
+Organization-wide owner/admin or installation administration required, using the same authorization as company balance reads. Workspace-only sessions and company viewers cannot read shared financial policy. No account IDs, payment references or Supplier prices. Exact amounts and revisions are decimal strings. Revision-descending keyset pages use one database snapshot per request; separate pages do not share a snapshot. Missing currency account returns 404; missing revision cursor returns 409. Revision zero with empty history denotes an account with no policy writes. This read does not change funds or credit. Cache-Control no-store.
+
+Implementation: `implemented`. Operation: `getCustomerBalancePolicyHistory`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`currency` (path, required)
+
+```json
+{
+  "type": "string",
+  "pattern": "^[A-Z]{3}$"
+}
+```
+
+`before` (query, optional)
+
+Exclusive existing revision cursor.
+
+```json
+{
+  "type": "string",
+  "pattern": "^[1-9][0-9]*$"
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Current revision and history page
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "current_revision",
+    "data",
+    "next_before"
+  ],
+  "properties": {
+    "current_revision": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "revision",
+          "credit_limit_nanos",
+          "warning_threshold_nanos",
+          "created_at",
+          "is_current"
+        ],
+        "properties": {
+          "revision": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "credit_limit_nanos": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "warning_threshold_nanos": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "is_current": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "next_before": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[1-9][0-9]*$"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid currency, revision or page query
+
+HTTP 401: Invalid session
+
+HTTP 404: Account absent or company billing access denied
+
+HTTP 409: Cursor revision does not exist for this account
+
 ## Page complete workspace customer invoice history
 
 `GET /admin/v1/organizations/{organization}/projects/{project}/billing/invoices`

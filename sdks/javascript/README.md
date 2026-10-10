@@ -730,3 +730,13 @@ Reducing credit cannot invalidate held reservations. Without holds, a reduction
 may leave existing debt above the new capacity and block further admissions.
 Company administrators can use `setCustomerBalanceWarning` for the warning
 preference alone; they do not gain credit-policy write authority.
+
+Read immutable credit and warning revisions with
+`getCustomerBalancePolicyHistory(organizationId, currency, { limit: 50 })`.
+Pass `next_before` as `before` for older pages; stop when it is null. Each page
+includes exact-string `current_revision`, and each row identifies whether it is
+current in that page's snapshot. Organization-wide owners/admins and installation
+administration may read; workspace-only sessions and company viewers may not.
+An absent currency account returns 404, an absent revision cursor returns 409.
+Revision zero and empty history mean the account has no policy writes. Reads do
+not change funds or grant credit-policy write permission.

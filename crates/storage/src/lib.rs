@@ -17,6 +17,7 @@ mod managed_routes;
 pub use branding::BrandingSettings;
 mod accounting;
 mod background_work;
+mod balance_policy_history;
 mod financial_recovery;
 pub use financial_recovery::FinancialRecoveryFailure;
 mod gateway_retry;
