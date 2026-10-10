@@ -16,7 +16,7 @@ Status: in progress. Updated 2026-10-10. This checklist supplements, rather than
 | Sign-in and session | Protected destination → login → original destination; reload/restoration, expiry and sign-out; installation setup clearly distinct | Partial; sign-out, protected-route redirect, password login, query-preserving return and reload verified; expiry/revocation and installation distinction open |
 | Models → generation | Global catalog, first-row filter, sort/menu alignment, model details and supported capabilities, selected model preserved when starting a generation | Partial; filter, sort menu and selected-model handoff verified; reference comparison and remaining interaction states open |
 | Workspace API keys | Create with essential values, copy/setup example, grants and limits, rotation/revocation, authorized details and useful failure recovery | Partial; real key list/details, creation dialog/expiration menu/cancel and Generations link verified; name write/reload and narrow model-access menu verified; creation and single-model save/reload/discovery plus revoked-credential 401 verified; rotation with preserved expiry/grants/rate policy and old-secret 401 verified; ordinary-role grants open |
-| Chat | Key-based scope, saved-session title/history, streaming/cancellation, actionable upstream failure, backend restoration and matching Logs | Partial; existing successful history, title, reload restoration and mobile session navigation verified; fresh successful request and restoration verified; connection-stage and live mid-stream cancellation/restoration verified; live partial output and matching interrupted Logs verified; actionable upstream failures and remaining draft conflict states open |
+| Chat | Key-based scope, saved-session title/history, streaming/cancellation, actionable upstream failure, backend restoration and matching Logs | Partial; existing successful history, title, reload restoration and mobile session navigation verified; fresh successful request and restoration verified; connection-stage and live mid-stream cancellation/restoration verified; live partial output and matching interrupted Logs verified; actual two-tab draft conflict/recovery verified; actionable upstream failures and remaining draft transport states open |
 | Video | Task category → supported inputs → submission → durable status → preview/download; unavailable, failed, unknown and expired states; matching Logs and customer charges | Partial; desktop category entry, no-supported-route state, key menu and cross-type Chat restoration verified; actual video submission and result lifecycle remain open |
 | Logs | Request filters → payload and response → measured timing waterfall → failure diagnosis; exports, unknown values and customer-only costs | Partial; key drilldown, real retained request/error and timing verified; date restoration and mobile detail verified; real model/date CSV exports verified; classified failures, export error browser states and remaining mobile states open |
 | Activity | Authorized scope, full-range aggregates → matching Logs; consistent token categories, customer charges and unknown values | Partial; real all-workspace/workspace totals and one model-to-Logs count/filter match verified; Today drilldown and narrow totals verified; other date boundaries and ordinary-role authorization open |
@@ -724,3 +724,18 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
   older HTTP 502 Logs record separately shows uncertain upstream state, unknown
   usage and expired bodies; its measured delivery interval does not prove
   successful execution. No credentials or policy settings were changed.
+
+### Actual two-tab Chat draft conflict
+
+- Two desktop tabs read the same saved Demo workspace composer and its existing
+  STREAM_OK conversation. The composer was empty before verification. Tab A
+  saved an unsent test prompt, and full reload restored it. Tab B then edited its
+  stale version; the real backend rejected that write and the UI displayed the
+  changed-in-another-tab message, retained B's local text and disabled Send.
+- Explicit Load saved draft replaced B's text with A's saved prompt and removed
+  the conflict. No automatic overwrite or inference submission occurred. Cleared
+  the test prompt through the recovered tab to restore the original empty
+  composer. Existing conversation response, model and settings were preserved.
+- This qualifies desktop optimistic-conflict recovery against the running API;
+  it does not establish disconnected-network or uncertain-save recovery. No new
+  UI code or synthetic backend data was needed for this verification.
