@@ -10,7 +10,7 @@ internal-readiness gate. Fixture outcomes have no evidentiary weight.
 | Required area | Current actual evidence | Still unverified or incomplete |
 | --- | --- | --- |
 | Supplier configuration | [Independent credentials and prices](supplier-workspace-backend-verification-2026-10-09.md); [priced candidate selection, separate expenses and immutable history](../reference/model-route-pools.md); startup now checks unbound/disabled credentials | Full commercial settlement workflow; broader provider coverage; master-key rotation remains unimplemented |
-| Workspace API keys | [Granular controls](../product/backend-capability-checklist.md); [credit-backed spending refusal, partial refunds and in-flight rotation](../reference/internal-credit-workflow-live.md); [actual text overrun settlement and zero remaining allowance](../reference/api-key-spending-limits.md#actual-text-overrun-rotation-and-restart--2026-10-10); platform grants do not expand customer scope | Mixed-key batch writer, other estimator-overrun paths and sustained multi-instance limiter contention |
+| Workspace API keys | [Granular controls](../product/backend-capability-checklist.md); [credit-backed spending refusal, partial refunds and in-flight rotation](../reference/internal-credit-workflow-live.md); [actual text overrun settlement and zero remaining allowance](../reference/api-key-spending-limits.md#actual-text-overrun-rotation-and-restart--2026-10-10); platform grants do not expand customer scope | Other estimator-overrun paths and sustained multi-instance limiter contention; mixed-key completion batches now have scoped actual evidence |
 | Prepaid and accounting | [Actual credit-backed charges, debits, refunds, invoices and reconciliation](../reference/internal-credit-workflow-live.md); [shared-company contention](../reference/company-credit-concurrency-live.md); [nonempty recovery and database fault runs](../reference/financial-backlog-restart-live.md); [payment configuration, checkout and grant lifecycle](../reference/payment-aggregators.md) | Received-cash funding/reversal evidence and complete customer-funded media settlement. Credit-backed evidence is not a received-cash top-up; activation of every merchant is not required |
 | Request diagnostics | Actual request detail/CSV and [positive customer-charge reports](../reference/internal-credit-workflow-live.md#customer-reporting-with-actual-positive-charges); [structured-stream failures and disconnect liabilities](../reference/structured-output-streaming.md) | Full protocol/input/error matrix and complete media charge reporting; no overall diagnosis workflow claim |
 | Video lifecycle | [Actual generation and result retrieval](video-submission-idempotency-live-2026-10-09.md); [actor-owned intents, response-loss/restart recovery, concurrent status reads and deletion](../reference/video-submission-intents.md) | Customer-funded settlement and broader input/channel coverage. Saved references depend on upstream retention; browser integration remains a separate workstream |
@@ -31,8 +31,9 @@ already exercised read-only paths.
 - [Five-minute mixed-key text](../reference/mixed-key-sustained-text.md) adds 600
   actual bounded completions across eight keys with exact per-attempt debit and
   attribution checks after restart. This extends duration and mixed-key evidence;
-  it does not prove which commands shared a writer batch, operational capacity,
-  multi-instance limit saturation or media performance.
+  it does not prove operational capacity, multi-instance limit saturation or media
+  performance. Separate executed-SQL observations in the internal-credit record
+  establish the exercised mixed-key and mixed-workspace completion batches.
 - [Guardrail refusal and output checks](../reference/guardrail-preparation-errors.md)
   distinguish pre-dispatch refusal from possibly charged output withholding.
   Actual Chat/Responses output blocking, redaction and observation, retained
@@ -40,8 +41,10 @@ already exercised read-only paths.
   External detectors and the complete policy/protocol matrix remain unqualified.
 - [Content recovery ownership](../reference/content-retention-recovery.md) now
   includes interrupted image ingestion/read recovery. Actual priced foreground
-  calls completed during two-gateway recovery lock contention. The exercised
-  recovery queues were empty; populated backlog/poison-row progress is still open.
+  calls completed during two-gateway recovery lock contention. Those foreground runs used empty queues. Later restored, naturally expired
+  payload/media backlogs exercised per-row retry, poisoned-row recovery after
+  restart and two-process cleanup without duplicate successful mutations. Other
+  asset domains and priced admission during a populated backlog remain open.
   A single advisory owner does not bound all cross-process claim contenders to
   one checked-out connection.
 

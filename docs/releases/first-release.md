@@ -6,6 +6,20 @@
 
 A developer can install Niu, configure a qualified Supplier, create a workspace API key, make supported text and video requests, retrieve authorized video results, and diagnose usage, latency, failures and customer charges. The hosted service additionally offers verified discounted supply.
 
+## Integration capability and external activation
+
+Backend readiness requires the supported integration contracts, authorization,
+persistence, failure handling and accounting mechanisms to work. Activation of
+every payment merchant, completion of a bank transfer, or a commercial Supplier
+agreement is not a prerequisite for those capabilities. Keep a truthful supported
+integration inventory and make unavailable deployment configuration explicit.
+External activation and commercial claims need their own evidence; do not
+manufacture qualification records, funding receipts or payment references to
+complete a checklist. Missing external evidence must not conceal an implementation
+defect, and implemented code alone does not establish end-to-end verification.
+Fixture outcomes provide no acceptance signal. Use actual current-input runs and
+independent final-artifact checks, recording unverified scope explicitly.
+
 ## Product boundaries
 
 - **Admin → Suppliers** (`/admin/suppliers`) for platform configuration, separate Supplier-member business access, and global **Models** (`/models`); workspace **API keys, Logs, Activity and Guardrails**; company **Billing & payments** in the global Settings dialog opened from the avatar menu. Settings must preserve the underlying product page and return to it on close; Admin remains a dedicated rail area. External agent observability belongs to Supen, outside Niu’s collection scope.
@@ -279,12 +293,12 @@ Optional previews must name their qualified subset. The complete release still r
 - [Legacy plan](first-release-legacy.md): retired R01–R23 scope, including removed task/subscription-routing obligations.
 
 
-- [Payment aggregator integration](../reference/payment-aggregators.md): initial scope: EPay-compatible domestic payments and Stripe; existing Zhifux implementation is a separate adapter, not proof of EPay compatibility. Both integrations require end-to-end qualification.
+- [Payment aggregator integration](../reference/payment-aggregators.md): initial scope: EPay-compatible domestic payments and Stripe; existing Zhifux implementation is a separate adapter, not proof of EPay compatibility. Supported contracts require implementation verification; activating every merchant or completing an external payment is not a backend readiness prerequisite.
 - [Video metering foundation](video-metering-foundation-verification.md): exact calculations, immutable pricing/usage, shared-balance reservations and internal atomic settlement tested; video-route integration and Provider qualification remain open.
 
 ## Video generation scope supplement — F03, F04, F05, F06, F09, F10
 
-**Status: schema, metering, text-input gateway dispatch and durable job/recovery/settlement foundations partially verified with local fixtures; complete video/asset/verification workflows and live Provider qualification pending.** The [video generation parity requirements](../product/workflow-delivery-plan.md#video-generation-parity--f03-f04-f05-f06-f09-f10) are mandatory for the requested video coverage. They supplement the existing F01–F10 scope without changing any gate to passed. Video jobs are asynchronous model API operations; external clients still own agent planning, tools and task acceptance.
+**Status: complete video/asset workflows remain unverified. Historical fixture outcomes provide no acceptance evidence; use the current-input checkpoints above for the specific behavior actually exercised. External commercial activation is separate from backend capability readiness.** The [video generation parity requirements](../product/workflow-delivery-plan.md#video-generation-parity--f03-f04-f05-f06-f09-f10) are mandatory for the requested video coverage. They supplement the existing F01–F10 scope without changing any gate to passed. Video jobs are asynchronous model API operations; external clients still own agent planning, tools and task acceptance.
 
 - **F03/F04:** qualify the versioned video catalog, text/image inputs, model-specific generation controls, dedicated asynchronous create/query contracts, callbacks where supported, terminal errors and result retrieval. A catalog listing or generic Chat API example does not establish video capability.
 - **F05/F06:** implement bounded video liability, pinned customer tariffs, exactly-once settlement and durable job/asset audit evidence linked to Logs, Usage and Billing. Keep reported usage, customer charges, Supplier expenses and unknown outcomes distinct.
