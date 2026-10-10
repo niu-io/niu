@@ -167,24 +167,7 @@ async fn resolve_pool(
         }
         eligible.push((candidate, route));
     }
-    let priority = eligible
-        .iter()
-        .map(|(c, _)| c.priority)
-        .max()
-        .ok_or_else(ApiError::route_pool_unavailable)?;
-    eligible.retain(|(c, _)| c.priority == priority);
-    let total: u64 = eligible.iter().map(|(c, _)| u64::from(c.weight)).sum();
-    // Routing randomness is not a secret or authorization decision.
-    let mut ticket = (uuid::Uuid::new_v4().as_u128() as u64 & 0x3fff_ffff_ffff_ffff) % total;
-    let mut selected = None;
-    for (candidate, route) in eligible {
-        if ticket < u64::from(candidate.weight) {
-            selected = Some(route);
-            break;
-        }
-        ticket -= u64::from(candidate.weight);
-    }
-    let route = selected.ok_or_else(ApiError::unavailable)?;
+    let route = select_candidate(eligible).ok_or_else(ApiError::route_pool_unavailable)?;
     let cipher = state
         .vendor_cipher
         .as_ref()
@@ -207,6 +190,34 @@ async fn resolve_pool(
         managed_route: Some(snapshot),
         personal_route: personal.then_some(route),
     })
+}
+
+/// Shared priority/weight selection for inference and catalog composition.
+fn select_candidate<T>(eligible: Vec<(&niu_storage::RoutePoolCandidate, T)>) -> Option<T> {
+    let priority = eligible
+        .iter()
+        .map(|(candidate, _)| candidate.priority)
+        .max()?;
+    let total: u64 = eligible
+        .iter()
+        .filter(|(candidate, _)| candidate.priority == priority)
+        .map(|(candidate, _)| u64::from(candidate.weight))
+        .sum();
+    if total == 0 {
+        return None;
+    }
+    // Routing randomness is not a secret or authorization decision.
+    let mut ticket = (uuid::Uuid::new_v4().as_u128() as u64 & 0x3fff_ffff_ffff_ffff) % total;
+    for (candidate, route) in eligible {
+        if candidate.priority != priority {
+            continue;
+        }
+        if ticket < u64::from(candidate.weight) {
+            return Some(route);
+        }
+        ticket -= u64::from(candidate.weight);
+    }
+    None
 }
 
 pub(super) fn make_model(
@@ -278,84 +289,96 @@ fn stored_model(route: &niu_storage::VendorRoute) -> Result<ModelConfig, ApiErro
 pub(crate) async fn effective_models(
     state: &AppState,
 ) -> Result<BTreeMap<String, ModelConfig>, ApiError> {
-    let mut models = base_models(state).await?;
-    apply_pool_models(state, None, &mut models).await?;
-    Ok(models)
-}
-
-/// Shared/static mappings before personal routes and candidate pools are applied.
-async fn base_models(state: &AppState) -> Result<BTreeMap<String, ModelConfig>, ApiError> {
-    let mut models = state.config.models.clone();
-    let (routes, unavailable) = state
-        .store
-        .vendor_catalog_inputs()
-        .await
-        .map_err(ApiError::from_store)?;
-    for route in routes {
-        // A disabled database route still shadows its static predecessor.
-        models.remove(&route.model.alias);
-        // Personal credentials must never enter the shared or public catalog.
-        if route.personal_organization_id.is_some() {
-            continue;
-        }
-        if route.vendor.enabled && route.model.enabled {
-            models.insert(route.model.alias.clone(), stored_model(&route)?);
-        }
-    }
-    for alias in unavailable {
-        models.remove(&alias);
-    }
-    Ok(models)
+    catalog_models(state, None).await
 }
 
 pub(crate) async fn scoped_models(
     state: &AppState,
     organization_id: uuid::Uuid,
 ) -> Result<BTreeMap<String, ModelConfig>, ApiError> {
-    let mut models = base_models(state).await?;
-    for route in state
-        .store
-        .personal_vendor_routes(organization_id)
-        .await
-        .map_err(ApiError::from_store)?
-    {
-        let mut model = stored_model(&route)?;
-        model.pricing = None;
-        model.public_catalog = false;
-        models.insert(route.model.alias, model);
-    }
-    apply_pool_models(state, Some(organization_id), &mut models).await?;
-    Ok(models)
+    catalog_models(state, Some(organization_id)).await
 }
 
-/// Apply each visible pool once; shared pools must not be resolved both before
-/// and after the workspace's personal mappings are added.
-async fn apply_pool_models(
+/// Compose all catalog layers from one database snapshot. Discovery does not
+/// decrypt credentials or select routes through the live inference resolver.
+/// Actual admission must still recheck current ownership and revocation.
+async fn catalog_models(
     state: &AppState,
     organization_id: Option<uuid::Uuid>,
-    models: &mut BTreeMap<String, ModelConfig>,
-) -> Result<(), ApiError> {
-    for pool in state
+) -> Result<BTreeMap<String, ModelConfig>, ApiError> {
+    let inputs = state
         .store
-        .model_route_pools()
+        .vendor_catalog_inputs()
         .await
-        .map_err(ApiError::from_store)?
-    {
-        models.remove(&pool.alias);
-        if pool.enabled
-            && (pool.organization_id.is_none() || pool.organization_id == organization_id)
-        {
-            let alias = pool.alias.clone();
-            match resolve_pool(state, organization_id, pool, None, None, &[]).await {
-                Ok(resolved) => {
-                    models.insert(alias, resolved.model);
-                }
-                Err(error) if error.unavailable_catalog_route() => {}
-                Err(error) => return Err(error),
+        .map_err(ApiError::from_store)?;
+    let mut models = state.config.models.clone();
+    let mut routes = BTreeMap::new();
+    for route in &inputs.routes {
+        routes.insert(route.model.alias.as_str(), route);
+        // Every database alias shadows static configuration, even when disabled
+        // or owned by a different account.
+        models.remove(&route.model.alias);
+        if !route.vendor.enabled || !route.model.enabled {
+            continue;
+        }
+        match route.personal_organization_id {
+            Some(owner) if Some(owner) == organization_id => {
+                let mut model = stored_model(route)?;
+                model.pricing = None;
+                model.public_catalog = false;
+                models.insert(route.model.alias.clone(), model);
             }
+            None if !inputs.unavailable.contains(&route.model.alias) => {
+                models.insert(route.model.alias.clone(), stored_model(route)?);
+            }
+            _ => {}
         }
     }
-    Ok(())
+    // An unavailable offer may shadow a static-only alias as well.
+    for alias in &inputs.unavailable {
+        if !routes.contains_key(alias.as_str()) {
+            models.remove(alias);
+        }
+    }
+    for pool in &inputs.pools {
+        models.remove(&pool.alias);
+        if !pool.enabled
+            || pool
+                .organization_id
+                .is_some_and(|owner| Some(owner) != organization_id)
+        {
+            continue;
+        }
+        if pool.candidates.len() > 64 {
+            return Err(ApiError::unavailable());
+        }
+        let eligible = pool
+            .candidates
+            .iter()
+            .filter_map(|candidate| {
+                let route = *routes.get(candidate.alias.as_str())?;
+                (candidate.enabled
+                    && route.vendor.enabled
+                    && route.model.enabled
+                    && !inputs.cooling_down.contains(&route.vendor.id)
+                    && route.model.capabilities.get("video_schema").is_none()
+                    && route.personal_organization_id == pool.organization_id
+                    && (pool.organization_id.is_some()
+                        || (route.model.pricing.is_some()
+                            && !inputs.unavailable.contains(&route.model.alias))))
+                .then_some((candidate, route))
+            })
+            .collect();
+        if let Some(route) = select_candidate(eligible) {
+            let mut model = stored_model(route)?;
+            model.public_catalog = false;
+            if pool.organization_id.is_some() {
+                model.pricing = None;
+            }
+            models.insert(pool.alias.clone(), model);
+        }
+    }
+    Ok(models)
 }
 
 pub(crate) async fn resolve_model(

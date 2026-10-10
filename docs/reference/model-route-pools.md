@@ -457,7 +457,8 @@ or balance entries were created; original data and encrypted identity were uncha
 This fixes discovery completeness for the exercised pool population. It does not
 qualify model execution or capacity with thousands of active routes. Database
 fetches are bounded, while the compatibility model list still assembles its full
-response in memory; live traversal is not a cross-page snapshot.
+response in memory. The original traversal was not a cross-page snapshot;
+the catalog snapshot implementation below supersedes that limitation for discovery.
 
 ## Single-pass workspace discovery
 
@@ -623,3 +624,47 @@ SQL still showed two attempts and two charges. Temporary reporting operators wer
 revoked and isolated processes stopped; the original encrypted identity remained
 unchanged. This verifies existing single-attempt operations, not future retry
 chains or concurrent successor insertion.
+
+
+## One catalog snapshot across scopes and pool pages — 2026-10-11
+
+Inference discovery now reads model/credential metadata, personal ownership,
+Supplier-unavailable aliases, cooldowns and all pool pages within one short
+read-only repeatable-read transaction. Pool pages remain bounded to 100 rows.
+After committing the read transaction, the gateway composes static, shared and
+personal models and eligible pools in memory. Pool discovery no longer issues a
+route query or decrypts a credential for each pool. Its priority/weight selection
+uses the same helper as actual inference. This does not change response fields,
+key grants, live dispatch checks or the separate management pagination contract.
+
+An isolated native current-input run created 101 shared pools and two personal
+pools belonging to different accounts. Each account's actual model-list response
+included its own personal mapping/pool and excluded the other's. A controlled
+SQL lock paused a catalog read after model metadata. Management APIs then disabled
+a shared credential, the requesting account's personal credential and its personal
+pool. Once released, the pending read retained the original coherent catalog,
+including the personal pool whose definition had since changed. The next read
+excluded all affected routes/pools, both before and after restart, and disabled
+inference returned 404 without attempts despite a same-name static alias.
+
+The unaffected credential completed actual inference. Re-enabling the shared
+credential allowed another actual completion through a shared pool beyond the
+first page. Independent reopening compared saved catalog/response artifacts with
+all 103 pool records, the disabled personal pool's new revision, managed attempt
+bindings and exact customer charge/debit pairs. No open reservations, external
+funding records or commercial qualification records were created.
+
+A separate current-input run produced three actual OpenRouter 401 refusals and
+four successful personal-route completions. The persisted cooldown excluded the
+failed credential. With only that candidate enabled the pool disappeared from
+discovery; restoring its eligible alternate made it visible across restart.
+Independent reopening verified the three failure receipts, four completions with
+matching reported usage and alternate bindings, seven total attempts and no
+customer or procurement ledger entries.
+
+These runs use the owner's personal upstream access and explicitly internal
+accounting inputs. They do not establish commercial supply or measured catalog
+throughput. Nonempty commercial-offer changes remain unverified. A published,
+validated registry generation pinned by each inference attempt is still absent;
+this catalog transaction does not implement publication or its recovery contract.
+No fixture outcome was used as evidence.

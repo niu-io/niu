@@ -71,6 +71,15 @@ pub struct VendorRoute {
     pub personal_organization_id: Option<Uuid>,
 }
 
+/// Server-only catalog inputs from a single database snapshot. Like VendorRoute,
+/// this must not implement Serialize or Debug: routes contain encrypted secrets.
+pub struct VendorCatalogInputs {
+    pub routes: Vec<VendorRoute>,
+    pub unavailable: std::collections::BTreeSet<String>,
+    pub pools: Vec<crate::ModelRoutePool>,
+    pub cooling_down: std::collections::BTreeSet<Uuid>,
+}
+
 #[derive(FromRow)]
 struct VendorRouteRow {
     alias: String,
@@ -738,11 +747,9 @@ impl Store {
     /// remain present to shadow static aliases. The transaction ends before
     /// compilation or network work; dispatch still checks live eligibility.
     ///
-    /// This is not a published registry generation: personal routes and pools
-    /// are composed separately by the gateway.
-    pub async fn vendor_catalog_inputs(
-        &self,
-    ) -> Result<(Vec<VendorRoute>, Vec<String>), StoreError> {
+    /// Includes personal ownership, pool definitions and cooldown eligibility.
+    /// This is a per-read snapshot, not a published registry generation.
+    pub async fn vendor_catalog_inputs(&self) -> Result<VendorCatalogInputs, StoreError> {
         let mut tx = self.pool.begin().await?;
         sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
             .execute(&mut *tx)
@@ -753,13 +760,43 @@ impl Store {
             .into_iter()
             .map(VendorRouteRow::into_route)
             .collect();
-        let unavailable = sqlx::query_scalar(
+        let unavailable: Vec<String> = sqlx::query_scalar(
             "SELECT model_alias FROM provider_offers WHERE NOT niu_supplier_model_route_available(model_alias)",
         )
         .fetch_all(&mut *tx)
         .await?;
+        let cooling_down: Vec<Uuid> = sqlx::query_scalar(
+            "SELECT vendor_id FROM vendor_cooldowns WHERE cooldown_until>transaction_timestamp()",
+        )
+        .fetch_all(&mut *tx)
+        .await?;
+        let mut pools = Vec::new();
+        let mut after: Option<String> = None;
+        loop {
+            let page: Vec<Value> = sqlx::query_scalar(
+                "SELECT to_jsonb(p) FROM model_route_pools p WHERE ($1::text IS NULL OR alias>$1) ORDER BY alias LIMIT 100",
+            )
+            .bind(after.as_deref())
+            .fetch_all(&mut *tx)
+            .await?;
+            let done = page.len() < 100;
+            for value in page {
+                let pool: crate::ModelRoutePool =
+                    serde_json::from_value(value).map_err(|_| StoreError::Conflict)?;
+                after = Some(pool.alias.clone());
+                pools.push(pool);
+            }
+            if done {
+                break;
+            }
+        }
         tx.commit().await?;
-        Ok((routes, unavailable))
+        Ok(VendorCatalogInputs {
+            routes,
+            unavailable: unavailable.into_iter().collect(),
+            pools,
+            cooling_down: cooling_down.into_iter().collect(),
+        })
     }
 
     /// Import the initial shared vendor once. Its immutable bootstrap name

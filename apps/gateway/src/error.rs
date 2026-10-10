@@ -270,16 +270,6 @@ impl ApiError {
         }
     }
 
-    pub(crate) fn unavailable_catalog_route(&self) -> bool {
-        matches!(
-            self.kind,
-            "route_pool_unavailable"
-                | "upstream_credential_cooldown"
-                | "not_found_error"
-                | "upstream_error"
-        )
-    }
-
     pub fn unavailable() -> Self {
         Self {
             failure: None,

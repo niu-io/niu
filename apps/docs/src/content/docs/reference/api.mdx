@@ -126,11 +126,14 @@ revision-history endpoints retain their response formats.
 Inference model discovery traverses all saved route-pool pages rather than silently
 limiting discovery to the first 1,000 pools. Disabled and unauthorized pools remain
 excluded. The compatibility `/v1/models` response remains a complete list; bounded
-database fetches do not imply a fixed-size response or a cross-page snapshot.
-Workspace discovery applies shared and eligible personal pools once per request; it does
-not resolve the shared inventory again after adding personal mappings.
-Personal ownership is read with internal route metadata, avoiding a separate
-ownership query for every mapping; it does not add fields to customer responses.
+database fetches do not imply a fixed-size response. Inference discovery reads
+shared mappings, personal ownership, Supplier eligibility, cooldowns and every
+pool page in one read-only database snapshot. It composes the catalog without
+per-pool route queries or credential decryption. Static aliases remain shadowed
+by database aliases, including disabled and foreign personal mappings.
+This is a per-read catalog snapshot, not a published inference generation; actual
+request admission still checks current permissions and credential state.
+Management pagination remains a separate live traversal.
 
 A revisioned pool update applies to selection for new requests. Disabling a
 candidate does not cancel a generation already dispatched through it. That request
