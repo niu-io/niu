@@ -204,3 +204,17 @@ rate above the ordinary input rate. It does not verify missing-category recovery
 concurrent cached liabilities, Supplier cache settlement, external funding or
 other cache-write/reasoning/tiered schedules. The original development database
 and encrypted credential identity were unchanged.
+
+### Historical invoice cache details
+
+A subsequent current-input run on 2026-10-10 made three actual long-prefix Chat
+calls, each reporting 5120 cached input tokens. Independent database reads and
+integer arithmetic verified their saved quantities, charges and ledger debits.
+The invoice API returned the sum of those cached quantities and the original
+246913578 cache rate with its tariff revision.
+
+Publishing a replacement cache rate of 493827156 changed the billing overview's
+current tariff. The existing invoice response remained identical, including its
+original rate, revision, quantities and amount. A further gateway restart retained
+that identical invoice. This verifies historical customer invoice details under
+repricing; it does not establish Supplier cache settlement or external payment.
