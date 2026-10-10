@@ -154,6 +154,8 @@ describe('vendor administration workflow', () => {
     const saved = api.calls.find(call => call.method === 'POST' && call.path.endsWith('/models'))?.body;
     expect(saved?.public_catalog).toBe(false);
     expect(saved).not.toHaveProperty('owner_funded');
+    expect(screen.queryByText('Private Codex subscriptions')).toBeNull();
+    expect(api.calls.some(call => call.path.includes('/codex-connections'))).toBe(false);
   });
 
   it('preserves existing procurement pricing when editing a model capability', async () => {

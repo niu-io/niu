@@ -10,18 +10,16 @@ import { IconPencil as Pencil } from "@tabler/icons-react";
 import { IconPlugConnected as Router } from "@tabler/icons-react";
 import { IconShieldExclamation as ShieldAlert } from "@tabler/icons-react";
 import PageHeader from '@/components/PageHeader';
-import type { AdminSession, Workspace } from '@/app/dashboard-context';
+import type { AdminSession } from '@/app/dashboard-context';
 import { Button } from '@/components/ui/button';
-import { VendorRequestError, request, type ModelWrite, type ProviderCatalogModel, type ProviderModelCheck, type Vendor, type VendorModel, type VendorWrite } from '../api';
+import { VendorRequestError, writeMayHaveCommitted, request, type ModelWrite, type ProviderCatalogModel, type ProviderModelCheck, type Vendor, type VendorModel, type VendorWrite } from '../api';
 import SupplierDirectory from './SupplierDirectory';
 import SupplierEditor, { type VendorCreate } from './SupplierEditor';
 import ModelMappings from './ModelMappings';
-import CodexSubscriptions from './CodexSubscriptions';
 import CredentialRequestLimit from './CredentialRequestLimit';
 import CredentialCooldown from './CredentialCooldown';
 
-export default function SuppliersView({ token, session, refreshWorkspace, workspaces = [], catalogPath = '/models?workspace=default' }: {
-  workspaces?: Workspace[];
+export default function SuppliersView({ token, session, refreshWorkspace, catalogPath = '/models?workspace=default' }: {
   catalogPath?: string;
   token: string;
   session: AdminSession;
@@ -232,7 +230,7 @@ export default function SuppliersView({ token, session, refreshWorkspace, worksp
         if (!result?.data?.id || typeof result.data.id !== 'string') throw new Error('Invalid creation response.');
       } catch (reason) {
         if (signal.aborted || generation !== authGeneration.current) throw reason;
-        if (reason instanceof VendorRequestError && reason.status >= 400 && reason.status < 500 && reason.status !== 408) throw reason;
+        if (!writeMayHaveCommitted(reason)) throw reason;
         // A transport/server failure does not prove creation failed. Remove the
         // secret-bearing form and reconcile through reads instead of reposting.
         setAddingVendor(false);
@@ -409,7 +407,6 @@ export default function SuppliersView({ token, session, refreshWorkspace, worksp
         {canManage && <CredentialCooldown key={`${token}:${selectedVendor.id}:cooldown`} token={token} vendorId={selectedVendor.id} />}
       </section> : loadingVendors ? <section className="panel vendor-detail-panel vendor-editor-loading" role="status">Loading API keys…</section> : <section className="panel vendor-detail-panel"><div className="vendor-empty"><span className="vendor-empty-mark"><Router size={17} /></span><strong>No API keys</strong><p>Add an API key to configure the models supplied by this Supplier.</p><Button type="button" onClick={() => setAddingVendor(true)}>Add API key</Button></div></section>}
     </div>
-    {!supplierId && <CodexSubscriptions token={token} workspaces={workspaces} />}
     <Dialog open={managingModels && !!selectedVendor && !addingVendor} onOpenChange={setManagingModels}>
       <DialogContent className="supplier-models-dialog" showCloseButton={false}>
         <DialogHeader className="flex-row items-start justify-between gap-4 text-left">

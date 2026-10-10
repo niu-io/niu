@@ -21,7 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { request } from "@/features/vendors/api";
+import { request, writeMayHaveCommitted } from "@/features/vendors/api";
 import { money } from "@/lib/money";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MediaRateHistory from "./MediaRateHistory";
@@ -444,6 +444,7 @@ function Administration({ token }: { token: string }) {
     let committed = false;
     try {
       const created = await request<{ data: { id: string } }>(token, "/admin/v1/vendors", "POST", input);
+      if (!created?.data?.id || typeof created.data.id !== 'string') throw new Error('Invalid creation response.');
       committed = true;
       // Close immediately after commit: a discovery failure must never invite
       // a second creation of the already persisted business/configuration.
@@ -454,7 +455,11 @@ function Administration({ token }: { token: string }) {
       setSelected(ownership.data.id);
     } catch (reason) {
       setError(committed ? "API key saved, but Supplier details could not be opened. Refresh the Supplier list." : reason instanceof Error ? reason.message : "Supplier could not be created.");
-      if (!committed) throw reason;
+      if (!committed && writeMayHaveCommitted(reason)) {
+        setDialog("");
+        setSearch(current => { current.delete("create"); return current; }, { replace: true });
+        setError("Supplier creation could not be confirmed. Refresh the Supplier list before creating another key; the previous request may have saved it.");
+      } else if (!committed) throw reason;
     } finally {
       if (committed) setRevision(value => value + 1);
       setBusy(false);

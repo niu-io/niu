@@ -1181,3 +1181,35 @@ qualifies current policy save/read restoration, previews and history, not the
 new `guardrail_denied` generation message, post-dispatch output withholding,
 ordinary-role isolation or all protocol enforcement. The synthetic block remains
 only in the named local verification workspace for subsequent acceptance work.
+
+## Supplier directory recovery and retired integration — 2026-10-11
+
+The Supplier directory's business creation path could leave its form available
+for a duplicate submission after a timeout, transport failure or server error.
+It now closes the uncertain form and asks for list refresh; the existing Retry
+action performs reads. Explicit client validation/conflict rejection keeps the
+name editable. The compatibility business-and-first-key path uses the same
+write-outcome classification and validates its successful creation identity
+before discovery. No uncertain path automatically resubmits creation.
+
+New directory regression cases preserve an actually committed fixture business
+across transport/503/408 responses, then recover it through reads with exactly
+one POST. A 409 keeps its name draft. The focused Supplier/navigation group
+passed 75 checks; the final full dashboard run passed 90 files / 727 checks
+in 35.64 seconds. TypeScript checking passed.
+
+The generic Supplier configuration composition also retained an excluded
+Private Codex subscriptions integration when no Supplier scope was supplied.
+That conditional integration and its obsolete workspace prop were removed.
+Current named Supplier pages already excluded the widget; a regression assertion
+now verifies no retired codex-connections request or subscription widget. The
+historical module and backend/stored data were not deleted, and external Agent
+Observability was not modified.
+
+Actual current OpenRouter configuration still showed one enabled key, 26 routes,
+unlimited RPM and no active cooldown. Supplier directory and Add Supplier dialog
+were inspected at desktop and measured 390 × 844, including autofocus, disabled
+empty-name submission and Cancel focus restoration. No new business, credential,
+permission, payment or financial record was created. Live uncertain-creation
+failure and independent multi-key onboarding remain unqualified. Screenshots
+were retained outside the public tree.
