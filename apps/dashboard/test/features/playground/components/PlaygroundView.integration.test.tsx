@@ -536,6 +536,33 @@ describe('Global Chat', () => {
     await waitFor(()=>expect([...serverChats.values()].some(value => JSON.stringify(value).includes(expectedError))).toBe(true));
   });
 
+  it('cancels and unlocks an open response stream after a terminal error without retrying', async () => {
+    const cancel = vi.fn();
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) { controller.enqueue(new TextEncoder().encode('event: error\ndata: {"error":{"message":"Stream rejected"}}\n\n')); },
+      cancel,
+    });
+    let dispatches = 0;
+    stubFetch(vi.fn(async (url: string) => {
+      if (url.endsWith('/keys')) return jsonResponse({data:[{id:'key-a',name:'Default',allowed_models:['fast'],revoked:false,expired:false}]});
+      if (url.endsWith('/chat/completions')) {
+        dispatches++;
+        return new Response(body, {headers:{'content-type':'text/event-stream'}});
+      }
+      return jsonResponse({data:[]});
+    }));
+    const user = userEvent.setup();
+    renderPlayground(['fast']);
+    await screen.findByRole('button', {name:'API key: Default'});
+    await waitFor(() => expect((screen.getByLabelText('Prompt for all selected models') as HTMLTextAreaElement).disabled).toBe(false));
+    await user.type(screen.getByRole('textbox', {name:'Prompt for all selected models'}), 'Hello');
+    await user.click(screen.getByRole('button', {name:'Send to 1 model'}));
+    expect(await screen.findByText('Stream rejected')).toBeTruthy();
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(body.locked).toBe(false);
+    expect(dispatches).toBe(1);
+  });
+
   it('runs an example with the selected managed key without requesting its secret', async () => {
     const requests: string[] = [];
     stubFetch(vi.fn(async (url: string, init?: RequestInit) => {

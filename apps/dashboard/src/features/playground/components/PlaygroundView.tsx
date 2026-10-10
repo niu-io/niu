@@ -278,21 +278,26 @@ async function runModel(
       onUpdate(result('streaming'));
     };
 
-    while (!completed) {
-      const chunk = await reader.read();
-      buffered += decoder.decode(chunk.value, { stream: !chunk.done });
-      let boundary = buffered.search(/\r?\n\r?\n/);
-      while (boundary >= 0) {
-        const event = buffered.slice(0, boundary);
-        const separator = buffered.slice(boundary).match(/^\r?\n\r?\n/)?.[0].length ?? 2;
-        buffered = buffered.slice(boundary + separator);
-        consumeEvent(event);
-        boundary = buffered.search(/\r?\n\r?\n/);
+    try {
+      while (!completed) {
+        const chunk = await reader.read();
+        buffered += decoder.decode(chunk.value, { stream: !chunk.done });
+        let boundary = buffered.search(/\r?\n\r?\n/);
+        while (boundary >= 0) {
+          const event = buffered.slice(0, boundary);
+          const separator = buffered.slice(boundary).match(/^\r?\n\r?\n/)?.[0].length ?? 2;
+          buffered = buffered.slice(boundary + separator);
+          consumeEvent(event);
+          boundary = buffered.search(/\r?\n\r?\n/);
+        }
+        completed = chunk.done;
       }
-      completed = chunk.done;
+      if (buffered.trim()) consumeEvent(buffered);
+      if (!terminalReceived) throw new Error('The response stream ended before completion. Inspect the request before trying again.');
+    } finally {
+      if (!completed) void reader.cancel().catch(() => {});
+      reader.releaseLock();
     }
-    if (buffered.trim()) consumeEvent(buffered);
-    if (!terminalReceived) throw new Error('The response stream ended before completion. Inspect the request before trying again.');
     const complete = result('complete');
     onUpdate(complete);
     return complete;

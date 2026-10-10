@@ -746,3 +746,9 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
 - Logs now consumes the backend's operation filter from deep links and preserves it in list queries, pagination, CSV export and Activity drilldowns. The existing removable filter uses “Related requests”; internal operation identifiers are never rendered.
 - All 52 GatewayActivity integration tests and dashboard TypeScript checking passed. Coverage verifies scoped pagination/export, removal without losing the model filter, and identifier concealment.
 - On the real desktop service, protected navigation retained the operation query through password sign-in. An unknown operation produced “No matching requests”; removing its chip restored populated workspace Logs and removed the query. No inference, key or saved configuration was changed. Populated multi-attempt operation qualification remains open; responsive refinement is deferred under the current workflow priority.
+
+## Chat response-stream cleanup
+
+- The Chat reader now cancels an unfinished response body and releases its lock when parsing or transport fails. Cleanup does not wait for the stream producer to acknowledge cancellation, so failure persistence remains responsive; it does not trigger another model dispatch. Completed streams also release their reader lock.
+- All 45 PlaygroundView integration tests and dashboard TypeScript checking passed. A still-open error stream verifies cancellation, lock release and exactly one dispatch rather than relying on a preclosed error fixture.
+- Desktop HMR and full reload restored the real STREAM_OK conversation, original response, selected Demo API key, empty draft and Logs link. No new inference was sent. Live upstream error-stream cleanup is not claimed from this restoration check.
