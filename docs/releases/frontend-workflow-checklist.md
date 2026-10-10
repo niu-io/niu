@@ -405,6 +405,10 @@ rendered qualification.
 
 ### Video submission recovery contract audit (2026-10-10)
 
+Superseded backend finding: commit `fcd43780` implements the actor-owned intent
+operations requested below. The frontend gaps described here remain open; the
+missing backend contract is no longer a blocker. See the runtime follow-up below.
+
 - The current dashboard submits without `Idempotency-Key`; its uncertainty lock
   exists only while the component remains mounted. Leaving the page does not
   retain the exact request or recovery identity. Saved jobs remain backend-owned,
@@ -493,3 +497,25 @@ rendered qualification.
   interactions remain separate gates. Existing integration tests cover full-range
   filter parameters, HTTP 413 guidance and cancellation when filters change;
   fixture behavior is not live browser evidence.
+
+### Durable Video intent runtime follow-up (2026-10-10)
+
+- Pulled and inspected the implemented save, read, index, explicit-submit and
+  deletion handlers, generated schemas and retention/rotation contract. A fresh
+  authenticated demo session called the actual local actor-owned intent index:
+  HTTP 200 with `data`, `has_more` and `next_before`. The verification session was
+  signed out. No intent, generation, key or payment was created by this probe.
+- Root OpenAPI consistency passes with 87 registered paths and 72 generated
+  methods. The contract now supports saving the immutable text request before
+  dispatch, server-owned identity, read-only resolution, 30-day content retention
+  and current-key rotation-lineage authorization. Image/reference intents remain
+  unsupported. This resolves the missing-interface dependency, not browser
+  acceptance or commercial Video billing.
+- Next frontend integration must replace unkeyed text-video creation with save
+  followed by explicit intent submission, restore the exact saved document and
+  original job after response loss/reload, and expose owned retained intents
+  without using IDs as labels. Never automatically submit a read `saved` or
+  `not_dispatched` preparation. Integrate retention/deletion with revision
+  conflicts and explain that deletion does not cancel or refund a generation.
+  Reference-input behavior must remain separately bounded. The existing Video
+  page still lacks these interactions and remains unqualified as a full workflow.
