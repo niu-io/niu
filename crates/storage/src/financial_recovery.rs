@@ -46,7 +46,7 @@ impl FinancialStage {
 
 impl Store {
     /// Each ledger commits independently; one unavailable ledger never prevents
-    /// trying another. No connection is queued when the shared pool is busy.
+    /// trying another. Pool acquisition waits at most 250 ms per stage.
     pub async fn recover_financial_work(&self) -> Vec<FinancialRecoveryFailure> {
         let mut failures = Vec::new();
         for stage in [
@@ -79,12 +79,17 @@ impl Store {
         stage: FinancialStage,
         cursor: Option<Option<Uuid>>,
     ) -> Result<Option<(Option<Uuid>, usize)>, StoreError> {
-        let Some(mut tx) = self
-            .begin_background_work(crate::background_work::BackgroundWork::Financial)
-            .await?
-        else {
-            return Ok(None);
-        };
+        self.run_background_work(crate::background_work::BackgroundWork::Financial, |tx| {
+            Box::pin(Self::recover_financial_stage_in_tx(tx, stage, cursor))
+        })
+        .await
+    }
+
+    async fn recover_financial_stage_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        stage: FinancialStage,
+        cursor: Option<Option<Uuid>>,
+    ) -> Result<(Option<Uuid>, usize), StoreError> {
         let after = match cursor {
             Some(after) => after,
             None => {
@@ -92,13 +97,13 @@ impl Store {
                     "SELECT after_attempt FROM financial_recovery_progress WHERE stage=$1",
                 )
                 .bind(stage.name())
-                .fetch_one(&mut *tx)
+                .fetch_one(&mut **tx)
                 .await?
             }
         };
         let rows: Vec<(Uuid, Uuid, Uuid)> = sqlx::query_as(stage.query())
             .bind(after)
-            .fetch_all(&mut *tx)
+            .fetch_all(&mut **tx)
             .await?;
         let next = if rows.len() == 100 {
             rows.last().map(|row| row.0)
@@ -138,9 +143,8 @@ impl Store {
         }
         if cursor.is_none() {
             sqlx::query("UPDATE financial_recovery_progress SET after_attempt=$2,updated_at=clock_timestamp() WHERE stage=$1")
-                .bind(stage.name()).bind(next).execute(&mut *tx).await?;
+                .bind(stage.name()).bind(next).execute(&mut **tx).await?;
         }
-        tx.commit().await?;
-        Ok(Some((next, failed)))
+        Ok((next, failed))
     }
 }

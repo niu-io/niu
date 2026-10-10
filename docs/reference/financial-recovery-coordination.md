@@ -14,8 +14,9 @@ cleanup remain separate workers and are not covered by this scheduler's bound.
 
 ## Ownership and database work
 
-Each stage tries to obtain an idle connection from the existing shared pool;
-it does not enqueue for a connection or create a second pool. A nonblocking
+Each stage waits at most 250 ms for a connection from the existing shared pool;
+an acquisition timeout skips the stage without advancing its cursor. No second
+pool is created, and the existing pool's connection limit still applies. A nonblocking
 PostgreSQL transaction advisory lock, shared across all four financial stages,
 permits only one stage owner per database. Losing contenders release their
 connection immediately. Claim checks themselves briefly use a pool connection
@@ -107,3 +108,51 @@ ingestion recovery, paid-backlog convergence and performance capacity remain
 unqualified.
 
 The later [nonempty customer-charge restart run](financial-backlog-restart-live.md) verified recovery of one actual upstream completion after both foreground accounting attempts failed. This extends the earlier empty-ledger coordination observations without qualifying broader backlog capacity.
+
+## Small-pool recovery and bounded acquisition
+
+A subsequent current-input run on 2026-10-10 exposed a remaining progress defect.
+One real streaming completion had confirmed usage, no customer charge and one
+held reservation after both foreground accounting connections were terminated
+while blocked on the charge table. After releasing the table lock and restarting
+with a one-connection pool, no customer debit appeared within 30 seconds.
+
+Completing SQLx's asynchronous connection return between stages was insufficient
+on its own: independently scheduled cleanup and financial workers could still
+collide at every tick, with try-only acquisition repeatedly skipping financial
+work. The shared background runner now uses a 250 ms pool-acquisition timeout,
+then the existing nonblocking ownership claim and SQL deadlines. It commits each
+domain separately and completes connection return, including pending rollback,
+before its caller proceeds. A timed-out acquisition makes no cursor change.
+There is no additional pool or connection allowance. Financial savepoints,
+per-stage commits, durable traversal and safe diagnostics remain unchanged.
+
+The rebuilt binary completed a fresh run with the same actual failure injection:
+
+- The client received the requested nonce, complete SSE termination and usage of
+  15 input and 7 output tokens. Before restart, independent database reads found
+  one completed attempt, no customer charge and one held reservation.
+- With the recovery pool restricted to one connection, the worker posted one
+  debit of 8,766 USD nanounits, matching a separate integer calculation from the
+  client's usage and internal customer rates, and released the reservation.
+  Database observations during recovery stayed within that connection limit.
+- All four stage progress records advanced. Charge reconciliation reported no
+  missing, mismatched, duplicate or unexpected entries and no settled open hold.
+  A further restart preserved one debit and one attempt.
+- The separate actual-content retention run still removed an expired capture,
+  preserved an unexpired response hash and both charges, skipped a locked expired
+  row and removed it after unlock. The inspected-image expiry implementation now
+  shares this runner, but populated inspected-image erasure was not exercised.
+- After updating the development runtime, an independently held customer-progress
+  row lock still allowed the other three stages to advance. Customer recovery
+  resumed after release; its warning identified the stage without raw SQL or
+  credentials. The verifier did not insert or rewrite ledger data for this check.
+
+The paid run used an isolated native database, explicit internal credit and the
+owner's personal upstream credential. No funding receipt or commercial Supplier
+qualification was fabricated. Temporary access was revoked and isolated processes
+stopped; the original encrypted identity was preserved. Formatting, all-target
+storage Clippy, release compilation and public-boundary checks completed. Fixture
+outcomes do not support these findings. This verifies one customer backlog under
+the stated contention, not sustained saturation, production latency, other
+nonempty ledgers or resolution of every GitHub Actions failure.

@@ -670,29 +670,25 @@ impl Store {
     /// Immutable source metadata and approval provenance remain. Locked sources
     /// are skipped so explicit erasure and concurrent workers cannot stall a batch.
     pub async fn purge_expired_inspected_image_sources(&self) -> Result<u64, StoreError> {
-        let Some(mut tx) = self
-            .begin_background_work(crate::background_work::BackgroundWork::ContentRetention)
-            .await?
-        else {
-            return Ok(0);
-        };
-        let ids: Vec<Uuid> = sqlx::query_scalar(
-            "SELECT s.id FROM inspected_image_sources s JOIN inspected_image_source_content c ON c.source_id=s.id WHERE s.expires_at<=clock_timestamp() ORDER BY s.expires_at,s.id LIMIT 16 FOR UPDATE OF s SKIP LOCKED"
-        ).fetch_all(&mut *tx).await?;
-        if ids.is_empty() {
-            tx.commit().await?;
-            return Ok(0);
-        }
-        sqlx::query("INSERT INTO inspected_image_source_erasures(source_id) SELECT unnest($1::uuid[]) ON CONFLICT DO NOTHING")
-            .bind(&ids).execute(&mut *tx).await?;
-        let removed =
-            sqlx::query("DELETE FROM inspected_image_source_content WHERE source_id=ANY($1)")
-                .bind(&ids)
-                .execute(&mut *tx)
-                .await?
-                .rows_affected();
-        tx.commit().await?;
-        Ok(removed)
+        self.run_background_work(crate::background_work::BackgroundWork::ContentRetention, |tx| {
+            Box::pin(async move {
+                let ids: Vec<Uuid> = sqlx::query_scalar(
+                    "SELECT s.id FROM inspected_image_sources s JOIN inspected_image_source_content c ON c.source_id=s.id WHERE s.expires_at<=clock_timestamp() ORDER BY s.expires_at,s.id LIMIT 16 FOR UPDATE OF s SKIP LOCKED"
+                ).fetch_all(&mut **tx).await?;
+                if ids.is_empty() {
+                    return Ok(0);
+                }
+                sqlx::query("INSERT INTO inspected_image_source_erasures(source_id) SELECT unnest($1::uuid[]) ON CONFLICT DO NOTHING")
+                    .bind(&ids).execute(&mut **tx).await?;
+                Ok(sqlx::query("DELETE FROM inspected_image_source_content WHERE source_id=ANY($1)")
+                    .bind(&ids)
+                    .execute(&mut **tx)
+                    .await?
+                    .rows_affected())
+            })
+        })
+        .await
+        .map(|removed| removed.unwrap_or(0))
     }
 
     /// Erase only this key's scoped ciphertext. Immutable provenance remains.

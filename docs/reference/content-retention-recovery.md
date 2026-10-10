@@ -4,9 +4,9 @@ Status: implemented with scoped current-input lock verification, 2026-10-10.
 Large expired backlogs and ingestion recovery remain unqualified.
 
 Content expiry now uses a shared background transaction helper. It obtains an
-idle connection through the existing pool, tries a database transaction advisory
+connection through the existing pool with at most a 250 ms acquisition wait, tries a database transaction advisory
 lock for content retention, and configures a 250 ms lock timeout and a 2 s SQL
-statement timeout. A busy pool or another owner skips the operation; timeout or
+statement timeout. An acquisition timeout or another owner skips the operation; SQL timeout or
 failure rolls back that retention transaction. Transaction completion or process
 loss releases ownership. Claim contenders briefly use their own pool connection.
 
@@ -65,8 +65,9 @@ repeating the same domain order could starve later domains. The statement-based
 retention helper now borrows its transaction from an explicitly held pool
 connection and awaits SQLx's connection return before continuing. That return
 also flushes rollback after a domain error. Ownership and deadline configuration
-remain shared with financial recovery. Acquisition still does not queue or open
-a connection, and each domain retains its own transaction.
+remain shared with financial recovery. That checkpoint retained try-only
+acquisition; the subsequent financial-backlog correction below replaces it with
+a bounded pool wait. Each domain retains its own transaction.
 
 With the rebuilt release binary, a fresh isolated current-input run verified:
 
@@ -90,3 +91,15 @@ This establishes progress and accounting preservation for two real captures in
 the stated small-pool scenario. It does not establish fairness under sustained
 foreground saturation, all background workers' progress, large-backlog capacity,
 or a root cause for every GitHub Actions failure. Fixture outcomes are not used.
+
+### Shared runner follow-up
+
+The [single-connection financial backlog](financial-recovery-coordination.md#small-pool-recovery-and-bounded-acquisition)
+exposed repeated misses between independently scheduled workers even after eager
+connection return. All claimed background transactions now share one runner with
+a 250 ms acquisition timeout and explicit return, retaining separate transactions
+and ownership groups. The two-real-capture scenario was repeated with this
+runner: expiry completed in 3.51 seconds, the fresh hash and charges were
+preserved, and row-lock skipping followed by deletion still worked. This
+supersedes the earlier try-only acquisition policy; no broader fairness or
+performance guarantee is implied.
