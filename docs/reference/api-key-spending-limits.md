@@ -167,3 +167,11 @@ database inspection matched the final credit and revision and found no ledger
 entries. Credit was then reset to zero; no workspace or inference key was created.
 Release compilation and storage Clippy completed. Actual paid settlement
 contention remains unverified; empty-account policy traffic does not cover it.
+
+### Current-input shared-account concurrency
+
+The [two-gateway credit-backed run](key-spending-multi-instance-live.md) exercises
+one real completion alongside three simultaneous cap rejections. It also records
+the account-lock upgrade deadlock found in the initial run and the shared
+reservation helper correction. Exact charging, released holds and post-restart
+cap enforcement were checked independently; broad capacity remains unqualified.

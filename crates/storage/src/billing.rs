@@ -787,7 +787,12 @@ pub(crate) async fn reserve_customer_balance_in_tx(
         .fetch_optional(&mut **tx)
         .await?
         .ok_or(StoreError::Conflict)?;
-    let account: Uuid = sqlx::query_scalar("SELECT c.id FROM customer_balance_accounts c JOIN customer_attempt_balance_accounts b ON b.account_id=c.id AND b.organization_id=c.organization_id AND b.currency=c.currency WHERE b.attempt_id=$1 AND b.organization_id=$2 AND b.project_id=$3 FOR UPDATE OF c")
+    // Pinning the attempt's account has already acquired a foreign-key KEY
+    // SHARE lock in this transaction. Concurrent admissions must not upgrade
+    // those compatible locks to FOR UPDATE and deadlock each other. We never
+    // change account keys here; NO KEY UPDATE still serializes all reservations
+    // and conflicts with policy/funding writers while allowing foreign-key pins.
+    let account: Uuid = sqlx::query_scalar("SELECT c.id FROM customer_balance_accounts c JOIN customer_attempt_balance_accounts b ON b.account_id=c.id AND b.organization_id=c.organization_id AND b.currency=c.currency WHERE b.attempt_id=$1 AND b.organization_id=$2 AND b.project_id=$3 FOR NO KEY UPDATE OF c")
             .bind(attempt).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
     let state: String = sqlx::query_scalar("SELECT execution FROM attempts WHERE id=$1 AND organization_id=$2 AND project_id=$3 FOR UPDATE")
             .bind(attempt).bind(scope.organization_id).bind(scope.project_id).fetch_one(&mut **tx).await?;

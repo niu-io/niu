@@ -59,3 +59,5 @@ checks completed. No fixture outcome is evidence for this checkpoint. Successful
 priced dispatch, prepaid debit and release, lost acknowledgement after commit,
 and concurrent financial recovery still require independent current-input verification. This does not
 qualify the complete billing workflow or performance.
+
+A later [two-gateway key-cap run](key-spending-multi-instance-live.md) found and corrected an account-row lock-upgrade deadlock introduced by pinning and reservation sharing a transaction. The reservation helper now uses `FOR NO KEY UPDATE`, preserving serialization and allowing foreign-key pins. The actual post-change burst produced one completed charge and three expected spending-cap rejections.
