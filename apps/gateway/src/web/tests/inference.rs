@@ -1301,7 +1301,7 @@ async fn embeddings_use_scoped_admission_and_settle_input_usage(pool: PgPool) {
         serde_json::from_slice(&batch.into_body().collect().await.unwrap().to_bytes()).unwrap();
     assert_eq!(batch_output["data"].as_array().unwrap().len(), 2);
     assert_eq!(batch_output["data"][1]["index"], 1);
-    assert_eq!(batch_output["data"][1]["embedding"], "AA==");
+    assert_eq!(batch_output["data"][1]["embedding"], "zczMPc3MzD0=");
     let (_, batch_body) = captured.0.lock().unwrap().take().unwrap();
     assert_eq!(batch_body["input"], json!(["hi", "there"]));
     assert_eq!(batch_body["encoding_format"], "base64");

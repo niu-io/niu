@@ -188,13 +188,16 @@ async fn embedding_provider(
         _ => 0,
     };
     let dimensions = body.get("dimensions").and_then(Value::as_u64).unwrap_or(2) as usize;
+    use base64::Engine;
     let base64 = body.get("encoding_format").and_then(Value::as_str) == Some("base64");
+    let encoded =
+        base64::engine::general_purpose::STANDARD.encode(0.1_f32.to_le_bytes().repeat(dimensions));
     let data = (0..item_count)
         .map(|index| {
             json!({
                 "object": "embedding",
                 "index": index,
-                "embedding": if base64 { json!("AA==") } else { json!(vec![0.1; dimensions]) }
+                "embedding": if base64 { json!(encoded) } else { json!(vec![0.1; dimensions]) }
             })
         })
         .collect::<Vec<_>>();
