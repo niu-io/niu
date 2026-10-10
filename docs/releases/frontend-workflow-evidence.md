@@ -1280,3 +1280,25 @@ credential or configuration mutation was performed. Screenshots were retained
 outside the public tree. This qualifies the exercised navigation and retained
 content, not stale/expired payloads, ordinary-role isolation or the complete
 request-failure matrix.
+
+## Reasoning tariff compatibility — 2026-10-11
+
+The newly pulled backend contract adds optional customer reasoning-output rates.
+The existing Admin price editor omitted that field on replacement, which the
+backend correctly rejects for an existing explicit rate. The editor now preserves
+the observed reasoning rate, including after explicit conflict recovery; a flat
+tariff sends explicit null. Read and write validation enforce the same exact
+token-rate bound for reasoning as for other categories. No Supplier rate or
+customer billing calculation was changed in the frontend.
+
+The focused customer-pricing regression passed 25 checks, including preservation
+of the configured rate and a changed rate after conflict reload, and rejecting
+out-of-range reasoning rates before dispatch/rendering. TypeScript passed.
+The existing empty-price target and Publish dialog were browser-inspected at
+desktop and measured 390 × 844; Cancel returned to the target without a write.
+No live rate was published and no paid request was submitted.
+
+This is compatibility protection, not complete reasoning-pricing UX. Explicit
+category display/editing, mature-reference/Stitch design, actual populated
+publication/history, and customer rate/statement presentation remain required.
+Fixture writes do not qualify those live workflows.

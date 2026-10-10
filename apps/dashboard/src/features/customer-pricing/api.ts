@@ -29,6 +29,7 @@ function checkedTariff(row: CurrentTariff) {
     typeof row.revision !== 'string' || !row.revision || !/^[A-Z]{3}$/.test(row.currency) ||
     !tokenRate(row.prompt_rate) || !tokenRate(row.completion_rate) ||
     (row.cached_prompt_rate != null && !tokenRate(row.cached_prompt_rate)) ||
+    (row.reasoning_completion_rate != null && !tokenRate(row.reasoning_completion_rate)) ||
     (row.request_fee_nanos != null && !exact(row.request_fee_nanos)) ||
     (row.minimum_charge_nanos != null && !exact(row.minimum_charge_nanos)) ||
     typeof row.created_at !== 'string' || !Number.isFinite(Date.parse(row.created_at)))
@@ -89,7 +90,7 @@ export async function readPriceHistory(token: string, target: PricingTarget, mod
   return page;
 }
 export async function publishCustomerPrice(token: string, target: PricingTarget, input: CustomerTariffInput, signal?: AbortSignal) {
-  if (!tokenRate(input.prompt_rate) || !tokenRate(input.completion_rate) || input.cached_prompt_rate != null && !tokenRate(input.cached_prompt_rate))
+  if (!tokenRate(input.prompt_rate) || !tokenRate(input.completion_rate) || input.cached_prompt_rate != null && !tokenRate(input.cached_prompt_rate) || input.reasoning_completion_rate != null && !tokenRate(input.reasoning_completion_rate))
     throw new Error('Token prices cannot exceed 1,000,000 currency units per million tokens.');
   let result: {data:{revision:string}};
   try {

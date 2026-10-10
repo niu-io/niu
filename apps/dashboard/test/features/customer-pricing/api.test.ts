@@ -23,6 +23,7 @@ describe('customer selling configuration transport', () => {
   it('rejects token rates above their contract bound before dispatch, independently of fixed fees', async () => {
     const fetch = vi.fn(async () => Response.json({data:{revision:'new-revision'}}));vi.stubGlobal('fetch',fetch);
     await expect(publishCustomerPrice('test',target,{...price,prompt_rate:'1000000000000001',expected_revision:price.revision})).rejects.toThrow('Token prices');
+    await expect(publishCustomerPrice('test',target,{...price,reasoning_completion_rate:'1000000000000001',expected_revision:price.revision})).rejects.toThrow('Token prices');
     expect(fetch).not.toHaveBeenCalled();
     await expect(publishCustomerPrice('test',target,{...price,prompt_rate:'1000000000000000',request_fee_nanos:'9223372036854775807',expected_revision:price.revision})).resolves.toMatchObject({data:{revision:'new-revision'}});
   });
@@ -55,8 +56,8 @@ describe('customer selling configuration transport', () => {
     vi.stubGlobal('fetch',vi.fn(async () => Response.json({data:[price],next_after:'unchanged'})));
     await expect(listCustomerPrices('test',target,'unchanged')).rejects.toThrow('did not advance');
   });
-  it.each(['overflow','currency','amount'])('rejects invalid %s prices before they reach an editor', async kind => {
-    const row = {...price, ...(kind === 'overflow' ? {prompt_rate:'9223372036854775808'} : kind === 'currency' ? {currency:'bad'} : {prompt_rate:0})};
+  it.each(['overflow','currency','amount','reasoning'])('rejects invalid %s prices before they reach an editor', async kind => {
+    const row = {...price, ...(kind === 'reasoning' ? {reasoning_completion_rate:'1000000000000001'} : kind === 'overflow' ? {prompt_rate:'9223372036854775808'} : kind === 'currency' ? {currency:'bad'} : {prompt_rate:0})};
     vi.stubGlobal('fetch',vi.fn(async () => Response.json({data:[row],next_after:null})));
     await expect(listCustomerPrices('test',target)).rejects.toThrow('could not be read');
   });

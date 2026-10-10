@@ -138,7 +138,7 @@ function PriceEditor({token,target,previous,modelNames,onClose,onSaved}: {token:
     const request=new AbortController();controller.current=request;setError('');setBusy(true);
     try {
       if(!model || !/^[A-Z]{3}$/.test(currency))throw new Error('Choose a model and enter a three-letter uppercase currency.');
-      await publishCustomerPrice(token,target,{model_alias:model,currency,prompt_rate:priceToNanos(input),completion_rate:priceToNanos(output),cached_prompt_rate:cache.trim()?priceToNanos(cache):null,request_fee_nanos:fee.trim()?priceToNanos(fee):'0',minimum_charge_nanos:minimum.trim()?priceToNanos(minimum):'0',expected_revision:current?.revision ?? null},request.signal);
+      await publishCustomerPrice(token,target,{model_alias:model,currency,prompt_rate:priceToNanos(input),completion_rate:priceToNanos(output),cached_prompt_rate:cache.trim()?priceToNanos(cache):null,reasoning_completion_rate:current?.reasoning_completion_rate ?? null,request_fee_nanos:fee.trim()?priceToNanos(fee):'0',minimum_charge_nanos:minimum.trim()?priceToNanos(minimum):'0',expected_revision:current?.revision ?? null},request.signal);
       if(!request.signal.aborted)onSaved();
     }catch(reason){if(!request.signal.aborted){if(reason instanceof PublicationUnconfirmedError){setConflict(true);setError(reason.message);}else if(reason instanceof VendorRequestError && reason.status===409){setConflict(true);setError('This price changed or could not be published. Your draft is preserved. Load the current price before trying again.');}else setError(reason instanceof Error?reason.message:'Price could not be saved.');}}
     finally{if(!request.signal.aborted)setBusy(false);}
