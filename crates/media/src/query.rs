@@ -15,6 +15,8 @@ pub enum QueryStatus {
     Running,
     Succeeded,
     Failed,
+    Cancelled,
+    Expired,
     Unknown,
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -61,6 +63,8 @@ impl QueryObservation {
             QueryStatus::Running => "running",
             QueryStatus::Succeeded => "succeeded",
             QueryStatus::Failed => "failed",
+            QueryStatus::Cancelled => "cancelled",
+            QueryStatus::Expired => "expired",
             QueryStatus::Unknown => "unknown",
         };
         let quantity = match self.quantity {

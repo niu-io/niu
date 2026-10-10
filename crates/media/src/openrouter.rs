@@ -111,6 +111,10 @@ pub fn decode(
         "processing" | "in_progress" => QueryStatus::Running,
         "completed" => QueryStatus::Succeeded,
         "failed" => QueryStatus::Failed,
+        // Documented polling terminal states, not evidence of zero liability.
+        // https://openrouter.ai/blog/tutorials/video-generation-api/
+        "cancelled" => QueryStatus::Cancelled,
+        "expired" => QueryStatus::Expired,
         _ => QueryStatus::Unknown,
     };
     let has_provider_error = value.get("error").is_some_and(|v| !v.is_null());

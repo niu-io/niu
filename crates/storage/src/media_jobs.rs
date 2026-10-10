@@ -487,7 +487,11 @@ impl Store {
             QueryStatus::Queued => MediaJobStatus::Queued,
             QueryStatus::Running => MediaJobStatus::Running,
             QueryStatus::Succeeded => MediaJobStatus::Succeeded,
-            QueryStatus::Failed => MediaJobStatus::Failed,
+            // Retain the precise terminal reason in query evidence above.
+            // Generation failure stops polling; it does not settle or release funds.
+            QueryStatus::Failed | QueryStatus::Cancelled | QueryStatus::Expired => {
+                MediaJobStatus::Failed
+            }
             QueryStatus::Unknown => MediaJobStatus::Unknown,
         };
         self.record_media_job_status(scope, attempt, status).await?;
