@@ -537,3 +537,30 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
 - This lifecycle is not yet connected to VideoView. The page still uses its
   prior creation flow. Reference-browser access timed out; retained-intent UI,
   route restoration, desktop/narrow interaction and real integration remain open.
+
+### Text Video intent integration follow-up
+
+- VideoView now saves an immutable text intent before explicit submission. It
+  puts the intent identity in the route before writing, restores retained input
+  and the original job through reads, and keeps restored input controls read-only.
+  Lost responses never trigger automatic submission. Late responses cannot
+  navigate from a departed workspace or replace another intent in that workspace.
+  Image-reference generation retains its separately bounded existing transport;
+  the backend intent contract does not support those inputs.
+- Fixed two issues found during actual HMR/browser checks: catalog loading no
+  longer clears intent restoration errors, and replayed read effects use separate
+  lifecycle instances rather than rejecting an aborted read as a concurrent write.
+- All 46 Video tests in six files and dashboard type checking pass. Integration
+  tests cover save-before-submit, revision-only submission, read-only route
+  recovery, immutable controls, Strict Mode recovery errors and stale responses.
+- On the actual hot-reloading service, the Video category, API-key menu open and
+  dismissal, missing-model state, missing-intent recovery error and Reload were
+  inspected at measured 1280×720 without horizontal document overflow. No intent
+  or job was created during these browser probes. The demo key currently has no
+  Video route, so real save/submit/result recovery remains unqualified. The
+  requested narrow viewport did not take effect, including in a fresh test tab;
+  both measured 1280×720. Narrow acceptance is still open, not inferred from tests.
+- The existing layout was preserved for these functional repairs. OpenRouter's
+  reference tab still timed out. Owned-intent history discovery, deletion and
+  retained/expired-input presentation still need reference/Stitch design and
+  rendered verification; the full Video workflow remains partial.

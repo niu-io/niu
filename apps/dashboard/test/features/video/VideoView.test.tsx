@@ -1,7 +1,8 @@
 import { act,render,screen,waitFor } from '@testing-library/react';
+import { StrictMode } from 'react';
 import userEvent from '@testing-library/user-event';
 import { expect,it,vi } from 'vitest';
-import { MemoryRouter, useLocation } from 'react-router';
+import { MemoryRouter, useLocation, useNavigate } from 'react-router';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import VideoView from '@/features/video/VideoView';
 import type { DashboardContext } from '@/app/dashboard-context';
@@ -18,6 +19,7 @@ function mount(write=true,initialPath='/chat?mode=video') {
 }
 function mockFetch(create:()=>Promise<Response>=async()=>Response.json({id:job,object:'video.job',model:model.id,status:'queued'}), lifecycle?:unknown, catalogModel:VideoModel=model) {
   const calls:Array<{path:string;body:unknown}>=[];
+  const intents=new Map<string,unknown>();
   vi.stubGlobal('fetch',vi.fn(async(path:string,init?:RequestInit)=>{
     calls.push({path,body:init?.body ? JSON.parse(String(init.body)):null});
     if(path.endsWith('/chat-sessions'))return Response.json({data:[]});
@@ -25,6 +27,16 @@ function mockFetch(create:()=>Promise<Response>=async()=>Response.json({id:job,o
     if(path.endsWith('/models'))return Response.json({object:'list',data:[catalogModel]});
     if(path.includes('/jobs?'))return Response.json({data:[],has_more:false,next_before:null});
     if(path.endsWith('/estimate'))return Response.json(quote);
+    if(path.endsWith('/submit'))return create();
+    if(path.includes('/video-intents/')){
+      if(init?.method==='PUT'){
+        const body=JSON.parse(String(init.body));
+        const saved={id:path.split('/').at(-1),revision:1,expires_at_ms:'1800000000000',content_state:'retained',original_key_id:body.key_id,key_id:body.key_id,model:body.request.model,funding_mode:'customer',request:body.request,submission_state:'saved',job:null};
+        intents.set(path,saved);return Response.json({data:saved});
+      }
+      const saved=intents.get(path);
+      return saved ? Response.json({data:saved}):Response.json({error:{message:'Intent unavailable'}},{status:404});
+    }
     if(path.endsWith('/jobs'))return create();
     if(path.endsWith('/billing'))return Response.json({mode:'customer',charge_nanos:null,reserved_nanos:'2000000000',currency:'CNY'});
     if(path.endsWith('/timings'))return Response.json({data:[],has_more:false,lifecycle});
@@ -52,9 +64,12 @@ it('requires a current estimate, invalidates it when input changes and submits o
   await waitFor(()=>expect(calls.filter(call=>call.path.endsWith('/models')).length).toBeGreaterThan(1));
   await user.click(screen.getByRole('button',{name:'Additional settings'}));
   expect((screen.getByLabelText('Duration (seconds)') as HTMLInputElement).value).toBe('7');
-  const submits=calls.filter(call=>call.path.endsWith('/jobs'));
+  const submits=calls.filter(call=>call.path.endsWith('/submit') || call.path.endsWith('/jobs'));
   expect(submits).toHaveLength(1);
-  expect(submits[0].body).toMatchObject({model:model.id,duration:7,frames_per_second:24,content:[{type:'text',text:'A mountain sunrise'}]});
+  expect(submits[0].body).toEqual({expected_revision:1});
+  const saves=calls.filter(call=>call.path.includes('/video-intents/') && (call.body as {request?:unknown})?.request);
+  expect(saves).toHaveLength(1);
+  expect(saves[0].body).toMatchObject({key_id:key,request:{model:model.id,duration:7,frames_per_second:24,content:[{type:'text',text:'A mountain sunrise'}]}});
   expect(document.body.textContent).not.toContain(job);
   expect(document.body.textContent).not.toContain(key);
 });
@@ -64,16 +79,47 @@ it('does not automatically retry a lost paid submission response',async()=>{
   await user.click(screen.getByRole('button',{name:'Estimate',exact:true}));await screen.findByText('Estimated CNY 1.00');
   await user.click(screen.getByRole('button',{name:'Generate video'}));
   await screen.findByText(/Submission may have reached/);
-  expect(screen.getByRole('button',{name:'Generate video'}).hasAttribute('disabled')).toBe(true);
-  expect(calls.filter(call=>call.path.endsWith('/jobs'))).toHaveLength(1);
+  await waitFor(()=>expect(calls.some(call=>call.path.includes('/video-intents/') && call.body===null)).toBe(true));
+  expect(calls.filter(call=>call.path.endsWith('/submit') || call.path.endsWith('/jobs'))).toHaveLength(1);
 });
 it('reader can estimate but cannot submit',async()=>{
   const calls=mockFetch();mount(false);const user=userEvent.setup();
   await screen.findByRole('button',{name:'Video model'});await user.type(screen.getByLabelText('Prompt'),'A mountain');
   await user.click(screen.getByRole('button',{name:'Estimate',exact:true}));await screen.findByText('Estimated CNY 1.00');
   expect(screen.getByRole('button',{name:'Generate video'}).hasAttribute('disabled')).toBe(true);
-  expect(calls.filter(call=>call.path.endsWith('/jobs'))).toHaveLength(0);
+  expect(calls.filter(call=>call.path.endsWith('/submit') || call.path.endsWith('/jobs'))).toHaveLength(0);
   await waitFor(()=>expect(screen.getByText(/Read access can estimate/)).toBeDefined());
+});
+it('restores immutable input and the original job from an intent URL without dispatch',async()=>{
+  const calls=mockFetch();const delegate=globalThis.fetch;
+  const intent='77777777-7777-4777-8777-777777777777';
+  vi.stubGlobal('fetch',vi.fn<typeof fetch>(async(input,init)=>{
+    const path=String(input);
+    if(path.endsWith(`/video-intents/${intent}`)){
+      calls.push({path,body:init?.body ? JSON.parse(String(init.body)):null});
+      return Response.json({data:{id:intent,revision:1,expires_at_ms:'1800000000000',content_state:'retained',original_key_id:key,key_id:key,model:model.id,funding_mode:'customer',request:{model:model.id,content:[{type:'text',text:'Saved landscape'}],duration:7,resolution:'720p',ratio:'16:9',frames_per_second:24},submission_state:'dispatched',job:{id:job,object:'video.job',model:model.id,status:'queued'}}});
+    }
+    return delegate(input,init);
+  }));
+  mount(true,`/generations?mode=video&intent=${intent}`);
+  await screen.findByText('Queued');
+  expect((screen.getByLabelText('Prompt') as HTMLTextAreaElement).value).toBe('Saved landscape');
+  expect(screen.getByLabelText('Prompt').hasAttribute('disabled')).toBe(true);
+  expect(screen.getByRole('button',{name:'Video API key'}).hasAttribute('disabled')).toBe(true);
+  expect(calls.some(call=>call.path.endsWith('/submit') || call.path.endsWith('/jobs'))).toBe(false);
+  expect(calls.some(call=>call.body!==null)).toBe(false);
+  expect(document.body.textContent).not.toContain(intent);
+});
+it('keeps a missing-intent error visible through Strict Mode restoration and catalog reload',async()=>{
+  const calls=mockFetch();
+  const context={token:'member',workspace,workspaces:[workspace],session:{permissions:{write:true}},selectWorkspace:vi.fn()} as unknown as DashboardContext;
+  render(<StrictMode><MemoryRouter initialEntries={['/generations?mode=video&intent=77777777-7777-4777-8777-777777777777']}><SidebarProvider><VideoView context={context}/></SidebarProvider></MemoryRouter></StrictMode>);
+  await screen.findByText('Intent unavailable');
+  await waitFor(()=>expect(calls.some(call=>call.path.endsWith('/models'))).toBe(true));
+  await userEvent.setup().click(screen.getByRole('button',{name:'Reload',exact:true}));
+  await screen.findByText('Intent unavailable');
+  expect(screen.queryByText(/already in progress/)).toBeNull();
+  expect(calls.some(call=>call.path.endsWith('/submit') || call.path.endsWith('/jobs'))).toBe(false);
 });
 it('validates UTF-8, integer bounds and actual output pairs rather than assumed combinations',()=>{
   const controls=initialControls(model);
@@ -174,7 +220,7 @@ it('connects saved lifecycle observations to the result waterfall without new ge
  mount(true,`/chat?mode=video&job=${job}`);
  await screen.findByLabelText('Running observed: 6.0 s');
  expect(screen.getByText('Observed completion: 8.0 s')).toBeDefined();
- expect(calls.filter(call=>call.path.endsWith('/jobs'))).toHaveLength(0);
+ expect(calls.filter(call=>call.path.endsWith('/submit') || call.path.endsWith('/jobs'))).toHaveLength(0);
 });
 
 it('retries a failed API-key read before loading models without submitting a video',async()=>{
@@ -215,7 +261,7 @@ it.each(['accepted','uncertain'])('ignores a late %s submission after leaving an
   await user.type(screen.getByLabelText('Prompt'),'Original request');
   await user.click(screen.getByRole('button',{name:'Estimate',exact:true}));await screen.findByText('Estimated CNY 1.00');
   await user.click(screen.getByRole('button',{name:'Generate video'}));
-  await waitFor(()=>expect(calls.filter(call=>call.path.endsWith('/jobs'))).toHaveLength(1));
+  await waitFor(()=>expect(calls.filter(call=>call.path.endsWith('/submit') || call.path.endsWith('/jobs'))).toHaveLength(1));
   view.rerender(tree(other));
   await waitFor(()=>expect(calls.some(call=>call.path.includes(other.id)&&call.path.endsWith('/models'))).toBe(true));
   view.rerender(tree(workspace));
@@ -224,7 +270,7 @@ it.each(['accepted','uncertain'])('ignores a late %s submission after leaving an
   expect(screen.queryByText('Queued')).toBeNull();
   expect(screen.queryByText('Late original workspace error')).toBeNull();
   expect(screen.queryByText(/Submission may have reached/)).toBeNull();
-  expect(calls.filter(call=>call.path.endsWith('/jobs'))).toHaveLength(1);
+  expect(calls.filter(call=>call.path.endsWith('/submit') || call.path.endsWith('/jobs'))).toHaveLength(1);
   expect(calls.some(call=>call.path.includes(`/jobs/${job}`))).toBe(false);
   expect(screen.getByRole('tab',{name:'Input',exact:true}).getAttribute('aria-selected')).toBe('true');
 });
@@ -265,10 +311,32 @@ it('does not navigate from an unmounted Video workspace when its create response
   await screen.findByRole('button',{name:'Video model'});await user.type(screen.getByLabelText('Prompt'),'Original request');
   await user.click(screen.getByRole('button',{name:'Estimate',exact:true}));await screen.findByText('Estimated CNY 1.00');
   await user.click(screen.getByRole('button',{name:'Generate video'}));
-  view.rerender(tree(other));await screen.findByRole('button',{name:'Video model'});
+  await waitFor(()=>expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.some(([path])=>String(path).endsWith('/submit'))).toBe(true));
+  const savedRoute=screen.getByLabelText('Current route').textContent;
+  view.rerender(tree(other));await screen.findByText('Intent unavailable');
   await act(async()=>{finish(Response.json({id:job,object:'video.job',model:model.id,status:'queued'}));await pending;});
-  expect(screen.getByLabelText('Current route').textContent).toBe('?mode=video');
+  expect(screen.getByLabelText('Current route').textContent).toBe(savedRoute);
   expect(screen.queryByText('Queued')).toBeNull();
+});
+
+it('keeps a late submission from replacing another intent in the same workspace',async()=>{
+  let finish!:(response:Response)=>void;
+  const pending=new Promise<Response>(resolve=>{finish=resolve;});
+  const calls=mockFetch(()=>pending);
+  const otherIntent='77777777-7777-4777-8777-777777777777';
+  const context={token:'member',workspace,workspaces:[workspace],session:{permissions:{write:true}},selectWorkspace:vi.fn()} as unknown as DashboardContext;
+  function RouteProbe(){const navigate=useNavigate();const location=useLocation();return <><button onClick={()=>navigate(`?mode=video&intent=${otherIntent}`)}>Open another intent</button><output aria-label="Current route">{location.search}</output></>;}
+  render(<MemoryRouter><SidebarProvider><RouteProbe/><VideoView context={context}/></SidebarProvider></MemoryRouter>);
+  const user=userEvent.setup();
+  await screen.findByRole('button',{name:'Video model'});await user.type(screen.getByLabelText('Prompt'),'Original request');
+  await user.click(screen.getByRole('button',{name:'Estimate',exact:true}));await screen.findByText('Estimated CNY 1.00');
+  await user.click(screen.getByRole('button',{name:'Generate video'}));
+  await waitFor(()=>expect(calls.filter(call=>call.path.endsWith('/submit'))).toHaveLength(1));
+  await user.click(screen.getByRole('button',{name:'Open another intent'}));
+  await act(async()=>{finish(Response.json({id:job,object:'video.job',model:model.id,status:'queued'}));await pending;});
+  expect(screen.getByLabelText('Current route').textContent).toBe(`?mode=video&intent=${otherIntent}`);
+  expect(screen.queryByText('Queued')).toBeNull();
+  expect(calls.some(call=>call.path.includes(`/jobs/${job}`))).toBe(false);
 });
 
 it('waits for the new workspace key list instead of querying it with the old key',async()=>{
