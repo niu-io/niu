@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useDashboardContext } from '@/app/dashboard-context';
 import { request } from '@/features/vendors/api';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,11 @@ type Settings = {revision: string; enabled: boolean; merchant_id: string; has_ke
 type Configuration = { payment_gateways: {name: string; configured: boolean}[] };
 export default function PlatformConfiguration() {
   const { token } = useDashboardContext();
+  return <PaymentConfiguration key={token} token={token}/>;
+}
+function PaymentConfiguration({token}: {token: string}) {
+  const mutation = useRef<AbortController | null>(null);
+  useEffect(() => () => mutation.current?.abort(), []);
   const [configuration, setConfiguration] = useState<Configuration | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [savedSettings, setSavedSettings] = useState<Settings | null>(null);
@@ -30,13 +35,15 @@ export default function PlatformConfiguration() {
   }, [token, revision]);
   async function save(event: FormEvent) {
     event.preventDefault(); if (!settings || busy) return;
+    const controller = new AbortController(); mutation.current = controller;
     setBusy(true); setError('');
     const {revision: expected_revision, has_key: _hasKey, ...input} = settings;
     try {
-      const result = await request<{data: Settings}>(token, '/admin/v1/platform/payments/epay', 'PUT', {...input, key, expected_revision});
+      const result = await request<{data: Settings}>(token, '/admin/v1/platform/payments/epay', 'PUT', {...input, key, expected_revision}, controller.signal);
+      if (controller.signal.aborted) return;
       setSettings(result.data);setSavedSettings(result.data);setKey('');setOpen(false);setRevision(value => value + 1);
-    } catch (reason) {setError(reason instanceof Error ? reason.message : 'Payment configuration could not be saved.');}
-    finally {setBusy(false);}
+    } catch (reason) {if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : 'Payment configuration could not be saved.');}
+    finally {if (mutation.current === controller) {mutation.current = null; if (!controller.signal.aborted) setBusy(false);}}
   }
   return <section className="space-y-5 py-5">
     {error && !open && <p role="alert">{error}<Button variant="ghost" onClick={() => setRevision(value => value + 1)}>Retry</Button></p>}
