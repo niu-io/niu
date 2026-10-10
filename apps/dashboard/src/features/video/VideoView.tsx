@@ -8,6 +8,7 @@ import { IconChevronDown as ChevronDown, IconLayoutSidebarLeftExpand as PanelLef
 import type { VideoEstimate, VideoJobBilling, VideoJobHistory, VideoJobState, VideoModelList, VideoTransportTimings } from '../../../../../sdks/javascript/src/index';
 import { NiuAdminClient, type VideoIntentRequest, type VideoSubmissionIntent } from '../../../../../sdks/javascript/src/admin';
 import { VideoIntent } from './intent';
+import { videoSessionTitle } from './intent-history';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
@@ -266,7 +267,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
       </SidebarContent>
     </Sidebar>
     <section className="video-main" aria-label="Video generation">
-      <header className="video-toolbar"><Button ref={historyTriggerRef} variant="ghost" size="icon" onClick={toggleSidebar} aria-label="Toggle video history" aria-controls="video-history" aria-expanded={isMobile ? openMobile : open}>{(isMobile ? openMobile : open) ? <PanelLeftClose size={18}/> : <PanelLeft size={18}/>}</Button><a className="mobile-header-brand" href={import.meta.env.BASE_URL} aria-label="niu.io home"><img src={logo} alt="" /></a><h1>{selected ? job?.model ? `Video · ${job.model}` : 'Video session' : 'New generation'}</h1></header>
+      <header className="video-toolbar"><Button ref={historyTriggerRef} variant="ghost" size="icon" onClick={toggleSidebar} aria-label="Toggle video history" aria-controls="video-history" aria-expanded={isMobile ? openMobile : open}>{(isMobile ? openMobile : open) ? <PanelLeftClose size={18}/> : <PanelLeft size={18}/>}</Button><a className="mobile-header-brand" href={import.meta.env.BASE_URL} aria-label="niu.io home"><img src={logo} alt="" /></a><h1>{intentDocument?.id===intentId ? videoSessionTitle(intentDocument) : selected ? job?.model ? `Video · ${job.model}` : 'Video session' : 'New generation'}</h1></header>
       <div className="video-content">
         {(keysError || intentError || error) && <div role="alert" className="video-error">{keysError || intentError || error}<Button variant="ghost" onClick={()=>keysError ? setKeysRevision(value=>value+1) : setRevision(value=>value+1)} disabled={Boolean(busy) || loading}>Reload</Button></div>}
         {!workspace ? <p>Add an API key to generate videos.</p> : <>

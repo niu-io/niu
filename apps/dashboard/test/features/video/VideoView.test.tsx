@@ -104,6 +104,7 @@ it('restores immutable input and the original job from an intent URL without dis
   }));
   mount(true,`/generations?mode=video&intent=${intent}`);
   await screen.findByText('Queued');
+  expect(screen.getByRole('heading',{level:1,name:'Video · Saved landscape'})).toBeTruthy();
   expect((screen.getByLabelText('Prompt') as HTMLTextAreaElement).value).toBe('Saved landscape');
   expect(screen.getByLabelText('Prompt').hasAttribute('disabled')).toBe(true);
   expect(screen.getByRole('button',{name:'Video API key'}).hasAttribute('disabled')).toBe(true);
@@ -383,6 +384,7 @@ it('restores the original job when reopening the same intent without dispatch',a
   const context={token:'member',workspace,workspaces:[workspace],session:{permissions:{write:true}},selectWorkspace:vi.fn()} as unknown as DashboardContext;
   render(<MemoryRouter initialEntries={[`/generations?mode=video&intent=${intent}`]}><SidebarProvider><Reopen/><VideoView context={context}/></SidebarProvider></MemoryRouter>);
   await screen.findByText('Queued');
+  expect(screen.getByRole('heading',{level:1,name:'Video · Saved landscape'})).toBeTruthy();
   expect((screen.getByLabelText('Prompt') as HTMLTextAreaElement).value).toBe('Saved landscape');
   expect(screen.getByLabelText('Prompt').hasAttribute('disabled')).toBe(true);
   expect(screen.getByRole('button',{name:'Video API key'}).hasAttribute('disabled')).toBe(true);
