@@ -92,6 +92,102 @@ pub(super) async fn runtime(state: &AppState) -> Result<Option<Arc<EPayRuntime>>
         .map(|runtime| runtime.map(Arc::new))
         .map_err(ApiError::invalid_request)
 }
+/// ```openapi
+/// {
+///   "path": "/admin/v1/platform/payments/epay",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "getPlatformEPayConfiguration",
+///     "summary": "Read EPay configuration with platform administrator read access",
+///     "description": "Returns enabled, merchant_id, endpoint, notify_url, return_url, methods, has_key and an exact string revision. Never returns merchant keys. Without a saved configuration, reads sanitized deployment defaults.",
+///     "responses": {
+///       "200": {
+///         "description": "Sanitized configuration in data",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "$ref": "#/components/schemas/EPayConfiguration"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Platform administrator access required"
+///       },
+///       "502": {
+///         "description": "Encryption unavailable or stored configuration cannot be opened"
+///       },
+///       "503": {
+///         "description": "Durable storage unavailable"
+///       }
+///     },
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "x-niu-implementation": "implemented"
+///   },
+///   "schemas": {
+///     "EPayConfiguration": {
+///       "type": "object",
+///       "additionalProperties": false,
+///       "required": [
+///         "merchant_id",
+///         "endpoint",
+///         "notify_url",
+///         "return_url",
+///         "revision",
+///         "enabled",
+///         "has_key",
+///         "methods"
+///       ],
+///       "properties": {
+///         "merchant_id": {
+///           "type": "string"
+///         },
+///         "endpoint": {
+///           "type": "string"
+///         },
+///         "notify_url": {
+///           "type": "string"
+///         },
+///         "return_url": {
+///           "type": "string"
+///         },
+///         "revision": {
+///           "type": "string",
+///           "pattern": "^[0-9]+$"
+///         },
+///         "enabled": {
+///           "type": "boolean"
+///         },
+///         "has_key": {
+///           "type": "boolean"
+///         },
+///         "methods": {
+///           "type": "array",
+///           "items": {
+///             "type": "string"
+///           },
+///           "description": "Saved methods or deployment defaults; legacy disabled configurations may contain unsupported values. Writes accept only alipay and wxpay."
+///         }
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub(crate) async fn read(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -118,6 +214,123 @@ pub(crate) struct Write {
     return_url: String,
     methods: Vec<String>,
 }
+/// ```openapi
+/// {
+///   "path": "/admin/v1/platform/payments/epay",
+///   "method": "put",
+///   "operation": {
+///     "operationId": "savePlatformEPayConfiguration",
+///     "summary": "Save encrypted EPay configuration with platform administrator write access",
+///     "description": "Validates enabled checkout configuration before persistence. An empty key retains the stored credential. Exact expected_revision prevents overwriting concurrent edits. Pending EPay orders prevent configuration changes so their original verification settings remain available. Saves an append-only audit event and takes effect without restarting the gateway. This configures the classic EPay protocol; it does not establish merchant eligibility or live payment qualification. Supported method names and uniqueness are validated even when disabled; a disabled draft may use an empty methods list.",
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "expected_revision",
+///               "enabled",
+///               "merchant_id",
+///               "key",
+///               "endpoint",
+///               "notify_url",
+///               "return_url",
+///               "methods"
+///             ],
+///             "properties": {
+///               "expected_revision": {
+///                 "type": "string",
+///                 "pattern": "^[0-9]+$"
+///               },
+///               "enabled": {
+///                 "type": "boolean"
+///               },
+///               "merchant_id": {
+///                 "type": "string"
+///               },
+///               "key": {
+///                 "type": "string",
+///                 "writeOnly": true
+///               },
+///               "endpoint": {
+///                 "type": "string"
+///               },
+///               "notify_url": {
+///                 "type": "string"
+///               },
+///               "return_url": {
+///                 "type": "string"
+///               },
+///               "methods": {
+///                 "type": "array",
+///                 "maxItems": 2,
+///                 "uniqueItems": true,
+///                 "items": {
+///                   "type": "string",
+///                   "enum": [
+///                     "alipay",
+///                     "wxpay"
+///                   ]
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "200": {
+///         "description": "Sanitized saved configuration in data",
+///         "without key": null,
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "$ref": "#/components/schemas/EPayConfiguration"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid configuration"
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Platform administrator write access required"
+///       },
+///       "409": {
+///         "description": "Revision conflict or unresolved payment orders"
+///       },
+///       "503": {
+///         "description": "Durable storage unavailable"
+///       },
+///       "502": {
+///         "description": "Encryption unavailable or stored configuration cannot be opened"
+///       },
+///       "422": {
+///         "description": "Malformed JSON shape, missing fields or unknown fields"
+///       }
+///     },
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
 pub(crate) async fn save(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -154,7 +367,13 @@ pub(crate) async fn save(
     if configuration.key.is_empty() {
         configuration.key = previous.key;
     }
-    if configuration.methods.len() > 2
+    // Validate the saved method vocabulary even when checkout is disabled.
+    // Disabled drafts may omit methods, but must not persist unsupported ones.
+    if configuration
+        .methods
+        .iter()
+        .any(|method| !matches!(method.as_str(), "alipay" | "wxpay"))
+        || configuration.methods.len() > 2
         || configuration
             .methods
             .iter()

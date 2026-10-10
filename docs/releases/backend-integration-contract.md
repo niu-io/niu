@@ -187,3 +187,14 @@ configuration still counts as present. Actual HTTP returned only gateway names
 and boolean flags; an invalid bearer returned 401 and a workspace owner returned
 403. The temporary verification operator was revoked. Use integration inventory
 for supported adapters and customer payment-method discovery for usable checkout.
+
+EPay configuration read/write now have handler-generated request and response
+contracts. Disabled drafts accept an empty method list, but unsupported or
+duplicate methods return 400 before persistence. Previously, an actual disabled
+write with an unsupported method returned 200 and saved a configuration. After
+the fix, the same current-input HTTP workflow on a separate native database
+returned 400 with no configuration row or audit event. Supported methods saved
+successfully; duplicate methods returned 400, a stale revision returned 409,
+and the sanitized saved response survived gateway restart. Independent database
+reads confirmed one accepted configuration event and no balance entries. This
+verifies configuration persistence, not an external checkout or payment.
