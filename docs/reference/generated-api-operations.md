@@ -9525,7 +9525,8 @@ Content type: `application/json`.
           "prompt_rate",
           "completion_rate",
           "cached_prompt_rate",
-          "route_ready"
+          "route_ready",
+          "reasoning_completion_rate"
         ],
         "properties": {
           "id": {
@@ -9578,6 +9579,13 @@ Content type: `application/json`.
           },
           "route_ready": {
             "type": "boolean"
+          },
+          "reasoning_completion_rate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
           }
         }
       }
@@ -15226,7 +15234,8 @@ Local `#/components/schemas/…` references resolve to these definitions.
         "prompt_rate",
         "completion_rate",
         "cached_prompt_rate",
-        "is_current"
+        "is_current",
+        "reasoning_completion_rate"
       ],
       "properties": {
         "revision": {
@@ -15264,6 +15273,14 @@ Local `#/components/schemas/…` references resolve to these definitions.
         },
         "is_current": {
           "type": "boolean"
+        },
+        "reasoning_completion_rate": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9]+$",
+          "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
         }
       }
     },
@@ -15279,7 +15296,8 @@ Local `#/components/schemas/…` references resolve to these definitions.
         "prompt_rate",
         "completion_rate",
         "cached_prompt_rate",
-        "is_current"
+        "is_current",
+        "reasoning_completion_rate"
       ],
       "properties": {
         "revision": {
@@ -15310,6 +15328,10 @@ Local `#/components/schemas/…` references resolve to these definitions.
         },
         "is_current": {
           "type": "boolean"
+        },
+        "reasoning_completion_rate": {
+          "type": "null",
+          "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
         }
       }
     }
@@ -15333,7 +15355,8 @@ Local `#/components/schemas/…` references resolve to these definitions.
         "currency",
         "prompt_rate",
         "completion_rate",
-        "cached_prompt_rate"
+        "cached_prompt_rate",
+        "reasoning_completion_rate"
       ],
       "properties": {
         "revision": {
@@ -15368,6 +15391,14 @@ Local `#/components/schemas/…` references resolve to these definitions.
             "null"
           ],
           "pattern": "^[0-9]+$"
+        },
+        "reasoning_completion_rate": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9]+$",
+          "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
         }
       }
     },
@@ -15382,7 +15413,8 @@ Local `#/components/schemas/…` references resolve to these definitions.
         "currency",
         "prompt_rate",
         "completion_rate",
-        "cached_prompt_rate"
+        "cached_prompt_rate",
+        "reasoning_completion_rate"
       ],
       "properties": {
         "revision": {
@@ -15410,6 +15442,10 @@ Local `#/components/schemas/…` references resolve to these definitions.
         },
         "cached_prompt_rate": {
           "type": "null"
+        },
+        "reasoning_completion_rate": {
+          "type": "null",
+          "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
         }
       }
     }

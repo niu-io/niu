@@ -525,7 +525,15 @@ pub async fn publish_offer(
     };
     let revision = state
         .store
-        .publish_provider_offer_with_cache(provider, &rates, cached)
+        .publish_provider_offer_with_categories(
+            provider,
+            &rates,
+            cached,
+            input
+                .reasoning_completion_rate
+                .as_ref()
+                .map(|rate| rate.as_deref()),
+        )
         .await
         .map_err(ApiError::from_store)?;
     Ok(Json(json!({"data":{"revision":revision}})))
@@ -623,7 +631,8 @@ pub async fn publish_offer(
 ///             "currency",
 ///             "prompt_rate",
 ///             "completion_rate",
-///             "cached_prompt_rate"
+///             "cached_prompt_rate",
+///             "reasoning_completion_rate"
 ///           ],
 ///           "properties": {
 ///             "revision": {
@@ -658,6 +667,14 @@ pub async fn publish_offer(
 ///                 "null"
 ///               ],
 ///               "pattern": "^[0-9]+$"
+///             },
+///             "reasoning_completion_rate": {
+///               "type": [
+///                 "string",
+///                 "null"
+///               ],
+///               "pattern": "^[0-9]+$",
+///               "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
 ///             }
 ///           }
 ///         },
@@ -672,7 +689,8 @@ pub async fn publish_offer(
 ///             "currency",
 ///             "prompt_rate",
 ///             "completion_rate",
-///             "cached_prompt_rate"
+///             "cached_prompt_rate",
+///             "reasoning_completion_rate"
 ///           ],
 ///           "properties": {
 ///             "revision": {
@@ -700,6 +718,10 @@ pub async fn publish_offer(
 ///             },
 ///             "cached_prompt_rate": {
 ///               "type": "null"
+///             },
+///             "reasoning_completion_rate": {
+///               "type": "null",
+///               "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
 ///             }
 ///           }
 ///         }
@@ -1404,7 +1426,8 @@ pub struct OfferHistoryQuery {
 ///             "prompt_rate",
 ///             "completion_rate",
 ///             "cached_prompt_rate",
-///             "is_current"
+///             "is_current",
+///             "reasoning_completion_rate"
 ///           ],
 ///           "properties": {
 ///             "revision": {
@@ -1442,6 +1465,14 @@ pub struct OfferHistoryQuery {
 ///             },
 ///             "is_current": {
 ///               "type": "boolean"
+///             },
+///             "reasoning_completion_rate": {
+///               "type": [
+///                 "string",
+///                 "null"
+///               ],
+///               "pattern": "^[0-9]+$",
+///               "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
 ///             }
 ///           }
 ///         },
@@ -1457,7 +1488,8 @@ pub struct OfferHistoryQuery {
 ///             "prompt_rate",
 ///             "completion_rate",
 ///             "cached_prompt_rate",
-///             "is_current"
+///             "is_current",
+///             "reasoning_completion_rate"
 ///           ],
 ///           "properties": {
 ///             "revision": {
@@ -1488,6 +1520,10 @@ pub struct OfferHistoryQuery {
 ///             },
 ///             "is_current": {
 ///               "type": "boolean"
+///             },
+///             "reasoning_completion_rate": {
+///               "type": "null",
+///               "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
 ///             }
 ///           }
 ///         }
@@ -1985,7 +2021,8 @@ pub struct CurrentOfferPage {
 ///                       "prompt_rate",
 ///                       "completion_rate",
 ///                       "cached_prompt_rate",
-///                       "route_ready"
+///                       "route_ready",
+///                       "reasoning_completion_rate"
 ///                     ],
 ///                     "properties": {
 ///                       "id": {
@@ -2038,6 +2075,13 @@ pub struct CurrentOfferPage {
 ///                       },
 ///                       "route_ready": {
 ///                         "type": "boolean"
+///                       },
+///                       "reasoning_completion_rate": {
+///                         "type": [
+///                           "string",
+///                           "null"
+///                         ],
+///                         "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
 ///                       }
 ///                     }
 ///                   }

@@ -3,8 +3,8 @@
 Customer text tariffs accept an optional `reasoning_completion_rate`, expressed
 as an exact decimal string of currency nanounits per million tokens. Reasoning
 is a subset of aggregate completion tokens, not an additional output count.
-Supplier purchase rates remain independent; this customer tariff does not
-introduce a separate Supplier reasoning rate.
+Supplier purchase rates remain independent; the independent [Supplier reasoning rate](supplier-reasoning-pricing.md) has its
+own verification boundary.
 
 For a configured reasoning rate, token charging uses:
 
@@ -54,8 +54,8 @@ pricing are verified below. A two-Gateway reasoning-rate-only reservation race i
 this is bounded concurrency evidence, not a sustained capacity result. Missing-category retention is verified below;
 recovering a subsequently supplied category remains unverified. The served
 documentation OpenAPI matches the generated contract, and its reference HTML
-contains the new rate field; visual browser acceptance is not claimed. Supplier reasoning rates,
-cache-write pricing, and long-context tiers remain separate unfinished work.
+contains the new rate field; visual browser acceptance is not claimed. Supplier earned-liability verification, cache-write pricing, and long-context
+tiers remain separate unfinished work.
 
 
 ## Missing reasoning quantity

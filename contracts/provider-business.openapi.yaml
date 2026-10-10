@@ -385,6 +385,7 @@ paths:
                 prompt_rate: { type: string, pattern: '^[0-9]+$', description: Maximum 1000000000000000 }
                 completion_rate: { type: string, pattern: '^[0-9]+$', description: Maximum 1000000000000000 }
                 cached_prompt_rate: { type: [string, 'null'], pattern: '^[0-9]+$', description: Maximum 1000000000000000; explicit null clears cache pricing }
+                reasoning_completion_rate: { type: [string, 'null'], pattern: '^[0-9]+$', description: Maximum 1000000000000000; explicit null clears separate reasoning pricing }
                 expected_revision: { type: [string, 'null'], format: uuid }
       responses:
         '200': { description: New revision ID in data.revision }
