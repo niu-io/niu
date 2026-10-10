@@ -40,3 +40,32 @@ run, observed at most 32.22 MiB RSS and 2.5% CPU in the platform's `ps` reading.
 Sampling began after requests started and ended when the original gateway
 process exited for restart; these values exclude unobserved intervals and
 PostgreSQL resources.
+
+## Follow-up at five scheduled requests per second
+
+A separate current-input run on 2026-10-11 used the same bounded non-streaming
+workload, eight keys and one gateway, with sixteen client workers and a scheduled
+rate of five requests per second. All 600 actual OpenRouter responses returned
+HTTP 200 and their unique requested markers; each key completed 75 requests.
+
+| Observation | Result |
+| --- | --- |
+| Workload duration, excluding restart and key revocation | 121.07 seconds |
+| Achieved completion throughput over that duration | 4.956 requests/second |
+| Maximum client start delay relative to schedule | 12.00 ms |
+| Client request round-trip p50 | 1,325.74 ms |
+| Client request round-trip nearest-rank p95 | 1,703.73 ms |
+| Maximum client request round-trip | 3,308.12 ms |
+| Reconciled customer verification charges | 10,085,384 USD nanounits |
+
+Gateway restart preserved all attempts. Independent reopening of the stopped
+database verified all 600 completed attempts against their response usage and
+key, recalculated every customer charge, and matched all 600 balance debits by
+amount, currency, company and workspace. No customer reservation remained held.
+Temporary keys were revoked and isolated processes stopped.
+
+This run had no resource sampler. Its shorter duration and external upstream
+variability prevent interpreting the latency difference as a performance
+improvement. It establishes this offered workload only, with the same internal
+credit and tariff boundaries above; it does not establish maximum capacity,
+streaming latency, video performance or complete release readiness.
