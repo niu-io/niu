@@ -1213,3 +1213,34 @@ empty-name submission and Cancel focus restoration. No new business, credential,
 permission, payment or financial record was created. Live uncertain-creation
 failure and independent multi-key onboarding remain unqualified. Screenshots
 were retained outside the public tree.
+
+## Activity page integrity and pagination recovery — 2026-10-11
+
+Global Activity now validates request-page summaries, exact token/charge values,
+row dates, routing references and continuation cursors before rendering totals.
+Malformed responses produce a recoverable error instead of crashing or showing
+partial totals. Older pages retain requested cursor history, reject continuation
+cycles and deduplicate overlapping rows. Concurrent older-page reads are prevented;
+scope changes abort stale reads. No new layout or collection capability was added.
+
+Regression covers malformed counts/tokens/dates, duplicate page rows, invalid
+cursors, overlap, a multi-step cursor cycle and explicit recovery. The post-pull
+full dashboard run passed 90 files / 734 checks; TypeScript checking passed.
+
+The running HMR product rendered 77 real requests across three workspaces. The
+workspace menu opened and selected Default workspace with 73 requests. Today
+updated the URL and displayed the expected empty result for the current local
+day. Returning to all workspaces and refreshing restored 77 rows. Desktop and
+measured 390 × 844 screenshots were inspected; narrow document width was 390,
+with no page overflow, and the workspace menu remained accessible. Screenshots
+were retained outside the public tree. No request or financial mutation occurred.
+
+The local dataset did not expose an older-page cursor, so populated live multi-page
+acceptance remains unqualified. The browser date-field fill changed the visible
+value without updating the URL; this did not establish a saved custom date range
+and is not counted as boundary acceptance. No product patch was inferred solely
+from that tool interaction. Task correlation and ordinary-role isolation remain
+open. The newly pulled Supplier membership-directory contract removes silent
+100-record truncation without changing the existing frontend response shape;
+backend directory verification does not establish frontend business lifecycle
+completion.
