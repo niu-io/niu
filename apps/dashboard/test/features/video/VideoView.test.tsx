@@ -368,3 +368,27 @@ it('waits for the new workspace key list instead of querying it with the old key
   expect(screen.getByRole('button',{name:'Video API key'}).textContent).toContain('New workspace key');
   expect(paths.some(path=>path.includes(other.id)&&path.includes(`/keys/${otherKey}/video/models`))).toBe(true);
 });
+it('restores the original job when reopening the same intent without dispatch',async()=>{
+  const calls=mockFetch();const delegate=globalThis.fetch;
+  const intent='77777777-7777-4777-8777-777777777777';
+  vi.stubGlobal('fetch',vi.fn<typeof fetch>(async(input,init)=>{
+    const path=String(input);
+    if(path.endsWith(`/video-intents/${intent}`)){
+      calls.push({path,body:init?.body ? JSON.parse(String(init.body)):null});
+      return Response.json({data:{id:intent,revision:1,expires_at_ms:'1800000000000',content_state:'retained',original_key_id:key,key_id:key,model:model.id,funding_mode:'customer',request:{model:model.id,content:[{type:'text',text:'Saved landscape'}],duration:7,resolution:'720p',ratio:'16:9',frames_per_second:24},submission_state:'dispatched',job:{id:job,object:'video.job',model:model.id,status:'queued'}}});
+    }
+    return delegate(input,init);
+  }));
+  function Reopen(){const navigate=useNavigate();return <button onClick={()=>navigate(`?mode=video&intent=${intent}`)}>Reopen same intent</button>;}
+  const context={token:'member',workspace,workspaces:[workspace],session:{permissions:{write:true}},selectWorkspace:vi.fn()} as unknown as DashboardContext;
+  render(<MemoryRouter initialEntries={[`/generations?mode=video&intent=${intent}`]}><SidebarProvider><Reopen/><VideoView context={context}/></SidebarProvider></MemoryRouter>);
+  await screen.findByText('Queued');
+  expect((screen.getByLabelText('Prompt') as HTMLTextAreaElement).value).toBe('Saved landscape');
+  expect(screen.getByLabelText('Prompt').hasAttribute('disabled')).toBe(true);
+  expect(screen.getByRole('button',{name:'Video API key'}).hasAttribute('disabled')).toBe(true);
+  expect(calls.some(call=>call.path.endsWith('/submit') || call.path.endsWith('/jobs'))).toBe(false);
+  expect(calls.some(call=>call.body!==null)).toBe(false);
+  await userEvent.click(screen.getByRole('button',{name:'Reopen same intent'}));
+  await screen.findByText('Queued');
+  expect(calls.some(call=>call.body!==null)).toBe(false);
+});

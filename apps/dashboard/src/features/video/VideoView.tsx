@@ -168,6 +168,13 @@ export default function VideoView({context}:{context:DashboardContext}) {
     }).catch(error=>{if(!controller.signal.aborted)setIntentError(message(error));}).finally(()=>{if(!controller.signal.aborted)setRestoringIntent(false);});
     return()=>controller.abort();
   },[retainedIntent,revision,busy === 'create']);
+  // Reopening the same history intent can remove job from the URL without
+  // changing the intent identity. Recover only its server-associated job.
+  useEffect(()=>{
+    const restoredJob=intentDocument?.job;
+    if(!intentId || intentDocument?.id!==intentId || !restoredJob || selected===restoredJob.id)return;
+    setSearch(previous=>{const next=new URLSearchParams(previous);next.set('job',restoredJob.id);next.set('key',intentDocument.key_id);return next;},{replace:true});
+  },[intentId,intentDocument,selected,setSearch]);
   useEffect(()=>{
     const controller=new AbortController();setJob(null);setBilling(null);setTimings(null);setDetailError('');
     if(!base || !selected)return;
