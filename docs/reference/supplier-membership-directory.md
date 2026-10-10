@@ -62,3 +62,22 @@ The existing native service was replaced with configuration, encrypted identity
 and durable business counts preserved. Build and static checks completed; fixture
 outcomes were not used. This verifies directory/member lifecycle consistency,
 not Supplier commercial qualification or earnings settlement.
+
+## Concurrent membership grant and Supplier deletion
+
+The deletion API rejects a Supplier with any retained membership, while grant
+and deletion both lock the Supplier row. A fresh native current-input run sent
+16 concurrent grant/delete pairs through the normal APIs against newly created
+Supplier records. Three grants won and thirteen deletions won; every pair had
+exactly one successful mutation and one HTTP 409. A successful grant allowed its
+member dashboard, while a successfully deleted Supplier returned 404 to that
+operator. The installation directory retained only live Suppliers with the
+correct member count.
+
+Gateway restart preserved the directory and absence of memberships on deleted
+Suppliers. Independent reopening checked every saved HTTP outcome against the
+Supplier and membership rows, including both observed race orderings. No model
+credentials, qualification records, inference attempts or financial entries were
+created. This validates the exercised lifecycle race; no authorization relaxation
+or speculative code change was needed. It does not cover every concurrent
+Supplier lifecycle operation or frontend state management.
