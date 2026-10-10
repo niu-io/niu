@@ -270,3 +270,31 @@ with current real inputs. Existing actual OpenRouter Messages evidence does not
 substitute for direct Anthropic qualification. GenerateContent and native
 streaming/tools/media remain outside the implemented Messages subset. No fixture
 outcome was used as evidence.
+
+
+### OpenRouter coexistence after managed Anthropic support
+
+A fresh isolated run on `b2a91e6` configured an intentionally invalid native
+Anthropic credential and the owner's actual OpenRouter credential under one
+unqualified Supplier, with distinct personal model mappings and scoped keys.
+Anthropic model checks, discovery and Messages returned sanitized refusals.
+OpenRouter model checks returned connected/listed with HTTP 200, its actual
+catalog included the configured upstream model, and native Messages returned the
+fresh requested marker. The Anthropic mapping's key could not invoke the
+OpenRouter mapping: it received 404 without another attempt. Restart preserved
+both adapters and their configuration identities.
+
+Independent reopening checked the two Supplier associations, distinct attempt
+bindings, saved model-check/catalog artifacts and the real native response. The
+response omitted at least one cache usage category. Consequently aggregate usage
+remained unknown with null prompt/completion totals on the completed attempt;
+missing categories were not added as zero. The first independent verifier assumed
+all cache categories were integers and stopped; correcting that assumption to
+the documented unknown-usage contract required no product change or new upstream
+request. Independent database inspection confirmed the retained unknown state.
+There were exactly two attempts and no customer/procurement ledger entries or
+reservations, consistent with the explicitly personal routes. This exercises
+shared diagnostic authentication and adapter/key isolation; it does not qualify
+direct Anthropic completion or known-usage charging for the OpenRouter response.
+The original development database and credentials were unchanged. No fixture
+outcome was used.
