@@ -180,3 +180,21 @@ tombstone, remaining request/response content, output decision, both actual usag
 exact charges/debits and absence of held reservations. This narrows the previous
 unverified-redaction boundary to other unsupported content/protocol variants; it
 does not qualify media, tools, native streaming or nonzero cache pricing.
+
+### Per-key spending limit on native Messages
+
+A fresh current-input run completed one actual native text request, then set that
+key's USD spending limit to its already committed customer charge. Further
+Messages requests returned HTTP 402 both before and after gateway restart, with
+no additional attempt or debit. A separately issued key in the same workspace
+completed another actual request while the capped key continued to be refused.
+The capped key reported its exact committed amount and zero remaining allowance;
+that report remained identical after another restart.
+
+A separate verifier reopened the stopped PostgreSQL database. It matched both
+actual native response usage documents to the two completed attempts, verified
+one attempt per key, recomputed both customer charges and debits from the explicit
+internal rates, and confirmed that only the first key had a spending-limit row.
+There were no held reservations or funding receipts. This verifies the native
+operation's shared per-key monetary admission path, not a new billing engine or
+a claim about concurrent/rate/token limits on every native protocol.
