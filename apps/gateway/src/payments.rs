@@ -472,6 +472,171 @@ pub(crate) async fn notify(
     Ok("success")
 }
 
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/billing/topups",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "createCustomerTopup",
+///     "summary": "Create or recover a company prepaid top-up",
+///     "description": "Organization-wide owner/admin with write access or installation administrator only. Requires an enabled method and an existing account in the selected integration's currency. Classic EPay and native Zhifux use CNY; Stripe uses its configured supported currency. Exact positive amounts must match the integration's minor-unit precision. No implicit account creation, FX or approved credit. Reuse the same idempotency key and identical intent after an uncertain response. Remote creation is durably claimed before contact and never automatically repeated; EPay saves a deterministic signed checkout locally. Checkout alone grants no balance. Independently verified payment gates funding. Merchant credentials and enabled methods are deployment configuration. An explicit payment_gateway never falls through to another integration. Omission preserves runtime priority for compatibility.",
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "amount_nanos",
+///               "payment_method",
+///               "idempotency_key"
+///             ],
+///             "properties": {
+///               "currency": {
+///                 "type": "string",
+///                 "pattern": "^[A-Z]{3}$",
+///                 "description": "Optional account currency. Selects a matching enabled integration; omission preserves existing default priority. Never implies conversion."
+///               },
+///               "payment_gateway": {
+///                 "type": "string",
+///                 "enum": [
+///                   "epay",
+///                   "stripe",
+///                   "zhifux"
+///                 ],
+///                 "description": "Optional explicit integration. Never falls through to a different gateway; omission preserves default priority."
+///               },
+///               "amount_nanos": {
+///                 "type": "string",
+///                 "pattern": "^[0-9]+$",
+///                 "description": "Exact positive account-currency nanounits, at most 9223372036854775807. CNY requires divisibility by 10000000; other currencies require their supported minor-unit precision. Never a JSON number."
+///               },
+///               "payment_method": {
+///                 "type": "string",
+///                 "minLength": 1,
+///                 "maxLength": 64,
+///                 "pattern": "^[A-Za-z0-9.-]+$",
+///                 "description": "Must be enabled for the configured merchant."
+///               },
+///               "idempotency_key": {
+///                 "type": "string",
+///                 "format": "uuid"
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "200": {
+///         "description": "Saved top-up status; checkout and pending status confer no spending capacity",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "additionalProperties": false,
+///                   "required": [
+///                     "id",
+///                     "currency",
+///                     "amount_nanos",
+///                     "payment_method",
+///                     "status",
+///                     "checkout_url"
+///                   ],
+///                   "properties": {
+///                     "id": {
+///                       "type": "string",
+///                       "format": "uuid",
+///                       "description": "Internal API routing reference; never display as a product label."
+///                     },
+///                     "currency": {
+///                       "type": "string",
+///                       "pattern": "^[A-Z]{3}$",
+///                       "description": "Immutable saved account currency; no implicit conversion."
+///                     },
+///                     "amount_nanos": {
+///                       "type": "string",
+///                       "pattern": "^[0-9]+$"
+///                     },
+///                     "payment_method": {
+///                       "type": "string"
+///                     },
+///                     "status": {
+///                       "type": "string",
+///                       "enum": [
+///                         "reconciliation_required",
+///                         "pending",
+///                         "paid",
+///                         "closed"
+///                       ]
+///                     },
+///                     "checkout_url": {
+///                       "type": [
+///                         "string",
+///                         "null"
+///                       ],
+///                       "format": "uri",
+///                       "description": "Validated HTTPS checkout for pending orders only; null for paid and closed orders."
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid amount or unavailable payment method"
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Write permission required"
+///       },
+///       "404": {
+///         "description": "Company billing access not granted"
+///       },
+///       "409": {
+///         "description": "Missing currency account or conflicting saved intent"
+///       },
+///       "422": {
+///         "description": "Invalid body schema or unexpected field"
+///       },
+///       "502": {
+///         "description": "Integration unavailable or checkout creation uncertain; preserve the intent and idempotency key"
+///       },
+///       "503": {
+///         "description": "Durable storage unavailable; no successful creation is implied"
+///       }
+///     },
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "x-niu-implementation": "implemented",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ]
+///   }
+/// }
+/// ```
 pub(crate) async fn create_topup(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -688,6 +853,139 @@ async fn topup_response(
 pub(crate) struct TopupHistoryQuery {
     before: Option<Uuid>,
 }
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/billing/topups",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listCustomerTopups",
+///     "summary": "Recover company checkout history",
+///     "description": "Organization-wide owner/admin with read access or installation administrator only. Backend-owned history survives browser changes. At most 100 saved intents per page, ordered by descending creation time and internal routing reference. No upstream calls, merchant credentials or procurement data. Paid/closed entries withhold checkout URLs. Traversal is a live view, not a fixed snapshot; refresh to see newly created orders. Internal IDs are routing/cursor references, never product labels.",
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "before",
+///         "in": "query",
+///         "required": false,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "description": "next_cursor from the previous company page. Foreign or missing cursors return conflict."
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Saved checkout history page",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data",
+///                 "next_cursor"
+///               ],
+///               "properties": {
+///                 "next_cursor": {
+///                   "type": [
+///                     "string",
+///                     "null"
+///                   ],
+///                   "format": "uuid"
+///                 },
+///                 "data": {
+///                   "type": "array",
+///                   "maxItems": 100,
+///                   "items": {
+///                     "type": "object",
+///                     "additionalProperties": false,
+///                     "required": [
+///                       "id",
+///                       "currency",
+///                       "amount_nanos",
+///                       "payment_method",
+///                       "status",
+///                       "checkout_url",
+///                       "created_at"
+///                     ],
+///                     "properties": {
+///                       "id": {
+///                         "type": "string",
+///                         "format": "uuid",
+///                         "description": "Internal routing/cursor reference; never display as a product label."
+///                       },
+///                       "currency": {
+///                         "type": "string",
+///                         "pattern": "^[A-Z]{3}$"
+///                       },
+///                       "amount_nanos": {
+///                         "type": "string",
+///                         "pattern": "^[0-9]+$"
+///                       },
+///                       "payment_method": {
+///                         "type": "string"
+///                       },
+///                       "status": {
+///                         "type": "string",
+///                         "enum": [
+///                           "reconciliation_required",
+///                           "pending",
+///                           "paid",
+///                           "closed"
+///                         ]
+///                       },
+///                       "checkout_url": {
+///                         "type": [
+///                           "string",
+///                           "null"
+///                         ],
+///                         "format": "uri"
+///                       },
+///                       "created_at": {
+///                         "type": "string",
+///                         "format": "date-time"
+///                       }
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid company or cursor syntax"
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "404": {
+///         "description": "Company billing access not granted"
+///       },
+///       "409": {
+///         "description": "Foreign or missing cursor"
+///       },
+///       "503": {
+///         "description": "Durable storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ]
+///   }
+/// }
+/// ```
 pub(crate) async fn topup_history(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -715,6 +1013,138 @@ pub(crate) struct PaymentMethodsQuery {
     currency: Option<String>,
     payment_gateway: Option<PaymentGatewaySelection>,
 }
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/billing/payment-methods",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "getCustomerPaymentMethods",
+///     "summary": "Read company checkout availability",
+///     "description": "Organization-wide owner/admin with read access or installation administrator only. Returns enabled merchant method codes for the requested currency when configured and an account exists. Omitted currency preserves the configured default. No merchant credentials, account identifiers or upstream queries. Availability does not guarantee collection or grant write permission. No FX or account provisioning is implied.",
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "currency",
+///         "in": "query",
+///         "required": false,
+///         "schema": {
+///           "type": "string",
+///           "pattern": "^[A-Z]{3}$"
+///         }
+///       },
+///       {
+///         "name": "payment_gateway",
+///         "in": "query",
+///         "required": false,
+///         "schema": {
+///           "type": "string",
+///           "enum": [
+///             "epay",
+///             "stripe",
+///             "zhifux"
+///           ]
+///         },
+///         "description": "Select one configured integration without falling through to another."
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Configured checkout methods or explicit unavailable state",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "additionalProperties": false,
+///                   "required": [
+///                     "currency",
+///                     "payment_gateway",
+///                     "available",
+///                     "payment_methods",
+///                     "unavailable_reason"
+///                   ],
+///                   "properties": {
+///                     "currency": {
+///                       "type": "string",
+///                       "pattern": "^[A-Z]{3}$"
+///                     },
+///                     "available": {
+///                       "type": "boolean"
+///                     },
+///                     "payment_methods": {
+///                       "type": "array",
+///                       "items": {
+///                         "type": "string"
+///                       },
+///                       "description": "Empty when unavailable; exact configured codes otherwise."
+///                     },
+///                     "payment_gateway": {
+///                       "type": [
+///                         "string",
+///                         "null"
+///                       ],
+///                       "enum": [
+///                         "epay",
+///                         "stripe",
+///                         "zhifux",
+///                         null
+///                       ],
+///                       "description": "Selected configured integration for these methods. Forward this value with currency when creating a top-up; null means no matching integration. This is adapter identity",
+///                       "not merchant credentials or a payment-method display label.": null
+///                     },
+///                     "unavailable_reason": {
+///                       "type": [
+///                         "string",
+///                         "null"
+///                       ],
+///                       "enum": [
+///                         "integration_unavailable",
+///                         "currency_account_missing",
+///                         null
+///                       ]
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid company identifier or currency query"
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "404": {
+///         "description": "Company billing access not granted"
+///       },
+///       "503": {
+///         "description": "Durable account storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ]
+///   }
+/// }
+/// ```
 pub(crate) async fn payment_methods(
     State(state): State<AppState>,
     headers: HeaderMap,
