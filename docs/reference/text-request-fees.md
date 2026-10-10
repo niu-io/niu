@@ -61,9 +61,9 @@ was rejected by typed JSON validation. No cash receipt or commercial Supplier
 qualification was fabricated. These runs used the owner's personal upstream
 account for internal accounting verification.
 
-Fee-specific cached usage, broader failure boundaries and sustained overload
-remain open. Shared implementation or earlier minimum-only evidence is not
-evidence that those fee paths passed.
+Fee-specific cached usage now has [actual combined-price evidence](cached-input-pricing.md#cached-tokens-combined-with-fixed-fees-and-minimums),
+including nonzero cache with additive fees and with a dominating minimum. Missing
+cache categories, broader failure boundaries and sustained overload remain open.
 
 
 ### Refund, Responses and mixed-protocol verification

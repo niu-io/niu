@@ -28,14 +28,23 @@ and cached input rates, plus the existing output bound. Cached input is allowed
 to be more expensive than ordinary input. The database zero-price dispatch
 exception also requires a zero or absent cached rate.
 
-For a cached tariff, final price is the ceiling of the following combined value,
-with one rounding step to currency nanounits:
+For a cached tariff, calculate the combined token amount below and round upward
+once to currency nanounits:
 
 ```
 ((prompt_tokens - cached_prompt_tokens) * prompt_rate
  + cached_prompt_tokens * cached_prompt_rate
  + completion_tokens * completion_rate) / 1000000
 ```
+
+Then add `request_fee_nanos` and apply the charge floor:
+
+```
+charge = max(rounded_token_charge + request_fee_nanos, minimum_charge_nanos)
+```
+
+Both fixed fields default to zero for historical tariffs. Admission applies the
+same combination to its conservative token bound. See [fixed request fees](text-request-fees.md).
 
 Cached quantity must be reported, nonnegative and no larger than total input.
 Missing cached evidence is unresolved, not zero: no customer charge is fabricated
@@ -218,3 +227,27 @@ current tariff. The existing invoice response remained identical, including its
 original rate, revision, quantities and amount. A further gateway restart retained
 that identical invoice. This verifies historical customer invoice details under
 repricing; it does not establish Supplier cache settlement or external payment.
+
+
+### Cached tokens combined with fixed fees and minimums
+
+A current-input run used three actual long-prefix Chat completions with the
+owner-funded upstream credential and approved internal verification credit.
+Reported cached input counts were 0, 5120 and 5120. The separate cache rate
+exceeded the ordinary input rate. Each tariff included a 12,345-nanounit request
+fee; the first two used a 1-nanounit minimum. After a gateway restart, a new
+revision raised the minimum to 10,000,000 nanounits for the third completion.
+
+Independent verification parsed the saved raw provider responses and reopened
+the stopped PostgreSQL database. Non-overlapping token arithmetic, one ceiling,
+the additive fee and the applicable floor matched all three charges and debits.
+The second request exercised nonzero cache plus the additive fee; the third
+exercised nonzero cache with a minimum above the combined amount. The immutable
+revision and both fixed amounts matched each charge. The invoice total was
+11,971,111 nanounits, and the ledger matched that total less one idempotent refund.
+Reservations were released and restart preserved the records.
+
+This verifies the exercised combined customer pricing paths. Missing cache
+usage, concurrent cached liabilities, Supplier settlement and external cash
+funding remain separate; no payment receipt or commercial qualification was
+created. The original development database and encrypted identity were unchanged.

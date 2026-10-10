@@ -650,3 +650,17 @@ API key cannot read this management endpoint; use its authorized `/v1/models`
 price projection instead. Cross-workspace history remains concealed with 404.
 The [frontend integration inventory](https://github.com/niu-io/niu/blob/main/docs/releases/backend-integration-contract.md#interfaces-to-integrate-now)
 now lists publication, current prices and immutable history together.
+
+
+## Cached input with fixed request fees
+
+When `cached_prompt_rate` is set, price uncached input, cached input and output
+separately, sum their exact amounts and round upward once. Then add
+`request_fee_nanos` and apply `minimum_charge_nanos` to the combined amount.
+Missing required cached usage remains unresolved; a fixed fee does not replace
+the missing evidence. All rates and fixed amounts retain their pinned revision.
+
+Actual nonzero-cache completions exercised both an additive fee and a minimum
+above the combined amount. Saved provider usage and reopened database records
+matched the charges, invoice and refund balance. See the
+[formula and verification scope](https://github.com/niu-io/niu/blob/main/docs/reference/cached-input-pricing.md#cached-tokens-combined-with-fixed-fees-and-minimums).
