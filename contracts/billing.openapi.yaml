@@ -298,19 +298,8 @@ paths:
         '502': { description: Integration unavailable or checkout creation uncertain; preserve the intent and idempotency key }
         '503': { description: Durable storage unavailable; no successful creation is implied }
   /admin/v1/organizations/{organization}/billing/topups/{order}:
-    parameters:
-      - $ref: '#/components/parameters/Organization'
-      - $ref: '#/components/parameters/TopupOrder'
     get:
-      operationId: getCustomerTopup
-      summary: Read saved company top-up status
-      description: Organization-wide owner/admin with read access or installation administrator only. Reads durable records without querying the payment service. Paid and closed orders withhold checkout URLs. Internal routing references must not become product labels. No merchant, platform receipt, ledger identity, Supplier cost or margin is returned.
-      responses:
-        '200': { $ref: '#/components/responses/TopupStatus' }
-        '400': { description: Invalid route identifier }
-        '401': { description: Authentication required }
-        '404': { description: Order missing or company billing access not granted }
-        '503': { description: Durable storage unavailable }
+      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1topups~1{order}/get'
   /admin/v1/organizations/{organization}/billing/topups/{order}/reconcile:
     parameters:
       - $ref: '#/components/parameters/Organization'

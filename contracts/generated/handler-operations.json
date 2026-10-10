@@ -2111,6 +2111,116 @@
         }
       }
     },
+    "/admin/v1/organizations/{organization}/billing/topups/{order}": {
+      "get": {
+        "operationId": "getCustomerTopup",
+        "summary": "Read saved company top-up status",
+        "description": "Organization-wide owner/admin with read access or installation administrator only. Reads durable records without querying the payment service. Paid and closed orders withhold checkout URLs. Internal routing references must not become product labels. No merchant, platform receipt, ledger identity, Supplier cost or margin is returned.",
+        "responses": {
+          "200": {
+            "description": "Saved top-up status; checkout and pending status confer no spending capacity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "currency",
+                        "amount_nanos",
+                        "payment_method",
+                        "status",
+                        "checkout_url"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "description": "Internal API routing reference; never display as a product label."
+                        },
+                        "currency": {
+                          "type": "string",
+                          "pattern": "^[A-Z]{3}$",
+                          "description": "Immutable saved account currency; no implicit conversion."
+                        },
+                        "amount_nanos": {
+                          "type": "string",
+                          "pattern": "^[0-9]+$"
+                        },
+                        "payment_method": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "reconciliation_required",
+                            "pending",
+                            "paid",
+                            "closed"
+                          ]
+                        },
+                        "checkout_url": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "uri",
+                          "description": "Validated HTTPS checkout for pending orders only; null for paid and closed orders."
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid route identifier"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Order missing or company billing access not granted"
+          },
+          "503": {
+            "description": "Durable storage unavailable"
+          }
+        },
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "order",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "x-niu-implementation": "implemented",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/admin/v1/platform/configuration": {
       "get": {
         "operationId": "getPlatformConfiguration",

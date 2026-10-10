@@ -1929,6 +1929,107 @@ HTTP 401: Authentication required
 
 HTTP 403: Installation administrator required
 
+## Read saved company top-up status
+
+`GET /admin/v1/organizations/{organization}/billing/topups/{order}`
+
+Organization-wide owner/admin with read access or installation administrator only. Reads durable records without querying the payment service. Paid and closed orders withhold checkout URLs. Internal routing references must not become product labels. No merchant, platform receipt, ledger identity, Supplier cost or margin is returned.
+
+Implementation: `implemented`. Operation: `getCustomerTopup`.
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`order` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Saved top-up status; checkout and pending status confer no spending capacity
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "currency",
+        "amount_nanos",
+        "payment_method",
+        "status",
+        "checkout_url"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Internal API routing reference; never display as a product label."
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$",
+          "description": "Immutable saved account currency; no implicit conversion."
+        },
+        "amount_nanos": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "payment_method": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "reconciliation_required",
+            "pending",
+            "paid",
+            "closed"
+          ]
+        },
+        "checkout_url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri",
+          "description": "Validated HTTPS checkout for pending orders only; null for paid and closed orders."
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid route identifier
+
+HTTP 401: Authentication required
+
+HTTP 404: Order missing or company billing access not granted
+
+HTTP 503: Durable storage unavailable
+
 ## Read platform payment configuration presence
 
 `GET /admin/v1/platform/configuration`
