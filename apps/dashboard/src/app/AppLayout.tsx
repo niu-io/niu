@@ -85,7 +85,7 @@ function WorkspaceNav({
 }
 
 export function SupplierNav({ context }: { context: DashboardContext }) {
-  const { provider: supplier, supplierId: adminSupplier } = useParams();
+  const { supplier, supplierId: adminSupplier } = useParams();
   const { isMobile, setOpenMobile } = useSidebar();
   const [search] = useSearchParams();
   const navigate = useNavigate();
