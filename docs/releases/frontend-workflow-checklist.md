@@ -18,7 +18,7 @@ Status: in progress. Updated 2026-10-10. This checklist supplements, rather than
 | Workspace API keys | Create with essential values, copy/setup example, grants and limits, rotation/revocation, authorized details and useful failure recovery | Partial; real key list/details, creation dialog/expiration menu/cancel and Generations link verified; name write/reload and narrow model-access menu verified; creation and single-model save/reload/discovery plus revoked-credential 401 verified; rotation with preserved expiry/grants/rate policy and old-secret 401 verified; ordinary-role grants open |
 | Chat | Key-based scope, saved-session title/history, streaming/cancellation, actionable upstream failure, backend restoration and matching Logs | Partial; existing successful history, title, reload restoration and mobile session navigation verified; fresh successful request and restoration verified; connection-stage and live mid-stream cancellation/restoration verified; live partial output and matching interrupted Logs verified; actionable upstream failures and remaining draft conflict states open |
 | Video | Task category → supported inputs → submission → durable status → preview/download; unavailable, failed, unknown and expired states; matching Logs and customer charges | Open; depends on qualified backend capabilities |
-| Logs | Request filters → payload and response → measured timing waterfall → failure diagnosis; exports, unknown values and customer-only costs | Partial; key drilldown, real retained request/error and timing verified; date restoration and mobile detail verified; exports, classified failures and remaining mobile states open |
+| Logs | Request filters → payload and response → measured timing waterfall → failure diagnosis; exports, unknown values and customer-only costs | Partial; key drilldown, real retained request/error and timing verified; date restoration and mobile detail verified; real model/date CSV exports verified; classified failures, export error browser states and remaining mobile states open |
 | Activity | Authorized scope, full-range aggregates → matching Logs; consistent token categories, customer charges and unknown values | Partial; real all-workspace/workspace totals and one model-to-Logs count/filter match verified; Today drilldown and narrow totals verified; other date boundaries and ordinary-role authorization open |
 | Guardrails | Supported input/output controls, preview, safe decision diagnosis and clear coverage; ordinary-role access and denied requests | Partial; input redaction/block previews and narrow action menu verified; saved input policy, live input block, versioned history and narrow denial records verified; HTTP failure classification, live output enforcement and ordinary-role access open |
 | Settings and billing | Global dialog preserving origin; balance, warning/credit-limit state, history and payment/top-up status; close/reopen/direct URLs | Partial; account-menu opening, Billing/Payments navigation, zero balance, unavailable top-ups, empty history and close-to-origin verified; warning save/reload/restoration verified; payment, credit-limit and remaining narrow states open |
@@ -474,3 +474,22 @@ rendered qualification.
   transition evidence remains open; a requested viewport is not rendered proof.
   Temporary tabs were closed and the viewport override reset. No product data,
   credentials, permissions or payment configuration were changed.
+
+
+### Live Logs CSV export (2026-10-10)
+
+- Exported the actual GPT-4.1 Mini All-time selection from the Logs action menu.
+  The downloaded CSV contained 13 matching model records, consistent with the
+  displayed request count. Three records retained unknown usage as empty fields;
+  all records were owner-funded and had no customer charge amount. Column and row
+  inspection found no procurement/margin fields or internal UUID labels.
+- Selected Today in the real date panel and exported again. The saved file had
+  exactly three matching records, all dated 2026-10-10 UTC, matching the updated
+  Logs count. The URL retained the model and start-date filters. Downloaded
+  customer diagnostic files remain outside the public repository.
+- The actual viewport measured 1280×720. This qualifies desktop menu/download and
+  the exercised model/date filter subset only. Large-range rejection, failed
+  export, ordinary-role isolation, other date boundaries and narrow export
+  interactions remain separate gates. Existing integration tests cover full-range
+  filter parameters, HTTP 413 guidance and cancellation when filters change;
+  fixture behavior is not live browser evidence.
