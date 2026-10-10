@@ -67,10 +67,10 @@ def main():
         server = None
         logs = []
 
-        def request(method, path, body=None):
+        def request(method, path, body=None, token=None):
             req = urllib.request.Request(f'http://127.0.0.1:{httpport}{path}', method=method,
                 data=None if body is None else json.dumps(body).encode(),
-                headers={'Authorization': f'Bearer {admin}', 'Content-Type': 'application/json'})
+                headers={'Authorization': 'Bearer ' + (token or admin), 'Content-Type': 'application/json'})
             try:
                 with client.open(req, timeout=30) as response:
                     return response.status, response.read()
@@ -159,11 +159,38 @@ def main():
             start()
             require(api('GET', base + '/' + order['id'])['data'] == order, 'Restart lost pending checkout')
             require(api('POST', base, intent)['data'] == order, 'Restart changed idempotent replay')
+            other = api('POST', '/admin/v1/organizations', {'name': 'Separate company', 'currency': 'CNY'})
+            workspace = api('POST', f'/admin/v1/organizations/{org["id"]}/projects',
+                {'name': 'Restricted workspace'})
+
+            def actor(organization, role, project=None):
+                body = dict(organization_id=organization, name='Checkout authorization',
+                    role=role, expires_in_seconds=600)
+                if project:
+                    body['project_id'] = project
+                return api('POST', '/admin/v1/operators', body)['token']
+
+            owner = actor(org['id'], 'owner')
+            detail = base + '/' + order['id']
+            require(request('GET', detail, token=owner)[0] == 200, 'Company owner cannot recover checkout')
+            for label, token in [('foreign owner', actor(other['id'], 'owner')),
+                    ('company viewer', actor(org['id'], 'viewer')),
+                    ('workspace owner', actor(org['id'], 'owner', workspace['id']))]:
+                for method, route, body in [('GET', detail, None), ('GET', base, None),
+                        ('POST', base, intent), ('GET', base.replace('/topups', '/payment-methods'), None)]:
+                    status, raw = request(method, route, body, token)
+                    expected = 403 if label == 'company viewer' and method == 'POST' else 404
+                    require(status == expected, f'{label}: {method} did not enforce company billing scope')
+                    require(order['checkout_url'].encode() not in raw, 'Denied response leaked checkout URL')
+                require(request('GET', path, token=token)[0] == 403,
+                    f'{label} obtained platform merchant configuration')
+            require(request('GET', path, token=owner)[0] == 403,
+                'Company owner obtained platform merchant configuration')
             counts = sql('SELECT (SELECT count(*) FROM customer_topup_orders), '
                 '(SELECT count(*) FROM customer_topup_settlements), '
                 '(SELECT count(*) FROM customer_balance_entries)')
             require(counts == '1|0|0', 'Checkout duplicated an order or incorrectly credited funds')
-            print('Verified current HTTP checkout, independent signature, restart/replay, and database artifacts.')
+            print('Verified current HTTP checkout, signature, restart/replay, role isolation, and database artifacts.')
             print('One pending order; no settlements or balance entries. External payment remains unverified.')
         finally:
             stop_process(server)
