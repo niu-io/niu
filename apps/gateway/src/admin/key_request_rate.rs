@@ -21,6 +21,112 @@ pub struct History {
     before_revision: Option<i64>,
     limit: Option<i64>,
 }
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/request-rate-limit",
+///   "method": "get",
+///   "operation": {
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "operationId": "getKeyRequestRateLimit",
+///     "description": "Scoped readers may inspect the policy shared across secret rotations.",
+///     "responses": {
+///       "200": {
+///         "description": "Null revision means never configured. Null removes the limit; zero denies dispatch.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "$ref": "#/components/schemas/KeyRequestRatePolicy"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Workspace access denied"
+///       },
+///       "404": {
+///         "description": "Workspace is outside operator scope",
+///         "or key is absent from authorized workspace": null
+///       }
+///     },
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "summary": "Read API key request rate policy",
+///     "x-niu-implementation": "implemented"
+///   },
+///   "schemas": {
+///     "KeyRequestRateRequestLimit": {
+///       "type": [
+///         "integer",
+///         "null"
+///       ],
+///       "minimum": 0,
+///       "maximum": 1000000,
+///       "description": "Maximum dispatches per rolling 60 seconds; null is unlimited and zero denies dispatch."
+///     },
+///     "KeyRequestRatePolicy": {
+///       "type": "object",
+///       "required": [
+///         "requests_per_minute",
+///         "revision"
+///       ],
+///       "properties": {
+///         "requests_per_minute": {
+///           "$ref": "#/components/schemas/KeyRequestRateRequestLimit"
+///         },
+///         "revision": {
+///           "type": [
+///             "string",
+///             "null"
+///           ],
+///           "pattern": "^[1-9][0-9]*$"
+///         }
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub async fn read(
     State(state): State<AppState>,
     Path((organization, workspace, key)): Path<(Uuid, Uuid, Uuid)>,
@@ -42,6 +148,120 @@ pub async fn read(
         json!({"data":state.store.key_request_rate_policy(scope,key).await.map_err(ApiError::from_store)?.ok_or_else(ApiError::not_found)?}),
     ))
 }
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/token-usage-window",
+///   "method": "get",
+///   "operation": {
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "operationId": "getKeyTokenUsageWindow",
+///     "description": "Scoped reader access. Dispatches in the rolling 60 seconds ending at window_end, across secret rotations. Known subtotals exclude unknown requests; zero known tokens does not mean zero actual usage. This endpoint does not enforce TPM and exposes no Supplier cost.",
+///     "responses": {
+///       "200": {
+///         "description": "One consistent database snapshot, including an empty window for an unused key.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "required": [
+///                     "window_seconds",
+///                     "window_end",
+///                     "requests",
+///                     "known_usage_requests",
+///                     "unknown_usage_requests",
+///                     "known_prompt_tokens",
+///                     "known_completion_tokens"
+///                   ],
+///                   "properties": {
+///                     "window_seconds": {
+///                       "type": "integer",
+///                       "const": 60
+///                     },
+///                     "window_end": {
+///                       "type": "string",
+///                       "format": "date-time"
+///                     },
+///                     "requests": {
+///                       "type": "integer",
+///                       "minimum": 0
+///                     },
+///                     "known_usage_requests": {
+///                       "type": "integer",
+///                       "minimum": 0
+///                     },
+///                     "unknown_usage_requests": {
+///                       "type": "integer",
+///                       "minimum": 0
+///                     },
+///                     "known_prompt_tokens": {
+///                       "type": "string",
+///                       "pattern": "^[0-9]+$"
+///                     },
+///                     "known_completion_tokens": {
+///                       "type": "string",
+///                       "pattern": "^[0-9]+$"
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Read permission required"
+///       },
+///       "404": {
+///         "description": "Workspace outside operator scope or key absent from workspace"
+///       }
+///     },
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "summary": "Read API key token usage window",
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
 pub async fn usage(
     State(state): State<AppState>,
     Path((organization, workspace, key)): Path<(Uuid, Uuid, Uuid)>,
@@ -63,6 +283,125 @@ pub async fn usage(
         json!({"data":state.store.key_token_usage_window(scope,key).await.map_err(ApiError::from_store)?.ok_or_else(ApiError::not_found)?}),
     ))
 }
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/request-rate-limit",
+///   "method": "put",
+///   "operation": {
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "operationId": "setKeyRequestRateLimit",
+///     "description": "Owner or installation administrator only. Rotation preserves this policy. Does not cancel already admitted requests.",
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "requests_per_minute",
+///               "expected_revision"
+///             ],
+///             "properties": {
+///               "requests_per_minute": {
+///                 "$ref": "#/components/schemas/KeyRequestRateRequestLimit"
+///               },
+///               "expected_revision": {
+///                 "type": "string",
+///                 "pattern": "^[0-9]+$",
+///                 "description": "Zero for initial configuration; maximum 9223372036854775806."
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "200": {
+///         "description": "New policy and immutable history committed atomically. Rolling windows persist across revisions.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "required": [
+///                     "revision"
+///                   ],
+///                   "properties": {
+///                     "revision": {
+///                       "type": "string",
+///                       "pattern": "^[1-9][0-9]*$"
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid limit or revision"
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Owner permission required"
+///       },
+///       "404": {
+///         "description": "Workspace is outside operator scope",
+///         "or key is absent from authorized workspace": null
+///       },
+///       "409": {
+///         "description": "Stale policy revision"
+///       },
+///       "422": {
+///         "description": "Missing or invalid JSON fields"
+///       }
+///     },
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "summary": "Set API key request rate policy",
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
 pub async fn write(
     State(state): State<AppState>,
     Path((organization, workspace, key)): Path<(Uuid, Uuid, Uuid)>,
@@ -117,6 +456,136 @@ pub async fn write(
         .map_err(ApiError::from_store)?;
     Ok(Json(json!({"data":{"revision":revision.to_string()}})))
 }
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/request-rate-limit/history",
+///   "method": "get",
+///   "operation": {
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "operationId": "listKeyRequestRateLimitHistory",
+///     "description": "Scoped readers receive descending revisions shared across rotations. Use the last revision as the next page cursor.",
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "before_revision",
+///         "in": "query",
+///         "schema": {
+///           "type": "integer",
+///           "minimum": 1
+///         }
+///       },
+///       {
+///         "name": "limit",
+///         "in": "query",
+///         "schema": {
+///           "type": "integer",
+///           "minimum": 1,
+///           "maximum": 100,
+///           "default": 50
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Immutable policy history; no internal actor identifiers.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "items": {
+///                     "type": "object",
+///                     "required": [
+///                       "requests_per_minute",
+///                       "revision",
+///                       "recorded_at",
+///                       "actor_kind",
+///                       "actor_name"
+///                     ],
+///                     "properties": {
+///                       "requests_per_minute": {
+///                         "$ref": "#/components/schemas/KeyRequestRateRequestLimit"
+///                       },
+///                       "revision": {
+///                         "type": "string",
+///                         "pattern": "^[1-9][0-9]*$"
+///                       },
+///                       "recorded_at": {
+///                         "type": "string",
+///                         "format": "date-time"
+///                       },
+///                       "actor_kind": {
+///                         "type": "string",
+///                         "enum": [
+///                           "installation",
+///                           "member"
+///                         ]
+///                       },
+///                       "actor_name": {
+///                         "type": "string"
+///                       }
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid pagination"
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Workspace access denied"
+///       },
+///       "404": {
+///         "description": "Workspace is outside operator scope",
+///         "or key is absent from authorized workspace": null
+///       }
+///     },
+///     "summary": "List API key request rate policy history",
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
 pub async fn history(
     State(state): State<AppState>,
     Path((organization, workspace, key)): Path<(Uuid, Uuid, Uuid)>,

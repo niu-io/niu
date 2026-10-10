@@ -132,8 +132,9 @@ checks literal Axum path/method registration, duplicate operations and local sch
 references; it does not prove response schemas or runtime behavior. Verify those against real HTTP and
 independent artifacts before qualifying the operation.
 
-Migrated operations include `listPaymentIntegrations` and workspace spending
-list/read/write/history; the remaining handlers still use their existing focused
+Migrated operations include `listPaymentIntegrations`, workspace spending
+list/read/write/history, key RPM/concurrency/TPM read/write/history and the key
+token-usage window; the remaining handlers still use their existing focused
 contracts. Annotation migration is incremental,
 not a claim that the full API is generated yet. Frontend integration should use
 the root contract, which includes both migrated and existing operations.
@@ -153,3 +154,11 @@ pagination. Actual HTTP reads, creation and history matched these generated
 schemas in a separate native database. Stale revision writes returned 409, null
 limit writes returned 422, and the saved revision survived restart with no
 financial entries. These are real handlers; no placeholder data was introduced.
+
+The ten key-policy operations retain their existing paths, operation IDs and
+request/response definitions. Old focused schema references remain aliases to
+the generated definitions. Current-input management calls verified unconfigured
+reads, setting a finite value, history, explicit null removal, stale-write 409,
+empty token usage and restart persistence. No inference or financial mutation
+was needed for that contract check. Prior actual priced-admission evidence remains
+linked above; annotation migration is not new inference qualification.
