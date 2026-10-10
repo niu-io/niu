@@ -76,3 +76,15 @@ customer balance entries and Supplier earnings were unchanged across the reads.
 No upstream query or generation was requested. This verifies these persisted
 personal-job reads, not customer-priced video settlement or current result
 availability.
+
+## Session billing contract follow-up
+
+The Dashboard-session billing operation now comes from its handler annotation
+and shares the generated `VideoJobBilling` schema with the inference-key API.
+A current read of the saved actual video job returned identical owner-funded
+billing through both paths, with null customer charge. A foreign workspace viewer
+received HTTP 403; revoking the selected key made the session billing read return
+HTTP 401. Submission timing, customer balance-entry and Supplier earnings counts
+were unchanged. Temporary verification sessions were revoked. The docs site's
+served generated specification matched the repository artifact. This verifies
+saved personal-job reads and authorization, not customer-priced video settlement.

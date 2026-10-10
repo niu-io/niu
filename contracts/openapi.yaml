@@ -586,24 +586,7 @@ paths:
         '403': { description: Write access denied }
         '404': { description: Missing or inaccessible job }
   /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/billing:
-    get:
-      operationId: retrieveDashboardVideoBilling
-      summary: Read saved customer video billing
-      description: Current workspace/model authorization applies. This read performs no upstream query or settlement. Exact amounts are decimal strings in billionths of the declared currency. Only a posted customer debit is a charge; unresolved liability remains explicit. Personal owner-funded jobs have no Niu customer price or charge. Procurement terms and internal revision identifiers are excluded.
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: key, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: job, in: path, required: true, schema: { type: string, format: uuid } }
-      responses:
-        '200':
-          description: Saved customer accounting snapshot
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/VideoJobBilling' }
-        '401': { description: Invalid credential }
-        '404': { description: Missing job or workspace/model access denied }
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1video~1jobs~1{job}~1billing'
   /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/timings:
     get:
       operationId: retrieveDashboardVideoTimings

@@ -98,6 +98,82 @@ pub(in crate::web) async fn status(
     )
 }
 
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/billing",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "retrieveDashboardVideoBilling",
+///     "summary": "Read saved customer video billing through a workspace session",
+///     "description": "Workspace session and current selected-key/model authorization required; no API key secret is needed. Performs no upstream query or settlement. Exact amounts are decimal nanounit strings. Only a posted customer debit is a charge; unresolved liability remains explicit. Owner-funded jobs have no Niu customer price or charge. Procurement terms and internal price revision identifiers are excluded.",
+///     "x-niu-implementation": "implemented",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "job",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Saved customer accounting snapshot",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/VideoJobBilling"
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Invalid session or selected key"
+///       },
+///       "403": {
+///         "description": "Workspace or selected-model access denied"
+///       },
+///       "404": {
+///         "description": "Job missing or inaccessible to the selected key"
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub(in crate::web) async fn billing(
     State(state): State<AppState>,
     Path((organization, workspace, key, job)): Path<JobPath>,

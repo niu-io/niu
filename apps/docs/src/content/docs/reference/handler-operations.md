@@ -10439,6 +10439,82 @@ HTTP 503: Route or durable storage unavailable
 
 HTTP 413: Request body exceeds 1 MiB; rejected before inference whether payload capture is enabled or disabled. Framework responses may use a plain-text body.
 
+## Read saved customer video billing through a workspace session
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/billing`
+
+Workspace session and current selected-key/model authorization required; no API key secret is needed. Performs no upstream query or settlement. Exact amounts are decimal nanounit strings. Only a posted customer debit is a charge; unresolved liability remains explicit. Owner-funded jobs have no Niu customer price or charge. Procurement terms and internal price revision identifiers are excluded.
+
+Implementation: `implemented`. Operation: `retrieveDashboardVideoBilling`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`job` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Saved customer accounting snapshot
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/VideoJobBilling"
+}
+```
+
+HTTP 401: Invalid session or selected key
+
+HTTP 403: Workspace or selected-model access denied
+
+HTTP 404: Job missing or inaccessible to the selected key
+
 ## Create OpenAI-compatible text embeddings
 
 `POST /v1/embeddings`
