@@ -403,4 +403,3 @@ received-cash payment or commercial Supplier agreement. It covers concurrent
 mixed-key attribution within one workspace and gateway; it does not establish
 which writes coalesced into a batch, cross-workspace batching, limiter contention
 or sustained capacity. No fixture outcome was used as evidence.
-
