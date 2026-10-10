@@ -35,7 +35,7 @@ for the independently checked dispatch and usage records and its path limitation
 
 | Capability | Implementation status | Required acceptance behavior |
 | --- | --- | --- |
-| Generic route selection | Text pool selection implemented; actual personal priority/protocol selection and concurrent weighted traffic verified; long-run distribution and paid paths open | Select eligible credentials with explicit priority/weight and consistent workspace grants and customer pricing |
+| Generic route selection | Text pool selection implemented; actual personal priority/protocol/capability selection and concurrent weighted traffic verified; long-run distribution and paid paths open | Select eligible credentials with explicit priority/weight and consistent workspace grants and customer pricing |
 | Multiple supply mappings per customer alias | Additive pools implemented; actual public-alias grants and distinct mapping attribution verified | Keep one customer model identity while independently managing multiple Supplier credential/model/offer mappings |
 | Candidate policy management | Installation API/SDK implemented; actual revision concurrency, history and scoped rejection verified | Revisioned pool membership, priorities, weights, enabled state and authorized change history |
 | Selected route revision binding | Implemented for generic managed routes; actual personal Chat model-revision race verified | Persist selected credential/model revisions; reject stale configuration before dispatch and retain immutable attribution |

@@ -27,11 +27,18 @@ pub(in crate::web) async fn embeddings(
     if !principal.allows_model(&public_model) {
         return Err(ApiError::not_found());
     }
+    let bounds = validate_embedding_request(&body)?;
+    let requirements = crate::config::ModelRequirements {
+        embedding_dimensions: bounds.dimensions.is_some(),
+        embedding_base64: bounds.encoding_format == "base64",
+        ..Default::default()
+    };
     let resolved = crate::vendors::resolve_scoped_model(
         &state,
         principal.scope().organization_id,
         &public_model,
         crate::guardrails::input::Protocol::Embeddings,
+        Some(&requirements),
     )
     .await?;
     let model = &resolved.model;

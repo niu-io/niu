@@ -125,6 +125,28 @@ impl ModelProtocol {
     }
 }
 
+/// Validated request capabilities used only to filter route-pool candidates.
+#[derive(Default)]
+pub(crate) struct ModelRequirements {
+    pub streaming: bool,
+    pub tools: bool,
+    pub streaming_tools: bool,
+    pub structured_output: bool,
+    pub embedding_dimensions: bool,
+    pub embedding_base64: bool,
+}
+
+impl ModelRequirements {
+    pub fn allows(&self, model: &ModelConfig) -> bool {
+        (!self.streaming || model.protocol().supports_streaming())
+            && (!self.tools || model.supports_tool_calls)
+            && (!self.streaming_tools || model.supports_streaming_tool_calls)
+            && (!self.structured_output || model.supports_structured_output)
+            && (!self.embedding_dimensions || model.supports_embedding_dimensions)
+            && (!self.embedding_base64 || model.supports_embedding_base64)
+    }
+}
+
 impl ModelConfig {
     pub fn protocol(&self) -> ModelProtocol {
         match self.provider.as_str() {

@@ -43,10 +43,12 @@ Disabled mappings and credentials, foreign personal credentials, unsupported
 protocols and ineligible shared offers are excluded. Among eligible candidates,
 the highest priority is selected, then weights choose within that priority tier.
 Chat, Responses and embeddings use their respective protocol declarations.
-Tool, structured-output, input/output-size and other request-specific constraints
-are still validated against the selected route; this implementation does not
-reselect on those validation failures. Operators must configure compatible
-candidates for their intended request shapes.
+Chat streaming, tool calls, streaming tool calls and structured JSON declarations
+now filter candidates before priority/weight selection. Embedding dimensions and
+base64 options likewise require the corresponding declared capabilities. Request
+syntax is validated before selection; selected-route validation remains in place
+after input inspection. Input/output-size and price-specific bounds still apply
+after selection and do not trigger reselection.
 
 Pool aliases appear in the applicable authenticated model listing; this increment
 does not publish them in the anonymous public catalog. A key granted only the
@@ -149,3 +151,21 @@ Compilation and Clippy completed. The reduction in gateway/database query
 round trips follows from the implemented query structure. Large-pool latency,
 shared-offer performance and sustained throughput have not been measured, and
 this change does not establish a production-capacity improvement.
+
+## Request capability selection
+
+An actual owner-funded run configured a higher-priority plain Chat mapping and a
+lower-priority mapping declaring tools, streaming tools and structured output.
+Forced function calls, streaming function-call arguments and strict JSON output
+selected the capable mapping. Returned arguments/content were parsed and matched
+the requested object; the stream reached its completion marker. Plain Chat still
+selected the higher-priority mapping. Independent PostgreSQL reads matched all
+four completions to the selected mapping, pool revision and exact reported usage.
+
+Malformed request shapes returned 400. The unsupported combined tools/structured
+output request returned 501. Disabling the capable member made a valid tool
+request return 503 `route_pool_unavailable`; malformed tools still returned 400.
+These rejections created no additional attempts or dispatches. The customer
+ledger remained empty and the original credential revision/digest was unchanged.
+This run does not qualify embedding option selection, paid settlement, actual
+external tool execution or price-bound-aware reselection.

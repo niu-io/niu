@@ -97,15 +97,32 @@ async fn chat_as(
         )
         .await;
     }
+    validate_generation_parameters(&body)?;
+    let messages_shape = body
+        .get("messages")
+        .and_then(Value::as_array)
+        .ok_or_else(|| ApiError::invalid_request("messages must be an array"))?;
+    if messages_shape.is_empty() {
+        return Err(ApiError::invalid_request(
+            "messages must contain at least one message",
+        ));
+    }
+    let stream = match body.get("stream") {
+        None => false,
+        Some(Value::Bool(value)) => *value,
+        _ => return Err(ApiError::invalid_request("stream must be a boolean")),
+    };
+    let requirements = chat_route_requirements(&body, stream)?;
     let resolved = crate::vendors::resolve_scoped_model(
         &state,
         principal.scope().organization_id,
         &public_model,
         crate::guardrails::input::Protocol::Chat,
+        Some(&requirements),
     )
     .await?;
     let model = &resolved.model;
-    validate_generation_parameters(&body)?;
+
     let inspected_snapshot = inspect_request_input(
         &state,
         &principal,
@@ -115,11 +132,6 @@ async fn chat_as(
         &mut body,
     )
     .await?;
-    let stream = match body.get("stream") {
-        None => false,
-        Some(Value::Bool(value)) => *value,
-        _ => return Err(ApiError::invalid_request("stream must be a boolean")),
-    };
     let messages = body
         .get("messages")
         .filter(|messages| messages.is_array())
@@ -731,6 +743,33 @@ pub(in crate::web) fn validate_chat_capabilities(
     model: &crate::config::ModelConfig,
     stream: bool,
 ) -> Result<(), ApiError> {
+    let requirements = chat_route_requirements(body, stream)?;
+    let has_tool_semantics = requirements.tools;
+    if has_tool_semantics {
+        if !model.supports_tool_calls {
+            return Err(ApiError::unsupported_message(
+                "Function tools are not enabled for this model. Choose a model with tool support or remove tool declarations and tool messages.",
+            ));
+        }
+        if stream && !model.supports_streaming_tool_calls {
+            return Err(ApiError::unsupported_message(
+                "Streaming function tools are not enabled for this model. Use nonstreaming tool calls or choose a model with streaming tool support.",
+            ));
+        }
+    }
+
+    if requirements.structured_output && !model.supports_structured_output {
+        return Err(ApiError::unsupported_message(
+            "Structured JSON output is not enabled for this model. Choose a model with structured output support or use text output.",
+        ));
+    }
+    Ok(())
+}
+
+fn chat_route_requirements(
+    body: &Value,
+    stream: bool,
+) -> Result<crate::config::ModelRequirements, ApiError> {
     let object = body
         .as_object()
         .ok_or_else(|| ApiError::invalid_request("The request body must be a JSON object"))?;
@@ -829,19 +868,6 @@ pub(in crate::web) fn validate_chat_capabilities(
                         || message.get("tool_calls").is_some()
                 })
             });
-    if has_tool_semantics {
-        if !model.supports_tool_calls {
-            return Err(ApiError::unsupported_message(
-                "Function tools are not enabled for this model. Choose a model with tool support or remove tool declarations and tool messages.",
-            ));
-        }
-        if stream && !model.supports_streaming_tool_calls {
-            return Err(ApiError::unsupported_message(
-                "Streaming function tools are not enabled for this model. Use nonstreaming tool calls or choose a model with streaming tool support.",
-            ));
-        }
-    }
-
     if let Some(format) = object.get("response_format") {
         let format = format
             .as_object()
@@ -849,11 +875,6 @@ pub(in crate::web) fn validate_chat_capabilities(
         match format.get("type").and_then(Value::as_str) {
             Some("text") => {}
             Some("json_object") => {
-                if !model.supports_structured_output {
-                    return Err(ApiError::unsupported_message(
-                        "Structured JSON output is not enabled for this model. Choose a model with structured output support or use text output.",
-                    ));
-                }
                 if stream {
                     return Err(ApiError::unsupported_message(
                         "Streaming structured JSON output is not supported. Set stream to false.",
@@ -878,11 +899,6 @@ pub(in crate::web) fn validate_chat_capabilities(
                 {
                     return Err(ApiError::invalid_request(
                         "json_schema requires a name and JSON Schema object",
-                    ));
-                }
-                if !model.supports_structured_output {
-                    return Err(ApiError::unsupported_message(
-                        "Structured JSON output is not enabled for this model. Choose a model with structured output support or use text output.",
                     ));
                 }
                 if stream {
@@ -916,7 +932,17 @@ pub(in crate::web) fn validate_chat_capabilities(
         ));
     }
 
-    Ok(())
+    Ok(crate::config::ModelRequirements {
+        streaming: stream,
+        tools: has_tool_semantics,
+        streaming_tools: stream && has_tool_semantics,
+        structured_output: matches!(
+            body.pointer("/response_format/type")
+                .and_then(Value::as_str),
+            Some("json_object" | "json_schema")
+        ),
+        ..Default::default()
+    })
 }
 
 fn structured_schema_validator(schema: &Value) -> Result<jsonschema::Validator, ()> {

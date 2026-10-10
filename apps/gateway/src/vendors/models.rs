@@ -33,6 +33,7 @@ pub(crate) async fn resolve_scoped_model(
     organization_id: uuid::Uuid,
     alias: &str,
     protocol: crate::guardrails::input::Protocol,
+    requirements: Option<&crate::config::ModelRequirements>,
 ) -> Result<ResolvedModel, ApiError> {
     if let Some(pool) = state
         .store
@@ -40,7 +41,14 @@ pub(crate) async fn resolve_scoped_model(
         .await
         .map_err(ApiError::from_store)?
     {
-        return resolve_pool(state, Some(organization_id), pool, Some(&protocol)).await;
+        return resolve_pool(
+            state,
+            Some(organization_id),
+            pool,
+            Some(&protocol),
+            requirements,
+        )
+        .await;
     }
     if let Some(route) = state
         .store
@@ -75,6 +83,7 @@ async fn resolve_pool(
     organization: Option<uuid::Uuid>,
     pool: niu_storage::ModelRoutePool,
     protocol: Option<&crate::guardrails::input::Protocol>,
+    requirements: Option<&crate::config::ModelRequirements>,
 ) -> Result<ResolvedModel, ApiError> {
     if !pool.enabled
         || pool
@@ -108,7 +117,7 @@ async fn resolve_pool(
                 }
                 Protocol::VideoText => false,
             };
-            if !supported {
+            if !supported || requirements.is_some_and(|required| !required.allows(&model)) {
                 continue;
             }
         }
@@ -264,7 +273,7 @@ pub(crate) async fn effective_models(
         models.remove(&pool.alias);
         if pool.organization_id.is_none() && pool.enabled {
             let alias = pool.alias.clone();
-            match resolve_pool(state, None, pool, None).await {
+            match resolve_pool(state, None, pool, None, None).await {
                 Ok(resolved) => {
                     models.insert(alias, resolved.model);
                 }
@@ -303,7 +312,7 @@ pub(crate) async fn scoped_models(
             && (pool.organization_id.is_none() || pool.organization_id == Some(organization_id))
         {
             let alias = pool.alias.clone();
-            match resolve_pool(state, Some(organization_id), pool, None).await {
+            match resolve_pool(state, Some(organization_id), pool, None, None).await {
                 Ok(resolved) => {
                     models.insert(alias, resolved.model);
                 }
