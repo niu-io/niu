@@ -12,6 +12,17 @@ impl Store {
         admission: GatewayAdmission,
         reservation: &GatewayReservation,
     ) -> Result<(Uuid, Uuid), StoreError> {
+        self.admit_priced_gateway_with_retry(principal, admission, reservation, None)
+            .await
+    }
+
+    pub async fn admit_priced_gateway_with_retry(
+        &self,
+        principal: &Principal,
+        admission: GatewayAdmission,
+        reservation: &GatewayReservation,
+        retry: Option<crate::GatewayRetryAdmission>,
+    ) -> Result<(Uuid, Uuid), StoreError> {
         let scope = principal.scope();
         if admission.scope.organization_id != scope.organization_id
             || admission.scope.project_id != scope.project_id
@@ -23,16 +34,7 @@ impl Store {
         }
         let attempt = admission.attempt_id;
         let mut tx = self.pool.begin().await?;
-        Self::insert_gateway_attempt(
-            &mut *tx,
-            scope,
-            admission.operation_id,
-            attempt,
-            &admission.model,
-            admission.task_id.as_deref(),
-            &admission.revision,
-        )
-        .await?;
+        Self::insert_gateway_retry_attempt(&mut tx, &admission, retry).await?;
         if let Some(route) = &admission.managed_route {
             Self::insert_managed_route(&mut *tx, attempt, route).await?;
         }

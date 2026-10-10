@@ -389,6 +389,15 @@ pub(super) async fn begin_attempt(
     principal: &niu_storage::Principal,
     request: AttemptRequest<'_>,
 ) -> Result<DispatchContext, ApiError> {
+    begin_retry_attempt(state, principal, request, None).await
+}
+
+pub(super) async fn begin_retry_attempt(
+    state: &AppState,
+    principal: &niu_storage::Principal,
+    request: AttemptRequest<'_>,
+    retry: Option<(Uuid, niu_storage::GatewayRetryAdmission)>,
+) -> Result<DispatchContext, ApiError> {
     let AttemptRequest {
         managed_route,
         personal_route,
@@ -400,6 +409,9 @@ pub(super) async fn begin_attempt(
         request_body,
         protocol,
     } = request;
+    if retry.is_some() && personal_route.is_none() && model.pricing.is_none() {
+        return Err(ApiError::unavailable());
+    }
     let token_bound = request_token_bound(request_body, &protocol);
     let scope = principal.scope();
     if personal_route.is_none()
@@ -450,13 +462,13 @@ pub(super) async fn begin_attempt(
         }
         let (operation, attempt) = state
             .store
-            .prepare_personal_gateway_attempt(
+            .prepare_personal_gateway_attempt_with_retry(
                 principal,
                 niu_storage::GatewayAdmission {
                     managed_route: managed_route.cloned(),
                     token_bound,
                     inspected_guardrails: Some(snapshot),
-                    operation_id: Uuid::new_v4(),
+                    operation_id: retry.map_or_else(Uuid::new_v4, |(operation, _)| operation),
                     attempt_id: Uuid::new_v4(),
                     scope,
                     key_id: principal.key_id(),
@@ -468,6 +480,7 @@ pub(super) async fn begin_attempt(
                     revision: revision.clone(),
                 },
                 route,
+                retry.map(|(_, policy)| policy),
             )
             .await
             .map_err(ApiError::from_store)?;
@@ -501,13 +514,13 @@ pub(super) async fn begin_attempt(
             .map_err(ApiError::from_store)?;
         state
             .store
-            .admit_priced_gateway(
+            .admit_priced_gateway_with_retry(
                 principal,
                 niu_storage::GatewayAdmission {
                     managed_route: managed_route.cloned(),
                     token_bound,
                     inspected_guardrails: Some(snapshot),
-                    operation_id: Uuid::new_v4(),
+                    operation_id: retry.map_or_else(Uuid::new_v4, |(operation, _)| operation),
                     attempt_id: Uuid::new_v4(),
                     scope,
                     key_id: principal.key_id(),
@@ -525,6 +538,7 @@ pub(super) async fn begin_attempt(
                     prompt_bound: price.max_input_tokens,
                     completion_bound: completion_bound.unwrap_or(price.max_output_tokens),
                 },
+                retry.map(|(_, policy)| policy),
             )
             .await
             .map_err(ApiError::from_store)?
@@ -575,7 +589,7 @@ pub(super) async fn begin_attempt(
                 }
             })?
     };
-    crate::request_timings::dispatched(attempt);
+    crate::request_timings::dispatched(&state.store, attempt);
     Ok(DispatchContext {
         retained_input,
         output_rules,

@@ -345,6 +345,8 @@ export type GatewayTaskEvidence = {
 export type GatewayActivityEntry = {
   attempt_id: string;
   operation_id: string;
+  /** Absent on older servers; null means no bounded retry policy was selected. */
+  retry?: { ordinal: number; predecessor_attempt_id: string | null; maximum_attempts: number; policy_revision: string } | null;
   api_key_id: string | null;
   key_name: string | null;
   provider_model: string | null;

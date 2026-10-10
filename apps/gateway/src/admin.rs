@@ -2120,6 +2120,17 @@ pub(super) fn gateway_activity_filter(
 ///           "type": "string",
 ///           "format": "uuid"
 ///         },
+///         "retry": {
+///           "type": ["object", "null"],
+///           "description": "Durable bounded retry policy and chain position; null for requests outside this policy. Internal correlation identifiers must not be displayed in product UI.",
+///           "properties": {
+///             "ordinal": {"type": "integer", "minimum": 1, "maximum": 2},
+///             "predecessor_attempt_id": {"type": ["string", "null"], "format": "uuid"},
+///             "maximum_attempts": {"type": "integer", "const": 2},
+///             "policy_revision": {"type": "string"}
+///           },
+///           "required": ["ordinal", "predecessor_attempt_id", "maximum_attempts", "policy_revision"]
+///         },
 ///         "api_key_id": {
 ///           "type": [
 ///             "string",
@@ -3017,6 +3028,17 @@ pub async fn gateway_request(
 ///         "operation_id": {
 ///           "type": "string",
 ///           "format": "uuid"
+///         },
+///         "retry": {
+///           "type": ["object", "null"],
+///           "description": "Durable bounded retry policy and chain position; null for requests outside this policy. Internal correlation identifiers must not be displayed in product UI.",
+///           "properties": {
+///             "ordinal": {"type": "integer", "minimum": 1, "maximum": 2},
+///             "predecessor_attempt_id": {"type": ["string", "null"], "format": "uuid"},
+///             "maximum_attempts": {"type": "integer", "const": 2},
+///             "policy_revision": {"type": "string"}
+///           },
+///           "required": ["ordinal", "predecessor_attempt_id", "maximum_attempts", "policy_revision"]
 ///         },
 ///         "api_key_id": {
 ///           "type": [

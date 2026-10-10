@@ -2,8 +2,9 @@
 
 Status: evolving implementation design, 2026-10-10. The additive
 [text route pool implementation](../reference/model-route-pools.md) now provides
-candidate administration and pre-dispatch selection. Complete business failover
-and paid pool qualification remain open.
+candidate administration and pre-dispatch selection, with bounded Chat failover
+for qualified OpenRouter authentication rejection. Broad business failover and
+paid pool qualification remain open.
 
 ## Inspected current structure
 
@@ -76,7 +77,7 @@ polling must not create a replacement generation on another Supplier.
 | Separate customer models and supply mappings | Multiple credentials serve one customer alias without changing grants or tariffs | Additive text pools implemented; actual personal alias/grant behavior and credit-backed customer tariff/expense separation verified |
 | Candidate administration | Revisioned membership, priority, weight, enabled state and scoped history | Implemented with actual configuration/history/concurrency evidence |
 | Candidate selection | Eligible priority/weight selection, no disabled or foreign personal routes, defined no-route response | Implemented; actual priority/protocol/disabled-member selection, scope rejection and concurrent weighted traffic verified; long-run distribution open |
-| Safe failover orchestration | Distinct attempts, bounded retries and deadlines, no uncertain resubmission | Not implemented for generic inference |
+| Safe failover orchestration | Distinct attempts, bounded retries and deadlines, no uncertain resubmission | Bounded Chat OpenRouter authentication-rejection successor implemented; broader adapters/statuses and failure combinations open |
 | Health and recovery | Defined cooldown and re-entry under concurrent gateways without a probe flood | Complete cross-adapter behavior unverified |
 | Financial and performance qualification | Actual multi-candidate traffic reconciles reservations, charges and route attribution under contention | [Actual priced selection and in-flight membership change](../reference/model-route-pools.md) reconciled; broad contention/capacity remain unverified |
 
@@ -90,7 +91,7 @@ every possible upstream service are not prerequisites for internal capability.
 See [managed route bindings](../reference/managed-route-bindings.md) for the
 implemented first increment and the exact current-input verification boundary.
 
-## Failover implementation dependencies from the current admission path
+## Admission-path review before bounded failover
 
 A source inspection at `4c2500f` identifies two prerequisites before adding a
 Chat retry loop. `Store::prepare_gateway_attempt` generates a new operation and
@@ -101,7 +102,7 @@ operation. Separately, priced admission calls `bind_customer_tariff_in_tx` for
 each new attempt, so repeating admission without an operation-level price binding
 can select a different customer tariff after an administrative edit.
 
-The next implementation must address these in the storage boundary:
+That review identified these storage requirements:
 
 1. Preserve the first operation's scope, public model and task attribution. Add
    an explicit append-attempt transaction under an operation lock; do not make
@@ -125,10 +126,9 @@ The next implementation must address these in the storage boundary:
    leaking procurement data. Video recovery remains query-only for its original
    job and is outside this text retry mechanism.
 
-These are implementation prerequisites derived from the current source, not
-completed functionality or runtime acceptance. The existing no-retry behavior
-remains in force. Actual rejection, price-change, competing-successor, unknown
-commit, stream and restart evidence is required before enabling failover.
+These were implementation prerequisites at that review checkpoint. The bounded
+Chat successor section below records the subsequent implementation; broader
+competing-successor, unknown-commit and cross-adapter qualification remains open.
 
 ## Operation retail-tariff binding foundation
 
@@ -139,9 +139,9 @@ A database trigger serializes new attempt-tariff bindings on the operation row
 and rejects a different tariff revision. The standard tariff-binding path prefers
 an already pinned operation revision over the current administrative revision.
 
-This foundation does not append attempts or enable failover. The existing generic
-admission path still creates one operation per request; safe predecessor evidence,
-operation-level retry policy and append-attempt admission remain to be implemented.
+Migration 0223 alone did not append attempts or enable failover. At that checkpoint,
+safe predecessor evidence, operation-level retry policy and append-attempt
+admission were still required; migration 0226 and the Chat path below add them.
 
 Current-input verification used a fresh native database and three actual
 OpenRouter completions backed by approved internal credit. After two completions,
@@ -193,3 +193,23 @@ without another inference or charge. Original encrypted identity was preserved
 and both isolated environments stopped. These observations do not qualify a
 mixed-source historical migration failure, concurrent successor admission, or
 actual retry orchestration; those remain open.
+
+
+## Bounded Chat successor implementation
+
+Migration 0226 and the Chat handler connect the preceding foundations to a
+versioned, two-attempt policy for canonical OpenRouter immediate authentication
+rejection. The atomic personal/priced preparation paths share an explicit append
+transaction, preserving operation scope/model/task/key identity and requiring
+persisted nonexecution with released holds. The operation lock and unique chain
+position/predecessor admit at most one successor. Funding and retail revision
+bindings remain immutable; the new attempt independently binds its chosen route
+and procurement terms. Deadline checks run again at dispatch. Current candidate,
+key, budget and Guardrail policy applies to the successor.
+
+Earlier foundation sections record historical delivery boundaries. The current
+implemented behavior and qualification limits are in the
+[upstream retry policy](../reference/upstream-retry-policy.md). This increment
+supports Chat only, excludes the rejected credential from selection and never
+resumes a chain on restart. It does not implement generic error retries, health
+cooldowns, video resubmission or failover after streaming output begins.

@@ -143,7 +143,7 @@ struct StreamExecution<'a> {
 ///         "description": "Request body exceeds 1 MiB; rejected before inference whether payload capture is enabled or disabled. Framework responses may use a plain-text body."
 ///       }
 ///     },
-///     "x-niu-status": "Basic chat is implemented for configured native provider routes. Function tools, streaming tool deltas, and structured JSON are opt-in on OpenAI-compatible routes only. Niu validates tool-call shape and structured JSON against a valid self-contained schema; json_object output must be an object. Schema compilation is offline and limited to 64 KiB, 4096 JSON nodes and depth 32, with bounded regular expressions. Niu does not execute tools. Structured JSON streaming validates assembled output before releasing [DONE], with a 1 MiB total content/refusal bound and at most 128 choices. Partial deltas are provisional; invalid final output sends an upstream_invalid_response SSE error without [DONE], while reported terminal usage remains accounting evidence. Token-priced routes support function calls and text-only tool-result conversations under the same input/output rates. Serialized messages, tool definitions, tool choices and response-format instructions count toward the configured input byte guard. Hosted tools and additional billable modalities remain unsupported.",
+///     "x-niu-status": "Basic chat is implemented for configured native provider routes. Function tools, streaming tool deltas, and structured JSON are opt-in on OpenAI-compatible routes only. Niu validates tool-call shape and structured JSON against a valid self-contained schema; json_object output must be an object. Schema compilation is offline and limited to 64 KiB, 4096 JSON nodes and depth 32, with bounded regular expressions. Niu does not execute tools. Structured JSON streaming validates assembled output before releasing [DONE], with a 1 MiB total content/refusal bound and at most 128 choices. Partial deltas are provisional; invalid final output sends an upstream_invalid_response SSE error without [DONE], while reported terminal usage remains accounting evidence. Token-priced routes support function calls and text-only tool-result conversations under the same input/output rates. Serialized messages, tool definitions, tool choices and response-format instructions count toward the configured input byte guard. Hosted tools and additional billable modalities remain unsupported. Chat pools allow at most one different-credential successor after a canonical OpenRouter immediate HTTP 401 with durable nonexecution and released holds, preserving operation price and funding under one deadline. Other errors and streams already returned to the client are not retried.",
 ///     "x-niu-implementation": "implemented",
 ///     "description": "Uses the workspace API key and its model grants, source policy, rate/concurrency/token limits and configured billing. Streaming HTTP 200 starts delivery; completion and reported usage require the terminal stream evidence. Niu does not execute function tools. See the supported scope below for structured output and modality restrictions."
 ///   },
@@ -649,7 +649,7 @@ pub(in crate::web) async fn chat(
 ///         "description": "Request body exceeds 1 MiB; rejected before inference whether payload capture is enabled or disabled. Framework responses may use a plain-text body."
 ///       }
 ///     },
-///     "x-niu-status": "Basic chat is implemented for configured native provider routes. Function tools, streaming tool deltas, and structured JSON are opt-in on OpenAI-compatible routes only. Niu validates tool-call shape and structured JSON against a valid self-contained schema; json_object output must be an object. Schema compilation is offline and limited to 64 KiB, 4096 JSON nodes and depth 32, with bounded regular expressions. Niu does not execute tools. Structured JSON streaming validates assembled output before releasing [DONE], with a 1 MiB total content/refusal bound and at most 128 choices. Partial deltas are provisional; invalid final output sends an upstream_invalid_response SSE error without [DONE], while reported terminal usage remains accounting evidence. Token-priced routes support function calls and text-only tool-result conversations under the same input/output rates. Serialized messages, tool definitions, tool choices and response-format instructions count toward the configured input byte guard. Hosted tools and additional billable modalities remain unsupported.",
+///     "x-niu-status": "Basic chat is implemented for configured native provider routes. Function tools, streaming tool deltas, and structured JSON are opt-in on OpenAI-compatible routes only. Niu validates tool-call shape and structured JSON against a valid self-contained schema; json_object output must be an object. Schema compilation is offline and limited to 64 KiB, 4096 JSON nodes and depth 32, with bounded regular expressions. Niu does not execute tools. Structured JSON streaming validates assembled output before releasing [DONE], with a 1 MiB total content/refusal bound and at most 128 choices. Partial deltas are provisional; invalid final output sends an upstream_invalid_response SSE error without [DONE], while reported terminal usage remains accounting evidence. Token-priced routes support function calls and text-only tool-result conversations under the same input/output rates. Serialized messages, tool definitions, tool choices and response-format instructions count toward the configured input byte guard. Hosted tools and additional billable modalities remain unsupported. Chat pools allow at most one different-credential successor after a canonical OpenRouter immediate HTTP 401 with durable nonexecution and released holds, preserving operation price and funding under one deadline. Other errors and streams already returned to the client are not retried.",
 ///     "description": "Requires workspace write authority and an active selected key in that workspace. The key supplies model grants, IP policy, limits and billing attribution; the member token is not forwarded upstream. Uses the same Chat execution path as /v1/chat/completions, including streaming, tools and structured output. No key secret is returned. HTTP 200 starts a stream and does not alone prove completed generation or known usage.",
 ///     "x-niu-implementation": "implemented"
 ///   }
@@ -679,7 +679,7 @@ pub(in crate::web) async fn dashboard_chat(
 async fn chat_as(
     state: AppState,
     headers: HeaderMap,
-    mut body: Value,
+    body: Value,
     principal: niu_storage::Principal,
 ) -> Result<Response, ApiError> {
     let public_model = body
@@ -717,20 +717,138 @@ async fn chat_as(
         _ => return Err(ApiError::invalid_request("stream must be a boolean")),
     };
     let requirements = chat_route_requirements(&body, stream)?;
-    let resolved = crate::vendors::resolve_scoped_model(
-        &state,
-        principal.scope().organization_id,
-        &public_model,
-        crate::guardrails::input::Protocol::Chat,
-        Some(&requirements),
-    )
-    .await?;
+    let deadline = std::time::Instant::now()
+        + Duration::from_secs(state.config.server.request_timeout_seconds);
+    state.requests.fetch_add(1, Ordering::Relaxed);
+    let mut excluded = Vec::new();
+    let mut continuation = None;
+    let mut previous_response = None;
+    loop {
+        let resolved = match crate::vendors::resolve_scoped_model_excluding(
+            &state,
+            principal.scope().organization_id,
+            &public_model,
+            crate::guardrails::input::Protocol::Chat,
+            Some(&requirements),
+            &excluded,
+        )
+        .await
+        {
+            Ok(resolved) => resolved,
+            Err(error) => return previous_response.map_or_else(|| Err(error), Ok),
+        };
+        let qualified = resolved.model.provider == "openrouter"
+            && resolved
+                .model
+                .endpoint_base()
+                .is_some_and(|base| base.trim_end_matches('/') == "https://openrouter.ai/api/v1")
+            && resolved
+                .managed_route
+                .as_ref()
+                .is_some_and(|route| route.pool_alias.is_some());
+        let vendor = resolved.managed_route.as_ref().map(|route| route.vendor_id);
+        let timeout = deadline.saturating_duration_since(std::time::Instant::now());
+        if timeout.is_zero() {
+            return previous_response.map_or_else(|| Err(ApiError::upstream()), Ok);
+        }
+        let retry = continuation.or_else(|| {
+            qualified.then(|| {
+                (
+                    Uuid::new_v4(),
+                    niu_storage::GatewayRetryAdmission::First {
+                        remaining_ms: timeout.as_millis().min(86_400_000) as i64,
+                    },
+                )
+            })
+        });
+        let (dispatch, result) = match execute_chat_attempt(
+            &state,
+            &principal,
+            ChatAttempt {
+                public_model: &public_model,
+                headers: &headers,
+                body: body.clone(),
+                stream,
+                timeout,
+                deadline,
+                retry,
+                resolved,
+            },
+        )
+        .await
+        {
+            Ok(outcome) => outcome,
+            Err(error) => {
+                if let Some(previous) = previous_response {
+                    let mut response = error.into_response();
+                    for name in ["x-niu-operation-id", "x-niu-attempt-id"] {
+                        if let Some(value) = previous.headers().get(name) {
+                            response.headers_mut().insert(name, value.clone());
+                        }
+                    }
+                    return Ok(response);
+                }
+                return Err(error);
+            }
+        };
+        let operation = dispatch.operation;
+        let attempt = dispatch.attempt;
+        let response = finalize_response(&state, dispatch, result).await;
+        // Only an immediate qualified rejection is eligible. A returned stream
+        // (including any later SSE/transport failure) never reaches this branch.
+        let rejected = response
+            .extensions()
+            .get::<niu_storage::RequestFailure>()
+            .is_some_and(|failure| {
+                failure.kind == niu_storage::RequestFailureKind::UpstreamHttpError
+                    && failure.upstream_http_status == Some(401)
+            });
+        if !qualified || continuation.is_some() || !rejected {
+            return Ok(response);
+        }
+        excluded.push(vendor.ok_or_else(ApiError::unavailable)?);
+        continuation = Some((
+            operation,
+            niu_storage::GatewayRetryAdmission::Successor {
+                predecessor_id: attempt,
+            },
+        ));
+        previous_response = Some(response);
+    }
+}
+
+struct ChatAttempt<'a> {
+    public_model: &'a str,
+    headers: &'a HeaderMap,
+    body: Value,
+    stream: bool,
+    timeout: Duration,
+    deadline: std::time::Instant,
+    retry: Option<(Uuid, niu_storage::GatewayRetryAdmission)>,
+    resolved: crate::vendors::ResolvedModel,
+}
+
+async fn execute_chat_attempt(
+    state: &AppState,
+    principal: &niu_storage::Principal,
+    request: ChatAttempt<'_>,
+) -> Result<(DispatchContext, Result<ProviderResponse, ApiError>), ApiError> {
+    let ChatAttempt {
+        public_model,
+        headers,
+        mut body,
+        stream,
+        timeout,
+        deadline,
+        retry,
+        resolved,
+    } = request;
     let model = &resolved.model;
 
     let inspected_snapshot = inspect_request_input(
-        &state,
-        &principal,
-        &public_model,
+        state,
+        principal,
+        public_model,
         model,
         crate::guardrails::input::Protocol::Chat,
         &mut body,
@@ -776,8 +894,7 @@ async fn chat_as(
         Some(optional_params)
     };
     let api_key = resolved.api_key;
-    let timeout = Duration::from_secs(state.config.server.request_timeout_seconds);
-    let task_id = request_task_id(&headers)?;
+    let task_id = request_task_id(headers)?;
     let upstream_client = if protocol.is_openai_compatible() {
         let base = model.endpoint_base().ok_or_else(ApiError::unavailable)?;
         let endpoint = format!("{}/chat/completions", base.trim_end_matches('/'));
@@ -789,14 +906,13 @@ async fn chat_as(
     } else {
         None
     };
-    state.requests.fetch_add(1, Ordering::Relaxed);
-    let dispatch = begin_attempt(
-        &state,
-        &principal,
+    let dispatch = begin_retry_attempt(
+        state,
+        principal,
         AttemptRequest {
             managed_route: resolved.managed_route.as_ref(),
             personal_route: resolved.personal_route.as_ref(),
-            public_model: &public_model,
+            public_model,
             model,
             // Priced validation has already checked or inserted this limit.
             // Reserve the forwarded bound, not the route's larger default.
@@ -809,12 +925,17 @@ async fn chat_as(
             request_body: &body,
             protocol: crate::guardrails::input::Protocol::Chat,
         },
+        retry,
     )
     .await?;
+    let timeout = deadline.saturating_duration_since(std::time::Instant::now());
+    if timeout.is_zero() {
+        return Ok((dispatch, Err(ApiError::upstream())));
+    }
     let result = execute_chat(
-        &state,
+        state,
         ChatExecution {
-            public_model: &public_model,
+            public_model,
             model,
             api_key,
             body,
@@ -828,7 +949,7 @@ async fn chat_as(
         },
     )
     .await;
-    Ok(finalize_response(&state, dispatch, result).await)
+    Ok((dispatch, result))
 }
 
 async fn execute_chat(

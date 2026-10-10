@@ -19,6 +19,8 @@ A developer can install Niu, configure a qualified Supplier, create a workspace 
 
 Current-input backend checkpoints (none qualifies a complete release gate):
 
+- [Bounded Chat failover](../reference/upstream-retry-policy.md): actual canonical OpenRouter authentication rejection followed by one distinct-credential successor, pinned price/funding, exact single charge, request-limit/deadline denials, partial-stream nonretry and restart preservation. This narrow policy does not qualify generic provider/status retries or circuit breaking.
+
 - [Structured Chat streaming](../reference/structured-output-streaming.md): actual schema/object streams, explicit invalid-output errors with accurate charges, restart preservation, and eight longer outputs at four concurrent workers. Existing native runtime refreshed without replacing configuration or encrypted identity; sustained-load and broader provider qualification remain open.
 
 - [Nonempty customer-charge restart recovery](../reference/financial-backlog-restart-live.md): one actual streamed completion retained its unpaid hold after accounting connection failures, then recovered exactly one debit after restart. Other ledgers, multi-instance nonempty backlogs and capacity remain unqualified.

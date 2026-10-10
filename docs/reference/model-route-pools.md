@@ -6,8 +6,11 @@ and customer-visible response model names use the pool alias. Each attempt
 separately binds the selected mapping, credential/model revisions and pool
 revision. Historical bindings do not change when a pool is edited.
 
-This is selection before dispatch. It does not retry a failed generation, switch
-routes after a partial stream, or resubmit uncertain work. Video mappings and
+Selection happens before each dispatch. Chat additionally supports the narrow
+[bounded authentication-rejection policy](upstream-retry-policy.md): at most one
+successor after qualified OpenRouter nonexecution, with immutable customer price
+and funding. It does not switch routes after a partial stream or resubmit
+uncertain work. Video mappings and
 reserved `codex/` aliases are excluded from this generic text mechanism.
 
 ## Administration

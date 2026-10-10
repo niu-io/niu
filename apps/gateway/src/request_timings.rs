@@ -23,13 +23,35 @@ fn millis(start: Instant) -> i64 {
 pub fn current() -> Option<Timing> {
     CURRENT.try_with(Clone::clone).ok()
 }
-pub fn dispatched(attempt: Uuid) {
+pub fn dispatched(store: &niu_storage::Store, attempt: Uuid) {
     if let Some(timing) = current() {
         let mut m = timing.0.lock().unwrap();
-        m.dispatch = Some(millis(m.start));
+        let elapsed = millis(m.start);
+        if let Some(previous) = m.attempt.filter(|previous| *previous != attempt) {
+            // The previous rejection was not delivered to the client. Preserve
+            // observed elapsed time without inventing headers/output or status.
+            let record = niu_storage::RequestTimingRecord {
+                attempt: previous,
+                dispatch_ms: m.dispatch,
+                headers_ms: None,
+                first_output_ms: None,
+                total_ms: elapsed,
+                complete: false,
+                http_status: None,
+            };
+            let store = store.clone();
+            tokio::spawn(async move {
+                if store.save_request_timing(record).await.is_err() {
+                    tracing::warn!("Superseded attempt timing persistence failed");
+                }
+            });
+        }
+        m.dispatch = Some(elapsed);
         m.attempt = Some(attempt);
+        m.first_output = None;
     }
 }
+
 impl Timing {
     pub fn output(&self) {
         let mut m = self.0.lock().unwrap();

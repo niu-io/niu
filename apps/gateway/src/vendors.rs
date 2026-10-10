@@ -20,4 +20,7 @@ pub use api::{
 pub(crate) use bootstrap::seed_from_env;
 #[cfg(test)]
 pub(crate) use models::resolve_model;
-pub(crate) use models::{effective_models, resolve_scoped_model, scoped_models};
+pub(crate) use models::{
+    ResolvedModel, effective_models, resolve_scoped_model, resolve_scoped_model_excluding,
+    scoped_models,
+};

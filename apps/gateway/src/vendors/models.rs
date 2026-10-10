@@ -35,6 +35,17 @@ pub(crate) async fn resolve_scoped_model(
     protocol: crate::guardrails::input::Protocol,
     requirements: Option<&crate::config::ModelRequirements>,
 ) -> Result<ResolvedModel, ApiError> {
+    resolve_scoped_model_excluding(state, organization_id, alias, protocol, requirements, &[]).await
+}
+
+pub(crate) async fn resolve_scoped_model_excluding(
+    state: &AppState,
+    organization_id: uuid::Uuid,
+    alias: &str,
+    protocol: crate::guardrails::input::Protocol,
+    requirements: Option<&crate::config::ModelRequirements>,
+    excluded_vendors: &[uuid::Uuid],
+) -> Result<ResolvedModel, ApiError> {
     if let Some(pool) = state
         .store
         .model_route_pool(alias)
@@ -47,8 +58,12 @@ pub(crate) async fn resolve_scoped_model(
             pool,
             Some(&protocol),
             requirements,
+            excluded_vendors,
         )
         .await;
+    }
+    if !excluded_vendors.is_empty() {
+        return Err(ApiError::route_pool_unavailable());
     }
     if let Some(route) = state
         .store
@@ -84,6 +99,7 @@ async fn resolve_pool(
     pool: niu_storage::ModelRoutePool,
     protocol: Option<&crate::guardrails::input::Protocol>,
     requirements: Option<&crate::config::ModelRequirements>,
+    excluded_vendors: &[uuid::Uuid],
 ) -> Result<ResolvedModel, ApiError> {
     if !pool.enabled
         || pool
@@ -99,6 +115,9 @@ async fn resolve_pool(
         .await
         .map_err(ApiError::from_store)?
     {
+        if excluded_vendors.contains(&route.vendor.id) {
+            continue;
+        }
         let candidate = pool
             .candidates
             .iter()
@@ -306,7 +325,7 @@ async fn apply_pool_models(
             && (pool.organization_id.is_none() || pool.organization_id == organization_id)
         {
             let alias = pool.alias.clone();
-            match resolve_pool(state, organization_id, pool, None, None).await {
+            match resolve_pool(state, organization_id, pool, None, None, &[]).await {
                 Ok(resolved) => {
                     models.insert(alias, resolved.model);
                 }
