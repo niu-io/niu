@@ -40,7 +40,10 @@ never clamped to the estimate. Customer billing remains separate.
 The initial estimator, `serialized-utf8-plus-output-v1`, reserves serialized JSON
 request byte length plus the explicit maximum output token count. It deliberately
 includes message framing and request options. Chat supports a single completion
-with string message content and no requested tools/audio modalities. Responses
+with string messages or nonempty pure-text content blocks, including validated
+ephemeral cache controls, and no requested tools/audio modalities. Cache metadata
+is included in the serialized byte estimate. Price and token admission share the
+same text-content validator. Responses
 requires text input and an explicit maximum output. Text embeddings reserve the
 serialized input request with zero output. Unsupported input or missing explicit
 output bounds return 422 `key_token_bound_required` when a finite budget applies.
@@ -162,3 +165,23 @@ commercial qualification was created. This adds priced accounting evidence for
 the exercised token-budget contention path. It does not establish provider-exact
 estimation, usage overruns, mixed protocols or sustained capacity; no fixture
 outcome supports this checkpoint.
+
+
+### Cached Chat text blocks with finite token budgets
+
+A current-input API run reproduced a compatibility defect: a valid cached text
+block with a sufficient positive key token budget returned
+`key_token_bound_required`. The shared text validator now admits this supported
+shape without relaxing the estimator or ignoring cache metadata.
+
+After the change, actual API requests with zero and insufficient positive budgets
+returned `key_token_rate_exceeded` before upstream dispatch and left no open
+customer reservation. Raising the budget admitted a real Chat completion with
+5,273 cache-write tokens; a second completion after restart reported 5,273 cache
+reads. Both retained a durable token bound and produced exact category charges
+and matching debits. Independent verification reopened the stopped database and
+reconciled saved responses, bounds, charges and debits, confirming two dispatched
+attempts, no open customer reservations and no funding. This is a single-key
+format-compatibility checkpoint, not a capacity benchmark or an exact-tokenizer
+claim. Existing multi-Gateway evidence above does not by itself qualify every
+new request format.

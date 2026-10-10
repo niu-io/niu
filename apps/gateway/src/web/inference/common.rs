@@ -348,11 +348,10 @@ fn request_token_bound(body: &Value, protocol: &crate::guardrails::input::Protoc
                 ]
                 .iter()
                 .any(|field| body.get(*field).is_some())
-                || body
-                    .get("messages")?
-                    .as_array()?
-                    .iter()
-                    .any(|m| !m.get("content").is_some_and(Value::is_string))
+                || body.get("messages")?.as_array()?.iter().any(|m| {
+                    !m.get("content")
+                        .is_some_and(super::priced_chat::text_content)
+                })
                 || (body.get("max_tokens").is_some() && body.get("max_completion_tokens").is_some())
             {
                 return None;
