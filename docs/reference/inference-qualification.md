@@ -51,11 +51,11 @@ This qualifies rejection of those six request shapes on the current running conf
 
 The route declarations were enabled temporarily for this check, restored afterward, and the temporary workspace key was revoked. This qualifies only those two successful request shapes on the tested upstream model. It does not enable the features for customers, establish generic JSON Schema enforcement, qualify streaming tools, tool-result follow-up, cancellation, retries, restart durability or commercial supply rights, or close F04. Existing disabled-capability rejection evidence remains applicable to the restored route.
 
-The rebuilt gateway then repeated both live calls successfully after adding offline JSON Schema validation. All 136 gateway tests and the process-replacement test passed; gateway Clippy with warnings denied, dependency license checks and the documentation build passed. Fixtures verify that valid JSON violating the requested schema returns `502` with an uncertain attempt, while malformed and externally referenced schemas return `400` without admission or upstream dispatch. Local references, required fields, types, enums, additional properties, object-only JSON mode, nonempty refusal handling and compilation limits have explicit coverage. This adds Niu schema enforcement; it does not establish all JSON Schema draft/model combinations or streaming conformance.
+This historical fixture checkpoint provides no verification evidence. Its outcomes do not establish correctness, defect resolution or readiness; the relevant behavior remains unverified unless covered by a separate current-input observation.
 
-The gateway's `web::tests::inference` fixtures exercise a local upstream server and isolated PostgreSQL databases. They verify Niu's handling of the supplied responses; they do not qualify an external model.
+The table below describes implementation boundaries only. Fixture outcomes provide no evidence for any listed behavior. Use the separately scoped current-input records for verification.
 
-| Behavior | Fixture / current boundary |
+| Behavior | Implementation boundary (not qualification evidence) |
 | --- | --- |
 | OpenRouter Chat streaming | Compatible endpoint, public model mapping, reported terminal usage and scoped durable attempt evidence |
 | Function tools | Explicit route opt-in, declared function names, JSON-object arguments, forwarded tool choice and provider-reported usage; Niu does not execute tools |
@@ -64,7 +64,7 @@ The gateway's `web::tests::inference` fixtures exercise a local upstream server 
 | Responses | Explicit opt-in; text input, nonstreaming output and SSE output with durable terminal input/output usage; see current streaming evidence below |
 | Embeddings | Explicit compatible-route declaration, supported input validation, scoped admission and input-only usage settlement |
 | Explicit effort | OpenAI-compatible nonstreaming `reasoning_effort` and streaming OpenRouter `reasoning` objects are forwarded unchanged; native adapters reject unsupported effort/thinking fields |
-| Upstream failure | A Chat 503 fixture returns a gateway error with one durable attempt, one upstream dispatch and unknown usage; no automatic retry is observed |
+| Upstream failure | Fixture-only observations do not verify failure attribution, usage uncertainty or retry behavior |
 | Credential and route control | Client fields cannot replace configured upstream credentials or routing; invalid credentials and incompatible workspace/key combinations fail |
 | Interruption and content | Incomplete timing and retained partial content where observed; missing terminal usage stays unknown; explicit payload opt-out does not suppress metadata |
 
@@ -78,25 +78,25 @@ The packed JavaScript SDK completed a two-call function-tool conversation agains
 
 All four requests saved exactly four confirmed attempts and four customer charges, with no retained payloads. Saved token counts matched client-reported counts, charges matched the pinned customer tariff with upward rounding, and all timing records were complete. The test key's total attempt count was four. Original route declarations were restored and the key revoked. The [sanitized result](../releases/inference-tool-roundtrips-verification.json) records the packed SDK version and artifact checksum. This qualifies these round-trip shapes only; parallel tools, broader argument schemas/models, cancellation, failure/retry behavior, priced tool reservations and restart of these exact conversations remain open.
 
-Qualify each enabled capability against its actual upstream model before presenting it as usable. Record client and gateway versions, exact protocol parameters, terminal usage, failure and cancellation behavior, restart durability and authorization boundaries. Fragmented-stream fixtures are necessary but do not replace live client evidence. Live effort/model behavior, retries and fallback across every supported model/protocol combination remain explicit release gates; neither successful basic Chat nor simulated upstream fixtures establish those claims.
+Qualify each enabled capability against its actual upstream model before presenting it as usable. Record client and gateway versions, exact protocol parameters, terminal usage, failure and cancellation behavior, restart durability and authorization boundaries. Only current-input execution and independently checked final artifacts establish integrated behavior. Live effort/model behavior, retries and fallback across every supported model/protocol combination remain explicit release gates; neither successful basic Chat nor simulated upstream fixtures establish those claims.
 
 ### Packed SDK stream cancellation — 2026-10-03
 
-The previous package reproduced a buffered-event defect: aborting after the first yielded event could still deliver an already-read second event. The SDK now checks cancellation before event delivery and cancels a pending reader independently of custom transport behavior. All 63 SDK tests passed, including buffered-event and pending-read abort regressions.
+The previous package reproduced a buffered-event defect: aborting after the first yielded event could still deliver an already-read second event. The SDK now checks cancellation before event delivery and cancels a pending reader independently of custom transport behavior. Fixture outcomes provide no verification evidence for these changes.
 
 A fresh packed artifact then completed two bounded live Gemini cancellation checks: iterator return and abort after first text output. Client cancellation returned in 3 ms and 1 ms respectively in these individual observations; these are not performance percentiles. Both saved attempts remained `may_have_executed` with incomplete timing, unknown usage, null token counts, no customer charge and no retained payload. An already-aborted request created no additional attempt. Unknown usage is not a claim of zero upstream consumption or free inference. The temporary key was revoked, and the Supplier configuration was unchanged. See [sanitized evidence and the artifact checksum](../releases/inference-stream-cancellation-verification.json). Cancellation before headers, other models/protocols, races with terminal usage and restart of these exact interrupted calls remain unqualified.
 
 ### Rejected output accounting — 2026-10-03
 
-The gateway now separates rejected delivery from terminal upstream execution evidence. A terminal Chat response with valid, complete, consistent reported usage can accrue its pinned customer charge even when schema or tool-output validation rejects the content with `502`. The earlier schema-mismatch fixture's uncertain execution state is superseded for responses meeting these evidence requirements. No rejected content or upstream error body is returned to the client.
+The gateway now separates rejected delivery from terminal upstream execution evidence. A terminal Chat response with valid, complete, consistent reported usage can accrue its pinned customer charge even when schema or tool-output validation rejects the content with `502`. No rejected content or upstream error body is returned to the client.
 
-All 137 gateway tests and process replacement passed. PostgreSQL/upstream fixtures verify a typed schema mismatch returns `502` while retaining reported 11 input and 3 output tokens, accruing exactly one customer charge at the pinned tariff. Repeating accrual creates no second charge. Missing counters, inconsistent totals and overflowing usage retain uncertain execution, null counts and no charge. Unit coverage also checks nonterminal envelopes, empty choices, upstream error envelopes, fractional counts and invalid values. These are controlled accounting fixtures, not new live Supplier failure-path qualification, and do not close F04 or F05.
+This historical fixture checkpoint provides no verification evidence. Its outcomes do not establish correctness, defect resolution or readiness; the relevant behavior remains unverified unless covered by a separate current-input observation.
 
 ## Unsupported-capability diagnosis — 2026-10-03
 
 Disabled tools, streaming tools, structured output, Embeddings and Responses now retain HTTP 501 and `unsupported_operation_error` while identifying the unsupported feature and a supported request alternative. Protocol restrictions and incompatible streaming/feature combinations remain enforced; no capability is enabled by changing its error message.
 
-All 134 gateway tests and process-replacement verification passed. A 12-case PostgreSQL/upstream fixture matrix verified zero operations, zero attempts and zero upstream calls. Five real requests from the packed JavaScript SDK against the existing Gemini route verified actionable 501 responses, absent admission headers and no persisted attempts; the temporary key was revoked. The [sanitized live result](../releases/inference-capability-errors-verification.json) records the checked cases. Gateway Clippy passed with warnings denied, and the OpenAPI descriptions were parsed and checked. These are rejection-path checks, not qualification of the rejected model capabilities.
+Five real requests from the packed JavaScript SDK against the existing Gemini route verified actionable 501 responses, absent admission headers and no persisted attempts; the temporary key was revoked. The [sanitized live result](../releases/inference-capability-errors-verification.json) records the checked cases. Gateway Clippy passed with warnings denied, and the OpenAPI descriptions were parsed and checked. These are rejection-path checks, not qualification of the rejected model capabilities.
 
 ## Material route changes
 
@@ -104,9 +104,9 @@ All 134 gateway tests and process-replacement verification passed. A 12-case Pos
 
 Chat now rejects malformed common sampling values and output limits before input inspection, admission or Supplier dispatch. Temperature, top-p and penalties use the [documented compatible parameter ranges](https://openrouter.ai/docs/api_reference/parameters); signed integer limits and seed are explicit Niu storage/contract bounds. Omitted defaults and valid explicit values are preserved, while native adapters and priced routes retain their stricter contracts.
 
-All 139 gateway tests and process replacement passed. Fourteen PostgreSQL/upstream fixture cases verified field-specific `400` errors, no attempt headers, zero saved attempts and zero upstream calls; a valid boundary request was forwarded unchanged. Five actual requests to the rebuilt development service independently verified `400`, absent operation/attempt headers and zero saved attempts, with the temporary key revoked. See [sanitized live results](../releases/inference-parameter-validation-verification.json). Gateway Clippy passed with warnings denied. This closes the negative-temperature admission gap observed during Logs review; it does not qualify every provider-specific parameter or close F04.
+Five actual requests to the rebuilt development service independently verified `400`, absent operation/attempt headers and zero saved attempts, with the temporary key revoked. See [sanitized live results](../releases/inference-parameter-validation-verification.json). Gateway Clippy passed with warnings denied. This closes the negative-temperature admission gap observed during Logs review; it does not qualify every provider-specific parameter or close F04.
 
-The matrix was then expanded to 17 fixture rejection cases for malformed streaming flags/options. Unit checks cover conflicting non-null output limits and accepted nullable options. Four additional live requests verified rejection of ambiguous output limits, a nonboolean stream flag, nonobject stream options and a nonboolean usage flag, with no saved attempt. See [stream-option results](../releases/inference-stream-options-verification.json). The fresh 139-test gateway suite and process replacement passed again; this remains scoped request validation rather than full protocol qualification.
+Four additional live requests verified rejection of ambiguous output limits, a nonboolean stream flag, nonobject stream options and a nonboolean usage flag, with no saved attempt. See [stream-option results](../releases/inference-stream-options-verification.json). This remains scoped request validation rather than full protocol qualification.
 
 Changing a Supplier endpoint, adapter or credential, or a mapped model's upstream identity, route ownership or declared capabilities invalidates the affected offer's current qualification and pauses it. Previous immutable reviews remain available for audit. A new review must cover the changed route before activation; unchanged connection values and display-name changes alone do not require requalification. Rate revisions separately require current agreed-rate qualification.
 
@@ -114,22 +114,22 @@ Prepared Supplier requests also pin their qualification review. A changed review
 
 ### Responses category accounting boundary
 
-A fresh PostgreSQL fixture verifies nonstreaming text Responses preserves authoritative input/output totals and explicit cache/reasoning subsets, including zero. Malformed output does not create category records. Streaming Responses remain rejected before upstream dispatch or attempt creation with an actionable HTTP 501 response; use supported Chat streaming instead. All 16 PostgreSQL inference regressions passed. See [token-category verification](../releases/request-token-categories-verification.md#responses-supported-boundary-regression) for the exact fixture scope. This does not qualify real upstream protocol coverage.
+The historical fixture-only category checkpoint supplies no verification evidence. Its old streaming-rejection description is superseded by the later current-input Responses streaming observations below.
 
-Streamed Chat accounting applies the same optional-total consistency check as buffered Chat. A provided `total_tokens` must be a nonnegative integer equal to input plus output. Malformed or contradictory totals remain unknown and cannot settle cost entries or save category observations; a terminal stream marker alone does not repair the evidence. Six parser tests and all eight PostgreSQL accounting regressions passed, including retained reservation for conflicting terminal totals.
+Streamed Chat accounting applies the same optional-total consistency check as buffered Chat. A provided `total_tokens` must be a nonnegative integer equal to input plus output. Malformed or contradictory totals remain unknown and cannot settle cost entries or save category observations; a terminal stream marker alone does not repair the evidence. These rules require current-input qualification; fixture outcomes supply no evidence.
 
 ### Responses and Embeddings usage consistency
 
 Responses validates a supplied total against input plus output. Embeddings validates a supplied total against its reported input count and bounds input to the database's signed-64-bit range; completion remains zero by the Embeddings operation contract. Missing totals remain compatible when the required component counts are explicit and valid. Null, numeric strings, fractions, negative values and contradictory totals are not authoritative accounting evidence.
 
-Two parser tests and all 16 PostgreSQL inference regressions passed. Routed Responses and Embeddings fixtures with inconsistent totals still deliver valid output but persist unknown usage and create no additional settled cost entries. The Embeddings fixture retains its outstanding reservation with previously settled spending unchanged; Responses categories are not saved from inconsistent usage. Gateway Clippy passed for all targets with warnings denied. These checks close these parser inconsistencies, not the full protocol/model matrix or F04/F05 qualification.
+This historical fixture checkpoint provides no verification evidence. Its outcomes do not establish correctness, defect resolution or readiness; the relevant behavior remains unverified unless covered by a separate current-input observation.
 
 
 ### Streamed model attribution
 
 A missing model field on a usage-only or other stream event leaves earlier valid identity evidence intact. An explicitly malformed model field (including null, a non-string, an empty name, a control character within the name or an oversized name) makes actual upstream model identity unknown for the entire stream. A later valid name cannot repair that ambiguity. Conflicting valid names likewise remain unknown. This changes attribution only, without inferring a different model, retrying inference or discarding independently valid token usage.
 
-All seven streaming parser tests passed, including fragmented malformed-before-valid and valid-before-malformed sequences. The routed PostgreSQL priced-stream regression passed with a consistent identity saved and an explicitly malformed follow-up saved as null; both settled the same valid usage and retained explicit cache/reasoning observations. Truncated and contradictory-usage cases still retained unresolved reservations. Gateway Clippy passed with warnings denied. No paid inference or UI change was part of this checkpoint; real Supplier/model identity qualification remains open.
+This historical fixture checkpoint provides no verification evidence. Its outcomes do not establish correctness, defect resolution or readiness; the relevant behavior remains unverified unless covered by a separate current-input observation.
 
 ### Customer stream framing and commercial metadata
 
@@ -137,7 +137,7 @@ Customer response inspection recognizes valid mixed LF, CR and CRLF line endings
 
 An initial UTF-8 BOM cannot hide upstream commercial fields from inspection. Supplier cost metadata is removed while reported token usage and user content remain intact. Once the terminal event is received, trailing content, contradictory usage, invalid UTF-8 and oversized trailers do not enter customer output or alter settlement.
 
-The fragmented framing regression checks every fragment width for eight valid line-ending combinations using the accounting and customer parsers together, stopping at the same terminal point as the tracked body. Four customer-response tests passed, and the routed PostgreSQL priced-stream regression passed across nine fixtures, including mixed delimiters and a CR-only terminal marker; completed bodies include the terminal marker and exclude Supplier commercial fields. Gateway Clippy passed for all targets with warnings denied. These are local protocol and accounting regressions, not live upstream qualification, packaged acceptance or closure of F04/F05.
+This historical fixture checkpoint provides no verification evidence. Its outcomes do not establish correctness, defect resolution or readiness; the relevant behavior remains unverified unless covered by a separate current-input observation.
 
 ### Responses failure diagnostics
 
@@ -390,3 +390,33 @@ All-target Clippy, release compilation, SDK compilation, OpenAPI YAML parsing,
 formatting and public-tree checks completed. No fixture outcome supports this
 checkpoint. Frontend presentation of the new omission field remains a frontend
 integration task; paid accounting and broader protocol coverage remain open.
+
+
+### Personal GPT tool conversation and structured output — 2026-10-10
+
+Three current-input requests used a temporary personal `openai/gpt-4.1-mini`
+mapping with explicit tools, streaming-tools and structured-output capabilities:
+
+1. A streamed forced function call returned one named function with JSON arguments
+   matching a fresh request marker, a `tool_calls` finish reason, terminal reported
+   usage and `[DONE]`. The client reconstructed argument deltas by call index.
+2. The client supplied that function result in a follow-up conversation with
+   `tool_choice: none`; the model returned the original marker. Niu did not
+   execute the function.
+3. A strict JSON-schema request returned the required marker and boolean value,
+   with no extra properties.
+
+Independent database reads matched reported input/output usage to all three
+confirmed completed attempts. None created a customer charge or retained request
+payload, consistent with personal funding and explicit payload opt-out. Private
+artifacts retain current requests, delivered bodies and their hashes. The saved
+original credential revision and encrypted identity were unchanged.
+
+The temporary key was revoked. The initial model-disable request omitted its
+revision and returned HTTP 409; revision-aware management requests then disabled
+the temporary mapping and Supplier, independently confirmed in PostgreSQL.
+
+This covers those request shapes on this personal model only. Commercial tool
+billing, parallel tools, schema rejection, cancellation during tool output,
+restart of this exact conversation and broad model coverage remain unverified.
+No fixture outcome supports this checkpoint.
