@@ -73,6 +73,10 @@ exceed the original reservation or approved company credit. Balance and availabl
 capacity can therefore be negative. New paid requests require sufficient available
 capacity and can return HTTP 402 `budget_exceeded`; billing reads remain available.
 A balance refund is a separate ledger entry and does not erase the original charge.
+The charge-reconciliation API compares gross original charges with their original
+balance debits; it does not subtract refunds. Use the balance ledger for net funds.
+[Actual nonempty reconciliation and refund verification](https://github.com/niu-io/niu/blob/main/docs/reference/customer-charge-reconciliation.md#nonempty-charges-and-partial-refund--2026-10-10)
+records the current text-accounting boundary.
 Preserve the refund idempotency key when replaying the same administrative action.
 
 An actual credit-backed run verified overrun settlement, refusal across restart,

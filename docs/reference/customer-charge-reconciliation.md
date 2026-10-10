@@ -42,6 +42,30 @@ viewer, workspace-owner and foreign-company sessions were denied. All temporary
 operator credentials were revoked. No funding, inference or synthetic charge was
 created. Compilation, Clippy, SDK build and OpenAPI parsing completed.
 
-Nonempty correct ledgers, missing/mismatched debits, duplicate sources, refunds
-and concurrent financial writes remain unverified with actual financial records.
-Fixture outcomes provide no evidence for those cases.
+### Nonempty charges and partial refund — 2026-10-10
+
+A fresh native gateway/database run on the migration-227 binary made two actual
+OpenRouter Chat calls, one streamed and one buffered. Each operation first had a
+real authentication rejection, then completed through the bounded successor.
+Explicit internal credit and test retail rates funded Niu accounting; this was
+personal upstream testing, not qualified commercial supply or received cash.
+
+The two completed attempts produced 26,420 nanounits of original customer charges.
+The report counted exactly two charge records and matched their original debits;
+all five discrepancy counts were zero. Independent SQL read both charge entries,
+and a separate inspection recomputed each charge from saved provider token usage
+and its pinned rate. Rejected predecessors and a later exhausted retry chain did
+not add charge records.
+
+An actual administrative partial refund of 4,444 nanounits was replayed with the
+same idempotency key. SQL showed exactly one refund and a net ledger balance of
+−21,976 nanounits. The balance API agreed and held reservations were zero. The
+charge reconciliation fields remained identical apart from `observed_at`: they
+correctly retained 26,420 as the gross original charge/debit totals. Restart
+preserved the report, entry counts and net balance. Invoice issuance and replay
+also retained exactly the two original successful charges.
+
+This verifies a nonempty matching text ledger with an idempotent partial refund.
+Missing/mismatched debits, duplicate sources, concurrent financial writes and
+customer media reconciliation remain unverified. No discrepancy or funding receipt
+was fabricated. Fixture outcomes provide no evidence for those cases.

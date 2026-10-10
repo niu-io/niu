@@ -151,5 +151,6 @@ See [customer cached-input pricing](../reference/cached-input-pricing.md) for ve
 
 The [customer charge reconciliation report](../reference/customer-charge-reconciliation.md)
 compares prepaid-bound text/media charges and original ledger debits without
-mutating money. Empty multi-currency reports and real authorization boundaries
-are verified; nonempty financial discrepancy cases remain unverified.
+mutating money. Empty multi-currency reports, real authorization boundaries and [nonempty text
+charges with partial refund and restart](../reference/customer-charge-reconciliation.md#nonempty-charges-and-partial-refund--2026-10-10)
+are verified. Discrepancy cases and media reconciliation remain unverified.
