@@ -85,3 +85,7 @@ Atomic admission pins the balance account and reserves against it in one transac
 Migration 0220 aligns workspace/key reservation and limit guards, plus media debit capacity enforcement, with the application account lock mode. The [cross-workspace contention run](../reference/company-credit-concurrency-live.md) found that application-only locking was insufficient, then verified four waiting admissions under shared company credit after the trigger correction. No financial predicate or historical entry changed.
 
 Token-priced Chat supports explicitly enabled function tools and text-only tool-result history, with tool definitions and instructions included in the input byte guard. [Current-input evidence](../reference/priced-function-tools-live.md) covers streamed and buffered tool responses and a post-restart follow-up with exact debits. Niu does not execute tools; hosted tools and additional billable modalities remain outside this priced contract.
+
+A [short actual text-concurrency measurement](../reference/priced-text-concurrency-live.md)
+checked 56 completions and their exact debits at concurrency 1, 4 and 8. This
+extends settlement evidence under load without qualifying production capacity.
