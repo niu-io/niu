@@ -526,3 +526,23 @@ both enabled and disabled. Oversized bodies returned 413; exact-limit JSON reach
 required-field validation. Independent database inspection found no attempts,
 financial entries or saved intents. This verifies bounded rejection and status
 semantics, not acceptance of a maximum-sized model prompt or a memory-load SLO.
+
+### Supplier credential startup coverage
+
+Startup now validates retained inference credentials directly from the Supplier
+registry in pages of 100 rather than enumerating model routes. Disabled Suppliers
+and Suppliers with no model mappings are included. Missing-key startup protection
+is retained, and this read-only validation neither rotates keys nor rewrites
+ciphertext. This does not implement master-key rotation for payment, asset, OAuth
+or media records.
+
+An actual isolated startup with a saved credential and no model mapping exposed
+the previous omission: an incompatible master key did not stop the process. After
+the fix, a current native run created 101 unbound credentials through management
+APIs, including disabled Suppliers. Wrong and missing master keys prevented
+startup. A native database fault injection moved an actual ciphertext to another
+Supplier identity on the second page; startup rejected it. Restoring the exact
+original ciphertext and key restored readiness and authenticated Supplier listing.
+Independent checks retained every ciphertext hash and revision. A separate
+read-only cryptographic preflight verified the original development registry
+without printing credentials or changing rows.

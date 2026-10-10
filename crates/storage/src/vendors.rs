@@ -232,6 +232,24 @@ impl Store {
             .await?)
     }
 
+    /// Page retained inference credentials for internal startup validation.
+    /// Never return these ciphertexts in API responses or logs.
+    pub async fn vendor_credential_page(
+        &self,
+        after: Option<Uuid>,
+    ) -> Result<Vec<(Uuid, Vec<u8>)>, StoreError> {
+        // Startup validation must include disabled and model-less Suppliers.
+        // Keep ciphertext bounded and internal; never expose it through APIs.
+        Ok(sqlx::query_as(
+            "SELECT id,credential_ciphertext FROM vendors
+             WHERE credential_ciphertext IS NOT NULL AND ($1::uuid IS NULL OR id>$1)
+             ORDER BY id LIMIT 100",
+        )
+        .bind(after)
+        .fetch_all(&self.pool)
+        .await?)
+    }
+
     /// Return a vendor's encrypted credential for a server-side provider call.
     /// The ciphertext must never be returned by an API response or logged.
     pub async fn vendor_credential_ciphertext(
