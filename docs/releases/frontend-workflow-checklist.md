@@ -618,3 +618,18 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
   returns focus to the account menu. Merchant activation, actual paid checkout,
   saved-order recovery and nonempty transaction reconciliation remain unqualified
   by this read-only browser pass.
+
+### Supplier model filtering and directory-check follow-up
+
+- Inspected the actual OpenRouter directory and API-key route management at
+  1280×720 and 390×844. The saved Supplier still has one key and 25 mappings.
+  Filtering to GPT-4.1 Mini and its non-inference directory check returned
+  “Reachable · model listed”; this does not establish generation access or quota.
+- Corrected the unmatched-model action to “Clear filter”, consistent with the
+  visible Filter field. At both widths, unmatched filtering showed zero rows;
+  clearing restored all 25 mappings, reset pagination and focused the filter.
+  Mobile page two showed rows 21–25 with Next disabled. No page overflow was
+  observed, and no credential, mapping or rate was changed.
+- The mobile check-result text is cramped in the action column. A reference-led
+  responsive treatment remains open; this pass preserves the established layout
+  and does not qualify all Supplier configuration or multiple-key lifecycle work.

@@ -9,7 +9,7 @@ import { IconChevronLeft as ChevronLeft } from "@tabler/icons-react";
 import { IconChevronRight as ChevronRight } from "@tabler/icons-react";
 import { IconPlus as Plus } from "@tabler/icons-react";
 import { IconRoute as Route, IconRefresh as Refresh } from "@tabler/icons-react";
-import { IconFilter as Search } from "@tabler/icons-react";
+import { IconFilter as Filter } from "@tabler/icons-react";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { ModelWrite, ProviderCatalogModel, ProviderModelCheck, VendorModel } from '../api';
@@ -43,7 +43,7 @@ export default function ModelMappings({ ownerFunded = false, models, catalog, ca
 }) {
   const [editing, setEditing] = useState<VendorModel | null | 'new'>(null);
   const [query, setQuery] = useState('');
-  const searchRef = useRef<HTMLInputElement>(null);
+  const filterRef = useRef<HTMLInputElement>(null);
   const editorTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [page, setPage] = useState(0);
   const [checkingAliases, setCheckingAliases] = useState<Set<string>>(() => new Set());
@@ -103,7 +103,7 @@ export default function ModelMappings({ ownerFunded = false, models, catalog, ca
   }
 
   return <section className="vendor-models" aria-label="Model routes">
-    <div className="vendor-panel-heading flex-wrap gap-3"><div className="flex min-w-0 w-full max-w-sm items-center gap-2"><Search size={17} className="shrink-0"/><Input aria-label="Filter model routes" ref={searchRef} value={query} onChange={event => { setQuery(event.target.value); setPage(0); }} placeholder="Filter by alias or upstream model" /></div>
+    <div className="vendor-panel-heading flex-wrap gap-3"><div className="flex min-w-0 w-full max-w-sm items-center gap-2"><Filter size={17} className="shrink-0"/><Input aria-label="Filter model routes" ref={filterRef} value={query} onChange={event => { setQuery(event.target.value); setPage(0); }} placeholder="Filter by alias or upstream model" /></div>
       <div className="vendor-heading-actions">
         <Button type="button" variant="ghost" size="icon-sm" aria-label="Refresh model mappings" disabled={disabled || loading} onClick={onRefresh}><span className="sr-only">Refresh</span><Refresh size={15} aria-hidden="true" /></Button>
         <Button type="button" size="sm" disabled={disabled} onClick={event => { editorTriggerRef.current = event.currentTarget; addModel(); }}><Plus />Add model</Button>
@@ -118,7 +118,7 @@ export default function ModelMappings({ ownerFunded = false, models, catalog, ca
           <p>Add the first alias to route requests to this supplier.</p>
           <Button type="button" variant="outline" disabled={disabled} onClick={event => { editorTriggerRef.current = event.currentTarget; addModel(); }}><Plus />Add model mapping</Button>
         </div>
-        : <><div className="vendor-model-toolbar"><span>{filteredModels.length.toLocaleString()} route{filteredModels.length === 1 ? '' : 's'}</span></div>{filteredModels.length === 0 ? <Empty className="min-h-60"><EmptyHeader><EmptyTitle role="heading" aria-level={3}>No matching routes</EmptyTitle><EmptyDescription>Try another alias or upstream model.</EmptyDescription></EmptyHeader><EmptyContent><Button type="button" variant="outline" onClick={() => { setQuery(''); setPage(0); searchRef.current?.focus(); }}>Clear search</Button></EmptyContent></Empty> : <div className="table-wrap vendor-model-table-wrap">
+        : <><div className="vendor-model-toolbar"><span>{filteredModels.length.toLocaleString()} route{filteredModels.length === 1 ? '' : 's'}</span></div>{filteredModels.length === 0 ? <Empty className="min-h-60"><EmptyHeader><EmptyTitle role="heading" aria-level={3}>No matching routes</EmptyTitle><EmptyDescription>Try another alias or upstream model.</EmptyDescription></EmptyHeader><EmptyContent><Button type="button" variant="outline" onClick={() => { setQuery(''); setPage(0); filterRef.current?.focus(); }}>Clear filter</Button></EmptyContent></Empty> : <div className="table-wrap vendor-model-table-wrap">
           <ShadcnTable className="vendor-model-table">
             <TableHeader><TableRow><TableHead scope="col">Niu alias</TableHead><TableHead scope="col">Upstream model</TableHead><TableHead scope="col">Optional features</TableHead><TableHead scope="col">Catalog</TableHead><TableHead scope="col">Status</TableHead><TableHead scope="col"><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
             <TableBody>{visibleModels.map(model => {
