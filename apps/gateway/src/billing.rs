@@ -27,6 +27,235 @@ async fn authorize(
     }
     Ok(())
 }
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/billing",
+///   "method": "get",
+///   "operation": {
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "operationId": "getCustomerBilling",
+///     "summary": "Read workspace customer charges, tariffs and latest 100 invoices",
+///     "description": "Requires workspace read access. Balances cover the full ledger per currency. All monetary amounts and aggregate counts are decimal integer strings. Upstream costs are separate. Cache-Control is no-store.",
+///     "responses": {
+///       "200": {
+///         "description": "Billing overview",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "required": [
+///                     "balances",
+///                     "unresolved",
+///                     "unpriced",
+///                     "tariffs",
+///                     "invoices"
+///                   ],
+///                   "properties": {
+///                     "balances": {
+///                       "type": "array",
+///                       "items": {
+///                         "type": "object",
+///                         "required": [
+///                           "currency",
+///                           "charged_nanos",
+///                           "unbilled_nanos",
+///                           "due_nanos",
+///                           "paid_nanos"
+///                         ],
+///                         "properties": {
+///                           "currency": {
+///                             "type": "string"
+///                           },
+///                           "charged_nanos": {
+///                             "type": "string",
+///                             "pattern": "^[0-9]+$"
+///                           },
+///                           "unbilled_nanos": {
+///                             "type": "string",
+///                             "pattern": "^[0-9]+$"
+///                           },
+///                           "due_nanos": {
+///                             "allOf": [
+///                               {
+///                                 "type": "string",
+///                                 "pattern": "^[0-9]+$"
+///                               }
+///                             ],
+///                             "description": "Invoiced charges without an invoice receipt or matching balance debit."
+///                           },
+///                           "paid_nanos": {
+///                             "allOf": [
+///                               {
+///                                 "type": "string",
+///                                 "pattern": "^[0-9]+$"
+///                               }
+///                             ],
+///                             "description": "Charges settled by a balance debit or invoice receipt, counted once, including balance debits before invoicing."
+///                           }
+///                         }
+///                       }
+///                     },
+///                     "unresolved": {
+///                       "allOf": [
+///                         {
+///                           "type": "string",
+///                           "pattern": "^[0-9]+$"
+///                         }
+///                       ],
+///                       "description": "Dispatched non-personal requests with a text or media price binding but no corresponding charge; excludes confirmed nonexecution."
+///                     },
+///                     "unpriced": {
+///                       "allOf": [
+///                         {
+///                           "type": "string",
+///                           "pattern": "^[0-9]+$"
+///                         }
+///                       ],
+///                       "description": "Dispatched non-personal requests without either a text or media price binding; excludes confirmed nonexecution."
+///                     },
+///                     "tariffs": {
+///                       "type": "array",
+///                       "items": {
+///                         "type": "object",
+///                         "required": [
+///                           "model_alias",
+///                           "revision",
+///                           "currency",
+///                           "prompt_rate",
+///                           "completion_rate"
+///                         ],
+///                         "properties": {
+///                           "model_alias": {
+///                             "type": "string"
+///                           },
+///                           "revision": {
+///                             "type": "string",
+///                             "format": "uuid"
+///                           },
+///                           "currency": {
+///                             "type": "string"
+///                           },
+///                           "prompt_rate": {
+///                             "type": "string",
+///                             "pattern": "^[0-9]+$"
+///                           },
+///                           "completion_rate": {
+///                             "type": "string",
+///                             "pattern": "^[0-9]+$"
+///                           },
+///                           "cached_prompt_rate": {
+///                             "type": [
+///                               "string",
+///                               "null"
+///                             ],
+///                             "pattern": "^[0-9]+$"
+///                           }
+///                         }
+///                       }
+///                     },
+///                     "invoices": {
+///                       "type": "array",
+///                       "items": {
+///                         "type": "object",
+///                         "required": [
+///                           "id",
+///                           "from_ms",
+///                           "to_ms",
+///                           "currency",
+///                           "amount_nanos",
+///                           "created_at",
+///                           "status",
+///                           "payment_reference"
+///                         ],
+///                         "properties": {
+///                           "id": {
+///                             "type": "string",
+///                             "format": "uuid"
+///                           },
+///                           "from_ms": {
+///                             "type": "integer",
+///                             "format": "int64"
+///                           },
+///                           "to_ms": {
+///                             "type": "integer",
+///                             "format": "int64"
+///                           },
+///                           "currency": {
+///                             "type": "string"
+///                           },
+///                           "amount_nanos": {
+///                             "type": "string",
+///                             "pattern": "^[0-9]+$"
+///                           },
+///                           "created_at": {
+///                             "type": "string",
+///                             "format": "date-time"
+///                           },
+///                           "status": {
+///                             "type": "string",
+///                             "enum": [
+///                               "issued",
+///                               "paid"
+///                             ],
+///                             "description": "Paid when an invoice receipt exists or every included charge is settled by a matching balance debit or has zero value. Credit-backed account debt remains separate."
+///                           },
+///                           "payment_reference": {
+///                             "type": [
+///                               "string",
+///                               "null"
+///                             ]
+///                           }
+///                         }
+///                       }
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Invalid or expired credential"
+///       },
+///       "404": {
+///         "description": "Workspace outside authorized scope"
+///       }
+///     },
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
 pub async fn overview(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -42,6 +271,137 @@ pub async fn overview(
     ))
 }
 
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/billing/tariffs",
+///   "method": "post",
+///   "operation": {
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "operationId": "publishCustomerSellingRate",
+///     "summary": "Publish an immutable customer selling rate revision",
+///     "description": "Installation only. Rates are currency nanounits per million text tokens, bounded at 1000000000000000. Optional cached_prompt_rate independently prices reported cached input. Null selects flat input pricing. When replacing an existing cached tariff this field must be explicit; omission conflicts. Missing cached usage keeps charges unresolved. No retroactive billing. Cache-Control is no-store.",
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "model_alias",
+///               "currency",
+///               "prompt_rate",
+///               "completion_rate"
+///             ],
+///             "properties": {
+///               "model_alias": {
+///                 "type": "string",
+///                 "maxLength": 200
+///               },
+///               "currency": {
+///                 "type": "string",
+///                 "pattern": "^[A-Z]{3}$"
+///               },
+///               "prompt_rate": {
+///                 "type": "string",
+///                 "pattern": "^[0-9]+$"
+///               },
+///               "completion_rate": {
+///                 "type": "string",
+///                 "pattern": "^[0-9]+$"
+///               },
+///               "cached_prompt_rate": {
+///                 "type": [
+///                   "string",
+///                   "null"
+///                 ],
+///                 "pattern": "^[0-9]+$",
+///                 "description": "Optional cache-read rate with the same unit and maximum as prompt_rate."
+///               },
+///               "expected_revision": {
+///                 "type": [
+///                   "string",
+///                   "null"
+///                 ],
+///                 "format": "uuid"
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "200": {
+///         "description": "Published immutable customer tariff revision",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "required": [
+///                     "revision"
+///                   ],
+///                   "properties": {
+///                     "revision": {
+///                       "type": "string",
+///                       "format": "uuid"
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid rates, currency or unavailable model alias"
+///       },
+///       "403": {
+///         "description": "Installation authority required"
+///       },
+///       "409": {
+///         "description": "Stale expected revision"
+///       },
+///       "401": {
+///         "description": "Invalid or expired administrative credential."
+///       },
+///       "404": {
+///         "description": "Workspace outside authorized scope."
+///       }
+///     },
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
 pub async fn tariff(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -211,6 +571,123 @@ pub struct InvoiceInput {
     currency: String,
     idempotency_key: Uuid,
 }
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/billing/invoices",
+///   "method": "post",
+///   "operation": {
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "operationId": "issueCustomerUsageInvoice",
+///     "summary": "Issue an immutable itemized usage statement",
+///     "description": "Installation only. Half-open UTC dispatch interval [from_ms, to_ms), maximum 366 days, one currency. Includes text and media charges. Rejects unresolved priced usage, unsettled media balance debits, overlapping periods and empty periods. Exact idempotent retries return the same invoice. Does not collect money or calculate tax. Cache-Control is no-store.",
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "from_ms",
+///               "to_ms",
+///               "currency",
+///               "idempotency_key"
+///             ],
+///             "properties": {
+///               "from_ms": {
+///                 "type": "integer",
+///                 "format": "int64",
+///                 "minimum": 0
+///               },
+///               "to_ms": {
+///                 "type": "integer",
+///                 "format": "int64"
+///               },
+///               "currency": {
+///                 "type": "string",
+///                 "pattern": "^[A-Z]{3}$"
+///               },
+///               "idempotency_key": {
+///                 "type": "string",
+///                 "format": "uuid"
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "200": {
+///         "description": "Invoice identity, including an exact idempotent replay",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "required": [
+///                     "id"
+///                   ],
+///                   "properties": {
+///                     "id": {
+///                       "type": "string",
+///                       "format": "uuid"
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid period or currency"
+///       },
+///       "403": {
+///         "description": "Installation authority required"
+///       },
+///       "409": {
+///         "description": "Unresolved usage, overlapping or empty period, or changed idempotency payload"
+///       },
+///       "401": {
+///         "description": "Invalid or expired administrative credential."
+///       },
+///       "404": {
+///         "description": "Workspace outside authorized scope."
+///       }
+///     },
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
 pub async fn issue(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -240,6 +717,259 @@ pub async fn issue(
 pub struct InvoiceLinesQuery {
     media_after: Option<Uuid>,
 }
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}",
+///   "method": "get",
+///   "operation": {
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "operationId": "getCustomerInvoiceLines",
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "invoice",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "media_after",
+///         "in": "query",
+///         "description": "Opaque media_next_cursor from the preceding page. Text groups repeat on each page.",
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "summary": "Read invoice lines grouped by model and pinned rate revision",
+///     "description": "Requires workspace read access. Returns no entries for an invoice outside that workspace. Cache-Control is no-store. Text quantities and rates are pinned to the charge revision; publishing a new tariff does not reprice historical invoice lines. Supplier expenses are never included.",
+///     "responses": {
+///       "200": {
+///         "description": "Grouped immutable charge entries",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data",
+///                 "media_lines",
+///                 "media_next_cursor"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "items": {
+///                     "allOf": [
+///                       {
+///                         "type": "object",
+///                         "required": [
+///                           "model_alias",
+///                           "revision",
+///                           "currency",
+///                           "prompt_rate",
+///                           "completion_rate"
+///                         ],
+///                         "properties": {
+///                           "model_alias": {
+///                             "type": "string"
+///                           },
+///                           "revision": {
+///                             "type": "string",
+///                             "format": "uuid"
+///                           },
+///                           "currency": {
+///                             "type": "string"
+///                           },
+///                           "prompt_rate": {
+///                             "type": "string",
+///                             "pattern": "^[0-9]+$"
+///                           },
+///                           "completion_rate": {
+///                             "type": "string",
+///                             "pattern": "^[0-9]+$"
+///                           },
+///                           "cached_prompt_rate": {
+///                             "type": [
+///                               "string",
+///                               "null"
+///                             ],
+///                             "pattern": "^[0-9]+$"
+///                           }
+///                         }
+///                       },
+///                       {
+///                         "type": "object",
+///                         "required": [
+///                           "requests",
+///                           "prompt_tokens",
+///                           "completion_tokens",
+///                           "amount_nanos"
+///                         ],
+///                         "properties": {
+///                           "requests": {
+///                             "type": "string",
+///                             "pattern": "^[0-9]+$"
+///                           },
+///                           "prompt_tokens": {
+///                             "type": "string",
+///                             "pattern": "^[0-9]+$"
+///                           },
+///                           "completion_tokens": {
+///                             "type": "string",
+///                             "pattern": "^[0-9]+$"
+///                           },
+///                           "cached_prompt_tokens": {
+///                             "type": [
+///                               "string",
+///                               "null"
+///                             ],
+///                             "pattern": "^[0-9]+$"
+///                           },
+///                           "cached_prompt_rate": {
+///                             "type": [
+///                               "string",
+///                               "null"
+///                             ],
+///                             "pattern": "^[0-9]+$"
+///                           },
+///                           "amount_nanos": {
+///                             "type": "string",
+///                             "pattern": "^[0-9]+$"
+///                           }
+///                         }
+///                       }
+///                     ]
+///                   }
+///                 },
+///                 "media_next_cursor": {
+///                   "type": [
+///                     "string",
+///                     "null"
+///                   ],
+///                   "format": "uuid",
+///                   "description": "Pass as media_after for the next page; null when exhausted."
+///                 },
+///                 "media_lines": {
+///                   "type": "array",
+///                   "maxItems": 100,
+///                   "description": "Per-request customer media receipts. Text groups remain in data; both arrays contribute to the invoice total.",
+///                   "items": {
+///                     "type": "object",
+///                     "required": [
+///                       "model_alias",
+///                       "currency",
+///                       "amount_nanos",
+///                       "tariff_revision",
+///                       "meter",
+///                       "measured_quantity",
+///                       "billable_quantity",
+///                       "discount_revisions",
+///                       "bound_exceeded"
+///                     ],
+///                     "properties": {
+///                       "model_alias": {
+///                         "type": "string"
+///                       },
+///                       "currency": {
+///                         "type": "string"
+///                       },
+///                       "amount_nanos": {
+///                         "type": "string",
+///                         "pattern": "^[0-9]+$"
+///                       },
+///                       "tariff_revision": {
+///                         "type": "string"
+///                       },
+///                       "meter": {
+///                         "type": "string"
+///                       },
+///                       "measured_quantity": {
+///                         "type": "object",
+///                         "required": [
+///                           "numerator",
+///                           "denominator"
+///                         ],
+///                         "properties": {
+///                           "numerator": {
+///                             "type": "string",
+///                             "pattern": "^[0-9]+$"
+///                           },
+///                           "denominator": {
+///                             "type": "string",
+///                             "pattern": "^[1-9][0-9]*$"
+///                           }
+///                         }
+///                       },
+///                       "billable_quantity": {
+///                         "type": "object",
+///                         "required": [
+///                           "numerator",
+///                           "denominator"
+///                         ],
+///                         "properties": {
+///                           "numerator": {
+///                             "type": "string",
+///                             "pattern": "^[0-9]+$"
+///                           },
+///                           "denominator": {
+///                             "type": "string",
+///                             "pattern": "^[1-9][0-9]*$"
+///                           }
+///                         }
+///                       },
+///                       "discount_revisions": {
+///                         "type": "array",
+///                         "items": {
+///                           "type": "string"
+///                         }
+///                       },
+///                       "bound_exceeded": {
+///                         "type": "boolean"
+///                       }
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "404": {
+///         "description": "Workspace outside authorized scope"
+///       },
+///       "401": {
+///         "description": "Invalid or expired administrative credential."
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
 pub async fn lines(
     State(state): State<AppState>,
     headers: HeaderMap,

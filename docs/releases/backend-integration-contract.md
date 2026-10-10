@@ -370,3 +370,13 @@ An isolated current-input run set one key to three requests per minute, then com
 ### Concurrent partial charge refunds
 
 An isolated current-input run created two real credit-backed Chat charges, then sent two simultaneous partial refunds against the first charge with distinct idempotency keys. Each requested more than half the original amount, so together they would exceed it. Exactly one returned 200 and one 409. Replaying the successful request retained one refund row; refunding the exact remainder brought the sum to the original debit, and another one-nanounit refund returned 409. Independent SQL preserved the original customer charges and matched the final ledger balance. The key allowance API reduced committed spending to the second charge and restored exactly the refunded amount as remaining allowance. This verifies the exercised internal balance-refund race, not an external merchant refund or funding reversal. No funding receipt was created.
+
+The generated handler reference now includes workspace billing overview, customer
+text tariff publication, usage invoice creation and invoice lines. These remain
+existing implemented routes: installation authority is required for tariff and
+invoice writes; scoped readers can inspect customer billing. A current-input
+isolated run checked actual HTTP response types and required fields against the
+generated schemas while independently reconciling three upstream completions
+with PostgreSQL charges, cache quantities and balance debits. Repricing and
+restart preserved the historical invoice response. Media invoice pagination and
+external payment settlement were not exercised by that run.

@@ -2574,6 +2574,740 @@ HTTP 403: Workspace read permission denied
 
 HTTP 404: Workspace or request unavailable in this scope
 
+## Read workspace customer charges, tariffs and latest 100 invoices
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/billing`
+
+Requires workspace read access. Balances cover the full ledger per currency. All monetary amounts and aggregate counts are decimal integer strings. Upstream costs are separate. Cache-Control is no-store.
+
+Implementation: `implemented`. Operation: `getCustomerBilling`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Billing overview
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "balances",
+        "unresolved",
+        "unpriced",
+        "tariffs",
+        "invoices"
+      ],
+      "properties": {
+        "balances": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "currency",
+              "charged_nanos",
+              "unbilled_nanos",
+              "due_nanos",
+              "paid_nanos"
+            ],
+            "properties": {
+              "currency": {
+                "type": "string"
+              },
+              "charged_nanos": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "unbilled_nanos": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "due_nanos": {
+                "allOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9]+$"
+                  }
+                ],
+                "description": "Invoiced charges without an invoice receipt or matching balance debit."
+              },
+              "paid_nanos": {
+                "allOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9]+$"
+                  }
+                ],
+                "description": "Charges settled by a balance debit or invoice receipt, counted once, including balance debits before invoicing."
+              }
+            }
+          }
+        },
+        "unresolved": {
+          "allOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          ],
+          "description": "Dispatched non-personal requests with a text or media price binding but no corresponding charge; excludes confirmed nonexecution."
+        },
+        "unpriced": {
+          "allOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          ],
+          "description": "Dispatched non-personal requests without either a text or media price binding; excludes confirmed nonexecution."
+        },
+        "tariffs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "model_alias",
+              "revision",
+              "currency",
+              "prompt_rate",
+              "completion_rate"
+            ],
+            "properties": {
+              "model_alias": {
+                "type": "string"
+              },
+              "revision": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "currency": {
+                "type": "string"
+              },
+              "prompt_rate": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "completion_rate": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "cached_prompt_rate": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[0-9]+$"
+              }
+            }
+          }
+        },
+        "invoices": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "from_ms",
+              "to_ms",
+              "currency",
+              "amount_nanos",
+              "created_at",
+              "status",
+              "payment_reference"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "from_ms": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "to_ms": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "currency": {
+                "type": "string"
+              },
+              "amount_nanos": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "issued",
+                  "paid"
+                ],
+                "description": "Paid when an invoice receipt exists or every included charge is settled by a matching balance debit or has zero value. Credit-backed account debt remains separate."
+              },
+              "payment_reference": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Invalid or expired credential
+
+HTTP 404: Workspace outside authorized scope
+
+## Publish an immutable customer selling rate revision
+
+`POST /admin/v1/organizations/{organization}/projects/{project}/billing/tariffs`
+
+Installation only. Rates are currency nanounits per million text tokens, bounded at 1000000000000000. Optional cached_prompt_rate independently prices reported cached input. Null selects flat input pricing. When replacing an existing cached tariff this field must be explicit; omission conflicts. Missing cached usage keeps charges unresolved. No retroactive billing. Cache-Control is no-store.
+
+Implementation: `implemented`. Operation: `publishCustomerSellingRate`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "model_alias",
+    "currency",
+    "prompt_rate",
+    "completion_rate"
+  ],
+  "properties": {
+    "model_alias": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "prompt_rate": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "completion_rate": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "cached_prompt_rate": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$",
+      "description": "Optional cache-read rate with the same unit and maximum as prompt_rate."
+    },
+    "expected_revision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Published immutable customer tariff revision
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "revision"
+      ],
+      "properties": {
+        "revision": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid rates, currency or unavailable model alias
+
+HTTP 403: Installation authority required
+
+HTTP 409: Stale expected revision
+
+HTTP 401: Invalid or expired administrative credential.
+
+HTTP 404: Workspace outside authorized scope.
+
+## Issue an immutable itemized usage statement
+
+`POST /admin/v1/organizations/{organization}/projects/{project}/billing/invoices`
+
+Installation only. Half-open UTC dispatch interval [from_ms, to_ms), maximum 366 days, one currency. Includes text and media charges. Rejects unresolved priced usage, unsettled media balance debits, overlapping periods and empty periods. Exact idempotent retries return the same invoice. Does not collect money or calculate tax. Cache-Control is no-store.
+
+Implementation: `implemented`. Operation: `issueCustomerUsageInvoice`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "from_ms",
+    "to_ms",
+    "currency",
+    "idempotency_key"
+  ],
+  "properties": {
+    "from_ms": {
+      "type": "integer",
+      "format": "int64",
+      "minimum": 0
+    },
+    "to_ms": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Invoice identity, including an exact idempotent replay
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid period or currency
+
+HTTP 403: Installation authority required
+
+HTTP 409: Unresolved usage, overlapping or empty period, or changed idempotency payload
+
+HTTP 401: Invalid or expired administrative credential.
+
+HTTP 404: Workspace outside authorized scope.
+
+## Read invoice lines grouped by model and pinned rate revision
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}`
+
+Requires workspace read access. Returns no entries for an invoice outside that workspace. Cache-Control is no-store. Text quantities and rates are pinned to the charge revision; publishing a new tariff does not reprice historical invoice lines. Supplier expenses are never included.
+
+Implementation: `implemented`. Operation: `getCustomerInvoiceLines`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`invoice` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`media_after` (query, optional)
+
+Opaque media_next_cursor from the preceding page. Text groups repeat on each page.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Grouped immutable charge entries
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "media_lines",
+    "media_next_cursor"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": [
+              "model_alias",
+              "revision",
+              "currency",
+              "prompt_rate",
+              "completion_rate"
+            ],
+            "properties": {
+              "model_alias": {
+                "type": "string"
+              },
+              "revision": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "currency": {
+                "type": "string"
+              },
+              "prompt_rate": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "completion_rate": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "cached_prompt_rate": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[0-9]+$"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "requests",
+              "prompt_tokens",
+              "completion_tokens",
+              "amount_nanos"
+            ],
+            "properties": {
+              "requests": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "prompt_tokens": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "completion_tokens": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "cached_prompt_tokens": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[0-9]+$"
+              },
+              "cached_prompt_rate": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[0-9]+$"
+              },
+              "amount_nanos": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "media_next_cursor": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid",
+      "description": "Pass as media_after for the next page; null when exhausted."
+    },
+    "media_lines": {
+      "type": "array",
+      "maxItems": 100,
+      "description": "Per-request customer media receipts. Text groups remain in data; both arrays contribute to the invoice total.",
+      "items": {
+        "type": "object",
+        "required": [
+          "model_alias",
+          "currency",
+          "amount_nanos",
+          "tariff_revision",
+          "meter",
+          "measured_quantity",
+          "billable_quantity",
+          "discount_revisions",
+          "bound_exceeded"
+        ],
+        "properties": {
+          "model_alias": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "amount_nanos": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tariff_revision": {
+            "type": "string"
+          },
+          "meter": {
+            "type": "string"
+          },
+          "measured_quantity": {
+            "type": "object",
+            "required": [
+              "numerator",
+              "denominator"
+            ],
+            "properties": {
+              "numerator": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "denominator": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              }
+            }
+          },
+          "billable_quantity": {
+            "type": "object",
+            "required": [
+              "numerator",
+              "denominator"
+            ],
+            "properties": {
+              "numerator": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "denominator": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              }
+            }
+          },
+          "discount_revisions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "bound_exceeded": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 404: Workspace outside authorized scope
+
+HTTP 401: Invalid or expired administrative credential.
+
 ## Read EPay configuration with platform administrator read access
 
 `GET /admin/v1/platform/payments/epay`
