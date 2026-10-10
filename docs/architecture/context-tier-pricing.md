@@ -84,8 +84,7 @@ thresholds returned HTTP 400; omitted existing schedules returned 409. Explicit
 null returned JSON-schema HTTP 422, rather than clearing the schedule.
 
 These thresholds and rates are internal verification configuration, not advertised
-commercial context tiers. Customer exports, unknown required quantities in a
-selected tier, and two-Gateway tier reservation races still require actual evidence.
+commercial context tiers. Customer exports still require tier-specific actual evidence.
 
 ### Cache categories and concurrent publication
 
@@ -111,3 +110,28 @@ selected threshold and rates, and no balance reservation remained held.
 The first verification attempt stopped because the verification script queried
 an incorrectly named execution column. The corrected run and independent artifact
 inspection supply the evidence above; the interrupted run is not product evidence.
+
+
+### Shared balance and missing tier usage
+
+Two native Gateway processes shared a fresh PostgreSQL database and an internal
+credit limit of 32,768 nanounits. All base rates, fees and minimums were zero. A
+reachable threshold-1,000 tier priced only cache writes at 1,000,000 nanounits per
+million tokens, making the conservative input-bound reservation 32,768 nanounits.
+Two simultaneous actual Claude Haiku requests returned one HTTP 200 and one 402.
+The rejection was observed while the other HTTP call was pending and exactly one
+balance reservation was held. Only one attempt, charge and debit existed after
+completion. After restarting the Gateways, remaining credit was below the full
+reservation bound and another request was rejected without another attempt.
+An independent database reopen verified the zero base schedule, selected tier,
+actual response hash, exact cache-write charge/debit and absence of open holds.
+This is a two-request admission check, not a throughput or capacity result.
+
+A separate actual GPT-4.1-mini Chat request selected a threshold-1 tier whose
+cache-write rate was configured, while the base cache-write rate was null. The
+upstream supplied aggregate input/output usage but no cache-write quantity.
+The attempt completed with provider-reported aggregate usage; no customer charge
+or debit was invented, and its balance reservation remained held across restart.
+Independent reopening verified the saved response and immutable selected schedule,
+missing category, absent financial entries and retained hold. Unknown category
+usage therefore remains unresolved for this observed tier path.
