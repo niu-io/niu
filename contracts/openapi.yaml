@@ -1238,6 +1238,8 @@ paths:
     $ref: './provider-business.openapi.yaml#/paths/~1admin~1v1~1providers~1{provider}~1dashboard'
   /admin/v1/providers/{provider}/administration:
     $ref: './provider-business.openapi.yaml#/paths/~1admin~1v1~1providers~1{provider}~1administration'
+  /admin/v1/providers/{provider}/earnings:
+    $ref: './provider-business.openapi.yaml#/paths/~1admin~1v1~1providers~1{provider}~1earnings'
   /admin/v1/providers/{provider}/settlements:
     $ref: './provider-business.openapi.yaml#/paths/~1admin~1v1~1providers~1{provider}~1settlements'
   /healthz:

@@ -7951,6 +7951,180 @@
         "x-niu-implementation": "implemented"
       }
     },
+    "/admin/v1/providers/{provider}/earnings": {
+      "get": {
+        "operationId": "listSupplierEarnings",
+        "summary": "Page platform Supplier accrued and paid obligations",
+        "description": "Platform administration required; Supplier membership and company ownership do not grant access. Full retained earning history, creation time descending then attempt ID ascending, using the existing ledger index. Exact amount strings; no customer identity, workspace, credential or customer selling price. The id is an internal selection value for the existing settlement POST, never a display label. A page is one database snapshot; settlement status may change between requests and settlement writes revalidate unpaid selections. Reads do not create earnings or payments. Missing or out-of-filter cursors return 409. Cache-Control no-store.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Prior next_cursor; omit for the first page."
+          },
+          {
+            "name": "currency",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z]{3}$"
+            },
+            "description": "Filter one currency without conversion."
+          },
+          {
+            "name": "from_ms",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0,
+              "maximum": 253402300799999
+            },
+            "description": "Inclusive payment-record creation time. Unix milliseconds."
+          },
+          {
+            "name": "to_ms",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0,
+              "maximum": 253402300799999
+            },
+            "description": "Exclusive payment-record creation time; must follow from. Unix milliseconds."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "description": "Maximum page size."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Supplier earning page; next_cursor null ends traversal.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "next_cursor"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "model_alias",
+                          "currency",
+                          "amount_nanos",
+                          "billing_meter",
+                          "created_at",
+                          "status"
+                        ],
+                        "additionalProperties": false,
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "currency": {
+                            "type": "string",
+                            "pattern": "^[A-Z]{3}$"
+                          },
+                          "amount_nanos": {
+                            "type": "string",
+                            "pattern": "^[0-9]+$"
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "model_alias": {
+                            "type": "string"
+                          },
+                          "billing_meter": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "accrued",
+                              "paid"
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "next_cursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid filters, range or page size."
+          },
+          "401": {
+            "description": "Invalid credential."
+          },
+          "403": {
+            "description": "Platform administration required, including for Supplier members."
+          },
+          "404": {
+            "description": "Supplier does not exist or is deleted."
+          },
+          "409": {
+            "description": "Cursor not in this Supplier and filter scope."
+          },
+          "503": {
+            "description": "Storage unavailable."
+          }
+        },
+        "x-niu-implementation": "implemented"
+      }
+    },
     "/admin/v1/vendors": {
       "get": {
         "operationId": "listVendors",

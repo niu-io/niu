@@ -828,3 +828,13 @@ Unknown usage, financial reservations and key concurrency occupancy remain;
 cancellation does not trigger a retry or credential cooldown. Completed streams
 and known upstream errors retain their own outcomes. See the
 [actual cancellation, completion and timeout verification](https://github.com/niu-io/niu/blob/main/docs/reference/stream-cancellation-diagnostics.md).
+
+### Platform Supplier earning history
+
+Platform administrators can use `GET /admin/v1/providers/{provider}/earnings`
+to page beyond the administration overview's recent earning preview. The SDK
+exposes `listSupplierEarnings`; exact amounts remain Supplier liabilities.
+Supplier membership does not grant this request-level reconciliation access.
+Internal selection IDs must not appear in product UI. The existing settlement
+write still revalidates unpaid selections and requires confirmed payment evidence.
+Nonempty pagination and full Supplier reconciliation remain unverified.

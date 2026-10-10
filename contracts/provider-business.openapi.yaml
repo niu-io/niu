@@ -443,6 +443,9 @@ paths:
         '409': { description: Supplier is missing or deleted }
         '200': { description: Same dashboard snapshot as the supplier endpoint }
         '403': { description: Installation access required }
+  /admin/v1/providers/{provider}/earnings:
+    get:
+      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1providers~1{provider}~1earnings/get'
   /admin/v1/providers/{provider}/settlements:
     get:
       $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1providers~1{provider}~1settlements/get'

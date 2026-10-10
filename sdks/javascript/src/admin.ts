@@ -180,6 +180,8 @@ export type SupplierOfferRevision = {
   | { rate_kind: 'media'; currency: null; prompt_rate: null; completion_rate: null; cached_prompt_rate: null });
 /** Payment-record metadata only; never contains customer or request identities. */
 export type SupplierSettlement = { id: string; currency: string; amount_nanos: string; payment_reference: string; created_at: string };
+export type SupplierEarning = { id: string; model_alias: string; currency: string; amount_nanos: string; billing_meter: string; created_at: string; status: 'accrued' | 'paid' };
+export type SupplierEarningPage = { data: SupplierEarning[]; next_cursor: string | null };
 export type SupplierSettlementPage = { data: SupplierSettlement[]; next_cursor: string | null };
 export type SupplierSettlementQuery = LedgerHistoryQuery;
 export type LedgerHistoryQuery = { before?: string; currency?: string; fromMs?: number; toMs?: number; limit?: number };
@@ -742,6 +744,12 @@ export class NiuAdminClient {
     if (page.before !== undefined) query.set('before', uuid(page.before));
     if (page.limit !== undefined) query.set('limit', String(page.limit));
     return this.request(`/providers/${uuid(supplierId)}/offers/${uuid(offerId)}/revisions${query.size ? `?${query}` : ''}`, undefined, options);
+  }
+
+  /** Platform-only full earning history for settlement selection. IDs are never display labels. */
+  listSupplierEarnings(supplierId: string, page: LedgerHistoryQuery = {}, options?: RequestOptions): Promise<SupplierEarningPage> {
+    const query = ledgerHistoryQuery(page);
+    return this.request(`/providers/${uuid(supplierId)}/earnings${query.size ? `?${query}` : ''}`, undefined, options);
   }
 
   /** All-time Supplier payment history; keep filters fixed while following next_cursor. */
