@@ -231,3 +231,28 @@ rendered qualification.
   retained server validation errors, entry bounds, viewer controls and source
   history semantics. Actual isolated browser save/enforcement and ordinary-role
   authorization remain unqualified; these are not implied by component checks.
+
+## Isolated source IP workflow qualification — 2026-10-10
+
+- Created a separate disposable verification key in the Guardrail verification
+  workspace; shared Demo key permissions and Supplier credentials were unchanged.
+  Saved an IPv4 CIDR with host bits and a single IPv6 address through the browser.
+  The summary and reopened editor restored normalized `127.0.0.0/8` and `::1/128`
+  after a full refresh.
+- An actual allowed-source Chat request returned the requested fresh marker with
+  13 prompt and 5 completion tokens. Key activity showed one completed request,
+  18 tokens, a complete gateway timing and Own API key attribution. This exercises
+  the existing personal route, not commercial supply or customer billing.
+- Saved Block all sources through the browser and refreshed. An otherwise equivalent
+  inference request returned HTTP 403 with `key_ip_not_allowed` and an explicit
+  source-address message. The rendered activity remained at one recorded request;
+  no additional dispatched request appeared.
+- Actual history showed both changes, newest first, with normalized networks, Demo
+  and recorded dates. Desktop and measured 390×844 views were inspected; the
+  network strings and table remained readable with no horizontal page overflow.
+  The temporary viewport was reset.
+- Revoked the isolated key and verified HTTP 401 for its credential. Its reloaded
+  details showed Revoked without edit actions, while source history remained
+  readable. Temporary private credentials were removed from outside the repository.
+  Ordinary-role authorization and IP behavior through different deployment proxies
+  remain unqualified; this local check does not prove those scenarios.
