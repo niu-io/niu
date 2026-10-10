@@ -47,7 +47,8 @@ merchant or upstream integration to be activated.
 | Supplier businesses | `GET/POST /admin/v1/providers`; `GET/PATCH/DELETE /admin/v1/providers/{provider}` | Business identity and membership are separate from credential configuration. See [Supplier contract](../../contracts/provider-business.openapi.yaml). |
 | Supplier credentials | `GET/POST /admin/v1/vendors`; `PUT /admin/v1/vendors/{id}`; `GET/PUT /admin/v1/vendors/{id}/supplier` | Each key configuration has its own endpoint, enabled state, revision and model mappings. Keep procurement administration out of customer pages. |
 | Models and configured prices | `GET/POST /admin/v1/vendors/{id}/models`; `GET/POST /admin/v1/vendors/{id}/catalog`; `POST /admin/v1/vendors/{id}/check` | Catalog/connection success does not prove generation. Keep upstream procurement rates separate from customer retail tariffs. |
-| Workspace keys | `GET/POST W/keys`; `PATCH/DELETE K`; `POST K/rotate` | Create/rotate return a secret for the user to copy; never infer it from list data. Rotation retains the spending/rate lineage. Revocation preserves historical billing. |
+| Workspace keys | `GET/POST W/keys`; `PATCH/DELETE K`; `POST K/rotate` | Create/rotate return a secret for the user to copy; never infer it from list data. Creation requires `ttl_seconds` (1–31,536,000) and model grants. Rotation retains expiry and spending/rate/IP lineage. Revocation preserves historical billing. |
+| Key source restrictions | `GET/PUT K/ip-policy`; `GET K/ip-policy/history` | `allowed_cidrs: null` allows all sources; an empty list denies all. Networks are normalized and policy follows rotation. Only configured trusted proxies may supply forwarding identity. See [IP policy contract](../../contracts/key-ip.openapi.yaml). |
 | Key spending | `GET K/spending-limit`; `PUT K/spending-limit/{currency}`; `GET K/spending-limit/{currency}/history` | Decimal-string limit/revision. See [spending contract](../../contracts/key-spending.openapi.yaml). |
 | Key RPM, concurrency and TPM | `GET/PUT K/request-rate-limit`, `K/concurrency-limit`, `K/token-rate-limit`; each has `GET .../history` | Fields are respectively `requests_per_minute`, `max_concurrent_requests`, `tokens_per_minute`; explicit null removes the limit, zero denies admission. See [RPM](../../contracts/key-request-rate.openapi.yaml), [concurrency](../../contracts/key-concurrency.openapi.yaml), [TPM](../../contracts/key-token-rate.openapi.yaml). |
 | Workspace spending | `GET W/spending-limit`; `GET/PUT W/spending-limit/{currency}`; `GET .../{currency}/history` | Workspace commitment is separate from company balance. Do not reuse key-limit null semantics without checking the workspace schema in [billing](../../contracts/billing.openapi.yaml). |
@@ -255,3 +256,11 @@ without duplicates or omissions. Replaying the first cursor after gateway
 restart returned the same second page; a missing cursor returned 409. No order
 was settled and no balance entry was created. This fixed-data traversal does
 not establish snapshot pagination while orders are being inserted concurrently.
+
+A current-input IP-policy run denied both direct disallowed access and spoofed
+forwarding headers. Denied inference created no attempt. An allowed loopback
+source completed an actual personal-model call; rotation retained the policy
+and invalidated the old secret. Empty networks denied access, null restored it,
+and independent storage reads matched four policy-history revisions. Temporary
+keys and operators were revoked. This does not qualify every reverse-proxy
+deployment or video operation.

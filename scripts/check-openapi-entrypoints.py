@@ -16,6 +16,7 @@ FOCUSED_CONTRACTS = (
     'provider-business.openapi.yaml',
     'platform-configuration.openapi.yaml',
     'key-spending.openapi.yaml',
+    'key-ip.openapi.yaml',
     'key-request-rate.openapi.yaml',
     'key-concurrency.openapi.yaml',
     'key-token-rate.openapi.yaml',
