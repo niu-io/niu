@@ -7,6 +7,7 @@ mod priced_chat;
 mod responses;
 pub(super) mod video;
 pub(super) mod video_images;
+pub(super) mod video_intents;
 
 pub(super) use chat::{chat, dashboard_chat};
 #[cfg(test)]

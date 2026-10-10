@@ -7,7 +7,7 @@ use axum::{
     http::{HeaderMap, HeaderValue, StatusCode, header::CACHE_CONTROL},
     middleware::{self, Next},
     response::Response,
-    routing::{any, get},
+    routing::{any, get, post},
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -32,6 +32,9 @@ async fn password_response_headers(request: axum::http::Request<Body>, next: Nex
 pub(crate) fn router(state: AppState) -> Router {
     let enterprise_enabled = state.enterprise.is_some();
     let app = Router::new()
+        .route("/admin/v1/organizations/{organization}/projects/{project}/video-intents", get(super::inference::video_intents::list))
+        .route("/admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}", get(super::inference::video_intents::get).put(super::inference::video_intents::save).delete(super::inference::video_intents::delete).layer(DefaultBodyLimit::max(64 * 1024)))
+        .route("/admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}/submit", post(super::inference::video_intents::submit))
         .route("/v1/media/image-ingestions", get(super::image_ingestions::list))
         .route("/v1/media/image-ingestions/{id}/readiness/{read_id}", get(super::image_readiness::status).post(super::image_readiness::refresh))
         .route("/v1/media/image-sources", axum::routing::post(super::image_source_uploads::prepare).layer(DefaultBodyLimit::max(12*1024*1024+1024)))

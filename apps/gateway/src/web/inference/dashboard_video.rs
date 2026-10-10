@@ -74,7 +74,7 @@ pub(in crate::web) async fn create(
     let _in_flight = state.track_inference();
     let principal = principal(&state, &headers, path, AdminPermission::Write).await?;
     let identity = video::submission_identity(&headers, &body)?;
-    video::create_as(state, body, principal, identity).await
+    video::create_as(state, body, principal, identity, None).await
 }
 
 pub(in crate::web) async fn status(

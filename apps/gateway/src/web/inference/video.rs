@@ -666,7 +666,7 @@ pub(in crate::web) async fn status(
 /// Direct-channel submission with separate personal and prepaid admission.
 /// Media inspection remains required before reference inputs become available.
 /// Shared authorization, capability and tariff checks for estimates and creates.
-async fn validate_admission(
+pub(super) async fn validate_admission(
     state: &AppState,
     principal: &niu_storage::Principal,
     body: &Value,
@@ -980,12 +980,12 @@ pub(in crate::web) async fn create(
     let _in_flight = state.track_inference();
     let principal = state.authorize_api_headers(&headers).await?;
     let identity = submission_identity(&headers, &body)?;
-    create_as(state, body, principal, identity).await
+    create_as(state, body, principal, identity, None).await
 }
 
 pub(super) struct SubmissionIdentity {
-    key: Vec<u8>,
-    request: Vec<u8>,
+    pub(super) key: Vec<u8>,
+    pub(super) request: Vec<u8>,
 }
 
 pub(super) fn submission_identity(
@@ -1044,6 +1044,7 @@ pub(super) async fn create_as(
     mut body: Value,
     principal: niu_storage::Principal,
     identity: Option<SubmissionIdentity>,
+    expected_owner_funded: Option<bool>,
 ) -> Result<(axum::http::StatusCode, Json<Value>), ApiError> {
     let model = body
         .get("model")
@@ -1071,6 +1072,9 @@ pub(super) async fn create_as(
     }
     let (route, _, selling, _, owner_funded) =
         validate_admission(&state, &principal, &body, model).await?;
+    if expected_owner_funded.is_some_and(|expected| expected != owner_funded) {
+        return Err(ApiError::from_store(niu_storage::StoreError::Conflict));
+    }
     let images_present = has_images(&body);
     let mut text_body = body.clone();
     let text_positions: Vec<usize> = body["content"]

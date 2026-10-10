@@ -118,12 +118,14 @@ pub use supplier_media::SupplierMediaRateCard;
 pub use supplier_media_offers::SupplierMediaOfferInput;
 mod media_jobs;
 mod media_results;
+mod video_intents;
 pub use media_jobs::{
     MediaJobStatus, MediaQueryLease, MediaRecoveryCandidate, MediaRecoveryRoute,
     MediaTransportTiming,
 };
 pub use media_pricing::{MediaLiabilityBound, MediaUsageSource, MediaUsageState};
 pub use media_results::MediaResultKind;
+pub use video_intents::{VideoIntent, VideoIntentInput};
 mod pricing;
 mod providers;
 pub use accounting::{

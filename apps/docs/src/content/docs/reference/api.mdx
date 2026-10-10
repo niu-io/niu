@@ -400,3 +400,21 @@ the final file with FFmpeg. It makes no submission or refresh request and keeps
 the workspace key in an environment variable. See the
 [saved-result verification instructions](https://github.com/niu-io/niu/blob/main/docs/reference/video-jobs.md#verify-a-current-saved-video)
 for private artifacts, prerequisites and the precise verification scope.
+
+
+## Durable Video submission intents
+
+The actor-owned workspace `video-intents` API saves a validated text-video request
+before explicit submission. `PUT /{intent}` saves a fresh identity, `GET /{intent}`
+restores its content and original job/preparation state, and `POST /{intent}/submit`
+explicitly submits or replays it with `expected_revision`. The collection GET
+provides a scoped metadata index; DELETE clears content while retaining a
+non-reusable identity. Current key authorization follows only the original
+rotation lineage. Reads never submit, poll upstream or reserve funds.
+
+See the [generated operation schemas](/docs/reference/handler-operations/) and
+[durable Video intent contract](https://github.com/niu-io/niu/blob/main/docs/reference/video-submission-intents.md)
+for request bodies, actor isolation, 30-day content retention, deletion semantics
+and current verification limits. Images/references and customer-funded video
+qualification remain outside this verified subset. Browser restoration still
+requires frontend integration and verification.

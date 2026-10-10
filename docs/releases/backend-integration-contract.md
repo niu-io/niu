@@ -13,39 +13,48 @@ merchant or upstream integration to be activated.
 
 ## Sources and conventions
 
-### Open frontend dependency: durable Video submission intent
+### Implemented backend: durable Video submission intent
 
-The dashboard Video recovery audit on 2026-10-10 found a missing capability,
-separate from the implemented routes listed below. This is a backend request,
-not an available endpoint or permission to introduce a frontend-only store.
+The text-only backend dependency identified by the frontend recovery audit now
+has implemented actor-owned routes. See the [complete contract and retention
+rules](../reference/video-submission-intents.md) and the generated handler OpenAPI.
+Under `/admin/v1/organizations/{organization}/projects/{project}/video-intents`:
 
-- The current Video create contract accepts a text-only `Idempotency-Key` and
-  stores its digest, request digest and original attempt. It does not expose the
-  original request document or identity for a browser to restore after a lost
-  create response. Job history intentionally excludes prompts. The existing
-  Chat draft schema cannot hold Video controls or a Video submission identity.
-- Provide actor-owned, workspace-scoped persistence for the selected model,
-  exact validated request document, original submission identity and selected
-  key association before dispatch. Saving/restoring an intent must not perform
-  inference, reserve funds or silently change the billing source. Specify payload
-  retention, deletion, permissions, revision conflicts and media-reference
-  handling explicitly; do not repurpose Chat settings or hide data in a prompt.
-- Provide a read-only way to resolve a saved intent to its original job or
-  unresolved preparation state. Recovery must survive browser/cache removal and
-  key rotation without creating a new identity. Current model/key authorization
-  still applies. If original preparation never dispatched, recovery must report
-  that state rather than assuming a replay can start generation.
-- Until reference-input idempotency is supported and qualified, do not claim
-  reference-video recovery parity or send unsupported identity headers for image
-  requests. Changed content under a saved identity must conflict; retry must never
-  silently create a fresh intent or substitute model, controls or funding source.
+- `GET` lists the actor's metadata index with scoped cursor pagination.
+- `PUT /{intent}` saves an immutable validated request and original selected-key
+  association under a fresh client-generated UUID. Default controls are saved
+  explicitly. Identical retries preserve the record; changed content/key conflicts.
+- `GET /{intent}` restores authorized content and resolves the original job or
+  preparation state without dispatch, polling or reserving funds.
+- `POST /{intent}/submit` explicitly submits/replays the saved document using
+  `expected_revision`; it preserves one server-owned submission identity and the
+  original key rotation lineage. The legacy create endpoint must not be used as
+  an alternative submit route for this intent.
+- `DELETE /{intent}` clears retained content with `expected_revision`. Tombstones
+  prevent resurrection. Deletion is not cancellation of an accepted request.
 
-Acceptance requires an actual browser submission with an interrupted response,
-page reload and a second browser/cache-free restoration of the original intent;
-independent backend evidence must show one submission and at most one customer
-debit. Also qualify concurrent tabs, stale revisions, foreign actors/workspaces,
-revoked/rotated keys and changed input. Publish the implemented handler contract
-before frontend integration. No endpoint name or unsupported UI action is assumed.
+Content is retained for 30 days or until deletion. Metadata/tombstones remain;
+expired content is unreadable immediately and cleanup clears it from live
+storage. Current actor/workspace permission, model grants and selected-key source
+policy apply. Full reads resolve rotation only within the original key lineage;
+unrelated keys cannot replace its billing source. The index exposes no prompts,
+model or key content and remains available for erasure after key revocation.
+Images/media references remain unsupported for saved-intent creation/submission.
+
+Current native HTTP runs exercised concurrent identical saves, changed-input and
+actor/workspace denial, deletion replay, revoked-key denial, rotation, restart,
+materialized defaults and one actual personal video submission whose accepted
+response body was discarded. Concurrent and restarted replay returned its original
+job; independent storage retained one upstream submission and no customer debit.
+The completed media artifact was downloaded and fully decoded. A separate injected
+database interruption before dispatch retained one original preparation across
+restart/replay, with no dispatch, transport span or balance entry.
+
+Frontend acceptance remains open: actual browser interruption, page reload,
+cache-free/second-browser restoration and the supported interaction states still
+need verification. These backend observations do not qualify customer-funded
+video settlement, all rotation timings, reference-input recovery or wall-clock
+expiry after 30 days. No frontend-only persistence is authorized as a substitute.
 
 - Executable routes: [gateway routes](../../apps/gateway/src/web/routes.rs).
   Request/response schemas: [root OpenAPI](../../contracts/openapi.yaml) and the

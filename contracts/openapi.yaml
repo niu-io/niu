@@ -6,6 +6,12 @@ info:
 servers:
   - url: /
 paths:
+  /admin/v1/organizations/{organization}/projects/{project}/video-intents:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1video-intents'
+  /admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1video-intents~1{intent}'
+  /admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}/submit:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1video-intents~1{intent}~1submit'
   /payments/stripe/notify:
     $ref: './generated/handler-operations.json#/paths/~1payments~1stripe~1notify'
   /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/chat/completions:

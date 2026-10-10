@@ -8086,6 +8086,612 @@ HTTP 401: Invalid, expired or revoked credential
 
 HTTP 404: Missing job, workspace mismatch or model access denied
 
+## Save an immutable text-video submission intent
+
+`PUT /admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}`
+
+Actor-owned workspace records: installation authority shares one installation actor, while operator actors are isolated even within the same workspace. Current workspace permission applies. Request content is retained for 30 days from creation or until deletion; expiry is unreadable immediately and background maintenance clears retained content. Identity tombstones remain. Deletion does not cancel an already accepted concurrent submission, erase its job or refund charges. Requires workspace write permission and an active selected key with model access and allowed source. A fresh client-generated intent UUID binds the exact request, original key and funding mode. Identical retries return the same record; changed input or key under that UUID conflicts. No attempt, upstream call or reservation is created. The internal idempotency identity is server-generated and is never exposed; use the submit operation rather than legacy job creation.
+
+Implementation: `implemented`. Operation: `saveVideoSubmissionIntent`.
+
+### Supported scope
+
+Text-only durable intent persistence and explicit submission. Full browser restoration and customer-funded video qualification remain open.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`intent` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "key_id",
+    "request"
+  ],
+  "properties": {
+    "key_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "request": {
+      "$ref": "#/components/schemas/VideoIntentRequest"
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Save an immutable text-video submission intent
+
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/VideoSubmissionIntent"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid path, query or request; framework rejections may be plain text.
+
+HTTP 401: Invalid actor credential or no authorized current key in the original lineage.
+
+HTTP 403: Workspace permission or current source policy denied.
+
+HTTP 404: Intent is not owned by this actor and workspace, or selected model is inaccessible.
+
+HTTP 409: Immutable identity, request, funding mode, revision or cursor conflict.
+
+HTTP 503: Required storage or route configuration is unavailable.
+
+HTTP 501: Unsupported video capability or non-text intent.
+
+HTTP 413: Request envelope exceeds 64 KiB.
+
+## Restore a video intent and resolve its original job
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}`
+
+Actor-owned workspace records: installation authority shares one installation actor, while operator actors are isolated even within the same workspace. Current workspace permission applies. Request content is retained for 30 days from creation or until deletion; expiry is unreadable immediately and background maintenance clears retained content. Identity tombstones remain. Deletion does not cancel an already accepted concurrent submission, erase its job or refund charges. Requires read permission plus current key/model/source authorization. A rotated key is resolved only within the saved key lineage. An unrelated key never replaces the original billing source. This GET never polls upstream, reserves funds or submits a job; it reports saved, not_dispatched or dispatched preparation.
+
+Implementation: `implemented`. Operation: `getVideoSubmissionIntent`.
+
+### Supported scope
+
+Text-only durable intent persistence and explicit submission. Full browser restoration and customer-funded video qualification remain open.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`intent` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Restore a video intent and resolve its original job
+
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/VideoSubmissionIntent"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid path, query or request; framework rejections may be plain text.
+
+HTTP 401: Invalid actor credential or no authorized current key in the original lineage.
+
+HTTP 403: Workspace permission or current source policy denied.
+
+HTTP 404: Intent is not owned by this actor and workspace, or selected model is inaccessible.
+
+HTTP 409: Immutable identity, request, funding mode, revision or cursor conflict.
+
+HTTP 503: Required storage or route configuration is unavailable.
+
+## List the current actor video intent index
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/video-intents`
+
+Actor-owned workspace records: installation authority shares one installation actor, while operator actors are isolated even within the same workspace. Current workspace permission applies. Request content is retained for 30 days from creation or until deletion; expiry is unreadable immediately and background maintenance clears retained content. Identity tombstones remain. Deletion does not cancel an already accepted concurrent submission, erase its job or refund charges. Newest-first creation order with UUID tie-breaker. The index contains only intent identity, revision, expiry and retention state; it intentionally exposes no request, model or key content. Index access remains available for deleting retained content after key revocation. Read each intent separately under current key authorization. A cursor must belong to this actor and workspace.
+
+Implementation: `implemented`. Operation: `listVideoSubmissionIntents`.
+
+### Supported scope
+
+Text-only durable intent persistence and explicit submission. Full browser restoration and customer-funded video qualification remain open.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`before` (query, optional)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 25
+}
+```
+
+### Responses
+
+HTTP 200: List the current actor video intent index
+
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data",
+    "has_more",
+    "next_before"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "$ref": "#/components/schemas/VideoIntentIndexItem"
+      }
+    },
+    "has_more": {
+      "type": "boolean"
+    },
+    "next_before": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid path, query or request; framework rejections may be plain text.
+
+HTTP 401: Invalid actor credential or no authorized current key in the original lineage.
+
+HTTP 403: Workspace permission or current source policy denied.
+
+HTTP 404: Intent is not owned by this actor and workspace, or selected model is inaccessible.
+
+HTTP 409: Immutable identity, request, funding mode, revision or cursor conflict.
+
+HTTP 503: Required storage or route configuration is unavailable.
+
+## Erase saved intent content without cancelling its job
+
+`DELETE /admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}`
+
+Actor-owned workspace records: installation authority shares one installation actor, while operator actors are isolated even within the same workspace. Current workspace permission applies. Request content is retained for 30 days from creation or until deletion; expiry is unreadable immediately and background maintenance clears retained content. Identity tombstones remain. Deletion does not cancel an already accepted concurrent submission, erase its job or refund charges. Requires write permission and the expected revision. Replaying the same successful deletion is idempotent. Does not require an active selected key. Deleted identities cannot be saved or submitted again.
+
+Implementation: `implemented`. Operation: `deleteVideoSubmissionIntent`.
+
+### Supported scope
+
+Text-only durable intent persistence and explicit submission. Full browser restoration and customer-funded video qualification remain open.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`intent` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "expected_revision"
+  ],
+  "properties": {
+    "expected_revision": {
+      "type": "integer",
+      "minimum": 1
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Erase saved intent content without cancelling its job
+
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "revision",
+        "deleted"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "deleted": {
+          "const": true
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid path, query or request; framework rejections may be plain text.
+
+HTTP 401: Invalid actor credential or no authorized current key in the original lineage.
+
+HTTP 403: Workspace permission or current source policy denied.
+
+HTTP 404: Intent is not owned by this actor and workspace, or selected model is inaccessible.
+
+HTTP 409: Immutable identity, request, funding mode, revision or cursor conflict.
+
+HTTP 503: Required storage or route configuration is unavailable.
+
+## Explicitly submit or replay an immutable saved video intent
+
+`POST /admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}/submit`
+
+Actor-owned workspace records: installation authority shares one installation actor, while operator actors are isolated even within the same workspace. Current workspace permission applies. Request content is retained for 30 days from creation or until deletion; expiry is unreadable immediately and background maintenance clears retained content. Identity tombstones remain. Deletion does not cancel an already accepted concurrent submission, erase its job or refund charges. Requires write permission, matching retained revision and current key/model/source authorization. Uses only the saved request and original rotation lineage. Rechecks configured video admission and rejects a changed owner-funded/customer funding mode before a new dispatch. Concurrent and restarted calls use one original submission identity. Interrupted original preparation is read back, never assumed safe to dispatch again. HTTP 202 can represent unresolved submission and is not a completed generation or settled charge.
+
+Implementation: `implemented`. Operation: `submitVideoSubmissionIntent`.
+
+### Supported scope
+
+Text-only durable intent persistence and explicit submission. Full browser restoration and customer-funded video qualification remain open.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`intent` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "expected_revision"
+  ],
+  "properties": {
+    "expected_revision": {
+      "type": "integer",
+      "minimum": 1
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 202: Explicitly submit or replay an immutable saved video intent
+
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/paths/~1v1~1video~1jobs~1{id}/get/responses/200/content/application~1json/schema"
+}
+```
+
+HTTP 400: Invalid path, query or request; framework rejections may be plain text.
+
+HTTP 401: Invalid actor credential or no authorized current key in the original lineage.
+
+HTTP 403: Workspace permission or current source policy denied.
+
+HTTP 404: Intent is not owned by this actor and workspace, or selected model is inaccessible.
+
+HTTP 409: Immutable identity, request, funding mode, revision or cursor conflict.
+
+HTTP 503: Required storage or route configuration is unavailable.
+
+HTTP 501: Unsupported video capability or non-text intent.
+
+HTTP 402: Insufficient funds or spending allowance before dispatch.
+
+HTTP 429: Current rate or concurrency policy denied admission.
+
 ## Shared schemas
 
 Local `#/components/schemas/…` references resolve to these definitions.
@@ -10078,6 +10684,82 @@ Local `#/components/schemas/…` references resolve to these definitions.
 }
 ```
 
+### VideoIntentIndexItem
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "revision",
+    "expires_at_ms",
+    "content_state"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "expires_at_ms": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "content_state": {
+      "type": "string",
+      "enum": [
+        "retained",
+        "deleted",
+        "expired"
+      ]
+    }
+  }
+}
+```
+
+### VideoIntentRequest
+
+```json
+{
+  "type": "object",
+  "required": [
+    "model",
+    "content"
+  ],
+  "additionalProperties": true,
+  "description": "Validated text-only request with configured defaults materialized at save time, at most 60 KiB encoded JSON. Model-specific controls must satisfy the current configured video schema; image/media references and callbacks are unsupported. Saving validates availability and funding mode but does not reserve funds.",
+  "properties": {
+    "model": {
+      "type": "string"
+    },
+    "content": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "text"
+        ],
+        "properties": {
+          "type": {
+            "const": "text"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
 ### VideoJobBilling
 
 ```json
@@ -10640,6 +11322,98 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "callbacks_qualified": {
       "type": "boolean",
       "description": "Required for a callback_url declaration; separate adapter/offer qualification and callback authentication still apply."
+    }
+  }
+}
+```
+
+### VideoSubmissionIntent
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "revision",
+    "original_key_id",
+    "key_id",
+    "model",
+    "funding_mode",
+    "request",
+    "content_state",
+    "expires_at_ms",
+    "submission_state",
+    "job"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "expires_at_ms": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "content_state": {
+      "type": "string",
+      "enum": [
+        "retained",
+        "deleted",
+        "expired"
+      ]
+    },
+    "original_key_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "key_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Current active key in the original rotation lineage; no secret is returned."
+    },
+    "model": {
+      "type": "string"
+    },
+    "funding_mode": {
+      "type": "string",
+      "enum": [
+        "owner_funded",
+        "customer"
+      ]
+    },
+    "request": {
+      "anyOf": [
+        {
+          "$ref": "#/components/schemas/VideoIntentRequest"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "submission_state": {
+      "type": "string",
+      "enum": [
+        "saved",
+        "not_dispatched",
+        "dispatched"
+      ],
+      "description": "Read-only snapshot. not_dispatched means original preparation has no recorded dispatch; it never grants a fresh submission right."
+    },
+    "job": {
+      "anyOf": [
+        {
+          "$ref": "#/paths/~1v1~1video~1jobs~1{id}/get/responses/200/content/application~1json/schema"
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   }
 }
