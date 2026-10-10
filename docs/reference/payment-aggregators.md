@@ -520,3 +520,18 @@ settings and an unvisited example checkout URL. No external merchant was
 contacted, no payment was made, and no callback or funding receipt was invented.
 This verifies cross-process admission/configuration consistency, not successful
 external payment, merchant activation or callback settlement.
+
+### Shared checkout admission across companies
+
+A further current-input run used two native Gateways and two company accounts.
+The first checkout held the configuration `ShareLock` while deliberately blocked
+on its company row. The second company's checkout completed through the other
+Gateway before that row lock was released. Only then did the first complete.
+Replaying the first request retained exactly two orders, and process replacement
+preserved both checkouts and configuration revision 1.
+
+Independent reopening confirmed two distinct company orders/checkouts using the
+same configured merchant, one configuration event, and no settlement, closure or
+funding records. This checks that the new shared configuration lock does not
+serialize independent company admissions. It is not a throughput benchmark or
+external payment qualification. No checkout URL was visited.
