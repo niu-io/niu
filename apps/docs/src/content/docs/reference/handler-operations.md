@@ -2988,6 +2988,85 @@ HTTP 404: Order missing or company billing access not granted
 
 HTTP 503: Durable storage unavailable
 
+## Read Supplier business profile
+
+`GET /admin/v1/providers/{provider}`
+
+Requires platform management permission. Returns business display metadata and an integer profile revision. Optional descriptive text and URLs are represented as empty strings when unset. Does not return credentials, procurement prices or qualification evidence. Internal identity is for routing, not display.
+
+Implementation: `implemented`. Operation: `getSupplierProfile`.
+
+### Parameters
+
+`provider` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Saved Supplier profile
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "name",
+        "description",
+        "website_url",
+        "logo_url",
+        "id",
+        "revision"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "website_url": {
+          "type": "string"
+        },
+        "logo_url": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid identifier
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform management permission required
+
+HTTP 404: Supplier missing or deleted
+
+HTTP 503: Storage unavailable
+
 ## Read platform payment configuration presence
 
 `GET /admin/v1/platform/configuration`

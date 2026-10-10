@@ -3244,6 +3244,95 @@
         ]
       }
     },
+    "/admin/v1/providers/{provider}": {
+      "get": {
+        "operationId": "getSupplierProfile",
+        "summary": "Read Supplier business profile",
+        "description": "Requires platform management permission. Returns business display metadata and an integer profile revision. Optional descriptive text and URLs are represented as empty strings when unset. Does not return credentials, procurement prices or qualification evidence. Internal identity is for routing, not display.",
+        "x-niu-implementation": "implemented",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved Supplier profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "name",
+                        "description",
+                        "website_url",
+                        "logo_url",
+                        "id",
+                        "revision"
+                      ],
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "website_url": {
+                          "type": "string"
+                        },
+                        "logo_url": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "revision": {
+                          "type": "integer",
+                          "format": "int64"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid identifier"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Platform management permission required"
+          },
+          "404": {
+            "description": "Supplier missing or deleted"
+          },
+          "503": {
+            "description": "Storage unavailable"
+          }
+        }
+      }
+    },
     "/admin/v1/platform/configuration": {
       "get": {
         "operationId": "getPlatformConfiguration",
