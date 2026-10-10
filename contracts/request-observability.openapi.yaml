@@ -3,6 +3,9 @@ info:
   title: Niu Request Observability API
   version: 0.1.0
 paths:
+  /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}:
+    get:
+      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1requests~1{attempt}/get'
   /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/payloads:
     parameters:
       - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }

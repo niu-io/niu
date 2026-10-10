@@ -171,3 +171,11 @@ explicit null removal, history, stale revision rejection and restart persistence
 Unlike workspace monetary limits, key monetary limits accept null for unlimited.
 Remaining key allowance is not company available balance or a guarantee that
 another admission check will accept a request.
+
+Request detail now has a root OpenAPI entry and a handler-generated response
+schema, including nullable timing, failure classification, token counts and
+customer charges. Five current persisted request details matched the declared
+field types, required fields and decimal patterns over real HTTP; each response
+used `Cache-Control: no-store`, and an absent request returned 404. This read-only
+check does not qualify new inference or billing behavior. Legacy task evidence
+remains an opaque field rather than an expanded observability contract.
