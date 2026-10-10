@@ -69,3 +69,28 @@ variability prevent interpreting the latency difference as a performance
 improvement. It establishes this offered workload only, with the same internal
 credit and tariff boundaries above; it does not establish maximum capacity,
 streaming latency, video performance or complete release readiness.
+
+## Customer reporting across the complete five-RPS history
+
+A separate isolated copy of that stopped database exercised the customer request
+APIs with an ordinary workspace-viewer session. Six 100-entry pages contained
+exactly the original 600 attempts without duplicates or omissions. Every page's
+full-range summary matched all reported input/output tokens and the total
+customer charge of 10,085,384 USD nanounits. Each of the eight key filters returned
+its own 75 attempts and matching filtered count.
+
+The customer CSV contained all 600 rows, with reported token counts and customer
+charges matching the persisted attempts. Restart produced a byte-identical
+export. API entries and summaries omitted the checked procurement/credential
+fields, CSV headings did not expose procurement categories, and the viewer's
+procurement-cost API request returned 403. Revoking the viewer session changed
+subsequent request-list access to 401.
+
+Independent reopening reconciled every original response's usage, key and exact
+charge against the database, saved customer API rows and exported CSV. Aggregate
+totals matched, financial counts and sums were unchanged, no reservation remained
+held, and the temporary reporting session was revoked. This is actual backend
+pagination, filtering, aggregate and export evidence for the exercised text
+history, not browser Logs/Usage acceptance, media reporting or unrestricted
+large-history capacity. The original development database and source evidence
+were unchanged.
