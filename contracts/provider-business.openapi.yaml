@@ -437,7 +437,9 @@ paths:
     get:
       operationId: getProviderAdministrationDashboard
       summary: Explicit installation oversight of the supplier dashboard
+      description: Only an active Supplier is readable. Soft-deleted and missing Suppliers return the existing unavailable-resource conflict; audit history is retained.
       responses:
+        '409': { description: Supplier is missing or deleted }
         '200': { description: Same dashboard snapshot as the supplier endpoint }
         '403': { description: Installation access required }
   /admin/v1/providers/{provider}/settlements:

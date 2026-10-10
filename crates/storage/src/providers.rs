@@ -885,11 +885,13 @@ impl Store {
         sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
             .execute(&mut *tx)
             .await?;
-        let name: String = sqlx::query_scalar("SELECT name FROM provider_businesses WHERE id=$1")
-            .bind(provider)
-            .fetch_optional(&mut *tx)
-            .await?
-            .ok_or(StoreError::Conflict)?;
+        let name: String = sqlx::query_scalar(
+            "SELECT name FROM provider_businesses WHERE id=$1 AND deleted_at IS NULL",
+        )
+        .bind(provider)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or(StoreError::Conflict)?;
         let balances:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('currency',e.currency,'earned_nanos',SUM(e.amount_nanos)::text,'unpaid_nanos',SUM(CASE WHEN s.attempt_id IS NULL THEN e.amount_nanos ELSE 0 END)::text,'paid_nanos',SUM(CASE WHEN s.attempt_id IS NOT NULL THEN e.amount_nanos ELSE 0 END)::text,'period_nanos',COALESCE(SUM(e.amount_nanos) FILTER(WHERE e.created_at>=now()-make_interval(days=>$2)),0)::text) FROM provider_earnings e LEFT JOIN provider_settlement_entries s ON s.attempt_id=e.attempt_id WHERE e.provider_id=$1 GROUP BY e.currency ORDER BY e.currency").bind(provider).bind(days).fetch_all(&mut *tx).await?;
         let traffic:Value=sqlx::query_scalar("SELECT jsonb_build_object('requests',COUNT(*)::text,'completed',COUNT(*) FILTER(WHERE a.execution='confirmed_completed')::text,'unresolved',COUNT(*) FILTER(WHERE e.attempt_id IS NULL)::text,'prompt_tokens',COALESCE(SUM(a.prompt_tokens),0)::text,'completion_tokens',COALESCE(SUM(a.completion_tokens),0)::text) FROM provider_attempt_offers b JOIN attempts a ON a.id=b.attempt_id LEFT JOIN provider_earnings e ON e.attempt_id=a.id WHERE b.provider_id=$1 AND a.dispatched_at>=now()-make_interval(days=>$2)").bind(provider).bind(days).fetch_one(&mut *tx).await?;
         let daily:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('day',to_char(e.created_at AT TIME ZONE 'UTC','YYYY-MM-DD'),'currency',currency,'amount_nanos',SUM(amount_nanos)::text) FROM provider_earnings e WHERE provider_id=$1 AND created_at>=now()-make_interval(days=>$2) GROUP BY currency, to_char(e.created_at AT TIME ZONE 'UTC','YYYY-MM-DD') ORDER BY to_char(e.created_at AT TIME ZONE 'UTC','YYYY-MM-DD')")

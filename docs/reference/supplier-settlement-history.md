@@ -63,3 +63,20 @@ complete statement reconciliation or nonempty pagination from an empty response,
 compilation, a fixture result or the existence of this API. No external payment
 or Supplier earning is fabricated to exercise the endpoint. Supplier accounting
 and frontend acceptance under issue #3 remain open.
+
+## Supplier deletion consistency — 2026-10-11
+
+The administration dashboard now applies the same active-Supplier condition as
+the directory and profile. A missing or soft-deleted Supplier returns the
+existing HTTP 409 unavailable-resource response from this dashboard; profile
+reads retain their HTTP 404 contract. Deletion retains the Supplier row and audit
+history, and configured Suppliers still use the existing dependency protections.
+
+A current-input native run reproduced the prior behavior: after creating and
+deleting an unconfigured Supplier through HTTP, its administration dashboard
+still returned 200, including after restart. The updated binary returned 200
+before deletion, then 409 after deletion and restart. Profile reads returned
+404 and the directory excluded the deleted Supplier. Independent reopening
+confirmed the deletion marker and one deletion audit event, with no inference,
+earning or settlement records created. This is lifecycle evidence only; it does
+not qualify nonempty accounting or concurrent deletion of configured Suppliers.
