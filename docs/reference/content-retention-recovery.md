@@ -326,3 +326,36 @@ confirmed the temporary key was revoked and found no customer debit for that
 personal request. Backup inventory readability is not a restore verification of
 this new archive; historical-backup restore evidence is described separately
 above. This checkpoint does not qualify customer-funded video settlement.
+
+## Asset result retry isolation implementation — 2026-10-11
+
+Migration 0241 extends durable per-row retry scheduling to asset group read
+results, group update patches, listing results and lookup results. These domains
+share one closed-map cleanup function because they use the same ciphertext,
+expiry and deletion contract. Domain-specific retry tables retain foreign keys
+to their own content identities. Callers cannot supply arbitrary SQL or table
+names. No content, upstream identifier or database error is stored in retry state.
+
+Each call selects at most 64 eligible expired rows in expiry/identity order with
+`FOR UPDATE SKIP LOCKED`. A row data/constraint failure rolls back that row's
+erasure and defers it for 60 seconds without rolling back successful neighbors.
+Explicit erasure removes its retry marker through a trigger. Existing tombstones,
+expiry predicates, shared content ownership and transaction deadlines remain;
+infrastructure errors still abort the bounded transaction. Asset tables do not
+enter priced admission.
+
+This implementation does not establish nonempty asset poison-row recovery,
+in-flight asset retention boundaries or a strict global connection allowance.
+Create-intent request cleanup and interrupted image outcome batches remain
+outside this per-row isolation change. Issue #13 remains open.
+
+An isolated copy of the naturally produced 600-request text database installed
+migration 0241 through the rebuilt Gateway. All four empty cleanup domains were
+invoked and returned zero, with empty retry tables. Gateway restart preserved the
+customer reconciliation report. Independent reopening checked migration 0241,
+the four invocations and every original response's usage, key attribution,
+customer charge and scoped debit; financial counts/sums were unchanged and no
+reservation remained held. Release compilation, all-target Clippy, formatting
+and contract checks completed. These are installation and retained text-accounting
+observations, not nonempty asset cleanup evidence. No fixture outcome was used,
+and the original development database was not migrated at this checkpoint.

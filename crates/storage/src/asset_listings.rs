@@ -265,7 +265,8 @@ impl Store {
     }
 
     pub async fn purge_expired_asset_listing_results(&self) -> Result<(), StoreError> {
-        self.execute_content_retention("UPDATE asset_listing_results SET ciphertext=NULL,deleted_at=clock_timestamp() WHERE listing_id IN (SELECT listing_id FROM asset_listing_results WHERE ciphertext IS NOT NULL AND expires_at<=clock_timestamp() ORDER BY expires_at,listing_id LIMIT 500 FOR UPDATE SKIP LOCKED)").await?;
+        self.execute_content_retention("SELECT niu_purge_asset_content_page('listing')")
+            .await?;
         Ok(())
     }
     /// Durable operational metadata only; no retained content or procurement data.

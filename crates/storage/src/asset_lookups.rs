@@ -214,7 +214,8 @@ impl Store {
         Ok(changed)
     }
     pub async fn purge_expired_asset_lookup_results(&self) -> Result<(), StoreError> {
-        self.execute_content_retention("UPDATE asset_lookup_results SET ciphertext=NULL,deleted_at=clock_timestamp() WHERE lookup_id IN (SELECT lookup_id FROM asset_lookup_results WHERE ciphertext IS NOT NULL AND expires_at<=clock_timestamp() ORDER BY expires_at,lookup_id LIMIT 500 FOR UPDATE SKIP LOCKED)").await?;
+        self.execute_content_retention("SELECT niu_purge_asset_content_page('lookup')")
+            .await?;
         Ok(())
     }
 
