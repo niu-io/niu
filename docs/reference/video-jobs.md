@@ -1201,3 +1201,30 @@ credentials and commercial amounts. `DELETE` on the same base plus `/{update}`
 with the scoped query erases the retained patch idempotently. Both routes require
 platform administration and use no-store responses. Erasure preserves audit and
 holds, does not cancel an already claimed write, and never restores replay rights.
+
+## Owner-funded video and procurement budgets
+
+An authorized personal video route belongs to its recorded company and is paid
+by the upstream credential owner. A workspace's legacy platform procurement
+budget does not prevent personal video estimates, saved intents or submission.
+Personal calls do not create customer or procurement reservations and charges.
+Current key/model permissions, Guardrails and dispatch-time ownership/revision
+checks still apply. Shared video routes remain unsupported under a legacy
+procurement budget; customer-funded media qualification is a separate boundary.
+
+A current-input native run first reproduced HTTP 501 on personal video intent
+save when a one-nanounit procurement budget existed, with no attempt created.
+After the admission correction, a fresh isolated run retained that budget and
+completed an owner-funded estimate, saved intent and real OpenRouter video.
+Concurrent intent writes, actor isolation, changed-input rejection, deleted-intent
+rejection, revoked-key rejection and rotated-key restoration were exercised.
+Losing a submit response, concurrent replay and replay after gateway restart all
+resolved to one saved job and one upstream submission.
+
+The job reached `succeeded`; its downloaded 88,738-byte result was independently
+inspected and fully decoded by the media verifier. SQL and API reads confirmed
+unchanged procurement budget counters, no procurement costs/holds and no customer
+charges or balance entries. Deleting the intent prevented another submission.
+Temporary keys were revoked and isolated processes stopped; original development
+data and encrypted identity were preserved. This verifies the exercised personal
+video lifecycle, not customer-funded video settlement or all provider models.

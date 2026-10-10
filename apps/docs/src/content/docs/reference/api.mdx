@@ -85,10 +85,10 @@ not establish bank refund or customer-funded video behavior. See the
 An authorized personal upstream route is funded by its credential owner. It does
 not reserve or debit Niu customer funds or platform procurement budgets. A saved
 workspace procurement budget therefore does not by itself prevent an authorized
-personal Chat call. Current key/model permissions, Guardrails and request-rate
+personal Chat or video call. Current key/model permissions, Guardrails and request-rate
 controls still apply. Shared priced routes retain procurement admission checks;
 this distinction does not grant access to another company's personal credential.
-Video retains its separately documented legacy procurement-budget restriction.
+Shared video routes retain the legacy procurement-budget restriction; personal video routes do not reserve or debit that budget.
 
 ## API key spending allowance
 
@@ -482,7 +482,7 @@ Send `POST /admin/v1/organizations/{organization}/projects/{project}/budget` wit
 
 This creates a USD 100 lifetime upstream budget for the workspace. It does not set a customer charge limit or an invoice amount. Amounts must be nonnegative decimal integer strings, with no exponent or fractional notation, within the signed 64-bit range. Currency is a three-letter uppercase code; no currency conversion is performed. Concurrent creation has one winner; an existing budget returns 409 without changing its limit, reservations or spend.
 
-**Current admission behavior:** supported priced routes reserve their configured input/output bounds before dispatch; insufficient funds or a missing matching-currency budget prevents the upstream call. Once a workspace has an upstream budget, shared-route dispatch requires a trusted held reservation. Unpriced shared requests without such a reservation are rejected. Authorized owner-funded personal Chat routes are excluded from platform procurement accounting; their current permissions and Guardrails still apply. Existing dispatched attempts are not retroactively reserved. Provider billing bounds still require qualification: understated bounds can produce an overrun, which is recorded as liability. This is not a universal guarantee against upstream billing outside those bounds. Customer Usage does not expose procurement-budget management.
+**Current admission behavior:** supported priced routes reserve their configured input/output bounds before dispatch; insufficient funds or a missing matching-currency budget prevents the upstream call. Once a workspace has an upstream budget, shared-route dispatch requires a trusted held reservation. Unpriced shared requests without such a reservation are rejected. Authorized owner-funded personal Chat and video routes are excluded from platform procurement accounting; their current permissions and Guardrails still apply. Existing dispatched attempts are not retroactively reserved. Provider billing bounds still require qualification: understated bounds can produce an overrun, which is recorded as liability. This is not a universal guarantee against upstream billing outside those bounds. Customer Usage does not expose procurement-budget management.
 
 ## Installation vendors
 

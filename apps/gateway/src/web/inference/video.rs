@@ -682,26 +682,27 @@ pub(super) async fn validate_admission(
     ApiError,
 > {
     let scope = principal.scope();
-    // This legacy budget measures procurement. Customer workspace/key retail
-    // caps are separate and enforced by reserve_customer_media_balance through
-    // the shared customer balance reservation transaction before dispatch.
-    if state
-        .store
-        .budget(scope)
-        .await
-        .map_err(ApiError::from_store)?
-        .is_some()
-    {
-        return Err(ApiError::unsupported_message(
-            "Video admission under this workspace budget is not supported",
-        ));
-    }
     let personal = state
         .store
         .personal_vendor_route(scope.organization_id, model)
         .await
         .map_err(ApiError::from_store)?;
     let owner_funded = personal.is_some();
+    // Personal upstream bills belong to the credential owner. Only shared
+    // routes need platform procurement admission; legacy video procurement
+    // reservations are not supported. Customer retail caps remain separate.
+    if !owner_funded
+        && state
+            .store
+            .budget(scope)
+            .await
+            .map_err(ApiError::from_store)?
+            .is_some()
+    {
+        return Err(ApiError::unsupported_message(
+            "Video admission under this workspace budget is not supported",
+        ));
+    }
     let route = if let Some(route) = personal {
         route
     } else {

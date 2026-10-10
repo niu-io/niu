@@ -545,7 +545,9 @@ backup was created before upgrading the development database.
 
 This verifies the exercised personal Chat/procurement separation and controls,
 not every protocol, policy race or upstream billing statement. Video's separate
-preflight restriction on legacy procurement budgets remains in place.
+preflight restriction remained at this checkpoint; the subsequent
+[personal video correction](video-jobs.md#owner-funded-video-and-procurement-budgets)
+removes it for authorized owner-funded routes.
 
 ## Supplier model-management list completeness
 
