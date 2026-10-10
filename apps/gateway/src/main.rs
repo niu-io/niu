@@ -60,10 +60,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let gateway_writes = state.gateway_writes.clone();
     let recovery_store = state.store.clone();
     let recovery = tokio::spawn(async move {
-        let mut cursor = None;
-        let mut provider_cursor = None;
-        let mut customer_cursor = None;
-        let mut balance_release_cursor = None;
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(5));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         loop {
@@ -103,53 +99,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             {
                 tracing::warn!("Interrupted image readiness recovery requires retry");
             }
-            match recovery_store
-                .recover_customer_balance_releases(balance_release_cursor)
-                .await
-            {
-                Ok((next, failures)) => {
-                    balance_release_cursor = next;
-                    if failures > 0 {
-                        tracing::warn!(
-                            failures,
-                            "customer balance release recovery requires retry"
-                        );
-                    }
+            match recovery_store.recover_financial_work().await {
+                Ok(failures) if failures > 0 => {
+                    tracing::warn!(failures, "Financial recovery requires retry")
                 }
-                Err(_) => tracing::warn!("customer balance release recovery storage unavailable"),
-            }
-            match recovery_store
-                .recover_customer_charges(customer_cursor)
-                .await
-            {
-                Ok((next, failures)) => {
-                    customer_cursor = next;
-                    if failures > 0 {
-                        tracing::warn!(failures, "customer billing recovery requires retry");
-                    }
-                }
-                Err(_) => tracing::warn!("customer billing recovery storage unavailable"),
-            }
-            match recovery_store
-                .recover_provider_earnings(provider_cursor)
-                .await
-            {
-                Ok((next, failures)) => {
-                    provider_cursor = next;
-                    if failures > 0 {
-                        tracing::warn!(failures, "provider earnings recovery requires retry");
-                    }
-                }
-                Err(_) => tracing::warn!("provider earnings recovery storage unavailable"),
-            }
-            match recovery_store.recover_settlements(cursor).await {
-                Ok((next, failures)) => {
-                    cursor = next;
-                    if failures > 0 {
-                        tracing::warn!(failures, "cost settlement recovery requires retry");
-                    }
-                }
-                Err(_) => tracing::warn!("cost settlement recovery storage unavailable"),
+                Ok(_) => {}
+                Err(_) => tracing::warn!("Financial recovery storage unavailable"),
             }
         }
     });

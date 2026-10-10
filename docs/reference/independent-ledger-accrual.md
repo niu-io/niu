@@ -73,8 +73,9 @@ The financial calculations, evidence checks and idempotency keys remain in these
 shared helpers rather than being duplicated for a background worker.
 
 A caller of a transaction helper owns rollback on error and must preserve the
-independence of the ledgers. This extraction does not yet bound background
-connection use or provide cross-process recovery claims; those remain incomplete.
+independence of the ledgers. The financial worker now uses these helpers for
+[coordinated recovery](financial-recovery-coordination.md); that document separates
+implemented ownership from the remaining paid-backlog verification.
 
 After release compilation and restart, a new actual owner-funded Chat stream
 completed with reported token totals/categories matching PostgreSQL. A current

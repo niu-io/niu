@@ -1,0 +1,62 @@
+# Financial recovery coordination
+
+Status: implemented with limited live coordination evidence, 2026-10-10.
+Paid backlog recovery and capacity qualification remain incomplete.
+
+The gateway runs customer reservation release, customer text-charge accrual,
+Supplier text/media earnings and upstream cost settlement through one storage
+scheduler. It reuses the same financial transaction helpers as foreground work.
+Each ledger stage commits independently; an error in one stage does not prevent
+trying the others. Payment reconciliation, video polling and non-financial
+cleanup remain separate workers and are not covered by this scheduler's bound.
+
+## Ownership and database work
+
+Each stage tries to obtain an idle connection from the existing shared pool;
+it does not enqueue for a connection or create a second pool. A nonblocking
+PostgreSQL transaction advisory lock, shared across all four financial stages,
+permits only one stage owner per database. Losing contenders release their
+connection immediately. Claim checks themselves briefly use a pool connection
+in each contender; the bound is one connection performing claimed financial
+work, not a claim that multiple processes never acquire connections concurrently.
+Disconnect or transaction completion releases ownership automatically, without
+a lease timeout that could permit overlapping owners.
+
+The owner reads up to 100 eligible attempts in UUID order. Each attempt uses a
+savepoint on that same connection, so an invalid record can roll back without
+aborting other records in the batch. A 250 ms lock timeout bounds waits on
+foreground locks; a 2 s statement timeout bounds individual database statements.
+These limits do not establish a whole-batch latency guarantee.
+
+Migration 0218 stores a cursor for each stage. The cursor advances atomically
+with successful batch work, including past rows that need a later retry. At the
+end of the keyspace it resets, so earlier unresolved rows and newly eligible
+attempts are revisited. Restart does not reset progress to the first UUID.
+Existing explicit-cursor storage APIs share ownership and settlement logic but
+retain caller-controlled traversal without changing the saved worker cursor.
+
+Financial evidence and ledger rows are not rewritten by this migration.
+A failed commit remains uncertain and is reconciled using existing idempotency;
+no generation is resubmitted and elapsed time never makes an uncertain hold free.
+
+## Current-input verification
+
+The existing database was backed up privately before applying the additive
+migration. After release compilation and restart, a second gateway was started
+against the same database and encryption identity with a two-connection pool.
+An independent PostgreSQL transaction acquired the scheduler's ownership lock.
+Both gateway processes continued serving actual owner-funded Chat requests;
+provider-reported usage matched independently read attempt records.
+
+Across more than one five-second worker interval, all four saved progress
+records remained unchanged while ownership was held. After its release, progress
+updates resumed. No customer balance entry was added, and the original Supplier
+credential revision and ciphertext digest were unchanged. Temporary access was
+revoked, temporary mappings disabled and the second gateway stopped.
+
+All-target Clippy, release compilation, formatting and public-tree boundary
+checks completed. No fixture result supports this evidence. The live check had
+no paid unsettled backlog: it does not verify competing settlement writes,
+nonempty cursor recovery after process loss, poisoned-row progress, paid
+idempotent debit/release, or throughput. Those require separate current-input
+runs and independent financial artifact verification before qualification.

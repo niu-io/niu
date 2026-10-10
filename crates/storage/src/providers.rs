@@ -809,19 +809,13 @@ impl Store {
         &self,
         after: Option<Uuid>,
     ) -> Result<(Option<Uuid>, usize), StoreError> {
-        let ids:Vec<Uuid>=sqlx::query_scalar("SELECT a.id FROM attempts a JOIN provider_attempt_offers b ON b.attempt_id=a.id LEFT JOIN provider_earnings e ON e.attempt_id=a.id WHERE e.attempt_id IS NULL AND a.execution='confirmed_completed' AND (a.usage_confidence='provider_reported' OR EXISTS(SELECT 1 FROM supplier_media_attempt_pricing p WHERE p.attempt_id=a.id)) AND ($1::uuid IS NULL OR a.id>$1) ORDER BY a.id LIMIT 100").bind(after).fetch_all(&self.pool).await?;
-        let next = if ids.len() == 100 {
-            ids.last().copied()
-        } else {
-            None
-        };
-        let mut failed = 0;
-        for id in ids {
-            if self.accrue_provider_earning(id).await.is_err() {
-                failed += 1;
-            }
-        }
-        Ok((next, failed))
+        Ok(self
+            .recover_financial_stage(
+                crate::financial_recovery::FinancialStage::SupplierEarning,
+                Some(after),
+            )
+            .await?
+            .unwrap_or((after, 0)))
     }
 
     /// Record payment of explicit earned entries, serialized per supplier and replay-safe.

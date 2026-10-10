@@ -843,24 +843,13 @@ impl Store {
         &self,
         after: Option<Uuid>,
     ) -> Result<(Option<Uuid>, usize), StoreError> {
-        let rows = sqlx::query("SELECT a.id, a.organization_id, a.project_id FROM attempts a JOIN cost_reservations r ON r.attempt_id=a.id WHERE a.execution='confirmed_completed' AND a.usage_confidence='provider_reported' AND r.state='held' AND ($1::uuid IS NULL OR a.id > $1) ORDER BY a.id LIMIT 100")
-            .bind(after).fetch_all(&self.pool).await?;
-        let next = if rows.len() == 100 {
-            rows.last().map(|r| r.get::<Uuid, _>("id"))
-        } else {
-            None
-        };
-        let mut failures = 0;
-        for row in rows {
-            let scope = TenantScope {
-                organization_id: row.get("organization_id"),
-                project_id: row.get("project_id"),
-            };
-            if self.settle_cost(scope, row.get("id")).await.is_err() {
-                failures += 1;
-            }
-        }
-        Ok((next, failures))
+        Ok(self
+            .recover_financial_stage(
+                crate::financial_recovery::FinancialStage::UpstreamCost,
+                Some(after),
+            )
+            .await?
+            .unwrap_or((after, 0)))
     }
 
     /// Bounded immutable ledger traversal in ascending attempt UUID order.

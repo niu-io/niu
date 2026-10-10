@@ -184,30 +184,13 @@ SELECT jsonb_build_object(
         &self,
         after: Option<Uuid>,
     ) -> Result<(Option<Uuid>, usize), StoreError> {
-        let rows: Vec<(Uuid,Uuid,Uuid)> = sqlx::query_as("SELECT a.id,a.organization_id,a.project_id FROM customer_balance_reservations r JOIN attempts a ON a.id=r.attempt_id WHERE r.released_at IS NULL AND a.execution IN ('not_sent','confirmed_not_executed') AND ($1::uuid IS NULL OR a.id>$1) ORDER BY a.id LIMIT 100")
-            .bind(after).fetch_all(&self.pool).await?;
-        let next = if rows.len() == 100 {
-            rows.last().map(|row| row.0)
-        } else {
-            None
-        };
-        let mut failures = 0;
-        for (attempt, organization_id, project_id) in rows {
-            if self
-                .release_nonexecuted_customer_balance(
-                    TenantScope {
-                        organization_id,
-                        project_id,
-                    },
-                    attempt,
-                )
-                .await
-                .is_err()
-            {
-                failures += 1;
-            }
-        }
-        Ok((next, failures))
+        Ok(self
+            .recover_financial_stage(
+                crate::financial_recovery::FinancialStage::BalanceRelease,
+                Some(after),
+            )
+            .await?
+            .unwrap_or((after, 0)))
     }
 
     /// Trusted financial administration only; changing credit is not funding.
@@ -598,19 +581,13 @@ SELECT jsonb_build_object(
         &self,
         after: Option<Uuid>,
     ) -> Result<(Option<Uuid>, usize), StoreError> {
-        let ids:Vec<Uuid>=sqlx::query_scalar("SELECT a.id FROM attempts a JOIN customer_attempt_tariffs b ON b.attempt_id=a.id LEFT JOIN customer_charges c ON c.attempt_id=a.id WHERE c.attempt_id IS NULL AND a.execution='confirmed_completed' AND a.usage_confidence='provider_reported' AND ($1::uuid IS NULL OR a.id>$1) ORDER BY a.id LIMIT 100").bind(after).fetch_all(&self.pool).await?;
-        let next = if ids.len() == 100 {
-            ids.last().copied()
-        } else {
-            None
-        };
-        let mut failed = 0;
-        for id in ids {
-            if self.accrue_customer_charge(id).await.is_err() {
-                failed += 1;
-            }
-        }
-        Ok((next, failed))
+        Ok(self
+            .recover_financial_stage(
+                crate::financial_recovery::FinancialStage::CustomerCharge,
+                Some(after),
+            )
+            .await?
+            .unwrap_or((after, 0)))
     }
     /// Closed UTC dispatch interval, one currency, no overlaps or unresolved priced usage.
     pub async fn issue_customer_invoice(

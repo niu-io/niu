@@ -16,6 +16,7 @@ pub use route_pools::{ModelRoutePool, RoutePoolCandidate};
 mod managed_routes;
 pub use branding::BrandingSettings;
 mod accounting;
+mod financial_recovery;
 mod media_submissions;
 mod priced_admission;
 mod request_failures;
