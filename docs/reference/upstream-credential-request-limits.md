@@ -96,3 +96,30 @@ start a new dispatch or consume a slot. Independent reopened SQL confirmed every
 attempt was still `not_sent`, with no transport spans, admissions, holds or
 charges. This verifies video refusal/replay, not a positive-limit successful video
 submission or customer-funded video settlement.
+
+### Customer-key independence and personal isolation
+
+A further current-input run used two native gateways sharing a fresh PostgreSQL
+database. A shared-route key had RPM one and a 5,000,000-nanounit spending cap.
+With the credential cap zero, actual inference returned
+`upstream_request_rate_exceeded`. Management still reported the full key monetary
+allowance; SQL contained no key or credential admission and no open hold.
+Raising the credential cap admitted a real structured completion through the
+second gateway, charging the configured internal 1,000,000-nanounit fixed fee.
+The key then had 4,000,000 nanounits remaining. Making the credential unlimited
+did not bypass the occupied customer-key window: the next call returned
+`key_request_rate_exceeded`, with no additional credential slot or charge.
+
+A separate personal-owned credential using the same owner's upstream account
+completed a real request while the shared credential cap was zero. Its own cap
+then rejected a further call through the other gateway; the shared route also
+remained denied. These saved credentials had separate windows. The personal
+request created no customer charge. Restart preserved both admission records,
+one customer-key slot and the exact remaining monetary allowance.
+
+Independent verification reopened the stopped database, matched both saved
+upstream responses to their reported token counts and separate credential
+admissions, and confirmed one exact customer debit, no open holds and no funding
+receipts. This checks the exercised personal/shared configuration within one
+company, not cross-company personal routing or retry-successor admission. It does
+not assert independent upstream quota for two records containing the same secret.
