@@ -901,3 +901,8 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
 
 - At main b614e46d, the complete dashboard suite passed: 85 files, 653 tests, with four concurrent workers. TypeScript checking and diff whitespace validation passed. This includes the customer fixed-fee display, video same-intent recovery/title consistency and upstream 429 no-replay regression.
 - These automated results do not close missing rendered, ordinary-role, paid settlement or narrow-width evidence. Browser inventory partially succeeded but reference-tab reads repeatedly timed out, including after directly binding the in-app browser. New visual implementation remains pending actual reference inspection, Stitch design and browser verification.
+
+## Video credential-limit refusal checkpoint
+
+- After syncing main through b5a5cd97, all 21 VideoView tests passed, including a new credential-limit 429 case. It displays the server reason, performs one submission, reads the saved intent for recovery, and neither invents a queued/succeeded result nor requests an unrelated job. No real generation or limit mutation was performed.
+- Browser control recovered sufficiently to read the current API-key page, but creating the OpenRouter reference tab timed out again. Credential-limit configuration UI still requires actual reference inspection, Stitch iteration and rendered qualification; the automated refusal check does not close that requirement.
