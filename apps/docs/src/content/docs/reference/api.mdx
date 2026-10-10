@@ -109,6 +109,21 @@ independent charge/revision checks. It does not imply automatic failover or retr
 of uncertain executions. See the
 [route pool contract and evidence](https://github.com/niu-io/niu/blob/main/docs/reference/model-route-pools.md).
 
+## Customer request diagnostics
+
+The workspace request list and detail endpoints report the customer model alias,
+execution state, reported usage, customer charge and saved timing. A pool's selected
+Supplier mapping and confidential procurement prices are not customer billing data.
+Installation credentials receive the same customer-facing detail shape; they do
+not expand it with wholesale costs. Request metadata responses use
+`Cache-Control: no-store`.
+
+Use the detailed response's nullable fields as documented in the
+[generated request contracts](/docs/reference/handler-operations/). Missing timing
+or usage is unknown, not a measured zero. Workspace scope applies to each request;
+a foreign request returns 404. Display meaningful model/key names and timestamps
+rather than the internal identifiers needed for API routing.
+
 ## Public model catalog
 
 `GET /catalog/v1/models` and the `/models/` page list aliases an operator explicitly marks with `public_catalog = true`. The response contains the alias, declared capabilities, and optional descriptive catalog metadata such as name, context limits and modalities; it omits provider names, upstream identifiers, endpoints, credentials and Provider prices. Catalog visibility does not authorize inference. Applications still use scoped keys with `/v1/models` and the inference endpoints.

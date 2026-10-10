@@ -379,3 +379,21 @@ This qualifies the exercised in-flight pool-membership change and pinned
 settlement. Disabling a candidate prevents its selection for new work; it does
 not cancel already-dispatched work. The run does not qualify credential revocation
 races, in-flight tariff changes, automatic failover or sustained routing capacity.
+
+## Customer reporting after the in-flight update
+
+The retained database from the preceding actual two-request run was reopened
+without generating another response. A company viewer read both populated request
+details and the request list. Customer model aliases, prompt/completion counts and
+exact charge strings matched independent attempt/charge reads, and completed
+requests had nonnegative saved duration. Installation reads returned identical
+customer detail objects rather than adding procurement information.
+
+The serialized objects contained no Supplier expense/rate, credential endpoint,
+procurement price revision, selected mapping alias or pool revision. A foreign
+company owner received 404 for both request details. The customer viewer received
+403 from the separate procurement-cost endpoint. After gateway restart, detail
+objects remained identical and SQL still contained only the original two attempts
+and two charges. Temporary member access was revoked and isolated processes were
+stopped. This qualifies the exercised list/detail scope and serialization boundary;
+it does not qualify every export or a platform routing-diagnostics API.
