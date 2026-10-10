@@ -286,3 +286,35 @@ The [pinned nonexecution policy](qualified-nonexecution-policy.md) now gates
 `openrouter` adapter does not inherit the canonical Provider's failure contract.
 New managed admissions pin the reviewed policy; missing legacy/static evidence
 stays conservative. This adds no retry statuses or cooldown behavior.
+
+## Context-tier pricing across an actual successor
+
+A fresh native current-input run combined bounded Chat failover with the new
+whole-request context tiers. Three isolated canonical OpenRouter credentials
+served one public alias: the first was deliberately invalid and the two alternate
+configurations used the owner's saved personal testing credential. Customer
+accounting used explicitly configured internal prices and credit, not merchant
+funding, a qualified commercial offer or a discount claim.
+
+Base input/output prices were zero and a threshold of one input token selected
+nonzero rates. While the first nonstreaming operation had received its real 401
+and successor admission was gated by a database row lock, the management API
+published a new tier revision. Releasing the lock allowed the second credential
+to complete; both attempts retained the original operation tariff and the
+successful attempt charged its original tier. After Gateway restart, a new
+streaming operation again received the real rejection and completed through the
+second credential using the new tier, with terminal usage and `[DONE]`.
+
+The four attempts produced exactly two customer charges and matching debits.
+Rejected predecessors remained `confirmed_not_executed` and uncharged; customer
+and procurement holds were released. Operation-filtered request records exposed
+the two-attempt relationship and matching customer amount after restart.
+Independent reopening of the stopped database checked immutable tier revisions
+and selected thresholds, hashed the saved raw responses, recomputed both charges
+from their actual usage and reconciled the debit total with no open holds.
+
+The initial script used an incorrect tier field name and was rejected with 422
+before inference; the complete run used the documented `minimum_input_tokens`.
+This verifies context-price preservation for the existing bounded authentication
+policy. It does not qualify generic failover, distinct commercial suppliers,
+unknown-execution retries or every tier/category combination.
