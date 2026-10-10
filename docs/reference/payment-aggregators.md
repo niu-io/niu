@@ -553,3 +553,22 @@ This is actual HTTP/database intent processing with unvisited verification-only
 checkout URLs; no external payment or funding evidence was simulated. It covers
 concurrent pending-intent replay, not replay after merchant rotation on a paid
 or closed historical order.
+
+### Runtime saved-configuration corruption
+
+A current native Gateway ran with valid deployment EPay settings and a different
+valid configuration saved through the management API. In its isolated database,
+a one-byte ciphertext fault was introduced while the process remained running.
+Configuration GET, payment-method listing and checkout POST each returned 502
+without merchant keys, encryption key or ciphertext in their response bodies.
+No order or balance entry was created; the valid deployment settings were not
+used as a fallback.
+
+Restoring the exact original ciphertext recovered the APIs and allowed one
+checkout using the saved merchant, not the deployment merchant. Process
+replacement preserved the saved configuration. Independent database reopening
+matched its SHA-256/revision, one configuration audit event, the correct merchant
+on the single order, and no funding, settlement or closure records. This checks
+runtime failure handling after the configuration-snapshot change, separately
+from startup rejection. It neither contacted a merchant nor exercised a payment
+callback, and did not modify the original installation's database or keys.
