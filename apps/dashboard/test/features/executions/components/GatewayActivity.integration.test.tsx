@@ -46,6 +46,28 @@ const summary = {
 function RouteHash() { return <output aria-label="Selected request URL">{useLocation().hash}</output>; }
 function RouteQuery() { return <output aria-label="Route query">{useLocation().search}</output>; }
 
+it('uses the same local calendar boundaries for query and histogram on a single-day range', async () => {
+  const start = new Date(2026, 9, 9).getTime();
+  const end = new Date(2026, 9, 10).getTime();
+  const calls: string[] = [];
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>(async input => {
+    const path = String(input); calls.push(path);
+    if (path.endsWith('/keys')) return Response.json({data: []});
+    return Response.json({data: [makeRequest('day', null, 'fast')], next_cursor: null,
+      summary: {...summary, request_histogram: [{start_ms: start, end_ms: end, request_count: 1}]}});
+  }));
+  render(<MemoryRouter initialEntries={['/workspaces/demo/executions?from=2026-10-09&to=2026-10-09']}><GatewayActivity token="test" models={['fast']} initialScope={{organizationId: 'org-1', projectId: 'project-1'}} /></MemoryRouter>);
+  const chart = await screen.findByRole('img', {name: 'Requests over time'});
+  const query = new URL(calls.find(path => path.includes('/requests?'))!, 'http://localhost').searchParams;
+  expect(query.get('from_ms')).toBe(String(start));
+  expect(query.get('to_ms')).toBe(String(end));
+  const format = new Intl.DateTimeFormat(undefined, {dateStyle: 'medium', timeStyle: 'medium'});
+  expect(screen.getByText(format.format(new Date(start)))).toBeTruthy();
+  expect(screen.getByText(format.format(new Date(end)))).toBeTruthy();
+  expect(chart.querySelector('rect')?.getAttribute('x')).toBe('4');
+  expect(chart.querySelector('rect')?.getAttribute('width')).toBe('950');
+});
+
 it('explains durable failure classifications when request payloads are unavailable', async () => {
   vi.stubGlobal('fetch',vi.fn<typeof fetch>(async input => {
     const path=String(input);

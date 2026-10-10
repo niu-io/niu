@@ -530,8 +530,10 @@ export default function GatewayActivity({ token, models, initialScope, compact =
   const histogram = useMemo(() => {
     const observed = summary?.request_histogram;
     if (!observed?.length) return null;
-    const from = Date.parse(filters.from);
-    const to = Date.parse(filters.to);
+    const from = localDayStart(filters.from);
+    const endDay = new Date(localDayStart(filters.to));
+    endDay.setDate(endDay.getDate() + 1);
+    const to = endDay.getTime();
     const start = Number.isFinite(from) ? from : Math.min(...observed.map(bucket => bucket.start_ms));
     const end = Number.isFinite(to) ? to : Math.max(...observed.map(bucket => bucket.end_ms));
     return {buckets: observed.map(bucket => ({start: bucket.start_ms, end: bucket.end_ms, count: bucket.request_count})),
