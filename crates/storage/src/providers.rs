@@ -725,8 +725,21 @@ impl Store {
         endpoint: Option<&str>,
     ) -> Result<(), StoreError> {
         let mut tx = self.pool.begin().await?;
+        Self::bind_provider_offer_in_tx(&mut tx, scope, attempt, alias, upstream, endpoint).await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    pub(crate) async fn bind_provider_offer_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: TenantScope,
+        attempt: Uuid,
+        alias: &str,
+        upstream: &str,
+        endpoint: Option<&str>,
+    ) -> Result<(), StoreError> {
         let offer=sqlx::query("SELECT o.id,o.provider_id,o.current_revision,o.active,o.vendor_id,m.vendor_id AS route_vendor,m.upstream_model,v.api_base,m.enabled AS model_enabled,v.enabled AS vendor_enabled,niu_offer_qualification_current(o.provider_id,o.id,o.current_revision) AS qualified FROM provider_offers o JOIN vendor_models m ON m.alias=o.model_alias JOIN vendors v ON v.id=m.vendor_id WHERE o.model_alias=$1 FOR SHARE OF o,m,v")
-            .bind(alias).fetch_optional(&mut *tx).await?;
+            .bind(alias).fetch_optional(&mut **tx).await?;
         if let Some(row) = offer {
             if !row.get::<bool, _>("model_enabled")
                 || !row.get::<bool, _>("vendor_enabled")
@@ -738,10 +751,9 @@ impl Store {
             {
                 return Err(StoreError::AccountUnavailable);
             }
-            sqlx::query("SELECT id FROM attempts WHERE id=$1 AND organization_id=$2 AND project_id=$3 AND execution='not_sent' FOR UPDATE").bind(attempt).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
-            sqlx::query("INSERT INTO provider_attempt_offers(attempt_id,provider_id,offer_id,revision_id) VALUES($1,$2,$3,$4)").bind(attempt).bind(row.get::<Uuid,_>("provider_id")).bind(row.get::<Uuid,_>("id")).bind(row.get::<Uuid,_>("current_revision")).execute(&mut *tx).await?;
+            sqlx::query("SELECT id FROM attempts WHERE id=$1 AND organization_id=$2 AND project_id=$3 AND execution='not_sent' FOR UPDATE").bind(attempt).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
+            sqlx::query("INSERT INTO provider_attempt_offers(attempt_id,provider_id,offer_id,revision_id) VALUES($1,$2,$3,$4)").bind(attempt).bind(row.get::<Uuid,_>("provider_id")).bind(row.get::<Uuid,_>("id")).bind(row.get::<Uuid,_>("current_revision")).execute(&mut **tx).await?;
         }
-        tx.commit().await?;
         Ok(())
     }
 

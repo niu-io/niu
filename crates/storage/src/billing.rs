@@ -518,16 +518,26 @@ SELECT jsonb_build_object(
         alias: &str,
     ) -> Result<(), StoreError> {
         let mut tx = self.pool.begin().await?;
+        Self::bind_customer_tariff_in_tx(&mut tx, scope, attempt, alias).await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    pub(crate) async fn bind_customer_tariff_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: TenantScope,
+        attempt: Uuid,
+        alias: &str,
+    ) -> Result<(), StoreError> {
         sqlx::query("SELECT id FROM projects WHERE organization_id=$1 AND id=$2 FOR SHARE")
             .bind(scope.organization_id)
             .bind(scope.project_id)
-            .fetch_optional(&mut *tx)
+            .fetch_optional(&mut **tx)
             .await?
             .ok_or(StoreError::Conflict)?;
-        sqlx::query("INSERT INTO customer_attempt_tariffs(attempt_id,revision_id) SELECT a.id,t.current_revision FROM attempts a JOIN customer_tariffs t ON t.organization_id=a.organization_id AND t.project_id=a.project_id AND t.model_alias=a.resource_id WHERE a.id=$1 AND a.organization_id=$2 AND a.project_id=$3 AND a.resource_id=$4 AND a.execution='not_sent'").bind(attempt).bind(scope.organization_id).bind(scope.project_id).bind(alias).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO customer_attempt_tariffs(attempt_id,revision_id) SELECT a.id,t.current_revision FROM attempts a JOIN customer_tariffs t ON t.organization_id=a.organization_id AND t.project_id=a.project_id AND t.model_alias=a.resource_id WHERE a.id=$1 AND a.organization_id=$2 AND a.project_id=$3 AND a.resource_id=$4 AND a.execution='not_sent'").bind(attempt).bind(scope.organization_id).bind(scope.project_id).bind(alias).execute(&mut **tx).await?;
         sqlx::query("INSERT INTO customer_attempt_balance_accounts(attempt_id,organization_id,project_id,account_id,currency) SELECT a.id,a.organization_id,a.project_id,c.id,c.currency FROM attempts a JOIN customer_attempt_tariffs b ON b.attempt_id=a.id JOIN customer_tariff_revisions r ON r.id=b.revision_id JOIN customer_balance_accounts c ON c.organization_id=a.organization_id AND c.currency=r.currency WHERE a.id=$1 AND a.organization_id=$2 AND a.project_id=$3 AND a.execution='not_sent' ON CONFLICT(attempt_id) DO NOTHING")
-            .bind(attempt).bind(scope.organization_id).bind(scope.project_id).execute(&mut *tx).await?;
-        tx.commit().await?;
+            .bind(attempt).bind(scope.organization_id).bind(scope.project_id).execute(&mut **tx).await?;
         Ok(())
     }
     pub async fn accrue_customer_charge(&self, attempt: Uuid) -> Result<(), StoreError> {
