@@ -414,7 +414,7 @@ describe('customer cached-input billing evidence', () => {
     setup('operator', '/billing?tab=statements');
     await userEvent.setup().click(await screen.findByRole('button',{name:'View details'}));
     expect(await screen.findByText(expected)).toBeTruthy();
-    expect(screen.getByText('Cache read: USD 0.1')).toBeTruthy();
+    expect(screen.getByText('Cache read: USD 0.1 per 1M')).toBeTruthy();
     expect(screen.queryByText('private-revision')).toBeNull();
   });
 });
@@ -486,3 +486,15 @@ describe('customer media statement pagination', () => {
     expect(screen.queryByRole('button',{name:'Loading more…'})).toBeNull();
   });
 });
+
+ it('preserves exact per-request prices and distinguishes absent fees from zero', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({data:{...data,tariffs:[
+    {model_alias:'exact/model',revision:'current',currency:'USD',prompt_rate:'1000000000',completion_rate:'2000000000',request_fee_nanos:'9007199254740993',minimum_charge_nanos:'0'},
+    {model_alias:'legacy/model',revision:'legacy',currency:'USD',prompt_rate:'0',completion_rate:'0'},
+  ]}})));
+  setup('operator','/billing?tab=rates');
+  const row = await screen.findByRole('row',{name:/exact\/model/});
+  expect(within(row).getByText('USD 9007199.254740993')).toBeTruthy();
+  expect(within(row).getByText('USD 0.00')).toBeTruthy();
+  expect(within(screen.getByRole('row',{name:/legacy\/model/})).getAllByText('Unknown')).toHaveLength(2);
+ });
