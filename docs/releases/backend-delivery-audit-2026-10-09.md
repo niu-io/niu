@@ -1,6 +1,6 @@
 # Backend delivery audit and New API comparison
 
-Created: 2026-10-09. Updated: 2026-10-10. Backend work continues on main. This is an open delivery audit,
+Created: 2026-10-09. Updated: 2026-10-11. Backend work continues on main. This is an open delivery audit,
 not release acceptance. Frontend/browser work, container qualification and Agent
 Observability are outside this workstream. External merchant activation is not an
 internal-readiness gate. Fixture outcomes have no evidentiary weight.
@@ -19,6 +19,31 @@ internal-readiness gate. Fixture outcomes have no evidentiary weight.
 These are scoped observations. They do not establish parity or superiority over
 another gateway. The remaining items must not be replaced by repeated checks of
 already exercised read-only paths.
+
+## Latest integration and evidence changes
+
+- [Platform customer pricing](../reference/platform-customer-pricing.md) now has
+  named target discovery, bounded current-price pages and immutable history under
+  explicit platform authority. Actual HTTP and SDK publication/history checks
+  preserve the separate customer-data boundary. Concurrent publication across
+  two gateways and price changes during actual inference have scoped evidence.
+  The global frontend editor remains a separate acceptance task.
+- [Five-minute mixed-key text](../reference/mixed-key-sustained-text.md) adds 600
+  actual bounded completions across eight keys with exact per-attempt debit and
+  attribution checks after restart. This extends duration and mixed-key evidence;
+  it does not prove which commands shared a writer batch, operational capacity,
+  multi-instance limit saturation or media performance.
+- [Guardrail refusal and output checks](../reference/guardrail-preparation-errors.md)
+  distinguish pre-dispatch refusal from possibly charged output withholding.
+  Actual Chat/Responses output blocking, redaction and observation, retained
+  response checks, scoped diagnostics and accounting are documented separately.
+  External detectors and the complete policy/protocol matrix remain unqualified.
+- [Content recovery ownership](../reference/content-retention-recovery.md) now
+  includes interrupted image ingestion/read recovery. Actual priced foreground
+  calls completed during two-gateway recovery lock contention. The exercised
+  recovery queues were empty; populated backlog/poison-row progress is still open.
+  A single advisory owner does not bound all cross-process claim contenders to
+  one checked-out connection.
 
 ## New API reference baseline
 
@@ -76,8 +101,11 @@ round trips or by a green fixture workflow:
    from selected mappings and implement revisioned priority/weight policies.
    Actual personal Chat/Responses selection, bounded weighted traffic, and
    customer-priced candidate/revision attribution with distinct configured expenses
-   have scoped evidence. Long-run distribution, in-flight candidate changes and
-   post-rejection failover remain open.
+   have scoped evidence. The same reference now documents actual bounded Chat
+   failover after qualified canonical OpenRouter authentication rejection,
+   including concurrency, two gateways and process lifecycle cases. Generic
+   provider/status failover and long-run distribution remain open; do not repeat
+   the qualified rejection case as if no failover existed.
 4. Measure sustained inference/financial contention and larger actual datasets
    against explicit operational capacity targets. Short actual priced/structured-stream runs include independent settlement
    checks, but do not establish production throughput or long-soak limits.

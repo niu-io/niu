@@ -1,9 +1,10 @@
 # Bounded content-retention transactions
 
-Status: implemented with scoped current-input lock verification, 2026-10-10.
-Large expired backlogs and ingestion recovery remain unqualified.
+Status: implemented with scoped current-input lock and foreground verification,
+updated 2026-10-11. Large populated backlogs and poison-row progress remain
+unqualified; later sections distinguish the exercised recovery paths.
 
-Content expiry now uses a shared background transaction helper. It obtains an
+Content expiry now uses a shared background transaction helper. It obtains a
 connection through the existing pool with at most a 250 ms acquisition wait, tries a database transaction advisory
 lock for content retention, and configures a 250 ms lock timeout and a 2 s SQL
 statement timeout. An acquisition timeout or another owner skips the operation; SQL timeout or
@@ -12,7 +13,8 @@ loss releases ownership. Claim contenders briefly use their own pool connection.
 
 The helper covers retained request payloads, asset group create/read/update
 content, asset listing/lookup results, inspected-image source content and saved
-media result references. Existing retention predicates and erasure records remain
+media result references, plus interrupted asset-image ingestion and ingested-image
+read recovery. Existing retention predicates and erasure records remain
 in their domain modules. Independent expiry domains are still attempted after a
 failure in an earlier one. Inspected-image erasure keeps its marker and deletion
 in one transaction. Media result expiry now processes at most 500 references in
@@ -22,8 +24,10 @@ set in one statement.
 Financial recovery shares the connection/timeout implementation but uses its
 own ownership key. Content maintenance and financial recovery remain independently
 scheduled. This is not one global connection allowance for all background work:
-one owner in each group may run concurrently, and payments, video polling and
-interrupted ingestion/read recovery are outside this retention claim.
+one owner in each group may run concurrently, and payments and video polling
+remain outside this retention claim. Advisory-lock contenders can briefly hold
+additional pool connections; the shared owner is not a strict global cap of one
+checked-out connection across processes.
 
 ## Current-input observations
 
