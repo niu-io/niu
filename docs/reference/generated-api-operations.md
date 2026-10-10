@@ -4051,6 +4051,97 @@ HTTP 403: Platform management permission required
 
 HTTP 503: Configuration storage unavailable
 
+## Create an OpenAI-compatible chat completion
+
+`POST /v1/chat/completions`
+
+Uses the workspace API key and its model grants, source policy, rate/concurrency/token limits and configured billing. Streaming HTTP 200 starts delivery; completion and reported usage require the terminal stream evidence. Niu does not execute function tools. See the supported scope below for structured output and modality restrictions.
+
+Implementation: `implemented`. Operation: `createChatCompletion`.
+
+### Supported scope
+
+Basic chat is implemented for configured native provider routes. Function tools, streaming tool deltas, and structured JSON are opt-in on OpenAI-compatible routes only. Niu validates tool-call shape and structured JSON against a valid self-contained schema; json_object output must be an object. Schema compilation is offline and limited to 64 KiB, 4096 JSON nodes and depth 32, with bounded regular expressions. Niu does not execute tools. Structured JSON streaming remains unsupported. Token-priced routes support function calls and text-only tool-result conversations under the same input/output rates. Serialized messages, tool definitions, tool choices and response-format instructions count toward the configured input byte guard. Hosted tools and additional billable modalities remain unsupported.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
+  }
+]
+```
+
+### Parameters
+
+`x-niu-log-payloads` (header, optional)
+
+Request and sanitized customer response content is retained until 24 hours after the original request creation time by default. Send false (case-insensitive) to disable capture for this request; true or an omitted header retains content. Invalid values or repeated headers are rejected before inference. Requests exceeding the 1 MB capture limit are rejected; response capture is truncated at 1 MB. Does not backfill earlier requests.
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "true",
+    "false"
+  ],
+  "default": "true"
+}
+```
+
+`X-Niu-Task-ID` (header, optional)
+
+Optional opaque task correlation key. Requests with the same value can be grouped in workspace activity. Niu stores the value as metadata and does not forward it to the provider.
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 200,
+  "pattern": "^[!-~]{1,200}$"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ChatCompletionRequest"
+}
+```
+
+### Responses
+
+HTTP 200: A normalized chat completion or compatible event stream.
+
+HTTP 400: Invalid request, generation-parameter type or range, or unsupported operation; rejected before admission and Supplier dispatch.
+
+HTTP 401: Missing or invalid gateway credentials.
+
+HTTP 409: Admission conflict before dispatch. Type route_configuration_changed identifies a changed managed credential/model configuration; that request was not sent upstream. Other conflicts retain their own error type.
+
+HTTP 501: Tool or structured-output capability is disabled, or the requested combination is unsupported. The unsupported_operation_error message identifies the feature and a supported request alternative; rejection occurs before admission or upstream dispatch.
+
+HTTP 502: Provider request failed.
+
+HTTP 402: Insufficient balance or spending limit exceeded.
+
+HTTP 403: Source IP or enforced policy denies the request.
+
+HTTP 429: API key request, concurrency or token rate limit exceeded.
+
+HTTP 503: Durable storage or configured route unavailable.
+
 ## Create a Chat completion with a selected workspace key
 
 `POST /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/chat/completions`
@@ -4140,258 +4231,7 @@ Content type: `application/json`.
 
 ```json
 {
-  "type": "object",
-  "required": [
-    "model",
-    "messages"
-  ],
-  "properties": {
-    "model": {
-      "type": "string"
-    },
-    "messages": {
-      "type": "array",
-      "items": {
-        "type": "object"
-      }
-    },
-    "tools": {
-      "type": "array",
-      "minItems": 1,
-      "maxItems": 128,
-      "items": {
-        "type": "object",
-        "required": [
-          "type",
-          "function"
-        ],
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "function"
-          },
-          "function": {
-            "type": "object",
-            "required": [
-              "name"
-            ],
-            "properties": {
-              "name": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 64,
-                "pattern": "^[A-Za-z0-9_-]+$"
-              },
-              "description": {
-                "type": "string"
-              },
-              "parameters": {
-                "type": "object",
-                "description": "JSON Schema object forwarded to the configured provider.",
-                "additionalProperties": true
-              },
-              "strict": {
-                "type": "boolean"
-              }
-            },
-            "additionalProperties": true
-          }
-        },
-        "additionalProperties": true
-      }
-    },
-    "tool_choice": {
-      "oneOf": [
-        {
-          "type": "string",
-          "enum": [
-            "none",
-            "auto",
-            "required"
-          ]
-        },
-        {
-          "type": "object",
-          "required": [
-            "type",
-            "function"
-          ],
-          "properties": {
-            "type": {
-              "type": "string",
-              "const": "function"
-            },
-            "function": {
-              "type": "object",
-              "required": [
-                "name"
-              ],
-              "properties": {
-                "name": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 64
-                }
-              }
-            }
-          },
-          "additionalProperties": true
-        }
-      ]
-    },
-    "parallel_tool_calls": {
-      "type": "boolean"
-    },
-    "response_format": {
-      "oneOf": [
-        {
-          "type": "object",
-          "required": [
-            "type"
-          ],
-          "properties": {
-            "type": {
-              "type": "string",
-              "const": "text"
-            }
-          },
-          "additionalProperties": true
-        },
-        {
-          "type": "object",
-          "required": [
-            "type"
-          ],
-          "properties": {
-            "type": {
-              "type": "string",
-              "const": "json_object"
-            }
-          },
-          "additionalProperties": true
-        },
-        {
-          "type": "object",
-          "required": [
-            "type",
-            "json_schema"
-          ],
-          "properties": {
-            "type": {
-              "type": "string",
-              "const": "json_schema"
-            },
-            "json_schema": {
-              "type": "object",
-              "required": [
-                "name",
-                "schema"
-              ],
-              "properties": {
-                "name": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 64
-                },
-                "description": {
-                  "type": "string"
-                },
-                "strict": {
-                  "type": "boolean"
-                },
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true
-                }
-              },
-              "additionalProperties": true
-            }
-          },
-          "additionalProperties": true
-        }
-      ]
-    },
-    "temperature": {
-      "type": [
-        "number",
-        "null"
-      ],
-      "minimum": 0,
-      "maximum": 2
-    },
-    "top_p": {
-      "type": [
-        "number",
-        "null"
-      ],
-      "minimum": 0,
-      "maximum": 1
-    },
-    "frequency_penalty": {
-      "type": [
-        "number",
-        "null"
-      ],
-      "minimum": -2,
-      "maximum": 2
-    },
-    "presence_penalty": {
-      "type": [
-        "number",
-        "null"
-      ],
-      "minimum": -2,
-      "maximum": 2
-    },
-    "max_tokens": {
-      "type": [
-        "integer",
-        "null"
-      ],
-      "minimum": 1,
-      "maximum": 9223372036854775807
-    },
-    "max_completion_tokens": {
-      "type": [
-        "integer",
-        "null"
-      ],
-      "minimum": 1,
-      "maximum": 9223372036854775807
-    },
-    "n": {
-      "type": [
-        "integer",
-        "null"
-      ],
-      "minimum": 1,
-      "maximum": 9223372036854775807
-    },
-    "seed": {
-      "type": [
-        "integer",
-        "null"
-      ],
-      "minimum": -9223372036854775808,
-      "maximum": 9223372036854775807
-    },
-    "stream": {
-      "type": "boolean"
-    },
-    "stream_options": {
-      "type": [
-        "object",
-        "null"
-      ],
-      "properties": {
-        "include_usage": {
-          "type": "boolean"
-        }
-      },
-      "additionalProperties": true
-    }
-  },
-  "additionalProperties": true
+  "$ref": "#/components/schemas/ChatCompletionRequest"
 }
 ```
 
@@ -4949,6 +4789,266 @@ HTTP 503: Durable storage or configured route unavailable.
 ## Shared schemas
 
 Local `#/components/schemas/…` references resolve to these definitions.
+
+### ChatCompletionRequest
+
+```json
+{
+  "type": "object",
+  "required": [
+    "model",
+    "messages"
+  ],
+  "properties": {
+    "model": {
+      "type": "string"
+    },
+    "messages": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "tools": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "required": [
+          "type",
+          "function"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "function"
+          },
+          "function": {
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_-]+$"
+              },
+              "description": {
+                "type": "string"
+              },
+              "parameters": {
+                "type": "object",
+                "description": "JSON Schema object forwarded to the configured provider.",
+                "additionalProperties": true
+              },
+              "strict": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "tool_choice": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "none",
+            "auto",
+            "required"
+          ]
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "function"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "function"
+            },
+            "function": {
+              "type": "object",
+              "required": [
+                "name"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                }
+              }
+            }
+          },
+          "additionalProperties": true
+        }
+      ]
+    },
+    "parallel_tool_calls": {
+      "type": "boolean"
+    },
+    "response_format": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "text"
+            }
+          },
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "json_object"
+            }
+          },
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "json_schema"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "json_schema"
+            },
+            "json_schema": {
+              "type": "object",
+              "required": [
+                "name",
+                "schema"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "description": {
+                  "type": "string"
+                },
+                "strict": {
+                  "type": "boolean"
+                },
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        }
+      ],
+      "description": "Nonstreaming structured JSON is supported on explicitly enabled priced text routes. Serialized response-format instructions count toward the route input byte guard alongside messages; this guard is not a provider tokenizer or a guarantee against reported overruns."
+    },
+    "temperature": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 2
+    },
+    "top_p": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "frequency_penalty": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": -2,
+      "maximum": 2
+    },
+    "presence_penalty": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": -2,
+      "maximum": 2
+    },
+    "max_tokens": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "maximum": 9223372036854775807
+    },
+    "max_completion_tokens": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "maximum": 9223372036854775807
+    },
+    "n": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "maximum": 9223372036854775807
+    },
+    "seed": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": -9223372036854775808,
+      "maximum": 9223372036854775807
+    },
+    "stream": {
+      "type": "boolean"
+    },
+    "stream_options": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "include_usage": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
+```
 
 ### EPayConfiguration
 
