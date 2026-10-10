@@ -396,6 +396,12 @@ availability and personal ownership apply. The projection excludes credentials,
 upstream mappings, procurement prices and unsupported inputs/callbacks/meters.
 Honor the returned resolution/ratio pairs. Discovery is not a quote or admission
 guarantee; estimate and submit recheck current configuration, tariffs and funds.
+`model.output` is a discriminated union: `video_tokens` pairs with
+`SeedancePixelsV1`, while `seconds` pairs with `OutputSecondsV1`. Use the returned
+meter instead of assuming all video is token-priced. The current native personal
+OpenRouter route was read and estimated through the SDK: both responses reported
+seconds, with no customer charge bound. This management-only check created no
+submission preparation and does not qualify customer-funded media settlement.
 
 List saved workspace video jobs with `await client.video.jobs.list({ limit: 25 })`.
 Follow `next_before` with `{ before: page.next_before, limit: 25 }` while `has_more`

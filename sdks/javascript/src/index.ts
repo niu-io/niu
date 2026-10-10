@@ -224,7 +224,11 @@ export type VideoModel = {
   };
   maximum_body_bytes: number; maximum_content_items: number;
   controls: Record<string, VideoControl>; required_controls: string[]; exclusive_controls: string[][];
-  output: { specifications: Array<{ resolution: string; ratio: string; width: number; height: number }>; meter: 'video_tokens'; estimator: 'SeedancePixelsV1' };
+  /** The meter follows the configured estimator; discovery is not a billing quote. */
+  output: { specifications: Array<{ resolution: string; ratio: string; width: number; height: number }> } & (
+    | { meter: 'video_tokens'; estimator: 'SeedancePixelsV1' }
+    | { meter: 'seconds'; estimator: 'OutputSecondsV1' }
+  );
 };
 export type VideoModelList = { object: 'list'; data: VideoModel[] };
 
