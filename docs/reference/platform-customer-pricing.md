@@ -184,3 +184,22 @@ the traversal and exactly 105 immutable revisions; the 104 added configurations
 retained their fixed/minimum fees, and 52 retained explicit cache rates while
 the others remained null. No inference or financial records were created.
 This extends bounded directory coverage, not sustained capacity qualification.
+
+## Populated native integration checkpoint
+
+A dedicated, explicitly labeled internal-credit verification company/workspace
+now retains two actual tariff publications in the native development service.
+The second publication replaced the first using its expected revision; replaying
+the stale write returned HTTP 409. A real nonce-bound OpenRouter completion used
+the second tariff, produced an exact customer debit and was included in a paid
+statement. Internal verification rates are not a commercial offer or received
+payment. The route was private and was disabled after verification; its temporary
+key was revoked. Existing workspaces and Supplier encrypted identities were kept.
+
+Independent SQL matched returned usage to the completed attempt, recalculated
+the charge/debit and confirmed the reservation was released. Actual platform
+current-price/history reads returned one current tariff and both immutable
+revisions; the billing read returned the paid statement for the exact amount.
+This leaves populated backend data available for frontend integration without
+fabricating history or a payment. Browser history rendering, editing and conflict
+recovery still require frontend acceptance on that populated target.
