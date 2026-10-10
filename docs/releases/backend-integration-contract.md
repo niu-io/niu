@@ -162,3 +162,12 @@ reads, setting a finite value, history, explicit null removal, stale-write 409,
 empty token usage and restart persistence. No inference or financial mutation
 was needed for that contract check. Prior actual priced-admission evidence remains
 linked above; annotation migration is not new inference qualification.
+
+Key monetary spending list/write/history now also use handler annotations. The
+previous history response had only a description; its generated schema now
+declares currency, nullable limit, revision, timestamp and safe actor fields.
+Actual HTTP verification covered an unconfigured limit, finite allowance,
+explicit null removal, history, stale revision rejection and restart persistence.
+Unlike workspace monetary limits, key monetary limits accept null for unlimited.
+Remaining key allowance is not company available balance or a guarantee that
+another admission check will accept a request.

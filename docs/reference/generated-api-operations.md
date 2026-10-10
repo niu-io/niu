@@ -678,6 +678,362 @@ HTTP 403: Workspace access denied
 
 HTTP 404: Workspace is outside operator scope
 
+## List API key spending limits
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit`
+
+Scoped readers may inspect customer commitments. Rotated keys share the original spending identity. Personal upstream routes do not consume customer funds. No Supplier costs or company balance are exposed.
+
+Implementation: `implemented`. Operation: `listKeySpendingLimits`.
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Account currencies and lifetime key commitments; null limit means unlimited and null revision means never configured.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "currency",
+          "limit_nanos",
+          "revision",
+          "committed_nanos",
+          "remaining_nanos"
+        ],
+        "properties": {
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "limit_nanos": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "revision": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "committed_nanos": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "remaining_nanos": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$",
+            "description": "Maximum of cap minus committed customer amount and zero; null for unlimited. This is key allowance only, not company balance or guaranteed admission."
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required
+
+HTTP 403: Workspace access denied
+
+HTTP 404: Key does not exist in the authorized workspace
+
+## Set API key spending limit
+
+`PUT /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}`
+
+Workspace/company owner or installation administrator. Cap includes settled customer charges minus refunds plus unreleased reservations, across secret rotations. Lowering below committed liability is rejected. Account and workspace limits still apply. Writes do not add funds. Null explicitly restores unlimited; omission is rejected.
+
+Implementation: `implemented`. Operation: `setKeySpendingLimit`.
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`currency` (path, required)
+
+```json
+{
+  "type": "string",
+  "pattern": "^[A-Z]{3}$"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "limit_nanos",
+    "expected_revision"
+  ],
+  "properties": {
+    "limit_nanos": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$",
+      "description": "Nonnegative signed-64-bit nanounits or explicit null."
+    },
+    "expected_revision": {
+      "type": "string",
+      "pattern": "^[0-9]+$",
+      "description": "Zero for initial configuration; maximum 9223372036854775806."
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: New immutable policy revision recorded.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "data": {
+      "type": "object",
+      "properties": {
+        "revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid amount or currency
+
+HTTP 401: Authentication required
+
+HTTP 402: Proposed limit is below committed key liability
+
+HTTP 403: Owner permission required
+
+HTTP 404: Key does not exist in the authorized workspace
+
+HTTP 409: Stale revision
+
+HTTP 422: Missing or invalid body fields
+
+## List API key spending history
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}/history`
+
+Descending immutable revision history shared across rotations. Use the last returned revision as before_revision for the next page. Returns currency, nullable limit_nanos, revision, recorded_at, actor_kind and actor_name; never an internal actor identifier.
+
+Implementation: `implemented`. Operation: `listKeySpendingLimitHistory`.
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`currency` (path, required)
+
+```json
+{
+  "type": "string",
+  "pattern": "^[A-Z]{3}$"
+}
+```
+
+`before_revision` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Data array of policy revisions
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "currency",
+          "limit_nanos",
+          "revision",
+          "recorded_at",
+          "actor_kind",
+          "actor_name"
+        ],
+        "properties": {
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "limit_nanos": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actor_kind": {
+            "type": "string",
+            "enum": [
+              "installation",
+              "member"
+            ]
+          },
+          "actor_name": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid currency or pagination
+
+HTTP 401: Authentication required
+
+HTTP 403: Workspace access denied
+
+HTTP 404: Key does not exist in the authorized workspace
+
 ## Read API key token rate policy
 
 `GET /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit`
