@@ -118,3 +118,14 @@ and restart. Independent raw-response and database inspection confirmed the fina
 state. This is a crash-boundary check, not a throughput measurement or proof that
 unknown upstream usage can later be recovered. See the
 [hard-crash evidence and limits](https://github.com/niu-io/niu/blob/main/docs/reference/upstream-retry-policy.md#hard-process-crash-after-streamed-output).
+
+## A gateway joining during generation
+
+A second native gateway was started after the first instance had delivered actual
+stream content. SQL before and after the new instance became ready showed the
+original request still executing with unknown usage and its reservation held.
+Both instances then served traffic: 18 completed operations, 36 attempts and 18
+exact charges, with no remaining holds or duplicate charges after restart.
+Independent raw-response and reopened-database checks confirmed the results.
+This checks peer startup during live work, not a full zero-downtime rolling
+replacement. See the [startup evidence and remaining boundaries](https://github.com/niu-io/niu/blob/main/docs/reference/upstream-retry-policy.md#joining-a-gateway-during-active-generation).

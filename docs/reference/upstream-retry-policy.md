@@ -230,3 +230,28 @@ unchanged and the isolated processes were stopped.
 This qualifies the exercised crash boundary with internal credit/rates. It does
 not establish later recovery of unavailable upstream usage, rolling restarts with
 another live gateway, or crashes at every financial commit boundary.
+
+## Joining a gateway during active generation
+
+A fresh current-input run started one native gateway and four workers. After a
+worker received its first actual streamed content, SQL confirmed that request was
+`may_have_executed`, its usage was unknown and its customer reservation remained
+held. A second gateway then started against the same database. Once its readiness
+endpoint returned success, independent SQL still showed that same live request
+and reservation state. Subsequent worker requests were shared between instances.
+This directly exercises a peer's startup while generation is active.
+
+During the 20-second admission window, the first gateway completed 11 operations
+and the joining gateway seven. Including drain, 18 operations took 24.304 seconds.
+Every operation used the existing real authentication-rejection/structured-stream
+workload with explicit internal credit/rates and personal upstream testing.
+Separate raw-SSE inspection verified terminal events, outputs and usage; reopening
+the retained database verified 36 attempts, 18 exact customer charges/debits
+summing to 7,506,058 nanounits and no remaining customer/procurement reservations.
+Restarting both gateways after completion retained the chains and debit counts.
+Original encrypted identity was unchanged and isolated processes were stopped.
+
+This qualifies peer startup during the observed live stream and subsequent shared
+traffic. It does not qualify stopping the gateway that owns an active request,
+zero-downtime rolling deployment, two recovery workers racing for one successor,
+all financial commit failures or a capacity limit.
