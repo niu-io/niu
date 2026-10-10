@@ -1117,40 +1117,59 @@ impl Store {
         Ok(entry)
     }
 
-    /// A hold can be released only when the persisted dispatch transition never
-    /// occurred. Timeouts, elapsed wall time and process loss are not proof.
+    /// Compatibility entry point: uncertain requests still cannot release a hold.
     pub async fn release_unsent_cost(
         &self,
         scope: TenantScope,
         id: Uuid,
     ) -> Result<(), StoreError> {
+        self.release_nonexecuted_cost(scope, id).await
+    }
+
+    /// Release only persisted nonexecution, never timeout or elapsed wall time.
+    pub async fn release_nonexecuted_cost(
+        &self,
+        scope: TenantScope,
+        id: Uuid,
+    ) -> Result<(), StoreError> {
         let mut tx = self.pool.begin().await?;
+        Self::release_nonexecuted_cost_in_tx(&mut tx, scope, id).await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    pub(crate) async fn release_nonexecuted_cost_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: TenantScope,
+        id: Uuid,
+    ) -> Result<(), StoreError> {
         let row = sqlx::query("SELECT execution FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")
-            .bind(scope.organization_id).bind(scope.project_id).bind(id).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
-        if row.get::<String, _>("execution") != "not_sent" {
+            .bind(scope.organization_id).bind(scope.project_id).bind(id).fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
+        if !matches!(
+            row.get::<String, _>("execution").as_str(),
+            "not_sent" | "confirmed_not_executed"
+        ) {
             return Err(StoreError::Unresolved);
         }
         let reservation =
             sqlx::query("SELECT state, reserved_nanos FROM cost_reservations WHERE attempt_id=$1")
                 .bind(id)
-                .fetch_optional(&mut *tx)
+                .fetch_optional(&mut **tx)
                 .await?
                 .ok_or(StoreError::Conflict)?;
         let state: String = reservation.get("state");
         if state == "released" {
-            tx.commit().await?;
             return Ok(());
         }
         if state != "held" {
             return Err(StoreError::Conflict);
         }
         sqlx::query("UPDATE project_budgets SET reserved_nanos=reserved_nanos-$3 WHERE organization_id=$1 AND project_id=$2")
-            .bind(scope.organization_id).bind(scope.project_id).bind(reservation.get::<i64,_>("reserved_nanos")).execute(&mut *tx).await?;
+            .bind(scope.organization_id).bind(scope.project_id).bind(reservation.get::<i64,_>("reserved_nanos")).execute(&mut **tx).await?;
         sqlx::query("UPDATE cost_reservations SET state='released' WHERE attempt_id=$1")
             .bind(id)
-            .execute(&mut *tx)
+            .execute(&mut **tx)
             .await?;
-        tx.commit().await?;
         Ok(())
     }
 }

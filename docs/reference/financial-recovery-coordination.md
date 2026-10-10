@@ -32,6 +32,12 @@ aborting other records in the batch. A 250 ms lock timeout bounds waits on
 foreground locks; a 2 s statement timeout bounds individual database statements.
 These limits do not establish a whole-batch latency guarantee.
 
+The upstream-cost stage also releases held reservations when durable evidence
+confirms nonexecution. [Actual OpenRouter authentication refusal](openrouter-auth-rejection-release.md)
+verified customer and procurement release, including restart after both release
+paths encountered injected database write errors. Unknown execution still holds
+its liability; HTTP failures are not generically assumed to be free.
+
 Migration 0218 stores a cursor for each stage. The cursor advances atomically
 with successful batch work, including past rows that need a later retry. At the
 end of the keyspace it resets, so earlier unresolved rows and newly eligible

@@ -858,7 +858,7 @@ pub(super) async fn finalize_response(
             .await
             .is_err()
     {
-        tracing::error!(attempt_id = %dispatch.attempt, "request failure diagnostic could not be saved");
+        tracing::error!(attempt_id = %dispatch.attempt, "request failure persistence or reservation release requires retry");
     }
     if let Some(input) = dispatch.retained_input {
         response

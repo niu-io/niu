@@ -37,7 +37,9 @@ pub struct RequestFailure {
 impl Store {
     /// First immutable observation for this scoped, dispatched attempt. Identical
     /// retries are idempotent; conflicting classifications cannot overwrite it.
-    /// Accounting and execution uncertainty are deliberately left unchanged.
+    /// Immediate OpenRouter HTTP 401 is a documented authentication rejection.
+    /// It proves nonexecution for text API calls; transport/SSE errors, other
+    /// providers/statuses and asynchronous media retain execution uncertainty.
     pub async fn save_request_failure(
         &self,
         scope: TenantScope,
@@ -55,6 +57,10 @@ impl Store {
         if !valid {
             return Err(StoreError::InvalidObservation);
         }
+        let mut tx = self.pool.begin().await?;
+        sqlx::query("SELECT id FROM attempts WHERE id=$1 AND organization_id=$2 AND project_id=$3 AND dispatched_at IS NOT NULL FOR UPDATE")
+            .bind(attempt).bind(scope.organization_id).bind(scope.project_id)
+            .fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
         let result = sqlx::query(
             "INSERT INTO request_failures (attempt_id,kind,upstream_http_status) \
              SELECT a.id,$4,$5 FROM attempts a \
@@ -69,10 +75,42 @@ impl Store {
         .bind(scope.project_id)
         .bind(failure.kind.as_str())
         .bind(failure.upstream_http_status.map(|status| status as i16))
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await?;
         if result.rows_affected() != 1 {
             return Err(StoreError::Conflict);
+        }
+        let confirmed = if failure.kind == UpstreamHttpError
+            && failure.upstream_http_status == Some(401)
+        {
+            sqlx::query("UPDATE attempts a SET execution='confirmed_not_executed',completed_at=COALESCE(completed_at,clock_timestamp()) WHERE a.id=$1 AND a.organization_id=$2 AND a.project_id=$3 AND a.dispatch_provider='openrouter' AND a.execution='may_have_executed' AND a.usage_confidence='unknown' AND NOT EXISTS(SELECT 1 FROM media_recovery_routes m WHERE m.attempt_id=a.id)")
+                .bind(attempt).bind(scope.organization_id).bind(scope.project_id)
+                .execute(&mut *tx).await?.rows_affected()==1
+        } else {
+            false
+        };
+        tx.commit().await?;
+        if confirmed {
+            // Independent transactions keep customer and procurement recovery
+            // from starving each other. Durable nonexecution also lets the
+            // background worker finish releases after a crash or storage fault.
+            let customer: Result<(), StoreError> = async {
+                let held: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM customer_balance_reservations WHERE attempt_id=$1 AND released_at IS NULL)")
+                    .bind(attempt).fetch_one(&self.pool).await?;
+                if held {
+                    self.release_nonexecuted_customer_balance(scope, attempt).await?;
+                }
+                Ok(())
+            }.await;
+            let procurement: Result<(), StoreError> = async {
+                let held: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM cost_reservations WHERE attempt_id=$1 AND state='held')")
+                    .bind(attempt).fetch_one(&self.pool).await?;
+                if held {
+                    self.release_nonexecuted_cost(scope, attempt).await?;
+                }
+                Ok(())
+            }.await;
+            customer.and(procurement)?;
         }
         Ok(())
     }

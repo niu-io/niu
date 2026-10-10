@@ -38,7 +38,7 @@ impl FinancialStage {
                 "SELECT a.id,a.organization_id,a.project_id FROM attempts a JOIN provider_attempt_offers b ON b.attempt_id=a.id LEFT JOIN provider_earnings e ON e.attempt_id=a.id WHERE e.attempt_id IS NULL AND a.execution='confirmed_completed' AND (a.usage_confidence='provider_reported' OR EXISTS(SELECT 1 FROM supplier_media_attempt_pricing p WHERE p.attempt_id=a.id)) AND ($1::uuid IS NULL OR a.id>$1) ORDER BY a.id LIMIT 100"
             }
             Self::UpstreamCost => {
-                "SELECT a.id, a.organization_id, a.project_id FROM attempts a JOIN cost_reservations r ON r.attempt_id=a.id WHERE a.execution='confirmed_completed' AND a.usage_confidence='provider_reported' AND r.state='held' AND ($1::uuid IS NULL OR a.id > $1) ORDER BY a.id LIMIT 100"
+                "SELECT a.id, a.organization_id, a.project_id FROM attempts a JOIN cost_reservations r ON r.attempt_id=a.id WHERE (a.execution='confirmed_not_executed' OR (a.execution='confirmed_completed' AND a.usage_confidence='provider_reported')) AND r.state='held' AND ($1::uuid IS NULL OR a.id > $1) ORDER BY a.id LIMIT 100"
             }
         }
     }
@@ -129,9 +129,22 @@ impl Store {
                     Self::accrue_provider_earning_in_tx(&mut row_tx, attempt).await
                 }
                 FinancialStage::UpstreamCost => {
-                    Self::settle_cost_in_tx(&mut row_tx, scope, attempt)
-                        .await
-                        .map(|_| ())
+                    async {
+                        let nonexecuted: bool = sqlx::query_scalar(
+                            "SELECT execution='confirmed_not_executed' FROM attempts WHERE id=$1",
+                        )
+                        .bind(attempt)
+                        .fetch_one(&mut *row_tx)
+                        .await?;
+                        if nonexecuted {
+                            Self::release_nonexecuted_cost_in_tx(&mut row_tx, scope, attempt).await
+                        } else {
+                            Self::settle_cost_in_tx(&mut row_tx, scope, attempt)
+                                .await
+                                .map(|_| ())
+                        }
+                    }
+                    .await
                 }
             };
             if result.is_ok() {
