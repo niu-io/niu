@@ -1248,6 +1248,8 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1v1~1chat~1completions'
   /v1/embeddings:
     $ref: './generated/handler-operations.json#/paths/~1v1~1embeddings'
+  /v1beta/models/{model_action}:
+    $ref: './generated/handler-operations.json#/paths/~1v1beta~1models~1{model_action}'
   /v1/messages:
     $ref: './generated/handler-operations.json#/paths/~1v1~1messages'
   /v1/responses:

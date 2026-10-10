@@ -18,6 +18,7 @@ pub struct TextRule {
 pub enum Protocol {
     Chat,
     Messages,
+    GenerateContent,
     Responses,
     Embeddings,
     VideoText,
@@ -124,6 +125,7 @@ impl CompiledInputPolicy {
         match protocol {
             Protocol::Chat => inspect_chat(body, &self.rules),
             Protocol::Messages => inspect_messages(body, &self.rules),
+            Protocol::GenerateContent => inspect_generate_content(body, &self.rules),
             Protocol::Responses => inspect_responses(body, &self.rules),
             Protocol::Embeddings => inspect_embeddings(body, &self.rules),
             Protocol::VideoText => self.inspect_video_text(body),
@@ -153,6 +155,66 @@ pub(crate) fn valid_message_cache_control(value: &serde_json::Value) -> bool {
                 .get("ttl")
                 .is_none_or(|ttl| ttl == "5m" || ttl == "1h")
     })
+}
+
+/// Native text parts are inspected together, then written back to the native
+/// document. The temporary Chat shape is never sent to an upstream provider.
+fn inspect_generate_content(
+    body: &serde_json::Value,
+    rules: &[TextRule],
+) -> Result<serde_json::Value, InspectionError> {
+    use serde_json::{Value, json};
+    let invalid = || InspectionError::UnsupportedContent;
+    let object = body.as_object().ok_or_else(invalid)?;
+    if object
+        .keys()
+        .any(|key| !["contents", "systemInstruction", "generationConfig"].contains(&key.as_str()))
+    {
+        return Err(invalid());
+    }
+    let contents = body["contents"]
+        .as_array()
+        .filter(|v| !v.is_empty() && v.len() <= 128)
+        .ok_or_else(invalid)?;
+    let mut paths = Vec::new();
+    let mut content_paths: Vec<String> = (0..contents.len())
+        .map(|i| format!("/contents/{i}"))
+        .collect();
+    if body.get("systemInstruction").is_some() {
+        content_paths.insert(0, "/systemInstruction".into());
+    }
+    for path in content_paths {
+        let content = body.pointer(&path).ok_or_else(invalid)?;
+        if !content.as_object().is_some_and(|v| {
+            v.keys()
+                .all(|key| ["role", "parts"].contains(&key.as_str()))
+        }) || content.get("role").is_some_and(|role| {
+            role != "user" && role != "model" && !(path == "/systemInstruction" && role == "system")
+        }) {
+            return Err(invalid());
+        }
+        let parts = content["parts"]
+            .as_array()
+            .filter(|v| !v.is_empty() && v.len() <= 128)
+            .ok_or_else(invalid)?;
+        for (i, part) in parts.iter().enumerate() {
+            if !part.as_object().is_some_and(|v| v.len() == 1) || !part["text"].is_string() {
+                return Err(invalid());
+            }
+            paths.push(format!("{path}/parts/{i}/text"));
+        }
+    }
+    let messages: Vec<Value> = paths
+        .iter()
+        .map(|path| json!({"role":"user","content":body.pointer(path).unwrap()}))
+        .collect();
+    let transformed = inspect_chat(&json!({"messages":messages}), rules)?;
+    let mut result = body.clone();
+    for (i, path) in paths.iter().enumerate() {
+        *result.pointer_mut(path).ok_or_else(invalid)? =
+            transformed["messages"][i]["content"].clone();
+    }
+    Ok(result)
 }
 
 pub fn inspect_messages(
@@ -1001,6 +1063,14 @@ pub fn detector_text(
         Protocol::Messages => {
             collect(&validated["system"], &mut texts);
             collect(&validated["messages"], &mut texts);
+        }
+        Protocol::GenerateContent => {
+            collect(&validated["systemInstruction"]["parts"], &mut texts);
+            if let Some(contents) = validated["contents"].as_array() {
+                for content in contents {
+                    collect(&content["parts"], &mut texts);
+                }
+            }
         }
         Protocol::Responses => {
             if let Some(instructions) = validated.get("instructions") {

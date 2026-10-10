@@ -14,7 +14,7 @@ use serde_json::{Value, json};
 
 use crate::{error::ApiError, state::AppState};
 
-use super::inference::{chat, embeddings, messages, responses};
+use super::inference::{chat, embeddings, generate_content, messages, responses};
 
 async fn password_response_headers(request: axum::http::Request<Body>, next: Next) -> Response {
     let mut response = next.run(request).await;
@@ -222,6 +222,7 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/v1/video/jobs/{id}/results/{kind}", get(super::inference::video_results::retrieve))
         .route("/v1/video/jobs/{id}/results", get(super::inference::video_results::availability).delete(super::inference::video_results::delete))
         .route("/v1/video/jobs/{id}", get(super::inference::video::status))
+        .route("/v1beta/models/{model_action}", post(generate_content).layer(DefaultBodyLimit::max(64*1024)))
         .route("/v1/messages", post(messages).layer(DefaultBodyLimit::max(64*1024)))
         .route("/v1/chat/completions", axum::routing::post(chat))
         .route("/v1/responses", axum::routing::post(responses))
@@ -675,10 +676,11 @@ async fn catalog_models(State(state): State<AppState>) -> Result<Json<Value>, Ap
                 "owned_by": "niu",
                 "catalog": model.catalog.customer_metadata(),
                 "capabilities": {
-                    "chat_completions": true,
+                    "chat_completions": model.protocol().supports_chat_completions(),
                     "streaming": model.protocol().supports_streaming(),
                     "embeddings": model.supports_embeddings,
                     "messages": model.supports_messages,
+                    "generate_content": model.supports_generate_content,
                     "responses": model.supports_responses
                 }
             })
@@ -759,6 +761,7 @@ async fn admin_models(
                 "supports_streaming_tool_calls": model.supports_streaming_tool_calls,
                 "supports_structured_output": model.supports_structured_output,
                 "supports_messages": model.supports_messages,
+                "supports_generate_content": model.supports_generate_content,
                 "supports_responses": model.supports_responses
             });
             if authorization.is_installation() {
@@ -776,6 +779,7 @@ async fn admin_models(
                     "supports_streaming_tool_calls": model.supports_streaming_tool_calls,
                     "supports_structured_output": model.supports_structured_output,
                     "supports_messages": model.supports_messages,
+                "supports_generate_content": model.supports_generate_content,
                     "supports_responses": model.supports_responses
                 })
             } else {

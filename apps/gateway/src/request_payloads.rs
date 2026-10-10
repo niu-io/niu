@@ -126,6 +126,7 @@ pub async fn capture(
             "/v1/chat/completions" | "/v1/responses" | "/v1/messages" | "/v1/embeddings"
         )
         || path.starts_with("/admin/v1/organizations/") && path.ends_with("/chat/completions");
+    let inference = inference || path.starts_with("/v1beta/models/");
     if !inference || request.method() != axum::http::Method::POST {
         return next.run(request).await;
     }

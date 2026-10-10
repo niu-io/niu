@@ -1,4 +1,18 @@
 import type { ContextPriceTier } from './admin.js';
+/** Buffered native Gemini text. Requires an explicitly declared static gemini route. */
+export type GenerateContentRequest = {
+  contents: Array<{ role?: 'user' | 'model'; parts: Array<{ text: string }> }>;
+  systemInstruction?: { role?: 'user' | 'model' | 'system'; parts: Array<{ text: string }> };
+  generationConfig: { maxOutputTokens: number; candidateCount?: 1; temperature?: number; topP?: number; topK?: number; stopSequences?: string[] };
+};
+export type GenerateContentResponse = {
+  candidates: Array<{ index: 0; content: { role: 'model'; parts: Array<{ text: string }> }; finishReason: 'STOP' | 'MAX_TOKENS' }>;
+  modelVersion: string;
+  responseId?: string;
+  /** Missing categories remain null; usage is not a settlement receipt. */
+  usageMetadata: { promptTokenCount: number | null; candidatesTokenCount: number | null; totalTokenCount: number | null; cachedContentTokenCount: number | null; thoughtsTokenCount: number | null };
+};
+
 /** Explicit native text subset; no tools, media, beta features or streaming. */
 export type MessagesRequest = {
   model: string;
@@ -343,6 +357,7 @@ export class NiuClient {
   readonly video: { models: { list: (options?: RequestOptions) => Promise<VideoModelList> }; estimate: (request: VideoCreateRequest, options?: RequestOptions) => Promise<VideoEstimate>; jobs: { results: { status: (id: string, options?: RequestOptions) => Promise<VideoResultAvailability>; retrieve: (id: string, kind: 'video' | 'last_frame', options?: RequestOptions) => Promise<Response>; delete: (id: string, options?: RequestOptions) => Promise<{ deleted: true }> }; list: (query?: VideoJobHistoryQuery, options?: RequestOptions) => Promise<VideoJobHistory>; billing: (id: string, options?: RequestOptions) => Promise<VideoJobBilling>; timings: (id: string, options?: RequestOptions) => Promise<VideoTransportTimings>; refresh: (id: string, options?: RequestOptions) => Promise<VideoJobState>; create: (request: VideoCreateRequest, options?: VideoCreateOptions) => Promise<VideoJobState>; retrieve: (id: string, options?: RequestOptions) => Promise<VideoJobState> } };
   readonly models: { list: (options?: RequestOptions) => Promise<ModelList> };
   readonly embeddings: { create: (request: EmbeddingRequest, options?: RequestOptions) => Promise<EmbeddingResponse> };
+  readonly generateContent: (model: string, request: GenerateContentRequest, options?: RequestOptions) => Promise<GenerateContentResponse>;
   readonly messages: { create: (request: MessagesRequest, options?: RequestOptions) => Promise<MessagesResponse> };
   readonly responses: { create: (request: ResponsesRequest, options?: RequestOptions) => Promise<ResponsesResponse>; stream: (request: ResponsesRequest, options?: RequestOptions) => AsyncGenerator<unknown> };
   readonly chat: {
@@ -438,6 +453,7 @@ export class NiuClient {
     this.embeddings = {
       create: (request, requestOptions) => this.request('/embeddings', request, requestOptions),
     };
+    this.generateContent = (model, request, options) => this.request(`/models/${encodeURIComponent(model)}:generateContent`, request, options, true);
     this.messages = { create: (request, requestOptions) => this.request('/messages', request, requestOptions) };
     this.responses = {
       create: (request, requestOptions) => {
@@ -461,8 +477,9 @@ export class NiuClient {
     path: string,
     body?: unknown,
     options: RequestOptions = {},
+    nativeGemini = false,
   ): Promise<T> {
-    const response = await this.send(path, body, options, 'application/json');
+    const response = await this.send(path, body, options, 'application/json', body === undefined ? 'GET' : 'POST', nativeGemini);
     return await readPayload(response) as T;
   }
 
@@ -488,7 +505,7 @@ export class NiuClient {
     yield* parseChatStream(response.body, options.signal);
   }
 
-  private async send(path: string, body: unknown, options: RequestOptions & { idempotencyKey?: string }, accept: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE' = body === undefined ? 'GET' : 'POST'): Promise<Response> {
+  private async send(path: string, body: unknown, options: RequestOptions & { idempotencyKey?: string }, accept: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE' = body === undefined ? 'GET' : 'POST', nativeGemini = false): Promise<Response> {
     const headers = new Headers(this.defaultHeaders);
     if (options.idempotencyKey !== undefined) {
       if (path !== '/video/jobs' || method !== 'POST' || typeof options.idempotencyKey !== 'string' || !/^[\x21-\x7e]{1,128}$/.test(options.idempotencyKey)) {
@@ -508,7 +525,11 @@ export class NiuClient {
     headers.set('accept', accept);
     if (body !== undefined) headers.set('content-type', 'application/json');
 
-    const response = await this.requestFetch(`${this.baseURL}${path}`, {
+    if (nativeGemini && !this.baseURL.endsWith('/v1')) {
+      throw new TypeError('GenerateContent requires a client baseURL ending in /v1');
+    }
+    const base = nativeGemini ? this.baseURL.slice(0, -3) + '/v1beta' : this.baseURL;
+    const response = await this.requestFetch(`${base}${path}`, {
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),

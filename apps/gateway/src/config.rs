@@ -100,6 +100,8 @@ pub struct ModelConfig {
     #[serde(default)]
     pub supports_messages: bool,
     #[serde(default)]
+    pub supports_generate_content: bool,
+    #[serde(default)]
     pub api_base: Option<String>,
     #[serde(default)]
     pub pricing: Option<RoutePricing>,
@@ -163,6 +165,7 @@ impl ModelConfig {
         self.api_base.as_deref().or(match self.provider.as_str() {
             "openai" => Some("https://api.openai.com/v1"),
             "openrouter" => Some("https://openrouter.ai/api/v1"),
+            "gemini" => Some("https://generativelanguage.googleapis.com/v1beta"),
             _ => None,
         })
     }
@@ -271,6 +274,11 @@ impl AppConfig {
                     "model route {name} must set provider, upstream_model, and api_key_env"
                 )));
             }
+            if model.supports_generate_content && model.provider != "gemini" {
+                return Err(ConfigError::Invalid(format!(
+                    "GenerateContent capability on route {name} requires a gemini adapter"
+                )));
+            }
             if model.supports_messages
                 && !matches!(model.provider.as_str(), "openrouter" | "anthropic")
             {
@@ -307,9 +315,12 @@ impl AppConfig {
             }
             if let Some(price) = &model.pricing {
                 price.validate()?;
-                if !model.protocol().is_openai_compatible() {
+                if !model.protocol().is_openai_compatible()
+                    && !(model.provider == "gemini" && model.supports_generate_content)
+                {
                     return Err(ConfigError::Invalid(
-                        "priced routes currently require OpenAI-compatible text usage".into(),
+                        "priced routes require supported native or OpenAI-compatible token usage"
+                            .into(),
                     ));
                 }
             }

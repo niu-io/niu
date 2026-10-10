@@ -772,6 +772,11 @@ pub async fn update(
 ///           "type": "boolean",
 ///           "default": false
 ///         },
+///         "supports_generate_content": {
+///           "type": "boolean",
+///           "default": false,
+///           "description": "Native GenerateContent opt-in; currently requires a static gemini route."
+///         },
 ///         "supports_messages": {
 ///           "type": "boolean",
 ///           "default": false,

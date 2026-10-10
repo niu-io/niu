@@ -20,6 +20,7 @@ pub fn inspect(
         .as_object()
         .ok_or(InspectionError::UnsupportedContent)?;
     let allowed: &[&str] = match protocol {
+        Protocol::GenerateContent => &["candidates", "usageMetadata", "modelVersion", "responseId"],
         Protocol::Messages => &[
             "id",
             "type",
@@ -87,6 +88,38 @@ pub fn inspect(
     }
     let mut paths = Vec::new();
     match protocol {
+        Protocol::GenerateContent => {
+            let candidates = body["candidates"]
+                .as_array()
+                .filter(|v| v.len() == 1)
+                .ok_or(InspectionError::UnsupportedContent)?;
+            let candidate = &candidates[0];
+            if !candidate.as_object().is_some_and(|v| {
+                v.keys()
+                    .all(|key| ["index", "content", "finishReason"].contains(&key.as_str()))
+            }) || candidate["index"].as_u64() != Some(0)
+                || !matches!(
+                    candidate["finishReason"].as_str(),
+                    Some("STOP" | "MAX_TOKENS")
+                )
+            {
+                return Err(InspectionError::UnsupportedContent);
+            }
+            let content = &candidate["content"];
+            if !content.as_object().is_some_and(|v| v.len() == 2) || content["role"] != "model" {
+                return Err(InspectionError::UnsupportedContent);
+            }
+            let parts = content["parts"]
+                .as_array()
+                .filter(|v| !v.is_empty() && v.len() <= 128)
+                .ok_or(InspectionError::UnsupportedContent)?;
+            for (i, part) in parts.iter().enumerate() {
+                if !part.as_object().is_some_and(|v| v.len() == 1) || !part["text"].is_string() {
+                    return Err(InspectionError::UnsupportedContent);
+                }
+                paths.push(format!("/candidates/0/content/parts/{i}/text"));
+            }
+        }
         Protocol::Messages => {
             if body.get("type").and_then(Value::as_str) != Some("message")
                 || body.get("role").and_then(Value::as_str) != Some("assistant")

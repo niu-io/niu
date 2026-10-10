@@ -1,8 +1,9 @@
 # Native inference protocol integration
 
 Status: partial. `POST /v1/messages` implements native nonstreaming text on
-explicitly opted-in OpenRouter and Anthropic routes. GenerateContent, native
-streaming, tools and media remain unimplemented. Existing Anthropic/Bedrock
+explicitly opted-in OpenRouter and Anthropic routes. Buffered GenerateContent
+text is implemented for static Gemini routes, with actual refusal-path verification.
+Managed Gemini credentials, native streaming, tools and media remain unimplemented. Existing Anthropic/Bedrock
 conversion behind Chat is separate from this native public operation.
 
 ## Integration boundary
@@ -267,7 +268,7 @@ These observations qualify the exercised configuration, upgrade and refusal
 paths. Successful direct Anthropic generation, its successful catalog responses,
 large/malformed catalog handling and native SDK compatibility remain unverified
 with current real inputs. Existing actual OpenRouter Messages evidence does not
-substitute for direct Anthropic qualification. GenerateContent and native
+substitute for direct Anthropic qualification. GenerateContent is a separate operation described below; native
 streaming/tools/media remain outside the implemented Messages subset. No fixture
 outcome was used as evidence.
 
@@ -298,3 +299,85 @@ shared diagnostic authentication and adapter/key isolation; it does not qualify
 direct Anthropic completion or known-usage charging for the OpenRouter response.
 The original development database and credentials were unchanged. No fixture
 outcome was used.
+
+
+## Static Gemini GenerateContent text
+
+`POST /v1beta/models/{model_action}` accepts a URL-encoded public alias followed
+by `:generateContent`. Encode slashes within an alias; for example,
+`native/gemini` becomes `native%2Fgemini:generateContent`. Authenticate with a
+Niu bearer token or `x-niu-api-key`, not a Google key in the client request.
+The static route must explicitly set `provider = "gemini"`,
+`supports_generate_content = true`, a native model ID such as
+`gemini-2.5-flash`, and `api_key_env` naming the server-side credential variable.
+The default API base is `https://generativelanguage.googleapis.com/v1beta`.
+The existing prepaid admission requires configured conservative route prices
+and a customer tariff; an unpriced static route cannot bypass that requirement.
+Managed Gemini credential creation remains unimplemented.
+
+The implemented document contains `contents` with textual `parts`, optional
+`systemInstruction`, and `generationConfig` with required positive
+`maxOutputTokens`. Supported controls are single candidate, temperature, topP,
+topK and up to five stop sequences. The body limit is 64 KiB. Tools, media,
+cached resource references, explicit thinking configuration, structured-output
+settings, unknown fields and streaming actions are rejected before dispatch.
+There is no Chat translation, automatic retry or client credential forwarding.
+The public catalog advertises GenerateContent separately and does not advertise
+Chat or streaming for a native-only Gemini route.
+
+Input content/system text shares local rule and detector inspection, preserving
+the native body after redaction. Buffered output inspection covers projected text
+parts. Endpoint validation, key/workspace limits, prepaid reservations, attempt
+completion, payload retention, timing and failure diagnostics use the existing
+shared pipeline. The JavaScript SDK adds `client.generateContent(alias, body)`;
+its configured base URL must end in `/v1`, from which it derives the sibling
+`/v1beta` endpoint while retaining the deployment prefix.
+
+The [native usage contract](https://ai.google.dev/api/generate-content#UsageMetadata)
+defines total tokens as prompt plus thoughts plus candidates. Aggregate output
+uses the reported total minus reported prompt, with consistency checks against
+reported candidate/thought counts. Prompt already includes cache reads. Missing
+categories remain unknown rather than becoming zero or being inferred from an
+unreported field. Cache-write prices are rejected before admission because this
+adapter does not report that quantity. Unsupported or missing usage retains the
+appropriate unresolved priced liability. The [thinking guide](https://ai.google.dev/gemini-api/docs/generate-content/thinking)
+describes the output limit as including thoughts; actual bound compliance has not
+been qualified here. Niu's existing overrun accounting must not hide excess usage.
+
+Responses project one model text candidate, STOP/MAX_TOKENS, bounded response ID
+and numeric usage metadata. `modelVersion` contains the public alias, not a claim
+about the upstream model version; the latter may be retained in authorized request
+diagnostics. Thought signatures and arbitrary upstream metadata are omitted.
+This subset does not promise lossless native conversation replay. Native error
+bodies contain a sanitized numeric code, status and message.
+
+### Current-input verification and remaining scope
+
+A fresh isolated native run exercised a static priced route whose alias contained
+`/`. Actual HTTP requests verified authentication, scoped grants, missing native
+capability, unsupported action/content/controls, exhausted balance, zero TPM,
+input blocking and unsupported cache-write pricing. These did not cause extra
+upstream dispatch. Content and system-text redaction were independently checked
+against the actual retained native request in PostgreSQL.
+
+One request used a deliberately invalid Google credential against the real
+endpoint. Niu retained its upstream refusal and a native sanitized error. Because
+no qualified nonexecution policy or usable usage was available, execution remained
+uncertain, aggregate usage unknown and one customer reservation stayed held after
+restart. No customer charge or funding entry was created. Internal verification
+credit was configured through the normal management API; no payment was fabricated.
+The SDK reached the native route using an encoded alias and received its expected
+scoped guardrail denial without another dispatch. Public catalog flags declared
+GenerateContent and excluded Chat/streaming. Independent reopening checked the
+saved artifacts, exact redacted request structure, attempt/failure records and
+unchanged financial state. Original development data and credentials were preserved.
+
+Successful Google generation, success-response normalization, output redaction,
+exact settled charges/category pricing, streaming and Google SDK compatibility
+remain unverified. The refused real call is not evidence for those branches.
+The initial run also exposed the old OpenAI-only priced-config validation, which
+was extended only for explicitly declared Gemini routes. A later verifier setup
+used an unpriced route under prepaid admission and correctly received 400; it was
+changed to use explicit internal route/customer prices, without weakening admission.
+No fixture outcome was used as evidence. This is not closure of the complete
+native-protocol issue or full backend acceptance.

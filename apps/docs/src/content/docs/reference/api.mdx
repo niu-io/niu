@@ -866,3 +866,20 @@ Buffered output withholding after dispatch uses HTTP 403 with
 `error.type: "guardrail_output_withheld"`. Generation charges may apply even
 though the output is not delivered. Inspect authorized request Guardrail
 diagnostics for a saved outcome; do not automatically retry the operation.
+
+
+## Native Gemini text
+
+`POST /v1beta/models/{alias}:generateContent` is available for explicitly opted-in
+static `gemini` routes. URL-encode the alias, including any slash, and authenticate
+with a Niu workspace key. Supply textual `contents` and a bounded
+`generationConfig.maxOutputTokens`. Native tools, media, cached resources, thinking
+configuration and streaming are unsupported and rejected before dispatch. Existing
+prepaid pricing, permissions and key limits still apply.
+
+The SDK exposes `client.generateContent(alias, body)` using a base URL ending in
+`/v1`. [Generated contracts](/docs/reference/handler-operations/#generate-native-buffered-gemini-text)
+list the exact supported fields. Actual negative paths, input redaction, retained
+upstream rejection and restart were verified; successful Google generation,
+output processing and settled billing remain unverified. Managed Gemini credentials
+are not yet implemented. See the [implementation and verification boundary](https://github.com/niu-io/niu/blob/main/docs/architecture/native-inference-protocols.md#static-gemini-generatecontent-text).

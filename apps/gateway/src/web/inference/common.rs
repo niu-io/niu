@@ -336,6 +336,9 @@ fn request_token_bound(body: &Value, protocol: &crate::guardrails::input::Protoc
     let output = match protocol {
         Protocol::VideoText => return None,
         Protocol::Messages => body.get("max_tokens")?.as_i64()?,
+        Protocol::GenerateContent => body
+            .pointer("/generationConfig/maxOutputTokens")?
+            .as_i64()?,
         Protocol::Chat => {
             if body.get("n").is_some_and(|n| n.as_u64() != Some(1))
                 || ["functions", "function_call", "modalities", "audio"]
@@ -540,11 +543,13 @@ pub(super) async fn begin_retry_attempt(
                             protocol,
                             crate::guardrails::input::Protocol::Embeddings
                                 | crate::guardrails::input::Protocol::VideoText
+                                | crate::guardrails::input::Protocol::GenerateContent
                         ),
                         reasoning_output: matches!(
                             protocol,
                             crate::guardrails::input::Protocol::Chat
                                 | crate::guardrails::input::Protocol::Responses
+                                | crate::guardrails::input::Protocol::GenerateContent
                         ),
                     },
                 },
@@ -649,6 +654,7 @@ pub(super) fn route_revision(model: &crate::config::ModelConfig) -> String {
                 "supports_streaming_tool_calls": model.supports_streaming_tool_calls,
                 "supports_structured_output": model.supports_structured_output,
                 "supports_messages": model.supports_messages,
+                "supports_generate_content": model.supports_generate_content,
                 "supports_responses": model.supports_responses,
                 "pricing": model.pricing
             }))

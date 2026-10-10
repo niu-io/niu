@@ -741,6 +741,7 @@ pub(crate) fn model(slug: &str) -> crate::config::ModelConfig {
         supports_structured_output: false,
         supports_responses: true,
         supports_messages: false,
+        supports_generate_content: false,
         pricing: None,
     }
 }

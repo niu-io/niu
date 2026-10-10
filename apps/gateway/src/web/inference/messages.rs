@@ -18,7 +18,7 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///   "operation": {
 ///     "operationId": "createMessage",
 ///     "x-niu-implementation": "implemented",
-///     "x-niu-status": "Native nonstreaming text only; streaming, tools, media and Gemini remain unsupported.",
+///     "x-niu-status": "Native nonstreaming Messages text only; streaming, tools and media remain unsupported. GenerateContent is a separate operation.",
 ///     "summary": "Create a native nonstreaming text Message",
 ///     "description": "Requires supports_messages on an OpenRouter or Anthropic route. Uses Niu bearer or x-niu-api-key credentials, workspace grants, source policy, limits, guardrails and billing. Requests are limited to 64 KiB and conservative configured pricing bounds. No Chat translation. Tools, media, beta headers, unsupported fields and streaming are rejected before dispatch. Only version 2023-06-01 is supported (also used when omitted). Native input_tokens excludes cache reads/writes; total input accounting requires all three input categories plus output_tokens. Missing or null categories leave usage unresolved and reservations retained. Separate reasoning rates in the bound base price or a reachable context tier are rejected atomically before dispatch with 422 and x-niu-error-code unsupported_token_pricing; this adapter cannot report reasoning usage. Returned usage is not proof of a settled charge. Upstream commercial metadata is never forwarded. Native SDK and Claude Code compatibility are unverified.",
 ///     "security": [
