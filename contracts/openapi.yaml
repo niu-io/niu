@@ -6,6 +6,8 @@ info:
 servers:
   - url: /
 paths:
+  /admin/v1/platform/payments/integrations:
+    $ref: './platform-configuration.openapi.yaml#/paths/~1admin~1v1~1platform~1payments~1integrations'
   /admin/v1/model-route-pools:
     $ref: './model-route-pools.openapi.yaml#/paths/~1admin~1v1~1model-route-pools'
   /admin/v1/model-route-pools/history:

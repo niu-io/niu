@@ -24,6 +24,100 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 
 /// Product support inventory, independent of merchant activation or live qualification.
+/// ```openapi
+/// {
+///   "path": "/admin/v1/platform/payments/integrations",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listPaymentIntegrations",
+///     "summary": "List supported payment integrations",
+///     "description": "Installation administrator only. Capability inventory is independent of merchant activation. Returns no merchant configuration or credentials. Refunds means refund initiation; query recovery is limited to the declared scope.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "x-niu-implementation": "implemented",
+///     "responses": {
+///       "200": {
+///         "description": "Supported integrations, not enabled customer checkout methods",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "items": {
+///                     "type": "object",
+///                     "additionalProperties": false,
+///                     "required": [
+///                       "id",
+///                       "name",
+///                       "configuration",
+///                       "checkout",
+///                       "signed_notifications",
+///                       "query_recovery",
+///                       "refunds"
+///                     ],
+///                     "properties": {
+///                       "id": {
+///                         "type": "string",
+///                         "enum": [
+///                           "epay",
+///                           "stripe",
+///                           "zhifux"
+///                         ]
+///                       },
+///                       "name": {
+///                         "type": "string"
+///                       },
+///                       "configuration": {
+///                         "type": "string",
+///                         "enum": [
+///                           "administration_api",
+///                           "server_environment",
+///                           "server_file"
+///                         ]
+///                       },
+///                       "checkout": {
+///                         "type": "boolean"
+///                       },
+///                       "signed_notifications": {
+///                         "type": "boolean"
+///                       },
+///                       "query_recovery": {
+///                         "type": "string",
+///                         "enum": [
+///                           "unsupported",
+///                           "bound_session",
+///                           "saved_order"
+///                         ]
+///                       },
+///                       "refunds": {
+///                         "type": "boolean"
+///                       }
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Installation administrator required"
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub(crate) async fn integrations(
     State(state): State<AppState>,
     headers: HeaderMap,
