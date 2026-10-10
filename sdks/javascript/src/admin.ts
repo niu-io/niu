@@ -137,6 +137,16 @@ export type CustomerInvoiceMediaLine = {
   billable_quantity: { numerator: string; denominator: string };
   discount_revisions: string[]; bound_exceeded: boolean;
 };
+/** Open holds are not charges and are not evidence that inference can be retried. */
+export type CustomerBalanceReservation = {
+  attempt_id: string; workspace_id: string; workspace_name: string;
+  api_key_id: string | null; api_key_name: string | null; model: string;
+  currency: string; reserved_nanos: string; outstanding_nanos: string;
+  execution: string; usage_confidence: string; created_at: string; observed_at: string;
+  status: 'preparing' | 'in_progress' | 'execution_unknown' | 'usage_unknown' | 'settlement_pending';
+};
+export type CustomerBalanceReservationQuery = { before?: string; currency?: string; limit?: number };
+
 export type CustomerChargeReconciliation = {
   currency: string; observed_at: string; charge_records: string;
   /** Completed prepaid-bound attempts awaiting a charge record; not proof of missing money. */
@@ -870,6 +880,21 @@ export class NiuAdminClient {
   /** Shared company funds require organization-wide owner/admin authorization. */
   getCustomerBalance(organizationId: string, options?: RequestOptions): Promise<{ data: CustomerBalance[] }> {
     return this.request(`/organizations/${uuid(organizationId)}/billing/balance`, undefined, options);
+  }
+
+  /** Company-wide balance permission required. Keep currency fixed while following next_before. */
+  listCustomerBalanceReservations(organizationId: string, page: CustomerBalanceReservationQuery = {}, options?: RequestOptions): Promise<{data: CustomerBalanceReservation[]; next_before: string | null}> {
+    const query = new URLSearchParams();
+    if (page.before !== undefined) query.set('before', uuid(page.before));
+    if (page.currency !== undefined) {
+      if (!/^[A-Z]{3}$/.test(page.currency)) throw new TypeError('Use a three-letter uppercase currency');
+      query.set('currency', page.currency);
+    }
+    if (page.limit !== undefined) {
+      if (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100) throw new TypeError('Limit must be from 1 to 100');
+      query.set('limit', String(page.limit));
+    }
+    return this.request(`/organizations/${uuid(organizationId)}/billing/reservations${query.size ? `?${query}` : ''}`, undefined, options);
   }
 
   /** Read-only customer charge-to-ledger comparison; does not certify payment settlement. */

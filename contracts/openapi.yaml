@@ -68,6 +68,8 @@ paths:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1media-rates~1replace'
   /admin/v1/organizations/{organization}/billing/media-rates:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1media-rates'
+  /admin/v1/organizations/{organization}/billing/reservations:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1reservations'
   /admin/v1/organizations/{organization}/billing/charge-reconciliation:
     $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1charge-reconciliation'
   /admin/v1/providers/{provider}/offers/{offer}/revisions/{revision}:

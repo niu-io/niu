@@ -3,6 +3,7 @@
 pub(crate) mod balance_policy_history;
 pub(crate) mod invoice_history;
 pub(crate) mod platform_pricing;
+pub(crate) mod reservations;
 use crate::{error::ApiError, state::AppState};
 use axum::{
     Json,

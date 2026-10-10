@@ -4965,6 +4965,190 @@ HTTP 503: Storage unavailable
 
 HTTP 404: Company/workspace pair does not exist
 
+## Inspect open customer balance reservations
+
+`GET /admin/v1/organizations/{organization}/billing/reservations`
+
+Organization-wide owner/admin or installation read access required, matching company balance permissions. Newest-first keyset pages observe one statement snapshot; pages do not share a snapshot. Released reservations are omitted, but a released cursor remains usable. Unknown or foreign cursors and currency-mismatched cursors return 409. Exact nanounit strings distinguish the original reservation from outstanding liability, including known media overrun and excluding posted charge debits. This is a read-only diagnostic; states do not prove nonexecution or authorize releasing funds or retrying inference. No Supplier prices, upstream endpoints, credentials or payment references are exposed. Names are current display metadata; IDs are internal links only. Cache-Control no-store.
+
+Implementation: `implemented`. Operation: `listCustomerBalanceReservations`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`before` (query, optional)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`currency` (query, optional)
+
+```json
+{
+  "type": "string",
+  "pattern": "^[A-Z]{3}$"
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 100
+}
+```
+
+### Responses
+
+HTTP 200: Open reservations; empty data is not evidence that paid accounting works.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "next_before"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "attempt_id",
+          "workspace_id",
+          "api_key_id",
+          "workspace_name",
+          "model",
+          "execution",
+          "usage_confidence",
+          "api_key_name",
+          "currency",
+          "reserved_nanos",
+          "outstanding_nanos",
+          "created_at",
+          "observed_at",
+          "status"
+        ],
+        "properties": {
+          "attempt_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Internal API reference; do not render as a product label."
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Internal API reference; do not render as a product label."
+          },
+          "api_key_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Internal API reference; do not render as a product label."
+          },
+          "workspace_name": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "execution": {
+            "type": "string"
+          },
+          "usage_confidence": {
+            "type": "string"
+          },
+          "api_key_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "reserved_nanos": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "outstanding_nanos": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "preparing",
+              "in_progress",
+              "execution_unknown",
+              "usage_unknown",
+              "settlement_pending"
+            ]
+          }
+        }
+      }
+    },
+    "next_before": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid currency, cursor, limit or query fields.
+
+HTTP 401: Authentication required.
+
+HTTP 404: Company balance permission required.
+
+HTTP 409: Cursor is unknown or does not match the company/currency.
+
 ## Read workspace customer charges, tariffs and latest 100 invoices
 
 `GET /admin/v1/organizations/{organization}/projects/{project}/billing`

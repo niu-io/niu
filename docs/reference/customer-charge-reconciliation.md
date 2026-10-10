@@ -206,3 +206,66 @@ measured. The workload did not create new upstream calls or spend additional
 upstream credit. It does not establish cold-cache performance, larger tenant
 scale, concurrent-write behavior, admission latency under inference load, maximum
 capacity, long-duration stability or a comparison with New API.
+
+
+## Open reservation inspection
+
+`GET /admin/v1/organizations/{organization}/billing/reservations` provides a
+read-only, newest-first directory of unreleased customer balance reservations.
+It uses the same organization-wide owner/admin or installation permission as
+company balance reads. Workspace-only sessions, company viewers and inference
+keys cannot read shared funds. `Cache-Control: no-store` applies.
+
+Use `limit` (1–100, default 100), optional uppercase `currency`, and `before` from
+`next_before`. A cursor must belong to the same company and currency filter;
+foreign, unknown or currency-mismatched cursors return 409. A cursor remains
+usable after its reservation is released, so concurrent settlement does not
+invalidate traversal. Each page is one statement snapshot; separate pages are
+not a frozen report. Refresh for new holds or changed state.
+
+Each entry supplies internal request/workspace/key references for authorized
+links, current workspace and API key names, the public model alias, currency,
+creation/observation times and exact decimal `reserved_nanos` and
+`outstanding_nanos`. The latter matches the balance calculation: known media
+charges can increase it above the original reservation, while a posted charge
+contributes zero. Only customer values are returned, never Supplier prices,
+upstream endpoints, credentials or payment references. Do not display internal
+IDs as labels or substitute them for a missing key name.
+
+`status` describes stored evidence: `preparing`, `in_progress`,
+`execution_unknown`, `usage_unknown` or `settlement_pending`. It is not proof
+that inference failed to execute, authority to release funds, or permission to
+retry a request. The directory neither repairs accounting nor supplies missing
+upstream usage. The SDK method is `listCustomerBalanceReservations`.
+
+### Actual populated directory verification
+
+A fresh native run made nine real Anthropic requests with an intentionally invalid
+credential under configured internal credit and explicit customer prices. Their
+uncertain execution retained nine holds. All appeared exactly once across three
+pages and matched the company balance sums. A separate company's real refused
+request retained another hold but never appeared in the first company's page.
+Company owner/admin reads succeeded; viewer, workspace-only, foreign-company and
+inference-key reads were denied. Invalid limits/currency/query fields and invalid
+cursor scope were rejected.
+
+A real owner-funded OpenRouter Chat completion under internal verification prices
+produced one exact customer charge/debit and released its reservation. Its released
+cursor still traversed the older holds. Restart preserved order and amounts; the
+JavaScript SDK fetched a bounded page. Independent database reopening matched all
+saved pages, both company scopes, encrypted credential identity, the released
+cursor, and the charge recomputed from actual provider usage and pinned rates.
+There were no funding entries or fabricated commercial qualification records.
+
+The initial foreign-company setup omitted its independent procurement budget and
+correctly received 402 before dispatch; completing that setup enabled the intended
+foreign-hold scenario. No admission rule was relaxed. Media overruns, release
+concurrent with page reads, and populated `usage_unknown`/`settlement_pending`
+status cases remain unverified for this directory. No fixture outcome is evidence.
+
+
+A separate offline copy containing an actual unresolved reservation was upgraded
+from migration 0253 to 0254. Prior migration checksums, encrypted credential
+revisions/ciphertext and the original hold were unchanged. The new API returned
+that hold after restart, and independent reopening confirmed the artifact and the
+valid company/open-reservation keyset index.
