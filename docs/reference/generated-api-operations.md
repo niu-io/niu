@@ -7912,10 +7912,7 @@ Local `#/components/schemas/…` references resolve to these definitions.
       "$ref": "#/components/schemas/VendorCapabilities"
     },
     "pricing": {
-      "type": [
-        "object",
-        "null"
-      ]
+      "$ref": "#/components/schemas/VendorRoutePricing"
     },
     "revision": {
       "type": "integer",
@@ -7959,10 +7956,7 @@ Local `#/components/schemas/…` references resolve to these definitions.
       "$ref": "#/components/schemas/VendorCapabilities"
     },
     "pricing": {
-      "type": [
-        "object",
-        "null"
-      ],
+      "$ref": "#/components/schemas/VendorRoutePricing",
       "description": "Optional validated route pricing. Personal-owned credentials require null pricing; non-null pricing is rejected at save. Null clears pricing; omission preserves existing pricing on updates and leaves cost unknown on creates."
     },
     "expected_revision": {
@@ -7973,6 +7967,70 @@ Local `#/components/schemas/…` references resolve to these definitions.
       "minimum": 1
     }
   }
+}
+```
+
+### VendorRoutePricing
+
+```json
+{
+  "type": [
+    "object",
+    "null"
+  ],
+  "additionalProperties": false,
+  "required": [
+    "currency",
+    "api_prompt_rate",
+    "api_completion_rate",
+    "cash_prompt_rate",
+    "cash_completion_rate",
+    "max_input_tokens",
+    "max_output_tokens"
+  ],
+  "properties": {
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "api_prompt_rate": {
+      "type": "integer",
+      "format": "int64",
+      "minimum": 0,
+      "description": "Currency nanounits per million tokens. JSON integer, not a decimal string. Platform procurement metadata only."
+    },
+    "api_completion_rate": {
+      "type": "integer",
+      "format": "int64",
+      "minimum": 0,
+      "description": "Currency nanounits per million tokens. JSON integer, not a decimal string. Platform procurement metadata only."
+    },
+    "cash_prompt_rate": {
+      "type": "integer",
+      "format": "int64",
+      "minimum": 0,
+      "description": "Currency nanounits per million tokens. JSON integer, not a decimal string. Platform procurement metadata only."
+    },
+    "cash_completion_rate": {
+      "type": "integer",
+      "format": "int64",
+      "minimum": 0,
+      "description": "Currency nanounits per million tokens. JSON integer, not a decimal string. Platform procurement metadata only."
+    },
+    "max_input_tokens": {
+      "type": "integer",
+      "format": "int64",
+      "minimum": 1,
+      "description": "Operator-attested provider token bound used for pre-dispatch liability admission; not an estimated token count."
+    },
+    "max_output_tokens": {
+      "type": "integer",
+      "format": "int64",
+      "minimum": 1,
+      "description": "Operator-attested provider token bound used for pre-dispatch liability admission; not an estimated token count."
+    }
+  },
+  "description": "Confidential route procurement configuration, separate from customer selling tariffs. All fields are required when non-null. Combined charges at the configured bounds must fit a signed 64-bit nanounit amount; invalid or overflowing configurations are rejected. Personal-owned credentials require null pricing."
 }
 ```
 
