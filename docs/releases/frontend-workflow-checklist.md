@@ -752,3 +752,9 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
 - The Chat reader now cancels an unfinished response body and releases its lock when parsing or transport fails. Cleanup does not wait for the stream producer to acknowledge cancellation, so failure persistence remains responsive; it does not trigger another model dispatch. Completed streams also release their reader lock.
 - All 45 PlaygroundView integration tests and dashboard TypeScript checking passed. A still-open error stream verifies cancellation, lock release and exactly one dispatch rather than relying on a preclosed error fixture.
 - Desktop HMR and full reload restored the real STREAM_OK conversation, original response, selected Demo API key, empty draft and Logs link. No new inference was sent. Live upstream error-stream cleanup is not claimed from this restoration check.
+
+## Non-streaming Chat outcome validation
+
+- HTTP 200 JSON error envelopes, malformed JSON and missing completion messages now save a failed result with an actionable message and the original request link, instead of an empty “Complete” result. Valid non-streaming completion messages retain response text and reported usage.
+- All 50 PlaygroundView integration tests and TypeScript checking passed. Checks cover four invalid response shapes, durable failed-state persistence, request links, and a valid JSON completion with reported tokens.
+- Actual desktop history navigation and full reload retained the saved connection-stage cancellation, unknown usage/charge, original preceding completion and Demo API key. No new dispatch was sent. These browser checks do not claim a live HTTP 200 JSON error was injected or observed.

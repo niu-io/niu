@@ -248,7 +248,14 @@ async function runModel(
     const contentType = response.headers.get('content-type') ?? '';
     if (!contentType.includes('text/event-stream')) {
       const payload = await response.json().catch(() => null) as ChatResponse | null;
-      content = responseText(payload?.choices?.[0]?.message?.content);
+      if (payload && typeof payload === 'object' && 'error' in payload) {
+        throw new Error(errorMessage(payload, 'Niu reported an error during generation.'));
+      }
+      const message = Array.isArray(payload?.choices) ? payload.choices[0]?.message : null;
+      if (!message || typeof message !== 'object') {
+        throw new Error('Niu returned an invalid chat response. Inspect the request before trying again.');
+      }
+      content = responseText(message.content);
       applyUsage(payload?.usage);
       const complete = result('complete');
       onUpdate(complete);
