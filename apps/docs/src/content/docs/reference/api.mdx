@@ -556,5 +556,6 @@ minimum. Admission reserves the greater of the token bound and minimum, includin
 when token rates are zero. Unknown usage remains unresolved. Existing history is
 not repriced, and this field does not configure Supplier or video charges.
 Invoice lines and model-price reads expose the pinned/current minimum as
-appropriate. The SDK uses the same `minimum_charge_nanos` field. See the
+appropriate. Internal balance refunds remain bounded by the original charge,
+restore the refunded key allowance once and preserve historical invoice pricing. The SDK uses the same `minimum_charge_nanos` field. See the
 [contract and actual verification](https://github.com/niu-io/niu/blob/main/docs/reference/text-minimum-charges.md).

@@ -70,3 +70,20 @@ These are scoped actual text and configuration observations, not external fundin
 commercial resale, customer-funded video, every protocol, concurrent tariff edits
 or a minimum-aware interrupted-stream qualification. No fixture result supports
 the observations.
+
+## Refund and key allowance recovery
+
+A subsequent current-input run reopened the isolated database containing the
+actual 1,000,000 minimum-charge completion above. Two concurrent identical
+600,000-nanounit refund requests produced one linked ledger refund. A further
+500,000 request was rejected with 409 because it exceeded the remaining 400,000.
+Refunding that remaining amount and replaying it produced exactly two refund
+entries totaling 1,000,000. Independent reads showed the key's committed amount
+reduced by exactly that total, while all three original customer charges and the
+issued historical invoice lines remained unchanged.
+
+After gateway restart, replaying both refund identities returned the same results
+without additional entries; key commitments and invoice lines were unchanged.
+The original encrypted identity was preserved and isolated processes stopped.
+This qualifies internal balance refund of the exercised actual minimum charge;
+it is not an external merchant refund or evidence of received cash funding.
