@@ -188,3 +188,23 @@ FFmpeg run decoded the entire video. This closes the demonstrated completion-wri
 interruption for newly observed results. Historical observations that already
 lost their result reference still require an authorized refresh; expiring upstream
 URLs and paid-media settlement remain separate verification requirements.
+
+### Deletion after atomic result persistence
+
+A current HTTP run used a stopped-database copy of the actual recovered video
+above. Download initially returned 200. Deleting through the workspace-key result
+API returned 200 with `deleted: true`; subsequent download returned 404. A real
+upstream refresh returned 200, but neither it nor Gateway process replacement
+restored the deleted video/last-frame references. Both tombstones and their expiry
+values stayed unchanged; ciphertext remained absent. No new generation was
+submitted and financial entry counts were unchanged.
+
+Independent reopening of the stopped database confirmed both tombstones, absent
+ciphertext, one original generation submission and unchanged customer ledger.
+Saved availability responses after deletion, refresh and restart were identical
+and reported both results unavailable. The original retained database and native
+installation were not modified. The initial verification script incorrectly
+expected HTTP 204 from the deletion API; after correcting it to the existing
+200 JSON contract, the complete workflow ran on a fresh copy. This verifies the
+sequential deletion/refresh boundary, not every concurrent deletion race or
+upstream URL expiration behavior.
