@@ -200,6 +200,7 @@ function Administration({ token }: { token: string }) {
   }, [dialog, selected, token, earningReload]);
 
   const [paymentKey, setPaymentKey] = useState("");
+  const [paymentSubmitted, setPaymentSubmitted] = useState(false);
   const [notice, setNotice] = useState("");
   const [offerId, setOfferId] = useState("");
   const [validUntil, setValidUntil] = useState(defaultReviewExpiry);
@@ -284,6 +285,7 @@ function Administration({ token }: { token: string }) {
     setAvailabilityHash("");
     setAgreedRatesHash("");
     setRevocationReasonHash("");
+    setPaymentSubmitted(false);
     setPaymentKey(crypto.randomUUID());
     setReference("");
     setAttempts([]);
@@ -387,7 +389,15 @@ function Administration({ token }: { token: string }) {
         await request(token, `/admin/v1/providers/${selected}/offers/${offerId}/qualification/revoke`, "POST", {
           reason_sha256: revocationReasonHash,
         });
-      if (dialog === "settlement")
+      if (dialog === "settlement") {
+        const selectedEarnings = paymentEarnings.filter(item => attempts.includes(item.id));
+        if (!attempts.length || attempts.length > 1000 || new Set(attempts).size !== attempts.length ||
+          selectedEarnings.length !== attempts.length || selectedEarnings.some(item => item.status !== "accrued") ||
+          new Set(selectedEarnings.map(item => item.currency)).size !== 1)
+          throw new Error("Select up to 1,000 unpaid earnings in one currency.");
+        if (!reference.trim() || /[\u0000-\u001f\u007f]/.test(reference) || new TextEncoder().encode(reference).length > 200)
+          throw new Error("Enter a payment reference of at most 200 bytes without control characters.");
+        setPaymentSubmitted(true);
         await request(
           token,
           `/admin/v1/providers/${selected}/settlements`,
@@ -398,6 +408,7 @@ function Administration({ token }: { token: string }) {
             attempt_ids: attempts,
           },
         );
+      }
       if (scope !== operationScope.current) return;
       setNotice(dialog === "settlement"
         ? "External payment recorded. No funds were transferred."
@@ -746,6 +757,7 @@ function Administration({ token }: { token: string }) {
                 <Input
                   required
                   maxLength={200}
+                  disabled={busy || paymentSubmitted}
                   value={reference}
                   onChange={(event) => setReference(event.target.value)}
                 />
@@ -758,6 +770,7 @@ function Administration({ token }: { token: string }) {
                     .map((item) => (
                       <label key={item.id}>
                         <Checkbox
+                          disabled={busy || paymentSubmitted}
                           checked={attempts.includes(item.id)}
                           onCheckedChange={(checked) =>
                             setAttempts((current) =>
@@ -782,7 +795,7 @@ function Administration({ token }: { token: string }) {
                 </div>
                 {earningLoading && <p role="status">Loading earnings…</p>}
                 {earningError && <p role="alert">{earningError}</p>}
-                {earningError ? <Button type="button" variant="outline" onClick={() => earningCursor ? void loadPaymentEarnings(earningCursor) : setEarningReload(value => value + 1)}>Retry earnings</Button> : earningCursor && <Button type="button" variant="outline" disabled={earningLoading} onClick={() => void loadPaymentEarnings(earningCursor)}>Older earnings</Button>}
+                {earningError ? <Button type="button" variant="outline" disabled={busy || paymentSubmitted || earningLoading} onClick={() => earningCursor ? void loadPaymentEarnings(earningCursor) : setEarningReload(value => value + 1)}>Retry earnings</Button> : earningCursor && <Button type="button" variant="outline" disabled={busy || paymentSubmitted || earningLoading} onClick={() => void loadPaymentEarnings(earningCursor)}>Older earnings</Button>}
               </fieldset>
               <p className="provider-payment-total">
                 {attempts.length} requests selected
@@ -814,7 +827,7 @@ function Administration({ token }: { token: string }) {
               </p>
               <p>
                 The recorded amount is the exact sum of the selected earnings.
-                Retries in this dialog reuse the same payment key.
+                After submission, the reference and selection are locked so retries record the same payment.
               </p>
             </>
           )}
