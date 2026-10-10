@@ -158,3 +158,38 @@ to the database and remained identical after restart. No new inference was sent
 for that upgrade check. Both isolated environments stopped and original encrypted
 identity checks were unchanged. Same-operation successor concurrency, a deliberate
 conflicting-history migration and retry orchestration remain unverified.
+
+
+## Operation funding-source binding foundation
+
+Migration 0225 adds an immutable operation funding-source binding alongside the
+retail-tariff binding. Personal-route admission pins `personal`; customer-tariff
+admission pins `customer`. Both serialize on the operation row. A later binding
+with the other source fails in the same transaction rather than switching who
+funds the request. Existing personal/tariff bindings backfill exactly; conflicting
+historical sources abort migration instead of selecting one. Charges, balances,
+credential ownership and tariff revisions are not rewritten.
+
+This protects the priced/personal boundary for future attempts. Unpriced shared
+operations have no such binding and remain outside this failover foundation.
+Safe append-attempt admission must require an existing funding binding, preserve
+scope/model/key policy and independently validate every selected candidate. This
+migration does not authorize retries, add an append API, or establish a safe
+predecessor, attempt limit or overall deadline.
+
+
+Current-input verification used a fresh isolated native environment: a real
+personal OpenRouter completion pinned `personal`, and a real credit-backed
+completion pinned `customer`. Independent database reads reconciled the latter's
+reported tokens to its exact customer charge and debit. Every funding binding
+and the charge survived gateway restart. An interrupted personal preparation left
+no funding binding or partial operation, and a model-revision race still retained
+an undispatched prepared attempt. Existing RPM/procurement denials were preserved.
+
+A retained database containing two earlier actual paid-pool completions upgraded
+to exactly two matching customer funding bindings. Its request details and CSV
+still matched historical tokens and charges and were unchanged after restart,
+without another inference or charge. Original encrypted identity was preserved
+and both isolated environments stopped. These observations do not qualify a
+mixed-source historical migration failure, concurrent successor admission, or
+actual retry orchestration; those remain open.
