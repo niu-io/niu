@@ -846,3 +846,8 @@ Recorded preparation-policy refusals return HTTP 403 with
 The response does not expose matched input or rules. Read authorized preparation
 diagnostics for the recorded reason; do not classify every 403 as Guardrails.
 Administrative permission failures retain their separate error type.
+
+Buffered output withholding after dispatch uses HTTP 403 with
+`error.type: "guardrail_output_withheld"`. Generation charges may apply even
+though the output is not delivered. Inspect authorized request Guardrail
+diagnostics for a saved outcome; do not automatically retry the operation.

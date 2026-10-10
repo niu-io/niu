@@ -11,7 +11,8 @@ input-inspection, incompatible-output and detector preparation refusals. It does
 not redefine every 403: source restrictions, administrative authorization and
 other permission checks retain their separate behavior. Clients should inspect
 the error type rather than infer Guardrails from the HTTP status or message.
-Post-dispatch output failures and upstream errors are outside this change.
+Upstream errors retain their separate behavior. Post-dispatch output withholding
+has its own error described below.
 
 No dispatch, pricing, reservation, retry or cooldown policy changes. If recording
 the preparation denial fails, the storage error still propagates rather than
@@ -75,3 +76,31 @@ reopening confirmed the ten revision-bound reasons and no attempts, charges,
 balance entries, reservations, cooldowns or Supplier earnings. This establishes
 the exercised workspace-viewer boundary, not every organization role or
 pagination beyond the endpoint's explicitly limited latest-100 coverage.
+
+## Post-dispatch output withholding
+
+Buffered output enforcement returns HTTP 403 with
+`error.type: "guardrail_output_withheld"` when inspection blocks the response,
+cannot safely inspect it, or cannot durably record the output decision. The safe
+message states that output was withheld after model dispatch and generation
+charges may apply. It does not imply a permission error, free generation or a
+pre-dispatch refusal. Clients should not automatically retry this paid operation.
+
+The existing completion accounting still records actual reported usage even
+when delivery is blocked. Authorized request Guardrail diagnostics distinguish
+recorded block and indeterminate outcomes. A failure to save that diagnostic
+does not claim that a decision was persisted. No output content or matched rule
+is included in the public error.
+
+Current-input verification activated a buffered block rule through management
+HTTP, then made an actual non-streaming personal OpenRouter Chat request in a
+fresh isolated native environment. The old binary returned the misleading
+`permission_denied`; the updated binary returned `guardrail_output_withheld`.
+Neither response included the requested fresh marker. Each run persisted an
+output `blocked` / `pattern_denial` decision and confirmed-completed attempt.
+Restart retained the authorized diagnostic. Independent database reopening
+verified positive stored usage, the exact independently calculated tariff charge
+and debit, released reservations, and no preparation denial or cooldown.
+Internal credit and verification tariffs do not represent merchant funding or
+commercial supply. This covers a Chat pattern block, not Responses output,
+redaction, indeterminate inspection or diagnostic-storage failure.

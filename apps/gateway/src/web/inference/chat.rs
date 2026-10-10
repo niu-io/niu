@@ -131,7 +131,7 @@ struct StreamExecution<'a> {
 ///         "description": "Insufficient balance or spending limit exceeded."
 ///       },
 ///       "403": {
-///         "description": "Source IP or enforced policy denies the request. Recorded preparation-policy refusals use error.type guardrail_denied before model dispatch; do not classify every 403 as a Guardrail refusal."
+///         "description": "Source IP or enforced policy denies the request. Recorded preparation-policy refusals use error.type guardrail_denied before model dispatch; post-dispatch output withholding uses guardrail_output_withheld and generation charges may apply. Do not classify every 403 as a Guardrail refusal."
 ///       },
 ///       "429": {
 ///         "description": "API key request, concurrency or token rate limit exceeded."

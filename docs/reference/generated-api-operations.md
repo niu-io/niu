@@ -9797,7 +9797,7 @@ HTTP 502: Provider request failed.
 
 HTTP 402: Insufficient balance or spending limit exceeded.
 
-HTTP 403: Source IP or enforced policy denies the request. Recorded preparation-policy refusals use error.type guardrail_denied before model dispatch; do not classify every 403 as a Guardrail refusal.
+HTTP 403: Source IP or enforced policy denies the request. Recorded preparation-policy refusals use error.type guardrail_denied before model dispatch; post-dispatch output withholding uses guardrail_output_withheld and generation charges may apply. Do not classify every 403 as a Guardrail refusal.
 
 HTTP 429: API key request, concurrency or token rate limit exceeded.
 
@@ -10458,7 +10458,7 @@ HTTP 502: Provider request failed or returned an invalid text response. Valid te
 
 HTTP 402: Insufficient balance or spending limit exceeded.
 
-HTTP 403: Source IP or enforced policy denies the request. Recorded preparation-policy refusals use error.type guardrail_denied before model dispatch; do not classify every 403 as a Guardrail refusal.
+HTTP 403: Source IP or enforced policy denies the request. Recorded preparation-policy refusals use error.type guardrail_denied before model dispatch; post-dispatch output withholding uses guardrail_output_withheld and generation charges may apply. Do not classify every 403 as a Guardrail refusal.
 
 HTTP 413: Request body exceeds 1 MiB; rejected before inference whether payload capture is enabled or disabled. Framework responses may use a plain-text body.
 

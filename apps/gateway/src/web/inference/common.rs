@@ -773,14 +773,14 @@ async fn inspect_complete_output(
         .await
         .is_err()
     {
-        return ApiError::forbidden().into_response();
+        return ApiError::guardrail_output_withheld().into_response();
     }
     match inspected {
         Ok((value, _)) => {
             let (_, body) = axum::Json(value).into_response().into_parts();
             Response::from_parts(parts, body)
         }
-        Err(_) => ApiError::forbidden().into_response(),
+        Err(_) => ApiError::guardrail_output_withheld().into_response(),
     }
 }
 

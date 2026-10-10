@@ -182,6 +182,16 @@ impl ApiError {
         }
     }
 
+    /// Output was withheld after dispatch; never imply that generation was free.
+    pub(crate) fn guardrail_output_withheld() -> Self {
+        Self {
+            failure: None,
+            status: StatusCode::FORBIDDEN,
+            kind: "guardrail_output_withheld",
+            message: "The response was withheld by output guardrails after model dispatch; generation charges may apply",
+        }
+    }
+
     pub fn forbidden() -> Self {
         Self {
             failure: None,
