@@ -380,3 +380,27 @@ describe('company warning preferences', () => {
   expect(screen.queryByRole('button',{name:/Configure/})).toBeNull();
  });
 });
+
+
+describe('customer cached-input billing evidence', () => {
+  it.each([
+    ['123456789', 'USD 0.123456789'],
+    ['0', 'USD 0.00'],
+    [null, 'Input rate'],
+  ])('uses only the published cached customer rate (%s)', async (cachedRate, expected) => {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ data: { ...data, tariffs: [{model_alias:'qwen/text',revision:'private-revision',currency:'USD',prompt_rate:'1000000000',completion_rate:'2000000000',cached_prompt_rate:cachedRate,supplier_cost:'999999999'}] } })));
+    setup('operator', '/billing?tab=rates');
+    expect(await screen.findByRole('columnheader', {name:'Cache read'})).toBeTruthy();
+    expect(await screen.findByText(expected)).toBeTruthy();
+    expect(screen.queryByText('private-revision')).toBeNull();
+    expect(screen.queryByText('999999999')).toBeNull();
+  });
+  it.each([['0', 'Cached input: 0'], ['5', 'Cached input: 5'], [null, 'Cached input: Unknown']])('retains cached quantity evidence (%s) in the pinned statement line', async (quantity, expected) => {
+    vi.stubGlobal('fetch', vi.fn(async url => Response.json({ data: String(url).endsWith('/invoice-1') ? [{model_alias:'qwen/text',revision:'private-revision',currency:'USD',requests:'1',prompt_tokens:'7',completion_tokens:'1',cached_prompt_tokens:quantity,prompt_rate:'300000000',cached_prompt_rate:'100000000',completion_rate:'2500000000',amount_nanos:'4600'}] : data })));
+    setup('operator', '/billing?tab=statements');
+    await userEvent.setup().click(await screen.findByRole('button',{name:'View details'}));
+    expect(await screen.findByText(expected)).toBeTruthy();
+    expect(screen.getByText('Cache read: USD 0.1')).toBeTruthy();
+    expect(screen.queryByText('private-revision')).toBeNull();
+  });
+});
