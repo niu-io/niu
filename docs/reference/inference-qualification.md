@@ -280,3 +280,19 @@ upstream HTTP 400 remained one dispatch with safe rejection diagnostics and
 uncertain execution. Temporary access was disabled and customer ledgers remained
 unchanged. These runs cover those normal/rejection paths only, not the exceptional
 terminal-output branch above.
+
+### Shared stream completion boundary
+
+Stream transport now delegates terminal persistence to one `StreamAttempt`
+completion method. Priced and unpriced paths retain their distinct queue calls,
+while finish-reason persistence, usage reporting and completion-write diagnostics
+share one implementation. This removes duplicate lifecycle code without changing
+protocol parsing, data models or public APIs.
+
+After the refactor, actual optimized-gateway runs covered Chat streaming, the
+JavaScript Responses stream iterator, and Responses output-limit termination.
+HTTP token totals/categories matched PostgreSQL; the output-limit request retained
+`length` and its concurrency-limited key admitted a subsequent completed request.
+Temporary access was revoked/disabled and customer ledgers were unchanged. These
+owner-funded runs do not qualify the priced settlement branch. All-target Clippy
+and release compilation completed; fixture outcomes were not used as evidence.

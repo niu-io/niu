@@ -355,6 +355,53 @@ pub struct StreamAttempt {
     pub failures: Arc<AtomicU64>,
 }
 
+impl StreamAttempt {
+    /// Protocol inspection supplies evidence; this boundary owns durable completion.
+    async fn complete(self, evidence: &ChatEvidence) {
+        let usage = evidence.usage();
+        let provider_model = evidence.provider_model().map(str::to_owned);
+        let token_categories = evidence.token_categories();
+        let result = if self.priced {
+            self.gateway_writes
+                .complete_priced(crate::admission::PricedGatewayCompletion {
+                    scope: self.scope,
+                    attempt_id: self.id,
+                    usage,
+                    provider_model,
+                    token_categories,
+                })
+                .await
+        } else {
+            self.gateway_writes
+                .complete_unpriced(niu_storage::GatewayCompletion {
+                    scope: self.scope,
+                    attempt_id: self.id,
+                    usage,
+                    provider_model,
+                    token_categories,
+                })
+                .await
+        };
+        if result.is_err() {
+            tracing::error!(attempt_id = %self.id, priced = self.priced,
+                "stream completion writer is unavailable; durable execution and reservations remain unresolved");
+        }
+        if let Some(choices) = evidence.finish_reasons()
+            && self
+                .store
+                .save_request_finish_reasons(self.scope, self.id, choices)
+                .await
+                .is_err()
+        {
+            tracing::error!(attempt_id = %self.id, "stream finish-reason observation could not be saved");
+        }
+        if let Some((prompt, completion)) = usage {
+            self.usage
+                .report(&json!({"prompt_tokens": prompt, "completion_tokens": completion}));
+        }
+    }
+}
+
 async fn persist_stream_failure(context: StreamAttempt, kind: niu_storage::RequestFailureKind) {
     context.failures.fetch_add(1, Ordering::Relaxed);
     if context
@@ -472,79 +519,8 @@ where
                         if evidence.done {
                             stopped = true;
                             let context = attempt.take().expect("active stream context");
-                            let provider_model = evidence.provider_model().map(str::to_owned);
-                            let usage = evidence.usage();
-                            if context.priced {
-                                if context
-                                    .gateway_writes
-                                    .complete_priced(crate::admission::PricedGatewayCompletion {
-                                        token_categories: evidence.token_categories(),
-                                        scope: context.scope,
-                                        attempt_id: context.id,
-                                        usage,
-                                        provider_model,
-                                    })
-                                    .await
-                                    .is_err()
-                                {
-                                    tracing::error!(
-                                        attempt_id = %context.id,
-                                        "priced stream completion writer is unavailable; the durable reservation remains unresolved"
-                                    );
-                                }
-                                if let Some(choices) = evidence.finish_reasons()
-                                    && context
-                                        .store
-                                        .save_request_finish_reasons(
-                                            context.scope,
-                                            context.id,
-                                            choices,
-                                        )
-                                        .await
-                                        .is_err()
-                                {
-                                    tracing::error!(attempt_id = %context.id, "stream finish-reason observation could not be saved");
-                                }
-                                if let Some((prompt, completion)) = usage {
-                                    context.usage.report(&json!({"prompt_tokens": prompt, "completion_tokens": completion}));
-                                }
-                                Ok(bytes)
-                            } else {
-                                if context
-                                    .gateway_writes
-                                    .complete_unpriced(niu_storage::GatewayCompletion {
-                                        token_categories: evidence.token_categories(),
-                                        scope: context.scope,
-                                        attempt_id: context.id,
-                                        usage,
-                                        provider_model,
-                                    })
-                                    .await
-                                    .is_err()
-                                {
-                                    tracing::error!(
-                                        attempt_id = %context.id,
-                                        "unpriced stream completion writer is unavailable; the durable request remains unresolved"
-                                    );
-                                }
-                                if let Some(choices) = evidence.finish_reasons()
-                                    && context
-                                        .store
-                                        .save_request_finish_reasons(
-                                            context.scope,
-                                            context.id,
-                                            choices,
-                                        )
-                                        .await
-                                        .is_err()
-                                {
-                                    tracing::error!(attempt_id = %context.id, "stream finish-reason observation could not be saved");
-                                }
-                                if let Some((prompt, completion)) = usage {
-                                    context.usage.report(&json!({"prompt_tokens": prompt, "completion_tokens": completion}));
-                                }
-                                Ok(bytes)
-                            }
+                            context.complete(&evidence).await;
+                            Ok(bytes)
                         } else {
                             Ok(bytes)
                         }
