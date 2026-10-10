@@ -14,7 +14,7 @@ import { IconChevronDown, IconRefresh } from '@tabler/icons-react';
 type Summary = { request_count: number; usage_count: number; prompt_tokens: string; completion_tokens: string; customer_charges: Array<{currency: string; amount_nanos: string}>; unresolved_customer_charge_count: number; unpriced_request_count: number };
 type Request = { attempt_id: string; created_at: string; model: string; execution: string; prompt_tokens: string | null; completion_tokens: string | null; customer_charge_status: string; customer_charge_currency: string | null; customer_charge_nanos: string | null };
 type Page = {data: Request[]; summary: Summary; next_cursor: string | null};
-type WorkspacePage = {workspace: Workspace; page: Page};
+type WorkspacePage = {workspace: Workspace; page: Page; cursors?: string[]};
 
 export function activityTotals(pages: Array<{page: {summary: Summary}}>) {
   let requests = 0, reported = 0, tokens = 0n, unresolved = 0;
@@ -32,6 +32,30 @@ async function read<T>(url: string, token: string, signal: AbortSignal): Promise
   const response = await fetch(url, {headers: {authorization: `Bearer ${token}`}, signal});
   if (!response.ok) throw new Error(`Activity could not be loaded (${response.status}). Try again.`);
   return response.json() as Promise<T>;
+}
+function checkedRequestPage(value: Page): Page {
+  const integer = (value: unknown) => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+  const decimal = (value: unknown) => typeof value === 'string' && /^\d{1,40}$/.test(value);
+  const currency = (value: unknown) => typeof value === 'string' && /^[A-Z]{3}$/.test(value);
+  const summary = value?.summary;
+  if (!Array.isArray(value?.data) || !summary || !integer(summary.request_count) || !integer(summary.usage_count)
+    || !decimal(summary.prompt_tokens) || !decimal(summary.completion_tokens)
+    || !integer(summary.unresolved_customer_charge_count) || !integer(summary.unpriced_request_count)
+    || !Array.isArray(summary.customer_charges) || !summary.customer_charges.every(charge => charge && currency(charge.currency) && decimal(charge.amount_nanos))
+    || (value.next_cursor !== null && (typeof value.next_cursor !== 'string' || !value.next_cursor.trim()))
+    || !value.data.every(row => row && typeof row.attempt_id === 'string' && !!row.attempt_id
+      && typeof row.model === 'string' && !!row.model.trim() && typeof row.execution === 'string'
+      && typeof row.created_at === 'string' && Number.isFinite(Date.parse(row.created_at))
+      && (row.prompt_tokens === null || decimal(row.prompt_tokens)) && (row.completion_tokens === null || decimal(row.completion_tokens))
+      && typeof row.customer_charge_status === 'string' && (row.customer_charge_currency === null || currency(row.customer_charge_currency))
+      && (row.customer_charge_nanos === null || decimal(row.customer_charge_nanos)))
+    || new Set(value.data.map(row => row.attempt_id)).size !== value.data.length) {
+    throw new Error('Activity returned invalid request data. Refresh and try again.');
+  }
+  return value;
+}
+async function readRequestPage(url: string, token: string, signal: AbortSignal): Promise<Page> {
+  return checkedRequestPage(await read<Page>(url, token, signal));
 }
 const root = (workspace: Workspace) => `/admin/v1/organizations/${workspace.organization_id}/projects/${workspace.id}/requests`;
 const name = (workspace: Workspace) => workspaceDisplayName(workspace.name) || 'Workspace';
@@ -55,6 +79,7 @@ function GlobalActivity({token, models}: {token: string; models: string[]}) {
   useEffect(() => {
     const controller = new AbortController();
     olderController.current?.abort();
+    olderController.current = null;
     setLoading(true); setError(''); setPages([]); setWorkspaces([]);
     void read<{data: Workspace[]}>('/admin/v1/workspaces', token, controller.signal).then(async value => {
       if (controller.signal.aborted) return;
@@ -63,7 +88,7 @@ function GlobalActivity({token, models}: {token: string; models: string[]}) {
         if (!value.data.some(workspace => workspace.id === selectedId)) throw new Error('This workspace is unavailable or you do not have access.');
         return;
       }
-      const values = await Promise.all(value.data.map(async workspace => ({workspace, page: await read<Page>(`${root(workspace)}?limit=100`,token,controller.signal)})));
+      const values = await Promise.all(value.data.map(async workspace => ({workspace, page: await readRequestPage(`${root(workspace)}?limit=100`,token,controller.signal)})));
       if (!controller.signal.aborted) setPages(values);
     }).catch(reason => {if (!controller.signal.aborted) setError((reason as Error).message);})
       .finally(() => {if (!controller.signal.aborted) setLoading(false);});
@@ -71,17 +96,21 @@ function GlobalActivity({token, models}: {token: string; models: string[]}) {
   }, [token, selectedId, revision]);
   useEffect(() => {setOlder(false);}, [token, selectedId, revision]);
   async function loadOlder() {
+    if (loading || olderController.current) return;
     const controller = new AbortController();
     olderController.current = controller;
     setOlder(true); setError('');
     try {
       const values = await Promise.all(pages.map(async item => {
         if (!item.page.next_cursor) return item;
-        const next = await read<Page>(`${root(item.workspace)}?limit=100&after=${encodeURIComponent(item.page.next_cursor)}`,token,controller.signal);
-        return {...item, page: {...next, data: [...item.page.data, ...next.data]}};
+        const cursors = [...(item.cursors ?? []), item.page.next_cursor];
+        const next = await readRequestPage(`${root(item.workspace)}?limit=100&after=${encodeURIComponent(item.page.next_cursor)}`,token,controller.signal);
+        if (next.next_cursor && cursors.includes(next.next_cursor)) throw new Error('Activity history could not advance. Refresh and try again.');
+        const seen = new Set(item.page.data.map(row => row.attempt_id));
+        return {...item, cursors, page: {...next, data: [...item.page.data, ...next.data.filter(row => !seen.has(row.attempt_id))]}};
       }));
       if (!controller.signal.aborted) setPages(current => current === pages ? values : current);
-    } catch (reason) {if (!controller.signal.aborted) setError((reason as Error).message);} finally {if (!controller.signal.aborted) setOlder(false);}
+    } catch (reason) {if (!controller.signal.aborted) setError((reason as Error).message);} finally {if (olderController.current === controller) {olderController.current = null;if (!controller.signal.aborted) setOlder(false);}}
   }
   const totals = activityTotals(pages);
   const rows = pages.flatMap(item => item.page.data.map(request => ({workspace: item.workspace, request}))).sort((a,b) => b.request.created_at.localeCompare(a.request.created_at));

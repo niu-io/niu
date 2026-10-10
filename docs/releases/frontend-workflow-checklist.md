@@ -25,7 +25,7 @@ Every row remains partial. Verified subsets below do not establish the entire fl
 | Chat | Durable named sessions, real success, streaming/cancellation, partial-output restoration, matching Logs and two-tab draft conflict recovery | Remaining upstream/draft transport failures, ordinary-role boundaries and protocol coverage |
 | Video | Task-category entry, key scope, personal submission, saved success/preview, actual narrow MP4 download, Billing attribution and Logs round-trip; job-only navigation restores the original saved input and title | Fresh creation payloads, failed/unknown/expired/deleted states, ordinary-role denial and customer-funded billing |
 | Logs | Real filters, retained content, measured timing, interrupted/unknown states, exports, deep-link restoration and narrow request detail | Fresh classified cancellation/timeout and video captures; export failures, protocol coverage and full diagnosis matrix |
-| Activity | Real global/workspace totals, model and Today drilldown to matching Logs, narrow totals | Other date boundaries, task correlation and ordinary-role isolation |
+| Activity | Real global/workspace totals, model and Today drilldown to matching Logs, narrow totals, populated single-day calendar range/reload; validated request pages and cursor/overlap recovery in regression | Other date boundaries, task correlation and ordinary-role isolation |
 | Guardrails | Saved input policy, historical live input block, current three-protocol local previews and version-8 restoration/history, narrow denial records and explicit refusal classifications in frontend regression | Live output withholding, current refusal browser states, ordinary-role management and complete supported protocol coverage |
 | Settings / billing | Global dialog preserves origin; balance/empty history/unavailable top-ups, warning persistence and customer-only rate/statement fields | Populated rates/statements, credit-limit states, top-up recovery and funded request reconciliation |
 | Admin Suppliers | Directory and named details, adapter/add-key dialogs, business profile and exact text-rate writes; existing model save/reload; credential RPM conflict/history and cooldown reads | Independent credential creation/rotation, changed model/subset writes, active cooldown/error states and ordinary-role boundaries |
@@ -57,6 +57,6 @@ Every row remains partial. Verified subsets below do not establish the entire fl
 
 ## Verification baseline
 
-- Full dashboard regression: 90 files / 727 checks passed at the latest recorded full run; TypeScript checking passed. Subsequent scoped recovery checks are recorded separately in the journal.
+- Full dashboard regression: 90 files / 734 checks passed at the latest recorded full run; TypeScript checking passed. Subsequent scoped recovery checks are recorded separately in the journal.
 - Current actual browser evidence includes saved personal Chat/Video, narrow Video download, Logs restoration, customer-pricing target/menu/dialog reads, existing model mapping persistence, disabled EPay persistence and empty earning selection.
 - Fixtures are confined to tests and do not establish live acceptance. No full workflow row or F01–F10 release gate is marked complete.

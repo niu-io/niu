@@ -71,4 +71,56 @@ describe('Global Activity',()=>{
   expect((await screen.findByRole('alert')).textContent).toContain('This workspace is unavailable or you do not have access.');
   await waitFor(()=>expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1));
  });
+ it.each(['tokens','count','date','duplicate','cursor'])('shows recoverable errors for malformed %s data without partial totals',async kind=>{
+  vi.stubGlobal('fetch',vi.fn(async (input:unknown)=>{
+    if(String(input)==='/admin/v1/workspaces')return Response.json({data:[workspaces[0]]});
+    const page={data:[request],summary:summary(),next_cursor:null as string|null};
+    if(kind==='tokens')page.summary.prompt_tokens='not a number';
+    if(kind==='count')page.summary.request_count=-1;
+    if(kind==='date')page.data=[{...request,created_at:'invalid date'}];
+    if(kind==='duplicate')page.data=[request,request];
+    if(kind==='cursor')page.next_cursor='';
+    return Response.json(page);
+  }));
+  open();
+  expect((await screen.findByRole('alert')).textContent).toContain('Activity returned invalid request data');
+  expect(screen.queryByRole('region',{name:'All workspace totals'})).toBeNull();
+  mockData();
+  await userEvent.setup().click(screen.getByRole('button',{name:'Try again'}));
+  expect(await screen.findByRole('region',{name:'All workspace totals'})).toBeTruthy();
+ });
+ it('deduplicates overlapping pages within each workspace',async()=>{
+  vi.stubGlobal('fetch',vi.fn(async (input:unknown)=>{
+    const path=String(input);
+    if(path==='/admin/v1/workspaces')return Response.json({data:[workspaces[0]]});
+    return Response.json({data:path.includes('after=')?[request,{...request,attempt_id:'older',model:'older-model'}]:[request],summary:summary(),next_cursor:path.includes('after=')?null:'older-page'});
+  }));
+  open('/activity/logs');const user=userEvent.setup();
+  await user.click(await screen.findByRole('button',{name:'Load older requests'}));
+  await screen.findByRole('link',{name:/Open older-model request/});
+  expect(screen.getAllByRole('row',{name:/Open model-one request/})).toHaveLength(1);
+  expect(screen.getByText('2 loaded · newest first · all time')).toBeTruthy();
+  expect(screen.queryByRole('button',{name:'Load older requests'})).toBeNull();
+ });
+ it('rejects a cursor cycle across older pages and recovers only by explicit refresh',async()=>{
+  let olderReads=0;
+  vi.stubGlobal('fetch',vi.fn(async (input:unknown)=>{
+    const path=String(input);
+    if(path==='/admin/v1/workspaces')return Response.json({data:[workspaces[0]]});
+    if(path.includes('after='))olderReads+=1;
+    const cursor=path.includes('after=second')?'first':path.includes('after=first')?'second':'first';
+    return Response.json({data:[{...request,attempt_id:`request-${olderReads}`}],summary:summary(),next_cursor:cursor});
+  }));
+  open('/activity/logs');const user=userEvent.setup();
+  await user.click(await screen.findByRole('button',{name:'Load older requests'}));
+  await screen.findByText('2 loaded · newest first · all time');
+  await user.click(screen.getByRole('button',{name:'Load older requests'}));
+  expect((await screen.findByRole('alert')).textContent).toContain('Activity history could not advance');
+  expect(olderReads).toBe(2);
+  mockData();
+  await user.click(screen.getByRole('button',{name:'Try again'}));
+  expect(await screen.findAllByRole('link',{name:/Open model-one request/})).toHaveLength(2);
+  expect(screen.queryByRole('alert')).toBeNull();
+ });
+
 });
