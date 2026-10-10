@@ -759,18 +759,27 @@ impl Store {
 
     /// Idempotent accrual only from confirmed execution and complete trusted usage.
     pub async fn accrue_provider_earning(&self, attempt: Uuid) -> Result<(), StoreError> {
+        let mut tx = self.pool.begin().await?;
+        Self::accrue_provider_earning_in_tx(&mut tx, attempt).await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    pub(crate) async fn accrue_provider_earning_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        attempt: Uuid,
+    ) -> Result<(), StoreError> {
         let media: bool = sqlx::query_scalar(
             "SELECT EXISTS(SELECT 1 FROM supplier_media_attempt_pricing WHERE attempt_id=$1)",
         )
         .bind(attempt)
-        .fetch_one(&self.pool)
+        .fetch_one(&mut **tx)
         .await?;
         if media {
-            return self.accrue_supplier_media_earning(attempt).await;
+            return Self::accrue_supplier_media_earning_in_tx(tx, attempt).await;
         }
-        let mut tx = self.pool.begin().await?;
         let row=sqlx::query("SELECT b.provider_id,b.revision_id,r.currency,r.prompt_rate,r.completion_rate,r.cached_prompt_rate,a.prompt_tokens,a.completion_tokens,d.cached_input_tokens FROM provider_attempt_offers b JOIN attempts a ON a.id=b.attempt_id LEFT JOIN request_token_categories d ON d.attempt_id=a.id JOIN provider_offer_revisions r ON r.id=b.revision_id WHERE a.id=$1 AND r.rate_kind='text' AND a.execution='confirmed_completed' AND a.usage_confidence='provider_reported'")
-            .bind(attempt).fetch_optional(&mut *tx).await?;
+            .bind(attempt).fetch_optional(&mut **tx).await?;
         if let Some(row) = row {
             let prompt: i64 = row.get("prompt_tokens");
             let completion: i64 = row.get("completion_tokens");
@@ -791,9 +800,8 @@ impl Store {
                 None => (rates.charge(prompt, completion)?, None),
             };
             sqlx::query("INSERT INTO provider_earnings(attempt_id,provider_id,revision_id,currency,amount_nanos,prompt_tokens,completion_tokens,cached_prompt_tokens) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(attempt_id) DO NOTHING")
-                .bind(attempt).bind(row.get::<Uuid,_>("provider_id")).bind(row.get::<Uuid,_>("revision_id")).bind(row.get::<String,_>("currency")).bind(amount).bind(prompt).bind(completion).bind(cached_tokens).execute(&mut *tx).await?;
+                .bind(attempt).bind(row.get::<Uuid,_>("provider_id")).bind(row.get::<Uuid,_>("revision_id")).bind(row.get::<String,_>("currency")).bind(amount).bind(prompt).bind(completion).bind(cached_tokens).execute(&mut **tx).await?;
         }
-        tx.commit().await?;
         Ok(())
     }
 

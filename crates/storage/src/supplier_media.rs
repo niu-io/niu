@@ -262,8 +262,17 @@ impl Store {
     /// Independent Supplier liability; customer funding and charges are not consulted.
     pub async fn accrue_supplier_media_earning(&self, attempt: Uuid) -> Result<(), StoreError> {
         let mut tx = self.pool.begin().await?;
+        Self::accrue_supplier_media_earning_in_tx(&mut tx, attempt).await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    pub(crate) async fn accrue_supplier_media_earning_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        attempt: Uuid,
+    ) -> Result<(), StoreError> {
         let row=sqlx::query("SELECT p.provider_id,p.snapshot,b.revision_id,a.execution FROM supplier_media_attempt_pricing p JOIN attempts a ON a.id=p.attempt_id JOIN provider_attempt_offers b ON b.attempt_id=a.id AND b.provider_id=p.provider_id WHERE a.id=$1 FOR UPDATE OF a")
-            .bind(attempt).fetch_optional(&mut *tx).await?;
+            .bind(attempt).fetch_optional(&mut **tx).await?;
         let Some(row) = row else {
             return Ok(());
         };
@@ -271,18 +280,17 @@ impl Store {
             "SELECT EXISTS(SELECT 1 FROM provider_earnings WHERE attempt_id=$1)",
         )
         .bind(attempt)
-        .fetch_one(&mut *tx)
+        .fetch_one(&mut **tx)
         .await?;
         if prior {
-            tx.commit().await?;
             return Ok(());
         }
-        let success:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM media_job_observations WHERE attempt_id=$1 AND status='succeeded') AND NOT EXISTS(SELECT 1 FROM media_job_observations WHERE attempt_id=$1 AND status='failed')").bind(attempt).fetch_one(&mut *tx).await?;
+        let success:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM media_job_observations WHERE attempt_id=$1 AND status='succeeded') AND NOT EXISTS(SELECT 1 FROM media_job_observations WHERE attempt_id=$1 AND status='failed')").bind(attempt).fetch_one(&mut **tx).await?;
         if row.get::<String, _>("execution") != "confirmed_completed" || !success {
             return Err(StoreError::Unresolved);
         }
         let observations:Vec<(String,String)>=sqlx::query_as("SELECT DISTINCT metadata->>'meter',metadata->'quantity'->>'value' FROM media_query_evidence WHERE attempt_id=$1 AND metadata->'quantity'->>'state'='reported' LIMIT 2")
-            .bind(attempt).fetch_all(&mut *tx).await?;
+            .bind(attempt).fetch_all(&mut **tx).await?;
         if observations.len() != 1 {
             return Err(StoreError::Unresolved);
         }
@@ -307,8 +315,7 @@ impl Store {
             .map_err(|_| StoreError::InvalidPrice)?;
         let nanos = crate::media_pricing::receipt_nanos(&receipt)?;
         sqlx::query("INSERT INTO provider_earnings(attempt_id,provider_id,revision_id,currency,amount_nanos,prompt_tokens,completion_tokens,billing_meter,meter_quantity,media_explanation) VALUES($1,$2,$3,$4,$5,NULL,NULL,$6,$7,$8)")
-            .bind(attempt).bind(row.get::<Uuid,_>("provider_id")).bind(row.get::<Uuid,_>("revision_id")).bind(&receipt.currency).bind(nanos).bind(&meter).bind(serde_json::to_value(quantity).map_err(|_| StoreError::InvalidUsage)?).bind(serde_json::to_value(&receipt).map_err(|_| StoreError::InvalidPrice)?).execute(&mut *tx).await?;
-        tx.commit().await?;
+            .bind(attempt).bind(row.get::<Uuid,_>("provider_id")).bind(row.get::<Uuid,_>("revision_id")).bind(&receipt.currency).bind(nanos).bind(&meter).bind(serde_json::to_value(quantity).map_err(|_| StoreError::InvalidUsage)?).bind(serde_json::to_value(&receipt).map_err(|_| StoreError::InvalidPrice)?).execute(&mut **tx).await?;
         Ok(())
     }
 }

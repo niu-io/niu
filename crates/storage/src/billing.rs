@@ -317,22 +317,31 @@ SELECT jsonb_build_object(
         attempt: Uuid,
     ) -> Result<(), StoreError> {
         let mut tx = self.pool.begin().await?;
+        Self::release_nonexecuted_customer_balance_in_tx(&mut tx, scope, attempt).await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    pub(crate) async fn release_nonexecuted_customer_balance_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: TenantScope,
+        attempt: Uuid,
+    ) -> Result<(), StoreError> {
         sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR SHARE")
             .bind(scope.organization_id)
-            .fetch_optional(&mut *tx)
+            .fetch_optional(&mut **tx)
             .await?
             .ok_or(StoreError::Conflict)?;
 
         sqlx::query("SELECT c.id FROM customer_balance_accounts c JOIN customer_attempt_balance_accounts b ON b.account_id=c.id WHERE b.attempt_id=$1 AND b.organization_id=$2 AND b.project_id=$3 FOR UPDATE OF c")
-            .bind(attempt).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
+            .bind(attempt).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
         let state: String = sqlx::query_scalar("SELECT execution FROM attempts WHERE id=$1 AND organization_id=$2 AND project_id=$3 FOR UPDATE")
-            .bind(attempt).bind(scope.organization_id).bind(scope.project_id).fetch_one(&mut *tx).await?;
+            .bind(attempt).bind(scope.organization_id).bind(scope.project_id).fetch_one(&mut **tx).await?;
         if !matches!(state.as_str(), "not_sent" | "confirmed_not_executed") {
             return Err(StoreError::Unresolved);
         }
         sqlx::query("UPDATE customer_balance_reservations SET released_at=now() WHERE attempt_id=$1 AND released_at IS NULL")
-            .bind(attempt).execute(&mut *tx).await?;
-        tx.commit().await?;
+            .bind(attempt).execute(&mut **tx).await?;
         Ok(())
     }
 
@@ -542,7 +551,16 @@ SELECT jsonb_build_object(
     }
     pub async fn accrue_customer_charge(&self, attempt: Uuid) -> Result<(), StoreError> {
         let mut tx = self.pool.begin().await?;
-        let row=sqlx::query("SELECT a.organization_id,a.project_id,b.revision_id,r.currency,r.prompt_rate,r.completion_rate,r.cached_prompt_rate,a.prompt_tokens,a.completion_tokens,d.cached_input_tokens FROM attempts a LEFT JOIN request_token_categories d ON d.attempt_id=a.id JOIN customer_attempt_tariffs b ON b.attempt_id=a.id JOIN customer_tariff_revisions r ON r.id=b.revision_id WHERE a.id=$1 AND a.execution='confirmed_completed' AND a.usage_confidence='provider_reported'").bind(attempt).fetch_optional(&mut *tx).await?;
+        Self::accrue_customer_charge_in_tx(&mut tx, attempt).await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    pub(crate) async fn accrue_customer_charge_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        attempt: Uuid,
+    ) -> Result<(), StoreError> {
+        let row=sqlx::query("SELECT a.organization_id,a.project_id,b.revision_id,r.currency,r.prompt_rate,r.completion_rate,r.cached_prompt_rate,a.prompt_tokens,a.completion_tokens,d.cached_input_tokens FROM attempts a LEFT JOIN request_token_categories d ON d.attempt_id=a.id JOIN customer_attempt_tariffs b ON b.attempt_id=a.id JOIN customer_tariff_revisions r ON r.id=b.revision_id WHERE a.id=$1 AND a.execution='confirmed_completed' AND a.usage_confidence='provider_reported'").bind(attempt).fetch_optional(&mut **tx).await?;
         if let Some(row) = row {
             let prompt: i64 = row.get("prompt_tokens");
             let completion: i64 = row.get("completion_tokens");
@@ -562,19 +580,18 @@ SELECT jsonb_build_object(
                 }
                 None => (rates.charge(prompt, completion)?, None),
             };
-            sqlx::query("INSERT INTO customer_charges(attempt_id,organization_id,project_id,revision_id,currency,amount_nanos,prompt_tokens,completion_tokens,cached_prompt_tokens) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(attempt_id) DO NOTHING").bind(attempt).bind(row.get::<Uuid,_>("organization_id")).bind(row.get::<Uuid,_>("project_id")).bind(row.get::<Uuid,_>("revision_id")).bind(row.get::<String,_>("currency")).bind(amount).bind(prompt).bind(completion).bind(cached_tokens).execute(&mut *tx).await?;
+            sqlx::query("INSERT INTO customer_charges(attempt_id,organization_id,project_id,revision_id,currency,amount_nanos,prompt_tokens,completion_tokens,cached_prompt_tokens) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(attempt_id) DO NOTHING").bind(attempt).bind(row.get::<Uuid,_>("organization_id")).bind(row.get::<Uuid,_>("project_id")).bind(row.get::<Uuid,_>("revision_id")).bind(row.get::<String,_>("currency")).bind(amount).bind(prompt).bind(completion).bind(cached_tokens).execute(&mut **tx).await?;
         }
         // Serialize with future admission/funding changes on this account. Read
         // the immutable charge, never a client price or Supplier expense.
         let account: Option<Uuid> = sqlx::query_scalar("SELECT c.id FROM customer_balance_accounts c JOIN customer_attempt_balance_accounts b ON b.account_id=c.id AND b.organization_id=c.organization_id AND b.currency=c.currency WHERE b.attempt_id=$1 FOR UPDATE OF c")
-            .bind(attempt).fetch_optional(&mut *tx).await?;
+            .bind(attempt).fetch_optional(&mut **tx).await?;
         if let Some(account) = account {
             sqlx::query("INSERT INTO customer_balance_entries(id,organization_id,account_id,currency,kind,amount_nanos,idempotency_key,project_id,attempt_id) SELECT $1,c.organization_id,b.account_id,c.currency,'charge',-c.amount_nanos,c.attempt_id,c.project_id,c.attempt_id FROM customer_charges c JOIN customer_attempt_balance_accounts b ON b.attempt_id=c.attempt_id AND b.organization_id=c.organization_id AND b.project_id=c.project_id AND b.currency=c.currency WHERE c.attempt_id=$2 AND b.account_id=$3 AND c.amount_nanos>0 ON CONFLICT DO NOTHING")
-                .bind(Uuid::new_v4()).bind(attempt).bind(account).execute(&mut *tx).await?;
+                .bind(Uuid::new_v4()).bind(attempt).bind(account).execute(&mut **tx).await?;
             sqlx::query("UPDATE customer_balance_reservations SET released_at=now() WHERE attempt_id=$1 AND released_at IS NULL AND EXISTS(SELECT 1 FROM customer_charges WHERE attempt_id=$1)")
-                .bind(attempt).execute(&mut *tx).await?;
+                .bind(attempt).execute(&mut **tx).await?;
         }
-        tx.commit().await?;
         Ok(())
     }
     pub async fn recover_customer_charges(

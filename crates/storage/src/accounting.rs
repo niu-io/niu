@@ -1073,11 +1073,20 @@ impl Store {
     /// attempt always returns its original entry. Unknown usage retains its hold.
     pub async fn settle_cost(&self, scope: TenantScope, id: Uuid) -> Result<CostEntry, StoreError> {
         let mut tx = self.pool.begin().await?;
+        let result = Self::settle_cost_in_tx(&mut tx, scope, id).await?;
+        tx.commit().await?;
+        Ok(result)
+    }
+
+    pub(crate) async fn settle_cost_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: TenantScope,
+        id: Uuid,
+    ) -> Result<CostEntry, StoreError> {
         let attempt = sqlx::query("SELECT execution, usage_confidence, prompt_tokens, completion_tokens FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")
-            .bind(scope.organization_id).bind(scope.project_id).bind(id).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
+            .bind(scope.organization_id).bind(scope.project_id).bind(id).fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
         if let Some(entry) = sqlx::query_as::<_,CostEntry>("SELECT attempt_id, price_revision_id, currency, api_equivalent_nanos, cash_nanos, usage_prompt_tokens, usage_completion_tokens, bound_exceeded FROM cost_entries WHERE attempt_id=$1")
-            .bind(id).fetch_optional(&mut *tx).await? {
-            tx.commit().await?;
+            .bind(id).fetch_optional(&mut **tx).await? {
             return Ok(entry);
         }
         if attempt.get::<String, _>("execution") != "confirmed_completed"
@@ -1086,7 +1095,7 @@ impl Store {
             return Err(StoreError::Unresolved);
         }
         let reservation = sqlx::query("SELECT r.price_revision_id, r.reserved_nanos, r.prompt_bound, r.completion_bound, p.currency, p.api_prompt_rate, p.api_completion_rate, p.cash_prompt_rate, p.cash_completion_rate FROM cost_reservations r JOIN price_revisions p ON p.id=r.price_revision_id WHERE r.attempt_id=$1 AND r.state='held'")
-            .bind(id).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
+            .bind(id).fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
         let prompt: i64 = attempt.get("prompt_tokens");
         let completion: i64 = attempt.get("completion_tokens");
         let api = TokenRates {
@@ -1104,19 +1113,18 @@ impl Store {
         // Record real liability even if a provider exceeds the bound. Future
         // admission stops when spent+reserved exhausts the configured limit.
         sqlx::query("UPDATE project_budgets SET reserved_nanos=reserved_nanos-$3, spent_nanos=spent_nanos+$4 WHERE organization_id=$1 AND project_id=$2")
-            .bind(scope.organization_id).bind(scope.project_id).bind(reservation.get::<i64,_>("reserved_nanos")).bind(cash).execute(&mut *tx).await?;
+            .bind(scope.organization_id).bind(scope.project_id).bind(reservation.get::<i64,_>("reserved_nanos")).bind(cash).execute(&mut **tx).await?;
         let entry = sqlx::query_as::<_,CostEntry>("INSERT INTO cost_entries (attempt_id, organization_id, project_id, price_revision_id, currency, api_equivalent_nanos, cash_nanos, usage_prompt_tokens, usage_completion_tokens, bound_exceeded) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING attempt_id, price_revision_id, currency, api_equivalent_nanos, cash_nanos, usage_prompt_tokens, usage_completion_tokens, bound_exceeded")
             .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(reservation.get::<Uuid,_>("price_revision_id"))
-            .bind(reservation.get::<String,_>("currency")).bind(api).bind(cash).bind(prompt).bind(completion).bind(exceeded).fetch_one(&mut *tx).await?;
+            .bind(reservation.get::<String,_>("currency")).bind(api).bind(cash).bind(prompt).bind(completion).bind(exceeded).fetch_one(&mut **tx).await?;
         sqlx::query("UPDATE cost_reservations SET state='settled' WHERE attempt_id=$1")
             .bind(id)
-            .execute(&mut *tx)
+            .execute(&mut **tx)
             .await?;
         sqlx::query("UPDATE attempts SET settlement='settled' WHERE id=$1")
             .bind(id)
-            .execute(&mut *tx)
+            .execute(&mut **tx)
             .await?;
-        tx.commit().await?;
         Ok(entry)
     }
 
