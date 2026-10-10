@@ -71,7 +71,8 @@ round trips or by a green fixture workflow:
    identified the original one-alias/one-credential constraint. Additive
    [text pools](../reference/model-route-pools.md) now separate the customer alias
    from selected mappings and implement revisioned priority/weight policies.
-   Actual personal Chat/Responses selection is verified; weighted traffic,
+   Actual personal Chat/Responses selection and bounded concurrent weighted traffic
+   are verified; long-run distribution,
    customer-paid attribution and post-rejection failover remain open.
 4. Measure sustained inference/financial contention and larger actual datasets
    against explicit operational capacity targets. Current read measurements use

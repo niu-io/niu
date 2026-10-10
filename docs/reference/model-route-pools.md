@@ -101,8 +101,29 @@ and history from the actual service and matched its current revision.
 
 Formatting, release compilation, Clippy, test-target compilation, SDK checking/
 build and OpenAPI parsing completed. Fixture results supply no evidence.
-Nondegenerate same-priority weighted traffic, embedding pool calls, customer-paid
+Long-run weighted distribution, embedding pool calls, customer-paid
 pool admission/settlement, native adapters, larger catalogs and sustained
 contention remain unverified. This increment does not provide health cooldowns,
 circuit breaking or safe post-rejection failover, and does not establish New API
 parity or production capacity.
+
+## Same-priority weighted current-input traffic
+
+A subsequent run configured two independent temporary personal credential/model
+mappings at equal priority with weights one and three. Thirty-two actual short
+Chat requests ran with concurrency four and an explicit eight-token output limit.
+All returned nonempty responses using the customer pool alias. The two candidates
+were selected 12 and 20 times respectively.
+
+Independent PostgreSQL inspection matched every HTTP response to one completed
+dispatch, the selected candidate, pool revision one, the unchanged customer model
+identity and exact prompt/completion counts. Both configured candidates received
+actual traffic. The customer ledger remained empty, and the original credential
+revision/ciphertext digest stayed unchanged. Temporary pool, mappings and
+credentials were disabled and temporary keys revoked after the run.
+
+This verifies nondegenerate weighted selection with concurrent actual traffic and
+durable attribution. The observed counts are a finite sample, not a statistical
+qualification of the long-run 1:3 distribution or a production-throughput result.
+Both temporary configurations used the same personal upstream test secret; this
+does not establish independent upstream-account capacity or commercial supply.

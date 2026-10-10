@@ -75,7 +75,7 @@ polling must not create a replacement generation on another Supplier.
 | Durable selected-route binding | Configuration races reject before dispatch; historical selection stays inspectable | Generic managed-route binding implemented; actual personal Chat model-revision race verified, broader paths open |
 | Separate customer models and supply mappings | Multiple credentials serve one customer alias without changing grants or tariffs | Additive text pools implemented; actual personal alias/grant behavior verified; paid tariff behavior open |
 | Candidate administration | Revisioned membership, priority, weight, enabled state and scoped history | Implemented with actual configuration/history/concurrency evidence |
-| Candidate selection | Eligible priority/weight selection, no disabled or foreign personal routes, defined no-route response | Implemented; actual priority/protocol/disabled-member selection and scope rejection verified; nondegenerate weighted traffic open |
+| Candidate selection | Eligible priority/weight selection, no disabled or foreign personal routes, defined no-route response | Implemented; actual priority/protocol/disabled-member selection, scope rejection and concurrent weighted traffic verified; long-run distribution open |
 | Safe failover orchestration | Distinct attempts, bounded retries and deadlines, no uncertain resubmission | Not implemented for generic inference |
 | Health and recovery | Defined cooldown and re-entry under concurrent gateways without a probe flood | Complete cross-adapter behavior unverified |
 | Financial and performance qualification | Actual multi-candidate traffic reconciles reservations, charges and route attribution under contention | Unverified |
