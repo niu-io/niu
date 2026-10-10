@@ -3135,3 +3135,155 @@ pub async fn tariff_history(
         .map(Json)
         .ok_or_else(ApiError::not_found)
 }
+
+/// ```openapi
+/// {
+///   "path": "/admin/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs/{model}/history",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listPlatformCustomerTariffHistory",
+///     "summary": "Read platform customer selling-price history",
+///     "description": "Explicit platform administration required, independent of ordinary customer workspace read scope. Reuses immutable customer tariff history and its bounded cursor contract. Returns selling prices only: no customer usage, balances, invoices, content, credentials or Supplier procurement. Missing tariff returns 404; cursor outside the selected tariff returns 409. Cache-Control no-store.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "model",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "minLength": 1,
+///           "maxLength": 200
+///         }
+///       },
+///       {
+///         "name": "before",
+///         "in": "query",
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "description": "Exclusive revision cursor belonging to this workspace and model."
+///       },
+///       {
+///         "name": "limit",
+///         "in": "query",
+///         "schema": {
+///           "type": "integer",
+///           "minimum": 1,
+///           "maximum": 100,
+///           "default": 50
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Current pointer and immutable bounded history page.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "current_revision",
+///                 "data",
+///                 "has_more",
+///                 "next_before"
+///               ],
+///               "properties": {
+///                 "current_revision": {
+///                   "type": [
+///                     "string",
+///                     "null"
+///                   ],
+///                   "format": "uuid"
+///                 },
+///                 "data": {
+///                   "type": "array",
+///                   "maxItems": 100,
+///                   "items": {
+///                     "$ref": "#/components/schemas/CustomerTextTariffHistoryEntry"
+///                   }
+///                 },
+///                 "has_more": {
+///                   "type": "boolean"
+///                 },
+///                 "next_before": {
+///                   "type": [
+///                     "string",
+///                     "null"
+///                   ],
+///                   "format": "uuid"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid path, query, model or page limit."
+///       },
+///       "401": {
+///         "description": "Management authentication required."
+///       },
+///       "404": {
+///         "description": "Workspace access denied or no tariff for this model."
+///       },
+///       "409": {
+///         "description": "Cursor does not belong to this workspace/model history."
+///       },
+///       "503": {
+///         "description": "Storage unavailable."
+///       },
+///       "403": {
+///         "description": "Platform administration required"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+pub async fn platform_tariff_history(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((organization_id, project_id, model)): Path<(Uuid, Uuid, String)>,
+    Query(page): Query<CustomerTariffHistoryQuery>,
+) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {
+    state.authorize_platform_headers(&headers).await?;
+    let data = state
+        .store
+        .customer_tariff_history(
+            TenantScope {
+                organization_id,
+                project_id,
+            },
+            &model,
+            page.before,
+            page.limit.unwrap_or(50),
+        )
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    Ok(([("cache-control", "no-store")], Json(data)))
+}

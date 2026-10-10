@@ -6615,6 +6615,134 @@ HTTP 409: Cursor does not belong to this workspace/model history.
 
 HTTP 503: Storage unavailable.
 
+## Read platform customer selling-price history
+
+`GET /admin/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs/{model}/history`
+
+Explicit platform administration required, independent of ordinary customer workspace read scope. Reuses immutable customer tariff history and its bounded cursor contract. Returns selling prices only: no customer usage, balances, invoices, content, credentials or Supplier procurement. Missing tariff returns 404; cursor outside the selected tariff returns 409. Cache-Control no-store.
+
+Implementation: `implemented`. Operation: `listPlatformCustomerTariffHistory`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`model` (path, required)
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 200
+}
+```
+
+`before` (query, optional)
+
+Exclusive revision cursor belonging to this workspace and model.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Current pointer and immutable bounded history page.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "current_revision",
+    "data",
+    "has_more",
+    "next_before"
+  ],
+  "properties": {
+    "current_revision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "data": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "$ref": "#/components/schemas/CustomerTextTariffHistoryEntry"
+      }
+    },
+    "has_more": {
+      "type": "boolean"
+    },
+    "next_before": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid path, query, model or page limit.
+
+HTTP 401: Management authentication required.
+
+HTTP 404: Workspace access denied or no tariff for this model.
+
+HTTP 409: Cursor does not belong to this workspace/model history.
+
+HTTP 503: Storage unavailable.
+
+HTTP 403: Platform administration required
+
 ## Read EPay configuration with platform administrator read access
 
 `GET /admin/v1/platform/payments/epay`

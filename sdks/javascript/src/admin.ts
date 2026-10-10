@@ -883,6 +883,16 @@ export class NiuAdminClient {
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/billing/tariffs/${encodeURIComponent(model)}/history${query.size ? `?${query}` : ''}`, undefined, options);
   }
 
+  /** Platform-only selling history, independent of customer content permissions. */
+  getPlatformCustomerTariffHistory(scope: TenantScope, model: string, page: { before?: string; limit?: number } = {}, options?: RequestOptions): Promise<CustomerTariffHistory> {
+    if (!model || new TextEncoder().encode(model).length > 200) throw new TypeError('A model alias of at most 200 bytes is required');
+    if (page.limit !== undefined && (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100)) throw new TypeError('Choose a history page size from 1 to 100');
+    const query = new URLSearchParams();
+    if (page.before !== undefined) query.set('before', uuid(page.before));
+    if (page.limit !== undefined) query.set('limit', String(page.limit));
+    return this.request(`/pricing/organizations/${uuid(scope.organizationId)}/workspaces/${uuid(scope.projectId)}/tariffs/${encodeURIComponent(model)}/history${query.size ? `?${query}` : ''}`, undefined, options);
+  }
+
   /** Explicit platform-administrator retail publication. No retry or Supplier-price fallback. */
   publishCustomerTariff(scope: TenantScope, rates: CustomerTariffInput, options?: RequestOptions): Promise<{ data: { revision: string } }> {
     validateRates(rates);

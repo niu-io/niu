@@ -16,7 +16,16 @@ exact decimal amounts, nullable cached rates, fixed fees, minimum charges,
 expected-revision conflicts and explicit pagination. Do not make the frontend
 require pasted internal workspace identifiers or copy an installation token.
 
-This is a requested contract, not an implemented endpoint. Backend ownership
+The first implementation slice is available:
+`GET /admin/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs/{model}/history`
+and SDK `getPlatformCustomerTariffHistory`. It uses explicit platform authority,
+returns only selling-price revisions with the existing `before` / `limit`
+pagination, and sends `Cache-Control: no-store`. Ordinary customer read scope is
+not expanded. The generated handler OpenAPI contains its response schema.
+Named target discovery and a paginated current-price directory remain pending;
+this history endpoint alone does not enable the complete editor.
+
+The complete editor contract remains a request. Backend ownership
 remains with the backend workstream. The frontend must then implement the named
 target selection, existing-price editing, conflict reload and saved-history
 restoration in Admin, separately from Supplier purchase prices and customer

@@ -98,3 +98,23 @@ rate. Both exact debits were present and both holds released, with no duplicate
 charge or tariff revision. This establishes the exercised in-flight price-change
 ordering; it is not a sustained rate-edit stress test or a claim about every
 protocol's admission path.
+
+## Platform-only history reads
+
+`GET /admin/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs/{model}/history`
+and SDK `getPlatformCustomerTariffHistory` expose the existing immutable selling
+history under explicit platform authority. The response uses the same exact
+amounts, nullable cache rate, fixed fees and `before` / `limit` cursor contract
+as customer tariff history, with `Cache-Control: no-store`. It includes no usage,
+balances, invoices, request content, credentials or procurement prices. Customer
+history and billing permissions remain unchanged.
+
+A fresh native HTTP run verified that an explicitly granted operator could read
+a tariff in a second company while the customer history route still returned
+404. The response fields matched the selling-history contract. A foreign tariff
+cursor returned 409, a zero page size returned 400, and an inference key returned
+401. Revoking the platform grant made the new read return 403. Independent
+database reopening retained exactly the two configured tariffs/revisions and no
+inference or financial entries. Named target discovery and current-price
+pagination are separate pending integration work; this endpoint alone does not
+complete global price administration.
