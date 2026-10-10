@@ -49,8 +49,27 @@ reasoning rate returned HTTP 409 without creating a revision; explicit null
 created a flat revision without changing existing charges.
 
 This evidence covers non-streaming customer reasoning pricing with request fees
-and minimum charges. Combined cache/reasoning pricing, missing-category recovery,
-and concurrent admission still require current-input verification. The served
+and minimum charges. Combined cache/reasoning pricing and concurrent admission still require
+current-input verification. Missing-category retention is verified below;
+recovering a subsequently supplied category remains unverified. The served
 documentation OpenAPI matches the generated contract, and its reference HTML
 contains the new rate field; visual browser acceptance is not claimed. Supplier reasoning rates,
 cache-write pricing, and long-context tiers remain separate unfinished work.
+
+
+## Missing reasoning quantity
+
+A separate actual OpenRouter Claude Haiku 4.5 call through `/v1/messages`
+returned the requested marker and known aggregate input/output quantities, but
+no reasoning subset. With an explicit customer reasoning rate, the attempt
+remained confirmed completed with provider-reported aggregate usage, while no
+customer charge or debit was created. Its reservation remained open across a
+Gateway restart. An independent process reopened the stopped database, checked
+the saved response hash and aggregate quantities, and verified the pinned rate,
+missing reasoning category, absent financial entries, and retained reservation.
+This does not establish automatic resolution when missing usage later arrives.
+
+The existing native development database also applied migration 0243 after a
+private backup. Archive inventory was checked, not restoration. Refreshing the
+Gateway preserved configuration hashes, encrypted credential identities and
+revisions, and organization, workspace, media-job, and financial-entry counts.
