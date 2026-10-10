@@ -49,4 +49,24 @@ describe('durable composer drafts',()=>{
     await act(async()=>finish(Response.json({data:{payload:{...empty,prompt:'Private old draft'},revision:1}})));
     expect(restore).not.toHaveBeenCalled();
   });
+  it('does not carry a late save conflict into the next account',async()=>{
+    let finish!:(response:Response)=>void;
+    vi.stubGlobal('fetch',vi.fn((_input:RequestInfo|URL,init?:RequestInit)=>init?.method==='PUT'
+      ? new Promise<Response>(resolve=>{finish=resolve;})
+      : Promise.resolve(Response.json({data:{payload:null,revision:0}}))));
+    const restore=vi.fn();
+    const view=renderHook(({identity,endpoint,value})=>useChatDraft({...args,identity,endpoint,value,restore}),
+      {initialProps:{identity:'first',endpoint:'/first',value:empty}});
+    await waitFor(()=>expect(view.result.current.ready).toBe(true));
+    view.rerender({identity:'first',endpoint:'/first',value:{...empty,prompt:'Private old draft'}});
+    let pending!:Promise<boolean>;
+    act(()=>{pending=view.result.current.flush();});
+    view.rerender({identity:'second',endpoint:'/second',value:empty});
+    await waitFor(()=>expect(view.result.current.ready).toBe(true));
+    await act(async()=>{finish(new Response(null,{status:409}));expect(await pending).toBe(false);});
+    expect(view.result.current.error).toBe('');
+    expect(view.result.current.conflict).toBe(false);
+    expect(view.result.current.saving).toBe(false);
+    expect(restore).not.toHaveBeenCalled();
+  });
 });
