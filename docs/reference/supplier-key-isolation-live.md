@@ -41,3 +41,21 @@ credential identity were preserved. No fixture result supports these findings.
 This does not qualify distinct upstream credentials, an enabled first-key call
 after rotation, concurrent credential edits, Supplier-member workflows, UI
 onboarding, commercial earnings or every model/Provider combination.
+
+## Enabled replacement and concurrent edits
+
+A subsequent isolated current-input run on 2026-10-10 added two simultaneous
+credential updates with the same expected revision, both leaving the credential
+enabled. Exactly one returned HTTP 200 and the other returned HTTP 409. A real
+strict-JSON request then completed through the winning configuration before the
+first credential was disabled. Independent database and management reads kept
+the second credential ciphertext/revision and model/pricing snapshot unchanged.
+The second mapping also completed real calls before and after restart.
+
+Four independently calculated customer charges matched the posted debits; no
+open customer reservations or reconciliation discrepancies remained. This closes
+the enabled-call-after-local-replacement and concurrent-edit observations for
+the exercised workflow. Both configurations still used the owner's same upstream
+secret; distinct external account credentials, commercial qualification and UI
+workflows remain outside this evidence. No existing development identity or
+funding receipt was changed.
