@@ -1,0 +1,37 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { listCustomerPrices, listPricingTargets, priceFromNanos, priceToNanos, readPriceHistory } from '../../../src/features/customer-pricing/api';
+const target = {organization_id:'company',organization_name:'Company',workspace_id:'workspace',workspace_name:'Workspace'};
+const price = {model_alias:'example/model',revision:'revision',currency:'USD',prompt_rate:'0',completion_rate:'1600000000',cached_prompt_rate:null,request_fee_nanos:'1',minimum_charge_nanos:'0',created_at:'2026-10-11T00:00:00Z'};
+afterEach(() => vi.unstubAllGlobals());
+describe('customer selling configuration transport', () => {
+  it('round trips exact decimal prices including zero and the maximum without floating point', () => {
+    for (const [decimal,nanos] of [['0','0'],['0.000000001','1'],['9223372036.854775807','9223372036854775807']]) {
+      expect(priceToNanos(decimal)).toBe(nanos);
+      expect(priceFromNanos(nanos)).toBe(decimal);
+    }
+    expect(() => priceToNanos('9223372036.854775808')).toThrow();
+    expect(() => priceToNanos('0.0000000001')).toThrow();
+    expect(() => priceToNanos('-1')).toThrow();
+  });
+  it('keeps named target discovery on the platform-only endpoint', async () => {
+    const fetch = vi.fn(async () => Response.json({data:[target],next_after:null}));
+    vi.stubGlobal('fetch',fetch);
+    expect((await listPricingTargets('test')).data).toEqual([target]);
+    expect(fetch.mock.calls[0][0]).toBe('/admin/v1/pricing/targets?limit=50');
+  });
+  it('rejects a continuation cursor that does not advance', async () => {
+    vi.stubGlobal('fetch',vi.fn(async () => Response.json({data:[price],next_after:'unchanged'})));
+    await expect(listCustomerPrices('test',target,'unchanged')).rejects.toThrow('did not advance');
+  });
+  it.each(['overflow','currency','amount'])('rejects invalid %s prices before they reach an editor', async kind => {
+    const row = {...price, ...(kind === 'overflow' ? {prompt_rate:'9223372036854775808'} : kind === 'currency' ? {currency:'bad'} : {prompt_rate:0})};
+    vi.stubGlobal('fetch',vi.fn(async () => Response.json({data:[row],next_after:null})));
+    await expect(listCustomerPrices('test',target)).rejects.toThrow('could not be read');
+  });
+  it('reads price history without customer billing content and rejects inconsistent pagination', async () => {
+    const fetch = vi.fn(async () => Response.json({data:[{...price,is_current:true}],current_revision:'revision',has_more:true,next_before:null}));
+    vi.stubGlobal('fetch',fetch);
+    await expect(readPriceHistory('test',target,'example/model')).rejects.toThrow('could not be read');
+    expect(fetch.mock.calls[0][0]).toBe('/admin/v1/pricing/organizations/company/workspaces/workspace/tariffs/example%2Fmodel/history?limit=50');
+  });
+});
