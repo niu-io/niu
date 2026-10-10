@@ -519,3 +519,21 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
   conflicts and explain that deletion does not cancel or refund a generation.
   Reference-input behavior must remain separately bounded. The existing Video
   page still lacks these interactions and remains unqualified as a full workflow.
+
+### Durable Video intent lifecycle groundwork
+
+- Pulled the backend SDK intent methods and consistent dispatch/job snapshot
+  changes. The documentation site's OpenAPI download matches the generated
+  source exactly; its reference and download endpoints return HTTP 200.
+- Added frontend submission state management using the SDK contract rather
+  than duplicating its transport. Saving and restoring never dispatch. A lost
+  submission response invalidates local authorization to submit until a server
+  read; recovery returns the original job. Deleted/expired content and unresolved
+  preparations do not acquire new dispatch rights. Concurrent operations are
+  rejected, and deletion retains job identity without implying cancellation.
+- Eight focused lifecycle tests pass, alongside the existing 612 dashboard
+  tests and dashboard type checking. These are isolated state-management tests,
+  not real supplier dispatch or rendered workflow qualification.
+- This lifecycle is not yet connected to VideoView. The page still uses its
+  prior creation flow. Reference-browser access timed out; retained-intent UI,
+  route restoration, desktop/narrow interaction and real integration remain open.
