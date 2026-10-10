@@ -255,3 +255,38 @@ independently decoded vectors and exact durable usage. A separate actual upstrea
 debit. Temporary configurations were disabled and keys revoked. These observations
 cover normal results and HTTP rejection, not the malformed-vector completion
 branch. Release compilation and Clippy completed.
+
+## Customer-priced candidate switch checkpoint
+
+On 2026-10-10, a current native run used an isolated database, the saved personal
+OpenRouter credential, internal verification tariffs and approved credit. Two
+candidate mappings shared the same actual upstream service/model; no commercial
+offer, merchant funding or alternative Supplier qualification was created.
+
+The first real structured completion used the higher-priority candidate in pool
+revision 1. Management then disabled that candidate in revision 2. After restart,
+a real plain-text stream used the remaining candidate. Independent database reads
+matched each attempt's immutable candidate alias, pool alias and pool revision;
+both attempts retained the same customer-visible resource alias. This is an
+explicit configuration change between requests, not automatic failure retry.
+
+| Request | Reported input/output tokens | Customer charge, USD nanounits |
+| --- | --- | ---: |
+| Structured, first candidate | 46 / 10 | 15,556 |
+| Stream after restart, second candidate | 15 / 6 | 7,778 |
+
+Both outputs matched their fresh requested marker. Independent arithmetic using
+the customer pool tariff matched each charge and debit; configured procurement
+expenses were checked separately and did not replace customer charges. The
+23,334-nanounit total matched reconciliation and a settled statement. Reservations
+were released. Zero-credit admission initially refused without an attempt;
+a key cap later refused additional execution. A balance refund was idempotent,
+and another restart preserved exactly the original charges and debits. Temporary
+access was revoked and isolated processes stopped; original credentials and the
+development database were unchanged.
+
+The first verification attempt assumed lower numbers had higher priority. Its
+actual selected route agreed with the documented highest-priority rule. The
+corrected complete run above used that rule. This checkpoint does not qualify
+candidate changes during dispatch, distinct Supplier expense schedules, overload,
+commercial resale, automatic failover or safe retry of an uncertain attempt.
