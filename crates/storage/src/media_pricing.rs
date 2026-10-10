@@ -72,8 +72,8 @@ impl Store {
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt)
             .fetch_optional(&mut *tx).await?;
         if let Some(amount) = prior {
-            let settled: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM customer_balance_entries WHERE attempt_id=$1 AND kind='charge') OR EXISTS(SELECT 1 FROM customer_balance_reservations WHERE attempt_id=$1 AND released_at IS NOT NULL AND $2=0)")
-                .bind(attempt).bind(amount).fetch_one(&mut *tx).await?;
+            let settled: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM customer_activity_charges WHERE attempt_id=$1 AND amount_nanos=$2 AND organization_id=$3 AND project_id=$4 AND currency=$5)")
+                .bind(attempt).bind(amount).bind(scope.organization_id).bind(scope.project_id).bind(&account.1).fetch_one(&mut *tx).await?;
             if settled {
                 tx.commit().await?;
                 return Ok(amount);

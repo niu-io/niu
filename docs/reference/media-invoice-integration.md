@@ -85,3 +85,10 @@ a new manual-recovery endpoint. The rebuilt native service repeated the retained
 owner-funded video read and authorization checks above, with unchanged financial
 counts. These reads do not exercise the paid recovery branches, which remain
 unverified.
+
+Settlement retries now use that same posted-charge view before returning an
+existing charge as successfully settled, including the bound account currency.
+An unrelated or mismatched debit cannot make the retry report success and stop
+background recovery. Ledger uniqueness and the existing transaction continue to
+guard writes; this does not rewrite a conflicting debit or forgive its liability.
+The nonempty paid-media retry and mismatched-debit branches remain unverified.
