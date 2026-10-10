@@ -237,3 +237,12 @@ order under a different company returned 404 without exposing its checkout URL.
 The database still held only the original pending order and no balance entries;
 all temporary operators were revoked. Company billing requires company-level
 owner/admin scope, not merely workspace ownership.
+
+The enabled EPay creation endpoint was additionally exercised with current HTTP
+inputs for zero/negative amounts, integer overflow, a decimal-string amount,
+sub-cent precision, an unsupported method, an unsupported currency and lowercase
+currency. Each returned 400. Independent reads before the subsequent valid
+request confirmed no top-up order or balance entry had been saved. The valid
+request then completed the pending-checkout/signature/restart workflow above.
+For CNY, send an exact positive nanounit integer string divisible by 10,000,000;
+do not send the displayed decimal amount as `amount_nanos`.
