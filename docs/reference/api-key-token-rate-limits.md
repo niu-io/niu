@@ -236,3 +236,23 @@ entries. This validates that rotation and passage of the known-usage window do
 not forgive an unresolved token liability. It does not resolve that liability,
 perform an upstream retry or establish corrected usage. The original failed-run
 evidence was preserved without mutation.
+
+### Customer diagnostics for the actual unknown request
+
+A separate offline copy of the same actual timeout was opened for read-only
+reporting verification. A workspace viewer could read Logs, request detail, CSV
+and the key token-policy snapshot. The request exposed `upstream_timeout`,
+`may_have_executed`, unknown usage and a pending customer charge with null amount
+and currency. CSV left unknown input/output counts and charge amounts empty.
+The key snapshot reported zero known tokens and the exact retained estimate as
+reserved/committed tokens. Administrator and viewer request serialization agreed;
+foreign-organization detail/export access returned 404 and procurement cost
+access returned 403. Response/CSV inspection found no procurement or credential
+fields.
+
+After restart the export was byte-identical and request detail unchanged.
+Independent verification reopened the stopped copied database and reconciled
+saved JSON, CSV and the policy snapshot with the durable timeout, token bound,
+zero charges and one open customer reservation. There were no additional
+attempts or financial entries. This confirms backend diagnostic semantics, not
+browser rendering or resolution of the unknown upstream liability.
