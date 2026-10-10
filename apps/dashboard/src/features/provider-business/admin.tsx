@@ -160,6 +160,45 @@ function Administration({ token }: { token: string }) {
   const [outputRate, setOutputRate] = useState("");
   const [reference, setReference] = useState("");
   const [attempts, setAttempts] = useState<string[]>([]);
+  const [paymentEarnings, setPaymentEarnings] = useState<AdminData["earnings"]>([]);
+  const [earningCursor, setEarningCursor] = useState<string | null>(null);
+  const [earningLoading, setEarningLoading] = useState(false);
+  const [earningError, setEarningError] = useState("");
+  const [earningReload, setEarningReload] = useState(0);
+  const earningRequest = useRef<AbortController | null>(null);
+  const loadPaymentEarnings = async (before: string | null) => {
+    earningRequest.current?.abort();
+    const controller = new AbortController();
+    earningRequest.current = controller;
+    setEarningLoading(true);
+    setEarningError("");
+    try {
+      const page = await request<{ data: AdminData["earnings"]; next_cursor: string | null }>(token,
+        `/admin/v1/providers/${selected}/earnings?limit=50${before ? `&before=${encodeURIComponent(before)}` : ""}`,
+        "GET", undefined, controller.signal);
+      if (controller.signal.aborted) return;
+      if (!Array.isArray(page.data) || !(page.next_cursor === null || typeof page.next_cursor === "string") ||
+        (before !== null && page.next_cursor === before) || page.data.some(item =>
+          typeof item.id !== "string" || typeof item.model_alias !== "string" ||
+          typeof item.currency !== "string" || typeof item.amount_nanos !== "string" || !/^[0-9]+$/.test(item.amount_nanos) ||
+          !["accrued", "paid"].includes(item.status) || !Number.isFinite(Date.parse(item.created_at))))
+        throw new Error("Earning history could not be read. Please retry.");
+      setPaymentEarnings(current => before ? [...current, ...page.data.filter(item => !current.some(saved => saved.id === item.id))] : page.data);
+      setEarningCursor(page.next_cursor);
+    } catch (reason) {
+      if (!controller.signal.aborted) setEarningError(reason instanceof Error ? reason.message : "Earning history could not be loaded.");
+    } finally {
+      if (!controller.signal.aborted) setEarningLoading(false);
+    }
+  };
+  useEffect(() => {
+    setPaymentEarnings([]);
+    setEarningCursor(null);
+    setEarningError("");
+    if (dialog === "settlement") void loadPaymentEarnings(null);
+    return () => earningRequest.current?.abort();
+  }, [dialog, selected, token, earningReload]);
+
   const [paymentKey, setPaymentKey] = useState("");
   const [notice, setNotice] = useState("");
   const [offerId, setOfferId] = useState("");
@@ -714,7 +753,7 @@ function Administration({ token }: { token: string }) {
               <fieldset className="provider-payment-selection">
                 <legend>Select unpaid earnings</legend>
                 <div className="provider-payment-entries">
-                  {data?.earnings
+                  {paymentEarnings
                     .filter((item) => item.status === "accrued")
                     .map((item) => (
                       <label key={item.id}>
@@ -737,16 +776,19 @@ function Administration({ token }: { token: string }) {
                         </strong>
                       </label>
                     ))}
-                  {!data?.earnings.some(
+                  {!paymentEarnings.some(
                     (item) => item.status === "accrued",
-                  ) && <p>No unpaid earnings in the recent history.</p>}
+                  ) && !earningLoading && !earningError && <p>No unpaid earnings in the loaded history.</p>}
                 </div>
+                {earningLoading && <p role="status">Loading earnings…</p>}
+                {earningError && <p role="alert">{earningError}</p>}
+                {earningError ? <Button type="button" variant="outline" onClick={() => earningCursor ? void loadPaymentEarnings(earningCursor) : setEarningReload(value => value + 1)}>Retry earnings</Button> : earningCursor && <Button type="button" variant="outline" disabled={earningLoading} onClick={() => void loadPaymentEarnings(earningCursor)}>Older earnings</Button>}
               </fieldset>
               <p className="provider-payment-total">
                 {attempts.length} requests selected
                 {[
                   ...new Set(
-                    data?.earnings
+                    paymentEarnings
                       .filter((item) => attempts.includes(item.id))
                       .map((item) => item.currency),
                   ),
@@ -754,7 +796,7 @@ function Administration({ token }: { token: string }) {
                   <strong key={code}>
                     {money(
                       (
-                        data?.earnings
+                        paymentEarnings
                           .filter(
                             (item) =>
                               attempts.includes(item.id) &&
@@ -820,7 +862,7 @@ function Administration({ token }: { token: string }) {
               (dialog === "settlement" &&
                 (attempts.length === 0 ||
                   new Set(
-                    data?.earnings
+                    paymentEarnings
                       .filter((item) => attempts.includes(item.id))
                       .map((item) => item.currency),
                   ).size !== 1))

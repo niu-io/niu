@@ -335,3 +335,84 @@ describe('Supplier cached-input rates', () => {
     expect(requests.some(item => item.method === 'POST' && item.path.endsWith('/offers'))).toBe(false);
   });
 });
+
+it('retains selected earnings across an older-page failure and retry, using the full history total', async () => {
+  setup('1000000000', false, false, 'settlements');
+  const originalFetch = globalThis.fetch;
+  let olderReads = 0;
+  const earning = (id: string, amount: string) => ({id, model_alias: `model-${id}`, amount_nanos: amount, currency: 'USD', status: 'accrued', created_at: '2026-10-10T12:00:00Z'});
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const path = String(input);
+    if (path.includes('/earnings?')) {
+      if (path.includes('before=')) {
+        olderReads++;
+        if (olderReads === 1) return Response.json({error:{message:'History unavailable'}}, {status:503});
+        return Response.json({data:[earning('first','1000000000'), earning('older','2000000000')], next_cursor:null});
+      }
+      return Response.json({data:[earning('first','1000000000')], next_cursor:'older-cursor'});
+    }
+    return originalFetch(input, init);
+  }));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', {name:'Record payment'}));
+  await user.click(await screen.findByRole('checkbox'));
+  await user.click(screen.getByRole('button', {name:'Older earnings'}));
+  await screen.findByText('History unavailable');
+  expect(screen.getByRole('checkbox').getAttribute('data-state')).toBe('checked');
+  await user.click(screen.getByRole('button', {name:'Retry earnings'}));
+  await screen.findByText('model-older');
+  expect(screen.getAllByRole('checkbox')).toHaveLength(2);
+  await user.click(screen.getAllByRole('checkbox')[1]);
+  expect(screen.getByText('USD 3.00')).toBeTruthy();
+  expect(olderReads).toBe(2);
+  expect(screen.queryByText('older-cursor')).toBeNull();
+});
+
+it('retries a failed initial earning read without falling back to overview rows', async () => {
+  setup('1000000000', false, false, 'settlements');
+  const originalFetch = globalThis.fetch;
+  let reads = 0;
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    if (String(input).includes('/earnings?')) {
+      reads++;
+      return reads === 1 ? Response.json({error:{message:'History unavailable'}}, {status:503}) : Response.json({data:[],next_cursor:null});
+    }
+    return originalFetch(input, init);
+  }));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', {name:'Record payment'}));
+  await screen.findByText('History unavailable');
+  expect(screen.queryByText('No unpaid earnings in the loaded history.')).toBeNull();
+  await user.click(screen.getByRole('button', {name:'Retry earnings'}));
+  await screen.findByText('No unpaid earnings in the loaded history.');
+  expect(screen.getByRole('button', {name:'Record confirmed payment'}).hasAttribute('disabled')).toBe(true);
+  expect(reads).toBe(2);
+});
+
+it('aborts earning history when its dialog closes and ignores the late result', async () => {
+  setup('1000000000', false, false, 'settlements');
+  const originalFetch = globalThis.fetch;
+  let finish!: (response: Response) => void;
+  let signal: AbortSignal | null | undefined;
+  let reads = 0;
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    if (String(input).includes('/earnings?')) {
+      reads++;
+      if (reads === 1) {
+        signal = init?.signal;
+        return new Promise<Response>(resolve => {finish = resolve;});
+      }
+      return Response.json({data:[],next_cursor:null});
+    }
+    return originalFetch(input, init);
+  }));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', {name:'Record payment'}));
+  await screen.findByText('Loading earnings…');
+  await user.click(screen.getByRole('button', {name:'Close dialog'}));
+  expect(signal?.aborted).toBe(true);
+  await act(async () => finish(Response.json({data:[{id:'late',model_alias:'Late model',amount_nanos:'1000000000',currency:'USD',status:'accrued',created_at:'2026-10-10T12:00:00Z'}],next_cursor:null})));
+  await user.click(screen.getByRole('button', {name:'Record payment'}));
+  await screen.findByText('No unpaid earnings in the loaded history.');
+  expect(screen.queryByText('Late model')).toBeNull();
+});
