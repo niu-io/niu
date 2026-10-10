@@ -12,11 +12,56 @@ Workspace readers may discover company account currencies and this workspace com
 
 Implementation: `implemented`. Operation: `listWorkspaceSpendingLimits`.
 
-- HTTP 200: Current scoped state
-- HTTP 401: Authentication required
-- HTTP 403: Insufficient role permissions
-- HTTP 404: Workspace unavailable in the authorized scope
-- HTTP 400: Invalid currency, decimal value or history query
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Current scoped state
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "$ref": "#/components/schemas/WorkspaceSpendingSummary"
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required
+
+HTTP 403: Insufficient role permissions
+
+HTTP 404: Workspace unavailable in the authorized scope
+
+HTTP 400: Invalid currency, decimal value or history query
 
 ## Read a workspace spending limit
 
@@ -26,11 +71,69 @@ Workspace read permission required. Returns data: null when no explicit limit ex
 
 Implementation: `implemented`. Operation: `getWorkspaceSpendingLimit`.
 
-- HTTP 200: Current scoped state
-- HTTP 401: Authentication required
-- HTTP 403: Insufficient role permissions
-- HTTP 404: Workspace unavailable in the authorized scope
-- HTTP 400: Invalid currency, decimal value or history query
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`currency` (path, required)
+
+```json
+{
+  "type": "string",
+  "pattern": "^[A-Z]{3}$"
+}
+```
+
+### Responses
+
+HTTP 200: Current scoped state
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "oneOf": [
+        {
+          "$ref": "#/components/schemas/WorkspaceSpendingSummary"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required
+
+HTTP 403: Insufficient role permissions
+
+HTTP 404: Workspace unavailable in the authorized scope
+
+HTTP 400: Invalid currency, decimal value or history query
 
 ## Set a workspace spending limit
 
@@ -40,14 +143,90 @@ Scoped owner or installation administrator required. Both input fields are nonne
 
 Implementation: `implemented`. Operation: `setWorkspaceSpendingLimit`.
 
-- HTTP 200: Current scoped state
-- HTTP 401: Authentication required
-- HTTP 403: Insufficient role permissions
-- HTTP 404: Workspace unavailable in the authorized scope
-- HTTP 400: Invalid currency, decimal value or history query
-- HTTP 402: Limit is below existing workspace commitment
-- HTTP 409: Revision conflict or unavailable currency account
-- HTTP 422: JSON input shape is invalid
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`currency` (path, required)
+
+```json
+{
+  "type": "string",
+  "pattern": "^[A-Z]{3}$"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/WorkspaceSpendingInput"
+}
+```
+
+### Responses
+
+HTTP 200: Current scoped state
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "revision"
+      ],
+      "properties": {
+        "revision": {
+          "type": "string",
+          "pattern": "^[0-9]+$",
+          "description": "Exact nonnegative decimal integer, within signed 64-bit range."
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required
+
+HTTP 403: Insufficient role permissions
+
+HTTP 404: Workspace unavailable in the authorized scope
+
+HTTP 400: Invalid currency, decimal value or history query
+
+HTTP 402: Limit is below existing workspace commitment
+
+HTTP 409: Revision conflict or unavailable currency account
+
+HTTP 422: JSON input shape is invalid
 
 ## List workspace spending revisions
 
@@ -57,11 +236,95 @@ Workspace read permission required. Descending immutable history. before_revisio
 
 Implementation: `implemented`. Operation: `listWorkspaceSpendingLimitHistory`.
 
-- HTTP 200: Current scoped state
-- HTTP 401: Authentication required
-- HTTP 403: Insufficient role permissions
-- HTTP 404: Workspace unavailable in the authorized scope
-- HTTP 400: Invalid currency, decimal value or history query
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`currency` (path, required)
+
+```json
+{
+  "type": "string",
+  "pattern": "^[A-Z]{3}$"
+}
+```
+
+`before_revision` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "format": "int64",
+  "minimum": 1
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Current scoped state
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "next_before_revision"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "$ref": "#/components/schemas/WorkspaceSpendingHistory"
+      }
+    },
+    "next_before_revision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$",
+      "description": "Exact nonnegative decimal integer, within signed 64-bit range."
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required
+
+HTTP 403: Insufficient role permissions
+
+HTTP 404: Workspace unavailable in the authorized scope
+
+HTTP 400: Invalid currency, decimal value or history query
 
 ## List supported payment integrations
 
@@ -71,6 +334,201 @@ Installation administrator only. Capability inventory is independent of merchant
 
 Implementation: `implemented`. Operation: `listPaymentIntegrations`.
 
-- HTTP 200: Supported integrations, not enabled customer checkout methods
-- HTTP 401: Authentication required
-- HTTP 403: Installation administrator required
+### Responses
+
+HTTP 200: Supported integrations, not enabled customer checkout methods
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "configuration",
+          "checkout",
+          "signed_notifications",
+          "query_recovery",
+          "refunds"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "epay",
+              "stripe",
+              "zhifux"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "configuration": {
+            "type": "string",
+            "enum": [
+              "administration_api",
+              "server_environment",
+              "server_file"
+            ]
+          },
+          "checkout": {
+            "type": "boolean"
+          },
+          "signed_notifications": {
+            "type": "boolean"
+          },
+          "query_recovery": {
+            "type": "string",
+            "enum": [
+              "unsupported",
+              "bound_session",
+              "saved_order"
+            ]
+          },
+          "refunds": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required
+
+HTTP 403: Installation administrator required
+
+## Shared schemas
+
+Local `#/components/schemas/…` references resolve to these definitions.
+
+### WorkspaceSpendingHistory
+
+```json
+{
+  "type": "object",
+  "required": [
+    "currency",
+    "revision",
+    "limit_nanos",
+    "recorded_at",
+    "source",
+    "actor_kind",
+    "actor_name"
+  ],
+  "properties": {
+    "currency": {
+      "type": "string"
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^[0-9]+$",
+      "description": "Exact nonnegative decimal integer, within signed 64-bit range."
+    },
+    "limit_nanos": {
+      "type": "string",
+      "pattern": "^[0-9]+$",
+      "description": "Exact nonnegative decimal integer, within signed 64-bit range."
+    },
+    "recorded_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "source": {
+      "type": "string"
+    },
+    "actor_kind": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "actor_name": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}
+```
+
+### WorkspaceSpendingInput
+
+```json
+{
+  "type": "object",
+  "required": [
+    "limit_nanos",
+    "expected_revision"
+  ],
+  "properties": {
+    "limit_nanos": {
+      "type": "string",
+      "pattern": "^[0-9]+$",
+      "description": "Exact nonnegative decimal integer, within signed 64-bit range."
+    },
+    "expected_revision": {
+      "type": "string",
+      "pattern": "^[0-9]+$",
+      "description": "Exact nonnegative decimal integer, within signed 64-bit range."
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### WorkspaceSpendingSummary
+
+```json
+{
+  "type": "object",
+  "required": [
+    "currency",
+    "limit_nanos",
+    "revision",
+    "committed_nanos"
+  ],
+  "properties": {
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "limit_nanos": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$",
+      "description": "Exact nonnegative decimal integer, within signed 64-bit range."
+    },
+    "revision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$",
+      "description": "Exact nonnegative decimal integer, within signed 64-bit range."
+    },
+    "committed_nanos": {
+      "type": "string",
+      "pattern": "^[0-9]+$",
+      "description": "Exact nonnegative decimal integer, within signed 64-bit range."
+    }
+  }
+}
+```

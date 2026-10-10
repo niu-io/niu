@@ -9,6 +9,39 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def schema_block(schema):
+    return ['```json', json.dumps(schema, indent=2), '```', '']
+
+
+def operation_documentation(path, method, operation):
+    lines = [f'## {operation["summary"]}', '', f'`{method.upper()} {path}`', '',
+             operation['description'], '',
+             f'Implementation: `{operation["x-niu-implementation"]}`. '
+             f'Operation: `{operation["operationId"]}`.', '']
+    if operation.get('parameters'):
+        lines.extend(['### Parameters', ''])
+        for parameter in operation['parameters']:
+            required = 'required' if parameter.get('required') else 'optional'
+            lines.extend([f'`{parameter["name"]}` ({parameter["in"]}, {required})', ''])
+            if parameter.get('description'):
+                lines.extend([parameter['description'], ''])
+            lines.extend(schema_block(parameter['schema']))
+    body = operation.get('requestBody')
+    if body:
+        lines.extend(['### Request body', '',
+                      'Required.' if body.get('required') else 'Optional.', ''])
+        for media_type, media in body.get('content', {}).items():
+            lines.extend([f'Content type: `{media_type}`.', ''])
+            lines.extend(schema_block(media['schema']))
+    lines.extend(['### Responses', ''])
+    for status, response in operation['responses'].items():
+        lines.extend([f'HTTP {status}: {response["description"]}', ''])
+        for media_type, media in response.get('content', {}).items():
+            lines.extend([f'Content type: `{media_type}`.', ''])
+            lines.extend(schema_block(media['schema']))
+    return lines
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check', action='store_true')
@@ -39,14 +72,14 @@ def main():
                 raise SystemExit(f'Missing response or behavior contract: {name}')
             names.add(name)
             paths.setdefault(path, {})[method] = operation
-            descriptions.extend([
-                f'## {operation["summary"]}', '', f'`{method.upper()} {path}`', '',
-                operation['description'], '',
-                f'Implementation: `{operation["x-niu-implementation"]}`. Operation: `{name}`.', '',
-                *[f'- HTTP {status}: {response["description"]}' for status, response in operation['responses'].items()], '',
-            ])
+            descriptions.extend(operation_documentation(path, method, operation))
     if not paths:
         raise SystemExit('No handler annotations found')
+    if schemas:
+        descriptions.extend(['## Shared schemas', '',
+                             'Local `#/components/schemas/…` references resolve to these definitions.', ''])
+        for name, schema in sorted(schemas.items()):
+            descriptions.extend([f'### {name}', '', *schema_block(schema)])
     spec = {'openapi': '3.1.0', 'info': {'title': 'Niu annotated handler operations', 'version': '0.1.0'},
             'paths': paths, 'components': {'schemas': schemas, 'securitySchemes': {'bearerAuth': {'type': 'http', 'scheme': 'bearer'}}}}
     outputs = {
