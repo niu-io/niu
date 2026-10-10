@@ -150,3 +150,25 @@ The isolated access was revoked and processes stopped; existing business data
 and encrypted credentials were preserved. This extends the exercised concurrency
 to 16 for short requests, not sustained capacity, long streams, slow readers,
 provider-independent overhead or a comparison against another product.
+
+## Larger streamed output
+
+A further current-input run on 2026-10-10 used four concurrent clients for eight
+requests, each asking for a fresh marker followed by the complete comma-separated
+sequence from 1 through 200. The request body was 283 bytes, with a 1,024-token
+output bound. Every response independently matched the marker and all 200 values,
+reported usage and completed the stream. Actual usage was 43–48 input tokens and
+406–410 output tokens per call.
+
+The request phase lasted 8.31 seconds. Complete-response nearest-rank P50 was
+3,757 ms and P95/maximum 4,403 ms; first-content P50 was 1,296 ms and P95 1,972 ms.
+All eight requests returned HTTP 200. Independently calculated charges matched
+every saved debit, totaling 3,263,213 USD nanounits at internal verification
+rates. No open reservation, reconciliation discrepancy, request-failure record
+or deadlock diagnostic remained. Restart preserved exactly eight charges/debits.
+
+This exercises larger streamed output than the short-marker workload, not
+long-lived connections or slow readers. It is a small correctness-oriented
+measurement, not a reliable latency distribution or production capacity claim.
+The original database and credentials were preserved and isolated access and
+processes were cleaned up.
