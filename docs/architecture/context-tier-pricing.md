@@ -84,7 +84,7 @@ thresholds returned HTTP 400; omitted existing schedules returned 409. Explicit
 null returned JSON-schema HTTP 422, rather than clearing the schedule.
 
 These thresholds and rates are internal verification configuration, not advertised
-commercial context tiers. Customer exports still require tier-specific actual evidence.
+commercial context tiers. Customer export verification is recorded below.
 
 ### Cache categories and concurrent publication
 
@@ -150,3 +150,26 @@ The running docs server returned the current generated handler OpenAPI JSON
 unchanged, and its reference HTML included the selected context-tier field. These
 checks establish runtime/schema availability and served contract consistency;
 they do not constitute browser visual acceptance or another production billing run.
+
+
+### Customer reporting and timing repair
+
+Populated tier-charge export verification exposed missing observed timings for
+native Messages: the shared timing middleware did not include `/v1/messages`.
+The route now uses the same monotonic collection and diagnostic persistence as
+Chat, Responses and Embeddings. Missing historical timings are not backfilled.
+
+Two new actual Claude Haiku requests observed 5,291 cache-write tokens followed
+by 5,291 cache-read tokens. After the in-flight price publication and restart
+checks above, a customer viewer read request details, the request list and CSV.
+The customer amounts and quantities matched their stored charges. Installation
+and viewer detail serialization matched; procurement/credential fields checked
+by the verifier were absent, the procurement-cost endpoint denied the viewer,
+and an operator from another organization received 404 for details and export.
+CSV content remained byte-identical after another Gateway restart.
+
+Independent reopening checked response hashes, immutable tier selection, exact
+charges/debits, historical invoice rates and exported amounts. Persisted dispatch,
+headers and total times were ordered and nonnegative, with HTTP 200 and complete
+body timing; CSV durations matched those records. This verifies the observed
+nonstreaming delivery path, not streaming TTFT, cancellation or native streaming.
