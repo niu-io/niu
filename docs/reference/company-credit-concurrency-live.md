@@ -69,3 +69,37 @@ were not used for diagnosis or verification. Media debit contention, concurrent
 policy edits, large backlogs and sustained performance remain unqualified. This
 checkpoint does not identify every GitHub Actions failure or establish full
 release readiness.
+
+## Workspace caps preserve another workspace's access
+
+A separate current-input run on the backend at `5a2449d` exercised a workspace
+limit while the company still had available credit. Its isolated native database
+used an explicitly configured credit limit of 1,000,000,000 USD nanounits and
+internal verification tariffs. Actual personal OpenRouter calls supplied the
+output and usage; no funding receipt or commercial qualification was created.
+
+The first workspace completed a strict-schema request with a fresh marker and
+48 input / 11 output tokens. Its independently calculated charge and debit were
+16,791 nanounits. The management API then set its workspace limit to exactly that
+consumed amount. A subsequent inference request returned HTTP 402 with
+`workspace_spending_limit_exceeded`, without creating another attempt.
+
+A second workspace, with its own key and the same company account, completed a
+buffered request and, after a gateway restart, a streamed request. Their charges
+were respectively 16,791 and 8,889 nanounits, calculated independently from the
+returned usage. The first workspace still returned the same limit error after
+restart. The final database and management API reads established:
+
+- Exactly three attempts, with matching customer charges, debits and configured
+  procurement arithmetic for each actual completion.
+- Workspace commitments and billing totals of 16,791 and 25,680 nanounits;
+  only the first workspace had a configured workspace limit.
+- Company balance of -42,471 nanounits, no outstanding reservation, and available
+  capacity of 999,957,529 nanounits. Charge reconciliation had no discrepancies.
+- No funding receipts; the original saved credential revision and ciphertext
+  digest were unchanged. Temporary keys and routing were disabled and the
+  isolated processes stopped.
+
+This verifies sequential workspace-cap isolation and restart persistence for
+these actual text requests. Concurrent cap edits, media admission and frontend
+behavior are outside this run. Fixture outcomes were not used as evidence.
