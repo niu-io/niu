@@ -1,9 +1,25 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { listPricingModels, listCustomerPrices, listPricingTargets, priceFromNanos, priceToNanos, readPriceHistory } from '../../../src/features/customer-pricing/api';
+import { publishCustomerPrice, listPricingModels, listCustomerPrices, listPricingTargets, priceFromNanos, priceToNanos, readPriceHistory } from '../../../src/features/customer-pricing/api';
 const target = {organization_id:'company',organization_name:'Company',workspace_id:'workspace',workspace_name:'Workspace'};
 const price = {model_alias:'example/model',revision:'revision',currency:'USD',prompt_rate:'0',completion_rate:'1600000000',cached_prompt_rate:null,request_fee_nanos:'1',minimum_charge_nanos:'0',created_at:'2026-10-11T00:00:00Z'};
 afterEach(() => vi.unstubAllGlobals());
 describe('customer selling configuration transport', () => {
+  it('treats server failure as an unconfirmed write and retains explicit conflict status', async () => {
+    vi.stubGlobal('fetch',vi.fn(async()=>Response.json({error:{message:'Server failure'}},{status:503})));
+    await expect(publishCustomerPrice('test',target,{...price,expected_revision:price.revision})).rejects.toThrow('Publication could not be confirmed');
+    vi.stubGlobal('fetch',vi.fn(async()=>Response.json({error:{message:'Conflict'}},{status:409})));
+    await expect(publishCustomerPrice('test',target,{...price,expected_revision:price.revision})).rejects.toMatchObject({status:409});
+  });
+  it('rejects token rates above their contract bound before dispatch, independently of fixed fees', async () => {
+    const fetch = vi.fn(async () => Response.json({data:{revision:'new-revision'}}));vi.stubGlobal('fetch',fetch);
+    await expect(publishCustomerPrice('test',target,{...price,prompt_rate:'1000000000000001',expected_revision:price.revision})).rejects.toThrow('Token prices');
+    expect(fetch).not.toHaveBeenCalled();
+    await expect(publishCustomerPrice('test',target,{...price,prompt_rate:'1000000000000000',request_fee_nanos:'9223372036854775807',expected_revision:price.revision})).resolves.toMatchObject({data:{revision:'new-revision'}});
+  });
+  it.each([{}, {data:{}}, {data:{revision:'revision'}}])('does not confirm publication from an invalid or unchanged revision', async response => {
+    vi.stubGlobal('fetch',vi.fn(async()=>Response.json(response)));
+    await expect(publishCustomerPrice('test',target,{...price,expected_revision:price.revision})).rejects.toThrow('Publication could not be confirmed');
+  });
   it('discovers platform token models across enabled credentials without including video routes', async () => {
     const fetch = vi.fn(async (input: RequestInfo | URL) => Response.json({data:String(input)==='/admin/v1/vendors'?[{id:'one',enabled:true},{id:'two',enabled:true},{id:'disabled',enabled:false}]:String(input).includes('/one/')?[{alias:'text',enabled:true,capabilities:{}},{alias:'video',enabled:true,capabilities:{video_schema:{}}}]:[{alias:'text',enabled:true,capabilities:{}},{alias:'other',enabled:true,capabilities:{}},{alias:'disabled-model',enabled:false,capabilities:{}}]}));
     vi.stubGlobal('fetch',fetch);
