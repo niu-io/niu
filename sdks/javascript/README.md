@@ -347,6 +347,32 @@ An activated policy can include `input_detectors` bindings with the selected `de
 
 `listInputDetectorDecisions(scope, options)` reads the latest 100 metadata-only decisions, including pre-admission denials. Coverage is explicit; this is not a complete historical export. Results preserve safe outcomes, reasons, elapsed time and policy revisions without request text, matched text, raw service replies or credentials. Both reads require workspace read access, preserve cancellation and make no model calls. Full detector protocol, fault, privacy and performance qualification remains open.
 
+### Durable video submission intents
+
+Signed-in actors can save and recover a text-video request through `NiuAdminClient`.
+Use a stable client-generated UUID for retries of the same immutable request:
+
+```ts
+const intentId = crypto.randomUUID(); // Persist this reference through your application flow.
+const saved = await admin.saveVideoIntent(scope, intentId, keyId, {
+  model: selectedModel,
+  content: [{ type: 'text', text: prompt }],
+});
+const restored = await admin.getVideoIntent(scope, intentId);
+const index = await admin.listVideoIntents(scope, { limit: 25 });
+// Only after the user's explicit generation action:
+const job = await admin.submitVideoIntent(scope, intentId, restored.data.revision);
+```
+
+Saving and restoring do not generate video. Recover forgotten references from the
+actor-owned index; browser storage is only a cache. Unknown submission state must
+retain the same intent identity. A successful submit response can still describe
+an unresolved original attempt. Do not automatically create a replacement intent.
+`deleteVideoIntent(scope, intentId, revision)` erases retained input without
+cancelling generation or refunding charges. See the
+[durable intent contract](../../docs/reference/video-submission-intents.md) for
+key rotation, expiry, permissions, and revision semantics.
+
 ### Persisted video job state
 
 `client.video.jobs.retrieve(reference, { signal })` reads durable Niu video state using the same workspace credential as inference. The reference is the Niu job UUID, not an upstream task ID. The request does not poll upstream or generate a video. Unknown submission or reconciliation status must not trigger a replacement create request. Configured text-input creation and query recovery are implemented for the documented subset; scoped dashboard results are implemented; live-channel qualification remains pending; a succeeded state alone does not establish a settled charge or available download.

@@ -22,6 +22,22 @@ export type ModelRoutePool = { alias: string; organization_id: string | null; en
 export type ModelRoutePoolInput = Omit<ModelRoutePool, 'revision'> & { expected_revision: number };
 export type ModelRoutePoolRevision = ModelRoutePool & { recorded_at: string };
 
+/** Saved intents support text only; controls must match the discovered model schema. */
+export type VideoIntentRequest = Omit<VideoCreateRequest, 'content' | 'model'> & {
+  model: string; content: Array<{ type: 'text'; text: string }>;
+};
+export type VideoIntentIndexEntry = {
+  id: string; revision: number; expires_at_ms: string;
+  content_state: 'retained' | 'deleted' | 'expired';
+};
+export type VideoSubmissionIntent = VideoIntentIndexEntry & {
+  original_key_id: string; key_id: string; model: string;
+  funding_mode: 'owner_funded' | 'customer'; request: VideoIntentRequest | null;
+  submission_state: 'saved' | 'not_dispatched' | 'dispatched'; job: VideoJobState | null;
+};
+export type VideoIntentIndex = { data: VideoIntentIndexEntry[]; has_more: boolean; next_before: string | null };
+export type VideoIntentDeletion = { data: { id: string; revision: number; deleted: true } };
+
 export type TenantScope = { organizationId: string; projectId: string };
 /** Customer limits share history across secret rotation; null means unlimited. */
 export type KeyIpPolicy = { allowed_cidrs: string[] | null; revision: string | null };
@@ -589,6 +605,41 @@ export class NiuAdminClient {
       logo_data_url: settings.logo_data_url, favicon_data_url: settings.favicon_data_url,
       light: settings.light, dark: settings.dark,
     } }, options, 'PUT');
+  }
+
+  private videoIntentPath(scope: TenantScope, intentId?: string): string {
+    return `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/video-intents${intentId === undefined ? '' : `/${uuid(intentId)}`}`;
+  }
+
+  /** Actor-owned metadata only; retained request content requires retrieve permission. */
+  listVideoIntents(scope: TenantScope, query: VideoJobHistoryQuery = {}, options?: RequestOptions): Promise<VideoIntentIndex> {
+    if (query.limit !== undefined && (!Number.isSafeInteger(query.limit) || query.limit < 1 || query.limit > 100)) throw new TypeError('Video intent limit must be an integer from 1 to 100');
+    const parameters = new URLSearchParams();
+    if (query.before !== undefined) parameters.set('before', uuid(query.before));
+    if (query.limit !== undefined) parameters.set('limit', String(query.limit));
+    return this.request(`${this.videoIntentPath(scope)}${parameters.size ? `?${parameters}` : ''}`, undefined, options);
+  }
+
+  /** Persist an immutable request under a fresh client UUID. Does not generate or reserve funds. */
+  saveVideoIntent(scope: TenantScope, intentId: string, keyId: string, request: VideoIntentRequest, options?: RequestOptions): Promise<{ data: VideoSubmissionIntent }> {
+    return this.request(this.videoIntentPath(scope, intentId), { key_id: uuid(keyId), request }, options, 'PUT');
+  }
+
+  /** Restore the original identity and current key lineage without polling or dispatch. */
+  getVideoIntent(scope: TenantScope, intentId: string, options?: RequestOptions): Promise<{ data: VideoSubmissionIntent }> {
+    return this.request(this.videoIntentPath(scope, intentId), undefined, options);
+  }
+
+  /** Explicit submission or replay. Never replace an uncertain submission with a fresh intent. */
+  submitVideoIntent(scope: TenantScope, intentId: string, expectedRevision: number, options?: RequestOptions): Promise<VideoJobState> {
+    if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) throw new TypeError('A positive safe integer intent revision is required');
+    return this.request(`${this.videoIntentPath(scope, intentId)}/submit`, { expected_revision: expectedRevision }, options);
+  }
+
+  /** Erase retained input; does not cancel generation, delete the job, or refund charges. */
+  deleteVideoIntent(scope: TenantScope, intentId: string, expectedRevision: number, options?: RequestOptions): Promise<VideoIntentDeletion> {
+    if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) throw new TypeError('A positive safe integer intent revision is required');
+    return this.request(this.videoIntentPath(scope, intentId), { expected_revision: expectedRevision }, options, 'DELETE');
   }
 
   private dashboardVideoPath(scope: TenantScope, keyId: string): string {

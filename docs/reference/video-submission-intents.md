@@ -144,3 +144,15 @@ trigger and restarting, both GET and explicit submission replay retained the
 same `not_dispatched` preparation, without a new attempt, transport span or
 balance entry. No synthetic upstream response was used. The original development
 database, saved credentials and encryption identity were not replaced.
+
+## JavaScript integration
+
+`@niu-io/sdk` exposes `saveVideoIntent`, `getVideoIntent`, `listVideoIntents`,
+`submitVideoIntent`, and `deleteVideoIntent` on `NiuAdminClient`, with exported
+request, record, index, and deletion types. See the
+[SDK usage example](../../sdks/javascript/README.md#durable-video-submission-intents).
+The current native backend was exercised through the built SDK for save, list,
+restore, idempotent content deletion, and rejection of a deleted submission.
+Independent database inspection confirmed no submission preparation in that
+management-only run. This does not qualify browser recovery or customer-funded
+video settlement.

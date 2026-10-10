@@ -598,3 +598,5 @@ export type { KeyTokenUsageWindow } from './admin.js';
 export type { KeyTokenRateLimit, KeyTokenRateLimitRevision } from './admin.js';
 
 export type { ModelRoutePool, ModelRoutePoolCandidate, ModelRoutePoolInput, ModelRoutePoolRevision } from './admin.js';
+
+export type { VideoIntentRequest, VideoIntentIndexEntry, VideoSubmissionIntent, VideoIntentIndex, VideoIntentDeletion } from './admin.js';
