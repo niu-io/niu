@@ -216,3 +216,23 @@ unknown. Independent database inspection confirmed one durable token bound, no
 customer charge, one retained customer reservation and no automatic successor.
 That evidence is preserved separately; the successful run used new request
 inputs and does not resolve or release the timed-out request's liability.
+
+### Unknown function usage survives rotation and the rolling window
+
+An offline copy of the actual timed-out function run above was opened with the
+current Gateway. Its dispatch was already more than 60 seconds old. The still
+valid workspace key was rotated through the management API, preserving its
+absolute expiry and spending root. The replacement's finite token limit was set
+to exactly the original unknown request's durable estimate. A new independent
+text request returned `key_token_rate_exceeded` both before and after Gateway
+restart; neither refusal dispatched upstream.
+
+Independent verification reopened the stopped copied database and confirmed the
+shared old/replacement spending root, unchanged expiry, revoked old key, exact
+stored unknown bound and matching finite policy. The original request remained
+`may_have_executed` with unknown usage and one open customer reservation. There
+was still only one dispatched attempt, no customer charges and no financial
+entries. This validates that rotation and passage of the known-usage window do
+not forgive an unresolved token liability. It does not resolve that liability,
+perform an upstream retry or establish corrected usage. The original failed-run
+evidence was preserved without mutation.
