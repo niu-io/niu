@@ -59,3 +59,20 @@ the exercised workflow. Both configurations still used the owner's same upstream
 secret; distinct external account credentials, commercial qualification and UI
 workflows remain outside this evidence. No existing development identity or
 funding receipt was changed.
+
+## Rejected model prices preserve saved configuration
+
+On 2026-10-10, a fresh isolated native run created a valid encrypted configuration
+and priced model mapping through the management API. Current-input updates with
+negative rates, a lowercase currency, zero input/output bounds, an overflowing
+maximum charge, a string rate and an unknown pricing field each returned HTTP
+400. After every rejection, the model-list response and the independently read
+complete PostgreSQL model row were unchanged.
+
+A valid disable operation advanced the model revision. A subsequent stale-revision
+write returned HTTP 409 without changing that row. Restart preserved the accepted
+revision, disabled state and original price. Independent reads found no attempts
+or customer ledger entries; these management checks made no upstream calls.
+The original development credential identity was unchanged. This verifies the
+exercised save/rejection behavior, not all possible price bounds or commercial
+Supplier qualification.
