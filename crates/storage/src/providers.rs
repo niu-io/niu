@@ -572,20 +572,9 @@ impl Store {
         provider: Uuid,
         input: &ProviderOfferInput,
     ) -> Result<Uuid, StoreError> {
-        let prompt = input
-            .prompt_rate
-            .parse::<i64>()
-            .map_err(|_| StoreError::InvalidPrice)?;
-        let completion = input
-            .completion_rate
-            .parse::<i64>()
-            .map_err(|_| StoreError::InvalidPrice)?;
-        if input.currency.len() != 3
-            || !input.currency.bytes().all(|b| b.is_ascii_uppercase())
-            || [prompt, completion]
-                .iter()
-                .any(|n| !(0..=1_000_000_000_000_000).contains(n))
-        {
+        let prompt = crate::pricing::parse_token_rate(&input.prompt_rate)?;
+        let completion = crate::pricing::parse_token_rate(&input.completion_rate)?;
+        if input.currency.len() != 3 || !input.currency.bytes().all(|b| b.is_ascii_uppercase()) {
             return Err(StoreError::InvalidPrice);
         }
         let mut tx = self.pool.begin().await?;

@@ -27,3 +27,22 @@ from a later currency check. No successful payment was claimed, no payment recei
 was fabricated and no balance was credited. This evidence establishes the invalid
 input boundary only, not successful funding, debit, reversal or reconciliation.
 No fixture outcome is used as evidence.
+
+## Text tariff and Supplier-offer rates
+
+Customer tariff and Supplier-offer publication now share an exact rate parser:
+nonempty ASCII decimal digits, from zero through 1000000000000000 nanounits per
+million tokens. Signed forms such as `+1` and `-0` are rejected. Existing valid
+rates, their unit and historical revisions are unchanged.
+
+Actual requests on the preceding runtime showed signed forms reaching the
+missing-record conflict for an unknown Supplier. On the rebuilt runtime, both
+rate fields rejected signed, fractional, exponent, empty, whitespace-prefixed,
+non-ASCII and out-of-range inputs with 400 before that lookup. Valid zero, one
+and maximum rates still reached 409 for the deliberately unknown record.
+Independent database reads found unchanged offer/tariff revision and customer
+ledger counts. Release compilation and storage/gateway Clippy completed.
+
+This verifies actual input rejection at the Supplier-offer endpoint. The shared
+parser is also wired into customer tariff publication, but this run does not
+establish successful publication, concurrent price editing or paid settlement.

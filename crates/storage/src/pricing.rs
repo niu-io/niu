@@ -24,6 +24,18 @@ impl TokenRates {
     }
 }
 
+/// Exact public rate syntax shared by Supplier offers and customer tariffs.
+pub(crate) fn parse_token_rate(value: &str) -> Result<i64, StoreError> {
+    if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err(StoreError::InvalidPrice);
+    }
+    value
+        .parse::<i64>()
+        .ok()
+        .filter(|rate| (0..=1_000_000_000_000_000).contains(rate))
+        .ok_or(StoreError::InvalidPrice)
+}
+
 pub struct PriceInput<'a> {
     pub resource_id: &'a str,
     pub offer_revision: &'a str,
