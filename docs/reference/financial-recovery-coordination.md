@@ -2,8 +2,9 @@
 
 Status: implemented with limited live coordination evidence, 2026-10-10.
 [One real credit-backed customer backlog](financial-backlog-restart-live.md) now
-has restart-recovery evidence, including two gateway contenders. Larger backlogs,
-other ledgers and capacity qualification remain incomplete.
+has restart-recovery evidence, including two gateway contenders. A separate
+112-request backlog exercised multiple batches and one isolated write fault.
+Other ledgers, loss at a nonempty cursor and capacity qualification remain incomplete.
 
 The gateway runs customer reservation release, customer text-charge accrual,
 Supplier text/media earnings and upstream cost settlement through one storage

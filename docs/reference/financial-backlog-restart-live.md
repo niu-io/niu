@@ -101,3 +101,40 @@ load, financial-owner loss mid-commit, media/Supplier settlement or absence of
 every possible duplicate-egress path. The run used explicit internal credit and
 personal upstream access, with no fabricated funding receipt or commercial
 Supplier qualification. No fixture outcome supports this evidence.
+
+## Multiple batches with one persistently failing record
+
+A current-input run on 2026-10-10 at backend revision `59922df` generated 112
+actual strict-JSON completions through eight concurrent clients. Every response
+returned its fresh requested nonce and reported usage. An injected PostgreSQL
+trigger rejected customer-charge inserts while a held financial-ownership lock
+prevented background recovery. This created 112 confirmed completed attempts,
+zero customer charges and 112 open reservations through the actual request path;
+no completion, usage or financial rows were inserted by the verifier.
+
+After stopping the gateway, the trigger was narrowed to reject only the first
+attempt in UUID order. The ownership lock was released and the gateway restarted.
+Independent database observations then established the batching sequence:
+
+| Observed stage | Customer charges | Open reservations | Durable cursor |
+| --- | ---: | ---: | --- |
+| First 100-attempt batch, one write fault | 99 | 13 | Nonempty |
+| Following batch completed | 111 | 1 | Reset after reaching the end |
+| Fault removed and failed record revisited | 112 | 0 | Recovery continued |
+
+The single remaining reservation before removing the fault belonged to the
+original rejected attempt. Each final charge and debit matched an independent
+integer calculation from that request's client-reported usage. The total was
+**1,878,701 USD nanounits**. Charge reconciliation reported no missing,
+mismatched, unexpected or duplicate entries and no settled open reservation.
+A further restart preserved 112 charges and 112 debits. Temporary access was
+revoked and the isolated servers stopped; the original database and encrypted
+identity were preserved.
+
+This verifies bounded traversal beyond 100 real pending customer charges,
+savepoint isolation of a per-record database write error and eventual retry
+after its removal. It does not establish handling of malformed immutable
+financial inputs, process loss at a nonempty cursor, competing workers over this
+larger backlog, other ledgers or sustained production capacity. The trigger was
+explicit storage fault injection; upstream responses were actual and no fixture
+outcome supports the result.
