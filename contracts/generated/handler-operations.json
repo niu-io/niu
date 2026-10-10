@@ -7959,7 +7959,7 @@
             "name": "supplier",
             "in": "query",
             "required": false,
-            "description": "Filter by explicit Supplier business ownership; no name matching or unassociated fallback. Platform administration is required.",
+            "description": "Filter by explicit Supplier business ownership; no name matching or unassociated fallback. Platform administration is required. A missing or deleted Supplier returns 404; an active Supplier without configurations returns an empty data array.",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -7973,6 +7973,9 @@
           }
         ],
         "responses": {
+          "404": {
+            "description": "Selected Supplier does not exist or has been deleted."
+          },
           "200": {
             "description": "Vendor metadata. All management responses use Cache-Control no-store.",
             "content": {

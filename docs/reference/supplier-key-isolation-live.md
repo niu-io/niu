@@ -148,3 +148,20 @@ HTTP and independently reopened database observations cover duplicate-name
 contention and the exercised validation failures, not lost commit acknowledgments,
 every constraint failure, crash recovery or browser onboarding. No fixture result
 was used as evidence.
+
+## Explicit Supplier selection rejects unavailable scope — 2026-10-11
+
+`GET /admin/v1/vendors?supplier=...` now rejects missing or deleted Suppliers
+with 404 after checking platform authorization. A valid Supplier with no
+configurations still returns 200 with an empty `data` array. Omitting the filter
+retains the installation-wide directory contract. The generated OpenAPI records
+this distinction so clients can separate unavailable selection from empty setup.
+
+An actual isolated native run reproduced the previous successful empty response
+for both missing and deleted Suppliers. With the updated binary, the same flow
+returned 404 for each, 200 for the active empty Supplier and unfiltered directory,
+and 403 for a company viewer without platform authority. Gateway restart retained
+the deleted-scope rejection. Independent reopening confirmed the Supplier's
+retained deletion marker/audit and no credentials, inference or financial records.
+No fixture outcome was used. This run covers selected-scope validation, not
+concurrent deletion between authorization and list reads or populated pagination.

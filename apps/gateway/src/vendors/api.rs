@@ -131,7 +131,7 @@ pub struct VendorFilter {
 ///         "name": "supplier",
 ///         "in": "query",
 ///         "required": false,
-///         "description": "Filter by explicit Supplier business ownership; no name matching or unassociated fallback. Platform administration is required.",
+///         "description": "Filter by explicit Supplier business ownership; no name matching or unassociated fallback. Platform administration is required. A missing or deleted Supplier returns 404; an active Supplier without configurations returns an empty data array.",
 ///         "schema": {
 ///           "type": "string",
 ///           "format": "uuid"
@@ -145,6 +145,7 @@ pub struct VendorFilter {
 ///       }
 ///     ],
 ///     "responses": {
+///       "404": { "description": "Selected Supplier does not exist or has been deleted." },
 ///       "200": {
 ///         "description": "Vendor metadata. All management responses use Cache-Control no-store.",
 ///         "content": {
@@ -341,6 +342,14 @@ pub async fn list(
     Query(filter): Query<VendorFilter>,
 ) -> Result<Json<Value>, ApiError> {
     installation(&state, &headers).await?;
+    if let Some(supplier) = filter.supplier {
+        state
+            .store
+            .supplier_profile(supplier)
+            .await
+            .map_err(ApiError::from_store)?
+            .ok_or_else(ApiError::not_found)?;
+    }
     let data = state
         .store
         .vendors_with_supplier(filter.supplier)

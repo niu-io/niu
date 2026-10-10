@@ -8305,7 +8305,7 @@ Each array entry is an alternative; schemes within one entry are required togeth
 
 `supplier` (query, optional)
 
-Filter by explicit Supplier business ownership; no name matching or unassociated fallback. Platform administration is required.
+Filter by explicit Supplier business ownership; no name matching or unassociated fallback. Platform administration is required. A missing or deleted Supplier returns 404; an active Supplier without configurations returns an empty data array.
 
 ```json
 {
@@ -8315,6 +8315,8 @@ Filter by explicit Supplier business ownership; no name matching or unassociated
 ```
 
 ### Responses
+
+HTTP 404: Selected Supplier does not exist or has been deleted.
 
 HTTP 200: Vendor metadata. All management responses use Cache-Control no-store.
 
