@@ -13,6 +13,40 @@ merchant or upstream integration to be activated.
 
 ## Sources and conventions
 
+### Open frontend dependency: durable Video submission intent
+
+The dashboard Video recovery audit on 2026-10-10 found a missing capability,
+separate from the implemented routes listed below. This is a backend request,
+not an available endpoint or permission to introduce a frontend-only store.
+
+- The current Video create contract accepts a text-only `Idempotency-Key` and
+  stores its digest, request digest and original attempt. It does not expose the
+  original request document or identity for a browser to restore after a lost
+  create response. Job history intentionally excludes prompts. The existing
+  Chat draft schema cannot hold Video controls or a Video submission identity.
+- Provide actor-owned, workspace-scoped persistence for the selected model,
+  exact validated request document, original submission identity and selected
+  key association before dispatch. Saving/restoring an intent must not perform
+  inference, reserve funds or silently change the billing source. Specify payload
+  retention, deletion, permissions, revision conflicts and media-reference
+  handling explicitly; do not repurpose Chat settings or hide data in a prompt.
+- Provide a read-only way to resolve a saved intent to its original job or
+  unresolved preparation state. Recovery must survive browser/cache removal and
+  key rotation without creating a new identity. Current model/key authorization
+  still applies. If original preparation never dispatched, recovery must report
+  that state rather than assuming a replay can start generation.
+- Until reference-input idempotency is supported and qualified, do not claim
+  reference-video recovery parity or send unsupported identity headers for image
+  requests. Changed content under a saved identity must conflict; retry must never
+  silently create a fresh intent or substitute model, controls or funding source.
+
+Acceptance requires an actual browser submission with an interrupted response,
+page reload and a second browser/cache-free restoration of the original intent;
+independent backend evidence must show one submission and at most one customer
+debit. Also qualify concurrent tabs, stale revisions, foreign actors/workspaces,
+revoked/rotated keys and changed input. Publish the implemented handler contract
+before frontend integration. No endpoint name or unsupported UI action is assumed.
+
 - Executable routes: [gateway routes](../../apps/gateway/src/web/routes.rs).
   Request/response schemas: [root OpenAPI](../../contracts/openapi.yaml) and the
   focused contracts linked below. Use the [JavaScript SDK](../../sdks/javascript/src/index.ts)

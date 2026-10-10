@@ -402,3 +402,20 @@ rendered qualification.
   No checkout was created or payment submitted. Malformed-response recovery is
   test-qualified only; live funded checkout, settlement and reconciliation remain
   open gates because this account has no available online funding integration.
+
+### Video submission recovery contract audit (2026-10-10)
+
+- The current dashboard submits without `Idempotency-Key`; its uncertainty lock
+  exists only while the component remains mounted. Leaving the page does not
+  retain the exact request or recovery identity. Saved jobs remain backend-owned,
+  but their history contract deliberately excludes the original prompt/document.
+- Root OpenAPI and the current Chat draft schema were inspected. Neither exposes
+  durable Video composer/submission-intent restoration. The implemented text-only
+  idempotent create binding stores digests and an attempt, not a browser-restorable
+  request. An in-memory identity or browser storage would not complete this gate.
+- The [backend integration dependency](backend-integration-contract.md#open-frontend-dependency-durable-video-submission-intent)
+  now specifies persistence, read-only resolution, authorization, retention,
+  rotation and concurrency acceptance requirements. It is explicitly a requested
+  capability, not an implemented interface. Full Video submission recovery stays
+  incomplete; do not add a fresh-identity retry or claim at-most-once browser
+  recovery from the existing component lock.
