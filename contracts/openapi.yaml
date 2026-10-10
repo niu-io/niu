@@ -3041,6 +3041,8 @@ paths:
         '401':
           description: Invalid installation administrator token.
   /admin/v1/organizations/{organization}/projects/{project}/keys/{key}:
+    patch:
+      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}/patch'
     delete:
       operationId: revokeKey
       summary: Revoke a project key

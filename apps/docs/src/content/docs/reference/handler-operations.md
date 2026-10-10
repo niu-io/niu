@@ -1974,6 +1974,116 @@ HTTP 404: Workspace unavailable in the authorized scope
 
 HTTP 400: Invalid currency, decimal value or history query
 
+## Update workspace API key name and model grants
+
+`PATCH /admin/v1/organizations/{organization}/projects/{project}/keys/{key}`
+
+Requires workspace write access. Changes the saved name and model grants without returning or rotating the secret or extending expiry. Subsequent requests use the current grants; this does not cancel already dispatched requests. expected_revision is an integer, unlike decimal-string policy revisions. A no-op edit retains its revision; a changed edit increments it. Model aliases must exist in the authorized scope. The wildcard must be the sole grant.
+
+Implementation: `implemented`. Operation: `updateKeyMetadata`.
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "allowed_models",
+    "expected_revision"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Trimmed before persistence; must be nonempty and at most 200 UTF-8 bytes."
+    },
+    "allowed_models": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      },
+      "description": "Existing scoped aliases, each nonempty and at most 200 UTF-8 bytes; [\"*\"] grants all eligible models."
+    },
+    "expected_revision": {
+      "type": "integer",
+      "format": "int64",
+      "minimum": 1
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Current metadata revision; no secret is returned
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "revision"
+  ],
+  "properties": {
+    "revision": {
+      "type": "integer",
+      "format": "int64",
+      "minimum": 1
+    }
+  }
+}
+```
+
+HTTP 400: Invalid name, model grants or revision
+
+HTTP 401: Authentication required
+
+HTTP 403: Write permission required
+
+HTTP 404: Workspace access not granted
+
+HTTP 409: Stale revision, missing key, revoked key or expired key
+
+HTTP 422: Invalid JSON shape, missing or unknown fields
+
+HTTP 503: Durable storage unavailable
+
 ## Read a recorded gateway request
 
 `GET /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}`

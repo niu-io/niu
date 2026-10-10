@@ -460,6 +460,130 @@ pub async fn revoke_key(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}",
+///   "method": "patch",
+///   "operation": {
+///     "operationId": "updateKeyMetadata",
+///     "summary": "Update workspace API key name and model grants",
+///     "description": "Requires workspace write access. Changes the saved name and model grants without returning or rotating the secret or extending expiry. Subsequent requests use the current grants; this does not cancel already dispatched requests. expected_revision is an integer, unlike decimal-string policy revisions. A no-op edit retains its revision; a changed edit increments it. Model aliases must exist in the authorized scope. The wildcard must be the sole grant.",
+///     "x-niu-implementation": "implemented",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "name",
+///               "allowed_models",
+///               "expected_revision"
+///             ],
+///             "properties": {
+///               "name": {
+///                 "type": "string",
+///                 "description": "Trimmed before persistence; must be nonempty and at most 200 UTF-8 bytes."
+///               },
+///               "allowed_models": {
+///                 "type": "array",
+///                 "minItems": 1,
+///                 "items": {
+///                   "type": "string"
+///                 },
+///                 "description": "Existing scoped aliases, each nonempty and at most 200 UTF-8 bytes; [\"*\"] grants all eligible models."
+///               },
+///               "expected_revision": {
+///                 "type": "integer",
+///                 "format": "int64",
+///                 "minimum": 1
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "200": {
+///         "description": "Current metadata revision; no secret is returned",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "revision"
+///               ],
+///               "properties": {
+///                 "revision": {
+///                   "type": "integer",
+///                   "format": "int64",
+///                   "minimum": 1
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid name, model grants or revision"
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Write permission required"
+///       },
+///       "404": {
+///         "description": "Workspace access not granted"
+///       },
+///       "409": {
+///         "description": "Stale revision, missing key, revoked key or expired key"
+///       },
+///       "422": {
+///         "description": "Invalid JSON shape, missing or unknown fields"
+///       },
+///       "503": {
+///         "description": "Durable storage unavailable"
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub async fn update_key_metadata(
     State(state): State<AppState>,
     Path((organization_id, project_id, key_id)): Path<(Uuid, Uuid, Uuid)>,
