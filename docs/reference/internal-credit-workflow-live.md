@@ -461,3 +461,29 @@ individually calculated charges, exactly eight debits and released customer hold
 This exercises charge-accrual failure after completion evidence is durable. It
 does not qualify loss of completion evidence itself, arbitrary corrupted rows,
 Supplier-ledger failure or the non-financial retention sweep.
+
+### Two-gateway concurrent partial refunds
+
+A fresh isolated native run produced two actual personal OpenRouter completions,
+first structured and then streamed after a gateway restart. Their returned usage
+was priced using the explicit internal-credit verification tariff. A second
+Gateway connected to the same database before two synchronized refund requests
+were sent, one to each process. Each requested more than half of the first
+charge, using distinct idempotency keys. The observed responses were one HTTP
+200 and one HTTP 409.
+
+Replaying the winning request did not add another refund. Refunding the exact
+remainder brought cumulative refunds to the original charge; a further
+one-nanounit refund was rejected. The original customer charges remained
+immutable, the paid statement remained paid, and the key spending-limit read
+showed only the second charge committed with the first charge's allowance
+restored. These observations survived another gateway restart.
+
+After both Gateways stopped, an independent process reopened PostgreSQL and
+matched both persisted completed usages to the actual response records,
+recalculated each charge and debit, and confirmed exactly two refund entries
+referencing the original debit. Their sum equaled that charge. Net account debt
+equaled the second charge, with no held reservations, funding receipts or
+external invoice payments. All isolated processes then stopped. This verifies
+one exercised cross-process partial-refund race and replay, not sustained refund
+contention, received-money settlement or payment-provider refund execution.
