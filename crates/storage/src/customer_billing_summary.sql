@@ -20,7 +20,7 @@ WITH charge_settlement AS (
                 AND d.kind = 'charge'
                 AND d.amount_nanos = -c.amount_nanos
         ) AS settled
-    FROM customer_charges c
+    FROM customer_invoice_charge_sources c
     LEFT JOIN customer_invoice_entries e ON e.attempt_id = c.attempt_id
     LEFT JOIN customer_invoice_payments p ON p.invoice_id = e.invoice_id
     WHERE c.organization_id = $1 AND c.project_id = $2

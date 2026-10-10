@@ -627,11 +627,18 @@ SELECT jsonb_build_object(
         if overlaps {
             return Err(StoreError::Conflict);
         }
-        let unresolved:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM attempts a JOIN customer_attempt_tariffs b ON b.attempt_id=a.id JOIN customer_tariff_revisions r ON r.id=b.revision_id LEFT JOIN customer_charges c ON c.attempt_id=a.id WHERE a.organization_id=$1 AND a.project_id=$2 AND r.currency=$3 AND a.execution<>'confirmed_not_executed' AND a.dispatched_at>=to_timestamp($4::double precision/1000) AND a.dispatched_at<to_timestamp($5::double precision/1000) AND c.attempt_id IS NULL)").bind(scope.organization_id).bind(scope.project_id).bind(currency).bind(from).bind(to).fetch_one(&mut *tx).await?;
+        let unresolved: bool = sqlx::query_scalar(include_str!("customer_invoice_unresolved.sql"))
+            .bind(scope.organization_id)
+            .bind(scope.project_id)
+            .bind(currency)
+            .bind(from)
+            .bind(to)
+            .fetch_one(&mut *tx)
+            .await?;
         if unresolved {
             return Err(StoreError::Unresolved);
         }
-        let (amount,total):(String,i64)=sqlx::query_as("SELECT COALESCE(SUM(c.amount_nanos),0)::text,COUNT(*) FROM customer_charges c JOIN attempts a ON a.id=c.attempt_id WHERE c.organization_id=$1 AND c.project_id=$2 AND c.currency=$3 AND a.dispatched_at>=to_timestamp($4::double precision/1000) AND a.dispatched_at<to_timestamp($5::double precision/1000)").bind(scope.organization_id).bind(scope.project_id).bind(currency).bind(from).bind(to).fetch_one(&mut *tx).await?;
+        let (amount,total):(String,i64)=sqlx::query_as("SELECT COALESCE(SUM(c.amount_nanos),0)::text,COUNT(*) FROM customer_invoice_charge_sources c JOIN attempts a ON a.id=c.attempt_id WHERE c.organization_id=$1 AND c.project_id=$2 AND c.currency=$3 AND a.dispatched_at>=to_timestamp($4::double precision/1000) AND a.dispatched_at<to_timestamp($5::double precision/1000)").bind(scope.organization_id).bind(scope.project_id).bind(currency).bind(from).bind(to).fetch_one(&mut *tx).await?;
         if total == 0 {
             return Err(StoreError::Conflict);
         }
@@ -640,7 +647,7 @@ SELECT jsonb_build_object(
             .map_err(|_| StoreError::AggregateOverflow)?;
         let id = Uuid::new_v4();
         sqlx::query("INSERT INTO customer_invoices(id,organization_id,project_id,from_ms,to_ms,currency,amount_nanos,idempotency_key) VALUES($1,$2,$3,$4,$5,$6,$7,$8)").bind(id).bind(scope.organization_id).bind(scope.project_id).bind(from).bind(to).bind(currency).bind(amount).bind(key).execute(&mut *tx).await?;
-        sqlx::query("INSERT INTO customer_invoice_entries(invoice_id,organization_id,project_id,attempt_id) SELECT $1,c.organization_id,c.project_id,c.attempt_id FROM customer_charges c JOIN attempts a ON a.id=c.attempt_id WHERE c.organization_id=$2 AND c.project_id=$3 AND c.currency=$4 AND a.dispatched_at>=to_timestamp($5::double precision/1000) AND a.dispatched_at<to_timestamp($6::double precision/1000)").bind(id).bind(scope.organization_id).bind(scope.project_id).bind(currency).bind(from).bind(to).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO customer_invoice_entries(invoice_id,organization_id,project_id,attempt_id) SELECT $1,c.organization_id,c.project_id,c.attempt_id FROM customer_invoice_charge_sources c JOIN attempts a ON a.id=c.attempt_id WHERE c.organization_id=$2 AND c.project_id=$3 AND c.currency=$4 AND a.dispatched_at>=to_timestamp($5::double precision/1000) AND a.dispatched_at<to_timestamp($6::double precision/1000)").bind(id).bind(scope.organization_id).bind(scope.project_id).bind(currency).bind(from).bind(to).execute(&mut *tx).await?;
         sqlx::query("INSERT INTO customer_billing_audit(organization_id,project_id,action,resource_id) VALUES($1,$2,'invoice_issued',$3)").bind(scope.organization_id).bind(scope.project_id).bind(id).execute(&mut *tx).await?;
         tx.commit().await?;
         Ok(id)
@@ -719,6 +726,28 @@ SELECT jsonb_build_object(
         Ok(
             json!({"balances":balances,"unresolved":unresolved,"unpriced":unpriced,"tariffs":tariffs,"invoices":invoices}),
         )
+    }
+    pub async fn customer_invoice_media_lines(
+        &self,
+        scope: TenantScope,
+        invoice: Uuid,
+        after: Option<Uuid>,
+    ) -> Result<(Vec<Value>, Option<Uuid>), StoreError> {
+        let mut rows: Vec<(Uuid, Value)> =
+            sqlx::query_as(include_str!("customer_invoice_media_lines.sql"))
+                .bind(scope.organization_id)
+                .bind(scope.project_id)
+                .bind(invoice)
+                .bind(after)
+                .fetch_all(&self.pool)
+                .await?;
+        let next = if rows.len() > 100 {
+            rows.truncate(100);
+            rows.last().map(|(id, _)| *id)
+        } else {
+            None
+        };
+        Ok((rows.into_iter().map(|(_, line)| line).collect(), next))
     }
     pub async fn customer_invoice_lines(
         &self,

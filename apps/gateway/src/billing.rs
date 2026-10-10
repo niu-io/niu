@@ -235,9 +235,15 @@ pub async fn issue(
         .map_err(ApiError::from_store)?;
     Ok(Json(json!({"data":{"id":id}})))
 }
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct InvoiceLinesQuery {
+    media_after: Option<Uuid>,
+}
 pub async fn lines(
     State(state): State<AppState>,
     headers: HeaderMap,
+    Query(query): Query<InvoiceLinesQuery>,
     Path((organization_id, project_id, invoice)): Path<(Uuid, Uuid, Uuid)>,
 ) -> Result<Json<Value>, ApiError> {
     let scope = TenantScope {
@@ -245,8 +251,13 @@ pub async fn lines(
         project_id,
     };
     authorize(&state, &headers, scope, false).await?;
+    let (media_lines, media_next_cursor) = state
+        .store
+        .customer_invoice_media_lines(scope, invoice, query.media_after)
+        .await
+        .map_err(ApiError::from_store)?;
     Ok(Json(
-        json!({"data":state.store.customer_invoice_lines(scope,invoice).await.map_err(ApiError::from_store)?}),
+        json!({"data":state.store.customer_invoice_lines(scope,invoice).await.map_err(ApiError::from_store)?, "media_lines":media_lines, "media_next_cursor":media_next_cursor}),
     ))
 }
 #[derive(Deserialize)]

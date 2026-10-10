@@ -766,7 +766,7 @@ paths:
       security: [{ adminBearerAuth: [] }]
       operationId: issueCustomerUsageInvoice
       summary: Issue an immutable itemized usage statement
-      description: Installation only. Half-open UTC dispatch interval [from_ms, to_ms), maximum 366 days, one currency. Rejects unresolved priced usage, overlapping periods and empty periods. Exact idempotent retries return the same invoice. Does not collect money or calculate tax. Cache-Control is no-store.
+      description: Installation only. Half-open UTC dispatch interval [from_ms, to_ms), maximum 366 days, one currency. Includes text and media charges. Rejects unresolved priced usage, unsettled media balance debits, overlapping periods and empty periods. Exact idempotent retries return the same invoice. Does not collect money or calculate tax. Cache-Control is no-store.
       requestBody:
         required: true
         content:
@@ -793,6 +793,11 @@ paths:
     get:
       security: [{ adminBearerAuth: [] }]
       operationId: getCustomerInvoiceLines
+      parameters:
+        - name: media_after
+          in: query
+          description: Opaque media_next_cursor from the preceding page. Text groups repeat on each page.
+          schema: { type: string, format: uuid }
       summary: Read invoice lines grouped by model and pinned rate revision
       description: Requires workspace read access. Returns no entries for an invoice outside that workspace. Cache-Control is no-store.
       responses:
@@ -818,6 +823,27 @@ paths:
                             cached_prompt_tokens: { type: [string, 'null'], pattern: '^[0-9]+$' }
                             cached_prompt_rate: { type: [string, 'null'], pattern: '^[0-9]+$' }
                             amount_nanos: { $ref: '#/components/schemas/IntegerString' }
+                  media_next_cursor:
+                    type: [string, 'null']
+                    format: uuid
+                    description: Pass as media_after for the next page; null when exhausted.
+                  media_lines:
+                    type: array
+                    maxItems: 100
+                    description: Per-request customer media receipts. Text groups remain in data; both arrays contribute to the invoice total.
+                    items:
+                      type: object
+                      required: [model_alias, currency, amount_nanos, tariff_revision, meter, measured_quantity, billable_quantity, discount_revisions, bound_exceeded]
+                      properties:
+                        model_alias: { type: string }
+                        currency: { type: string }
+                        amount_nanos: { $ref: '#/components/schemas/IntegerString' }
+                        tariff_revision: { type: string }
+                        meter: { type: string }
+                        measured_quantity: { $ref: '#/components/schemas/InvoiceQuantity' }
+                        billable_quantity: { $ref: '#/components/schemas/InvoiceQuantity' }
+                        discount_revisions: { type: array, items: { type: string } }
+                        bound_exceeded: { type: boolean }
         '404': { description: Workspace outside authorized scope }
   /admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}/payment:
     parameters:
@@ -884,6 +910,12 @@ components:
     Project: { name: project, in: path, required: true, schema: { type: string, format: uuid } }
     Invoice: { name: invoice, in: path, required: true, schema: { type: string, format: uuid } }
   schemas:
+    InvoiceQuantity:
+      type: object
+      required: [numerator, denominator]
+      properties:
+        numerator: { type: string, pattern: '^[0-9]+$' }
+        denominator: { type: string, pattern: '^[1-9][0-9]*$' }
     TopupHistoryEntry:
       type: object
       additionalProperties: false

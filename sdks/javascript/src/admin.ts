@@ -97,6 +97,14 @@ export type CustomerInvoiceLine = {
   prompt_tokens: string; completion_tokens: string; prompt_rate: string; completion_rate: string; amount_nanos: string;
   cached_prompt_tokens?: string | null; cached_prompt_rate?: string | null;
 };
+/** Customer media receipts, separate from text-token line groups. */
+export type CustomerInvoiceMediaLine = {
+  model_alias: string; currency: string; amount_nanos: string;
+  tariff_revision: string; meter: string;
+  measured_quantity: { numerator: string; denominator: string };
+  billable_quantity: { numerator: string; denominator: string };
+  discount_revisions: string[]; bound_exceeded: boolean;
+};
 export type CustomerChargeReconciliation = {
   currency: string; observed_at: string; charge_records: string;
   expected_charge_nanos: string; posted_charge_nanos: string;
@@ -879,8 +887,9 @@ export class NiuAdminClient {
   }
 
   /** Workspace-authorized customer line items; amounts and token counts remain exact decimal strings. */
-  getCustomerInvoiceLines(scope: TenantScope, invoiceId: string, options?: RequestOptions): Promise<{ data: CustomerInvoiceLine[] }> {
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/billing/invoices/${uuid(invoiceId)}`, undefined, options);
+  getCustomerInvoiceLines(scope: TenantScope, invoiceId: string, options?: RequestOptions, mediaAfter?: string): Promise<{ data: CustomerInvoiceLine[]; media_lines?: CustomerInvoiceMediaLine[]; media_next_cursor?: string | null }> {
+    const cursor = mediaAfter === undefined ? '' : `?media_after=${uuid(mediaAfter)}`;
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/billing/invoices/${uuid(invoiceId)}${cursor}`, undefined, options);
   }
 
   /** Installation-only record of a confirmed external payment; does not collect or transfer money. */
