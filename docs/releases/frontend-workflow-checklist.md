@@ -691,3 +691,19 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
   Opening Configure after HMR displayed the existing fields; Cancel returned to
   the unchanged Disabled row. This proves the reachable read/cancel path, not
   the error path in a live browser or merchant activation/paid checkout.
+
+### Current populated key-limit history
+
+- Desktop Demo API key displayed real request-rate, concurrency and token-rate
+  policies as Unlimited. Each history dialog contained the preceding configured
+  value and latest Unlimited revision with Demo and human-readable dates. Escape
+  returned focus to the originating history action. No internal revision ID was
+  displayed in these histories.
+- Entered an unsaved request-rate limit of 1, observed Save become enabled, then
+  cancelled. Full reload retained Unlimited; reopening showed a blank value and
+  disabled unchanged Save. No key policy was written or credential changed.
+- The current key retained three unresolved requests and two requests with
+  unbounded token usage. A separate 60-second window had zero dispatched requests.
+  The UI preserves these different meanings rather than presenting unresolved
+  commitments as measured zero. Ordinary-role authorization and live enforcement
+  remain separate open qualification gates.
