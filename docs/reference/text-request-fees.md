@@ -117,3 +117,14 @@ alternative pool credential was sent. Independent inspection parsed the raw SSE
 prefix and reopened the database to confirm one unknown attempt and the exact
 held amount. This does not establish whether upstream generation finished after
 the crash or qualify all failure/commit boundaries.
+
+### Checked addition at admission
+
+A fresh actual API run published the maximum signed-64-bit fixed fee with positive
+token rates. Its admission bound could not fit in a signed 64-bit nanounit amount;
+Chat admission returned HTTP 400. Setting both token rates to zero made the fee
+representable, but available internal credit was insufficient, so admission
+returned HTTP 402 before and after restart. Independent SQL found no attempts,
+charges, balance entries or customer/procurement reservations from these requests.
+No upstream generation was sent. This verifies admission overflow/refusal only;
+reported usage exceeding a representable bound remains a separate settlement path.

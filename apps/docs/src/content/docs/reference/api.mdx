@@ -615,3 +615,10 @@ for company credit sufficient for one request: one completion, one HTTP 402 and
 one exact debit. A separate SIGKILL after actual streamed content retained unknown
 usage and its reservation without inventing a fixed-fee charge or retry. See the
 [contention and crash evidence](https://github.com/niu-io/niu/blob/main/docs/reference/text-request-fees.md#shared-credit-contention-and-interrupted-fixed-fee-liability).
+
+
+Fixed-fee admission rejects a token-plus-fee amount that overflows signed 64-bit
+nanounits with HTTP 400. A representable amount without sufficient spending
+capacity returns HTTP 402. Actual API requests and independent SQL verified that
+neither case dispatched upstream or left financial reservations; see the
+[admission boundary evidence](https://github.com/niu-io/niu/blob/main/docs/reference/text-request-fees.md#checked-addition-at-admission).
