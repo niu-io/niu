@@ -220,3 +220,12 @@ confirmed both immutable schedules and no attempts, qualification reviews or
 earnings. This does not verify nonempty earning selection, recovery, consumption
 grouping or settlement. Those require actual qualified business-flow evidence;
 no supply rights, commercial agreement or payment record was fabricated.
+
+The native development runtime subsequently applied migration 249 after a private
+database backup and archive-inventory check. Existing Supplier revisions retained
+empty tier schedules. Readiness returned HTTP 200; original configuration hashes,
+encrypted credential identities and durable organization, workspace, video-job
+and financial-entry counts were unchanged. Backup restoration and nonempty
+Supplier settlement were not exercised by this upgrade. The implementation
+commit's GitHub contract workflow completed successfully; that is contract
+consistency evidence, not business-flow acceptance.
