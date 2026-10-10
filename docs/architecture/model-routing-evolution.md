@@ -89,3 +89,43 @@ every possible upstream service are not prerequisites for internal capability.
 
 See [managed route bindings](../reference/managed-route-bindings.md) for the
 implemented first increment and the exact current-input verification boundary.
+
+## Failover implementation dependencies from the current admission path
+
+A source inspection at `4c2500f` identifies two prerequisites before adding a
+Chat retry loop. `Store::prepare_gateway_attempt` generates a new operation and
+attempt together. `Store::insert_gateway_attempt` unconditionally inserts the
+operation, and `admit_priced_gateway` calls it within the dispatch transaction.
+Calling `begin_attempt` again therefore does not append a retry to the original
+operation. Separately, priced admission calls `bind_customer_tariff_in_tx` for
+each new attempt, so repeating admission without an operation-level price binding
+can select a different customer tariff after an administrative edit.
+
+The next implementation must address these in the storage boundary:
+
+1. Preserve the first operation's scope, public model and task attribution. Add
+   an explicit append-attempt transaction under an operation lock; do not make
+   the existing insert silently reuse arbitrary conflicting operation IDs.
+2. Store the operation's customer-price selection once. Subsequent attempts must
+   reuse that immutable selection, while independently binding the selected
+   Supplier route/offer and its procurement liability. Personal operations must
+   remain personal and cannot switch to customer-funded supply during failover.
+3. Require durable, adapter-specific nonexecution evidence for the immediately
+   preceding dispatched attempt before authorizing another. Release its eligible
+   reservations transactionally; an unknown result or uncertain commit must not
+   become a retry grant. Persist ordinal, predecessor and bounded policy revision
+   so concurrent gateways cannot create two successors.
+4. Apply one overall deadline and a maximum number of submitted attempts. Continue
+   counting each dispatch against current key RPM and token/concurrency policies;
+   do not reset policy identities or hide work by reusing an attempt ID. Recheck
+   current model grants, route revisions and Guardrails for every new dispatch.
+5. Only then connect the Chat orchestration to candidate exclusion and selection.
+   Preserve the public alias and operation price, forbid retry after downstream
+   output begins, and expose every attempt through authorized diagnostics without
+   leaking procurement data. Video recovery remains query-only for its original
+   job and is outside this text retry mechanism.
+
+These are implementation prerequisites derived from the current source, not
+completed functionality or runtime acceptance. The existing no-retry behavior
+remains in force. Actual rejection, price-change, competing-successor, unknown
+commit, stream and restart evidence is required before enabling failover.
