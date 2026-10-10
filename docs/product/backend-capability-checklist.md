@@ -109,7 +109,7 @@ an independent optional cache-read rate. Route procurement budget rates remain f
 | Capability | Current implementation boundary | Required acceptance behavior |
 | --- | --- | --- |
 | Flat input/output tariff | Implemented; actual Chat/Responses/embedding usage and exact combined rounding verified with internal rates/credit | Reproduce the exact charge from aggregate counts and the pinned rates, including one combined rounding step |
-| Separate cache-read price | Customer configuration, bounds and accrual plus Supplier cached-rate configuration/accrual implemented; actual configuration verified; paid settlement and procurement-bound integration open | Pin a distinct rate and non-overlapping counted quantities; unknown cache usage must not become an invented zero |
+| Separate cache-read price | Customer and Supplier cached-rate mechanisms implemented; actual nonzero-cache customer charges, above-input cache rate, refund/restart verified with internal credit; missing-category recovery, concurrent liabilities and Supplier settlement open | Pin a distinct rate and non-overlapping counted quantities; unknown cache usage must not become an invented zero |
 | Separate cache-write price | Not implemented by the generic two-rate text tariff | Distinguish declared write categories and applicable durations without charging included input twice |
 | Separate reasoning-output price | Not implemented by the generic two-rate text tariff | Specify whether reasoning is already included in reported output; apply the agreed schedule without double counting |
 | Long-context tiers | Not implemented by the generic two-rate text tariff | Pin threshold, tier selection and effective rates for the actual request, including boundary behavior |

@@ -181,3 +181,26 @@ PostgreSQL reads matched null and the configured cache rate respectively. No
 inference or ledger entry was created. The temporary key was revoked and the
 model/credential disabled. This verifies SDK catalog transport and the updated
 type build, not cached inference billing or frontend rendering.
+
+### Actual cached charges backed by approved credit
+
+On 2026-10-10, an isolated native gateway issued three actual long-prefix Chat
+requests through the owner's OpenRouter credential, with a restart before the
+third request. Upstream reported cached input counts of 0, 5120 and 5120. The
+internal customer cache rate was 246913578 nanounits per million tokens, above
+the ordinary input rate of 123456789; output retained its independent rate.
+
+For every completion, independent integer arithmetic applied the documented
+non-overlapping cached/uncached formula and one ceiling operation. Database
+charges, ledger debits, attempt totals and saved cached quantities matched.
+Zero credit refused the initial request before dispatch; approved internal credit
+then supported the calls without funding receipts. Holds were released, account
+capacity and reconciliation agreed, statement totals matched, the key spending
+cap denied another call, and refund replay produced one balance refund. A further
+restart preserved exactly three charges and the expected remaining balance.
+
+This supplies actual nonzero-cache customer-charge evidence, including a cache
+rate above the ordinary input rate. It does not verify missing-category recovery,
+concurrent cached liabilities, Supplier cache settlement, external funding or
+other cache-write/reasoning/tiered schedules. The original development database
+and encrypted credential identity were unchanged.
