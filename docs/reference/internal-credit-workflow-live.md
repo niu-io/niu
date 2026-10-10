@@ -509,3 +509,22 @@ Independent reopening confirmed exactly one policy revision, the configured
 credit and warning threshold, exact usage-based debits/refunds and no funding
 receipts. This validates the exercised SDK policy write and stale-version
 boundary, without claiming that approved credit represents received money.
+
+### SDK credit reduction below existing debt
+
+A fresh native run obtained an actual structured completion under approved
+credit, then used `setCustomerBalancePolicy` to reduce credit to zero and disable
+the warning threshold. No customer reservation remained when the reduction was
+requested. After gateway restart, the balance read retained the full first
+charge as debt and reported the reduced policy. A new inference request returned
+HTTP 402 without creating a second attempt or charge.
+
+The SDK restored the original credit using the current revision. Another restart
+preserved that policy, and an actual streamed completion then succeeded with its
+reported usage charged exactly. Stale replay of each SDK policy write returned
+HTTP 409. The subsequent refund and key-limit workflow remained valid.
+Independent reopening found three immutable policy revisions with credit values
+of 1,000,000,000, zero and 1,000,000,000 nanounits, plus exactly the two completed
+attempts and reconciled charges/refunds. This covers debt-preserving reductions
+without in-flight holds; reductions concurrent with active reservations remain a
+separate verification requirement. No received-money funding was synthesized.
