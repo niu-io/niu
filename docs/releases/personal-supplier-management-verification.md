@@ -2,6 +2,11 @@
 
 Reviewed 2026-10-06. F03 remains incomplete.
 
+The later [current-input backend key-isolation run](../reference/supplier-key-isolation-live.md)
+verifies two configurations under one Supplier, first-key rotation/disable,
+unchanged second-key configuration, actual inference and restart preservation.
+Its explicit limits do not close the full F03 or frontend onboarding scope.
+
 Supplier model management incorrectly marked owner-funded routes unavailable because its read used commercial-offer qualification for every credential. The management API now recognizes explicitly recorded personal ownership while still requiring an enabled model, enabled credential and stored credential. Commercial routes retain their existing qualification checks. This installation-only read does not authorize another account, publish personal models or change dispatch admission.
 
 The management response includes a read-only `owner_funded` flag. The dashboard displays these routes as Private even if their legacy configured catalog flag is true; shared catalog exclusion remains enforced by the existing backend. Available means configured route eligibility, not a new upstream entitlement or service-quality claim.
