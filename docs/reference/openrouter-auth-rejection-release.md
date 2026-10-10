@@ -59,3 +59,11 @@ Clippy, release compilation and public-boundary checks completed. No fixture
 outcome supports the diagnosis or verification. Historical uncertain attempts are
 not bulk-reclassified; other rejection codes/providers and every timing race
 remain separate qualification work.
+
+## Endpoint qualification correction
+
+Current hold release requires the immutable canonical-endpoint policy described
+in [qualified nonexecution](qualified-nonexecution-policy.md). The adapter label
+and 401 status alone are insufficient. Historical records without that policy
+are not backfilled from mutable configuration. Actual custom-endpoint and
+canonical-endpoint runs independently verified the different hold outcomes.

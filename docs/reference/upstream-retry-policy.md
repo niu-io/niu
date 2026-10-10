@@ -278,3 +278,11 @@ there was no received-cash receipt or commercial supply claim. Original encrypte
 identity stayed unchanged and isolated processes stopped. This qualifies graceful
 drain of the exercised stream, not a maximum drain duration, a stalled upstream,
 forced termination during drain or a full load-balancer deployment transition.
+
+## Endpoint-qualified nonexecution
+
+The [pinned nonexecution policy](qualified-nonexecution-policy.md) now gates
+401-based hold release as well as retry eligibility. A custom endpoint using the
+`openrouter` adapter does not inherit the canonical Provider's failure contract.
+New managed admissions pin the reviewed policy; missing legacy/static evidence
+stays conservative. This adds no retry statuses or cooldown behavior.

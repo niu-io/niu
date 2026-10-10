@@ -37,8 +37,8 @@ pub struct RequestFailure {
 impl Store {
     /// First immutable observation for this scoped, dispatched attempt. Identical
     /// retries are idempotent; conflicting classifications cannot overwrite it.
-    /// Immediate OpenRouter HTTP 401 is a documented authentication rejection.
-    /// It proves nonexecution for text API calls; transport/SSE errors, other
+    /// Immediate HTTP 401 qualifies only with the canonical OpenRouter text
+    /// policy pinned at admission. An adapter label is insufficient. Other
     /// providers/statuses and asynchronous media retain execution uncertainty.
     pub async fn save_request_failure(
         &self,
@@ -83,7 +83,7 @@ impl Store {
         let confirmed = if failure.kind == UpstreamHttpError
             && failure.upstream_http_status == Some(401)
         {
-            sqlx::query("UPDATE attempts a SET execution='confirmed_not_executed',completed_at=COALESCE(completed_at,clock_timestamp()) WHERE a.id=$1 AND a.organization_id=$2 AND a.project_id=$3 AND a.dispatch_provider='openrouter' AND a.execution='may_have_executed' AND a.usage_confidence='unknown' AND NOT EXISTS(SELECT 1 FROM media_recovery_routes m WHERE m.attempt_id=a.id)")
+            sqlx::query("UPDATE attempts a SET execution='confirmed_not_executed',completed_at=COALESCE(completed_at,clock_timestamp()) WHERE a.id=$1 AND a.organization_id=$2 AND a.project_id=$3 AND a.dispatch_provider='openrouter' AND a.execution='may_have_executed' AND a.usage_confidence='unknown' AND EXISTS(SELECT 1 FROM managed_attempt_routes r WHERE r.attempt_id=a.id AND r.nonexecution_policy='openrouter-text-auth-rejection-v1') AND NOT EXISTS(SELECT 1 FROM media_recovery_routes m WHERE m.attempt_id=a.id)")
                 .bind(attempt).bind(scope.organization_id).bind(scope.project_id)
                 .execute(&mut *tx).await?.rows_affected()==1
         } else {

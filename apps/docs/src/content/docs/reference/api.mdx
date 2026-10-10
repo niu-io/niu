@@ -734,3 +734,15 @@ a completely captured 202 response does not mean generation completed.
 
 See [video request payloads](https://github.com/niu-io/niu/blob/main/docs/reference/video-request-payloads.md)
 for bounds, authorization and retention semantics.
+
+### Authentication failure and unresolved charges
+
+A 401 does not universally prove that a Provider did no work. Managed text
+requests pin the reviewed canonical OpenRouter nonexecution policy at admission;
+custom endpoints using the same adapter and older requests without that policy
+retain uncertainty and their applicable holds. Customer diagnostics preserve the
+HTTP failure separately from execution and charge state. Do not treat every 401
+as a refund or permission to retry.
+
+See [qualified nonexecution policy](https://github.com/niu-io/niu/blob/main/docs/reference/qualified-nonexecution-policy.md)
+for the implemented boundary and actual verification.
