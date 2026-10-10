@@ -56,3 +56,22 @@ balance reservations, credential cooldowns or Supplier earnings. These requests
 exercise pre-dispatch refusal against the configured route; no upstream response
 was supplied or synthesized. This does not verify supported output inspection,
 external detector decisions, unsupported stored-policy recovery or video.
+
+### Scoped diagnostic access
+
+A further fresh native run created ten preparation refusals and two workspaces.
+A workspace-scoped viewer read all ten own-workspace records from
+`GET /admin/v1/organizations/{organization}/projects/{project}/guardrails/denials`.
+The response used `Cache-Control: no-store`, declared
+`latest_100_preparation_denials` coverage, retained the detailed reasons and did
+not contain the submitted unique input marker. The viewer received HTTP 403 for
+the other workspace's policy and denial history, and for policy mutation. An
+inference API key received HTTP 401 on the diagnostic endpoint. Installation
+access confirmed the other workspace had no denials.
+
+After restart, the viewer could still read the original ten records; revoking
+the viewer credential changed that read to HTTP 401. Independent database
+reopening confirmed the ten revision-bound reasons and no attempts, charges,
+balance entries, reservations, cooldowns or Supplier earnings. This establishes
+the exercised workspace-viewer boundary, not every organization role or
+pagination beyond the endpoint's explicitly limited latest-100 coverage.
