@@ -90,6 +90,18 @@ describe('retained request content', () => {
     expect(finalized.messages[1].tools[0].arguments).toBe('{"q":1}');
     expect(finalized.partial).toBe(true);
   });
+  it.each(['response.failed','response.incomplete'])('keeps received text and tool arguments when %s has an empty output snapshot', (type) => {
+    const events=[
+      {type:'response.output_text.delta',output_index:0,content_index:0,delta:'Partial answer'},
+      {type:'response.output_item.added',output_index:1,item:{type:'function_call',name:'lookup',arguments:''}},
+      {type:'response.function_call_arguments.delta',output_index:1,delta:'{"q":'},
+      {type,response:{output:[],error:{message:'Upstream stopped'}}},
+    ];
+    const parsed=responseMessages(events.map(event=>`data: ${JSON.stringify(event)}\n\n`).join(''),'text/event-stream');
+    expect(parsed.partial).toBe(true);
+    expect(parsed.messages.map(item=>item.text)).toEqual(['Partial answer','','Upstream stopped']);
+    expect(parsed.messages[1].tools).toEqual([{name:'lookup',arguments:'{"q":'}]);
+  });
   it('does not invent readable output from malformed or unsupported payloads', () => {
     expect(responseMessages('{broken','application/json')).toEqual({messages:[],partial:true});
     expect(responseMessages('{"data":[{"embedding":[1,2]}]}','application/json').messages).toEqual([]);
