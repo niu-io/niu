@@ -193,3 +193,24 @@ This verifies policy concurrency and available-capacity calculation for an empty
 account. It does not establish settlement at a negative balance, lowering credit
 with active reservations, or concurrent paid inference admission. Configuration
 of diagnostic credit must not be described as receipt of money.
+## Customer roles cannot rewrite an active tariff — 2026-10-10
+
+A current-input run on backend `5a2449d` used an isolated native database,
+explicit internal retail rates and approved credit. After a real charged model
+completion, freshly issued company-owner, workspace-owner and workspace-viewer
+credentials each attempted to publish zero customer rates using the actual
+current tariff revision. All returned HTTP 403. The inference key itself
+returned HTTP 401 on that management endpoint. The three operator credentials
+could still read their authorized workspace billing and its original revision.
+
+Independent before/after reads of every tariff and tariff-revision row were
+identical. After restarting the gateway, an actual streamed request charged the
+unchanged configured rates, independently calculated from reported usage. Both
+charges and debits matched, reservations were released and reconciliation had no
+discrepancy. The run also retained paid statement semantics and idempotent balance
+refund behavior. Temporary access was revoked and isolated processes stopped
+without changing the original database or saved credential.
+
+This verifies rejection of self-service retail-price changes for these actual
+roles and requests. It does not qualify concurrent role revocation, platform
+administrator grants or customer media pricing. No fixture outcome was used.
