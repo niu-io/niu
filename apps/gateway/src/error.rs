@@ -211,6 +211,15 @@ impl ApiError {
         }
     }
 
+    pub(crate) fn credential_cooldown() -> Self {
+        Self {
+            failure: None,
+            status: StatusCode::SERVICE_UNAVAILABLE,
+            kind: "upstream_credential_cooldown",
+            message: "The model route is temporarily unavailable after confirmed upstream refusals",
+        }
+    }
+
     pub(crate) fn route_pool_unavailable() -> Self {
         Self {
             failure: None,
@@ -223,7 +232,10 @@ impl ApiError {
     pub(crate) fn unavailable_catalog_route(&self) -> bool {
         matches!(
             self.kind,
-            "route_pool_unavailable" | "not_found_error" | "upstream_error"
+            "route_pool_unavailable"
+                | "upstream_credential_cooldown"
+                | "not_found_error"
+                | "upstream_error"
         )
     }
 

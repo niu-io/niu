@@ -21,6 +21,6 @@ pub(crate) use bootstrap::seed_from_env;
 #[cfg(test)]
 pub(crate) use models::resolve_model;
 pub(crate) use models::{
-    ResolvedModel, effective_models, resolve_scoped_model, resolve_scoped_model_excluding,
-    scoped_models,
+    ResolvedModel, effective_models, require_selectable_credential, resolve_scoped_model,
+    resolve_scoped_model_excluding, scoped_models,
 };

@@ -78,7 +78,7 @@ polling must not create a replacement generation on another Supplier.
 | Candidate administration | Revisioned membership, priority, weight, enabled state and scoped history | Implemented with actual configuration/history/concurrency evidence |
 | Candidate selection | Eligible priority/weight selection, no disabled or foreign personal routes, defined no-route response | Implemented; actual priority/protocol/disabled-member selection, scope rejection and concurrent weighted traffic verified; long-run distribution open |
 | Safe failover orchestration | Distinct attempts, bounded retries and deadlines, no uncertain resubmission | Bounded Chat OpenRouter authentication-rejection successor implemented; broader adapters/statuses and failure combinations open |
-| Health and recovery | Defined cooldown and re-entry under concurrent gateways without a probe flood | Complete cross-adapter behavior unverified |
+| Health and recovery | Defined cooldown and re-entry under concurrent gateways without a probe flood | Qualified canonical OpenRouter authentication-refusal cooldown implemented; cross-adapter qualification remains open |
 | Financial and performance qualification | Actual multi-candidate traffic reconciles reservations, charges and route attribution under contention | [Actual priced selection and in-flight membership change](../reference/model-route-pools.md) reconciled; broad contention/capacity remain unverified |
 
 For delivery, verify current-input requests and independently inspect selected
@@ -213,3 +213,27 @@ implemented behavior and qualification limits are in the
 supports Chat only, excludes the rejected credential from selection and never
 resumes a chain on restart. It does not implement generic error retries, health
 cooldowns, video resubmission or failover after streaming output begins.
+
+
+## Credential cooldown
+
+Migration 0234 adds a credential-local rolling failure window and cooldown
+stored in PostgreSQL. Only a newly persisted, qualified canonical OpenRouter
+text authentication refusal contributes. Three observations within 60 seconds
+pause new selection for 60 seconds. Further qualifying failures from already
+selected work may extend the deadline; success does not reset the rolling window.
+Uncertain execution, transport failures and unqualified statuses never count.
+
+The failure classification and cooldown update commit together. A credential
+row lock serializes observations from concurrent gateways; duplicate persisted
+classifications cannot extend the deadline. Existing attempts are not backfilled.
+Pool eligibility uses a SQL exclusion, while direct personal and shared aliases
+return an explicit `503 upstream_credential_cooldown`. An empty eligible pool
+retains `503 route_pool_unavailable`. Selection does not probe upstream, and
+expiry restores eligibility without changing the alias, grants or tariff.
+
+Cooldown applies only to new selection. Pinned attempts and saved video recovery
+keep their route. Credential rotation does not clear the cooldown. The read-only
+platform API and SDK expose policy, deadline and current-window count without
+credentials, endpoints or procurement prices. See the
+[policy and actual verification](../reference/upstream-credential-cooldown.md).

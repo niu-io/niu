@@ -714,6 +714,25 @@ The SDK provides `getVendorRequestRateLimit`, `setVendorRequestRateLimit` and
 [dispatch semantics and verification boundary](https://github.com/niu-io/niu/blob/main/docs/reference/upstream-credential-request-limits.md).
 
 
+## Upstream credential cooldown
+
+Platform administrators can read
+`GET /admin/v1/vendors/{vendor}/cooldown`, or use SDK `getVendorCooldown`.
+The response reports `policy_revision`, `failure_threshold`, `window_seconds`,
+`cooldown_seconds`, `active`, nullable `cooldown_until`, and
+`qualifying_failures`. Company-scoped administrators cannot read this state.
+
+Three new, qualified canonical OpenRouter text authentication refusals in a
+60-second rolling window pause new selection for 60 seconds. Further qualifying
+in-flight failures may extend the deadline. Timeouts and uncertain execution
+never count. Direct selection returns `503 upstream_credential_cooldown`; a pool
+with no eligible mapping returns `503 route_pool_unavailable`. Pinned requests
+continue. State survives restart and credential edits; expiry restores
+eligibility automatically without an upstream probe or administrator republish.
+This fixed policy has no write endpoint. See the
+[policy and verification boundary](https://github.com/niu-io/niu/blob/main/docs/reference/upstream-credential-cooldown.md).
+
+
 ## Video model attribution in request diagnostics
 
 The existing `provider_model` field now retains a model explicitly returned by

@@ -6,6 +6,8 @@ info:
 servers:
   - url: /
 paths:
+  /admin/v1/vendors/{vendor}/cooldown:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1vendors~1{vendor}~1cooldown'
   /admin/v1/vendors/{vendor}/request-rate-limit/history:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1vendors~1{vendor}~1request-rate-limit~1history'
   /admin/v1/vendors/{vendor}/request-rate-limit:

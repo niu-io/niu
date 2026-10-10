@@ -1,3 +1,4 @@
+export type VendorCooldown = { policy_revision: 'openrouter-auth-cooldown-v1'; failure_threshold: 3; window_seconds: 60; cooldown_seconds: 60; active: boolean; cooldown_until: string | null; qualifying_failures: number };
 export type VendorRequestRateLimit = { requests_per_minute: number | null; revision: string };
 export type VendorRequestRateLimitRevision = VendorRequestRateLimit & { recorded_at: string; actor_kind: 'installation' | 'member'; actor_name: string };
 export type KeyTokenRateLimit = { snapshot_at: string; known_tokens: string; reserved_tokens: string; unbounded_requests: number; committed_tokens: string | null; tokens_per_minute: number | null; revision: string | null };
@@ -1018,6 +1019,11 @@ export class NiuAdminClient {
   /** Read known token subtotals; unknown requests are not zero usage. No TPM enforcement. */
   getKeyTokenUsageWindow(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: KeyTokenUsageWindow }> {
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/token-usage-window`, undefined, options);
+  }
+
+  /** Platform-only safe-failure state; reading does not probe or reset the credential. */
+  getVendorCooldown(vendorId: string, options?: RequestOptions): Promise<{ data: VendorCooldown }> {
+    return this.request(`/vendors/${uuid(vendorId)}/cooldown`, undefined, options);
   }
 
   getVendorRequestRateLimit(vendorId: string, options?: RequestOptions): Promise<{ data: VendorRequestRateLimit }> {

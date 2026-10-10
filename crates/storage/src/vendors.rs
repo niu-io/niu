@@ -627,6 +627,7 @@ impl Store {
             return Ok(Vec::new());
         }
         let query=route_query("WHERE m.alias=ANY($1) AND m.enabled AND v.enabled
+            AND NOT EXISTS(SELECT 1 FROM vendor_cooldowns c WHERE c.vendor_id=v.id AND c.cooldown_until>statement_timestamp())
             AND NOT (m.capabilities ? 'video_schema')
             AND (($2::uuid IS NOT NULL AND EXISTS (
                 SELECT 1 FROM personal_vendor_ownership o WHERE o.vendor_id=v.id AND o.organization_id=$2))

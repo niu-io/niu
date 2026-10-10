@@ -28,6 +28,25 @@ pub(crate) struct ResolvedModel {
     pub personal_route: Option<niu_storage::VendorRoute>,
 }
 
+pub(crate) async fn require_selectable_credential(
+    state: &AppState,
+    vendor: uuid::Uuid,
+) -> Result<(), ApiError> {
+    if state
+        .store
+        .vendor_is_cooling_down(vendor)
+        .await
+        .map_err(ApiError::from_store)?
+    {
+        tracing::debug!(
+            reason = "upstream_credential_cooldown",
+            "Credential unavailable for new selection"
+        );
+        return Err(ApiError::credential_cooldown());
+    }
+    Ok(())
+}
+
 pub(crate) async fn resolve_scoped_model(
     state: &AppState,
     organization_id: uuid::Uuid,
@@ -71,6 +90,7 @@ pub(crate) async fn resolve_scoped_model_excluding(
         .await
         .map_err(ApiError::from_store)?
     {
+        require_selectable_credential(state, route.vendor.id).await?;
         reject_video_text_route(&route)?;
         let cipher = state
             .vendor_cipher
@@ -378,6 +398,7 @@ pub(crate) async fn resolve_model(
         if !route.vendor.enabled || !route.model.enabled {
             return Err(ApiError::not_found());
         }
+        require_selectable_credential(state, route.vendor.id).await?;
         reject_video_text_route(&route)?;
         let cipher = state
             .vendor_cipher

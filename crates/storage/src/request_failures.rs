@@ -89,6 +89,14 @@ impl Store {
         } else {
             false
         };
+        if confirmed {
+            // Commit the new safe-failure observation and cooldown together.
+            // Replayed classifications and uncertain attempts never reach this branch.
+            sqlx::query("SELECT niu_record_vendor_safe_failure($1)")
+                .bind(attempt)
+                .execute(&mut *tx)
+                .await?;
+        }
         tx.commit().await?;
         if confirmed {
             // Independent transactions keep customer and procurement recovery

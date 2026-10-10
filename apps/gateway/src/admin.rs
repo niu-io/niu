@@ -15,6 +15,7 @@ pub mod profile;
 pub mod request_exports;
 pub mod request_payloads;
 mod session;
+pub(crate) mod vendor_cooldown;
 pub(crate) mod vendor_request_rate;
 pub mod workspace_spending;
 pub use operator_audit::operator_events;

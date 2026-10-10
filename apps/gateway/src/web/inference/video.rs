@@ -733,6 +733,7 @@ pub(super) async fn validate_admission(
         }
         route
     };
+    crate::vendors::require_selectable_credential(state, route.vendor.id).await?;
     let schema: niu_media::VideoSchema = serde_json::from_value(
         route
             .model

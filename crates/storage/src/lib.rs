@@ -110,6 +110,7 @@ mod key_spending;
 mod key_token_rate;
 mod provider_offer_history;
 mod topups;
+mod vendor_cooldown;
 mod vendor_request_rate;
 mod workspace_spending;
 pub use topups::{TopupInput, TopupOrder};
