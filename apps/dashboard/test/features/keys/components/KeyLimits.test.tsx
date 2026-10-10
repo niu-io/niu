@@ -6,6 +6,7 @@ function setup(options: { conflict?: boolean; fail?: boolean; canWrite?: boolean
   let rpm: number | null = 15;let revision = '9007199254740993';let reads = 0;
   const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = String(input);
+    if (path.endsWith('token-usage-window')) return Response.json({ data: { window_seconds: 60, window_end: '2026-10-10T10:00:00Z', requests: 0, known_usage_requests: 0, unknown_usage_requests: 0, known_prompt_tokens: '0', known_completion_tokens: '0' } });
     if (init?.method === 'PUT') {
       if (options.conflict) { options.conflict = false;rpm = 30;revision = '9007199254740994';return Response.json({ error: { message: 'Conflict' } }, { status: 409 }); }
       const body = JSON.parse(init.body as string);rpm = body.requests_per_minute;revision = '9007199254740995';return Response.json({ data: { revision } });

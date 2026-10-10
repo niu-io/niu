@@ -314,3 +314,30 @@ rendered qualification.
 - This increment does not qualify real procurement-price writes, stale-revision
   recovery, multiple upstream accounts, commercial supply or video execution.
   Those remain part of the full Supplier and Generations acceptance work.
+
+### API key rolling token window (2026-10-10)
+
+- Integrated the read-only `token-usage-window` contract within the existing Limits
+  section. Stitch review 15481990811136666009 confirmed the flat metric grouping
+  based on the inspected LiteLLM customer-usage reference: one explicit window
+  timestamp, a refresh action, and a four-column desktop/two-column mobile list.
+  Existing brand tokens and direct shadcn controls remain in use.
+- Token sums use exact integer strings and BigInt. Any incompletely reported
+  request makes total tokens Unknown; known input/output exclude those requests.
+  Failed or malformed reads show unavailable with Retry, never fabricated zeros.
+  Refresh hides the old snapshot; changing key/session aborts old reads. This is
+  dispatch-window telemetry, separate from TPM's unresolved reservations.
+- Two short actual owner-funded GPT-4.1 Mini calls were sent through a separate
+  90-day test key. The first returned 15 input/5 output tokens and its API window
+  matched. By the next browser read it had rolled out of the 60-second window,
+  which truthfully showed zero. A subsequent 14-input/5-output response appeared
+  in both desktop and 390×844 browser views as one request and 19 total tokens.
+  Refresh advanced the window timestamp. No funding or payment was created.
+- The test key was revoked (204), its separate verification session signed out
+  (204), and its temporary private credential file removed. The viewport was reset.
+  An already revoked, unused key also returned and rendered an actual empty window.
+- All 58 API-key tests across ten files and dashboard TypeScript passed. Tests
+  cover exact large token sums, partial unknown usage, failed-read retry, malformed
+  snapshots, refresh loading and aborted old-scope responses. Actual browser
+  incomplete-usage and storage-failure states remain unqualified; no backend
+  performance or TPM enforcement claim is made by this frontend increment.

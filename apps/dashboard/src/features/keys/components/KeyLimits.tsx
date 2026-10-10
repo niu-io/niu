@@ -6,6 +6,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { keyRequest, KeyRequestError } from '../api';
 import KeyPolicyHistory from './KeyPolicyHistory';
+import KeyTokenUsage from './KeyTokenUsage';
 import type { KeyRequestRateLimit, KeyConcurrencyLimit, KeyTokenRateLimit } from '../../../../../../sdks/javascript/src/admin';
 
 type Policy = KeyRequestRateLimit | KeyConcurrencyLimit | KeyTokenRateLimit;
@@ -24,7 +25,7 @@ function parseLimit(draft: string, maximum: number): number | null | undefined {
   return Number.isSafeInteger(value) && value <= maximum ? value : undefined;
 }
 export default function KeyLimits({ token, endpoint, canWrite, active }: { token: string; endpoint: string; canWrite: boolean; active: boolean }) {
-  return <Card><CardHeader><CardTitle>Limits</CardTitle><CardDescription>Throughput limits for this API key.</CardDescription></CardHeader><CardContent className="divide-y">{definitions.map(definition => <LimitPolicy key={`${token}:${endpoint}:${definition.path}`} token={token} endpoint={`${endpoint}/${definition.path}`} definition={definition} canWrite={canWrite && active} />)}</CardContent></Card>;
+  return <Card><CardHeader><CardTitle>Limits</CardTitle><CardDescription>Throughput limits for this API key.</CardDescription></CardHeader><CardContent className="divide-y">{definitions.map(definition => <LimitPolicy key={`${token}:${endpoint}:${definition.path}`} token={token} endpoint={`${endpoint}/${definition.path}`} definition={definition} canWrite={canWrite && active} />)}<KeyTokenUsage token={token} endpoint={endpoint} /></CardContent></Card>;
 }
 function LimitPolicy({ token, endpoint, definition, canWrite }: { token: string; endpoint: string; definition: Definition; canWrite: boolean }) {
   const [policy, setPolicy] = useState<Policy | null>(null);
