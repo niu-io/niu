@@ -1,5 +1,6 @@
 mod admin;
 mod admission;
+mod background_recovery;
 mod billing;
 mod branding;
 mod catalog_metadata;
@@ -58,63 +59,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let listener = TcpListener::bind(address).await?;
     let gateway_writes = state.gateway_writes.clone();
-    let recovery_store = state.store.clone();
-    let recovery = tokio::spawn(async move {
-        let mut interval = tokio::time::interval(std::time::Duration::from_secs(5));
-        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-        loop {
-            interval.tick().await;
-            if recovery_store
-                .purge_expired_request_payloads()
-                .await
-                .is_err()
-            {
-                tracing::warn!("Expired request payload cleanup requires retry");
-            }
-            if recovery_store
-                .purge_expired_media_result_references()
-                .await
-                .is_err()
-            {
-                tracing::warn!("Expired media result cleanup requires retry");
-            }
-            if recovery_store
-                .purge_expired_inspected_image_sources()
-                .await
-                .is_err()
-            {
-                tracing::warn!("Expired inspected image source cleanup requires retry");
-            }
-            if recovery_store
-                .recover_interrupted_asset_image_ingestions()
-                .await
-                .is_err()
-            {
-                tracing::warn!("Interrupted image ingestion recovery requires retry");
-            }
-            if recovery_store
-                .recover_interrupted_ingested_image_reads()
-                .await
-                .is_err()
-            {
-                tracing::warn!("Interrupted image readiness recovery requires retry");
-            }
-            for failure in recovery_store.recover_financial_work().await {
-                match failure {
-                    niu_storage::FinancialRecoveryFailure::Attempts { stage, count } => {
-                        tracing::warn!(
-                            stage,
-                            failures = count,
-                            "Financial recovery requires retry"
-                        );
-                    }
-                    niu_storage::FinancialRecoveryFailure::Storage { stage } => {
-                        tracing::warn!(stage, "Financial recovery storage unavailable");
-                    }
-                }
-            }
-        }
-    });
+    let recovery = background_recovery::spawn(state.store.clone());
     let payment_recovery = state.payments.clone().map(|payments| {
         let payment_state = state.clone();
         tokio::spawn(async move {
@@ -147,7 +92,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .with_graceful_shutdown(shutdown_signal())
     .await?;
     gateway_writes.shutdown().await;
-    recovery.abort();
+    for task in recovery {
+        task.abort();
+    }
     if let Some(video_recovery) = video_recovery {
         video_recovery.abort();
     }

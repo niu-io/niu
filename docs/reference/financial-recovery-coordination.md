@@ -78,3 +78,26 @@ raw SQL or credential fields, while the other stages continued.
 This verifies stage-level lock-timeout isolation and its diagnostic output.
 It does not substitute for a malformed financial row, a paid backlog or restart
 at a nonempty traversal cursor.
+
+### Independence from content cleanup
+
+A current-input lock check exposed a scheduling dependency: while the payload
+cleanup DELETE waited for an independently held table lock, the financial
+progress records stopped advancing because cleanup and settlement shared one
+serial loop. The verifier observed the blocked backend in PostgreSQL before
+measuring the six-second interval; it did not insert artificial ledger data.
+
+The gateway now starts independent content-maintenance and financial tasks in
+`background_recovery`. Both reuse the existing Store and pool, and both handles
+are aborted at gateway shutdown. Financial ownership, per-stage transactions,
+connection acquisition and cadence remain unchanged. No new pool is created.
+
+After release compilation and restart, the same actual table lock kept payload
+cleanup waiting while all four financial progress records advanced during the
+six-second observation. The lock was then released. Clippy, formatting and
+public-tree checks completed; no fixture outcome supports this observation.
+
+This removes the serial scheduling dependency. It does not reserve connection
+capacity: a one-connection pool or exhaustion by other work can still defer
+financial recovery. It also does not establish globally single-owner cleanup,
+cleanup statement deadlines, paid-backlog convergence or performance capacity.
