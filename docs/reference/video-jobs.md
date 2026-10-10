@@ -1355,3 +1355,31 @@ was created. The temporary key was revoked and the isolated database stopped.
 This verifies an existing personal result across upgrade, query, restart and
 content retrieval. It does not qualify customer-funded video settlement or an
 upstream HTTP query failure; those remain explicit open paths.
+
+## Actual saved video across database backup/restore — 2026-10-11
+
+The retained isolated database for an actual completed personal video was backed
+up with `pg_dump` custom format. Its archive inventory was readable. The archive
+was restored with fail-on-error into a new native PostgreSQL cluster using the
+same saved encryption identity; no existing database or configuration was
+replaced. The current gateway opened the restored data and preserved historical
+transport records.
+
+A newly authorized temporary workspace key read the original successful task.
+Refreshing its existing upstream reference returned HTTP 200 and added one query
+span without submitting a generation. A subsequent gateway restart preserved the
+job state and that timing span. Niu delivered the saved result: 88,738 bytes,
+with SHA-256 equal to the original generation artifact. Independent ffprobe and
+full ffmpeg video decoding completed. Billing remained `owner_funded`.
+
+After revoking the temporary key and stopping the isolated processes, independent
+reopening found one attempt, one media job, one original submission span and the
+retained success observation. There were no customer text/media charges, customer
+balance entries or Supplier earnings. Rehashing the downloaded file matched the
+retained decode report. No fixture result was used as evidence.
+
+This qualifies the exercised personal video backup/restore, query, restart and
+saved-result delivery path. It does not qualify recovery of encrypted data without
+its original key, expired upstream URLs, unknown submissions, customer-funded
+video settlement, crash-consistent point-in-time recovery or every historical
+schema. Backups contain private data and remained outside the public tree.
