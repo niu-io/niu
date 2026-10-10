@@ -235,6 +235,152 @@ pub async fn profile(
         .ok_or_else(ApiError::not_found)?;
     Ok(Json(json!({"data":data})))
 }
+/// ```openapi
+/// {
+///   "path": "/admin/v1/providers/{provider}",
+///   "method": "patch",
+///   "operation": {
+///     "operationId": "renameSupplierBusiness",
+///     "summary": "Update Supplier business profile",
+///     "description": "Requires platform write authority. Name is required. Omitted or null description/URL fields retain saved values; an empty string clears them. All text is trimmed. Supply the integer expected_revision to reject stale edits; omission or null preserves legacy unconditional updates. Every accepted update increments the profile revision and records an audit event, even if values are unchanged. URLs are stored metadata and are not fetched by this operation.",
+///     "x-niu-implementation": "implemented",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "provider",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Saved Supplier profile",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "required": [
+///                     "name",
+///                     "description",
+///                     "website_url",
+///                     "logo_url",
+///                     "id",
+///                     "revision"
+///                   ],
+///                   "properties": {
+///                     "name": {
+///                       "type": "string"
+///                     },
+///                     "description": {
+///                       "type": "string"
+///                     },
+///                     "website_url": {
+///                       "type": "string"
+///                     },
+///                     "logo_url": {
+///                       "type": "string"
+///                     },
+///                     "id": {
+///                       "type": "string",
+///                       "format": "uuid"
+///                     },
+///                     "revision": {
+///                       "type": "integer",
+///                       "format": "int64"
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid profile fields or identifier"
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Platform write authority required"
+///       },
+///       "503": {
+///         "description": "Storage unavailable"
+///       },
+///       "409": {
+///         "description": "Stale revision, missing or deleted Supplier"
+///       },
+///       "422": {
+///         "description": "Invalid body shape or unknown field"
+///       }
+///     },
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "name"
+///             ],
+///             "properties": {
+///               "name": {
+///                 "type": "string",
+///                 "description": "Nonblank, at most 100 UTF-8 bytes, with no control characters."
+///               },
+///               "description": {
+///                 "type": [
+///                   "string",
+///                   "null"
+///                 ],
+///                 "description": "Up to 2,000 characters after trimming; newline, carriage return and tab are permitted."
+///               },
+///               "expected_revision": {
+///                 "type": [
+///                   "integer",
+///                   "null"
+///                 ],
+///                 "format": "int64",
+///                 "minimum": 1,
+///                 "description": "Send the last read integer revision for conflict protection."
+///               },
+///               "website_url": {
+///                 "type": [
+///                   "string",
+///                   "null"
+///                 ],
+///                 "description": "Empty to clear, null/omitted to preserve. Nonempty values must be HTTP(S) URLs with a host, no credentials or control characters and at most 2,048 UTF-8 bytes after trimming."
+///               },
+///               "logo_url": {
+///                 "type": [
+///                   "string",
+///                   "null"
+///                 ],
+///                 "description": "Empty to clear, null/omitted to preserve. Nonempty values must be HTTP(S) URLs with a host, no credentials or control characters and at most 2,048 UTF-8 bytes after trimming."
+///               }
+///             }
+///           }
+///         }
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub async fn rename(
     State(state): State<AppState>,
     headers: HeaderMap,

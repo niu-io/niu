@@ -3064,6 +3064,139 @@ HTTP 404: Supplier missing or deleted
 
 HTTP 503: Storage unavailable
 
+## Update Supplier business profile
+
+`PATCH /admin/v1/providers/{provider}`
+
+Requires platform write authority. Name is required. Omitted or null description/URL fields retain saved values; an empty string clears them. All text is trimmed. Supply the integer expected_revision to reject stale edits; omission or null preserves legacy unconditional updates. Every accepted update increments the profile revision and records an audit event, even if values are unchanged. URLs are stored metadata and are not fetched by this operation.
+
+Implementation: `implemented`. Operation: `renameSupplierBusiness`.
+
+### Parameters
+
+`provider` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nonblank, at most 100 UTF-8 bytes, with no control characters."
+    },
+    "description": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Up to 2,000 characters after trimming; newline, carriage return and tab are permitted."
+    },
+    "expected_revision": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "int64",
+      "minimum": 1,
+      "description": "Send the last read integer revision for conflict protection."
+    },
+    "website_url": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Empty to clear, null/omitted to preserve. Nonempty values must be HTTP(S) URLs with a host, no credentials or control characters and at most 2,048 UTF-8 bytes after trimming."
+    },
+    "logo_url": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Empty to clear, null/omitted to preserve. Nonempty values must be HTTP(S) URLs with a host, no credentials or control characters and at most 2,048 UTF-8 bytes after trimming."
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Saved Supplier profile
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "name",
+        "description",
+        "website_url",
+        "logo_url",
+        "id",
+        "revision"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "website_url": {
+          "type": "string"
+        },
+        "logo_url": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid profile fields or identifier
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform write authority required
+
+HTTP 503: Storage unavailable
+
+HTTP 409: Stale revision, missing or deleted Supplier
+
+HTTP 422: Invalid body shape or unknown field
+
 ## Read platform payment configuration presence
 
 `GET /admin/v1/platform/configuration`
