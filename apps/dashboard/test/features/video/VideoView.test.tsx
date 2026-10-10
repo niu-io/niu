@@ -56,6 +56,19 @@ it('restores original saved input after job-only navigation without submitting a
  expect((screen.getByLabelText('Prompt') as HTMLTextAreaElement).disabled).toBe(true);
  expect(calls.some(call=>call.path.endsWith('/submit') || call.path.endsWith('/estimate'))).toBe(false);
 });
+it('keeps job-only lookup failure visible and restores the input after explicit reload',async()=>{
+ const calls=mockFetch();const fallback=globalThis.fetch;let unavailable=true;
+ const intent='55555555-5555-4555-8555-555555555555';
+ const saved={id:intent,revision:1,created_at_ms:'1700000000000',expires_at_ms:'1800000000000',content_state:'retained',key_id:key,model:model.id,request:videoRequest(model,'Recovered original input',initialControls(model)),submission_state:'dispatched',job:{id:job,model:model.id,status:'queued'}};
+ vi.stubGlobal('fetch',vi.fn(async(path:string,init?:RequestInit)=>path.includes('/video-intents?')?(unavailable?Response.json({error:{message:'Saved input temporarily unavailable'}},{status:503}):Response.json({data:[saved],has_more:false,next_before:null})):path.endsWith('/video-intents/'+intent)?Response.json({data:saved}):fallback(path,init)));
+ mount(true,`/generations?mode=video&job=${job}&key=${key}`);
+ await screen.findByText('Saved input temporarily unavailable');
+ expect(screen.queryByRole('heading',{name:'Video · Recovered original input'})).toBeNull();
+ unavailable=false;await userEvent.setup().click(screen.getByRole('button',{name:'Reload',exact:true}));
+ await screen.findByRole('heading',{name:'Video · Recovered original input'});
+ expect(screen.queryByText('Saved input temporarily unavailable')).toBeNull();
+ expect(calls.some(call=>call.path.endsWith('/submit') || call.path.endsWith('/estimate'))).toBe(false);
+});
 it('requires a current estimate, invalidates it when input changes and submits once with defaults',async()=>{
   const calls=mockFetch();mount();const user=userEvent.setup();
   await screen.findByRole('button',{name:'Video model'});
