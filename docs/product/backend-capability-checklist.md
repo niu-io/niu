@@ -36,11 +36,15 @@ for the independently checked dispatch and usage records and its path limitation
 | Capability | Implementation status | Required acceptance behavior |
 | --- | --- | --- |
 | Generic route selection | Single stored/static route; complete candidate selection open | Select eligible credentials with explicit priority/weight and consistent workspace grants and customer pricing |
+| Multiple supply mappings per customer alias | Not implemented; current alias maps to one credential | Keep one customer model identity while independently managing multiple Supplier credential/model/offer mappings |
+| Candidate policy management | Not implemented | Revisioned pool membership, priorities, weights, enabled state and authorized change history |
 | Transport retry policy | Shared client's implicit reqwest retries explicitly disabled; fault qualification open | Every application retry has an auditable attempt and an explicit bounded policy |
 | Safe business failover | Generic fallback orchestration incomplete | Retry only when the previous execution is proven safe to repeat; preserve unknown outcomes and liabilities, including partial streams |
 | Route health and recovery | Cross-adapter coverage unverified | Define cooldown, concurrent probes and re-entry; expose diagnostic reasons without leaking credentials or procurement data |
 
 See [upstream retry policy and inspected routing gaps](../reference/upstream-retry-policy.md).
+The [routing implementation design](../architecture/model-routing-evolution.md)
+records the schema constraints, financial invariants and delivery sequence.
 
 ## Financial hierarchy
 

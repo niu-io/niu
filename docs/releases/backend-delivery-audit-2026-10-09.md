@@ -67,6 +67,10 @@ round trips or by a green fixture workflow:
    [generic-path source review](../reference/upstream-retry-policy.md) identifies
    single-route resolution and incomplete business fallback orchestration; the
    shared client's implicit reqwest retry policy is now explicitly disabled.
+   [Schema and candidate-policy review](../architecture/model-routing-evolution.md)
+   confirms that one alias currently binds one credential/offer; multiple
+   mappings per customer alias and revisioned priority/weight pools need
+   implementation before generic failover can preserve pricing and grants.
 4. Measure sustained inference/financial contention and larger actual datasets
    against explicit operational capacity targets. Current read measurements use
    a small local dataset and do not establish production throughput.
