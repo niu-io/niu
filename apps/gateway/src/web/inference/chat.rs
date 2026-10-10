@@ -97,7 +97,20 @@ struct StreamExecution<'a> {
 ///     },
 ///     "responses": {
 ///       "200": {
-///         "description": "A normalized chat completion or compatible event stream."
+///         "description": "A normalized chat completion or compatible event stream.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ChatCompletionResponse"
+///             }
+///           },
+///           "text/event-stream": {
+///             "schema": {
+///               "type": "string",
+///               "description": "Chat completion SSE chunks. HTTP 200 starts the stream; preserve terminal evidence and optional usage rather than treating a disconnected stream as complete."
+///             }
+///           }
+///         }
 ///       },
 ///       "400": {
 ///         "description": "Invalid request, generation-parameter type or range, or unsupported operation; rejected before admission and Supplier dispatch."
@@ -386,6 +399,111 @@ struct StreamExecution<'a> {
 ///         }
 ///       },
 ///       "additionalProperties": true
+///     },
+///     "ChatCompletionResponse": {
+///       "type": "object",
+///       "properties": {
+///         "id": {
+///           "type": "string"
+///         },
+///         "object": {
+///           "type": "string",
+///           "const": "chat.completion"
+///         },
+///         "model": {
+///           "type": "string",
+///           "description": "Public model alias."
+///         },
+///         "created": {
+///           "type": "integer"
+///         },
+///         "choices": {
+///           "type": "array",
+///           "items": {
+///             "type": "object",
+///             "properties": {
+///               "index": {
+///                 "type": "integer",
+///                 "minimum": 0
+///               },
+///               "finish_reason": {
+///                 "type": [
+///                   "string",
+///                   "null"
+///                 ]
+///               },
+///               "message": {
+///                 "type": "object",
+///                 "properties": {
+///                   "role": {
+///                     "type": "string"
+///                   },
+///                   "content": {
+///                     "description": "Usually text or null for a function call; extensions remain provider-specific."
+///                   },
+///                   "refusal": {
+///                     "type": [
+///                       "string",
+///                       "null"
+///                     ]
+///                   },
+///                   "tool_calls": {
+///                     "type": [
+///                       "array",
+///                       "null"
+///                     ],
+///                     "items": {
+///                       "type": "object",
+///                       "properties": {
+///                         "id": {
+///                           "type": "string"
+///                         },
+///                         "type": {
+///                           "type": "string",
+///                           "const": "function"
+///                         },
+///                         "function": {
+///                           "type": "object",
+///                           "properties": {
+///                             "name": {
+///                               "type": "string"
+///                             },
+///                             "arguments": {
+///                               "type": "string",
+///                               "description": "JSON-encoded function arguments; Niu does not execute the function."
+///                             }
+///                           },
+///                           "required": [
+///                             "name",
+///                             "arguments"
+///                           ]
+///                         }
+///                       },
+///                       "required": [
+///                         "id",
+///                         "type",
+///                         "function"
+///                       ]
+///                     }
+///                   }
+///                 }
+///               }
+///             },
+///             "required": [
+///               "message"
+///             ]
+///           }
+///         },
+///         "usage": {
+///           "description": "Optional provider token usage. Its presence alone does not guarantee complete valid accounting evidence. Customer charges must be read from billing APIs, never inferred from missing counters."
+///         }
+///       },
+///       "description": "Nonstreaming completion envelope. Provider extension fields may be present. Missing usage is unknown, not zero.",
+///       "required": [
+///         "object",
+///         "model",
+///         "choices"
+///       ]
 ///     }
 ///   }
 /// }
@@ -479,7 +597,20 @@ pub(in crate::web) async fn chat(
 ///     },
 ///     "responses": {
 ///       "200": {
-///         "description": "A normalized chat completion or compatible event stream."
+///         "description": "A normalized chat completion or compatible event stream.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ChatCompletionResponse"
+///             }
+///           },
+///           "text/event-stream": {
+///             "schema": {
+///               "type": "string",
+///               "description": "Chat completion SSE chunks. HTTP 200 starts the stream; preserve terminal evidence and optional usage rather than treating a disconnected stream as complete."
+///             }
+///           }
+///         }
 ///       },
 ///       "400": {
 ///         "description": "Invalid request, generation-parameter type or range, or unsupported operation; rejected before admission and Supplier dispatch."
