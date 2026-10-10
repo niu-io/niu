@@ -450,34 +450,25 @@ pub(super) async fn begin_attempt(
         }
         let (operation, attempt) = state
             .store
-            .prepare_gateway_attempt(scope, public_model, task_id, &revision)
-            .await
-            .map_err(ApiError::from_store)?;
-        if let Some(route) = managed_route {
-            state
-                .store
-                .bind_managed_route(scope, attempt, route)
-                .await
-                .map_err(ApiError::from_store)?;
-        }
-        state
-            .store
-            .bind_key_token_bound(scope, attempt, token_bound)
-            .await
-            .map_err(ApiError::from_store)?;
-        state
-            .store
-            .bind_personal_attempt_route(scope, attempt, route)
-            .await
-            .map_err(ApiError::from_store)?;
-        state
-            .store
-            .bind_inspected_guardrails(scope, attempt, principal.key_id(), &snapshot)
-            .await
-            .map_err(ApiError::from_store)?;
-        state
-            .store
-            .set_attempt_dispatch_provider(scope, attempt, &model.provider)
+            .prepare_personal_gateway_attempt(
+                principal,
+                niu_storage::GatewayAdmission {
+                    managed_route: managed_route.cloned(),
+                    token_bound,
+                    inspected_guardrails: Some(snapshot),
+                    operation_id: Uuid::new_v4(),
+                    attempt_id: Uuid::new_v4(),
+                    scope,
+                    key_id: principal.key_id(),
+                    model: public_model.to_owned(),
+                    upstream_model: model.upstream_model.clone(),
+                    dispatch_provider: model.provider.clone(),
+                    api_base: model.api_base.clone(),
+                    task_id: task_id.map(str::to_owned),
+                    revision: revision.clone(),
+                },
+                route,
+            )
             .await
             .map_err(ApiError::from_store)?;
         state

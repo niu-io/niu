@@ -690,6 +690,15 @@ impl Store {
         attempt_id: Uuid,
         route: &VendorRoute,
     ) -> Result<(), StoreError> {
+        Self::bind_personal_attempt_route_with(&self.pool, scope, attempt_id, route).await
+    }
+
+    pub(crate) async fn bind_personal_attempt_route_with<'e>(
+        executor: impl sqlx::Executor<'e, Database = sqlx::Postgres>,
+        scope: crate::TenantScope,
+        attempt_id: Uuid,
+        route: &VendorRoute,
+    ) -> Result<(), StoreError> {
         let changed = sqlx::query(
             "INSERT INTO personal_attempt_routes \
              (attempt_id,vendor_id,vendor_revision,model_revision) \
@@ -702,7 +711,7 @@ impl Store {
         .bind(route.vendor.id)
         .bind(route.vendor.revision)
         .bind(route.model.revision)
-        .execute(&self.pool)
+        .execute(executor)
         .await
         .map_err(map_vendor_write_error)?
         .rows_affected();

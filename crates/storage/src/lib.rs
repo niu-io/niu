@@ -20,6 +20,7 @@ mod background_work;
 mod financial_recovery;
 pub use financial_recovery::FinancialRecoveryFailure;
 mod media_submissions;
+mod personal_admission;
 mod priced_admission;
 mod request_failures;
 pub use request_failures::{RequestFailure, RequestFailureKind};

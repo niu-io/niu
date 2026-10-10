@@ -59,3 +59,39 @@ the database. All temporary mappings and pools were disabled and temporary keys
 and operators revoked. These results cover the exercised personal configuration
 and dispatch paths; the two mappings do not establish independent upstream
 capacity, commercial Supplier qualification, procurement budgets or paid billing.
+
+## Atomic personal text preparation
+
+The text admission path commits the operation, first attempt, selected managed
+route, personal ownership/revision binding, token bound, inspected Guardrail
+snapshot and dispatch-provider identity in one preparation transaction. A failed
+binding rolls back the entire preparation instead of leaving an operation with
+only some admission evidence. Preparation does not authorize upstream transport.
+
+The existing separate dispatch transaction still checks current permissions,
+route revisions and policies. Its denial behavior is unchanged: an already
+prepared request can remain `not_sent`, and the dispatch audit can be retained.
+A crash between preparation and dispatch leaves a fully prepared, undispatched
+attempt; recovery cannot interpret it as permission to send. No automatic retry
+or append-attempt orchestration is enabled. This path has no schema migration and
+does not change video submission or commercial admission.
+
+Current-input verification used a fresh isolated native gateway/database and a
+real HTTP Chat request. While its personal-binding insert waited on a database
+lock, a separate connection could see no partial operation. Cancelling that
+statement returned HTTP 503. Independent reads then found no operation, attempt,
+managed/personal route, token-bound or inspected-Guardrail binding from the failed
+preparation. A subsequent actual OpenRouter completion had every admission
+binding and independently matching persisted usage. It remained owner-funded:
+no customer/procurement charge or reservation, and the saved procurement budget
+was unchanged. Setting key RPM to zero rejected calls before and after gateway
+restart. A shared priced control still failed its insufficient procurement budget
+despite sufficient approved company credit. Original encrypted identity was
+unchanged and the isolated processes stopped. This is scoped preparation and
+admission evidence, not safe failover or broad performance qualification.
+
+An additional actual request waited at dispatch coordination after preparation
+committed. Updating its saved model revision before releasing that lock produced
+HTTP 409, retained the complete `not_sent` attempt, and created no dispatch. The
+next request completed against the current revision. This checks the configuration
+race at the preserved preparation/dispatch boundary.
