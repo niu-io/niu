@@ -1383,3 +1383,25 @@ saved-result delivery path. It does not qualify recovery of encrypted data witho
 its original key, expired upstream URLs, unknown submissions, customer-funded
 video settlement, crash-consistent point-in-time recovery or every historical
 schema. Backups contain private data and remained outside the public tree.
+
+### Deletion after restoring the actual video
+
+The restored verification copy above was then used for normal
+`DELETE /v1/video/jobs/{id}/results` requests. Repeated deletion succeeded and
+result retrieval returned 404. A real refresh of the original upstream task
+returned 200 but did not restore local result availability. Gateway restart
+preserved the deletion, successful task state and owner-funded billing response.
+
+Independent reopening found permanent deletion markers for both `video` and
+`last_frame`, no remaining encrypted result references, one original job/attempt
+and one submission span. No customer charge, balance entry or Supplier earning
+was added. The separate previously downloaded verification artifact remained
+intact; local reference deletion does not claim to erase an exported file or
+media retained upstream.
+
+The verifier initially expected one deletion marker and stopped after deletion;
+the implementation records both supported result kinds to prevent later refresh
+from inserting a previously absent result. Verification resumed against the same
+deleted database with that corrected expectation, without recreating a result or
+submitting a generation. This qualifies the exercised deletion/refresh/restart
+path, not every concurrent download or upstream-retention policy.
