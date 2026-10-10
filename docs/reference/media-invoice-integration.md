@@ -57,3 +57,22 @@ invoice totals are not rewritten. A pre-upgrade text-only invoice still occupies
 its original currency/period; issuing retrospective media supplements for that
 same interval is not implemented. This limitation must be resolved before
 claiming complete historical media invoicing support.
+
+## Consistent posted-media status
+
+Video billing detail and recovery scheduling now use the existing
+`customer_activity_charges` view when deciding whether a recorded media charge
+is posted. This aligns them with Logs: a positive amount requires a debit matching
+the customer scope, attempt, currency and amount; a zero amount requires released
+reservation state. Merely finding an arbitrary charge entry is insufficient.
+The change does not create or alter financial entries.
+
+On the updated native runtime, current HTTP reads of an actual retained successful
+owner-funded video preserved history, job status and null customer charges through
+both key and dashboard-session billing routes. Foreign-viewer and revoked-key
+access were denied, response shapes matched the generated contract, and independent
+SQL counts of transport observations and financial entries were unchanged. Existing
+configuration and encrypted identity were preserved during process replacement.
+This exercises the owner-funded read path only. Positive media settlement, mismatched
+debit diagnosis and recovery scheduling against a nonempty paid-media backlog
+remain unverified; no paid-media records were fabricated for this checkpoint.
