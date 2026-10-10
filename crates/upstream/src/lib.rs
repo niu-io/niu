@@ -262,6 +262,10 @@ async fn build_client_for_endpoint(
     let mut builder = reqwest::Client::builder()
         .connect_timeout(timeout.min(Duration::from_secs(3)))
         .timeout(timeout)
+        // A recorded dispatch must not silently become multiple HTTP requests.
+        // Retry/failover belongs to the caller's durable attempt lifecycle,
+        // including for protocol-level nacks that reqwest retries by default.
+        .retry(reqwest::retry::never())
         // The destination check and pinned resolution must apply to the socket
         // Niu opens. An environment proxy could resolve the provider host on a
         // different machine and bypass that boundary.

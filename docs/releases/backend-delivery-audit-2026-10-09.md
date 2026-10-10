@@ -63,7 +63,10 @@ round trips or by a green fixture workflow:
    reservations, and records known overrun debt; it is not an exact tokenizer.
 3. Review routing/failover behavior against the pinned reference. A retry that can
    duplicate uncertain paid execution does not qualify as an improvement. Keep
-   attempts and customer charges distinguishable and auditable.
+   attempts and customer charges distinguishable and auditable. The
+   [generic-path source review](../reference/upstream-retry-policy.md) identifies
+   single-route resolution and incomplete business fallback orchestration; the
+   shared client's implicit reqwest retry policy is now explicitly disabled.
 4. Measure sustained inference/financial contention and larger actual datasets
    against explicit operational capacity targets. Current read measurements use
    a small local dataset and do not establish production throughput.

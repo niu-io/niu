@@ -31,6 +31,17 @@ Workspace spending limits do not satisfy per-key spending limits.
 See [actual concurrent distinct-key verification](../releases/key-limit-isolation-live-2026-10-10.md)
 for the independently checked dispatch and usage records and its path limitations.
 
+## Routing and retries
+
+| Capability | Implementation status | Required acceptance behavior |
+| --- | --- | --- |
+| Generic route selection | Single stored/static route; complete candidate selection open | Select eligible credentials with explicit priority/weight and consistent workspace grants and customer pricing |
+| Transport retry policy | Shared client's implicit reqwest retries explicitly disabled; fault qualification open | Every application retry has an auditable attempt and an explicit bounded policy |
+| Safe business failover | Generic fallback orchestration incomplete | Retry only when the previous execution is proven safe to repeat; preserve unknown outcomes and liabilities, including partial streams |
+| Route health and recovery | Cross-adapter coverage unverified | Define cooldown, concurrent probes and re-entry; expose diagnostic reasons without leaking credentials or procurement data |
+
+See [upstream retry policy and inspected routing gaps](../reference/upstream-retry-policy.md).
+
 ## Financial hierarchy
 
 Company balance/approved credit, workspace caps and key caps are distinct layers.
