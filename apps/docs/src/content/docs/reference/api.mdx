@@ -601,3 +601,10 @@ reserves using the same formula; rejected or unresolved requests do not invent a
 fee. Historical tariff versions remain pinned. Replacing a nonzero fee requires
 an explicit value, and `"0"` disables it. The SDK uses the same field.
 See the [pricing rule and supported boundary](https://github.com/niu-io/niu/blob/main/docs/reference/text-request-fees.md).
+
+
+Current-input fixed-fee verification now includes buffered and streamed Responses,
+Chat/Responses/embeddings sharing one account concurrently, and bounded idempotent
+internal refunds. Independent provider-response arithmetic and database ledger
+reads agreed; restart retained the charges and restored allowance. See the
+[protocol and refund evidence](https://github.com/niu-io/niu/blob/main/docs/reference/text-request-fees.md#refund-responses-and-mixed-protocol-verification).

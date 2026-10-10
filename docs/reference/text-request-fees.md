@@ -61,6 +61,35 @@ was rejected by typed JSON validation. No cash receipt or commercial Supplier
 qualification was fabricated. These runs used the owner's personal upstream
 account for internal accounting verification.
 
-Fee-specific cached-usage, Responses/embeddings, refunds, crash/uncertain-usage and
-concurrent capacity qualification remain open. Shared implementation or earlier
-minimum-only evidence is not evidence that those fee paths passed.
+Fee-specific cached usage, crash/uncertain usage and bounded-capacity contention
+remain open. Shared implementation or earlier minimum-only evidence is not
+evidence that those fee paths passed.
+
+
+### Refund, Responses and mixed-protocol verification
+
+The retained actual fixed-only charge of 1,000,000 nanounits was refunded through
+the administrative API. Two concurrent identical 600,000-nanounit refund requests
+created one entry; a further 500,000 was refused as excessive. A final 400,000
+refund restored exactly 1,000,000 of key allowance. Original charge history and
+the four-line invoice, including fixed-fee fields, stayed unchanged through
+restart and replay. This is an internal charge reversal, not a bank refund.
+
+A fresh Responses run exercised buffered and streamed completions with a
+12,345-nanounit fee per completed request. Independent saved terminal-response
+usage matched each token-plus-fee charge. Actual zero-credit refusal, exhausted-key
+refusal, invoice issuance, idempotent refund and restart checks retained their
+expected accounting behavior with the fee enabled.
+
+A separate fresh run used four workers and one shared key/account for twelve
+actual requests: four Chat, four Responses and four embedding requests. All
+charged once with the same fixed-fee schedule. Independent saved-response token
+arithmetic reproduced 222,342 total nanounits, including 148,140 fixed-fee
+nanounits. Embedding outputs contained 1,536 finite values. SQL matched each
+charge/debit and reported token count; no reservation remained, reconciliation
+matched, and restart preserved the total and entry counts. This is concurrent
+workflow evidence, not saturation or limited-balance contention qualification.
+
+All runs used explicitly approved internal credit and personal upstream testing,
+with no received-cash receipt or commercial Supplier qualification. Isolated
+processes were stopped after verification.
