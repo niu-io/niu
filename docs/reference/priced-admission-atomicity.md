@@ -1,7 +1,9 @@
 # Priced admission transaction boundary
 
-Status: implemented, with limited current-input verification on 2026-10-10.
-Successful commercial billing and recovery concurrency remain unverified.
+Status: implemented, with current-input verification on 2026-10-10. The original
+checkpoint below is supplemented by actual credit-backed billing, concurrent
+recovery and admission commit-acknowledgement loss. These do not establish
+commercial Supplier qualification or full production capacity.
 
 The gateway publishes a missing price revision through its existing cache, then
 calls one storage admission operation. That operation creates the operation and
@@ -63,3 +65,39 @@ qualify the complete billing workflow or performance.
 A later [two-gateway key-cap run](key-spending-multi-instance-live.md) found and corrected an account-row lock-upgrade deadlock introduced by pinning and reservation sharing a transaction. The reservation helper now uses `FOR NO KEY UPDATE`, preserving serialization and allowing foreign-key pins. The actual post-change burst produced one completed charge and three expected spending-cap rejections.
 
 The application lock correction must be paired with migration 0220: database account guards otherwise upgrade the lock again during reservation insertion. The [cross-workspace current-input checkpoint](company-credit-concurrency-live.md) documents the observed deadlock, unchanged financial predicates and the synchronized four-request verification.
+
+## Admission commit acknowledgement lost after database completion
+
+A fresh isolated native run configured an internal fixed customer request fee of
+1,000,000 nanounits, approved company credit and a key spending cap equal to that
+fee. A transparent local PostgreSQL protocol proxy forwarded real traffic and
+identified the transaction inserting the priced operation. After PostgreSQL sent
+its `COMMIT` completion, the proxy withheld that completion and closed the gateway
+connection. It did not simulate a PostgreSQL response or insert business records.
+
+The current HTTP request returned 503. Independent SQL then found one fully bound
+attempt with dispatch intent, `may_have_executed`, unknown usage and an unreleased
+1,000,000-nanounit customer reservation. Customer charge and balance-entry tables
+were empty. The key reported zero remaining allowance and the same committed
+liability. A request through the second gateway returned
+`key_spending_limit_exceeded` without another attempt.
+
+After restarting both gateways and allowing recovery to run, the unknown attempt
+and full hold remained; another request was again refused by the key cap. A
+separate verifier reopened the stopped database and confirmed the complete route,
+customer tariff, token and Guardrail bindings, one credential dispatch admission,
+exact open hold, absent usage/charge and absence of a second attempt. Temporary
+access was revoked. The original runtime, database and encrypted identity were
+unchanged.
+
+The first fault-injection script incorrectly reset its target marker inside the
+transaction and allowed a normal HTTP 200 completion. It did not exercise lost
+acknowledgement and is not evidence for this fault. The corrected complete run
+observed the withheld database completion and the independently retained state
+above. No fixture outcome supports either assessment.
+
+This qualifies the exercised admission-commit ambiguity: a client-visible failure
+does not free a potentially committed liability or authorize resubmission. It
+does not determine an upstream bill, assert that this particular unknown attempt
+executed upstream, or qualify database-server loss and settlement-commit ambiguity.
+The retained unknown hold intentionally requires authoritative reconciliation.

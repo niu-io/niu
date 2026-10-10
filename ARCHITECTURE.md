@@ -41,7 +41,7 @@ Shared unpriced admissions are queued in batches of up to 64, with at most four 
 
 Personal routes reject commercial pricing. A company with a balance account rejects an unpriced shared model instead of dispatching it without a bound.
 
-Route pools can choose among enabled supply mappings for one public alias by priority and weight. That selection is not generic failover. A second upstream submission for the same customer operation is not implemented. Video jobs stay on the route that created them. See [model routing](docs/architecture/model-routing-evolution.md).
+Route pools can choose among enabled supply mappings for one public alias by priority and weight. That selection is not generic failover. Chat pools implement one bounded successor only after qualified canonical OpenRouter authentication rejection and durable nonexecution evidence; other statuses, uncertain execution and committed streams do not authorize failover. See [retry policy and evidence](docs/reference/upstream-retry-policy.md). Video jobs stay on the route that created them. See [model routing](docs/architecture/model-routing-evolution.md).
 
 Attempt rows record execution certainty (`not_sent`, `may_have_executed`, `confirmed_completed`, `confirmed_not_executed`), usage confidence, and settlement separately. Provider-reported usage requires confirmed completion and nonnegative token counts. Missing usage stays unresolved. Process-local attempt counters reset on restart and are not the ledger.
 
@@ -64,14 +64,14 @@ Prepaid company balance is what admits paid traffic. Available capacity is balan
 Text rates are integer nanounits per million tokens. One currency unit is 1,000,000,000 nanounits. The charge rounds up once:
 
 ```text
-ceil((uncached_input * input_rate + cached_input * cached_rate + output * output_rate) / 1_000_000)
+max(ceil((uncached_input * input_rate + cached_input * cached_rate + output * output_rate) / 1_000_000) + request_fee_nanos, minimum_charge_nanos)
 ```
 
 Without a cached rate, the whole input uses the ordinary input rate. A cached rate requires a known cached quantity no larger than the input. Public JSON sends amounts as strings.
 
 Video estimates use `niu-metered-cost` integer arithmetic. `niu-cost` can estimate from floating-point rates; those estimates are not reservations and not ledger entries.
 
-Financial recovery and content maintenance have independent five-second schedules in the gateway. Financial recovery claims one database transaction owner across instances, uses one idle connection from the existing pool and persists per-stage UUID progress. Each batch reads at most 100 eligible attempts; savepoints isolate record errors, and the ledgers commit independently. Content expiry uses a separate ownership key. Both groups use a 250 ms lock timeout and a 2 s statement timeout; they skip acquisition when the pool has no idle connection. Claim checks briefly use connections in competing processes. Payment/video recovery and interrupted ingestion work remain outside these ownership groups. This does not reserve admission capacity or qualify paid backlog recovery. See [financial recovery](docs/reference/financial-recovery-coordination.md) and [content retention](docs/reference/content-retention-recovery.md).
+Financial recovery and content maintenance have independent five-second schedules in the gateway. Financial recovery claims one database transaction owner across instances, uses one claimed connection from the existing pool and persists per-stage UUID progress. Each batch reads at most 100 eligible attempts; savepoints isolate record errors, and the ledgers commit independently. Content expiry uses a separate ownership key. Both groups use a 250 ms lock timeout and a 2 s statement timeout; they wait at most 250 ms for a shared-pool connection before skipping the stage. Claim checks briefly use connections in competing processes. Payment/video recovery and interrupted ingestion work remain outside these ownership groups. This does not reserve admission capacity. Actual customer-charge recovery includes multi-batch traversal, restart at a nonempty cursor and foreground priced admission overlapping recovery; other ledgers and sustained capacity retain separate qualification boundaries. See [financial recovery](docs/reference/financial-recovery-coordination.md) and [content retention](docs/reference/content-retention-recovery.md).
 
 Customer invoices summarize `customer_charges` and `customer_media_charges` through a shared retail source view. Media receipts are returned separately from text line groups; pending media debits block invoice issuance. Issuing or marking an invoice paid does not credit prepaid balance or grant spending capacity. Invoice totals and status share a settlement read model: exact balance debits and invoice receipts discharge the invoice obligation without double-counting. Credit-backed account debt remains in the balance ledger. An isolated current-input credit-backed text workflow verified exact debits, invoice settlement, a key cap and an idempotent balance refund; merchant funding and media charging remain open. See [credit workflow evidence](docs/reference/internal-credit-workflow-live.md). Supplier settlement records an external payment against earnings; it does not send that payment.
 
@@ -97,10 +97,10 @@ These surfaces still exist. They are not the product boundary in [product focus]
 
 This is a gap inventory, not an implementation order. The product focus and release matrix govern sequencing.
 
-- Extend the verified credit-backed text workflow and single-charge restart recovery to merchant funding, media debits, lost commit acknowledgements and multi-instance nonempty backlog recovery.
+- Extend the verified credit-backed text workflow and customer-charge recovery to merchant funding, media debits and other nonempty ledgers. Admission COMMIT-acknowledgement loss retains its unknown attempt and hold; database-server loss and settlement-commit acknowledgement loss remain separate fault windows.
 - Qualify connection contention and backlog capacity across gateways, including payment/video and interrupted-ingestion workers.
 - Qualify the invoice settlement read model with actual paid and mixed-settlement business flows.
-- Fail over to another supply mapping with a distinct attempt, a new bound, and no resubmit after uncertain execution.
+- Extend routing reliability beyond the qualified bounded Chat authentication-rejection successor, preserving distinct attempts, new bounds and no resubmit after uncertain execution.
 - Re-encrypt stored credentials under a new master key.
 - Publish one compiled configuration snapshot for file routes and database routes.
 
@@ -121,3 +121,4 @@ This is a gap inventory, not an implementation order. The product focus and rele
 | Private Codex supply | [private Codex supply](docs/architecture/private-codex-supply.md) |
 | Supplier account registry | [supplier accounts](docs/architecture/supplier-accounts.md) |
 | Quota observations | [quota observation](docs/architecture/quota-observation.md) |
+| New API comparison | [New API parity](docs/architecture/new-api-parity.md) |
