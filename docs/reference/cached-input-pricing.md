@@ -4,7 +4,7 @@ Customer text tariffs optionally accept `cached_prompt_rate`: an exact decimal
 integer string in currency nanounits per million cached input tokens, with the
 same maximum as the ordinary input/output rates. This is a customer selling rate;
 Supplier offers have independent cached rates as described below. Route procurement
-budget schedules remain independent and flat. Cache-write and separate reasoning-output rates are not implemented.
+budget schedules remain independent and flat. Cache-write pricing remains unimplemented. Customer reasoning-output pricing is described in [Reasoning-output pricing](reasoning-output-pricing.md).
 
 ## Versioned configuration
 

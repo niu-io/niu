@@ -4813,7 +4813,8 @@ Content type: `application/json`.
           "completion_rate",
           "minimum_charge_nanos",
           "request_fee_nanos",
-          "cached_prompt_rate"
+          "cached_prompt_rate",
+          "reasoning_completion_rate"
         ],
         "properties": {
           "model_alias": {
@@ -4852,6 +4853,14 @@ Content type: `application/json`.
               "null"
             ],
             "pattern": "^[0-9]+$"
+          },
+          "reasoning_completion_rate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$",
+            "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
           }
         }
       }
@@ -5049,6 +5058,14 @@ Content type: `application/json`.
                 "type": "string",
                 "pattern": "^[0-9]+$",
                 "description": "Customer-only fixed fee in currency nanounits (0 to 9223372036854775807). Charge = max(rounded token charge + request fee, minimum charge) for known completed usage. Unknown execution/usage and confirmed rejection do not create a fee. Defaults to zero on new tariffs; replacement of a nonzero fee requires an explicit value; zero disables it."
+              },
+              "reasoning_completion_rate": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[0-9]+$",
+                "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
               }
             }
           }
@@ -5122,7 +5139,7 @@ HTTP 404: Workspace outside authorized scope
 
 `POST /admin/v1/organizations/{organization}/projects/{project}/billing/tariffs`
 
-Installation administration or an explicitly granted platform administrator required. Ordinary company/workspace owners cannot set selling prices. This does not grant invoice, payment or credit-policy writes. Rates are currency nanounits per million text tokens, bounded at 1000000000000000. Optional cached_prompt_rate independently prices reported cached input. Null selects flat input pricing. When replacing an existing cached tariff this field must be explicit; omission conflicts. Missing cached usage keeps charges unresolved. No retroactive billing. Cache-Control is no-store.
+Installation administration or an explicitly granted platform administrator required. Ordinary company/workspace owners cannot set selling prices. This does not grant invoice, payment or credit-policy writes. Rates are currency nanounits per million text tokens, bounded at 1000000000000000. Optional cached_prompt_rate independently prices reported cached input. Null selects flat input pricing. When replacing an existing cached tariff this field must be explicit; omission conflicts. Missing cached usage keeps charges unresolved. No retroactive billing. Cache-Control is no-store. Optional reasoning_completion_rate prices the reported reasoning subset of completion tokens without double counting. Null selects flat output pricing. Replacing a separately priced reasoning tariff requires an explicit rate or null; omission conflicts. Unknown reasoning quantity leaves the charge unresolved. Admission bounds use the larger ordinary/reasoning output rate. Supplier procurement rates remain independent.
 
 Implementation: `implemented`. Operation: `publishCustomerSellingRate`.
 
@@ -5215,6 +5232,14 @@ Content type: `application/json`.
       "type": "string",
       "pattern": "^[0-9]+$",
       "description": "Customer-only fixed fee in currency nanounits (0 to 9223372036854775807). Charge = max(rounded token charge + request fee, minimum charge) for known completed usage. Unknown execution/usage and confirmed rejection do not create a fee. Defaults to zero on new tariffs; replacement of a nonzero fee requires an explicit value; zero disables it."
+    },
+    "reasoning_completion_rate": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$",
+      "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
     }
   }
 }
@@ -6065,6 +6090,14 @@ Content type: `application/json`.
                 "type": "string",
                 "pattern": "^[0-9]+$",
                 "description": "Customer-only fixed fee in currency nanounits (0 to 9223372036854775807). Charge = max(rounded token charge + request fee, minimum charge) for known completed usage. Unknown execution/usage and confirmed rejection do not create a fee. Defaults to zero on new tariffs; replacement of a nonzero fee requires an explicit value; zero disables it."
+              },
+              "reasoning_completion_rate": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[0-9]+$",
+                "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
               }
             }
           },
@@ -6116,6 +6149,22 @@ Content type: `application/json`.
                 "type": "string",
                 "pattern": "^[0-9]+$",
                 "description": "Customer-only fixed fee in currency nanounits (0 to 9223372036854775807). Charge = max(rounded token charge + request fee, minimum charge) for known completed usage. Unknown execution/usage and confirmed rejection do not create a fee. Defaults to zero on new tariffs; replacement of a nonzero fee requires an explicit value; zero disables it."
+              },
+              "reasoning_completion_rate": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[0-9]+$",
+                "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
+              },
+              "reasoning_completion_tokens": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[0-9]+$",
+                "description": "Reported reasoning subset priced separately; null for a flat output tariff."
               }
             }
           }
@@ -13569,7 +13618,8 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "completion_rate",
     "minimum_charge_nanos",
     "request_fee_nanos",
-    "cached_prompt_rate"
+    "cached_prompt_rate",
+    "reasoning_completion_rate"
   ],
   "properties": {
     "model_alias": {
@@ -13612,6 +13662,14 @@ Local `#/components/schemas/…` references resolve to these definitions.
         "null"
       ],
       "pattern": "^[0-9]+$"
+    },
+    "reasoning_completion_rate": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$",
+      "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
     }
   }
 }
@@ -16773,7 +16831,8 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "completion_rate",
     "cached_prompt_rate",
     "minimum_charge_nanos",
-    "request_fee_nanos"
+    "request_fee_nanos",
+    "reasoning_completion_rate"
   ],
   "properties": {
     "revision": {
@@ -16811,6 +16870,14 @@ Local `#/components/schemas/…` references resolve to these definitions.
         "null"
       ],
       "pattern": "^[0-9]+$"
+    },
+    "reasoning_completion_rate": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$",
+      "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
     }
   }
 }

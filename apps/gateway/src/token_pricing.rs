@@ -30,6 +30,8 @@ pub struct CustomerTariffInput {
     pub expected_revision: Option<Uuid>,
     #[serde(default, deserialize_with = "cache_rate_field")]
     pub cached_prompt_rate: Option<Option<String>>,
+    #[serde(default, deserialize_with = "cache_rate_field")]
+    pub reasoning_completion_rate: Option<Option<String>>,
     #[serde(default, deserialize_with = "minimum_field")]
     pub minimum_charge_nanos: Option<String>,
     #[serde(default, deserialize_with = "minimum_field")]

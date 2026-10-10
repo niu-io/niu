@@ -217,7 +217,8 @@ pub async fn targets(
 ///                       "completion_rate",
 ///                       "minimum_charge_nanos",
 ///                       "request_fee_nanos",
-///                       "cached_prompt_rate"
+///                       "cached_prompt_rate",
+///                       "reasoning_completion_rate"
 ///                     ],
 ///                     "properties": {
 ///                       "model_alias": {
@@ -256,6 +257,14 @@ pub async fn targets(
 ///                           "null"
 ///                         ],
 ///                         "pattern": "^[0-9]+$"
+///                       },
+///                       "reasoning_completion_rate": {
+///                         "type": [
+///                           "string",
+///                           "null"
+///                         ],
+///                         "pattern": "^[0-9]+$",
+///                         "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
 ///                       }
 ///                     }
 ///                   }

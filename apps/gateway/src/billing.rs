@@ -172,6 +172,14 @@ async fn authorize(
 ///                             "type": "string",
 ///                             "pattern": "^[0-9]+$",
 ///                             "description": "Customer-only fixed fee in currency nanounits (0 to 9223372036854775807). Charge = max(rounded token charge + request fee, minimum charge) for known completed usage. Unknown execution/usage and confirmed rejection do not create a fee. Defaults to zero on new tariffs; replacement of a nonzero fee requires an explicit value; zero disables it."
+///                           },
+///                           "reasoning_completion_rate": {
+///                             "type": [
+///                               "string",
+///                               "null"
+///                             ],
+///                             "pattern": "^[0-9]+$",
+///                             "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
 ///                           }
 ///                         }
 ///                       }
@@ -296,7 +304,7 @@ pub async fn overview(
 ///     ],
 ///     "operationId": "publishCustomerSellingRate",
 ///     "summary": "Publish an immutable customer selling rate revision",
-///     "description": "Installation administration or an explicitly granted platform administrator required. Ordinary company/workspace owners cannot set selling prices. This does not grant invoice, payment or credit-policy writes. Rates are currency nanounits per million text tokens, bounded at 1000000000000000. Optional cached_prompt_rate independently prices reported cached input. Null selects flat input pricing. When replacing an existing cached tariff this field must be explicit; omission conflicts. Missing cached usage keeps charges unresolved. No retroactive billing. Cache-Control is no-store.",
+///     "description": "Installation administration or an explicitly granted platform administrator required. Ordinary company/workspace owners cannot set selling prices. This does not grant invoice, payment or credit-policy writes. Rates are currency nanounits per million text tokens, bounded at 1000000000000000. Optional cached_prompt_rate independently prices reported cached input. Null selects flat input pricing. When replacing an existing cached tariff this field must be explicit; omission conflicts. Missing cached usage keeps charges unresolved. No retroactive billing. Cache-Control is no-store. Optional reasoning_completion_rate prices the reported reasoning subset of completion tokens without double counting. Null selects flat output pricing. Replacing a separately priced reasoning tariff requires an explicit rate or null; omission conflicts. Unknown reasoning quantity leaves the charge unresolved. Admission bounds use the larger ordinary/reasoning output rate. Supplier procurement rates remain independent.",
 ///     "requestBody": {
 ///       "required": true,
 ///       "content": {
@@ -351,6 +359,14 @@ pub async fn overview(
 ///                 "type": "string",
 ///                 "pattern": "^[0-9]+$",
 ///                 "description": "Customer-only fixed fee in currency nanounits (0 to 9223372036854775807). Charge = max(rounded token charge + request fee, minimum charge) for known completed usage. Unknown execution/usage and confirmed rejection do not create a fee. Defaults to zero on new tariffs; replacement of a nonzero fee requires an explicit value; zero disables it."
+///               },
+///               "reasoning_completion_rate": {
+///                 "type": [
+///                   "string",
+///                   "null"
+///                 ],
+///                 "pattern": "^[0-9]+$",
+///                 "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
 ///               }
 ///             }
 ///           }
@@ -449,7 +465,7 @@ pub async fn tariff(
         .as_ref()
         .map(|rate| rate.as_deref());
     Ok(Json(
-        json!({"data":{"revision":state.store.publish_customer_tariff_with_fixed(scope,&rates,cached,input.minimum_charge_nanos.as_deref(),input.request_fee_nanos.as_deref()).await.map_err(ApiError::from_store)?}}),
+        json!({"data":{"revision":state.store.publish_customer_tariff_with_categories(scope,&rates,cached,input.reasoning_completion_rate.as_ref().map(|rate| rate.as_deref()),input.minimum_charge_nanos.as_deref(),input.request_fee_nanos.as_deref()).await.map_err(ApiError::from_store)?}}),
     ))
 }
 
@@ -1842,6 +1858,14 @@ pub struct InvoiceLinesQuery {
 ///                             "type": "string",
 ///                             "pattern": "^[0-9]+$",
 ///                             "description": "Customer-only fixed fee in currency nanounits (0 to 9223372036854775807). Charge = max(rounded token charge + request fee, minimum charge) for known completed usage. Unknown execution/usage and confirmed rejection do not create a fee. Defaults to zero on new tariffs; replacement of a nonzero fee requires an explicit value; zero disables it."
+///                           },
+///                           "reasoning_completion_rate": {
+///                             "type": [
+///                               "string",
+///                               "null"
+///                             ],
+///                             "pattern": "^[0-9]+$",
+///                             "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
 ///                           }
 ///                         }
 ///                       },
@@ -1893,6 +1917,22 @@ pub struct InvoiceLinesQuery {
 ///                             "type": "string",
 ///                             "pattern": "^[0-9]+$",
 ///                             "description": "Customer-only fixed fee in currency nanounits (0 to 9223372036854775807). Charge = max(rounded token charge + request fee, minimum charge) for known completed usage. Unknown execution/usage and confirmed rejection do not create a fee. Defaults to zero on new tariffs; replacement of a nonzero fee requires an explicit value; zero disables it."
+///                           },
+///                           "reasoning_completion_rate": {
+///                             "type": [
+///                               "string",
+///                               "null"
+///                             ],
+///                             "pattern": "^[0-9]+$",
+///                             "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
+///                           },
+///                           "reasoning_completion_tokens": {
+///                             "type": [
+///                               "string",
+///                               "null"
+///                             ],
+///                             "pattern": "^[0-9]+$",
+///                             "description": "Reported reasoning subset priced separately; null for a flat output tariff."
 ///                           }
 ///                         }
 ///                       }
@@ -3104,7 +3144,8 @@ pub struct CustomerTariffHistoryQuery {
 ///         "completion_rate",
 ///         "minimum_charge_nanos",
 ///         "request_fee_nanos",
-///         "cached_prompt_rate"
+///         "cached_prompt_rate",
+///         "reasoning_completion_rate"
 ///       ],
 ///       "properties": {
 ///         "model_alias": {
@@ -3147,6 +3188,14 @@ pub struct CustomerTariffHistoryQuery {
 ///             "null"
 ///           ],
 ///           "pattern": "^[0-9]+$"
+///         },
+///         "reasoning_completion_rate": {
+///           "type": [
+///             "string",
+///             "null"
+///           ],
+///           "pattern": "^[0-9]+$",
+///           "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
 ///         }
 ///       }
 ///     }

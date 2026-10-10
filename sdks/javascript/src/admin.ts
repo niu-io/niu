@@ -58,7 +58,7 @@ export type SupplierRateInput = {
   cached_prompt_rate?: string | null;
 };
 /** Customer selling rates, independent from Supplier procurement prices. */
-export type CustomerTariffInput = SupplierRateInput & { minimum_charge_nanos?: string; request_fee_nanos?: string };
+export type CustomerTariffInput = SupplierRateInput & { reasoning_completion_rate?: string | null; minimum_charge_nanos?: string; request_fee_nanos?: string };
 export type CustomerTariff = Omit<CustomerTariffInput, 'expected_revision'> & { revision: string };
 export type CustomerTariffHistoryEntry = CustomerTariff & { created_at: string; is_current: boolean };
 export type CustomerTariffHistory = { current_revision: string | null; data: CustomerTariffHistoryEntry[]; has_more: boolean; next_before: string | null };
@@ -117,6 +117,7 @@ export type CustomerInvoiceLine = {
   model_alias: string; revision: string; currency: string; requests: string;
   prompt_tokens: string; completion_tokens: string; prompt_rate: string; completion_rate: string; amount_nanos: string;
   cached_prompt_tokens?: string | null; cached_prompt_rate?: string | null;
+  reasoning_completion_tokens?: string | null; reasoning_completion_rate?: string | null;
   minimum_charge_nanos?: string; request_fee_nanos?: string;
 };
 /** Customer media receipts, separate from text-token line groups. */
@@ -1973,9 +1974,8 @@ function validateRates(rates: SupplierRateInput | CustomerTariffInput): void {
   for (const value of [rates.prompt_rate, rates.completion_rate]) {
     if (typeof value !== 'string' || !/^\d+$/.test(value) || BigInt(value) > 1_000_000_000_000_000n) throw new Error('Rates must be nonnegative integer strings up to 1000000000000000');
   }
-  if ('cached_prompt_rate' in rates && rates.cached_prompt_rate !== undefined && rates.cached_prompt_rate !== null) {
-    const rate = rates.cached_prompt_rate;
-    if (typeof rate !== 'string' || !/^\d+$/.test(rate) || BigInt(rate) > 1_000_000_000_000_000n) throw new Error('Cached input rate must be a nonnegative integer string up to 1000000000000000');
+  for (const rate of [rates.cached_prompt_rate, 'reasoning_completion_rate' in rates ? rates.reasoning_completion_rate : undefined]) {
+    if (rate !== undefined && rate !== null && (typeof rate !== 'string' || !/^\d+$/.test(rate) || BigInt(rate) > 1_000_000_000_000_000n)) throw new Error('Category rates must be nonnegative integer strings up to 1000000000000000');
   }
   if (rates.expected_revision !== null) uuid(rates.expected_revision);
 }

@@ -516,7 +516,8 @@ async fn enterprise_ready(
 ///         "completion_rate",
 ///         "cached_prompt_rate",
 ///         "minimum_charge_nanos",
-///         "request_fee_nanos"
+///         "request_fee_nanos",
+///         "reasoning_completion_rate"
 ///       ],
 ///       "properties": {
 ///         "revision": {
@@ -554,6 +555,14 @@ async fn enterprise_ready(
 ///             "null"
 ///           ],
 ///           "pattern": "^[0-9]+$"
+///         },
+///         "reasoning_completion_rate": {
+///           "type": [
+///             "string",
+///             "null"
+///           ],
+///           "pattern": "^[0-9]+$",
+///           "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
 ///         }
 ///       }
 ///     }
