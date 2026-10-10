@@ -139,3 +139,15 @@ holds were released. Independent raw-SSE and reopened-database inspection agreed
 and restart created no duplicate request or charge. This qualifies the exercised
 graceful drain, not stalled upstreams, forced drain deadlines or a complete rolling
 deployment. See the [signal and accounting evidence](https://github.com/niu-io/niu/blob/main/docs/reference/upstream-retry-policy.md#graceful-termination-during-actual-streaming).
+
+
+## Scoped model catalog reads
+
+A native loopback comparison of the same 103-pool database used eight concurrent
+clients and a two-connection gateway database pool. Across two ten-second intervals
+per version, catalog snapshot composition (`136d2f1`) completed 1,346.39 reads/second
+with 7.924 ms p95 client latency; the preceding implementation (`81f41ac`) completed
+69.20 reads/second with 153.757 ms p95. Every response matched the saved 104-model
+workspace catalog. Independent reopening confirmed unchanged inference and
+financial records. This was a short read-only workload, not maximum capacity or
+inference throughput. See the [full measurements and limits](https://github.com/niu-io/niu/blob/main/docs/reference/model-route-pools.md#catalog-read-comparison-after-snapshot-composition--2026-10-11).

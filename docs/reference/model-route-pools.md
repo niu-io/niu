@@ -668,3 +668,55 @@ throughput. Nonempty commercial-offer changes remain unverified. A published,
 validated registry generation pinned by each inference attempt is still absent;
 this catalog transaction does not implement publication or its recovery contract.
 No fixture outcome was used as evidence.
+
+
+## Catalog read comparison after snapshot composition — 2026-10-11
+
+A native loopback comparison used an offline copy of the preceding current-input
+workflow's stopped PostgreSQL database: 103 stored pools, 101 enabled shared pools,
+and a workspace response containing 104 models. The two personal scopes remained
+isolated. The database also retained two actual inference charge/debit pairs;
+this workload issued model-list reads only, without new upstream inference.
+
+Both release binaries were run against the same isolated database, configuration,
+workspace key and HTTP client workload: baseline `81f41ac` and snapshot composition
+`136d2f1`. Each run used eight closed-loop clients, a gateway database pool capped
+at two connections, 20 warmup reads, and a ten-second measured interval followed
+by draining outstanding reads. The order was baseline, current, current, baseline.
+Every measured HTTP response returned 200 and matched the saved scoped catalog.
+The following aggregates combine each revision's two measured intervals:
+
+| Measurement | Baseline `81f41ac` | Snapshot `136d2f1` |
+| --- | ---: | ---: |
+| Completed reads | 1,392 | 26,942 |
+| Measured seconds including drain | 20.115 | 20.011 |
+| Achieved reads/second | 69.20 | 1,346.39 |
+| Client latency p50, ms | 109.136 | 5.565 |
+| Client latency p95, ms | 153.757 | 7.924 |
+| Client latency p99, ms | 177.957 | 10.237 |
+| Maximum client latency, ms | 182.809 | 16.761 |
+| Sampled peak gateway RSS, MiB | 20.20 | 20.92 |
+| Gateway CPU seconds | 6.73 | 18.78 |
+
+Gateway CPU totals cover different amounts of completed work, not a fixed-rate
+comparison. Samples taken approximately every 250 ms observed at most two normal
+gateway database connections and one dedicated retention connection. They do not
+establish an absolute resource maximum; PostgreSQL and client CPU were not measured.
+Latency includes loopback HTTP connection setup, authorization and JSON decoding.
+Percentiles use nearest rank except p50, which uses the median.
+
+Independent verification reopened the stopped measurement database, verified the
+retained binary and catalog digests, recomputed metrics from individual latency
+records, checked the pool inventory against the saved response, and compared
+attempt/charge/balance counts and the balance-entry sum with their pre-run values.
+All remained unchanged. A final restart with the current binary returned the same
+catalog; the temporary key was revoked. The original development database, saved
+credentials and executable were preserved, and the temporary baseline checkout
+was removed.
+
+This is evidence for this short, read-only workload and the removal of per-pool
+queries/decryption. It is not maximum capacity, a fixed-arrival-rate saturation
+study, multi-host performance, concurrent publication qualification or a comparison
+with New API. Baseline per-run throughput varied from 63.71 to 74.67 reads/second;
+current runs ranged from 1,306.75 to 1,386.05. Longer runs and other inventory sizes
+remain unqualified. No fixture result supports these observations.
