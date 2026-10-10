@@ -122,3 +122,29 @@ model-allowlist rejection. The handler intentionally returns 404; that execution
 is not recorded as a completed verification. The fresh completed run above used
 the actual contract. This checkpoint does not qualify every provider/model,
 concurrent mapping mutation, external account isolation or browser onboarding.
+
+## Atomic Supplier and first-credential creation — 2026-10-11
+
+A fresh native gateway received eight concurrent current-input
+`POST /admin/v1/vendors` requests with the same credential-configuration name
+and `create_supplier: true`. Exactly one returned 201 and seven returned 409.
+Independent reopening found exactly one Supplier business, one encrypted
+credential configuration and one ownership association. The retained audit
+records consisted of one business creation and the credential creation and
+association events; losing transactions left no extra business or audit rows.
+
+Subsequent requests supplied an empty secret, an absent existing Supplier, and
+both new-Supplier and existing-Supplier options. They returned 400, 409 and 400,
+respectively. After each rejection the complete row-count/audit-count snapshot,
+credential ciphertext digest and revision were unchanged. Gateway restart
+preserved those observations, and filtering configurations by the surviving
+Supplier returned precisely its one credential.
+
+No inference, customer ledger entry, Supplier earning or settlement was created.
+The saved personal upstream secret was used only as encrypted configuration;
+there was no upstream request or commercial qualification claim. The original
+development identity was unchanged and isolated processes stopped. These actual
+HTTP and independently reopened database observations cover duplicate-name
+contention and the exercised validation failures, not lost commit acknowledgments,
+every constraint failure, crash recovery or browser onboarding. No fixture result
+was used as evidence.
