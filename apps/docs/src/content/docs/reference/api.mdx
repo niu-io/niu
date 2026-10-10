@@ -722,3 +722,15 @@ not substitute the configured mapping. Existing completed jobs can gain this
 field through an authorized refresh that reports it, without another generation.
 A Logs read alone does not query upstream. See
 [model attribution and retention boundaries](https://github.com/niu-io/niu/blob/main/docs/reference/video-model-attribution.md).
+
+### Video creation content in Logs
+
+Fresh video submissions retain the inspected Niu request and the Niu creation
+response through the existing scoped payload read/delete APIs, for up to 24 hours.
+Use `x-niu-log-payloads: false` to opt out. Saved-intent submission captures the
+inspected video request, not its revision-only envelope. Replay never recreates
+capture. These are Niu API bodies, not raw upstream transport or generated files;
+a completely captured 202 response does not mean generation completed.
+
+See [video request payloads](https://github.com/niu-io/niu/blob/main/docs/reference/video-request-payloads.md)
+for bounds, authorization and retention semantics.

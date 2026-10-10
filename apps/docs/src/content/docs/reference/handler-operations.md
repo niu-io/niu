@@ -9810,7 +9810,7 @@ HTTP 404: Missing job, workspace mismatch or model access denied
 
 `POST /v1/video/jobs`
 
-Personal routes support configured ark-direct-v1 or openrouter-video-v1 channels. Customer-funded video currently requires a qualified ark-direct-v1 route and video_tokens pricing; OpenRouter remains personal-only. Shared routes with a legacy procurement budget are unsupported, while personal routes retain ordinary authorization and key limits. Exactly one upstream submission follows durable dispatch intent. HTTP or transport errors retain submission_unknown and any unresolved liability. Observed non-success HTTP statuses are saved as upstream_http_error in scoped request diagnostics, without upstream bodies or credentials; they do not prove nonexecution or authorize a retry. Optional workspace-scoped Idempotency-Key supports text-only creation: identical replay returns the original reference and current saved status, including after restart. Changed input conflicts. Unkeyed requests are not idempotent. Configured controls, reference inputs and required inspection remain subject to the selected schema and supported channel.
+Personal routes support configured ark-direct-v1 or openrouter-video-v1 channels. Customer-funded video currently requires a qualified ark-direct-v1 route and video_tokens pricing; OpenRouter remains personal-only. Shared routes with a legacy procurement budget are unsupported, while personal routes retain ordinary authorization and key limits. Exactly one upstream submission follows durable dispatch intent. HTTP or transport errors retain submission_unknown and any unresolved liability. Observed non-success HTTP statuses are saved as upstream_http_error in scoped request diagnostics, without upstream bodies or credentials; they do not prove nonexecution or authorize a retry. Fresh creation responses include x-niu-attempt-id. Logs retain the inspected Niu request and delivered Niu creation response for up to 24 hours by default; x-niu-log-payloads: false opts out. Requests larger than the 1 MiB capture bound are not retained. This is not an upstream transport-body capture, and replay does not recreate deleted or expired payloads. Optional workspace-scoped Idempotency-Key supports text-only creation: identical replay returns the original reference and current saved status, including after restart. Changed input conflicts. Unkeyed requests are not idempotent. Configured controls, reference inputs and required inspection remain subject to the selected schema and supported channel.
 
 Implementation: `implemented`. Operation: `createOwnerFundedVideoJob`.
 
@@ -9840,6 +9840,21 @@ Reuse only with the same JSON document in the same workspace; object field order
   "type": "string",
   "minLength": 1,
   "maxLength": 128
+}
+```
+
+`x-niu-log-payloads` (header, optional)
+
+Capture the inspected Niu request and Niu creation response in bounded 24-hour Logs storage. False opts out; repeated or invalid values are rejected. Replay never creates a new capture.
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "true",
+    "false"
+  ],
+  "default": "true"
 }
 ```
 
@@ -9930,6 +9945,17 @@ Content type: `application/json`.
 ### Responses
 
 HTTP 202: Durable Niu reference; acceptance alone does not establish upstream execution or billing.
+
+Response header: `x-niu-attempt-id`.
+
+Present on fresh creation; identifies the attempt for scoped Logs. Replay does not generate a new capture.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
 
 Content type: `application/json`.
 
@@ -10480,7 +10506,7 @@ HTTP 503: Required storage or route configuration is unavailable.
 
 `POST /admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}/submit`
 
-Actor-owned workspace records: installation authority shares one installation actor, while operator actors are isolated even within the same workspace. Current workspace permission applies. Request content is retained for 30 days from creation or until deletion; expiry is unreadable immediately and background maintenance clears retained content. Identity tombstones remain. Deletion does not cancel an already accepted concurrent submission, erase its job or refund charges. Requires write permission, matching retained revision and current key/model/source authorization. Uses only the saved request and original rotation lineage. Rechecks configured video admission and rejects a changed owner-funded/customer funding mode before a new dispatch. Concurrent and restarted calls use one original submission identity. Interrupted original preparation is read back, never assumed safe to dispatch again. HTTP 202 can represent unresolved submission and is not a completed generation or settled charge.
+Actor-owned workspace records: installation authority shares one installation actor, while operator actors are isolated even within the same workspace. Current workspace permission applies. Request content is retained for 30 days from creation or until deletion; expiry is unreadable immediately and background maintenance clears retained content. Identity tombstones remain. Deletion does not cancel an already accepted concurrent submission, erase its job or refund charges. Requires write permission, matching retained revision and current key/model/source authorization. Uses only the saved request and original rotation lineage. Rechecks configured video admission and rejects a changed owner-funded/customer funding mode before a new dispatch. Concurrent and restarted calls use one original submission identity. Interrupted original preparation is read back, never assumed safe to dispatch again. HTTP 202 can represent unresolved submission and is not a completed generation or settled charge. Fresh submissions use the same 24-hour inspected-request and Niu creation-response Logs capture as direct creation, with x-niu-log-payloads: false opt-out. Capture uses the saved inspected video request, not this revision-only submit body. Replay does not create or restore capture.
 
 Implementation: `implemented`. Operation: `submitVideoSubmissionIntent`.
 
@@ -10532,6 +10558,21 @@ Each array entry is an alternative; schemes within one entry are required togeth
 }
 ```
 
+`x-niu-log-payloads` (header, optional)
+
+Capture the inspected Niu request and Niu creation response in bounded 24-hour Logs storage. False opts out; repeated or invalid values are rejected. Replay never creates a new capture.
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "true",
+    "false"
+  ],
+  "default": "true"
+}
+```
+
 ### Request body
 
 Required.
@@ -10564,6 +10605,17 @@ Response header: `Cache-Control`.
 {
   "type": "string",
   "const": "no-store"
+}
+```
+
+Response header: `x-niu-attempt-id`.
+
+Present on fresh creation; identifies the attempt for scoped Logs. Replay does not generate a new capture.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
 }
 ```
 

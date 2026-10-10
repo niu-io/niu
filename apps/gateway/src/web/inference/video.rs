@@ -980,7 +980,7 @@ pub(super) async fn estimate_as(
 ///   "operation": {
 ///     "operationId": "createOwnerFundedVideoJob",
 ///     "summary": "Submit a schema-validated video job",
-///     "description": "Personal routes support configured ark-direct-v1 or openrouter-video-v1 channels. Customer-funded video currently requires a qualified ark-direct-v1 route and video_tokens pricing; OpenRouter remains personal-only. Shared routes with a legacy procurement budget are unsupported, while personal routes retain ordinary authorization and key limits. Exactly one upstream submission follows durable dispatch intent. HTTP or transport errors retain submission_unknown and any unresolved liability. Observed non-success HTTP statuses are saved as upstream_http_error in scoped request diagnostics, without upstream bodies or credentials; they do not prove nonexecution or authorize a retry. Optional workspace-scoped Idempotency-Key supports text-only creation: identical replay returns the original reference and current saved status, including after restart. Changed input conflicts. Unkeyed requests are not idempotent. Configured controls, reference inputs and required inspection remain subject to the selected schema and supported channel.",
+///     "description": "Personal routes support configured ark-direct-v1 or openrouter-video-v1 channels. Customer-funded video currently requires a qualified ark-direct-v1 route and video_tokens pricing; OpenRouter remains personal-only. Shared routes with a legacy procurement budget are unsupported, while personal routes retain ordinary authorization and key limits. Exactly one upstream submission follows durable dispatch intent. HTTP or transport errors retain submission_unknown and any unresolved liability. Observed non-success HTTP statuses are saved as upstream_http_error in scoped request diagnostics, without upstream bodies or credentials; they do not prove nonexecution or authorize a retry. Fresh creation responses include x-niu-attempt-id. Logs retain the inspected Niu request and delivered Niu creation response for up to 24 hours by default; x-niu-log-payloads: false opts out. Requests larger than the 1 MiB capture bound are not retained. This is not an upstream transport-body capture, and replay does not recreate deleted or expired payloads. Optional workspace-scoped Idempotency-Key supports text-only creation: identical replay returns the original reference and current saved status, including after restart. Changed input conflicts. Unkeyed requests are not idempotent. Configured controls, reference inputs and required inspection remain subject to the selected schema and supported channel.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1000,6 +1000,20 @@ pub(super) async fn estimate_as(
 ///           "maxLength": 128
 ///         },
 ///         "description": "Reuse only with the same JSON document in the same workspace; object field order is ignored."
+///       },
+///       {
+///         "name": "x-niu-log-payloads",
+///         "in": "header",
+///         "required": false,
+///         "schema": {
+///           "type": "string",
+///           "enum": [
+///             "true",
+///             "false"
+///           ],
+///           "default": "true"
+///         },
+///         "description": "Capture the inspected Niu request and Niu creation response in bounded 24-hour Logs storage. False opts out; repeated or invalid values are rejected. Replay never creates a new capture."
 ///       }
 ///     ],
 ///     "requestBody": {
@@ -1123,6 +1137,15 @@ pub(super) async fn estimate_as(
 ///               }
 ///             }
 ///           }
+///         },
+///         "headers": {
+///           "x-niu-attempt-id": {
+///             "description": "Present on fresh creation; identifies the attempt for scoped Logs. Replay does not generate a new capture.",
+///             "schema": {
+///               "type": "string",
+///               "format": "uuid"
+///             }
+///           }
 ///         }
 ///       },
 ///       "400": {
@@ -1161,7 +1184,7 @@ pub(in crate::web) async fn create(
     State(state): State<AppState>,
     headers: HeaderMap,
     Json(body): Json<Value>,
-) -> Result<(axum::http::StatusCode, Json<Value>), ApiError> {
+) -> Result<axum::response::Response, ApiError> {
     let _in_flight = state.track_inference();
     let principal = state.authorize_api_headers(&headers).await?;
     let identity = submission_identity(&headers, &body)?;
@@ -1207,7 +1230,7 @@ async fn replay_submission(
     principal: &niu_storage::Principal,
     attempt: Uuid,
     model: &str,
-) -> Result<(axum::http::StatusCode, Json<Value>), ApiError> {
+) -> Result<axum::response::Response, ApiError> {
     let saved = state
         .store
         .media_job_state_for_key(principal, attempt)
@@ -1215,13 +1238,15 @@ async fn replay_submission(
         .map_err(ApiError::from_store)?;
     // Preparation may still be running, or the original process may have died
     // before dispatch. Neither case grants a retry permission to submit.
+    use axum::response::IntoResponse;
     Ok((
         axum::http::StatusCode::ACCEPTED,
         Json(saved.unwrap_or_else(|| {
             serde_json::json!({"id":attempt,"object":"video.job","model":model,
             "status":"submission_unknown"})
         })),
-    ))
+    )
+        .into_response())
 }
 
 pub(super) async fn create_as(
@@ -1230,7 +1255,7 @@ pub(super) async fn create_as(
     principal: niu_storage::Principal,
     identity: Option<SubmissionIdentity>,
     expected_owner_funded: Option<bool>,
-) -> Result<(axum::http::StatusCode, Json<Value>), ApiError> {
+) -> Result<axum::response::Response, ApiError> {
     let model = body
         .get("model")
         .and_then(Value::as_str)
@@ -1537,13 +1562,32 @@ pub(super) async fn create_as(
             tracing::error!(attempt_id = %attempt, "video uncertainty marker persistence failed");
         }
     }
-    Ok((
+    use axum::response::IntoResponse;
+    let mut response = (
         axum::http::StatusCode::ACCEPTED,
         Json(serde_json::json!({
             "id":attempt,"object":"video.job","model":model,
             "status":if bound {"unknown"} else {"submission_unknown"}
         })),
-    ))
+    )
+        .into_response();
+    response.headers_mut().insert(
+        "x-niu-attempt-id",
+        attempt
+            .to_string()
+            .parse()
+            .expect("UUID is an HTTP header value"),
+    );
+    // Only the inspected customer request belongs in Logs. Upstream transport
+    // bodies, credentials and result references have a different trust boundary.
+    // Replays return above and cannot replace the original capture or its expiry.
+    crate::request_payloads::remove_credentials(&mut body);
+    if serde_json::to_vec(&body).is_ok_and(|bytes| bytes.len() <= 1_048_576) {
+        response
+            .extensions_mut()
+            .insert(crate::request_payloads::InspectedRequestPayload(body));
+    }
+    Ok(response)
 }
 
 /// Explicit single-query refresh, never a generation retry. The opt-in worker

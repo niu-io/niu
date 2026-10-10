@@ -7,7 +7,7 @@ use crate::{
 use axum::{
     Json,
     extract::{Path, Query, State},
-    http::{HeaderMap, StatusCode},
+    http::HeaderMap,
 };
 use niu_storage::{AdminPermission, Principal, TenantScope, VideoIntent, VideoIntentInput};
 use serde::Deserialize;
@@ -916,7 +916,7 @@ pub(in crate::web) async fn delete(
 ///   "operation": {
 ///     "operationId": "submitVideoSubmissionIntent",
 ///     "summary": "Explicitly submit or replay an immutable saved video intent",
-///     "description": "Actor-owned workspace records: installation authority shares one installation actor, while operator actors are isolated even within the same workspace. Current workspace permission applies. Request content is retained for 30 days from creation or until deletion; expiry is unreadable immediately and background maintenance clears retained content. Identity tombstones remain. Deletion does not cancel an already accepted concurrent submission, erase its job or refund charges. Requires write permission, matching retained revision and current key/model/source authorization. Uses only the saved request and original rotation lineage. Rechecks configured video admission and rejects a changed owner-funded/customer funding mode before a new dispatch. Concurrent and restarted calls use one original submission identity. Interrupted original preparation is read back, never assumed safe to dispatch again. HTTP 202 can represent unresolved submission and is not a completed generation or settled charge.",
+///     "description": "Actor-owned workspace records: installation authority shares one installation actor, while operator actors are isolated even within the same workspace. Current workspace permission applies. Request content is retained for 30 days from creation or until deletion; expiry is unreadable immediately and background maintenance clears retained content. Identity tombstones remain. Deletion does not cancel an already accepted concurrent submission, erase its job or refund charges. Requires write permission, matching retained revision and current key/model/source authorization. Uses only the saved request and original rotation lineage. Rechecks configured video admission and rejects a changed owner-funded/customer funding mode before a new dispatch. Concurrent and restarted calls use one original submission identity. Interrupted original preparation is read back, never assumed safe to dispatch again. HTTP 202 can represent unresolved submission and is not a completed generation or settled charge. Fresh submissions use the same 24-hour inspected-request and Niu creation-response Logs capture as direct creation, with x-niu-log-payloads: false opt-out. Capture uses the saved inspected video request, not this revision-only submit body. Replay does not create or restore capture.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -952,6 +952,20 @@ pub(in crate::web) async fn delete(
 ///           "type": "string",
 ///           "format": "uuid"
 ///         }
+///       },
+///       {
+///         "name": "x-niu-log-payloads",
+///         "in": "header",
+///         "required": false,
+///         "schema": {
+///           "type": "string",
+///           "enum": [
+///             "true",
+///             "false"
+///           ],
+///           "default": "true"
+///         },
+///         "description": "Capture the inspected Niu request and Niu creation response in bounded 24-hour Logs storage. False opts out; repeated or invalid values are rejected. Replay never creates a new capture."
 ///       }
 ///     ],
 ///     "responses": {
@@ -962,6 +976,13 @@ pub(in crate::web) async fn delete(
 ///             "schema": {
 ///               "type": "string",
 ///               "const": "no-store"
+///             }
+///           },
+///           "x-niu-attempt-id": {
+///             "description": "Present on fresh creation; identifies the attempt for scoped Logs. Replay does not generate a new capture.",
+///             "schema": {
+///               "type": "string",
+///               "format": "uuid"
 ///             }
 ///           }
 ///         },
@@ -1031,7 +1052,7 @@ pub(in crate::web) async fn submit(
     Path((org, ws, id)): Path<IntentPath>,
     headers: HeaderMap,
     Json(input): Json<Revision>,
-) -> Result<(StatusCode, Json<Value>), ApiError> {
+) -> Result<axum::response::Response, ApiError> {
     if input.expected_revision <= 0 || input.expected_revision == i64::MAX {
         return Err(ApiError::invalid_request(
             "Expected revision must be a positive incrementable integer",

@@ -4,7 +4,7 @@ use crate::{error::ApiError, state::AppState};
 use axum::{
     Json,
     extract::{Path, State},
-    http::{HeaderMap, StatusCode},
+    http::HeaderMap,
 };
 use niu_storage::{AdminPermission, Principal, TenantScope};
 use serde_json::Value;
@@ -70,7 +70,7 @@ pub(in crate::web) async fn create(
     Path(path): Path<KeyPath>,
     headers: HeaderMap,
     Json(body): Json<Value>,
-) -> Result<(StatusCode, Json<Value>), ApiError> {
+) -> Result<axum::response::Response, ApiError> {
     let _in_flight = state.track_inference();
     let principal = principal(&state, &headers, path, AdminPermission::Write).await?;
     let identity = video::submission_identity(&headers, &body)?;

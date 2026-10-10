@@ -115,11 +115,16 @@ pub async fn capture(
     next: Next,
 ) -> Response {
     let path = request.uri().path();
-    let inference = matches!(
-        path,
-        "/v1/chat/completions" | "/v1/responses" | "/v1/embeddings"
-    ) || path.starts_with("/admin/v1/organizations/")
-        && path.ends_with("/chat/completions");
+    let video = path == "/v1/video/jobs"
+        || path.starts_with("/admin/v1/organizations/")
+            && (path.ends_with("/video/jobs")
+                || path.contains("/video-intents/") && path.ends_with("/submit"));
+    let inference = video
+        || matches!(
+            path,
+            "/v1/chat/completions" | "/v1/responses" | "/v1/embeddings"
+        )
+        || path.starts_with("/admin/v1/organizations/") && path.ends_with("/chat/completions");
     if !inference || request.method() != axum::http::Method::POST {
         return next.run(request).await;
     }
@@ -128,29 +133,42 @@ pub async fn capture(
         Ok(true) => {}
         Err(error) => return error.into_response(),
     }
-    let (parts, body) = request.into_parts();
-    let bytes = match to_bytes(body, LIMIT).await {
-        Ok(bytes) => bytes,
-        Err(error) => {
-            // Capture must preserve the router's 413 semantics. Transport read
-            // failures are not evidence that the client exceeded the size cap.
-            if error
-                .source()
-                .is_some_and(|source| source.is::<http_body_util::LengthLimitError>())
-            {
-                return ApiError::request_too_large().into_response();
+    // Video handlers supply their inspected input through a response extension.
+    // Do not pre-buffer their bodies here: video has its own larger image limit.
+    let (mut input, request) = if video {
+        (Value::Null, request)
+    } else {
+        let (parts, body) = request.into_parts();
+        let bytes = match to_bytes(body, LIMIT).await {
+            Ok(bytes) => bytes,
+            Err(error) => {
+                // Capture must preserve the router's 413 semantics. Transport read
+                // failures are not evidence that the client exceeded the size cap.
+                if error
+                    .source()
+                    .is_some_and(|source| source.is::<http_body_util::LengthLimitError>())
+                {
+                    return ApiError::request_too_large().into_response();
+                }
+                return ApiError::invalid_request("Could not read request body").into_response();
             }
-            return ApiError::invalid_request("Could not read request body").into_response();
-        }
+        };
+        let mut input = match serde_json::from_slice::<Value>(&bytes) {
+            Ok(value) => value,
+            Err(_) => return ApiError::invalid_request("Invalid JSON request").into_response(),
+        };
+        remove_credentials(&mut input);
+        (input, Request::from_parts(parts, Body::from(bytes)))
     };
-    let mut input = match serde_json::from_slice::<Value>(&bytes) {
-        Ok(value) => value,
-        Err(_) => return ApiError::invalid_request("Invalid JSON request").into_response(),
-    };
-    remove_credentials(&mut input);
-    let mut response = next
-        .run(Request::from_parts(parts, Body::from(bytes)))
-        .await;
+    let mut response = next.run(request).await;
+    if video
+        && response
+            .extensions()
+            .get::<InspectedRequestPayload>()
+            .is_none()
+    {
+        return response;
+    }
     if let Some(inspected) = response
         .extensions_mut()
         .remove::<InspectedRequestPayload>()
