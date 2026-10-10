@@ -79,3 +79,9 @@ The fourth requested path, Responses streaming, returned HTTP 501 before creatin
 an additional attempt. This agrees with the documented unimplemented Responses
 streaming subset. It remains a protocol coverage gap, not a qualified streaming
 path or a reason to infer zero cache usage.
+
+
+The subsequent [Responses streaming increment](inference-qualification.md#responses-streaming-implementation-and-current-input-evidence)
+replaces the earlier 501 implementation boundary. A real completed Responses SSE
+request now preserved the reported cache and reasoning quantities in PostgreSQL.
+The customer-funded settlement limitations above still apply.

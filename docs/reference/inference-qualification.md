@@ -61,14 +61,14 @@ The gateway's `web::tests::inference` fixtures exercise a local upstream server 
 | Function tools | Explicit route opt-in, declared function names, JSON-object arguments, forwarded tool choice and provider-reported usage; Niu does not execute tools |
 | Streaming function tools | Separate opt-in, preserved wire deltas and terminal usage; priced tool calls remain unsupported |
 | Structured JSON output | Valid self-contained schemas compile before admission; returned JSON must match the requested schema, and `json_object` must return an object. External retrieval is disabled; schema size, depth, node count and regex work are bounded. Nonempty upstream refusals remain refusals rather than fabricated JSON. |
-| Responses | Explicit opt-in; nonstreaming text input and supported output subset with durable input/output usage |
+| Responses | Explicit opt-in; text input, nonstreaming output and SSE output with durable terminal input/output usage; see current streaming evidence below |
 | Embeddings | Explicit compatible-route declaration, supported input validation, scoped admission and input-only usage settlement |
 | Explicit effort | OpenAI-compatible nonstreaming `reasoning_effort` and streaming OpenRouter `reasoning` objects are forwarded unchanged; native adapters reject unsupported effort/thinking fields |
 | Upstream failure | A Chat 503 fixture returns a gateway error with one durable attempt, one upstream dispatch and unknown usage; no automatic retry is observed |
 | Credential and route control | Client fields cannot replace configured upstream credentials or routing; invalid credentials and incompatible workspace/key combinations fail |
 | Interruption and content | Incomplete timing and retained partial content where observed; missing terminal usage stays unknown; explicit payload opt-out does not suppress metadata |
 
-Responses streaming, conversation state, multimodal input and tools are outside the implemented Responses subset. Native Anthropic and Bedrock paths have no provider-specific conformance qualification. See the public API reference and route configuration for exact accepted shapes and flags.
+Responses conversation state, multimodal input and tools are outside the implemented Responses subset. Native Anthropic and Bedrock paths have no provider-specific conformance qualification. See the public API reference and route configuration for exact accepted shapes and flags.
 
 ## Remaining release checks
 
@@ -160,3 +160,37 @@ unimplemented.
 A subsequent real successful nonstreaming Responses call on the same build also
 matched response totals, cached input and reasoning output against persisted
 records, with no customer ledger mutation and all temporary access disabled.
+
+
+### Responses streaming implementation and current-input evidence
+
+Text-only Responses requests now accept `stream: true`. The gateway validates the
+upstream SSE content type, bounds each event to 64 KiB, rejects error events and
+requires `response.completed` or `response.incomplete` with a matching response
+status and identity. `[DONE]` alone and EOF are not completion evidence. Terminal
+reported input/output counts and token categories enter the existing durable
+completion/settlement queue. Missing valid usage stays unknown. Cancellation,
+transport failure and missing terminal events retain uncertainty and reservations;
+there is no automatic replay. Buffered output guardrail requirements continue to
+reject streaming before dispatch.
+
+Customer SSE removes Supplier commercial metadata, substitutes the public model
+alias in response objects and stops at the terminal event. JavaScript callers use
+`client.responses.stream(request)`; the ordinary `create` method rejects a runtime
+stream flag to avoid returning SSE as a JSON response. SDK readers release their
+stream when terminated and require a Responses terminal event.
+
+A real owner-funded OpenRouter request on the optimized gateway returned text SSE
+and a completed response. Its public model alias and final input/output, cached
+input and reasoning output quantities matched independently queried PostgreSQL
+records. No customer ledger mutation occurred; the temporary key was revoked and
+its personal model/credential disabled. This supersedes the earlier recorded 501
+boundary for streaming. Paid streaming settlement, incomplete-status output,
+malformed events, early cancellation and multi-gateway recovery still require
+current-input qualification; this is not complete Responses API compatibility.
+
+The built JavaScript SDK then completed a separate real Responses stream through
+`responses.stream()`, observed text deltas and a final completed event, and matched
+its returned usage to PostgreSQL. A real Chat stream through the shared stream
+lifecycle also retained exact usage/category records after this change. Temporary
+access was disabled and customer ledgers stayed unchanged for both runs.

@@ -3,7 +3,7 @@ use std::{sync::atomic::Ordering, time::Duration};
 use axum::{
     Json,
     extract::State,
-    http::HeaderMap,
+    http::{HeaderMap, HeaderValue, header},
     response::{IntoResponse, Response},
 };
 use serde_json::{Value, json};
@@ -105,8 +105,16 @@ pub(in crate::web) async fn responses(
         },
     )
     .await?;
-    let result =
-        execute_responses(&state, &public_model, model, api_key, body, timeout, client).await;
+    let result = execute_responses(
+        &state,
+        &public_model,
+        model,
+        api_key,
+        body,
+        (timeout, client),
+        &dispatch,
+    )
+    .await;
     Ok(finalize_response(&state, dispatch, result).await)
 }
 
@@ -133,14 +141,8 @@ pub(in crate::web) fn validate_responses_request(
             "Unsupported field in Responses request",
         ));
     }
-    match object.get("stream") {
-        None | Some(Value::Bool(false)) => {}
-        Some(Value::Bool(true)) => {
-            return Err(ApiError::unsupported_message(
-                "Streaming Responses are not supported. Set stream to false or use Chat streaming.",
-            ));
-        }
-        _ => return Err(ApiError::invalid_request("stream must be a boolean")),
+    if object.get("stream").is_some_and(|v| !v.is_boolean()) {
+        return Err(ApiError::invalid_request("stream must be a boolean"));
     }
     let input_bytes = object
         .get("input")
@@ -225,9 +227,11 @@ async fn execute_responses(
     model: &crate::config::ModelConfig,
     api_key: String,
     mut body: Value,
-    timeout: Duration,
-    client: reqwest::Client,
+    transport: (Duration, reqwest::Client),
+    dispatch: &DispatchContext,
 ) -> Result<ProviderResponse, ApiError> {
+    let (timeout, client) = transport;
+    let streaming = body["stream"] == true;
     let base = model.endpoint_base().ok_or_else(ApiError::unavailable)?;
     let endpoint = format!("{}/responses", base.trim_end_matches('/'));
     let object = body
@@ -240,6 +244,14 @@ async fn execute_responses(
     let upstream = client
         .post(endpoint)
         .bearer_auth(api_key)
+        .header(
+            header::ACCEPT,
+            if streaming {
+                "text/event-stream"
+            } else {
+                "application/json"
+            },
+        )
         .timeout(timeout)
         .json(&body)
         .send()
@@ -251,6 +263,51 @@ async fn execute_responses(
     if !upstream.status().is_success() {
         state.failures.fetch_add(1, Ordering::Relaxed);
         return Err(provider_rejection(upstream).await);
+    }
+    if streaming {
+        if upstream
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.split(';').next())
+            .is_none_or(|v| !v.trim().eq_ignore_ascii_case("text/event-stream"))
+        {
+            state.failures.fetch_add(1, Ordering::Relaxed);
+            return Err(ApiError::upstream_invalid_response());
+        }
+        let mut response = Response::new(crate::streaming::tracked_responses_body(
+            upstream.bytes_stream(),
+            crate::streaming::StreamAttempt {
+                store: state.store.clone(),
+                gateway_writes: state.gateway_writes.clone(),
+                scope: dispatch.scope,
+                id: dispatch.attempt,
+                priced: dispatch.priced,
+                usage: usage_attempt,
+                failures: state.failures.clone(),
+            },
+            public_model.to_owned(),
+        ));
+        response.headers_mut().insert(
+            header::CONTENT_TYPE,
+            HeaderValue::from_static("text/event-stream"),
+        );
+        response
+            .headers_mut()
+            .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-cache"));
+        response.headers_mut().insert(
+            "x-niu-model",
+            HeaderValue::from_str(public_model)
+                .map_err(|_| ApiError::invalid_request("Invalid model alias"))?,
+        );
+        return Ok(ProviderResponse {
+            response,
+            completed: false,
+            usage: None,
+            provider_model: None,
+            token_categories: None,
+            finish_reasons: None,
+        });
     }
     let mut value: Value = provider_json(upstream).await.map_err(|_| {
         state.failures.fetch_add(1, Ordering::Relaxed);

@@ -41,7 +41,7 @@ Embedding calls use the configured OpenAI-compatible route and are available onl
 
 `chat.completions()` types OpenAI-compatible function tools, tool choices, JSON response formats, tool-call results, and usage. The selected route must enable the matching server-side capability. Niu returns tool requests to the client; the application remains responsible for reviewing and executing them. Niu checks structured JSON against the supplied schema within its documented offline validation bounds; invalid schemas are rejected before dispatch, and nonconforming outputs fail delivery.
 
-`responses.create()` supports the documented non-streaming text subset of the OpenAI Responses API when the selected route enables `supports_responses`. It accepts a string `input`; multimodal inputs, tool calls, conversation state and streaming are not included in this subset. The SDK passes `AbortSignal` through to the request.
+`responses.create()` supports the documented non-streaming text subset of the OpenAI Responses API when the selected route enables `supports_responses`. It accepts a string `input`; multimodal inputs, tool calls and conversation state are not included in this subset. Use `responses.stream()` with the same text input to iterate Responses SSE events. The iterator ends at `response.completed` or `response.incomplete`; missing terminal evidence is an error. The SDK passes `AbortSignal` through to the request.
 
 The SDK also provides a metadata-only task recorder. It is independent of the inference client and does not capture prompts, model responses, source code, tool arguments, or tool output.
 

@@ -228,7 +228,7 @@ fn responses_contract_bounds_text_inputs_and_validates_output_items() {
 
     for invalid in [
         json!({"model":"fast","input":[{"role":"user","content":"hi"}]}),
-        json!({"model":"fast","input":"hi","stream":true}),
+        json!({"model":"fast","input":"hi","stream":"true"}),
         json!({"model":"fast","input":"hi","max_output_tokens":11}),
         json!({"model":"fast","input":"hi","tools":[]}),
         json!({"model":"fast","input":"hi","temperature":3}),
@@ -1134,26 +1134,26 @@ async fn responses_are_opt_in_text_only_and_persist_reported_usage(pool: PgPool)
                 .header("authorization", format!("Bearer {}", key.token))
                 .header("content-type", "application/json")
                 .body(axum::body::Body::from(
-                    json!({"model":"fast","input":"hi","stream":true}).to_string(),
+                    json!({"model":"fast","input":"hi","stream":"yes"}).to_string(),
                 ))
                 .unwrap(),
         )
         .await
         .unwrap();
-    assert_eq!(streaming.status(), StatusCode::NOT_IMPLEMENTED);
+    assert_eq!(streaming.status(), StatusCode::BAD_REQUEST);
     assert!(streaming.headers().get("x-niu-attempt-id").is_none());
     let rejection: Value =
         serde_json::from_slice(&streaming.into_body().collect().await.unwrap().to_bytes()).unwrap();
-    assert_eq!(rejection["error"]["type"], "unsupported_operation_error");
+    assert_eq!(rejection["error"]["type"], "invalid_request_error");
     assert!(
         rejection["error"]["message"]
             .as_str()
             .unwrap()
-            .contains("Chat streaming")
+            .contains("stream must be a boolean")
     );
     assert!(
         captured.0.lock().unwrap().is_none(),
-        "rejected streaming must not dispatch"
+        "invalid stream option must not dispatch"
     );
     let category_count: i64 = sqlx::query_scalar("SELECT count(*) FROM request_token_categories")
         .fetch_one(&pool)
@@ -3289,8 +3289,8 @@ async fn unsupported_capabilities_are_actionable_without_admission_or_egress(poo
         (
             "/v1/responses",
             json!({"model":"fast","input":"hello","stream":true}),
-            8,
-            "Set stream to false or use Chat streaming",
+            0,
+            "Choose a model with Responses support",
         ),
         (
             "/v1/responses",

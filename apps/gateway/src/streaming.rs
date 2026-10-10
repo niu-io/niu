@@ -1,4 +1,4 @@
-//! Bounded chat SSE inspection; customer output excludes supplier commercial metadata.
+//! Bounded Chat and Responses SSE inspection; customer output excludes supplier commercial metadata.
 use crate::{admission::GatewayWrites, usage::UsageAttempt};
 use axum::body::{Body, Bytes};
 use futures_util::{Stream, StreamExt};
@@ -18,6 +18,7 @@ const MAX_EVENT_BYTES: usize = 65_536;
 
 #[derive(Default)]
 pub struct ChatEvidence {
+    responses: bool,
     line: Vec<u8>,
     data: Vec<u8>,
     skip_lf: bool,
@@ -39,6 +40,67 @@ pub struct ChatEvidence {
 }
 
 impl ChatEvidence {
+    fn observe_response_event(&mut self, value: &Value) -> Result<(), &'static str> {
+        let kind = value
+            .get("type")
+            .and_then(Value::as_str)
+            .ok_or("Responses event has no type")?;
+        if matches!(kind, "error" | "response.failed") {
+            return Err("upstream returned a Responses error event");
+        }
+        if matches!(
+            kind,
+            "response.output_text.delta" | "response.refusal.delta"
+        ) {
+            let delta = value
+                .get("delta")
+                .and_then(Value::as_str)
+                .ok_or("invalid Responses output delta")?;
+            self.has_output |= !delta.is_empty();
+        }
+        if !matches!(kind, "response.completed" | "response.incomplete") {
+            return Ok(());
+        }
+        let response = &value["response"];
+        let status = if kind == "response.completed" {
+            "completed"
+        } else {
+            "incomplete"
+        };
+        if response["object"] != "response"
+            || response["status"] != status
+            || response["id"].as_str().is_none_or(str::is_empty)
+        {
+            return Err("invalid Responses terminal envelope");
+        }
+        let usage = &response["usage"];
+        self.usage = usage["input_tokens"]
+            .as_u64()
+            .zip(usage["output_tokens"].as_u64())
+            .filter(|(a, b)| *a <= i64::MAX as u64 && *b <= i64::MAX as u64)
+            .filter(|(a, b)| {
+                usage
+                    .get("total_tokens")
+                    .is_none_or(|v| a.checked_add(*b) == v.as_u64())
+            });
+        self.token_categories = self.usage.and_then(|totals| {
+            niu_storage::RequestTokenCategories::from_responses_usage(usage, totals)
+        });
+        self.provider_model = response["model"]
+            .as_str()
+            .map(str::trim)
+            .filter(|v| !v.is_empty() && v.len() <= 200 && !v.chars().any(char::is_control))
+            .map(str::to_owned);
+        if let Some(choices) = niu_storage::RequestChoiceFinish::from_responses_response(response) {
+            for choice in choices {
+                self.finish_choices
+                    .insert(choice.index, Some(choice.reason));
+            }
+        }
+        self.done = true;
+        Ok(())
+    }
+
     pub fn finish_reasons(&self) -> Option<Vec<niu_storage::RequestChoiceFinish>> {
         if !self.done || self.ambiguous_finish || self.finish_choices.is_empty() {
             return None;
@@ -182,6 +244,9 @@ impl ChatEvidence {
             }
             self.data.pop(); // Remove the final newline appended to data fields.
             if self.data == b"[DONE]" {
+                if self.responses {
+                    return Err("Responses stream ended without a response terminal event");
+                }
                 self.done = true;
                 self.data.clear();
                 return Ok(());
@@ -189,6 +254,9 @@ impl ChatEvidence {
             let value: Value =
                 serde_json::from_slice(&self.data).map_err(|_| "invalid upstream SSE JSON")?;
             self.data.clear();
+            if self.responses {
+                return self.observe_response_event(&value);
+            }
             if !value.is_object() || value.get("error").is_some() {
                 return Err("invalid upstream chat event");
             }
@@ -290,10 +358,32 @@ pub fn tracked_body<S>(upstream: S, attempt: StreamAttempt) -> Body
 where
     S: Stream<Item = Result<Bytes, reqwest::Error>> + Send + 'static,
 {
+    tracked_protocol_body(upstream, attempt, false, None)
+}
+
+pub fn tracked_responses_body<S>(upstream: S, attempt: StreamAttempt, public_model: String) -> Body
+where
+    S: Stream<Item = Result<Bytes, reqwest::Error>> + Send + 'static,
+{
+    tracked_protocol_body(upstream, attempt, true, Some(public_model))
+}
+
+fn tracked_protocol_body<S>(
+    upstream: S,
+    attempt: StreamAttempt,
+    responses: bool,
+    public_model: Option<String>,
+) -> Body
+where
+    S: Stream<Item = Result<Bytes, reqwest::Error>> + Send + 'static,
+{
     let state = (
         Box::pin(upstream),
-        ChatEvidence::default(),
-        crate::customer_response::CustomerSse::default(),
+        ChatEvidence {
+            responses,
+            ..Default::default()
+        },
+        crate::customer_response::CustomerSse::with_public_model(public_model),
         Some(attempt),
         false,
     );

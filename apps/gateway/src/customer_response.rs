@@ -99,11 +99,18 @@ fn sanitize_usage(value: &mut Value) -> bool {
 
 #[derive(Default)]
 pub struct CustomerSse {
+    public_model: Option<String>,
     pending: Vec<u8>,
     started: bool,
     done: bool,
 }
 impl CustomerSse {
+    pub fn with_public_model(public_model: Option<String>) -> Self {
+        Self {
+            public_model,
+            ..Default::default()
+        }
+    }
     pub fn feed(&mut self, bytes: &[u8]) -> Result<Vec<u8>, &'static str> {
         if self.done {
             return Ok(Vec::new());
@@ -142,7 +149,23 @@ impl CustomerSse {
             }
             let mut value =
                 serde_json::from_str::<Value>(&data).map_err(|_| "invalid upstream SSE JSON")?;
-            if sanitize(&mut value) {
+            let terminal_response = matches!(
+                value.get("type").and_then(Value::as_str),
+                Some("response.completed" | "response.incomplete" | "response.failed")
+            );
+            if terminal_response {
+                self.done = true;
+                self.pending.clear();
+            }
+            let mut changed = sanitize(&mut value);
+            if let Some(model) = &self.public_model
+                && let Some(response) = value.get_mut("response").and_then(Value::as_object_mut)
+                && response.contains_key("model")
+            {
+                response.insert("model".into(), Value::String(model.clone()));
+                changed = true;
+            }
+            if changed {
                 // Preserve event fields, comments and identifiers; replace only data.
                 for line in text
                     .split(['\r', '\n'])
@@ -154,9 +177,15 @@ impl CustomerSse {
                 output.extend_from_slice(b"data: ");
                 output.extend_from_slice(value.to_string().as_bytes());
                 output.extend_from_slice(b"\n\n");
+                if terminal_response {
+                    break;
+                }
                 continue;
             }
             output.extend_from_slice(&frame);
+            if terminal_response {
+                break;
+            }
         }
         if self.pending.len() > 65_536 {
             return Err("upstream SSE event exceeds inspection limit");

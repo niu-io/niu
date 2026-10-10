@@ -298,7 +298,7 @@ export class NiuClient {
   readonly video: { models: { list: (options?: RequestOptions) => Promise<VideoModelList> }; estimate: (request: VideoCreateRequest, options?: RequestOptions) => Promise<VideoEstimate>; jobs: { results: { status: (id: string, options?: RequestOptions) => Promise<VideoResultAvailability>; retrieve: (id: string, kind: 'video' | 'last_frame', options?: RequestOptions) => Promise<Response>; delete: (id: string, options?: RequestOptions) => Promise<{ deleted: true }> }; list: (query?: VideoJobHistoryQuery, options?: RequestOptions) => Promise<VideoJobHistory>; billing: (id: string, options?: RequestOptions) => Promise<VideoJobBilling>; timings: (id: string, options?: RequestOptions) => Promise<VideoTransportTimings>; refresh: (id: string, options?: RequestOptions) => Promise<VideoJobState>; create: (request: VideoCreateRequest, options?: VideoCreateOptions) => Promise<VideoJobState>; retrieve: (id: string, options?: RequestOptions) => Promise<VideoJobState> } };
   readonly models: { list: (options?: RequestOptions) => Promise<ModelList> };
   readonly embeddings: { create: (request: EmbeddingRequest, options?: RequestOptions) => Promise<EmbeddingResponse> };
-  readonly responses: { create: (request: ResponsesRequest, options?: RequestOptions) => Promise<ResponsesResponse> };
+  readonly responses: { create: (request: ResponsesRequest, options?: RequestOptions) => Promise<ResponsesResponse>; stream: (request: ResponsesRequest, options?: RequestOptions) => AsyncGenerator<unknown> };
   readonly chat: {
     completions: (request: ChatCompletionRequest, options?: RequestOptions) => Promise<ChatCompletionResponse>;
     stream: (request: ChatStreamRequest, options?: RequestOptions) => AsyncGenerator<unknown>;
@@ -393,7 +393,11 @@ export class NiuClient {
       create: (request, requestOptions) => this.request('/embeddings', request, requestOptions),
     };
     this.responses = {
-      create: (request, requestOptions) => this.request('/responses', request, requestOptions),
+      create: (request, requestOptions) => {
+        if ((request as { stream?: boolean }).stream === true) throw new Error('Use responses.stream() for streaming requests');
+        return this.request('/responses', request, requestOptions);
+      },
+      stream: (request, requestOptions) => this.streamResponses(request, requestOptions),
     };
     this.chat = {
       stream: (request, requestOptions) => this.streamChat(request, requestOptions),
@@ -413,6 +417,15 @@ export class NiuClient {
   ): Promise<T> {
     const response = await this.send(path, body, options, 'application/json');
     return await readPayload(response) as T;
+  }
+
+  private async *streamResponses(request: ResponsesRequest, options: RequestOptions = {}): AsyncGenerator<unknown> {
+    const response = await this.send('/responses', { ...request, stream: true }, options, 'text/event-stream');
+    if (response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() !== 'text/event-stream' || !response.body) {
+      await response.body?.cancel();
+      throw new Error('Expected an event-stream response');
+    }
+    yield* parseChatStream(response.body, options.signal, true);
   }
 
   private async *streamChat(request: ChatStreamRequest, options: RequestOptions = {}): AsyncGenerator<unknown> {
@@ -493,7 +506,7 @@ async function readPayload(response: Response): Promise<unknown> {
   try { return text ? JSON.parse(text) : undefined; } catch { return text; }
 }
 
-async function* parseChatStream(body: ReadableStream<Uint8Array>, signal?: AbortSignal): AsyncGenerator<unknown> {
+async function* parseChatStream(body: ReadableStream<Uint8Array>, signal?: AbortSignal, responses = false): AsyncGenerator<unknown> {
   const reader = body.getReader();
   const abort = () => { void reader.cancel(signal?.reason).catch(() => {}); };
   signal?.addEventListener('abort', abort, { once: true });
@@ -523,11 +536,16 @@ async function* parseChatStream(body: ReadableStream<Uint8Array>, signal?: Abort
           if (data !== '') {
             const event = data.slice(0, -1);
             data = '';
-            if (event === '[DONE]') return;
+            if (event === '[DONE]') {
+              if (responses) throw new Error('Responses stream ended without a terminal response');
+              return;
+            }
             const value: unknown = JSON.parse(event);
             if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new Error('Invalid chat stream event');
             if ('error' in value) throw new Error(errorMessage(value, 200));
+            if (responses && 'type' in value && value.type === 'response.failed') throw new Error('Upstream response failed');
             yield value;
+            if (responses && 'type' in value && (value.type === 'response.completed' || value.type === 'response.incomplete')) return;
           }
           errorEvent = false;
         } else if (!line.startsWith(':')) {

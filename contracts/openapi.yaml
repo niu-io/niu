@@ -1438,8 +1438,8 @@ paths:
   /v1/responses:
     post:
       operationId: createResponse
-      summary: Create a non-streaming text response
-      description: The route must be an OpenAI-compatible provider route with supports_responses enabled. This public subset accepts a single text input and optional text instructions, output limit, sampling values, metadata and user identifier. Streaming, multimodal input, tools, prior-response state and other fields are rejected.
+      summary: Create a text response
+      description: The route must be an OpenAI-compatible provider route with supports_responses enabled. This public subset accepts a single text input and optional text instructions, output limit, sampling values, metadata and user identifier. Text streaming returns Responses SSE events and preserves terminal reported usage. Multimodal input, tools, prior-response state and other fields are rejected.
       security:
         - bearerAuth: []
         - niuApiKeyAuth: []
@@ -1463,6 +1463,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ResponsesResponse'
+            text/event-stream:
+              schema: { type: string }
         '400':
           description: Invalid body, unsupported field or invalid request shape.
         '401':
@@ -1472,10 +1474,10 @@ paths:
         '409':
           description: Admission conflict before dispatch. Type route_configuration_changed identifies a changed managed credential/model configuration; that request was not sent upstream. Other conflicts retain their own error type.
         '501':
-          description: Responses support is disabled, the route protocol is unsupported, or streaming was requested. The unsupported_operation_error message identifies the limitation and supported alternative before admission.
+          description: Responses support is disabled, the route protocol is unsupported, or the requested feature is unsupported. The unsupported_operation_error message identifies the limitation and supported alternative before admission.
         '502':
           description: Provider request failed or returned an invalid text response.
-      x-niu-status: Non-streaming, text-only subset on explicitly configured OpenAI-compatible routes. The gateway validates response item types and usage shape. Tool, multimodal, streaming and stateful conversation semantics are not implemented.
+      x-niu-status: Text-only subset on explicitly configured OpenAI-compatible routes. Streaming requires a completed or incomplete response terminal event; disconnects retain uncertainty. Tool, multimodal and stateful conversation semantics are not implemented.
   /admin/v1/models:
     get:
       operationId: adminListModels
@@ -4459,7 +4461,7 @@ components:
           maxProperties: 16
           additionalProperties: { type: string, maxLength: 512 }
         user: { type: string, maxLength: 512 }
-        stream: { type: boolean, const: false, default: false }
+        stream: { type: boolean, default: false }
     ResponsesOutputText:
       type: object
       required: [type, text]
