@@ -669,24 +669,21 @@ impl Store {
     /// Remove at most sixteen expired encrypted payloads per maintenance tick.
     /// Immutable source metadata and approval provenance remain. Locked sources
     /// are skipped so explicit erasure and concurrent workers cannot stall a batch.
+    /// Row data failures defer that source durably without rolling back neighbors;
+    /// erasure provenance and ciphertext deletion remain atomic for each source.
     pub async fn purge_expired_inspected_image_sources(&self) -> Result<u64, StoreError> {
-        self.run_background_work(crate::background_work::BackgroundWork::ContentRetention, |tx| {
-            Box::pin(async move {
-                let ids: Vec<Uuid> = sqlx::query_scalar(
-                    "SELECT s.id FROM inspected_image_sources s JOIN inspected_image_source_content c ON c.source_id=s.id WHERE s.expires_at<=clock_timestamp() ORDER BY s.expires_at,s.id LIMIT 16 FOR UPDATE OF s SKIP LOCKED"
-                ).fetch_all(&mut **tx).await?;
-                if ids.is_empty() {
-                    return Ok(0);
-                }
-                sqlx::query("INSERT INTO inspected_image_source_erasures(source_id) SELECT unnest($1::uuid[]) ON CONFLICT DO NOTHING")
-                    .bind(&ids).execute(&mut **tx).await?;
-                Ok(sqlx::query("DELETE FROM inspected_image_source_content WHERE source_id=ANY($1)")
-                    .bind(&ids)
-                    .execute(&mut **tx)
-                    .await?
-                    .rows_affected())
-            })
-        })
+        self.run_background_work(
+            crate::background_work::BackgroundWork::ContentRetention,
+            |tx| {
+                Box::pin(async move {
+                    let removed: i64 =
+                        sqlx::query_scalar("SELECT niu_purge_inspected_image_page()")
+                            .fetch_one(&mut **tx)
+                            .await?;
+                    Ok(removed as u64)
+                })
+            },
+        )
         .await
         .map(|removed| removed.unwrap_or(0))
     }

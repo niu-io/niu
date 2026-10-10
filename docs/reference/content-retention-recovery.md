@@ -200,6 +200,36 @@ The original retention eligibility remains unchanged. This implementation does
 not yet isolate failures in asset or inspected-image batches, or satisfy the
 strict cross-instance connection-count requirement.
 
+## Inspected-image retry isolation implementation
+
+Migration 0240 moves inspected-image expiry into a bounded database function.
+It retains the existing 16-source limit, expiry ordering and source-row
+`SKIP LOCKED` claim. Each source's immutable erasure marker and ciphertext
+deletion share one exception subtransaction. A row data or constraint failure
+rolls both back and stores a content-free retry deadline 60 seconds later,
+allowing successful neighbors to commit. Statement deadlines and infrastructure
+errors still abort the bounded batch. Deleting retained content, including
+explicit erasure, cascades removal of its retry metadata.
+
+The existing content-owner claim and transaction deadlines remain unchanged.
+This is an implementation checkpoint, not evidence of populated image cleanup
+or complete issue #13 acceptance. Asset-result batches and interrupted image
+outcome batches still need their own row-failure isolation. The strict global
+connection bound remains unresolved.
+
+A fresh isolated native Gateway installed migration 0240, invoked the empty
+cleanup function and rejected an actual fresh PNG upload without authorized
+inspection prerequisites before and after restart. Independent database reopening
+confirmed migration 0240, empty retry state and no image approval, saved source,
+inference or charge from that refusal. Separately, the rebuilt Gateway served
+actual structured and streamed OpenRouter requests through the internal-credit
+workflow, including concurrent partial refunds and restart. Independent reopening
+matched both token usages, exact charges/debits and refunds, with no held
+reservations. These observations verify installation and those exercised paths;
+there was no approved retained image available to establish nonempty image
+cleanup, poison-row progress or its explicit-erasure cascade. The original
+development database was not migrated during this checkpoint.
+
 ## Restored nonempty backlog and payload fault recovery
 
 A historical development-database backup was restored into a fresh isolated
