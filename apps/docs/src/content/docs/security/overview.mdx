@@ -60,3 +60,5 @@ requests or balances, nor does it allow a customer viewer to create workspaces.
 Installation-only financial policy operations remain installation-only. Grant
 changes are read on authenticated requests, so revocation removes platform access
 from an existing session without granting or removing its separate customer role.
+
+Saved payment configuration is also authenticated and decoded before the Gateway becomes ready, including disabled configurations and installations with no Supplier records. Missing or incompatible master keys prevent startup without changing the saved ciphertext or exposing merchant settings in diagnostics. Restore the matching key; this guard does not re-encrypt records or implement master-key rotation.

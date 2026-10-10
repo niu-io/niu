@@ -6,6 +6,7 @@ use axum::{
     extract::{Path, Query, State},
     http::HeaderMap,
 };
+pub(crate) use configuration::validate_saved_configuration;
 pub(crate) use configuration::{read as read_configuration_api, save as save_configuration_api};
 use niu_payments::{
     zhifux::{Callback, ExpectedOrder, Merchant, cny_decimal},

@@ -68,3 +68,16 @@ pages and resume; inspect erasure, qualification and revision invariants. Exerci
 wrong keys, truncated ciphertext and cross-identity substitution without logging
 secret material. Fixture results are not acceptance evidence. No rotation runtime,
 crash-resume behavior or complete encrypted-domain coverage is qualified yet.
+
+## Payment startup prerequisite implemented
+
+Startup now authenticates and decodes saved payment configuration before
+readiness, including disabled configuration in an installation with no Supplier
+records. A fresh native run saved merchant configuration through the management
+API, then attempted startup with a missing and a different master key. Both
+exited unsuccessfully with sanitized diagnostics, without modifying ciphertext
+or its revision. Restoring the correct key restored configuration reads.
+Independent AES-GCM decryption of the stored bytes verified the saved merchant
+secret; the three management writes had exactly three audit events and no
+customer balance entries. This is startup failure containment, not rotation or
+complete validation of all retained encrypted content.

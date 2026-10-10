@@ -50,6 +50,28 @@ impl Settings {
         json!({"revision":revision.to_string(),"enabled":self.enabled,"merchant_id":self.merchant_id,"has_key":!self.key.is_empty(),"endpoint":self.endpoint,"notify_url":self.notify_url,"return_url":self.return_url,"methods":self.methods})
     }
 }
+/// Validate retained merchant configuration before readiness, even when disabled.
+/// Never include stored configuration or cryptographic errors in diagnostics.
+pub(crate) async fn validate_saved_configuration(
+    store: &niu_storage::Store,
+    cipher: Option<&crate::vendors::crypto::CredentialCipher>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if let Some((_, ciphertext)) = store
+        .payment_gateway_configuration()
+        .await
+        .map_err(|_| "Cannot read saved payment configuration")?
+    {
+        let cipher = cipher
+            .ok_or("NIU_VENDOR_ENCRYPTION_KEY is required for saved payment configuration")?;
+        let plaintext = cipher.open_payment_configuration(&ciphertext).map_err(
+            |_| "Cannot decrypt saved payment configuration with the configured encryption key",
+        )?;
+        serde_json::from_str::<Settings>(&plaintext)
+            .map_err(|_| "Saved payment configuration is invalid")?;
+    }
+    Ok(())
+}
+
 async fn settings(state: &AppState) -> Result<(i64, Settings), ApiError> {
     if let Some((revision, ciphertext)) = state
         .store
