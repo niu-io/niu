@@ -3223,6 +3223,17 @@ Exact public model alias filter.
 }
 ```
 
+`operation_id` (query, optional)
+
+Restrict attempts and summaries to one operation within the authorized workspace. Unknown or foreign operations yield an empty result; this does not authorize cross-workspace reads.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
 `key_id` (query, optional)
 
 Workspace API key ID filter. Key names and IDs are visible only within the authorized workspace.

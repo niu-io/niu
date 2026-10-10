@@ -1902,6 +1902,7 @@ pub async fn costs(
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GatewayActivityQuery {
+    operation_id: Option<Uuid>,
     http_status: Option<String>,
     sort: Option<String>,
     limit: Option<u16>,
@@ -1985,6 +1986,7 @@ pub(super) fn gateway_activity_filter(
         }
     };
     Ok(niu_storage::GatewayActivityFilter {
+        operation_id: query.operation_id,
         sort,
         delivery_status,
         from_ms: query.from_ms,
@@ -2457,6 +2459,12 @@ pub async fn gateway_request(
 ///           "minLength": 1,
 ///           "maxLength": 200
 ///         }
+///       },
+///       {
+///         "name": "operation_id",
+///         "in": "query",
+///         "description": "Restrict attempts and summaries to one operation within the authorized workspace. Unknown or foreign operations yield an empty result; this does not authorize cross-workspace reads.",
+///         "schema": { "type": "string", "format": "uuid" }
 ///       },
 ///       {
 ///         "name": "key_id",

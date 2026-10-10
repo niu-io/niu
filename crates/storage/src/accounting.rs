@@ -106,6 +106,7 @@ pub enum GatewayDeliveryFilter {
 
 #[derive(Debug, Clone, Default)]
 pub struct GatewayActivityFilter {
+    pub operation_id: Option<Uuid>,
     pub from_ms: Option<i64>,
     pub to_ms: Option<i64>,
     pub model_alias: Option<String>,
@@ -253,6 +254,9 @@ fn push_activity_scope_and_filters<'a>(
         .push_bind(scope.organization_id)
         .push(" AND a.project_id = ")
         .push_bind(scope.project_id);
+    if let Some(operation_id) = filter.operation_id {
+        query.push(" AND a.operation_id = ").push_bind(operation_id);
+    }
     if let Some(from_ms) = filter.from_ms {
         query
             .push(" AND a.created_at >= to_timestamp(")

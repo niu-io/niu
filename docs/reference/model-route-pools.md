@@ -601,3 +601,22 @@ operators included multiple and already-revoked records. Cleanup was corrected
 to address only unrevoked matching records, then the complete read workflow was
 rerun. This evidence covers the two actual text completions, not media export,
 large export pagination or concurrent updates during export.
+
+## Operation-scoped diagnostics
+
+Request listing and CSV export accept an optional `operation_id`; the JavaScript
+SDK exposes `operationId`. The shared filter also applies to the list summary.
+Workspace authorization and scope remain mandatory, and other filters combine
+with operation selection. This is diagnostic correlation, not automatic retry.
+
+A current-input native run read the retained two actual priced pool completions.
+For each operation, HTTP listing returned only its matching request and summary
+count one; CSV contained the corresponding exact customer charge. The built SDK
+returned the same filtered list and one-row CSV. Invalid UUID syntax returned 400,
+a random unknown operation returned an empty list, and a separate authorized
+workspace could not retrieve the original operation's rows. A foreign-company
+operator received 404. Gateway restart preserved the filtered response; independent
+SQL still showed two attempts and two charges. Temporary reporting operators were
+revoked and isolated processes stopped; the original encrypted identity remained
+unchanged. This verifies existing single-attempt operations, not future retry
+chains or concurrent successor insertion.

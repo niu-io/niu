@@ -529,3 +529,17 @@ for request bodies, actor isolation, 30-day content retention, deletion semantic
 and current verification limits. Images/references and customer-funded video
 qualification remain outside this verified subset. Browser restoration still
 requires frontend integration and verification.
+
+## Operation-scoped request diagnostics
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/requests` and
+its `/export` CSV endpoint accept optional `operation_id` (UUID). The filter
+selects execution attempts belonging to that operation within the authorized
+workspace; list summaries use the same filter. An unknown operation or one in
+another workspace yields no matching rows. Invalid UUID syntax returns 400.
+Other filters combine with it, and existing pagination/export limits still apply.
+
+Use the `operation_id` returned by request metadata for correlation; keep internal
+identifiers out of product display labels. The JavaScript SDK exposes this as
+`operationId` in `listGatewayActivity` and `exportGatewayActivity`. This read-only
+filter does not initiate retries or imply that automatic failover is available.
