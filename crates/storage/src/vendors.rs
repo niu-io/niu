@@ -553,6 +553,41 @@ impl Store {
             .map(VendorRouteRow::into_route))
     }
 
+    /// Read the bounded pool's eligible mappings in one database statement.
+    /// This is resolution evidence, not a replacement for dispatch-time locks.
+    pub async fn eligible_pool_routes(
+        &self,
+        pool: &crate::ModelRoutePool,
+    ) -> Result<Vec<VendorRoute>, StoreError> {
+        if pool.candidates.len() > 64 {
+            return Err(StoreError::InvalidVendor);
+        }
+        let aliases: Vec<&str> = pool
+            .candidates
+            .iter()
+            .filter(|candidate| candidate.enabled)
+            .map(|candidate| candidate.alias.as_str())
+            .collect();
+        if aliases.is_empty() {
+            return Ok(Vec::new());
+        }
+        let query=route_query("WHERE m.alias=ANY($1) AND m.enabled AND v.enabled
+            AND NOT (m.capabilities ? 'video_schema')
+            AND (($2::uuid IS NOT NULL AND EXISTS (
+                SELECT 1 FROM personal_vendor_ownership o WHERE o.vendor_id=v.id AND o.organization_id=$2))
+                OR ($2::uuid IS NULL AND m.pricing IS NOT NULL
+                    AND NOT EXISTS (SELECT 1 FROM personal_vendor_ownership o WHERE o.vendor_id=v.id)
+                    AND niu_supplier_model_route_available(m.alias)))");
+        Ok(sqlx::query_as::<_, VendorRouteRow>(&query)
+            .bind(aliases)
+            .bind(pool.organization_id)
+            .fetch_all(&self.pool)
+            .await?
+            .into_iter()
+            .map(VendorRouteRow::into_route)
+            .collect())
+    }
+
     /// Read an enabled personal route only for its immutable owning account.
     /// Ownership and both enabled flags are checked in the same database query;
     /// callers must still pin these revisions at admission before dispatch.

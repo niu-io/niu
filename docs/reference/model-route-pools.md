@@ -127,3 +127,25 @@ durable attribution. The observed counts are a finite sample, not a statistical
 qualification of the long-run 1:3 distribution or a production-throughput result.
 Both temporary configurations used the same personal upstream test secret; this
 does not establish independent upstream-account capacity or commercial supply.
+
+## Batched candidate resolution
+
+Candidate mapping, enabled-state, ownership and shared-offer eligibility reads
+now run in one database statement after loading the pool configuration. Previously
+the gateway issued a mapping lookup, an ownership lookup and, for eligible shared
+priced mappings, a separate availability lookup for each enabled candidate.
+The new read accepts at most 64 configured candidates and skips database work when
+none is enabled. Protocol filtering and weighted selection retain their existing
+semantics. Dispatch still independently locks and rechecks the selected binding.
+
+The actual priority/protocol workflow above was rerun on the updated optimized
+gateway. Four completed upstream calls matched selected mappings, pool revisions,
+customer aliases and reported usage in PostgreSQL; the stale pool request stayed
+undispatched. Disabled/no-eligible handling, foreign-scope rejection and concurrent
+policy updates were also exercised. Temporary configuration was disabled and
+credentials revoked afterward.
+
+Compilation and Clippy completed. The reduction in gateway/database query
+round trips follows from the implemented query structure. Large-pool latency,
+shared-offer performance and sustained throughput have not been measured, and
+this change does not establish a production-capacity improvement.

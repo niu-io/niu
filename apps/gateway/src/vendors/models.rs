@@ -84,42 +84,17 @@ async fn resolve_pool(
         return Err(ApiError::not_found());
     }
     let mut eligible = Vec::new();
-    for candidate in &pool.candidates {
-        if !candidate.enabled {
-            continue;
-        }
-        let Some(route) = state
-            .store
-            .vendor_route(&candidate.alias)
-            .await
-            .map_err(ApiError::from_store)?
-        else {
-            continue;
-        };
-        if !route.vendor.enabled
-            || !route.model.enabled
-            || route.model.capabilities.get("video_schema").is_some()
-        {
-            continue;
-        }
-        let owner = state
-            .store
-            .personal_vendor_organization(route.vendor.id)
-            .await
-            .map_err(ApiError::from_store)?;
-        if owner != pool.organization_id {
-            continue;
-        }
-        if owner.is_none()
-            && (route.model.pricing.is_none()
-                || !state
-                    .store
-                    .supplier_model_available(&candidate.alias)
-                    .await
-                    .map_err(ApiError::from_store)?)
-        {
-            continue;
-        }
+    for route in state
+        .store
+        .eligible_pool_routes(&pool)
+        .await
+        .map_err(ApiError::from_store)?
+    {
+        let candidate = pool
+            .candidates
+            .iter()
+            .find(|candidate| candidate.alias == route.model.alias)
+            .ok_or_else(ApiError::unavailable)?;
         if let Some(protocol) = protocol {
             use crate::guardrails::input::Protocol;
             let model = stored_model(&route)?;
