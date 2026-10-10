@@ -157,6 +157,29 @@ Independent database inspection confirmed no submission preparation in that
 management-only run. This does not qualify browser recovery or customer-funded
 video settlement.
 
+### SDK pagination and restoration beyond one hundred records
+
+On 2026-10-11, a fresh native Gateway and database received 105 distinct
+current-input saves through the built JavaScript SDK. After reading the first
+100 index entries, the client saved another intent and deleted the oldest
+original intent. Continuing from the first page's cursor returned the remaining
+five original identities exactly once, including the deletion tombstone, without
+including the newly inserted record. An unknown cursor and submission of the
+deleted intent returned conflicts. A second actor's index remained empty.
+
+After rotating the selected key and restarting the Gateway, a fresh traversal
+returned all 106 identities. Full reads restored every retained request exactly,
+preserved the original key identity, selected its current rotation successor and
+returned the deleted request as null. Independent reopening of PostgreSQL matched
+all saved documents to the actual SDK inputs, the single revision-2 tombstone and
+the revoked verification key lineage. There were no dispatch attempts, media
+jobs, customer charges, balance entries or reservations.
+
+This verifies backend/SDK pagination and persistence for the exercised concurrent
+changes. Separate pages are not one database snapshot. It does not establish
+browser restoration, video generation, customer-funded media settlement or
+30-day expiry behavior. Existing development data was unchanged.
+
 ## Concurrent status reads
 
 Restoration reads the dispatch marker and job observations in one database
