@@ -40,3 +40,21 @@ external funding was claimed. Original development data and encrypted identity
 were unchanged. These observations do not qualify every platform role, cross-
 company price administration, concurrent grant revocation or the browser editor.
 No fixture outcome was used as evidence.
+
+### Cross-company configuration scope
+
+A separate fresh native HTTP run gave an operator an explicit audited platform
+grant and exercised four invalid targets: each direction of a mismatched
+company/workspace pair, a nonexistent workspace, and a nonexistent company.
+All returned HTTP 409; the original tariff and its single revision were unchanged.
+The same granted operator then published a tariff for a valid workspace in the
+second company. This installation-wide configuration authority is independent
+of the operator's ordinary workspace membership. It does not grant customer
+content access.
+
+Restart preserved both independent price pointers. Revoking the platform grant
+made the next second-company price write return HTTP 403. Independent reopening
+found exactly two tariffs and two revisions, each attached to the correct
+company/workspace, with the grant removed. No attempts, customer charges, balance
+entries or reservations were created. This checks configuration scope and
+revocation, not cross-company inference or the browser price editor.
