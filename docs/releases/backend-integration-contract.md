@@ -380,3 +380,13 @@ generated schemas while independently reconciling three upstream completions
 with PostgreSQL charges, cache quantities and balance debits. Repricing and
 restart preserved the historical invoice response. Media invoice pagination and
 external payment settlement were not exercised by that run.
+
+Company balance, approved-credit policy, charge reconciliation, balance reversal
+and transaction-page operations also come from handler annotations. Available
+funds subtract outstanding liabilities, including known media amounts above an
+original reservation, rather than only the original holds. A current-input run
+with two actual model completions checked these HTTP response types and required
+fields against the generated contracts. After concurrent partial refunds,
+idempotent replay, the remainder refund and restart, transaction counts, kinds
+and signed amounts matched independent ledger reads. This did not exercise a
+multi-page ledger or externally settled funding reversals.

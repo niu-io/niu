@@ -3305,6 +3305,567 @@ HTTP 404: Workspace outside authorized scope
 
 HTTP 401: Invalid or expired administrative credential.
 
+## Read shared company account balances
+
+`GET /admin/v1/organizations/{organization}/billing/balance`
+
+Requires organization-wide owner/admin access or installation administration. Workspace-only sessions and organization viewers cannot read shared funds. Exact nanounit amounts are decimal strings. Available funds equal posted balance plus approved credit minus outstanding liabilities (including known media charges above their original holds); each request must still atomically reserve its full liability. No account identifiers, Supplier prices or payment references are exposed.
+
+Implementation: `implemented`. Operation: `getCustomerBalance`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Customer balance summaries by currency
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "currency",
+          "balance_nanos",
+          "reserved_nanos",
+          "outstanding_nanos",
+          "available_nanos",
+          "credit_limit_nanos",
+          "warning_threshold_nanos",
+          "policy_revision",
+          "low_balance",
+          "posted_credit_exhausted"
+        ],
+        "properties": {
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "balance_nanos": {
+            "type": "string",
+            "pattern": "^-?[0-9]+$"
+          },
+          "reserved_nanos": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "outstanding_nanos": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Open customer liabilities, including known media charges above their original holds, excluding already posted debits."
+          },
+          "available_nanos": {
+            "type": "string",
+            "pattern": "^-?[0-9]+$",
+            "description": "Posted balance plus approved credit minus outstanding_nanos; may be negative."
+          },
+          "credit_limit_nanos": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "policy_revision": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "warning_threshold_nanos": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "low_balance": {
+            "type": "boolean"
+          },
+          "posted_credit_exhausted": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required
+
+HTTP 404: Company account access not granted
+
+## Compare customer charge records with prepaid ledger debits
+
+`GET /admin/v1/organizations/{organization}/billing/charge-reconciliation`
+
+Organization-wide owner/admin or installation read access required. One database snapshot compares prepaid-bound text and media charges against original charge entries per currency. Refunds do not reduce original charge matching. Reports counts and exact decimal amounts only, with no internal identifiers or Supplier prices. Zero counts on an empty account do not establish financial readiness. This is read-only and does not verify external payment settlement, recalculate prices, reconcile legacy invoices or repair discrepancies. Pending settlement can appear as a discrepancy; use a later observation to distinguish an in-flight write from a persistent mismatch.
+
+Implementation: `implemented`. Operation: `getCustomerChargeReconciliation`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Per-currency observations
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "currency",
+          "observed_at",
+          "charge_records",
+          "expected_charge_nanos",
+          "posted_charge_nanos",
+          "missing_charge_entries",
+          "mismatched_charge_entries",
+          "unexpected_charge_entries",
+          "duplicate_charge_sources",
+          "settled_open_reservations"
+        ],
+        "properties": {
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "charge_records": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "expected_charge_nanos": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "posted_charge_nanos": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "missing_charge_entries": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "mismatched_charge_entries": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "unexpected_charge_entries": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "duplicate_charge_sources": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "settled_open_reservations": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Missing or invalid administration credentials
+
+HTTP 404: Company billing scope unavailable to this principal
+
+HTTP 503: Storage unavailable
+
+## Configure approved credit and low-balance threshold
+
+`PUT /admin/v1/organizations/{organization}/billing/accounts/{currency}/policy`
+
+Installation write access only. Creates a zero-balance account if absent, with expected revision zero. Updates are revision checked and recorded in immutable history. Credit changes do not credit funds. Reductions that would invalidate held reservations are rejected. With no holds, reduced credit can exhaust capacity while preserving the actual debt. A null warning threshold disables low-balance warnings. This configures warning state, not notification-channel delivery.
+
+Implementation: `implemented`. Operation: `configureCustomerBalancePolicy`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`currency` (path, required)
+
+```json
+{
+  "type": "string",
+  "pattern": "^[A-Z]{3}$"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "credit_limit_nanos",
+    "expected_revision"
+  ],
+  "properties": {
+    "credit_limit_nanos": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "warning_threshold_nanos": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$"
+    },
+    "expected_revision": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Policy saved
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "data": {
+      "type": "object",
+      "properties": {
+        "revision": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        }
+      },
+      "required": [
+        "revision"
+      ]
+    }
+  },
+  "required": [
+    "data"
+  ]
+}
+```
+
+HTTP 400: Invalid currency, amount or revision
+
+HTTP 401: Authentication required
+
+HTTP 403: Installation write access required
+
+HTTP 409: Stale revision, unknown company or outstanding reservations prevent credit reduction
+
+## Record a balance refund or settled-funding reversal
+
+`POST /admin/v1/organizations/{organization}/billing/entries/{entry}/reversal`
+
+Installation write access only. Funding entries can be reversed; charge entries can be refunded to account balance. Original records remain immutable. Cumulative reversals cannot exceed the original amount. Identical idempotency-key replay applies once; conflicting reuse is rejected. A verified funding reversal may create debt and reduce available funds without releasing in-flight liabilities. This records a ledger adjustment and does not execute external refunds or payments.
+
+Implementation: `implemented`. Operation: `reverseCustomerBalanceEntry`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`entry` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "amount_nanos",
+    "idempotency_key"
+  ],
+  "properties": {
+    "amount_nanos": {
+      "type": "string",
+      "pattern": "^[0-9]+$",
+      "description": "Positive signed-64-bit nanounit amount"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Recorded or identical replay
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "data": {
+      "type": "object",
+      "properties": {
+        "recorded": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "required": [
+        "recorded"
+      ]
+    }
+  },
+  "required": [
+    "data"
+  ]
+}
+```
+
+HTTP 400: Invalid amount
+
+HTTP 401: Authentication required
+
+HTTP 403: Installation write access required
+
+HTTP 409: Unknown or unsupported original entry, over-refund or conflicting replay
+
+## Read a company balance transaction page
+
+`GET /admin/v1/organizations/{organization}/billing/transactions`
+
+Organization-wide owner/admin or installation access required. Customer ledger only; no Supplier costs or margins. Ordered by descending recorded time and internal reference. UUIDs are API routing references and must not be displayed as product labels. Each page contains up to 100 entries; next_cursor is null at the end. Pass the cursor as before to read older entries. Unknown or foreign cursors return a conflict. Traversal is a live view, not a fixed export snapshot; newly inserted later entries appear on refresh.
+
+Implementation: `implemented`. Operation: `getCustomerBalanceTransactions`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`before` (query, optional)
+
+next_cursor returned by the previous page. Must belong to this company.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Customer balance entries
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "next_cursor"
+  ],
+  "properties": {
+    "next_cursor": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "funding",
+              "charge",
+              "refund",
+              "funding_reversal",
+              "adjustment"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "amount_nanos": {
+            "type": "string",
+            "pattern": "^-?[0-9]+$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reverses_entry_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid query or cursor syntax
+
+HTTP 401: Authentication required
+
+HTTP 409: Cursor does not belong to this company ledger
+
+HTTP 404: Company account access not granted
+
 ## Read EPay configuration with platform administrator read access
 
 `GET /admin/v1/platform/payments/epay`
