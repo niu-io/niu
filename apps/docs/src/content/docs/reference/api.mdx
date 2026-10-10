@@ -642,3 +642,11 @@ all monetary fields remain strings. Follow the cursor to continue and refresh th
 first page to see newly published prices. Missing/foreign cursors return 409;
 inaccessible workspaces or unknown model tariffs return 404. Supplier procurement
 prices are excluded. See the [contract and actual pagination evidence](https://github.com/niu-io/niu/blob/main/docs/reference/customer-tariff-history.md).
+
+
+Customer tariff history accepts scoped management readers, including the owner
+and viewer roles exercised in the actual authorization run. A workspace inference
+API key cannot read this management endpoint; use its authorized `/v1/models`
+price projection instead. Cross-workspace history remains concealed with 404.
+The [frontend integration inventory](https://github.com/niu-io/niu/blob/main/docs/releases/backend-integration-contract.md#interfaces-to-integrate-now)
+now lists publication, current prices and immutable history together.

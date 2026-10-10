@@ -40,3 +40,12 @@ returned the same page as HTTP. Restart retained the page and current pointer;
 the four existing actual customer charges remained recorded. This qualifies the
 exercised scoped history/read path, not every role, large-history query plan or
 frontend interaction.
+
+
+A subsequent current-input authorization run used newly created scoped owner and
+viewer credentials. Both read the same first page as installation administration.
+A workspace inference API key and an invalid bearer credential each returned 401.
+Independent SQL counts of revisions, charges and balance entries stayed unchanged;
+all temporary credentials were revoked. Together with the foreign-workspace 404
+run above, this qualifies those concrete reader boundaries, not arbitrary member
+permission combinations or browser session handling.
