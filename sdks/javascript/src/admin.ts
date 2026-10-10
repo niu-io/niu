@@ -1880,7 +1880,7 @@ export class NiuAdminClient {
     if (!response.ok) {
       const text=await response.text();let payload:unknown;
       try {payload=text ? JSON.parse(text):undefined;} catch {payload=text;}
-      throw new NiuAPIError(response.status,payload,response.headers.get('x-request-id') ?? undefined);
+      throw NiuAPIError.fromResponse(response, payload);
     }
     return response;
   }
@@ -1890,7 +1890,7 @@ export class NiuAdminClient {
     const text = await response.text();
     let payload: unknown;
     try { payload = text ? JSON.parse(text) : undefined; } catch { payload = text; }
-    if (!response.ok) throw new NiuAPIError(response.status, payload, response.headers.get('x-request-id') ?? undefined);
+    if (!response.ok) throw NiuAPIError.fromResponse(response, payload);
     if (accept === 'text/csv') {
       if (response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() !== 'text/csv') throw new Error('Expected a CSV export response');
       options.signal?.throwIfAborted();

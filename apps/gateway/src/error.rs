@@ -472,6 +472,12 @@ impl IntoResponse for ApiError {
             }
         });
         let mut response = (self.status, Json(body)).into_response();
+        // Keep the machine-readable Niu reason across native protocol envelopes.
+        // `kind` is a local static error identifier, never upstream response data.
+        response.headers_mut().insert(
+            "x-niu-error-code",
+            axum::http::HeaderValue::from_static(self.kind),
+        );
         if matches!(
             self.kind,
             "key_request_rate_exceeded" | "upstream_request_rate_exceeded"

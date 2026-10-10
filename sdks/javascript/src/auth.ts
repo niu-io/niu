@@ -73,7 +73,7 @@ export class NiuAuthClient {
     const text = await response.text();
     let payload: unknown;
     try { payload = text ? JSON.parse(text) : undefined; } catch { payload = text; }
-    if (!response.ok) throw new NiuAPIError(response.status, payload, response.headers.get('x-request-id') ?? undefined);
+    if (!response.ok) throw NiuAPIError.fromResponse(response, payload);
     if (empty) throw new Error('Expected a 204 sign-out response');
     return payload;
   }

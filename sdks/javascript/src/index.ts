@@ -201,8 +201,10 @@ export class NiuAPIError extends Error {
   readonly attemptId?: string;
   readonly operationId?: string;
   readonly responseBody: unknown;
+  /** Niu-specific reason when the operation supplies x-niu-error-code. */
+  readonly gatewayCode?: string;
 
-  constructor(status: number, responseBody: unknown, requestId?: string, attemptId?: string, operationId?: string) {
+  constructor(status: number, responseBody: unknown, requestId?: string, attemptId?: string, operationId?: string, gatewayCode?: string) {
     super(errorMessage(responseBody, status));
     this.name = 'NiuAPIError';
     this.status = status;
@@ -210,6 +212,17 @@ export class NiuAPIError extends Error {
     this.requestId = requestId;
     this.attemptId = attemptId;
     this.operationId = operationId;
+    this.gatewayCode = gatewayCode;
+  }
+
+  static fromResponse(response: Response, payload: unknown): NiuAPIError {
+    return new NiuAPIError(
+      response.status, payload,
+      response.headers.get('x-request-id') ?? response.headers.get('x-niu-operation-id') ?? undefined,
+      response.headers.get('x-niu-attempt-id') ?? undefined,
+      response.headers.get('x-niu-operation-id') ?? undefined,
+      response.headers.get('x-niu-error-code') ?? undefined,
+    );
   }
 }
 
@@ -499,13 +512,7 @@ export class NiuClient {
       signal: options.signal,
     });
     if (!response.ok) {
-      throw new NiuAPIError(
-        response.status,
-        await readPayload(response),
-        response.headers.get('x-request-id') ?? response.headers.get('x-niu-operation-id') ?? undefined,
-        response.headers.get('x-niu-attempt-id') ?? undefined,
-        response.headers.get('x-niu-operation-id') ?? undefined,
-      );
+      throw NiuAPIError.fromResponse(response, await readPayload(response));
     }
     return response;
   }

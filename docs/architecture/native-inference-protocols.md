@@ -198,3 +198,29 @@ internal rates, and confirmed that only the first key had a spending-limit row.
 There were no held reservations or funding receipts. This verifies the native
 operation's shared per-key monetary admission path, not a new billing engine or
 a claim about concurrent/rate/token limits on every native protocol.
+
+### Machine-readable financial denials
+
+Messages keeps the native error envelope and HTTP status. HTTP 402 uses the
+native `invalid_request_error` category. Niu's shared `ApiError` response also
+sets `x-niu-error-code` to its locally defined reason, preserving distinctions
+such as `budget_exceeded`, `workspace_spending_limit_exceeded` and
+`key_spending_limit_exceeded` across protocol conversion. The header contains no
+upstream error document or credential. Framework and intermediary errors may
+omit it; clients must not infer a financial cause from absence.
+
+The JavaScript inference, administration and authentication clients share error
+construction. `NiuAPIError.gatewayCode` exposes this header while preserving
+status, original response body and available diagnostic references. Existing
+constructor callers remain compatible. This allows frontends to handle a known
+admission denial without parsing message text or treating it as a provider outage.
+
+A fresh actual native-call run checked HTTP 402 plus `budget_exceeded` before
+credit approval, and HTTP 402 plus `key_spending_limit_exceeded` at the exhausted
+key cap before and after restart. The built SDK preserved the capped-request code
+and native category. Its administration and authentication clients also preserved
+`authentication_error` on actual unauthorized requests. Another eligible key
+still completed generation. Independent database reopening matched both actual
+usages, key attribution and exact debits, with no attempted dispatch from the
+refused requests. The generated contract and served docs JSON/reference were
+checked after rebuilding the docs artifact.

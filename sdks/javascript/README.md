@@ -748,3 +748,17 @@ when passing `next_cursor` as `before`; a cursor outside the selected company,
 currency or kind returns HTTP 409. Omitted filters preserve the complete company
 ledger view. These reads expose customer ledger amounts only, never procurement
 costs, and do not execute refunds or payments.
+
+
+### Machine-readable gateway errors
+
+Inference, administration and authentication errors expose an optional
+`NiuAPIError.gatewayCode`, read from `x-niu-error-code`. This preserves Niu's
+specific reason when an operation uses a native protocol error category. For
+example, native Messages returns HTTP 402 with `invalid_request_error` while
+`gatewayCode` distinguishes `budget_exceeded`, `workspace_spending_limit_exceeded`
+and `key_spending_limit_exceeded`. Handle the status and code without parsing
+human-readable message text. Missing codes remain undefined (including errors
+from older servers or intermediary/framework responses). The SDK does not retry
+these errors automatically. Existing response bodies and diagnostic references
+remain available.

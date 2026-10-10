@@ -11197,21 +11197,111 @@ Content type: `application/json`.
 
 HTTP 400: Invalid or unsupported input.
 
+Response header: `x-niu-error-code`.
+
+Niu-specific machine-readable reason, such as key_spending_limit_exceeded or budget_exceeded. Native error.type remains the native category. Shared middleware errors may omit this header.
+
+```json
+{
+  "type": "string"
+}
+```
+
 HTTP 401: Invalid Niu key.
+
+Response header: `x-niu-error-code`.
+
+Niu-specific machine-readable reason, such as key_spending_limit_exceeded or budget_exceeded. Native error.type remains the native category. Shared middleware errors may omit this header.
+
+```json
+{
+  "type": "string"
+}
+```
 
 HTTP 403: Input or output policy denial.
 
+Response header: `x-niu-error-code`.
+
+Niu-specific machine-readable reason, such as key_spending_limit_exceeded or budget_exceeded. Native error.type remains the native category. Shared middleware errors may omit this header.
+
+```json
+{
+  "type": "string"
+}
+```
+
 HTTP 404: Model unavailable or outside key grants.
+
+Response header: `x-niu-error-code`.
+
+Niu-specific machine-readable reason, such as key_spending_limit_exceeded or budget_exceeded. Native error.type remains the native category. Shared middleware errors may omit this header.
+
+```json
+{
+  "type": "string"
+}
+```
 
 HTTP 402: Insufficient spending capacity.
 
+Response header: `x-niu-error-code`.
+
+Niu-specific machine-readable reason, such as key_spending_limit_exceeded or budget_exceeded. Native error.type remains the native category. Shared middleware errors may omit this header.
+
+```json
+{
+  "type": "string"
+}
+```
+
 HTTP 429: Key rate, concurrency or token limit.
+
+Response header: `x-niu-error-code`.
+
+Niu-specific machine-readable reason, such as key_spending_limit_exceeded or budget_exceeded. Native error.type remains the native category. Shared middleware errors may omit this header.
+
+```json
+{
+  "type": "string"
+}
+```
 
 HTTP 501: Unsupported streaming, version or capability.
 
+Response header: `x-niu-error-code`.
+
+Niu-specific machine-readable reason, such as key_spending_limit_exceeded or budget_exceeded. Native error.type remains the native category. Shared middleware errors may omit this header.
+
+```json
+{
+  "type": "string"
+}
+```
+
 HTTP 502: Upstream failure or invalid response; execution may be uncertain.
 
+Response header: `x-niu-error-code`.
+
+Niu-specific machine-readable reason, such as key_spending_limit_exceeded or budget_exceeded. Native error.type remains the native category. Shared middleware errors may omit this header.
+
+```json
+{
+  "type": "string"
+}
+```
+
 HTTP 503: Service unavailable.
+
+Response header: `x-niu-error-code`.
+
+Niu-specific machine-readable reason, such as key_spending_limit_exceeded or budget_exceeded. Native error.type remains the native category. Shared middleware errors may omit this header.
+
+```json
+{
+  "type": "string"
+}
+```
 
 ## Create a text response
 

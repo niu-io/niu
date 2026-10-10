@@ -299,31 +299,103 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///         }
 ///       },
 ///       "400": {
-///         "description": "Invalid or unsupported input."
+///         "description": "Invalid or unsupported input.",
+///         "headers": {
+///           "x-niu-error-code": {
+///             "description": "Niu-specific machine-readable reason, such as key_spending_limit_exceeded or budget_exceeded. Native error.type remains the native category. Shared middleware errors may omit this header.",
+///             "schema": {
+///               "type": "string"
+///             }
+///           }
+///         }
 ///       },
 ///       "401": {
-///         "description": "Invalid Niu key."
+///         "description": "Invalid Niu key.",
+///         "headers": {
+///           "x-niu-error-code": {
+///             "description": "Niu-specific machine-readable reason, such as key_spending_limit_exceeded or budget_exceeded. Native error.type remains the native category. Shared middleware errors may omit this header.",
+///             "schema": {
+///               "type": "string"
+///             }
+///           }
+///         }
 ///       },
 ///       "403": {
-///         "description": "Input or output policy denial."
+///         "description": "Input or output policy denial.",
+///         "headers": {
+///           "x-niu-error-code": {
+///             "description": "Niu-specific machine-readable reason, such as key_spending_limit_exceeded or budget_exceeded. Native error.type remains the native category. Shared middleware errors may omit this header.",
+///             "schema": {
+///               "type": "string"
+///             }
+///           }
+///         }
 ///       },
 ///       "404": {
-///         "description": "Model unavailable or outside key grants."
+///         "description": "Model unavailable or outside key grants.",
+///         "headers": {
+///           "x-niu-error-code": {
+///             "description": "Niu-specific machine-readable reason, such as key_spending_limit_exceeded or budget_exceeded. Native error.type remains the native category. Shared middleware errors may omit this header.",
+///             "schema": {
+///               "type": "string"
+///             }
+///           }
+///         }
 ///       },
 ///       "402": {
-///         "description": "Insufficient spending capacity."
+///         "description": "Insufficient spending capacity.",
+///         "headers": {
+///           "x-niu-error-code": {
+///             "description": "Niu-specific machine-readable reason, such as key_spending_limit_exceeded or budget_exceeded. Native error.type remains the native category. Shared middleware errors may omit this header.",
+///             "schema": {
+///               "type": "string"
+///             }
+///           }
+///         }
 ///       },
 ///       "429": {
-///         "description": "Key rate, concurrency or token limit."
+///         "description": "Key rate, concurrency or token limit.",
+///         "headers": {
+///           "x-niu-error-code": {
+///             "description": "Niu-specific machine-readable reason, such as key_spending_limit_exceeded or budget_exceeded. Native error.type remains the native category. Shared middleware errors may omit this header.",
+///             "schema": {
+///               "type": "string"
+///             }
+///           }
+///         }
 ///       },
 ///       "501": {
-///         "description": "Unsupported streaming, version or capability."
+///         "description": "Unsupported streaming, version or capability.",
+///         "headers": {
+///           "x-niu-error-code": {
+///             "description": "Niu-specific machine-readable reason, such as key_spending_limit_exceeded or budget_exceeded. Native error.type remains the native category. Shared middleware errors may omit this header.",
+///             "schema": {
+///               "type": "string"
+///             }
+///           }
+///         }
 ///       },
 ///       "502": {
-///         "description": "Upstream failure or invalid response; execution may be uncertain."
+///         "description": "Upstream failure or invalid response; execution may be uncertain.",
+///         "headers": {
+///           "x-niu-error-code": {
+///             "description": "Niu-specific machine-readable reason, such as key_spending_limit_exceeded or budget_exceeded. Native error.type remains the native category. Shared middleware errors may omit this header.",
+///             "schema": {
+///               "type": "string"
+///             }
+///           }
+///         }
 ///       },
 ///       "503": {
-///         "description": "Service unavailable."
+///         "description": "Service unavailable.",
+///         "headers": {
+///           "x-niu-error-code": {
+///             "description": "Niu-specific machine-readable reason, such as key_spending_limit_exceeded or budget_exceeded. Native error.type remains the native category. Shared middleware errors may omit this header.",
+///             "schema": {
+///               "type": "string"
+///             }
+///           }
+///         }
 ///       }
 ///     }
 ///   }
@@ -360,7 +432,7 @@ pub(in crate::web) async fn messages(
         .and_then(Value::as_str)
         .unwrap_or("Messages request failed");
     let kind = match parts.status.as_u16() {
-        400 | 413 | 422 | 501 => "invalid_request_error",
+        400 | 402 | 413 | 422 | 501 => "invalid_request_error",
         401 => "authentication_error",
         403 => "permission_error",
         404 => "not_found_error",
