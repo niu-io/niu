@@ -34,6 +34,19 @@ impl TokenRates {
         cached: Option<(i64, i64)>,
         reasoning: Option<(i64, i64)>,
     ) -> Result<i64, StoreError> {
+        self.charge_with_cache_write(prompt, completion, cached, None, reasoning)
+    }
+
+    /// Input read/write subsets are disjoint; missing unpriced subsets use flat input pricing.
+    pub fn charge_with_cache_write(
+        self,
+        prompt: i64,
+        completion: i64,
+        cached: Option<(i64, i64)>,
+        written: Option<(i64, i64)>,
+        reasoning: Option<(i64, i64)>,
+    ) -> Result<i64, StoreError> {
+        let (written, write_rate) = written.unwrap_or((0, self.prompt));
         let (cached, cached_rate) = cached.unwrap_or((0, self.prompt));
         let (reasoning, reasoning_rate) = reasoning.unwrap_or((0, self.completion));
         if [
@@ -43,18 +56,22 @@ impl TokenRates {
             completion,
             cached,
             cached_rate,
+            written,
+            write_rate,
             reasoning,
             reasoning_rate,
         ]
         .iter()
         .any(|v| *v < 0)
             || cached > prompt
+            || written > prompt - cached
             || reasoning > completion
         {
             return Err(StoreError::InvalidPrice);
         }
-        let exact = i128::from(prompt - cached) * i128::from(self.prompt)
+        let exact = i128::from(prompt - cached - written) * i128::from(self.prompt)
             + i128::from(cached) * i128::from(cached_rate)
+            + i128::from(written) * i128::from(write_rate)
             + i128::from(completion - reasoning) * i128::from(self.completion)
             + i128::from(reasoning) * i128::from(reasoning_rate);
         i64::try_from((exact + 999_999) / 1_000_000).map_err(|_| StoreError::InvalidPrice)

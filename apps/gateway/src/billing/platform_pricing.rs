@@ -218,7 +218,8 @@ pub async fn targets(
 ///                       "minimum_charge_nanos",
 ///                       "request_fee_nanos",
 ///                       "cached_prompt_rate",
-///                       "reasoning_completion_rate"
+///                       "reasoning_completion_rate",
+///                       "cache_write_prompt_rate"
 ///                     ],
 ///                     "properties": {
 ///                       "model_alias": {
@@ -265,6 +266,14 @@ pub async fn targets(
 ///                         ],
 ///                         "pattern": "^[0-9]+$",
 ///                         "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
+///                       },
+///                       "cache_write_prompt_rate": {
+///                         "type": [
+///                           "string",
+///                           "null"
+///                         ],
+///                         "pattern": "^[0-9]+$",
+///                         "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured rate prices it separately; missing quantity remains unresolved."
 ///                       }
 ///                     }
 ///                   }

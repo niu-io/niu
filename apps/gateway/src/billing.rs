@@ -180,6 +180,14 @@ async fn authorize(
 ///                             ],
 ///                             "pattern": "^[0-9]+$",
 ///                             "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
+///                           },
+///                           "cache_write_prompt_rate": {
+///                             "type": [
+///                               "string",
+///                               "null"
+///                             ],
+///                             "pattern": "^[0-9]+$",
+///                             "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured rate prices it separately; missing quantity remains unresolved."
 ///                           }
 ///                         }
 ///                       }
@@ -367,6 +375,14 @@ pub async fn overview(
 ///                 ],
 ///                 "pattern": "^[0-9]+$",
 ///                 "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
+///               },
+///               "cache_write_prompt_rate": {
+///                 "type": [
+///                   "string",
+///                   "null"
+///                 ],
+///                 "pattern": "^[0-9]+$",
+///                 "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured rate prices it separately; missing quantity remains unresolved."
 ///               }
 ///             }
 ///           }
@@ -465,7 +481,7 @@ pub async fn tariff(
         .as_ref()
         .map(|rate| rate.as_deref());
     Ok(Json(
-        json!({"data":{"revision":state.store.publish_customer_tariff_with_categories(scope,&rates,cached,input.reasoning_completion_rate.as_ref().map(|rate| rate.as_deref()),input.minimum_charge_nanos.as_deref(),input.request_fee_nanos.as_deref()).await.map_err(ApiError::from_store)?}}),
+        json!({"data":{"revision":state.store.publish_customer_tariff_schedule(scope,&rates,niu_storage::CustomerCategoryRates { cached_prompt: cached, reasoning_completion: input.reasoning_completion_rate.as_ref().map(|rate| rate.as_deref()), cache_write_prompt: input.cache_write_prompt_rate.as_ref().map(|rate| rate.as_deref()) },input.minimum_charge_nanos.as_deref(),input.request_fee_nanos.as_deref()).await.map_err(ApiError::from_store)?}}),
     ))
 }
 
@@ -1866,6 +1882,14 @@ pub struct InvoiceLinesQuery {
 ///                             ],
 ///                             "pattern": "^[0-9]+$",
 ///                             "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
+///                           },
+///                           "cache_write_prompt_rate": {
+///                             "type": [
+///                               "string",
+///                               "null"
+///                             ],
+///                             "pattern": "^[0-9]+$",
+///                             "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured rate prices it separately; missing quantity remains unresolved."
 ///                           }
 ///                         }
 ///                       },
@@ -1933,6 +1957,22 @@ pub struct InvoiceLinesQuery {
 ///                             ],
 ///                             "pattern": "^[0-9]+$",
 ///                             "description": "Reported reasoning subset priced separately; null for a flat output tariff."
+///                           },
+///                           "cache_write_prompt_rate": {
+///                             "type": [
+///                               "string",
+///                               "null"
+///                             ],
+///                             "pattern": "^[0-9]+$",
+///                             "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured rate prices it separately; missing quantity remains unresolved."
+///                           },
+///                           "cache_write_prompt_tokens": {
+///                             "type": [
+///                               "string",
+///                               "null"
+///                             ],
+///                             "pattern": "^[0-9]+$",
+///                             "description": "Separately priced reported cache-write tokens; null when this category has no separate rate."
 ///                           }
 ///                         }
 ///                       }
@@ -3145,7 +3185,8 @@ pub struct CustomerTariffHistoryQuery {
 ///         "minimum_charge_nanos",
 ///         "request_fee_nanos",
 ///         "cached_prompt_rate",
-///         "reasoning_completion_rate"
+///         "reasoning_completion_rate",
+///         "cache_write_prompt_rate"
 ///       ],
 ///       "properties": {
 ///         "model_alias": {
@@ -3196,6 +3237,14 @@ pub struct CustomerTariffHistoryQuery {
 ///           ],
 ///           "pattern": "^[0-9]+$",
 ///           "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
+///         },
+///         "cache_write_prompt_rate": {
+///           "type": [
+///             "string",
+///             "null"
+///           ],
+///           "pattern": "^[0-9]+$",
+///           "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured rate prices it separately; missing quantity remains unresolved."
 ///         }
 ///       }
 ///     }

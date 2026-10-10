@@ -4809,7 +4809,8 @@ Content type: `application/json`.
           "minimum_charge_nanos",
           "request_fee_nanos",
           "cached_prompt_rate",
-          "reasoning_completion_rate"
+          "reasoning_completion_rate",
+          "cache_write_prompt_rate"
         ],
         "properties": {
           "model_alias": {
@@ -4856,6 +4857,14 @@ Content type: `application/json`.
             ],
             "pattern": "^[0-9]+$",
             "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
+          },
+          "cache_write_prompt_rate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$",
+            "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured rate prices it separately; missing quantity remains unresolved."
           }
         }
       }
@@ -5061,6 +5070,14 @@ Content type: `application/json`.
                 ],
                 "pattern": "^[0-9]+$",
                 "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
+              },
+              "cache_write_prompt_rate": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[0-9]+$",
+                "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured rate prices it separately; missing quantity remains unresolved."
               }
             }
           }
@@ -5235,6 +5252,14 @@ Content type: `application/json`.
       ],
       "pattern": "^[0-9]+$",
       "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
+    },
+    "cache_write_prompt_rate": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$",
+      "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured rate prices it separately; missing quantity remains unresolved."
     }
   }
 }
@@ -6093,6 +6118,14 @@ Content type: `application/json`.
                 ],
                 "pattern": "^[0-9]+$",
                 "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
+              },
+              "cache_write_prompt_rate": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[0-9]+$",
+                "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured rate prices it separately; missing quantity remains unresolved."
               }
             }
           },
@@ -6160,6 +6193,22 @@ Content type: `application/json`.
                 ],
                 "pattern": "^[0-9]+$",
                 "description": "Reported reasoning subset priced separately; null for a flat output tariff."
+              },
+              "cache_write_prompt_rate": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[0-9]+$",
+                "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured rate prices it separately; missing quantity remains unresolved."
+              },
+              "cache_write_prompt_tokens": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[0-9]+$",
+                "description": "Separately priced reported cache-write tokens; null when this category has no separate rate."
               }
             }
           }
@@ -13666,7 +13715,8 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "minimum_charge_nanos",
     "request_fee_nanos",
     "cached_prompt_rate",
-    "reasoning_completion_rate"
+    "reasoning_completion_rate",
+    "cache_write_prompt_rate"
   ],
   "properties": {
     "model_alias": {
@@ -13717,6 +13767,14 @@ Local `#/components/schemas/…` references resolve to these definitions.
       ],
       "pattern": "^[0-9]+$",
       "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
+    },
+    "cache_write_prompt_rate": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$",
+      "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured rate prices it separately; missing quantity remains unresolved."
     }
   }
 }
@@ -16907,7 +16965,8 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "cached_prompt_rate",
     "minimum_charge_nanos",
     "request_fee_nanos",
-    "reasoning_completion_rate"
+    "reasoning_completion_rate",
+    "cache_write_prompt_rate"
   ],
   "properties": {
     "revision": {
@@ -16953,6 +17012,14 @@ Local `#/components/schemas/…` references resolve to these definitions.
       ],
       "pattern": "^[0-9]+$",
       "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
+    },
+    "cache_write_prompt_rate": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$",
+      "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured rate prices it separately; missing quantity remains unresolved."
     }
   }
 }

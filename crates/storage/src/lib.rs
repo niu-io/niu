@@ -103,6 +103,7 @@ pub use vendors::{
     VendorInput, VendorModelInput, VendorModelView, VendorRoute, VendorUpdate, VendorView,
 };
 mod billing;
+pub use billing::CustomerCategoryRates;
 mod customer_invoice_history;
 mod customer_tariff_history;
 mod key_concurrency;
