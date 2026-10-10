@@ -450,3 +450,22 @@ nonzero cache-write and reasoning quantities. It does not establish populated
 Supplier earnings, a nonzero-reasoning streaming combination, or every supported
 model's reasoning behavior. Verification used personal upstream access and
 internal credit/rates, without commercial qualification claims.
+
+### Category-price history after publication
+
+A subsequent current-input run produced nonzero cache-write plus reasoning usage,
+then cache-read plus reasoning usage after restart. All five current category
+rates were replaced through the tariff API after these calls. Both historical
+attempts retained their original revision, exact charge and matching debit.
+Creating a statement after publication selected the historical category rates,
+not the new current rates. Repeating its idempotency key before and after another
+Gateway restart returned the same statement and identical line items.
+
+Independent verification reread both saved upstream-response artifacts and
+reopened the stopped database. It reconciled the disjoint category quantities
+against their original rates, confirmed the distinct current tariff revision,
+one statement containing exactly the two charges, exactly two charge entries,
+no funding and no open reservations. This directly exercises the historical
+cache-write/reasoning acceptance case after a tariff edit. It does not qualify
+an upstream correction to previously unknown usage or every overlapping-category
+failure path; those limitations must not be inferred from successful arithmetic.
