@@ -651,16 +651,18 @@ impl Store {
     ) -> Result<(), StoreError> {
         self.complete_with_provider_model(scope, id, usage, provider_model)
             .await?;
-        self.accrue_provider_earning(id).await?;
-        self.accrue_customer_charge(id).await?;
-        if usage.is_some() {
-            let reserved: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM cost_reservations WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3 AND state='held')")
-                .bind(scope.organization_id).bind(scope.project_id).bind(id).fetch_one(&self.pool).await?;
-            if reserved {
-                self.settle_cost(scope, id).await?;
+        let accrual = self.accrue_gateway_ledgers(&[id]).await;
+        let cost = async {
+            if usage.is_some() {
+                let reserved: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM cost_reservations WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3 AND state='held')")
+                    .bind(scope.organization_id).bind(scope.project_id).bind(id).fetch_one(&self.pool).await?;
+                if reserved {
+                    self.settle_cost(scope, id).await?;
+                }
             }
-        }
-        Ok(())
+            Ok(())
+        }.await;
+        accrual.and(cost)
     }
 
     /// Persist a bounded set of provider completions first, then settle all
@@ -687,12 +689,15 @@ impl Store {
             }
         }
 
-        self.complete_and_accrue_gateway_batch(completions.clone())
-            .await?;
-        if !settlement_ids.is_empty() {
-            self.settle_gateway_batch(scope, &settlement_ids).await?;
-        }
-        Ok(())
+        self.complete_gateway_batch(completions.clone()).await?;
+        let ids: Vec<Uuid> = completions.iter().map(|c| c.attempt_id).collect();
+        let accrual = self.accrue_gateway_ledgers(&ids).await;
+        let cost = if settlement_ids.is_empty() {
+            Ok(())
+        } else {
+            self.settle_gateway_batch(scope, &settlement_ids).await
+        };
+        accrual.and(cost)
     }
 
     /// Persist completion evidence and its independent customer and Supplier
@@ -706,11 +711,24 @@ impl Store {
             return Err(StoreError::InvalidGatewayAdmissionBatch);
         }
         self.complete_gateway_batch(completions.clone()).await?;
-        for completion in &completions {
-            self.accrue_provider_earning(completion.attempt_id).await?;
-            self.accrue_customer_charge(completion.attempt_id).await?;
+        let ids: Vec<Uuid> = completions.iter().map(|c| c.attempt_id).collect();
+        self.accrue_gateway_ledgers(&ids).await
+    }
+
+    /// Each ledger owns its evidence and idempotency rules. A missing Supplier
+    /// quantity must not suppress an independently resolvable customer charge,
+    /// nor prevent another completed attempt in the batch from being accrued.
+    /// Preserve the first error so callers still schedule recovery.
+    async fn accrue_gateway_ledgers(&self, attempts: &[Uuid]) -> Result<(), StoreError> {
+        let mut first_error = None;
+        for &attempt in attempts {
+            let supplier = self.accrue_provider_earning(attempt).await;
+            let customer = self.accrue_customer_charge(attempt).await;
+            if let Err(error) = supplier.and(customer) {
+                first_error.get_or_insert(error);
+            }
         }
-        Ok(())
+        first_error.map_or(Ok(()), Err)
     }
 
     async fn settle_gateway_batch(
