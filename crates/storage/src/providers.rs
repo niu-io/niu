@@ -572,6 +572,21 @@ impl Store {
         provider: Uuid,
         input: &ProviderOfferInput,
     ) -> Result<Uuid, StoreError> {
+        self.publish_provider_offer_with_cache(provider, input, None)
+            .await
+    }
+
+    /// Cached prices require explicit retention or removal on subsequent revisions.
+    pub async fn publish_provider_offer_with_cache(
+        &self,
+        provider: Uuid,
+        input: &ProviderOfferInput,
+        cached_prompt_rate: Option<Option<&str>>,
+    ) -> Result<Uuid, StoreError> {
+        let cached = cached_prompt_rate
+            .flatten()
+            .map(crate::pricing::parse_token_rate)
+            .transpose()?;
         let prompt = crate::pricing::parse_token_rate(&input.prompt_rate)?;
         let completion = crate::pricing::parse_token_rate(&input.completion_rate)?;
         if input.currency.len() != 3 || !input.currency.bytes().all(|b| b.is_ascii_uppercase()) {
@@ -605,10 +620,11 @@ impl Store {
         if configured_owner.is_some_and(|owner| owner != provider) {
             return Err(StoreError::Conflict);
         }
-        let existing: Option<(Uuid, Uuid, Uuid, Uuid)> = sqlx::query_as("SELECT id,provider_id,current_revision,vendor_id FROM provider_offers WHERE model_alias=$1 FOR UPDATE").bind(&input.model_alias).fetch_optional(&mut *tx).await?;
+        let existing: Option<(Uuid, Uuid, Uuid, Uuid, Option<i64>)> = sqlx::query_as("SELECT o.id,o.provider_id,o.current_revision,o.vendor_id,r.cached_prompt_rate FROM provider_offers o JOIN provider_offer_revisions r ON r.id=o.current_revision WHERE o.model_alias=$1 FOR UPDATE OF o").bind(&input.model_alias).fetch_optional(&mut *tx).await?;
         let offer = match existing {
-            Some((id, owner, revision, bound_vendor)) => {
-                if owner != provider
+            Some((id, owner, revision, bound_vendor, prior_cached)) => {
+                if (prior_cached.is_some() && cached_prompt_rate.is_none())
+                    || owner != provider
                     || input.expected_revision != Some(revision)
                     || bound_vendor != vendor
                 {
@@ -626,7 +642,7 @@ impl Store {
             }
         };
         let revision = Uuid::new_v4();
-        sqlx::query("INSERT INTO provider_offer_revisions(id,offer_id,currency,prompt_rate,completion_rate) VALUES($1,$2,$3,$4,$5)").bind(revision).bind(offer).bind(&input.currency).bind(prompt).bind(completion).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO provider_offer_revisions(id,offer_id,currency,prompt_rate,completion_rate,cached_prompt_rate) VALUES($1,$2,$3,$4,$5,$6)").bind(revision).bind(offer).bind(&input.currency).bind(prompt).bind(completion).bind(cached).execute(&mut *tx).await?;
         sqlx::query("UPDATE provider_offers SET current_revision=$2,active=FALSE,current_qualification_review=NULL WHERE id=$1")
             .bind(offer)
             .bind(revision)
@@ -717,18 +733,29 @@ impl Store {
             return self.accrue_supplier_media_earning(attempt).await;
         }
         let mut tx = self.pool.begin().await?;
-        let row=sqlx::query("SELECT b.provider_id,b.revision_id,r.currency,r.prompt_rate,r.completion_rate,a.prompt_tokens,a.completion_tokens FROM provider_attempt_offers b JOIN attempts a ON a.id=b.attempt_id JOIN provider_offer_revisions r ON r.id=b.revision_id WHERE a.id=$1 AND r.rate_kind='text' AND a.execution='confirmed_completed' AND a.usage_confidence='provider_reported'")
+        let row=sqlx::query("SELECT b.provider_id,b.revision_id,r.currency,r.prompt_rate,r.completion_rate,r.cached_prompt_rate,a.prompt_tokens,a.completion_tokens,d.cached_input_tokens FROM provider_attempt_offers b JOIN attempts a ON a.id=b.attempt_id LEFT JOIN request_token_categories d ON d.attempt_id=a.id JOIN provider_offer_revisions r ON r.id=b.revision_id WHERE a.id=$1 AND r.rate_kind='text' AND a.execution='confirmed_completed' AND a.usage_confidence='provider_reported'")
             .bind(attempt).fetch_optional(&mut *tx).await?;
         if let Some(row) = row {
             let prompt: i64 = row.get("prompt_tokens");
             let completion: i64 = row.get("completion_tokens");
-            let amount = TokenRates {
+            let rates = TokenRates {
                 prompt: row.get("prompt_rate"),
                 completion: row.get("completion_rate"),
-            }
-            .charge(prompt, completion)?;
-            sqlx::query("INSERT INTO provider_earnings(attempt_id,provider_id,revision_id,currency,amount_nanos,prompt_tokens,completion_tokens) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(attempt_id) DO NOTHING")
-                .bind(attempt).bind(row.get::<Uuid,_>("provider_id")).bind(row.get::<Uuid,_>("revision_id")).bind(row.get::<String,_>("currency")).bind(amount).bind(prompt).bind(completion).execute(&mut *tx).await?;
+            };
+            let (amount, cached_tokens) = match row.get::<Option<i64>, _>("cached_prompt_rate") {
+                Some(rate) => {
+                    let cached = row
+                        .get::<Option<i64>, _>("cached_input_tokens")
+                        .ok_or(StoreError::Unresolved)?;
+                    (
+                        rates.charge_with_cached_prompt(prompt, completion, cached, rate)?,
+                        Some(cached),
+                    )
+                }
+                None => (rates.charge(prompt, completion)?, None),
+            };
+            sqlx::query("INSERT INTO provider_earnings(attempt_id,provider_id,revision_id,currency,amount_nanos,prompt_tokens,completion_tokens,cached_prompt_tokens) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(attempt_id) DO NOTHING")
+                .bind(attempt).bind(row.get::<Uuid,_>("provider_id")).bind(row.get::<Uuid,_>("revision_id")).bind(row.get::<String,_>("currency")).bind(amount).bind(prompt).bind(completion).bind(cached_tokens).execute(&mut *tx).await?;
         }
         tx.commit().await?;
         Ok(())
@@ -829,10 +856,10 @@ impl Store {
         let traffic:Value=sqlx::query_scalar("SELECT jsonb_build_object('requests',COUNT(*)::text,'completed',COUNT(*) FILTER(WHERE a.execution='confirmed_completed')::text,'unresolved',COUNT(*) FILTER(WHERE e.attempt_id IS NULL)::text,'prompt_tokens',COALESCE(SUM(a.prompt_tokens),0)::text,'completion_tokens',COALESCE(SUM(a.completion_tokens),0)::text) FROM provider_attempt_offers b JOIN attempts a ON a.id=b.attempt_id LEFT JOIN provider_earnings e ON e.attempt_id=a.id WHERE b.provider_id=$1 AND a.dispatched_at>=now()-make_interval(days=>$2)").bind(provider).bind(days).fetch_one(&mut *tx).await?;
         let daily:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('day',to_char(e.created_at AT TIME ZONE 'UTC','YYYY-MM-DD'),'currency',currency,'amount_nanos',SUM(amount_nanos)::text) FROM provider_earnings e WHERE provider_id=$1 AND created_at>=now()-make_interval(days=>$2) GROUP BY currency, to_char(e.created_at AT TIME ZONE 'UTC','YYYY-MM-DD') ORDER BY to_char(e.created_at AT TIME ZONE 'UTC','YYYY-MM-DD')")
             .bind(provider).bind(days).fetch_all(&mut *tx).await?;
-        let offers:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('id',o.id,'model_alias',o.model_alias,'active',o.active,'qualified',niu_offer_qualification_current(o.provider_id,o.id,o.current_revision),'revision',r.id,'rate_kind',r.rate_kind,'currency',r.currency,'prompt_rate',r.prompt_rate::text,'completion_rate',r.completion_rate::text,'route_ready',m.enabled AND v.enabled AND m.vendor_id=o.vendor_id AND niu_offer_qualification_current(o.provider_id,o.id,o.current_revision)) FROM provider_offers o JOIN provider_offer_revisions r ON r.id=o.current_revision JOIN vendor_models m ON m.alias=o.model_alias JOIN vendors v ON v.id=m.vendor_id WHERE o.provider_id=$1 ORDER BY o.model_alias LIMIT 1000").bind(provider).fetch_all(&mut *tx).await?;
+        let offers:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('id',o.id,'model_alias',o.model_alias,'active',o.active,'qualified',niu_offer_qualification_current(o.provider_id,o.id,o.current_revision),'revision',r.id,'rate_kind',r.rate_kind,'currency',r.currency,'prompt_rate',r.prompt_rate::text,'completion_rate',r.completion_rate::text,'cached_prompt_rate',r.cached_prompt_rate::text,'route_ready',m.enabled AND v.enabled AND m.vendor_id=o.vendor_id AND niu_offer_qualification_current(o.provider_id,o.id,o.current_revision)) FROM provider_offers o JOIN provider_offer_revisions r ON r.id=o.current_revision JOIN vendor_models m ON m.alias=o.model_alias JOIN vendors v ON v.id=m.vendor_id WHERE o.provider_id=$1 ORDER BY o.model_alias LIMIT 1000").bind(provider).fetch_all(&mut *tx).await?;
         let earnings:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('id',e.attempt_id,'model_alias',o.model_alias,'currency',e.currency,'amount_nanos',e.amount_nanos::text,'prompt_tokens',e.prompt_tokens::text,'completion_tokens',e.completion_tokens::text,'billing_meter',e.billing_meter,'meter_quantity',e.meter_quantity,'created_at',e.created_at,'status',CASE WHEN s.attempt_id IS NULL THEN 'accrued' ELSE 'paid' END) FROM provider_earnings e JOIN provider_attempt_offers b ON b.attempt_id=e.attempt_id JOIN provider_offers o ON o.id=b.offer_id LEFT JOIN provider_settlement_entries s ON s.attempt_id=e.attempt_id WHERE e.provider_id=$1 AND e.created_at>=now()-make_interval(days=>$2) ORDER BY e.created_at DESC,e.attempt_id LIMIT 100").bind(provider).bind(days).fetch_all(&mut *tx).await?;
         let settlements:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('id',id,'currency',currency,'amount_nanos',amount_nanos::text,'payment_reference',payment_reference,'created_at',created_at) FROM provider_settlements WHERE provider_id=$1 ORDER BY created_at DESC,id LIMIT 100").bind(provider).fetch_all(&mut *tx).await?;
-        let consumption:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('model_alias',o.model_alias,'revision',r.id,'currency',e.currency,'prompt_rate',r.prompt_rate::text,'completion_rate',r.completion_rate::text,'requests',COUNT(*)::text,'prompt_tokens',SUM(e.prompt_tokens)::text,'completion_tokens',SUM(e.completion_tokens)::text,'amount_nanos',SUM(e.amount_nanos)::text,'unpaid_nanos',SUM(CASE WHEN s.attempt_id IS NULL THEN e.amount_nanos ELSE 0 END)::text) FROM provider_earnings e JOIN provider_attempt_offers b ON b.attempt_id=e.attempt_id JOIN provider_offers o ON o.id=b.offer_id JOIN provider_offer_revisions r ON r.id=e.revision_id LEFT JOIN provider_settlement_entries s ON s.attempt_id=e.attempt_id WHERE e.provider_id=$1 AND e.billing_meter='text_tokens' AND e.created_at>=now()-make_interval(days=>$2) GROUP BY o.model_alias,r.id,r.prompt_rate,r.completion_rate,e.currency ORDER BY o.model_alias,r.id").bind(provider).bind(days).fetch_all(&mut *tx).await?;
+        let consumption:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('model_alias',o.model_alias,'revision',r.id,'currency',e.currency,'prompt_rate',r.prompt_rate::text,'completion_rate',r.completion_rate::text,'cached_prompt_rate',r.cached_prompt_rate::text,'requests',COUNT(*)::text,'prompt_tokens',SUM(e.prompt_tokens)::text,'completion_tokens',SUM(e.completion_tokens)::text,'cached_prompt_tokens',SUM(e.cached_prompt_tokens)::text,'amount_nanos',SUM(e.amount_nanos)::text,'unpaid_nanos',SUM(CASE WHEN s.attempt_id IS NULL THEN e.amount_nanos ELSE 0 END)::text) FROM provider_earnings e JOIN provider_attempt_offers b ON b.attempt_id=e.attempt_id JOIN provider_offers o ON o.id=b.offer_id JOIN provider_offer_revisions r ON r.id=e.revision_id LEFT JOIN provider_settlement_entries s ON s.attempt_id=e.attempt_id WHERE e.provider_id=$1 AND e.billing_meter='text_tokens' AND e.created_at>=now()-make_interval(days=>$2) GROUP BY o.model_alias,r.id,r.prompt_rate,r.completion_rate,e.currency ORDER BY o.model_alias,r.id").bind(provider).bind(days).fetch_all(&mut *tx).await?;
         let media_consumption:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('model_alias',o.model_alias,'meter',e.billing_meter,'currency',e.currency,'rate_revision',p.rate_revision,'resolution',p.snapshot->'tariff'->'dimensions'->>'resolution','reference_video',p.snapshot->'tariff'->'dimensions'->'reference_video','amount_units',p.snapshot->'tariff'->>'amount_units','decimal_places',p.snapshot->'tariff'->'decimal_places','per_quantity',p.snapshot->'tariff'->'per_quantity','requests',COUNT(*)::text,'quantity',SUM((e.meter_quantity->>'numerator')::numeric)::text,'amount_nanos',SUM(e.amount_nanos)::text,'unpaid_nanos',SUM(CASE WHEN s.attempt_id IS NULL THEN e.amount_nanos ELSE 0 END)::text) FROM provider_earnings e JOIN supplier_media_attempt_pricing p ON p.attempt_id=e.attempt_id JOIN provider_attempt_offers b ON b.attempt_id=e.attempt_id JOIN provider_offers o ON o.id=b.offer_id LEFT JOIN provider_settlement_entries s ON s.attempt_id=e.attempt_id WHERE e.provider_id=$1 AND e.billing_meter<>'text_tokens' AND e.created_at>=now()-make_interval(days=>$2) GROUP BY o.model_alias,e.billing_meter,e.currency,p.rate_revision,p.snapshot ORDER BY o.model_alias,p.rate_revision").bind(provider).bind(days).fetch_all(&mut *tx).await?;
         tx.commit().await?;
         Ok(

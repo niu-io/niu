@@ -36,9 +36,10 @@ export type WorkspaceSpendingLimitRevision = { currency: string; limit_nanos: st
 export type SupplierRateInput = {
   model_alias: string; currency: string; prompt_rate: string; completion_rate: string;
   expected_revision: string | null;
+  cached_prompt_rate?: string | null;
 };
 /** Customer selling rates, independent from Supplier procurement prices. */
-export type CustomerTariffInput = SupplierRateInput & { cached_prompt_rate?: string | null };
+export type CustomerTariffInput = SupplierRateInput;
 export type CustomerTariff = Omit<CustomerTariffInput, 'expected_revision'> & { revision: string };
 /** Optional versioned output mapping inside model capabilities.video_schema. Estimates are not liability bounds. */
 export type VideoOutputSchema = {
@@ -138,6 +139,7 @@ export type CustomerBilling = {
 };
 export type SupplierOffer = {
   id: string; model_alias: string; revision: string; active: boolean; qualified: boolean; route_ready: boolean;
+  cached_prompt_rate?: string | null;
 } & ({ rate_kind?: 'text'; currency: string; prompt_rate: string; completion_rate: string }
   | { rate_kind: 'media'; currency: null; prompt_rate: null; completion_rate: null });
 /** Draft media model bindings. Availability and purchase-rate qualification are separate. */

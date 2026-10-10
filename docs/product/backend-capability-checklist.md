@@ -98,13 +98,13 @@ an actual payment or funded end-to-end result.
 Persisted token categories and their reports do not imply corresponding rate-card
 or settlement support. Default customer tariffs apply two flat rates to aggregate prompt/completion
 counts, rounding the combined exact amount upward once. Customer tariffs now
-optionally price reported cached input separately; Supplier text offers still use
-flat rates. Neither mode implies reproduction of every upstream category charge.
+optionally price reported cached input separately; Supplier text offers now support
+an independent optional cache-read rate. Route procurement budget rates remain flat. Neither mode implies reproduction of every upstream category charge.
 
 | Capability | Current implementation boundary | Required acceptance behavior |
 | --- | --- | --- |
 | Flat input/output tariff | Implemented in `TokenRates` and immutable customer tariff revisions; paid current-input verification open | Reproduce the exact charge from aggregate counts and the pinned rates, including one combined rounding step |
-| Separate cache-read price | Customer configuration, bounds and accrual implemented; actual configuration verified; Supplier cache pricing and paid settlement open | Pin a distinct rate and non-overlapping counted quantities; unknown cache usage must not become an invented zero |
+| Separate cache-read price | Customer configuration, bounds and accrual plus Supplier cached-rate configuration/accrual implemented; actual configuration verified; paid settlement and procurement-bound integration open | Pin a distinct rate and non-overlapping counted quantities; unknown cache usage must not become an invented zero |
 | Separate cache-write price | Not implemented by the generic two-rate text tariff | Distinguish declared write categories and applicable durations without charging included input twice |
 | Separate reasoning-output price | Not implemented by the generic two-rate text tariff | Specify whether reasoning is already included in reported output; apply the agreed schedule without double counting |
 | Long-context tiers | Not implemented by the generic two-rate text tariff | Pin threshold, tier selection and effective rates for the actual request, including boundary behavior |

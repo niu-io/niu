@@ -203,12 +203,23 @@ pub async fn publish_offer(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(provider): Path<Uuid>,
-    Json(input): Json<ProviderOfferInput>,
+    Json(input): Json<crate::token_pricing::TokenRateInput>,
 ) -> Result<Json<Value>, ApiError> {
     installation(&state, &headers).await?;
+    let cached = input
+        .cached_prompt_rate
+        .as_ref()
+        .map(|rate| rate.as_deref());
+    let rates = ProviderOfferInput {
+        model_alias: input.model_alias,
+        currency: input.currency,
+        prompt_rate: input.prompt_rate,
+        completion_rate: input.completion_rate,
+        expected_revision: input.expected_revision,
+    };
     let revision = state
         .store
-        .publish_provider_offer(provider, &input)
+        .publish_provider_offer_with_cache(provider, &rates, cached)
         .await
         .map_err(ApiError::from_store)?;
     Ok(Json(json!({"data":{"revision":revision}})))

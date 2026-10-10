@@ -1,10 +1,10 @@
-# Customer cached-input pricing
+# Cached-input pricing
 
 Customer text tariffs optionally accept `cached_prompt_rate`: an exact decimal
 integer string in currency nanounits per million cached input tokens, with the
 same maximum as the ordinary input/output rates. This is a customer selling rate;
-Supplier offers and procurement schedules remain independent and flat in this
-increment. Cache-write and separate reasoning-output rates are not implemented.
+Supplier offers have independent cached rates as described below. Route procurement
+budget schedules remain independent and flat. Cache-write and separate reasoning-output rates are not implemented.
 
 ## Versioned configuration
 
@@ -61,7 +61,7 @@ this is query compatibility, not invoice reconciliation. Compilation, Clippy, SD
 checking/build and OpenAPI parsing completed. Fixture outcomes supply no evidence.
 Actual cached customer-funded admission, debit, missing-category recovery, refund,
 invoice reconciliation and concurrent liabilities remain unverified. Supplier
-cache pricing and broader token-category schedules remain implementation gaps.
+cache settlement remains unverified; broader token-category schedules remain implementation gaps.
 
 ### Live token-category inputs
 
@@ -97,3 +97,49 @@ rate and both integer rates. No inference or ledger mutation occurred; the key
 was revoked and temporary model/credential disabled. The older catalog source
 example was aligned with this explicit nullable field. Fixture outcomes are not
 business evidence, and catalog reads do not qualify inference or paid settlement.
+
+
+## Supplier cached-input rates
+
+Migration 0217 adds optional `cached_prompt_rate` to immutable Supplier text offer
+revisions and `cached_prompt_tokens` to earned liabilities. The existing
+installation-only `POST /admin/v1/providers/{provider}/offers` accepts the same
+exact integer syntax and omission/null semantics as customer tariffs. Publishing
+any new rate revision pauses the offer and clears its qualification pointer;
+reviewing the new agreed rates remains required before commercial dispatch.
+Existing attempts continue to use their bound revision.
+
+Accrual uses the same integer `TokenRates` calculation above, with Supplier rates
+and provider-reported quantities. Missing cache quantity leaves the earning
+unresolved; recovery may retry after complete usage evidence becomes available.
+No customer charge or reported upstream cost substitutes for the Supplier rate.
+Supplier offer and grouped consumption reads expose the cache rate and the grouped
+cached quantity where separately priced. These fields stay in the existing
+Supplier/member and platform administration scopes, outside customer APIs.
+
+The gateway shares only the rate request shape between customer and Supplier
+publication. Authorization, pinned revisions and liability ledgers remain
+separate. Existing route `cash_*` rates still control procurement budget holds and
+cost accounting; this increment does not synchronize them with Supplier payouts
+or add cache-aware procurement reservations. Operators must not interpret a route
+budget hold as a guarantee that it bounds the Supplier liability.
+
+### Current-input Supplier configuration checkpoint
+
+After a private backup, the optimized gateway applied migration 0217 to the
+existing database. Actual HTTP publication on a new unqualified Supplier and an
+unconnected model verified flat creation, a cache rate above the ordinary input
+rate, explicit null clearing, omission conflict and invalid integer rejection.
+Eight concurrent updates sharing the same revision produced one accepted write
+and seven conflicts. Independent PostgreSQL reads matched all four immutable
+revisions and the selected rate; the actual administration response retained the
+inactive and unqualified state. Its expanded consumption query executed with no
+earnings. The shared customer publication path was independently rerun with the
+same configuration checks. Temporary model and credential configurations were
+disabled; no inference, funding, customer ledger entry or Supplier earning was
+created. This verifies configuration and empty-read compatibility, not accrual.
+
+Compilation, all-target gateway Clippy, SDK build and OpenAPI YAML parsing
+completed. Actual cached Supplier accrual, missing-category recovery, nonempty
+consumption aggregation, payout reconciliation and procurement-bound integration
+remain unverified. No fixture outcome is evidence for these claims.

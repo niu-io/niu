@@ -16,6 +16,7 @@ mod request_source;
 mod request_timings;
 mod state;
 mod streaming;
+mod token_pricing;
 mod upstream;
 mod usage;
 mod vendors;

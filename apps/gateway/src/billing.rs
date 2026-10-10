@@ -41,28 +41,12 @@ pub async fn overview(
         json!({"data":state.store.customer_billing(scope).await.map_err(ApiError::from_store)?}),
     ))
 }
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CustomerTariffInput {
-    model_alias: String,
-    currency: String,
-    prompt_rate: String,
-    completion_rate: String,
-    expected_revision: Option<Uuid>,
-    #[serde(default, deserialize_with = "cache_rate_field")]
-    cached_prompt_rate: Option<Option<String>>,
-}
-fn cache_rate_field<'de, D: serde::Deserializer<'de>>(
-    deserializer: D,
-) -> Result<Option<Option<String>>, D::Error> {
-    Option::<String>::deserialize(deserializer).map(Some)
-}
 
 pub async fn tariff(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path((organization_id, project_id)): Path<(Uuid, Uuid)>,
-    Json(input): Json<CustomerTariffInput>,
+    Json(input): Json<crate::token_pricing::TokenRateInput>,
 ) -> Result<Json<Value>, ApiError> {
     let scope = TenantScope {
         organization_id,
