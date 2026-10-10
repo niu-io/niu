@@ -185,3 +185,39 @@ confirmed those records and reconciled both actual usages, charges and refunds.
 This verifies installation and the exercised unexpired-row boundary, not the
 pending naturally expired or poisoned-row cases. The existing development
 database was not migrated during this verification.
+
+## Media-result retry isolation implementation
+
+Migration 0239 applies bounded per-row exception handling and durable 60-second
+retry eligibility to media-result expiry. It processes at most 64 eligible rows
+under the existing content owner and deadlines. Successful expiry erases only
+ciphertext and records deletion; immutable identity, expiry and tombstones remain.
+An explicit result deletion also removes its retry marker through a trigger.
+No result URL or database error text enters retry metadata. Row data/constraint
+failures defer that row; infrastructure failures still abort the batch.
+
+The original retention eligibility remains unchanged. This implementation does
+not yet isolate failures in asset or inspected-image batches, or satisfy the
+strict cross-instance connection-count requirement.
+
+## Restored nonempty backlog and payload fault recovery
+
+A historical development-database backup was restored into a fresh isolated
+native PostgreSQL instance. Original content and retention timestamps were left
+unchanged. At execution time it contained 15 naturally expired request payloads
+and three naturally expired retained media references. The new Gateway applied
+the pending migrations while an external advisory owner temporarily prevented
+background cleanup from racing preparation of the verification.
+
+A temporary trigger rejected deletion of one expired payload. After releasing
+the advisory owner, the actual Gateway background loop removed the other 14
+payloads and erased all three media ciphertexts. The failed payload remained with
+a future retry deadline. Restart preserved both. After removing the fault and
+waiting for the real 60-second delay, background recovery deleted the final
+payload and its retry record. Repeating both cleanup functions returned zero.
+
+Independent reopening confirmed the expired payload backlog was absent, media
+tombstones remained without expired ciphertext, and both retry tables were empty.
+The original database was untouched. This provides nonempty cleanup and payload
+poison-row/restart evidence. A poisoned media row, active media references,
+multi-Gateway nonempty contention and the other content domains remain unverified.

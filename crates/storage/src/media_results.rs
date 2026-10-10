@@ -57,7 +57,19 @@ impl Store {
         Ok(())
     }
     pub async fn purge_expired_media_result_references(&self) -> Result<u64, StoreError> {
-        self.execute_content_retention("UPDATE media_result_references SET ciphertext=NULL,deleted_at=clock_timestamp() WHERE (attempt_id,kind) IN (SELECT attempt_id,kind FROM media_result_references WHERE deleted_at IS NULL AND expires_at<=clock_timestamp() ORDER BY expires_at,attempt_id,kind LIMIT 500 FOR UPDATE SKIP LOCKED)").await
+        self.run_background_work(
+            crate::background_work::BackgroundWork::ContentRetention,
+            |tx| {
+                Box::pin(async move {
+                    sqlx::query_scalar::<_, i64>("SELECT niu_purge_media_result_page()")
+                        .fetch_one(&mut **tx)
+                        .await
+                        .map_err(StoreError::from)
+                })
+            },
+        )
+        .await
+        .map(|removed| removed.unwrap_or(0) as u64)
     }
 }
 
