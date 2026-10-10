@@ -7274,6 +7274,8 @@ HTTP 429: API key request, concurrency or token rate limit exceeded.
 
 HTTP 503: Durable storage or configured route unavailable.
 
+HTTP 413: Request body exceeds 1 MiB; rejected before inference whether payload capture is enabled or disabled. Framework responses may use a plain-text body.
+
 ## Create a Chat completion with a selected workspace key
 
 `POST /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/chat/completions`
@@ -7407,6 +7409,8 @@ HTTP 404: Requested model unavailable to the selected key
 HTTP 429: Rate or concurrency admission limit exceeded
 
 HTTP 503: Route or durable storage unavailable
+
+HTTP 413: Request body exceeds 1 MiB; rejected before inference whether payload capture is enabled or disabled. Framework responses may use a plain-text body.
 
 ## Create OpenAI-compatible text embeddings
 
@@ -7598,7 +7602,7 @@ Content type: `application/json`.
 
 HTTP 400: Invalid body, unsupported field, or invalid input shape.
 
-HTTP 413: Request body exceeds the gateway's configured body limit.
+HTTP 413: Request body exceeds 1 MiB; rejected before inference whether payload capture is enabled or disabled. Framework responses may use a plain-text body.
 
 HTTP 401: Missing or invalid gateway credentials.
 
@@ -7927,7 +7931,7 @@ HTTP 402: Insufficient balance or spending limit exceeded.
 
 HTTP 403: Source IP or enforced policy denies the request.
 
-HTTP 413: Request body exceeds the gateway body limit.
+HTTP 413: Request body exceeds 1 MiB; rejected before inference whether payload capture is enabled or disabled. Framework responses may use a plain-text body.
 
 HTTP 422: Request body is not valid JSON.
 

@@ -188,7 +188,7 @@ use super::common::*;
 ///         "description": "Invalid body, unsupported field, or invalid input shape."
 ///       },
 ///       "413": {
-///         "description": "Request body exceeds the gateway's configured body limit."
+///         "description": "Request body exceeds 1 MiB; rejected before inference whether payload capture is enabled or disabled. Framework responses may use a plain-text body."
 ///       },
 ///       "401": {
 ///         "description": "Missing or invalid gateway credentials."

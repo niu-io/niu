@@ -11,6 +11,7 @@ name = "niu-gateway"
 path = "src/main.rs"
 
 [dependencies]
+http-body-util = "0.1"
 ipnet = "=2.12.2"
 tower = { version = "0.5", features = ["util"] }
 niu-upstream = { path = "../../crates/upstream" }
@@ -49,4 +50,3 @@ md-5 = "0.10"
 niu-payments = { path = "../../crates/payments", features = ["test-fixtures"] }
 hmac = "0.12"
 sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "postgres", "macros", "migrate"] }
-http-body-util = "0.1"

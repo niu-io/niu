@@ -315,7 +315,7 @@ pub(in crate::web) struct ResponsesRequestBounds {
 ///         "description": "Source IP or enforced policy denies the request."
 ///       },
 ///       "413": {
-///         "description": "Request body exceeds the gateway body limit."
+///         "description": "Request body exceeds 1 MiB; rejected before inference whether payload capture is enabled or disabled. Framework responses may use a plain-text body."
 ///       },
 ///       "422": {
 ///         "description": "Request body is not valid JSON."

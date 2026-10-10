@@ -10,6 +10,7 @@ use axum::{
 };
 use futures_util::StreamExt;
 use serde_json::Value;
+use std::error::Error as _;
 use uuid::Uuid;
 const LIMIT: usize = 1_048_576;
 
@@ -130,9 +131,16 @@ pub async fn capture(
     let (parts, body) = request.into_parts();
     let bytes = match to_bytes(body, LIMIT).await {
         Ok(bytes) => bytes,
-        Err(_) => {
-            return ApiError::invalid_request("Payload capture supports requests up to 1 MB")
-                .into_response();
+        Err(error) => {
+            // Capture must preserve the router's 413 semantics. Transport read
+            // failures are not evidence that the client exceeded the size cap.
+            if error
+                .source()
+                .is_some_and(|source| source.is::<http_body_util::LengthLimitError>())
+            {
+                return ApiError::request_too_large().into_response();
+            }
+            return ApiError::invalid_request("Could not read request body").into_response();
         }
     };
     let mut input = match serde_json::from_slice::<Value>(&bytes) {

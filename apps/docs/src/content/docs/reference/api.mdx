@@ -149,11 +149,11 @@ Capabilities are route-specific. Flags in `config/niu.toml` declare operator-ver
 | Chat completion, non-streaming | Supported; tool and structured-output subsets require separate route flags | Basic non-streaming adapter path | Basic non-streaming adapter path |
 | Chat completion, streaming | Supported; tool deltas need `supports_streaming_tool_calls` | Not implemented | Not implemented |
 | Function tools | Non-streaming tool-call pass-through with `supports_tool_calls`; Niu does not execute tools | Not implemented | Not implemented |
-| Structured JSON output | Non-streaming `json_object` requires an object; `json_schema` output is validated against the self-contained schema when `supports_structured_output` is enabled | Not implemented | Not implemented |
+| Structured JSON output | Buffered and streaming `json_object` / `json_schema` with `supports_structured_output`; streaming deltas remain provisional until terminal validation | Not implemented | Not implemented |
 | Text embeddings | Supported only with `supports_embeddings`; dimensions and base64 output require their own flags | Not implemented | Not implemented |
-| Responses | Non-streaming text subset with `supports_responses` | Not implemented | Not implemented |
+| Responses | Buffered and streamed text subset with `supports_responses` | Not implemented | Not implemented |
 
-The native Anthropic and Bedrock entries describe the current non-streaming chat adapter path, not provider conformance qualification. Niu has no provider-specific conformance fixtures for those routes yet. Tool and structured-output capabilities are deliberately restricted to OpenAI-compatible routes. Pricing applies to bounded text chat, Responses and embeddings; embeddings reserve input capacity only and settle provider-reported prompt usage. Tool calls are rejected on priced chat routes. See [Model routes](/docs/configuration/models/) for the exact route flags and pricing limits.
+The native Anthropic and Bedrock entries describe the current non-streaming chat adapter path, not provider conformance qualification. Tool and structured-output capabilities are deliberately restricted to OpenAI-compatible routes. Pricing applies to bounded text chat, Responses and embeddings; embeddings reserve input capacity only and settle provider-reported prompt usage. Priced Chat supports the documented text-only function-tool conversations; Niu does not execute tools or price hosted tool services. See [Model routes](/docs/configuration/models/) for the exact route flags and pricing limits.
 
 Non-streaming provider JSON responses are limited to 16 MiB before decoding. Larger responses fail as an upstream error and remain uncompleted in request activity. Streaming Chat inspects at most 65,536 bytes per Server-Sent Event; interrupted or cancelled streams remain uncertain unless a valid terminal event was observed.
 
@@ -167,11 +167,20 @@ Niu forwards tool definitions and structured-output schemas to the provider. It 
 
 If a terminal model response fails output validation, Niu returns `502` without delivering the rejected content. Valid, complete and consistent reported input/output token counts still record upstream completion and accrue the pinned customer charge; a failed delivery can therefore have a charge. Missing, invalid, inconsistent or overflowing usage remains unknown and is not replaced with an estimate. HTTP delivery status and upstream execution evidence describe different facts.
 
+## Text request envelope limits
+
+Public Chat, Responses, Embeddings and dashboard Chat reject request bodies over
+1 MiB (1,048,576 bytes) with HTTP 413 before inference. The same limit applies
+with or without payload retention, including chunked transfer without a
+Content-Length header. A request at the byte limit still needs valid JSON,
+supported fields, authorization and model-specific input bounds. Framework
+rejections may use plain text rather than the API JSON error envelope.
+
 ## Responses API text subset
 
-`POST /v1/responses` accepts a non-empty string `input` and optional string `instructions`, `max_output_tokens`, `temperature`, `top_p`, string-valued `metadata`, and `user`. The model route must set `supports_responses = true`; Niu rewrites the model to the configured upstream name and maps the returned model back to the public alias. Only non-streaming text messages, reasoning items and refusal content are accepted. Usage maps from Responses `input_tokens`/`output_tokens` into durable prompt/completion fields.
+`POST /v1/responses` accepts a non-empty string `input` and optional string `instructions`, `max_output_tokens`, `temperature`, `top_p`, string-valued `metadata`, and `user`. The model route must set `supports_responses = true`; Niu rewrites the model to the configured upstream name and maps the returned model back to the public alias. The supported output subset includes text messages, reasoning items and refusal content in buffered or streamed responses. Usage maps from Responses `input_tokens`/`output_tokens` into durable prompt/completion fields.
 
-Input arrays, images, audio, tools, streaming and conversation state are outside this subset. Unsupported fields or malformed shapes return `400`; a disabled route capability or `stream: true` returns `501` before creating an attempt. The error distinguishes disabled Responses support from unsupported streaming and points to nonstreaming Responses or Chat streaming. When route pricing is enabled, `input` plus `instructions` must fit the configured conservative UTF-8 byte bound and `max_output_tokens` is reserved before dispatch. See [Model routes](/docs/configuration/models/) for current limits. This adapter subset does not imply provider-specific conformance.
+Input arrays, images, audio, tools and conversation state are outside this subset. Unsupported fields or malformed shapes return `400`; a disabled route capability returns `501` before creating an attempt. Streamed completion requires terminal event and usage evidence; an initial HTTP 200 is not completion. When route pricing is enabled, `input` plus `instructions` must fit the configured conservative UTF-8 byte bound and `max_output_tokens` is reserved before dispatch. See [Model routes](/docs/configuration/models/) for current limits. This adapter subset does not imply provider-specific conformance.
 
 ## OpenAI-compatible text embeddings
 

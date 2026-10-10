@@ -511,3 +511,18 @@ credit-policy operation to the company owner. Restart retained the disabled
 warning, unchanged approved credit and zero balance. Independent database reads
 found no balance entries or inference attempts. No funding receipt or external
 payment was created; original development data and credentials were preserved.
+
+### Request envelope rejection consistency
+
+Text inference payload capture now preserves HTTP 413 for a request over the
+1 MiB body limit instead of misclassifying the limit as HTTP 400. Other body-read
+failures remain invalid requests. Public Chat, Responses and Embeddings and
+selected-key dashboard Chat document the same 413 behavior; framework rejections
+may have a plain-text body. Video intent saving retains its separate 64 KiB cap.
+
+A current-input native HTTP run exercised all five routes at the exact byte limit
+and one byte above it, with Content-Length and chunked transfer, and with capture
+both enabled and disabled. Oversized bodies returned 413; exact-limit JSON reached
+required-field validation. Independent database inspection found no attempts,
+financial entries or saved intents. This verifies bounded rejection and status
+semantics, not acceptance of a maximum-sized model prompt or a memory-load SLO.
