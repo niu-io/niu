@@ -508,6 +508,41 @@ matched provider-reported prompt/completion counts and confirmed execution; no
 customer charge was created. Temporary keys were revoked and isolated processes
 stopped. Original configuration, data and encrypted identity were unchanged.
 
-The procurement-budget interaction above is an existing boundary, not fixed by
-this query optimization. This checkpoint does not qualify every adapter or races
-between ownership changes and dispatch.
+The procurement-budget interaction above was not fixed by that query optimization;
+the subsequent correction below addresses it. The ownership-read checkpoint does
+not qualify every adapter or races between ownership changes and dispatch.
+
+## Personal calls and platform procurement budgets
+
+Migration 0222 corrects the legacy dispatch gate that required a procurement hold
+for every request whenever a workspace had a procurement budget. Personal attempts
+cannot receive commercial accounting bindings: their upstream bill belongs to the
+credential owner. Requiring that hold produced a generic 409 before dispatch even
+though the personal route was otherwise authorized.
+
+The gate now admits a pinned personal route without a procurement hold. Existing
+dispatch triggers still validate current ownership, enabled credential/model,
+revisions, key scope/model grants and inspected Guardrails under locks. Shared
+routes retain their procurement reservation requirement. No budget is deleted,
+reset, raised or charged on behalf of the personal caller. Historical migrations
+are unchanged; this is an additive function replacement.
+
+A fresh current-input run reproduced 409 on the prior binary with one `not_sent`
+attempt and no dispatch. With migration 0222, an actual personal Chat call completed
+under a one-nanounit procurement budget and zero company balance/credit. The saved
+response contained the requested marker; independent SQL matched its reported
+usage and confirmed completion. Procurement budget counters were unchanged, and
+there were no customer charges, balance entries, retail holds, procurement costs
+or procurement holds. A zero RPM policy then rejected further personal calls
+before and after restart; only the original call had a dispatch timestamp.
+
+The same workspace then received sufficient approved company credit and a separate
+shared priced mapping/key. That request was still rejected with HTTP 402
+`budget_exceeded` by its procurement budget, with no additional dispatch or
+financial entries. Temporary keys were revoked and isolated processes stopped.
+The original database and encrypted identity were preserved. A private archive
+backup was created before upgrading the development database.
+
+This verifies the exercised personal Chat/procurement separation and controls,
+not every protocol, policy race or upstream billing statement. Video's separate
+preflight restriction on legacy procurement budgets remains in place.
