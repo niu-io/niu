@@ -43,6 +43,185 @@ fn scope(organization_id: Uuid, project_id: Uuid, currency: &str) -> Result<Tena
 }
 
 /// Discover usable currencies without granting company-balance access.
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/spending-limit",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listWorkspaceSpendingLimits",
+///     "summary": "List workspace spending currencies",
+///     "description": "Workspace readers may discover company account currencies and this workspace commitment without company-balance access. Absent limits and revisions are null. No state is changed.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "x-niu-implementation": "implemented",
+///     "parameters": [
+///       {
+///         "in": "path",
+///         "name": "organization",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "in": "path",
+///         "name": "project",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Current scoped state",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "items": {
+///                     "$ref": "#/components/schemas/WorkspaceSpendingSummary"
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Insufficient role permissions"
+///       },
+///       "404": {
+///         "description": "Workspace unavailable in the authorized scope"
+///       },
+///       "400": {
+///         "description": "Invalid currency, decimal value or history query"
+///       }
+///     }
+///   },
+///   "schemas": {
+///     "WorkspaceSpendingSummary": {
+///       "type": "object",
+///       "required": [
+///         "currency",
+///         "limit_nanos",
+///         "revision",
+///         "committed_nanos"
+///       ],
+///       "properties": {
+///         "currency": {
+///           "type": "string",
+///           "pattern": "^[A-Z]{3}$"
+///         },
+///         "limit_nanos": {
+///           "type": [
+///             "string",
+///             "null"
+///           ],
+///           "pattern": "^[0-9]+$",
+///           "description": "Exact nonnegative decimal integer, within signed 64-bit range."
+///         },
+///         "revision": {
+///           "type": [
+///             "string",
+///             "null"
+///           ],
+///           "pattern": "^[0-9]+$",
+///           "description": "Exact nonnegative decimal integer, within signed 64-bit range."
+///         },
+///         "committed_nanos": {
+///           "type": "string",
+///           "pattern": "^[0-9]+$",
+///           "description": "Exact nonnegative decimal integer, within signed 64-bit range."
+///         }
+///       }
+///     },
+///     "WorkspaceSpendingInput": {
+///       "type": "object",
+///       "required": [
+///         "limit_nanos",
+///         "expected_revision"
+///       ],
+///       "properties": {
+///         "limit_nanos": {
+///           "type": "string",
+///           "pattern": "^[0-9]+$",
+///           "description": "Exact nonnegative decimal integer, within signed 64-bit range."
+///         },
+///         "expected_revision": {
+///           "type": "string",
+///           "pattern": "^[0-9]+$",
+///           "description": "Exact nonnegative decimal integer, within signed 64-bit range."
+///         }
+///       },
+///       "additionalProperties": false
+///     },
+///     "WorkspaceSpendingHistory": {
+///       "type": "object",
+///       "required": [
+///         "currency",
+///         "revision",
+///         "limit_nanos",
+///         "recorded_at",
+///         "source",
+///         "actor_kind",
+///         "actor_name"
+///       ],
+///       "properties": {
+///         "currency": {
+///           "type": "string"
+///         },
+///         "revision": {
+///           "type": "string",
+///           "pattern": "^[0-9]+$",
+///           "description": "Exact nonnegative decimal integer, within signed 64-bit range."
+///         },
+///         "limit_nanos": {
+///           "type": "string",
+///           "pattern": "^[0-9]+$",
+///           "description": "Exact nonnegative decimal integer, within signed 64-bit range."
+///         },
+///         "recorded_at": {
+///           "type": [
+///             "string",
+///             "null"
+///           ],
+///           "format": "date-time"
+///         },
+///         "source": {
+///           "type": "string"
+///         },
+///         "actor_kind": {
+///           "type": [
+///             "string",
+///             "null"
+///           ]
+///         },
+///         "actor_name": {
+///           "type": [
+///             "string",
+///             "null"
+///           ]
+///         }
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub async fn list(
     State(state): State<AppState>,
     Path((organization, workspace)): Path<(Uuid, Uuid)>,
@@ -65,6 +244,91 @@ pub async fn list(
     ))
 }
 
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "getWorkspaceSpendingLimit",
+///     "summary": "Read a workspace spending limit",
+///     "description": "Workspace read permission required. Returns data: null when no explicit limit exists. Does not expose company funds or other workspace usage.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "x-niu-implementation": "implemented",
+///     "parameters": [
+///       {
+///         "in": "path",
+///         "name": "organization",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "in": "path",
+///         "name": "project",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "in": "path",
+///         "name": "currency",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "pattern": "^[A-Z]{3}$"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Current scoped state",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "oneOf": [
+///                     {
+///                       "$ref": "#/components/schemas/WorkspaceSpendingSummary"
+///                     },
+///                     {
+///                       "type": "null"
+///                     }
+///                   ]
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Insufficient role permissions"
+///       },
+///       "404": {
+///         "description": "Workspace unavailable in the authorized scope"
+///       },
+///       "400": {
+///         "description": "Invalid currency, decimal value or history query"
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub async fn read(
     State(state): State<AppState>,
     Path((organization, workspace, currency)): Path<(Uuid, Uuid, String)>,
@@ -84,6 +348,113 @@ pub async fn read(
     ))
 }
 
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}",
+///   "method": "put",
+///   "operation": {
+///     "operationId": "setWorkspaceSpendingLimit",
+///     "summary": "Set a workspace spending limit",
+///     "description": "Scoped owner or installation administrator required. Both input fields are nonnegative decimal strings, not null. expected_revision 0 creates the first limit; later writes require the saved revision. Zero denies new paid liability; there is no null reset on this endpoint. A limit below existing commitment is rejected. Writes append actor history and never change company funds.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "x-niu-implementation": "implemented",
+///     "parameters": [
+///       {
+///         "in": "path",
+///         "name": "organization",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "in": "path",
+///         "name": "project",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "in": "path",
+///         "name": "currency",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "pattern": "^[A-Z]{3}$"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Current scoped state",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "required": [
+///                     "revision"
+///                   ],
+///                   "properties": {
+///                     "revision": {
+///                       "type": "string",
+///                       "pattern": "^[0-9]+$",
+///                       "description": "Exact nonnegative decimal integer, within signed 64-bit range."
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Insufficient role permissions"
+///       },
+///       "404": {
+///         "description": "Workspace unavailable in the authorized scope"
+///       },
+///       "400": {
+///         "description": "Invalid currency, decimal value or history query"
+///       },
+///       "402": {
+///         "description": "Limit is below existing workspace commitment"
+///       },
+///       "409": {
+///         "description": "Revision conflict or unavailable currency account"
+///       },
+///       "422": {
+///         "description": "JSON input shape is invalid"
+///       }
+///     },
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "$ref": "#/components/schemas/WorkspaceSpendingInput"
+///           }
+///         }
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub async fn write(
     State(state): State<AppState>,
     Path((organization, workspace, currency)): Path<(Uuid, Uuid, String)>,
@@ -117,6 +488,115 @@ pub async fn write(
     Ok(Json(json!({"data":{"revision":revision.to_string()}})))
 }
 
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}/history",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listWorkspaceSpendingLimitHistory",
+///     "summary": "List workspace spending revisions",
+///     "description": "Workspace read permission required. Descending immutable history. before_revision is exclusive. next_before_revision is a decimal string or null; an exactly full final page can yield an empty following page. Baseline timestamps and actor data may be null.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "x-niu-implementation": "implemented",
+///     "parameters": [
+///       {
+///         "in": "path",
+///         "name": "organization",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "in": "path",
+///         "name": "project",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "in": "path",
+///         "name": "currency",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "pattern": "^[A-Z]{3}$"
+///         }
+///       },
+///       {
+///         "in": "query",
+///         "name": "before_revision",
+///         "schema": {
+///           "type": "integer",
+///           "format": "int64",
+///           "minimum": 1
+///         }
+///       },
+///       {
+///         "in": "query",
+///         "name": "limit",
+///         "schema": {
+///           "type": "integer",
+///           "minimum": 1,
+///           "maximum": 100,
+///           "default": 50
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Current scoped state",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data",
+///                 "next_before_revision"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "items": {
+///                     "$ref": "#/components/schemas/WorkspaceSpendingHistory"
+///                   }
+///                 },
+///                 "next_before_revision": {
+///                   "type": [
+///                     "string",
+///                     "null"
+///                   ],
+///                   "pattern": "^[0-9]+$",
+///                   "description": "Exact nonnegative decimal integer, within signed 64-bit range."
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Insufficient role permissions"
+///       },
+///       "404": {
+///         "description": "Workspace unavailable in the authorized scope"
+///       },
+///       "400": {
+///         "description": "Invalid currency, decimal value or history query"
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub async fn history(
     State(state): State<AppState>,
     Path((organization, workspace, currency)): Path<(Uuid, Uuid, String)>,

@@ -132,8 +132,9 @@ checks path registration and duplicate operations; it does not prove matching
 HTTP methods, schemas or runtime behavior. Verify those against real HTTP and
 independent artifacts before qualifying the operation.
 
-The first migrated operation is `listPaymentIntegrations`; the remaining handlers
-still use their existing focused contracts. Annotation migration is incremental,
+Migrated operations include `listPaymentIntegrations` and workspace spending
+list/read/write/history; the remaining handlers still use their existing focused
+contracts. Annotation migration is incremental,
 not a claim that the full API is generated yet. Frontend integration should use
 the root contract, which includes both migrated and existing operations.
 
@@ -145,3 +146,10 @@ authentication, billing and Supplier revision paths have been linked into the
 root contract; actual reads of authentication configuration, charge reconciliation,
 media price models and media rates returned HTTP 200 on the current runtime.
 This does not qualify media charge settlement or the listed write operations.
+
+Workspace spending annotations now include shared schemas, exact nullable read
+states, required decimal-string write inputs, scoped authorization and history
+pagination. Actual HTTP reads, creation and history matched these generated
+schemas in a separate native database. Stale revision writes returned 409, null
+limit writes returned 422, and the saved revision survived restart with no
+financial entries. These are real handlers; no placeholder data was introduced.

@@ -13,7 +13,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check', action='store_true')
     args = parser.parse_args()
-    paths, names, descriptions = {}, set(), []
+    paths, names, descriptions, schemas = {}, set(), [], {}
     routes = (ROOT / 'apps/gateway/src/web/routes.rs').read_text()
     for source in sorted((ROOT / 'apps/gateway/src').rglob('*.rs')):
         for block in re.findall(r'(?m)^/// ```openapi\n(.*?)^/// ```\s*$', source.read_text(), re.S):
@@ -21,6 +21,10 @@ def main():
             if not all(line.startswith('/// ') for line in lines):
                 raise SystemExit(f'Malformed annotation in {source.relative_to(ROOT)}')
             value = json.loads('\n'.join(line[4:] for line in lines))
+            for schema_name, schema in value.get('schemas', {}).items():
+                if schema_name in schemas and schemas[schema_name] != schema:
+                    raise SystemExit(f'Conflicting shared schema: {schema_name}')
+                schemas[schema_name] = schema
             path, method, operation = value['path'], value['method'], value['operation']
             name = operation['operationId']
             if method not in {'get', 'post', 'put', 'patch', 'delete', 'head', 'options'}:
@@ -44,7 +48,7 @@ def main():
     if not paths:
         raise SystemExit('No handler annotations found')
     spec = {'openapi': '3.1.0', 'info': {'title': 'Niu annotated handler operations', 'version': '0.1.0'},
-            'paths': paths, 'components': {'securitySchemes': {'bearerAuth': {'type': 'http', 'scheme': 'bearer'}}}}
+            'paths': paths, 'components': {'schemas': schemas, 'securitySchemes': {'bearerAuth': {'type': 'http', 'scheme': 'bearer'}}}}
     outputs = {
         'contracts/generated/handler-operations.json': json.dumps(spec, indent=2) + '\n',
         'docs/reference/generated-api-operations.md': '\n'.join([

@@ -6,6 +6,12 @@ info:
 servers:
   - url: /
 paths:
+  /admin/v1/organizations/{organization}/projects/{project}/spending-limit:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1spending-limit'
+  /admin/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1spending-limit~1{currency}'
+  /admin/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}/history:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1spending-limit~1{currency}~1history'
   /admin/v1/auth/password:
     $ref: './password-sessions.openapi.yaml#/paths/~1admin~1v1~1auth~1password'
   /admin/v1/auth/config:

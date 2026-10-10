@@ -5,6 +5,7 @@ This reads the repository's two-space path-key convention, not arbitrary YAML.
 It checks inventory coverage only, not method/schema or runtime correctness.
 """
 
+import json
 import re
 from pathlib import Path
 
@@ -41,6 +42,10 @@ def main():
         registered = path_keys((ROOT / 'contracts' / name).read_text()) & routes
         checked.update(registered)
         missing.extend(f'{name}: {path}' for path in sorted(registered - root_paths))
+    generated = json.loads((ROOT / 'contracts/generated/handler-operations.json').read_text())
+    generated_paths = set(generated['paths'])
+    checked.update(generated_paths)
+    missing.extend(f'handler annotations: {path}' for path in sorted(generated_paths - root_paths))
     if missing:
         raise SystemExit('Registered frontend operations missing from root OpenAPI:\n' + '\n'.join(missing))
     print(f'Root OpenAPI exposes {len(checked)} registered paths from selected frontend contracts.')
