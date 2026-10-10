@@ -111,3 +111,21 @@ All observations below use the real local service and saved data. Narrow checks 
 - Its Inspect request link opened the actual corresponding Logs detail. The record retained partial response content, Uncertain upstream state and HTTP 200 delivery status. Measured phases were preparation 72 ms, first-output wait 1.41 s and output stream 10.14 s, with 11.63 s explicitly described as an observed interrupted interval rather than complete latency. No total-token value or complete latency was invented. This does not qualify a durable classified upstream failure.
 - Inspected the restored long response and its Copy/Inspect request actions at measured 390×844 without horizontal overflow. Inspected the matching Logs detail and timing bars at both phone and desktop widths. Restored the temporary output-token setting from 2048 to its original 512; no credential or shared access setting changed. This was live browser qualification of existing behavior, with no UI source change requiring a new component test.
 - Synced the latest backend integration baseline. Key request-rate, concurrency and token-rate configuration/history endpoints are available in the shared contracts but have no customer key-management controls yet. Integrate them through the existing key detail/settings composition after actual reference and Stitch review; preserve explicit null versus zero and expected revisions, and qualify owner/viewer behavior separately.
+
+## Frontend review of the generated documentation — 2026-10-10
+
+The local documentation build now serves `/docs/reference/handler-operations/`
+on the existing development origin. The generated page exposes 22 annotated
+operations; it explicitly remains a subset of the root contract. Extraction
+freshness and the selected root-contract entrypoint checks passed. Desktop
+operation anchors and the measured 390-pixel layout were inspected; no page
+overflow was observed. This is documentation qualification, not live endpoint
+qualification.
+
+Two annotation corrections remain with the backend workstream:
+`KeyTokenRatePolicy.reserved_tokens` contains the unexpected schema keyword
+`without time-based expiry.`, and `committed_tokens` contains
+`or null when unbounded requests prevent a complete total.`. Both strings should
+be part of their respective descriptions, not separate JSON keys. Correct the
+Rust annotation source and regenerate the contract and documentation together;
+do not patch generated artifacts independently.
