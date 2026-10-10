@@ -571,3 +571,20 @@ encryption identity preserved. Its populated integration company now exposes the
 retained policy revision through this endpoint. The documentation site's served
 OpenAPI matches the generated contract. This does not create funding or broaden
 credit-policy write permission.
+
+### Credit history beyond one hundred revisions
+
+A fresh native run published 105 credit/warning policies through the actual
+management endpoint. After reading the first 50-row history page, it published
+revision 106 and continued from the original cursor. The three original pages
+contained revisions 105 through 1 exactly once, preserving every exact credit
+amount and alternating null/non-null warning value. Older pages correctly
+reported current revision 106 without marking their historical rows current.
+A fresh first page exposed revision 106; Gateway restart preserved that response.
+A missing revision cursor returned HTTP 409.
+
+Independent database reopening checked all 106 immutable policy rows and the
+current account pointer, and confirmed zero attempts, balance entries or holds.
+This is actual configuration/pagination evidence, not received-money funding or
+inference-load qualification. Separate pages intentionally do not share one
+snapshot; callers refresh the first page to discover newer revisions.
