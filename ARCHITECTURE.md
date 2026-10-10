@@ -97,7 +97,7 @@ These surfaces still exist. They are not the product boundary in [product focus]
 
 This is a gap inventory, not an implementation order. The product focus and release matrix govern sequencing.
 
-- Extend the verified credit-backed text workflow to merchant funding, media debits, lost commit acknowledgements and nonempty recovery across restart.
+- Extend the verified credit-backed text workflow and single-charge restart recovery to merchant funding, media debits, lost commit acknowledgements and multi-instance nonempty backlog recovery.
 - Qualify connection contention and backlog capacity across gateways, including payment/video and interrupted-ingestion workers.
 - Qualify the invoice settlement read model with actual paid and mixed-settlement business flows.
 - Fail over to another supply mapping with a distinct attempt, a new bound, and no resubmit after uncertain execution.

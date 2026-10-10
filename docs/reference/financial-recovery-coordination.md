@@ -1,7 +1,9 @@
 # Financial recovery coordination
 
 Status: implemented with limited live coordination evidence, 2026-10-10.
-Paid backlog recovery and capacity qualification remain incomplete.
+[One real credit-backed customer backlog](financial-backlog-restart-live.md) now
+has restart-recovery evidence. Multi-instance nonempty backlogs, other ledgers
+and capacity qualification remain incomplete.
 
 The gateway runs customer reservation release, customer text-charge accrual,
 Supplier text/media earnings and upstream cost settlement through one storage
@@ -103,3 +105,5 @@ financial recovery. Content expiry subsequently adopted
 [separate ownership and SQL deadlines](content-retention-recovery.md). Interrupted
 ingestion recovery, paid-backlog convergence and performance capacity remain
 unqualified.
+
+The later [nonempty customer-charge restart run](financial-backlog-restart-live.md) verified recovery of one actual upstream completion after both foreground accounting attempts failed. This extends the earlier empty-ledger coordination observations without qualifying broader backlog capacity.
