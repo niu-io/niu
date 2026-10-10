@@ -122,7 +122,7 @@ paths:
                   reason: { enum: [detector_verdict, resource_limit, capacity_exhausted, credential_unavailable, endpoint_unavailable, transport_failure, service_failure, response_limit, invalid_response, timeout] }
                   synthetic: { type: boolean, const: true }
                   enforcement: { type: boolean, const: false }
-        '400': { description: Invalid input, missing consent or stale processing fingerprint. }
+        '400': { description: "Invalid input, missing consent or stale processing fingerprint." }
         '401': { description: Installation authentication required. }
         '403': { description: Workspace identities cannot test installation detectors. }
         '404': { description: Detector is not configured. }
@@ -191,7 +191,7 @@ paths:
                         activated_at: { type: string, format: date-time }
                         restored_from_revision: { type: [integer, 'null'], minimum: 1 }
         '400': { description: Invalid history cursor. Errors do not echo submitted values. }
-        '401': { description: Authentication required, including malformed query requests. }
+        '401': { description: "Authentication required, including malformed query requests." }
         '403': { description: Workspace read access required. }
   /admin/v1/organizations/{organization}/projects/{project}/guardrails/denials:
     parameters:
@@ -364,10 +364,10 @@ paths:
                   redacted: { type: boolean }
                   synthetic: { const: true }
                   enforcement: { const: false }
-        '400': { description: Invalid JSON shape, enum value or oversized/invalid rule set. Errors do not echo submitted content. }
+        '400': { description: "Invalid JSON shape, enum value or oversized/invalid rule set. Errors do not echo submitted content." }
         '401': { description: Authentication required. }
         '403': { description: Workspace read access required. }
-        '503': { description: Inspection capacity unavailable, worker failure or response deadline exceeded. No inference is dispatched. }
+        '503': { description: "Inspection capacity unavailable, worker failure or response deadline exceeded. No inference is dispatched." }
   /admin/v1/organizations/{organization}/projects/{project}/guardrails/output-preview:
     parameters:
       - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
@@ -423,10 +423,10 @@ paths:
                   enforcement: { const: false }
                   mode: { enum: [buffered_full, observe_only] }
                   coverage: { const: local_text }
-        '400': { description: Invalid JSON shape, enum value or oversized/invalid rule set. Errors do not echo submitted content. }
+        '400': { description: "Invalid JSON shape, enum value or oversized/invalid rule set. Errors do not echo submitted content." }
         '401': { description: Authentication required. }
         '403': { description: Workspace read access required. }
-        '503': { description: Inspection capacity unavailable, worker failure or response deadline exceeded. No inference is dispatched. }
+        '503': { description: "Inspection capacity unavailable, worker failure or response deadline exceeded. No inference is dispatched." }
   /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail/history:
     parameters:
       - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
@@ -452,7 +452,7 @@ paths:
       summary: Read a workspace-scoped key policy assignment
       security: [{ adminBearerAuth: [] }]
       responses:
-        '200': { description: Data contains assignment_revision, policy_revision and policy, or null when no assignment exists in this workspace. }
+        '200': { description: "Data contains assignment_revision, policy_revision and policy, or null when no assignment exists in this workspace." }
         '401': { description: Authentication required. }
         '403': { description: Workspace read access required. }
     put:
@@ -476,7 +476,7 @@ paths:
         '401': { description: Authentication required. }
         '403': { description: Workspace write access required. }
         '404': { description: Policy revision absent in this workspace. }
-        '409': { description: Stale assignment revision or inactive, expired or foreign key. }
+        '409': { description: "Stale assignment revision or inactive, expired or foreign key." }
         '422': { description: Missing required assignment fields or malformed JSON shape. }
   /admin/v1/organizations/{organization}/projects/{project}/guardrails/rollback:
     parameters:
@@ -512,7 +512,7 @@ paths:
       summary: Read active workspace access policy
       security: [{ adminBearerAuth: [] }]
       responses:
-        '200': { description: Active revision and policy in data, or null when no policy is configured. }
+        '200': { description: "Active revision and policy in data, or null when no policy is configured." }
         '401': { description: Authentication required. }
         '403': { description: Workspace read access required. }
     put:

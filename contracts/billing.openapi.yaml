@@ -128,10 +128,10 @@ paths:
                     properties:
                       revision: { type: string }
                       effective_from: { type: string, pattern: '^-?[0-9]+$' }
-        '400': { description: Invalid card, changed dimensions or cutoff outside original interval }
+        '400': { description: "Invalid card, changed dimensions or cutoff outside original interval" }
         '401': { description: Administrator authentication required }
         '403': { description: Platform-administrator write permission required }
-        '409': { description: Missing scoped revision, competing schedule, stale route or conflicting receipt }
+        '409': { description: "Missing scoped revision, competing schedule, stale route or conflicting receipt" }
         '413': { description: Body exceeds 128 KiB }
         '422': { description: Malformed typed JSON body }
         '503': { description: Durable storage unavailable }
@@ -198,10 +198,10 @@ paths:
                     required: [revision]
                     properties:
                       revision: { type: string }
-        '400': { description: Invalid tariff, dimensions, discount or liability configuration }
+        '400': { description: "Invalid tariff, dimensions, discount or liability configuration" }
         '401': { description: Administrator authentication required }
         '403': { description: Platform-administrator write permission required }
-        '409': { description: Changed revision, stale route or personal credential }
+        '409': { description: "Changed revision, stale route or personal credential" }
         '413': { description: Body exceeds 128 KiB }
         '422': { description: Malformed typed JSON body }
         '503': { description: Durable storage unavailable }
@@ -232,7 +232,7 @@ paths:
         '404': { description: Saved order missing }
         '409': { description: Conflicting immutable identity or terminal evidence }
         '501': { description: Saved adapter does not support query recovery; EPay remains notification-driven }
-        '502': { description: Integration unavailable, pending payment, unresolved evidence or query admission busy/rate limited }
+        '502': { description: "Integration unavailable, pending payment, unresolved evidence or query admission busy/rate limited" }
         '503': { description: Durable storage unavailable }
   /payments/epay/notify:
     get:
@@ -252,7 +252,7 @@ paths:
         - {name: name, in: query, required: false, schema: {type: string, maxLength: 1024}}
       responses:
         '200': {$ref: '#/components/responses/EPayAcknowledgment'}
-        '400': {description: Invalid notification, signature or saved-order evidence}
+        '400': {description: "Invalid notification, signature or saved-order evidence" }
         '409': {description: Payment identity conflicts with an existing binding or another order}
         '502': {description: Integration unavailable or processing deadline exceeded; retry delivery}
         '503': {description: Durable storage unavailable; retry notification}
@@ -281,7 +281,7 @@ paths:
                 name: {type: string, maxLength: 1024}
       responses:
         '200': {$ref: '#/components/responses/EPayAcknowledgment'}
-        '400': {description: Invalid form content type, notification or signed saved-order evidence}
+        '400': {description: "Invalid form content type, notification or signed saved-order evidence" }
         '409': {description: Payment identity conflicts with an existing binding or another order}
         '413': {description: Form exceeds 8192 bytes}
         '502': {description: Integration unavailable or processing deadline exceeded; retry delivery}
@@ -423,7 +423,7 @@ paths:
         '400': { description: Invalid amount }
         '401': { description: Authentication required }
         '403': { description: Installation write access required }
-        '409': { description: Unknown or unsupported original entry, over-refund or conflicting replay }
+        '409': { description: "Unknown or unsupported original entry, over-refund or conflicting replay" }
   /admin/v1/organizations/{organization}/billing/accounts/{currency}/policy:
     parameters:
       - $ref: '#/components/parameters/Organization'
@@ -456,10 +456,10 @@ paths:
                     type: object
                     properties:
                       revision: { type: string, pattern: '^[0-9]+$' }
-        '400': { description: Invalid currency, amount or revision }
+        '400': { description: "Invalid currency, amount or revision" }
         '401': { description: Authentication required }
         '403': { description: Installation write access required }
-        '409': { description: Stale revision, unknown company or outstanding reservations prevent credit reduction }
+        '409': { description: "Stale revision, unknown company or outstanding reservations prevent credit reduction" }
   /admin/v1/organizations/{organization}/billing/charge-reconciliation:
     parameters:
       - $ref: '#/components/parameters/Organization'
@@ -660,7 +660,7 @@ paths:
                     required: [revision]
                     properties:
                       revision: { type: string, format: uuid }
-        '400': { description: Invalid rates, currency or unavailable model alias }
+        '400': { description: "Invalid rates, currency or unavailable model alias" }
         '403': { description: Installation authority required }
         '409': { description: Stale expected revision }
   /admin/v1/organizations/{organization}/projects/{project}/billing/invoices:
@@ -689,7 +689,7 @@ paths:
         '200': { $ref: '#/components/responses/InvoiceIdentity' }
         '400': { description: Invalid period or currency }
         '403': { description: Installation authority required }
-        '409': { description: Unresolved usage, overlapping or empty period, or changed idempotency payload }
+        '409': { description: "Unresolved usage, overlapping or empty period, or changed idempotency payload" }
   /admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}:
     parameters:
       - $ref: '#/components/parameters/Organization'
@@ -774,7 +774,7 @@ paths:
         '200': { $ref: '#/components/responses/InvoiceIdentity' }
         '400': { description: Invalid reference }
         '403': { description: Installation authority required }
-        '409': { description: Invoice missing, balance-bound or zero-value invoice, already recorded with another reference, or reference already used }
+        '409': { description: "Invoice missing, balance-bound or zero-value invoice, already recorded with another reference, or reference already used" }
 components:
   responses:
     EPayAcknowledgment:
@@ -901,8 +901,8 @@ components:
         per_quantity: { $ref: '#/components/schemas/ExactMediaQuantity' }
         minimum_quantity: { $ref: '#/components/schemas/ExactMediaQuantity' }
         rounding: { type: string, enum: [Down, Up, HalfEven] }
-        effective_from: { type: integer, format: int64, description: Unix seconds, inclusive. }
-        effective_until: { type: [integer, 'null'], format: int64, description: Unix seconds, exclusive; must exceed effective_from. }
+        effective_from: { type: integer, format: int64, description: "Unix seconds, inclusive." }
+        effective_until: { type: [integer, 'null'], format: int64, description: "Unix seconds, exclusive; must exceed effective_from." }
     MediaSellingDiscount:
       type: object
       additionalProperties: false

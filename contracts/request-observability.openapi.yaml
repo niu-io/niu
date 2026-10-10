@@ -32,7 +32,7 @@ paths:
         '401': { description: Authentication required. }
         '403': { description: The authenticated role lacks the required permission. }
         '404': { description: Workspace is outside the authenticated scope. }
-        '503': { description: Retained structured response cannot be safely serialized, or content storage is unavailable. No unsanitized payload is returned. }
+        '503': { description: "Retained structured response cannot be safely serialized, or content storage is unavailable. No unsanitized payload is returned." }
     delete:
       operationId: deleteRequestPayload
       summary: Delete retained content without deleting accounting records

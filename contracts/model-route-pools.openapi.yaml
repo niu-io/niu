@@ -67,7 +67,7 @@ paths:
                     required: [revision]
                     properties:
                       revision: { type: integer, minimum: 1, maximum: 9007199254740991 }
-        '400': { description: Invalid candidates, bounds, ownership, reserved alias or unsupported mapping }
+        '400': { description: "Invalid candidates, bounds, ownership, reserved alias or unsupported mapping" }
         '403': { description: Installation administration required }
         '409': { description: Stale revision or attempted ownership change }
   /admin/v1/model-route-pools/history:

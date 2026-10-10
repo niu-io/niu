@@ -110,17 +110,17 @@ paths:
             schema: { type: object, additionalProperties: false, maxProperties: 0 }
       responses:
         '400': { description: Expected an empty command object }
-        '200': { description: Persisted observation; status pending/succeeded/failed, asset_status Active/Processing/Failed or null, safe reason, duration_ms, observed_at and reuse_available false. A successful Processing observation does not imply an active asset. }
+        '200': { description: "Persisted observation; status pending/succeeded/failed, asset_status Active/Processing/Failed or null, safe reason, duration_ms, observed_at and reuse_available false. A successful Processing observation does not imply an active asset." }
         '401': { description: Active original API key required }
         '403': { description: Current workspace authorization required }
-        '409': { description: Accepted ingestion or reviewed permission unavailable, claimed read identity, pending observation or polling limit }
-        '503': { description: Read capacity, credentials or persistence unavailable }
+        '409': { description: "Accepted ingestion or reviewed permission unavailable, claimed read identity, pending observation or polling limit" }
+        '503': { description: "Read capacity, credentials or persistence unavailable" }
     get:
       operationId: getIngestedImageReadiness
       security: [{ bearerAuth: [] }]
       summary: Retrieve one persisted readiness observation without an upstream request
       responses:
-        '200': { description: Customer-safe observation; no upstream identifiers, raw response, credentials or commercial procurement data }
+        '200': { description: "Customer-safe observation; no upstream identifiers, raw response, credentials or commercial procurement data" }
         '401': { description: Active original API key required }
         '404': { description: Observation unavailable under this key and ingestion }
   /v1/media/image-sources:
@@ -138,15 +138,15 @@ paths:
               additionalProperties: false
               required: [image, valid_for_seconds]
               properties:
-                image: { type: string, maxLength: 12582912, description: Inline PNG, JPEG or WebP base64 data URL subject to configured detector decode limits }
+                image: { type: string, maxLength: 12582912, description: "Inline PNG, JPEG or WebP base64 data URL subject to configured detector decode limits" }
                 valid_for_seconds: { type: integer, minimum: 1, maximum: 900 }
       responses:
-        '201': { description: Saved source reference and retention_seconds ceiling; no plaintext, hash, credentials or public source URL }
-        '400': { description: Invalid, oversized or unsupported input }
+        '201': { description: "Saved source reference and retention_seconds ceiling; no plaintext, hash, credentials or public source URL" }
+        '400': { description: "Invalid, oversized or unsupported input" }
         '401': { description: Active API key required }
         '403': { description: Current inspection consent or detector approval unavailable }
         '409': { description: Workspace policy changed during preparation }
-        '503': { description: Encryption, preparation capacity or storage capacity unavailable }
+        '503': { description: "Encryption, preparation capacity or storage capacity unavailable" }
   /v1/media/image-sources/{id}:
     delete:
       operationId: eraseInspectedImageSource
@@ -183,8 +183,8 @@ paths:
         '200': { description: Persisted customer-safe accepted or uncertain ingestion status }
         '401': { description: Active original API key required }
         '403': { description: Current policy required }
-        '409': { description: Consent unavailable, already claimed or no longer authorized }
-        '503': { description: Source origin or encryption unavailable, upload capacity exhausted or worker storage unavailable }
+        '409': { description: "Consent unavailable, already claimed or no longer authorized" }
+        '503': { description: "Source origin or encryption unavailable, upload capacity exhausted or worker storage unavailable" }
   /v1/media/image-ingestions/{id}:
     parameters:
       - in: path
@@ -211,18 +211,18 @@ paths:
                 valid_for_seconds: { type: integer, minimum: 1, maximum: 900 }
                 confirm_ingestion: { type: boolean, const: true }
       responses:
-        '201': { description: Consent saved; returns data with consent_id, expires_at, status, consent_revoked and dispatch_available }
+        '201': { description: "Consent saved; returns data with consent_id, expires_at, status, consent_revoked and dispatch_available" }
         '200': { description: Identical active consent already exists }
         '400': { description: Invalid or unconfirmed consent }
         '401': { description: Active API key required }
         '403': { description: Current workspace policy required }
-        '409': { description: Source, destination or reviewed authorization unavailable; consent conflict }
+        '409': { description: "Source, destination or reviewed authorization unavailable; consent conflict" }
     get:
       operationId: getImageIngestionConsent
       security: [{ bearerAuth: [] }]
       summary: Read customer-safe ingestion status under the original API key
       responses:
-        '200': { description: Consent status with nullable allowlisted reason, duration_ms and observed_at from its immutable outcome; no credentials, source tokens, upstream identifiers or procurement data }
+        '200': { description: "Consent status with nullable allowlisted reason, duration_ms and observed_at from its immutable outcome; no credentials, source tokens, upstream identifiers or procurement data" }
         '401': { description: Active API key required }
         '404': { description: Consent unavailable under this API key }
     delete:
@@ -401,7 +401,7 @@ paths:
         '401': { description: Invalid credential }
         '403': { description: Policy cannot be satisfied }
         '404': { description: Model access denied }
-        '501': { description: Unsupported channel, meter, estimator, media or callback contract }
+        '501': { description: "Unsupported channel, meter, estimator, media or callback contract" }
         '503': { description: Qualified route or original tariff binding unavailable }
   /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs:
     get:
@@ -440,8 +440,8 @@ paths:
                         model: { type: string }
                         created_at_ms: { type: string, pattern: '^-?[0-9]+$', description: Exact Unix milliseconds from the saved attempt. }
                         status: { type: string, enum: [submission_unknown, queued, running, succeeded, failed, unknown, reconciliation_required] }
-        '400': { description: Invalid limit, unknown query field, malformed or inaccessible cursor }
-        '401': { description: Invalid, expired or revoked credential }
+        '400': { description: "Invalid limit, unknown query field, malformed or inaccessible cursor" }
+        '401': { description: "Invalid, expired or revoked credential" }
     post:
       operationId: createDashboardVideoJob
       summary: Submit a direct-channel text video job
@@ -474,14 +474,14 @@ paths:
         - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: key, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
-        '202': { description: Durable Niu reference; new submissions are unknown or submission_unknown, replays return the current saved status }
+        '202': { description: "Durable Niu reference; new submissions are unknown or submission_unknown, replays return the current saved status" }
         '400': { description: Request violates the configured schema or idempotency header format }
         '401': { description: Invalid credential }
         '403': { description: Policy cannot be satisfied }
         '404': { description: Model access denied }
         '402': { description: Insufficient balance or missing required budget reservation; no upstream submission }
-        '409': { description: Idempotency key reused with different input; or route, key, policy or offer changed before dispatch }
-        '501': { description: Unsupported channel, billing, media or callback contract; idempotent reference-image submission is not supported }
+        '409': { description: "Idempotency key reused with different input; or route, key, policy or offer changed before dispatch" }
+        '501': { description: "Unsupported channel, billing, media or callback contract; idempotent reference-image submission is not supported" }
         '503': { description: Qualified offer or original route unavailable }
   /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}:
     get:
@@ -508,8 +508,8 @@ paths:
                   object: { const: video.job }
                   model: { type: string }
                   status: { type: string, enum: [submission_unknown, queued, running, succeeded, failed, unknown, reconciliation_required] }
-        '401': { description: Invalid, expired or revoked credential }
-        '404': { description: Missing job, workspace mismatch or model access denied }
+        '401': { description: "Invalid, expired or revoked credential" }
+        '404': { description: "Missing job, workspace mismatch or model access denied" }
   /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/results/{kind}:
     get:
       operationId: retrieveDashboardVideoResult
@@ -532,9 +532,9 @@ paths:
             image/jpeg: { schema: { type: string, format: binary } }
         '401': { description: Invalid session or selected key }
         '403': { description: Workspace or policy access denied }
-        '404': { description: Missing, inaccessible, locally expired or deleted reference }
+        '404': { description: "Missing, inaccessible, locally expired or deleted reference" }
         '502': { description: 'Safe media_result_* error category for unavailable links, rejected destinations, oversized or invalid media, or transport failure' }
-        '503': { description: Encryption, configuration or bounded retrieval capacity unavailable; capacity errors use media_result_busy }
+        '503': { description: "Encryption, configuration or bounded retrieval capacity unavailable; capacity errors use media_result_busy" }
         '504': { description: Overall result retrieval deadline exceeded; media_result_timeout }
   /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/results:
     get:
@@ -697,7 +697,7 @@ paths:
         '401': { description: Invalid credential }
         '403': { description: Policy cannot be satisfied }
         '404': { description: Model access denied }
-        '501': { description: Unsupported channel, meter, estimator, media or callback contract }
+        '501': { description: "Unsupported channel, meter, estimator, media or callback contract" }
         '503': { description: Qualified route or original tariff binding unavailable }
   /v1/video/jobs/{id}/billing:
     get:
@@ -816,8 +816,8 @@ paths:
                         model: { type: string }
                         created_at_ms: { type: string, pattern: '^-?[0-9]+$', description: Exact Unix milliseconds from the saved attempt. }
                         status: { type: string, enum: [submission_unknown, queued, running, succeeded, failed, unknown, reconciliation_required] }
-        '400': { description: Invalid limit, unknown query field, malformed or inaccessible cursor }
-        '401': { description: Invalid, expired or revoked credential }
+        '400': { description: "Invalid limit, unknown query field, malformed or inaccessible cursor" }
+        '401': { description: "Invalid, expired or revoked credential" }
     post:
       operationId: createOwnerFundedVideoJob
       summary: Submit a direct-channel text video job
@@ -847,14 +847,14 @@ paths:
       parameters:
         - { name: Idempotency-Key, in: header, required: false, schema: { type: string, minLength: 1, maxLength: 128 }, description: Workspace-scoped text-video submission identity. Reuse only with the same JSON document. }
       responses:
-        '202': { description: Durable Niu reference; new submissions are unknown or submission_unknown, replays return the current saved status }
+        '202': { description: "Durable Niu reference; new submissions are unknown or submission_unknown, replays return the current saved status" }
         '400': { description: Request violates the configured schema or idempotency header format }
         '401': { description: Invalid credential }
         '403': { description: Policy cannot be satisfied }
         '404': { description: Model access denied }
         '402': { description: Insufficient balance or missing required budget reservation; no upstream submission }
-        '409': { description: Idempotency key reused with different input; or route, key, policy or offer changed before dispatch }
-        '501': { description: Unsupported channel, billing, media or callback contract; idempotent reference-image submission is not supported }
+        '409': { description: "Idempotency key reused with different input; or route, key, policy or offer changed before dispatch" }
+        '501': { description: "Unsupported channel, billing, media or callback contract; idempotent reference-image submission is not supported" }
         '503': { description: Qualified offer or original route unavailable }
   /v1/video/jobs/{id}/results/{kind}:
     get:
@@ -874,11 +874,11 @@ paths:
             image/png: { schema: { type: string, format: binary } }
             image/jpeg: { schema: { type: string, format: binary } }
         '400': { description: Unknown result kind }
-        '401': { description: Invalid, expired or revoked key }
+        '401': { description: "Invalid, expired or revoked key" }
         '403': { description: Required policy cannot be satisfied }
-        '404': { description: Inaccessible, missing, locally expired or deleted reference }
+        '404': { description: "Inaccessible, missing, locally expired or deleted reference" }
         '502': { description: 'Safe media_result_* error category for unavailable links, rejected destinations, oversized or invalid media, or transport failure' }
-        '503': { description: Encryption, configuration or bounded retrieval capacity unavailable; capacity errors use media_result_busy }
+        '503': { description: "Encryption, configuration or bounded retrieval capacity unavailable; capacity errors use media_result_busy" }
         '504': { description: Overall result retrieval deadline exceeded; media_result_timeout }
   /v1/video/jobs/{id}/results:
     get:
@@ -910,7 +910,7 @@ paths:
           content:
             application/json:
               schema: { type: object, additionalProperties: false, required: [deleted], properties: { deleted: { const: true } } }
-        '401': { description: Invalid, expired or revoked key }
+        '401': { description: "Invalid, expired or revoked key" }
         '404': { description: Inaccessible or missing job }
   /v1/video/jobs/{id}:
     get:
@@ -934,8 +934,8 @@ paths:
                   object: { const: video.job }
                   model: { type: string }
                   status: { type: string, enum: [submission_unknown, queued, running, succeeded, failed, unknown, reconciliation_required] }
-        '401': { description: Invalid, expired or revoked credential }
-        '404': { description: Missing job, workspace mismatch or model access denied }
+        '401': { description: "Invalid, expired or revoked credential" }
+        '404': { description: "Missing job, workspace mismatch or model access denied" }
   /admin/v1/organizations/{organization}/projects/{project}/chat-draft:
     parameters:
       - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
@@ -1226,7 +1226,7 @@ paths:
         '204': { description: Association established or already present. }
         '401': { description: Authentication required. }
         '403': { description: Installation access required. }
-        '409': { description: Unknown reference, stale revision or attempted reassignment. }
+        '409': { description: "Unknown reference, stale revision or attempted reassignment." }
   /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/guardrails:
     $ref: './guardrails.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1requests~1{attempt}~1guardrails'
   /admin/v1/organizations/{organization}/projects/{project}/guardrails/output-preview:
@@ -1733,7 +1733,7 @@ paths:
         '400': { description: Invalid item position. }
         '401': { description: Authentication required. }
         '403': { description: Platform administrator required. }
-        '409': { description: Scope, grant, retained page or item unavailable, or lookup identity already claimed. }
+        '409': { description: "Scope, grant, retained page or item unavailable, or lookup identity already claimed." }
         '422': { description: Unsupported request fields or shape. }
         '503': { description: Capacity exhausted or safe transport/persistence failure. }
     get:
@@ -1784,7 +1784,7 @@ paths:
                   data: { $ref: '#/components/schemas/OrdinaryAssetLookupResult' }
         '401': { description: Authentication required. }
         '403': { description: Platform administrator required. }
-        '404': { description: Missing, expired, erased, revoked or out-of-scope result. }
+        '404': { description: "Missing, expired, erased, revoked or out-of-scope result." }
         '503': { description: Safe decryption or validation failure. }
     delete:
       summary: Erase retained asset lookup content
@@ -1853,7 +1853,7 @@ paths:
         '401': { description: Authentication required. }
         '403': { description: Platform administrator required or current access revoked. }
         '404': { description: Group missing or outside the exact scope. }
-        '409': { description: Qualification missing, identity already claimed, parent already continued or terminal, scope mismatch, or 100-page chain exhausted. }
+        '409': { description: "Qualification missing, identity already claimed, parent already continued or terminal, scope mismatch, or 100-page chain exhausted." }
         '422': { description: Invalid or unsupported request fields. }
         '503': { description: Capacity exhausted or safe transport/persistence failure. }
   /admin/v1/vendors/{id}/asset-management/listings/{listing}:
@@ -1960,7 +1960,7 @@ paths:
         '403': { description: Platform administrator required. }
         '404': { description: Saved group absent from the specified workspace or account. }
         '409': { description: Read already claimed or original operation qualification unavailable. }
-        '503': { description: Read capacity, credentials, transport or outcome persistence unavailable; no automatic retry. }
+        '503': { description: "Read capacity, credentials, transport or outcome persistence unavailable; no automatic retry." }
   /admin/v1/vendors/{id}/asset-management/group-reads/{read}:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -1998,7 +1998,7 @@ paths:
       description: Platform administrator only. Idempotent scoped erasure. Records a deletion even during an in-flight read so later completion cannot restore content. Does not delete the upstream group or immutable audit. Content erasure remains available after read grant revocation.
       security: [{ adminBearerAuth: [] }]
       responses:
-        '204': { description: Content erased, already absent or outside the supplied scope. }
+        '204': { description: "Content erased, already absent or outside the supplied scope." }
         '401': { description: Authentication required. }
         '403': { description: Platform administrator required. }
   /admin/v1/vendors/{id}/asset-management/group-updates/{update}:
@@ -2038,14 +2038,14 @@ paths:
                 project_id: { type: string, format: uuid }
                 read_id: { type: string, format: uuid }
       responses:
-        '200': { description: data contains update_id, status reconciled and reconciliation_required false. }
+        '200': { description: "data contains update_id, status reconciled and reconciliation_required false." }
         '400': { description: Snapshot invalid or requested metadata does not match; hold preserved. }
         '401': { description: Authentication required. }
         '403': { description: Platform access or read permission unavailable. }
         '404': { description: Update unavailable in this account and workspace. }
-        '409': { description: Read identity consumed, content unavailable, update not acknowledged/held or original qualification unavailable. }
+        '409': { description: "Read identity consumed, content unavailable, update not acknowledged/held or original qualification unavailable." }
         '422': { description: Malformed request. }
-        '503': { description: Read capacity, encryption, transport or durable persistence unavailable. }
+        '503': { description: "Read capacity, encryption, transport or durable persistence unavailable." }
   /admin/v1/vendors/{id}/asset-management/group-updates/{update}/dispatch:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -2085,9 +2085,9 @@ paths:
         '401': { description: Authentication required. }
         '403': { description: Platform administrator required. }
         '404': { description: Update unavailable in this account and workspace. }
-        '409': { description: Update already claimed, content unavailable, qualification revoked or group held. }
+        '409': { description: "Update already claimed, content unavailable, qualification revoked or group held." }
         '422': { description: Malformed scope. }
-        '503': { description: Execution capacity, encryption or durable completion unavailable; never automatically retry a claimed update. }
+        '503': { description: "Execution capacity, encryption or durable completion unavailable; never automatically retry a claimed update." }
   /admin/v1/vendors/{id}/asset-management/group-updates:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -2151,7 +2151,7 @@ paths:
                 - required: [name]
                 - required: [description]
       responses:
-        '201': { description: Encrypted patch prepared; data contains update_id, prepared true and dispatch_available. }
+        '201': { description: "Encrypted patch prepared; data contains update_id, prepared true and dispatch_available." }
         '200': { description: Identical preparation already exists; no overwrite or upstream dispatch. }
         '400': { description: Invalid metadata or empty patch. }
         '401': { description: Authentication required. }
@@ -2191,11 +2191,11 @@ paths:
                     properties:
                       id: { type: string, format: uuid, description: Saved request routing identifier; never a display label. }
                       status: { type: string, enum: [dispatching, uncertain, succeeded] }
-        '400': { description: Invalid ordinary name, description or revisions. }
+        '400': { description: "Invalid ordinary name, description or revisions." }
         '401': { description: Authentication required. }
         '403': { description: Platform administrator required. }
         '404': { description: Workspace does not belong to the specified organization. }
-        '409': { description: Missing or changed qualification/credentials/account, conflicting idempotency binding, or a concurrent claim. No automatic replay is permitted. }
+        '409': { description: "Missing or changed qualification/credentials/account, conflicting idempotency binding, or a concurrent claim. No automatic replay is permitted." }
         '413': { description: Request body exceeds 16 KiB. }
         '422': { description: Invalid shape or unknown fields. }
         '503': { description: Asset management capacity or encrypted credentials unavailable. No send was admitted by this request. }
@@ -2248,7 +2248,7 @@ paths:
         '401': { description: Authentication required. }
         '403': { description: Platform administrator required. }
         '404': { description: Original group not found in the specified workspace and Supplier configuration. }
-        '409': { description: Group or qualification unavailable, stale binding, or conflicting/expired/revoked consent. }
+        '409': { description: "Group or qualification unavailable, stale binding, or conflicting/expired/revoked consent." }
         '413': { description: Request exceeds 4096 bytes. }
         '422': { description: Invalid request shape or unknown fields. }
   /admin/v1/vendors/{id}/asset-management/group-deletion-consents/{consent}/dispatch:
@@ -2291,10 +2291,10 @@ paths:
         '401': { description: Authentication required. }
         '403': { description: Platform administrator required. }
         '404': { description: Consent does not belong to this workspace and Supplier configuration. }
-        '409': { description: Ineligible or consumed consent, stale qualification or outstanding mutation hold. }
+        '409': { description: "Ineligible or consumed consent, stale qualification or outstanding mutation hold." }
         '413': { description: Request exceeds 4096 bytes. }
         '422': { description: Invalid shape or unknown fields. }
-        '503': { description: Execution capacity, credential decryption or durable outcome unavailable. Read saved status; do not automatically retry. }
+        '503': { description: "Execution capacity, credential decryption or durable outcome unavailable. Read saved status; do not automatically retry." }
   /admin/v1/vendors/{id}/asset-management/group-deletion-consents/{consent}:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
@@ -2371,11 +2371,11 @@ paths:
                       id: { type: string, format: uuid }
                       operation: { type: string, enum: [CreateAssetGroup, GetAssetGroup, ListAssets, GetAsset, UpdateAssetGroup, DeleteAssetGroup, CreateAsset] }
                       dispatch_available: { type: boolean, const: false }
-        '400': { description: Invalid revisions, validity or evidence references. }
+        '400': { description: "Invalid revisions, validity or evidence references." }
         '401': { description: Authentication required. }
         '403': { description: Platform administrator required. }
         '404': { description: Workspace does not belong to the specified organization. }
-        '409': { description: Account revision changed, account is not direct Ark, or asset credentials are missing or revoked. }
+        '409': { description: "Account revision changed, account is not direct Ark, or asset credentials are missing or revoked." }
         '413': { description: Request body exceeds 16 KiB. }
         '422': { description: Invalid request shape or unknown fields. }
     get:
@@ -2461,7 +2461,7 @@ paths:
         '400': { description: Invalid assignment input. }
         '401': { description: Authentication required. }
         '403': { description: Installation administrator required. }
-        '409': { description: Stale revision, different owner, existing model route pricing, commercial qualification or unavailable account. }
+        '409': { description: "Stale revision, different owner, existing model route pricing, commercial qualification or unavailable account." }
   /admin/v1/vendors/{id}/models:
     parameters:
       - name: id
@@ -2496,10 +2496,10 @@ paths:
             schema: { $ref: '#/components/schemas/VendorModelInput' }
       responses:
         '200': { description: Persisted model mapping wrapped in data. }
-        '400': { description: Invalid alias, capabilities or pricing. }
+        '400': { description: "Invalid alias, capabilities or pricing." }
         '403': { description: Installation administrator required. }
         '404': { description: Vendor does not exist. }
-        '409': { description: Stale revision, existing alias or different vendor ownership. }
+        '409': { description: "Stale revision, existing alias or different vendor ownership." }
   /admin/v1/vendors/{id}/catalog:
     parameters:
       - name: id
@@ -3403,7 +3403,7 @@ paths:
           content:
             text/csv: { schema: { type: string } }
         '400': { description: Invalid filters or pagination parameters. }
-        '401': { description: Missing, invalid or inference-only credentials. }
+        '401': { description: "Missing, invalid or inference-only credentials." }
         '403': { description: Administration credential cannot read this workspace. }
         '413': { description: More than 10000 requests match; narrow the filters. }
   /admin/v1/organizations/{organization}/projects/{project}/requests:
@@ -3694,7 +3694,7 @@ paths:
                         status: {type: string, enum: [prepared, dispatching, uncertain, succeeded]}
                         created_at: {type: string, format: date-time}
                         request_content_status: {type: string, enum: [retained, deleted, expired]}
-        '400': {description: Invalid cursor, limit or query field.}
+        '400': {description: "Invalid cursor, limit or query field." }
         '401': {description: Member or installation session required.}
         '403': {description: Workspace read permission required.}
         '404': {description: Workspace unavailable to this caller.}
@@ -3841,7 +3841,7 @@ components:
         duration_ms: { type: [integer, 'null'], minimum: 0 }
         reason: { type: [string, 'null'], enum: [null, invalid_configuration, destination_rejected, unavailable, transport, timeout, response_limit, invalid_response] }
         item_count: { type: [integer, 'null'], minimum: 0, maximum: 100 }
-        has_more: { type: [boolean, 'null'], description: Observed next-page availability, not complete inventory or current permission to continue. }
+        has_more: { type: [boolean, 'null'], description: "Observed next-page availability, not complete inventory or current permission to continue." }
     OrdinaryAssetListingResponse:
       type: object
       required: [data]
@@ -3852,7 +3852,7 @@ components:
           required: [listing_id, items, has_more]
           properties:
             listing_id: { type: string, format: uuid }
-            has_more: { type: boolean, description: Additional upstream pages were observed; continue using this listing as previous_listing_id within the retained, authorized chain. }
+            has_more: { type: boolean, description: "Additional upstream pages were observed; continue using this listing as previous_listing_id within the retained, authorized chain." }
             items:
               type: array
               maxItems: 100
@@ -4884,7 +4884,7 @@ components:
         unresolved_references: { type: integer, minimum: 0 }
         attempts_without_cost_entries: { type: integer, minimum: 0 }
         settled_cost_entries: { type: integer, minimum: 0 }
-        complete: { type: boolean, description: True only when all scanned records have complete coverage, every billable root and charge reference resolves to a settled scoped ledger entry, and the scan was not truncated. }
+        complete: { type: boolean, description: "True only when all scanned records have complete coverage, every billable root and charge reference resolves to a settled scoped ledger entry, and the scan was not truncated." }
     CurrencyAmountV1:
       type: object
       required: [currency, amount_nanos]
