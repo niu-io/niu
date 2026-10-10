@@ -139,3 +139,5 @@ See [key request rate limits](../reference/api-key-request-rate-limits.md) for d
 See [key concurrency limits](../reference/api-key-concurrency-limits.md) for unresolved-work occupancy and remaining verification.
 
 See [key token rate budgets](../reference/api-key-token-rate-limits.md) for estimation limits, window semantics and verification gaps.
+
+See [completion replay and category preservation](../reference/completion-replay.md) for the shared batch/fallback implementation and actual completed-request replay evidence. Paid and mixed-batch failure recovery remain unverified.

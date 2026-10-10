@@ -869,22 +869,49 @@ impl Store {
                 RETURNING a.id
             "#,
         )
-        .bind(organization_ids)
-        .bind(project_ids)
-        .bind(attempt_ids)
-        .bind(has_usage)
-        .bind(prompt_tokens)
-        .bind(completion_tokens)
-        .bind(provider_models)
+        .bind(&organization_ids)
+        .bind(&project_ids)
+        .bind(&attempt_ids)
+        .bind(&has_usage)
+        .bind(&prompt_tokens)
+        .bind(&completion_tokens)
+        .bind(&provider_models)
         .fetch_all(&mut *tx)
         .await?;
         if updated.len() != completion_count {
-            return Err(StoreError::Conflict);
+            // A retried completion may already be durable. Accept only the
+            // same scoped evidence; never overwrite a terminal observation.
+            let matching: i64 = sqlx::query_scalar(r#"
+                WITH input AS (
+                    SELECT * FROM unnest(
+                        $1::uuid[], $2::uuid[], $3::uuid[], $4::boolean[],
+                        $5::bigint[], $6::bigint[], $7::text[]
+                    ) AS row(organization_id, project_id, attempt_id, has_usage,
+                             prompt_tokens, completion_tokens, provider_model)
+                )
+                SELECT COUNT(*) FROM attempts a JOIN input
+                    ON a.organization_id=input.organization_id
+                    AND a.project_id=input.project_id AND a.id=input.attempt_id
+                WHERE a.execution='confirmed_completed'
+                    AND a.usage_confidence=CASE WHEN input.has_usage THEN 'provider_reported' ELSE 'unknown' END
+                    AND a.prompt_tokens IS NOT DISTINCT FROM input.prompt_tokens
+                    AND a.completion_tokens IS NOT DISTINCT FROM input.completion_tokens
+                    AND a.provider_model IS NOT DISTINCT FROM input.provider_model
+            "#)
+            .bind(&organization_ids).bind(&project_ids).bind(&attempt_ids)
+            .bind(&has_usage).bind(&prompt_tokens).bind(&completion_tokens)
+            .bind(&provider_models).fetch_one(&mut *tx).await?;
+            if matching != completion_count as i64 {
+                return Err(StoreError::Conflict);
+            }
         }
         for (attempt, details) in categories {
-            sqlx::query("INSERT INTO request_token_categories (attempt_id,cached_input_tokens,reasoning_output_tokens) VALUES ($1,$2,$3)")
+            let saved = sqlx::query("INSERT INTO request_token_categories (attempt_id,cached_input_tokens,reasoning_output_tokens) VALUES ($1,$2,$3) ON CONFLICT(attempt_id) DO UPDATE SET attempt_id=EXCLUDED.attempt_id WHERE request_token_categories.cached_input_tokens IS NOT DISTINCT FROM EXCLUDED.cached_input_tokens AND request_token_categories.reasoning_output_tokens IS NOT DISTINCT FROM EXCLUDED.reasoning_output_tokens")
                 .bind(attempt).bind(details.cached_input_tokens).bind(details.reasoning_output_tokens)
                 .execute(&mut *tx).await?;
+            if saved.rows_affected() != 1 {
+                return Err(StoreError::Conflict);
+            }
         }
         tx.commit().await?;
         Ok(())

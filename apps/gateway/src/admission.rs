@@ -397,19 +397,10 @@ async fn persist_priced_completion_batch(
             let mut persisted = Vec::with_capacity(count);
             for completion in completions {
                 let result = store
-                    .complete_and_settle_with_provider_model(
-                        completion.scope,
-                        completion.attempt_id,
-                        completion.usage,
-                        completion.provider_model.as_deref(),
-                    )
+                    .complete_and_settle_gateway_batch(completion.scope, vec![completion.clone()])
                     .await;
                 let completed = match result {
                     Ok(()) => true,
-                    Err(niu_storage::StoreError::Conflict) if completion.usage.is_some() => store
-                        .settle_cost(completion.scope, completion.attempt_id)
-                        .await
-                        .is_ok(),
                     Err(error) => {
                         tracing::warn!(
                             error = %error,
@@ -512,15 +503,10 @@ async fn persist_completion_batch(store: &Store, batch: Vec<GatewayCompletion>) 
                 let mut persisted = Vec::with_capacity(count);
                 for completion in batch {
                     let result = store
-                        .complete_and_settle_with_provider_model(
-                            completion.scope,
-                            completion.attempt_id,
-                            completion.usage,
-                            completion.provider_model.as_deref(),
-                        )
+                        .complete_and_accrue_gateway_batch(vec![completion.clone()])
                         .await;
                     match result {
-                        Ok(()) | Err(niu_storage::StoreError::Conflict) => persisted.push(true),
+                        Ok(()) => persisted.push(true),
                         Err(error) => {
                             tracing::warn!(
                                 error = %error,
