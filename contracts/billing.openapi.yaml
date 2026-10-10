@@ -555,6 +555,41 @@ paths:
         '401': { description: Authentication required }
         '403': { description: Installation write access required }
         '409': { description: Stale revision, unknown company or outstanding reservations prevent credit reduction }
+  /admin/v1/organizations/{organization}/billing/charge-reconciliation:
+    parameters:
+      - $ref: '#/components/parameters/Organization'
+    get:
+      operationId: getCustomerChargeReconciliation
+      summary: Compare customer charge records with prepaid ledger debits
+      description: Organization-wide owner/admin or installation read access required. One database snapshot compares prepaid-bound text and media charges against original charge entries per currency. Refunds do not reduce original charge matching. Reports counts and exact decimal amounts only, with no internal identifiers or Supplier prices. Zero counts on an empty account do not establish financial readiness. This is read-only and does not verify external payment settlement, recalculate prices, reconcile legacy invoices or repair discrepancies. Pending settlement can appear as a discrepancy; use a later observation to distinguish an in-flight write from a persistent mismatch.
+      responses:
+        '200':
+          description: Per-currency observations
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required: [currency, observed_at, charge_records, expected_charge_nanos, posted_charge_nanos, missing_charge_entries, mismatched_charge_entries, unexpected_charge_entries, duplicate_charge_sources, settled_open_reservations]
+                      properties:
+                        currency: { type: string, pattern: '^[A-Z]{3}$' }
+                        observed_at: { type: string, format: date-time }
+                        charge_records: { type: string, pattern: '^[0-9]+$' }
+                        expected_charge_nanos: { type: string, pattern: '^[0-9]+$' }
+                        posted_charge_nanos: { type: string, pattern: '^[0-9]+$' }
+                        missing_charge_entries: { type: string, pattern: '^[0-9]+$' }
+                        mismatched_charge_entries: { type: string, pattern: '^[0-9]+$' }
+                        unexpected_charge_entries: { type: string, pattern: '^[0-9]+$' }
+                        duplicate_charge_sources: { type: string, pattern: '^[0-9]+$' }
+                        settled_open_reservations: { type: string, pattern: '^[0-9]+$' }
+        '401': { description: Missing or invalid administration credentials }
+        '404': { description: Company billing scope unavailable to this principal }
+        '503': { description: Storage unavailable }
   /admin/v1/organizations/{organization}/billing/balance:
     parameters:
       - $ref: '#/components/parameters/Organization'

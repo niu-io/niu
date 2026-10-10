@@ -306,6 +306,22 @@ pub async fn account_balance(
     ))
 }
 
+pub async fn charge_reconciliation(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(organization): Path<Uuid>,
+) -> Result<Json<Value>, ApiError> {
+    let auth = state
+        .authorize_admin_headers(&headers, AdminPermission::Read)
+        .await?;
+    if !auth.permits_billing_account(organization) {
+        return Err(ApiError::not_found());
+    }
+    Ok(Json(
+        json!({"data":state.store.customer_charge_reconciliation(organization).await.map_err(ApiError::from_store)?}),
+    ))
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SettledFundingInput {

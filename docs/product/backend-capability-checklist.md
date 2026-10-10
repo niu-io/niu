@@ -143,3 +143,8 @@ See [key token rate budgets](../reference/api-key-token-rate-limits.md) for esti
 See [completion replay and category preservation](../reference/completion-replay.md) for the shared batch/fallback implementation and actual completed-request replay evidence. Paid and mixed-batch failure recovery remain unverified.
 
 See [customer cached-input pricing](../reference/cached-input-pricing.md) for versioning, conservative bounds, missing-usage behavior and the exact current-input verification boundary.
+
+The [customer charge reconciliation report](../reference/customer-charge-reconciliation.md)
+compares prepaid-bound text/media charges and original ledger debits without
+mutating money. Empty multi-currency reports and real authorization boundaries
+are verified; nonempty financial discrepancy cases remain unverified.

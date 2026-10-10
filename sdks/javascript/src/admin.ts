@@ -96,6 +96,13 @@ export type CustomerInvoiceLine = {
   prompt_tokens: string; completion_tokens: string; prompt_rate: string; completion_rate: string; amount_nanos: string;
   cached_prompt_tokens?: string | null; cached_prompt_rate?: string | null;
 };
+export type CustomerChargeReconciliation = {
+  currency: string; observed_at: string; charge_records: string;
+  expected_charge_nanos: string; posted_charge_nanos: string;
+  missing_charge_entries: string; mismatched_charge_entries: string;
+  unexpected_charge_entries: string; duplicate_charge_sources: string;
+  settled_open_reservations: string;
+};
 export type CustomerBalance = {
   currency: string; balance_nanos: string; reserved_nanos: string; available_nanos: string;
   /** Outstanding holds including known unsettled media overruns; absent on older gateways. */
@@ -675,6 +682,11 @@ export class NiuAdminClient {
   /** Shared company funds require organization-wide owner/admin authorization. */
   getCustomerBalance(organizationId: string, options?: RequestOptions): Promise<{ data: CustomerBalance[] }> {
     return this.request(`/organizations/${uuid(organizationId)}/billing/balance`, undefined, options);
+  }
+
+  /** Read-only customer charge-to-ledger comparison; does not certify payment settlement. */
+  getCustomerChargeReconciliation(organizationId: string, options?: RequestOptions): Promise<{ data: CustomerChargeReconciliation[] }> {
+    return this.request(`/organizations/${uuid(organizationId)}/billing/charge-reconciliation`, undefined, options);
   }
 
   /** Create/replay a supported-currency top-up; preserve the idempotency key after uncertainty. No automatic retry. */

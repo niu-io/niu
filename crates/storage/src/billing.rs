@@ -5,6 +5,51 @@ use sqlx::Row;
 use uuid::Uuid;
 
 impl Store {
+    /// Same-snapshot retail charge-to-ledger reconciliation; never mutates money.
+    /// Only prepaid-bound attempts participate; legacy invoices are independent.
+    pub async fn customer_charge_reconciliation(
+        &self,
+        organization: Uuid,
+    ) -> Result<Vec<Value>, StoreError> {
+        Ok(sqlx::query_scalar(r#"
+WITH accounts AS MATERIALIZED (
+    SELECT id,currency FROM customer_balance_accounts WHERE organization_id=$1
+), charges AS MATERIALIZED (
+    SELECT attempt_id,currency,amount_nanos FROM customer_charges WHERE organization_id=$1
+    UNION ALL
+    SELECT attempt_id,currency,amount_nanos FROM customer_media_charges WHERE organization_id=$1
+), expected AS MATERIALIZED (
+    SELECT b.account_id,c.attempt_id,SUM(c.amount_nanos::numeric) AS amount,COUNT(*) AS sources
+    FROM charges c JOIN customer_attempt_balance_accounts b
+      ON b.attempt_id=c.attempt_id AND b.currency=c.currency AND b.organization_id=$1
+    JOIN accounts a ON a.id=b.account_id
+    GROUP BY b.account_id,c.attempt_id
+), posted AS MATERIALIZED (
+    SELECT account_id,attempt_id,-amount_nanos::numeric AS amount
+    FROM customer_balance_entries WHERE organization_id=$1 AND kind='charge'
+), compared AS MATERIALIZED (
+    SELECT COALESCE(e.account_id,p.account_id) AS account_id,
+      e.attempt_id AS expected_attempt,p.attempt_id AS posted_attempt,
+      e.amount AS expected_amount,p.amount AS posted_amount,e.sources
+    FROM expected e FULL JOIN posted p USING(account_id,attempt_id)
+)
+SELECT jsonb_build_object(
+    'currency',a.currency,'observed_at',statement_timestamp(),
+    'charge_records',(SELECT COUNT(*)::text FROM expected e WHERE e.account_id=a.id),
+    'expected_charge_nanos',COALESCE((SELECT SUM(e.amount) FROM expected e WHERE e.account_id=a.id),0)::text,
+    'posted_charge_nanos',COALESCE((SELECT SUM(p.amount) FROM posted p WHERE p.account_id=a.id),0)::text,
+    'missing_charge_entries',(SELECT COUNT(*)::text FROM compared c WHERE c.account_id=a.id AND c.expected_amount>0 AND c.posted_attempt IS NULL),
+    'mismatched_charge_entries',(SELECT COUNT(*)::text FROM compared c WHERE c.account_id=a.id AND c.expected_attempt IS NOT NULL AND c.posted_attempt IS NOT NULL AND c.expected_amount<>c.posted_amount),
+    'unexpected_charge_entries',(SELECT COUNT(*)::text FROM compared c WHERE c.account_id=a.id AND c.expected_attempt IS NULL),
+    'duplicate_charge_sources',(SELECT COUNT(*)::text FROM expected e WHERE e.account_id=a.id AND e.sources>1),
+    'settled_open_reservations',(SELECT COUNT(*)::text FROM customer_balance_reservations h
+      JOIN expected e ON e.account_id=h.account_id AND e.attempt_id=h.attempt_id
+      LEFT JOIN posted p ON p.account_id=e.account_id AND p.attempt_id=e.attempt_id
+      WHERE h.account_id=a.id AND h.released_at IS NULL AND (e.amount=0 OR e.amount=p.amount))
+) FROM accounts a ORDER BY a.currency
+"#).bind(organization).fetch_all(&self.pool).await?)
+    }
+
     /// Customer onboarding creates company ownership and its zero-funded account
     /// atomically. Existing legacy organizations are never silently converted.
     pub async fn create_prepaid_organization(
