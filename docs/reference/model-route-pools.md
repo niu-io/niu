@@ -582,3 +582,22 @@ An ordinary company owner received 403 and an inference key received 401. These
 runs created configuration records only; they do not qualify independent upstream
 accounts or inference behavior. The compatibility response still grows with the
 number of configurations and is not a bounded pagination API.
+
+## Paid pool request CSV export
+
+A current-input read against the retained database of the two actual priced pool
+completions independently compared the customer CSV export with PostgreSQL-backed
+request details. The multiset of public model aliases, input/output counts,
+customer currency and exact customer charge nanounits matched. Both rows reported
+complete nonnegative observed durations. The export contained no tested Supplier,
+procurement, margin, credential or upstream-model columns; foreign-company access
+returned 404. After gateway restart the CSV was byte-identical. Database counts
+remained two attempts and two charges; no new inference was submitted.
+
+The final run revoked temporary reporting operators and stopped isolated processes;
+the original encrypted identity was unchanged. Earlier read runs completed these
+export comparisons but stopped during cleanup because historical same-name
+operators included multiple and already-revoked records. Cleanup was corrected
+to address only unrevoked matching records, then the complete read workflow was
+rerun. This evidence covers the two actual text completions, not media export,
+large export pagination or concurrent updates during export.
