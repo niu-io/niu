@@ -49,8 +49,8 @@ reasoning rate returned HTTP 409 without creating a revision; explicit null
 created a flat revision without changing existing charges.
 
 This evidence covers non-streaming customer reasoning pricing with request fees
-and minimum charges. Combined cache/reasoning pricing and concurrent admission still require
-current-input verification. Missing-category retention is verified below;
+and minimum charges. Concurrent admission still requires current-input verification. Combined
+cache/reasoning pricing is verified below. Missing-category retention is verified below;
 recovering a subsequently supplied category remains unverified. The served
 documentation OpenAPI matches the generated contract, and its reference HTML
 contains the new rate field; visual browser acceptance is not claimed. Supplier reasoning rates,
@@ -73,3 +73,19 @@ The existing native development database also applied migration 0243 after a
 private backup. Archive inventory was checked, not restoration. Refreshing the
 Gateway preserved configuration hashes, encrypted credential identities and
 revisions, and organization, workspace, media-job, and financial-entry counts.
+
+
+## Combined cached input and reasoning output
+
+Three further actual `openai/o4-mini` requests repeated a long reference prefix.
+Reported cached input quantities were 0, 5,120, and 5,120 tokens; reasoning output
+quantities were 128, 128, and 192 tokens. Both category rates were configured
+simultaneously, with a request fee and a higher minimum on the final revision.
+
+An independent process reopened the stopped PostgreSQL database, verified saved
+response hashes, and calculated ordinary input, cached input, ordinary output,
+and reasoning output as non-overlapping quantities. One upward rounding followed
+by the fee/minimum yielded a total of 12,543,703 currency nanounits, matching
+charges, debits, and invoice total. Stored category quantities and pinned rates,
+refund-adjusted balance, and released holds also matched. These remain explicit
+internal verification rates using a personally funded upstream credential.
