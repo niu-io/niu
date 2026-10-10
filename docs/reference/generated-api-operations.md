@@ -7455,6 +7455,120 @@ HTTP 403: Platform management permission required
 
 HTTP 503: Configuration storage unavailable
 
+## List immutable Supplier quote history
+
+`GET /admin/v1/providers/{provider}/offers/{offer}/revisions`
+
+Installation administration or active membership in this Supplier is required. Company ownership does not grant procurement access. Newest first by created_at and revision UUID with exclusive keyset pagination, not commit order. One statement snapshot keeps each page and current pointer coherent; separate pages do not share a snapshot. New publications appear on a fresh first page. A foreign or missing cursor returns 409; a missing or inaccessible Supplier/offer returns 404. Text prices are exact nanounits per million tokens; media text prices are null and use separate media rate cards. No credentials, endpoints or customer prices. Reading does not qualify, activate or reprice offers. Internal identifiers are API references, not UI labels.
+
+Implementation: `implemented`. Operation: `listSupplierOfferHistory`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`provider` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`offer` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`before` (query, optional)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Bounded historical procurement page.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "current_revision",
+    "data",
+    "has_more",
+    "next_before"
+  ],
+  "properties": {
+    "current_revision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "data": {
+      "type": "array",
+      "items": {
+        "$ref": "#/components/schemas/SupplierOfferHistoryEntry"
+      }
+    },
+    "has_more": {
+      "type": "boolean"
+    },
+    "next_before": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid query, limit or path.
+
+HTTP 401: Management authentication required.
+
+HTTP 404: Supplier membership denied or offer not found.
+
+HTTP 409: Cursor does not belong to this offer.
+
+HTTP 503: Storage unavailable.
+
 ## List Supplier API-key configurations without credentials
 
 `GET /admin/v1/vendors`
@@ -12409,6 +12523,114 @@ Local `#/components/schemas/…` references resolve to these definitions.
       "minimum": 1
     }
   }
+}
+```
+
+### SupplierOfferHistoryEntry
+
+```json
+{
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision",
+        "model_alias",
+        "created_at",
+        "rate_kind",
+        "currency",
+        "prompt_rate",
+        "completion_rate",
+        "cached_prompt_rate",
+        "is_current"
+      ],
+      "properties": {
+        "revision": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "model_alias": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "rate_kind": {
+          "const": "text"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "prompt_rate": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "completion_rate": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "cached_prompt_rate": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9]+$"
+        },
+        "is_current": {
+          "type": "boolean"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision",
+        "model_alias",
+        "created_at",
+        "rate_kind",
+        "currency",
+        "prompt_rate",
+        "completion_rate",
+        "cached_prompt_rate",
+        "is_current"
+      ],
+      "properties": {
+        "revision": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "model_alias": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "rate_kind": {
+          "const": "media"
+        },
+        "currency": {
+          "type": "null"
+        },
+        "prompt_rate": {
+          "type": "null"
+        },
+        "completion_rate": {
+          "type": "null"
+        },
+        "cached_prompt_rate": {
+          "type": "null"
+        },
+        "is_current": {
+          "type": "boolean"
+        }
+      }
+    }
+  ]
 }
 ```
 

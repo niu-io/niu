@@ -8,6 +8,8 @@ servers:
 security:
   - operatorBearer: []
 paths:
+  /admin/v1/providers/{provider}/offers/{offer}/revisions:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1providers~1{provider}~1offers~1{offer}~1revisions'
   /admin/v1/providers/{provider}/members:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1providers~1{provider}~1members'
   /admin/v1/providers/{provider}/media-offer-models:

@@ -108,6 +108,7 @@ mod key_ip;
 mod key_request_rate;
 mod key_spending;
 mod key_token_rate;
+mod provider_offer_history;
 mod topups;
 mod workspace_spending;
 pub use topups::{TopupInput, TopupOrder};

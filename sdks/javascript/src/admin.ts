@@ -174,6 +174,13 @@ export type SupplierOfferRevision = {
   revision: string; model_alias: string; created_at: string;
 } & ({ rate_kind: 'text'; currency: string; prompt_rate: string; completion_rate: string; cached_prompt_rate: string | null }
   | { rate_kind: 'media'; currency: null; prompt_rate: null; completion_rate: null; cached_prompt_rate: null });
+/** Supplier procurement history, never customer workspace billing data. */
+export type SupplierOfferHistory = {
+  current_revision: string | null;
+  data: (SupplierOfferRevision & { is_current: boolean })[];
+  has_more: boolean;
+  next_before: string | null;
+};
 /** Draft media model bindings. Availability and purchase-rate qualification are separate. */
 export type SupplierMediaOfferModel = {
   model_alias: string; api_key_name: string; vendor_id: string;
@@ -717,6 +724,15 @@ export class NiuAdminClient {
   /** Platform administration or active membership in this Supplier is required. */
   getSupplierOfferRevision(supplierId: string, offerId: string, revisionId: string, options?: RequestOptions): Promise<{ data: SupplierOfferRevision }> {
     return this.request(`/providers/${uuid(supplierId)}/offers/${uuid(offerId)}/revisions/${uuid(revisionId)}`, undefined, options);
+  }
+
+  /** Scoped procurement history; follow next_before until has_more is false. */
+  listSupplierOfferHistory(supplierId: string, offerId: string, page: { before?: string; limit?: number } = {}, options?: RequestOptions): Promise<SupplierOfferHistory> {
+    if (page.limit !== undefined && (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100)) throw new TypeError('Choose a history page size from 1 to 100');
+    const query = new URLSearchParams();
+    if (page.before !== undefined) query.set('before', uuid(page.before));
+    if (page.limit !== undefined) query.set('limit', String(page.limit));
+    return this.request(`/providers/${uuid(supplierId)}/offers/${uuid(offerId)}/revisions${query.size ? `?${query}` : ''}`, undefined, options);
   }
 
   /** Platform-administrator review. Does not activate offers or verify the underlying evidence. */

@@ -1080,3 +1080,249 @@ pub async fn platform_configuration(
         "payment_gateways": [{"name":"Zhifux","configured":state.payments.is_some()},{"name":"EPay","configured":state.store.payment_gateway_configuration().await.map_err(ApiError::from_store)?.is_some() || state.epay_payments.is_some()},{"name":"Stripe","configured":state.stripe_payments.is_some()}]
     }})))
 }
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OfferHistoryQuery {
+    before: Option<Uuid>,
+    limit: Option<i64>,
+}
+
+/// Supplier history requires the same procurement authority as an individual quote.
+/// ```openapi
+/// {
+///   "path": "/admin/v1/providers/{provider}/offers/{offer}/revisions",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listSupplierOfferHistory",
+///     "summary": "List immutable Supplier quote history",
+///     "description": "Installation administration or active membership in this Supplier is required. Company ownership does not grant procurement access. Newest first by created_at and revision UUID with exclusive keyset pagination, not commit order. One statement snapshot keeps each page and current pointer coherent; separate pages do not share a snapshot. New publications appear on a fresh first page. A foreign or missing cursor returns 409; a missing or inaccessible Supplier/offer returns 404. Text prices are exact nanounits per million tokens; media text prices are null and use separate media rate cards. No credentials, endpoints or customer prices. Reading does not qualify, activate or reprice offers. Internal identifiers are API references, not UI labels.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "provider",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "offer",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "before",
+///         "in": "query",
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "limit",
+///         "in": "query",
+///         "schema": {
+///           "type": "integer",
+///           "minimum": 1,
+///           "maximum": 100,
+///           "default": 50
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Bounded historical procurement page.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "additionalProperties": false,
+///               "required": [
+///                 "current_revision",
+///                 "data",
+///                 "has_more",
+///                 "next_before"
+///               ],
+///               "properties": {
+///                 "current_revision": {
+///                   "type": [
+///                     "string",
+///                     "null"
+///                   ],
+///                   "format": "uuid"
+///                 },
+///                 "data": {
+///                   "type": "array",
+///                   "items": {
+///                     "$ref": "#/components/schemas/SupplierOfferHistoryEntry"
+///                   }
+///                 },
+///                 "has_more": {
+///                   "type": "boolean"
+///                 },
+///                 "next_before": {
+///                   "type": [
+///                     "string",
+///                     "null"
+///                   ],
+///                   "format": "uuid"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid query, limit or path."
+///       },
+///       "401": {
+///         "description": "Management authentication required."
+///       },
+///       "404": {
+///         "description": "Supplier membership denied or offer not found."
+///       },
+///       "409": {
+///         "description": "Cursor does not belong to this offer."
+///       },
+///       "503": {
+///         "description": "Storage unavailable."
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   },
+///   "schemas": {
+///     "SupplierOfferHistoryEntry": {
+///       "oneOf": [
+///         {
+///           "type": "object",
+///           "additionalProperties": false,
+///           "required": [
+///             "revision",
+///             "model_alias",
+///             "created_at",
+///             "rate_kind",
+///             "currency",
+///             "prompt_rate",
+///             "completion_rate",
+///             "cached_prompt_rate",
+///             "is_current"
+///           ],
+///           "properties": {
+///             "revision": {
+///               "type": "string",
+///               "format": "uuid"
+///             },
+///             "model_alias": {
+///               "type": "string"
+///             },
+///             "created_at": {
+///               "type": "string",
+///               "format": "date-time"
+///             },
+///             "rate_kind": {
+///               "const": "text"
+///             },
+///             "currency": {
+///               "type": "string",
+///               "pattern": "^[A-Z]{3}$"
+///             },
+///             "prompt_rate": {
+///               "type": "string",
+///               "pattern": "^[0-9]+$"
+///             },
+///             "completion_rate": {
+///               "type": "string",
+///               "pattern": "^[0-9]+$"
+///             },
+///             "cached_prompt_rate": {
+///               "type": [
+///                 "string",
+///                 "null"
+///               ],
+///               "pattern": "^[0-9]+$"
+///             },
+///             "is_current": {
+///               "type": "boolean"
+///             }
+///           }
+///         },
+///         {
+///           "type": "object",
+///           "additionalProperties": false,
+///           "required": [
+///             "revision",
+///             "model_alias",
+///             "created_at",
+///             "rate_kind",
+///             "currency",
+///             "prompt_rate",
+///             "completion_rate",
+///             "cached_prompt_rate",
+///             "is_current"
+///           ],
+///           "properties": {
+///             "revision": {
+///               "type": "string",
+///               "format": "uuid"
+///             },
+///             "model_alias": {
+///               "type": "string"
+///             },
+///             "created_at": {
+///               "type": "string",
+///               "format": "date-time"
+///             },
+///             "rate_kind": {
+///               "const": "media"
+///             },
+///             "currency": {
+///               "type": "null"
+///             },
+///             "prompt_rate": {
+///               "type": "null"
+///             },
+///             "completion_rate": {
+///               "type": "null"
+///             },
+///             "cached_prompt_rate": {
+///               "type": "null"
+///             },
+///             "is_current": {
+///               "type": "boolean"
+///             }
+///           }
+///         }
+///       ]
+///     }
+///   }
+/// }
+/// ```
+pub async fn offer_history(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((provider, offer)): Path<(Uuid, Uuid)>,
+    Query(page): Query<OfferHistoryQuery>,
+) -> Result<Json<Value>, ApiError> {
+    let authorization = auth(&state, &headers).await?;
+    if !authorization.can_manage_platform() {
+        member(&state, &headers, provider, false).await?;
+    }
+    state
+        .store
+        .provider_offer_history(provider, offer, page.before, page.limit.unwrap_or(50))
+        .await
+        .map_err(ApiError::from_store)?
+        .map(Json)
+        .ok_or_else(ApiError::not_found)
+}

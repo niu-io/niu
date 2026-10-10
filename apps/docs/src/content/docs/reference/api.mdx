@@ -682,3 +682,17 @@ the response variants and authorization boundary. Current HTTP reads matched
 four saved text revisions; active Supplier viewer access, company-role denial
 and membership revocation were independently checked against database records.
 Media quote reads remain unverified.
+
+
+### Discovering Supplier quote revisions
+
+`GET /admin/v1/providers/{provider}/offers/{offer}/revisions` lists historical
+quotes without requiring a known revision ID. The same Supplier membership or
+platform authority applies. Use `limit` (1–100, default 50), then pass
+`next_before` as `before` while `has_more` is true. Each entry adds `is_current`;
+the response also includes `current_revision`. Unknown or foreign cursors
+return 409, and inaccessible Supplier/offer identities return 404.
+
+The SDK exposes `listSupplierOfferHistory`. Read the
+[pagination and confidentiality contract](https://github.com/niu-io/niu/blob/main/docs/reference/supplier-offer-history.md)
+before integrating. These are procurement prices, not customer billing data.
