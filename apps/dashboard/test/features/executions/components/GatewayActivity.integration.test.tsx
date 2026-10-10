@@ -85,6 +85,30 @@ it('explains durable failure classifications when request payloads are unavailab
   expect(await within(dialog).findByText('Request and response bodies were not retained or have expired.')).toBeTruthy();
 });
 
+it('keeps unknown video execution distinct from saved submission HTTP diagnostics', async () => {
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>(async input => {
+    const path = String(input);
+    if (path.endsWith('/keys')) return Response.json({data: []});
+    if (path.includes('/payload') || path.endsWith('/guardrails')) return Response.json({data: null});
+    return Response.json({data: [{...makeRequest('video-unknown', null, 'video-model'),
+      request_kind: 'video', execution: 'may_have_executed', usage_confidence: 'unknown',
+      prompt_tokens: null, completion_tokens: null,
+      customer_charge_status: 'unknown', customer_charge_nanos: null,
+      failure: {kind: 'upstream_http_error', upstream_http_status: 401},
+      timing: {http_status: 202, total_ms: 1200, complete: true},
+    }], next_cursor: null, summary});
+  }));
+  render(<MemoryRouter><GatewayActivity token="test" models={['video-model']} initialScope={{organizationId: 'org-1', projectId: 'project-1'}} /></MemoryRouter>);
+  await userEvent.setup().click(await screen.findByRole('button', {name: 'video-model', exact: true}));
+  const dialog = await screen.findByRole('dialog', {name: 'Request details'});
+  expect(within(dialog).getByText('Upstream HTTP 401')).toBeTruthy();
+  expect(within(dialog).getByText('HTTP 202')).toBeTruthy();
+  expect(within(dialog).getByText('Uncertain')).toBeTruthy();
+  expect(within(dialog).queryByText('Finish reason')).toBeNull();
+  expect(within(dialog).queryByText('Not charged')).toBeNull();
+  expect(within(dialog).queryByText('Completed')).toBeNull();
+});
+
 it('requests a short overview preview while preserving totals and access to the full logs', async () => {
   const fetcher = vi.fn<typeof fetch>(async input => {
     const query = new URL(String(input), 'http://localhost').searchParams;

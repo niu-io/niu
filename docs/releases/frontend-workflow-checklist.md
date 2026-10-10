@@ -816,3 +816,9 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
 
 - Opened global Account settings from the populated model-filtered Logs page. Changed only Demo's display name to a temporary workflow-verification name; the real save succeeded and a full reload retained it. Restored Demo, saved and reloaded again. Email, password, avatar, roles and credentials were unchanged.
 - An unsaved display-name draft was cancelled: Demo returned, Save changes became disabled and focus returned to the name field. Closing Settings returned to the original Logs route with its model filter preserved. This qualifies the desktop display-name lifecycle and cancel-to-origin behavior, not photo upload, concurrent profile conflicts, password changes or ordinary-role authorization. No frontend layout or source changes were required.
+
+## Video submission HTTP diagnostic contract integration
+
+- Pulled backend checkpoint `cb3dbbcf`: video submission can retain an upstream HTTP error while returning the original accepted unknown-submission reference. This does not prove nonexecution or permit resubmission, liability release or refund.
+- Added a Logs contract regression for an unknown video attempt with saved upstream HTTP 401 and delivery HTTP 202. It verifies that both HTTP boundaries remain visible, execution remains Uncertain, customer charge is not invented as Not charged, and the text-only finish reason is absent. All 53 GatewayActivity integration tests passed. No product UI change was necessary.
+- Reopened the actual desktop Video category using Demo API key: it still has no supported video route. Backend isolated-run evidence does not supply this local configuration; populated video diagnostics and the real rendered submission/result lifecycle remain unqualified.
