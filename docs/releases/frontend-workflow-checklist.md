@@ -891,3 +891,13 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
 - Pulled the backend credential request-limit increment and inspected its configuration/dispatch contract. The current local service exposes the normal administrator policy read for the saved OpenRouter credential: revision 0, unlimited. This is an actual API read, not proof of enforcement or a configured management interface. No policy or credential was changed.
 - Added a Chat integration regression for HTTP 429 upstream_request_rate_exceeded with Retry-After 60. It preserves the actionable server message and Failed state, issues one request, and does not automatically retry or substitute another model. All 51 PlaygroundView integration checks passed. This automated case does not qualify a real rendered refusal.
 - Add the credential-scoped policy read/edit/history lifecycle to the Admin Supplier work plan, using the existing key-limit dialog pattern and Stitch iteration. Preserve exact revision strings, explicit null versus zero, stale-write recovery and private administration boundaries. Runtime enforcement/performance remains owned by the backend workstream.
+
+## Video attribution contract clarification
+
+- Pulled checkpoint b614e46d and inspected the new video-model-attribution contract. Provider model means an explicit upstream response field, not the configured model binding. OpenRouter can omit it; the backend current-input query/restart evidence exercises that honest null path. Therefore the earlier desktop Unknown value is not, by itself, an attribution defect and must not be replaced with the configured alias.
+- Positive attribution still requires a matching response that actually includes model; video payload retention remains a separate open diagnostic requirement. Current browser-control timeouts prevent requalifying the latest rendered state. No source workaround, new query or generation was performed for this clarification.
+
+## Current dashboard regression checkpoint
+
+- At main b614e46d, the complete dashboard suite passed: 85 files, 653 tests, with four concurrent workers. TypeScript checking and diff whitespace validation passed. This includes the customer fixed-fee display, video same-intent recovery/title consistency and upstream 429 no-replay regression.
+- These automated results do not close missing rendered, ordinary-role, paid settlement or narrow-width evidence. Browser inventory partially succeeded but reference-tab reads repeatedly timed out, including after directly binding the in-app browser. New visual implementation remains pending actual reference inspection, Stitch design and browser verification.
