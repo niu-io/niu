@@ -7498,6 +7498,92 @@ HTTP 401: Authentication required
 
 HTTP 400: Invalid query or revision cursor; framework query errors may use plain text.
 
+## List platform-managed model route pools
+
+`GET /admin/v1/model-route-pools/index`
+
+Installation credential or explicit platform-administrator grant required. Lists enabled and disabled shared and personal pools with their current configuration. Ordered by alias using database ordering. after is the exclusive alias cursor returned as next_after; it need not identify a currently existing pool. This is a live view, not a cross-page snapshot: new aliases before the cursor require a fresh traversal. No upstream requests, credentials, endpoints or prices are returned. Pool organization identifiers are API references, not display labels.
+
+Implementation: `implemented`. Operation: `listModelRoutePools`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`after` (query, optional)
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 200,
+  "pattern": "^[!-~]+$"
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Bounded current configurations and continuation cursor.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "has_more",
+    "next_after"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "data": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "$ref": "#/components/schemas/ModelRoutePool"
+      }
+    },
+    "has_more": {
+      "type": "boolean"
+    },
+    "next_after": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}
+```
+
+HTTP 400: Invalid query, alias cursor or page size; framework query errors may use plain text.
+
+HTTP 401: Authentication required.
+
+HTTP 403: Platform administration required.
+
 ## Create an OpenAI-compatible chat completion
 
 `POST /v1/chat/completions`

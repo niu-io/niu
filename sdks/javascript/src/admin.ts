@@ -1063,6 +1063,20 @@ export class NiuAdminClient {
     return this.request(`/model-route-pools?${new URLSearchParams({ alias })}`, undefined, options);
   }
 
+  /** Platform-only live keyset traversal; retain next_after as the next query's after. */
+  listModelRoutePools(query: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: ModelRoutePool[]; has_more: boolean; next_after: string | null }> {
+    const params = new URLSearchParams();
+    if (query.after !== undefined) {
+      if (!/^[!-~]{1,200}$/.test(query.after)) throw new TypeError('Use an ASCII pool alias cursor');
+      params.set('after', query.after);
+    }
+    if (query.limit !== undefined) {
+      if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Invalid pool page size');
+      params.set('limit', String(query.limit));
+    }
+    return this.request(`/model-route-pools/index${params.size ? `?${params}` : ''}`, undefined, options);
+  }
+
   setModelRoutePool(input: ModelRoutePoolInput, options?: RequestOptions): Promise<{ data: { revision: number } }> {
     if (!Number.isSafeInteger(input.expected_revision) || input.expected_revision < 0) throw new TypeError('Use an exact nonnegative pool revision');
     return this.request('/model-route-pools', input, options, 'PUT');

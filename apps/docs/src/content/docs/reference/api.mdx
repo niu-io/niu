@@ -98,6 +98,14 @@ not qualification of media overruns or every provider. See the
 
 ## Route pool updates during generation
 
+Platform administrators can discover saved pools through
+`GET /admin/v1/model-route-pools/index`, or the SDK's `listModelRoutePools` method.
+Pass `limit` (1–100, default 50), then use the returned `next_after` as `after` for
+the next page. The list includes enabled and disabled configurations. Its live
+alias-based traversal is not a snapshot; refresh from the first page to see
+new aliases inserted before the current cursor. Existing alias lookup and
+revision-history endpoints retain their response formats.
+
 A revisioned pool update applies to selection for new requests. Disabling a
 candidate does not cancel a generation already dispatched through it. That request
 retains its original mapping and pool revision for diagnosis and accounting;

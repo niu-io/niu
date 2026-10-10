@@ -397,3 +397,41 @@ objects remained identical and SQL still contained only the original two attempt
 and two charges. Temporary member access was revoked and isolated processes were
 stopped. This qualifies the exercised list/detail scope and serialization boundary;
 it does not qualify every export or a platform routing-diagnostics API.
+
+## Discover and paginate managed pools
+
+`GET /admin/v1/model-route-pools/index` lists current shared and personal pool
+configurations for installation credentials or explicitly granted platform
+administrators. Ordinary company ownership and inference keys do not grant access.
+Enabled and disabled pools are included. Results contain the same pool objects as
+the existing alias lookup, without credentials, endpoints or procurement prices.
+
+Use `limit` from 1 to 100 (default 50). The response is
+`{data: [...], has_more: boolean, next_after: string | null}`. Pass `next_after` as
+`after` to continue strictly beyond that alias in database ordering. Cursors accept
+1–200 visible ASCII bytes and need not name an existing pool. A final or empty
+page has `has_more: false` and `next_after: null`. Unknown query fields and invalid
+page sizes/cursors return 400. This live traversal is not a snapshot: start again
+to discover aliases inserted before the current cursor.
+
+The JavaScript SDK exposes `admin.listModelRoutePools({after, limit})`. The existing
+`getModelRoutePool(alias)` and history responses are unchanged. The new route is
+implemented and its OpenAPI derives directly from the handler annotation.
+
+### Current-input index verification
+
+A fresh native gateway/database saved 106 shared pool configurations through the
+management API, including enabled and disabled pools. Seventeen-item HTTP pages
+and nineteen-item pages from the built JavaScript SDK independently traversed the
+same complete alias order as SQL. Every returned pool matched its single-alias
+HTTP lookup; the default first page contained 50 entries. An absent high cursor
+returned an empty final page. Invalid limits, empty/whitespace cursors and unknown
+query fields returned 400.
+
+An ordinary company owner received 403 and an inference key received 401. A
+company viewer with an explicit audited platform grant received the same first
+page as installation credentials. Restart preserved that page; revoking the grant
+immediately restored 403. Independent SQL found no inference attempts or balance
+entries. The original database and encrypted credential identity were unchanged.
+This verifies the exercised management/SDK traversal, not inference availability,
+large-dataset performance or a cross-page snapshot during concurrent updates.

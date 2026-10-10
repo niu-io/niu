@@ -49,6 +49,28 @@ impl Store {
             .collect()
     }
 
+    /// Bounded keyset page; the extra row tells the caller whether another page exists.
+    pub async fn model_route_pool_page(
+        &self,
+        after: Option<&str>,
+        limit: i64,
+    ) -> Result<Vec<ModelRoutePool>, StoreError> {
+        if !(1..=100).contains(&limit) {
+            return Err(StoreError::InvalidPrice);
+        }
+        let values: Vec<serde_json::Value> = sqlx::query_scalar(
+            "SELECT to_jsonb(p) FROM model_route_pools p WHERE ($1::text IS NULL OR alias>$1) ORDER BY alias LIMIT $2",
+        )
+        .bind(after)
+        .bind(limit + 1)
+        .fetch_all(&self.pool)
+        .await?;
+        values
+            .into_iter()
+            .map(|value| serde_json::from_value(value).map_err(|_| StoreError::Conflict))
+            .collect()
+    }
+
     pub async fn set_model_route_pool(&self, input: &ModelRoutePool) -> Result<i64, StoreError> {
         if input.alias.is_empty()
             || input.alias.len() > 200

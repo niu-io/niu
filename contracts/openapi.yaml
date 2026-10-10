@@ -60,6 +60,8 @@ paths:
     $ref: './platform-configuration.openapi.yaml#/paths/~1admin~1v1~1platform~1payments~1integrations'
   /admin/v1/model-route-pools:
     $ref: './model-route-pools.openapi.yaml#/paths/~1admin~1v1~1model-route-pools'
+  /admin/v1/model-route-pools/index:
+    $ref: './model-route-pools.openapi.yaml#/paths/~1admin~1v1~1model-route-pools~1index'
   /admin/v1/model-route-pools/history:
     $ref: './model-route-pools.openapi.yaml#/paths/~1admin~1v1~1model-route-pools~1history'
   /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit:

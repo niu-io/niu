@@ -425,3 +425,129 @@ pub async fn history(
         json!({"data":state.store.model_route_pool_history(&query.alias,query.before_revision).await.map_err(ApiError::from_store)?}),
     ))
 }
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct IndexQuery {
+    after: Option<String>,
+    limit: Option<i64>,
+}
+
+/// ```openapi
+/// {
+///   "path": "/admin/v1/model-route-pools/index",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listModelRoutePools",
+///     "summary": "List platform-managed model route pools",
+///     "description": "Installation credential or explicit platform-administrator grant required. Lists enabled and disabled shared and personal pools with their current configuration. Ordered by alias using database ordering. after is the exclusive alias cursor returned as next_after; it need not identify a currently existing pool. This is a live view, not a cross-page snapshot: new aliases before the cursor require a fresh traversal. No upstream requests, credentials, endpoints or prices are returned. Pool organization identifiers are API references, not display labels.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "x-niu-implementation": "implemented",
+///     "parameters": [
+///       {
+///         "name": "after",
+///         "in": "query",
+///         "schema": {
+///           "type": "string",
+///           "minLength": 1,
+///           "maxLength": 200,
+///           "pattern": "^[!-~]+$"
+///         }
+///       },
+///       {
+///         "name": "limit",
+///         "in": "query",
+///         "schema": {
+///           "type": "integer",
+///           "minimum": 1,
+///           "maximum": 100,
+///           "default": 50
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Bounded current configurations and continuation cursor.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data",
+///                 "has_more",
+///                 "next_after"
+///               ],
+///               "additionalProperties": false,
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "maxItems": 100,
+///                   "items": {
+///                     "$ref": "#/components/schemas/ModelRoutePool"
+///                   }
+///                 },
+///                 "has_more": {
+///                   "type": "boolean"
+///                 },
+///                 "next_after": {
+///                   "type": [
+///                     "string",
+///                     "null"
+///                   ]
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid query, alias cursor or page size; framework query errors may use plain text."
+///       },
+///       "401": {
+///         "description": "Authentication required."
+///       },
+///       "403": {
+///         "description": "Platform administration required."
+///       }
+///     }
+///   }
+/// }
+/// ```
+pub async fn index(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<IndexQuery>,
+) -> Result<Json<Value>, ApiError> {
+    state.authorize_platform_headers(&headers).await?;
+    let limit = query.limit.unwrap_or(50);
+    if !(1..=100).contains(&limit)
+        || query.after.as_ref().is_some_and(|alias| {
+            alias.is_empty()
+                || alias.len() > 200
+                || !alias.bytes().all(|byte| byte.is_ascii_graphic())
+        })
+    {
+        return Err(ApiError::invalid_request(
+            "Use an ASCII alias cursor and a page size from 1 to 100",
+        ));
+    }
+    let mut data = state
+        .store
+        .model_route_pool_page(query.after.as_deref(), limit)
+        .await
+        .map_err(ApiError::from_store)?;
+    let has_more = data.len() > limit as usize;
+    data.truncate(limit as usize);
+    let next_after = if has_more {
+        data.last().map(|pool| pool.alias.clone())
+    } else {
+        None
+    };
+    Ok(Json(
+        json!({"data": data, "has_more": has_more, "next_after": next_after}),
+    ))
+}

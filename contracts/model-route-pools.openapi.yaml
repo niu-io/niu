@@ -5,6 +5,8 @@ info:
 paths:
   /admin/v1/model-route-pools:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1model-route-pools'
+  /admin/v1/model-route-pools/index:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1model-route-pools~1index'
   /admin/v1/model-route-pools/history:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1model-route-pools~1history'
 components:
