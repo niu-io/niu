@@ -4415,6 +4415,214 @@ HTTP 429: Rate or concurrency admission limit exceeded
 
 HTTP 503: Route or durable storage unavailable
 
+## Create OpenAI-compatible text embeddings
+
+`POST /v1/embeddings`
+
+The configured route must use an OpenAI-compatible protocol and explicitly declare embedding support. Optional dimensions and base64 output require separate route capabilities. These declarations are operator assertions, not provider conformance evidence. Unsupported providers or capabilities are rejected before durable operation and attempt creation. Workspace model grants, IP policy, rate/concurrency/token limits and configured customer billing apply before dispatch.
+
+Implementation: `implemented`. Operation: `createEmbedding`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
+  }
+]
+```
+
+### Parameters
+
+`x-niu-log-payloads` (header, optional)
+
+Request and sanitized customer response content is retained until 24 hours after the original request creation time by default. Send false (case-insensitive) to disable capture for this request; true or an omitted header retains content. Invalid values or repeated headers are rejected before inference. Requests exceeding the 1 MB capture limit are rejected; response capture is truncated at 1 MB. Does not backfill earlier requests.
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "true",
+    "false"
+  ],
+  "default": "true"
+}
+```
+
+`X-Niu-Task-ID` (header, optional)
+
+Optional opaque task correlation key. Requests with the same value can be grouped in workspace activity. Niu stores the value as metadata and does not forward it to the provider.
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 200,
+  "pattern": "^[!-~]{1,200}$"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "model",
+    "input"
+  ],
+  "properties": {
+    "model": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2048,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      ]
+    },
+    "encoding_format": {
+      "type": "string",
+      "enum": [
+        "float",
+        "base64"
+      ],
+      "default": "float"
+    },
+    "dimensions": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65536
+    },
+    "user": {
+      "type": "string",
+      "maxLength": 512
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: One validated embedding per input item; the configured upstream model is replaced with the public model alias.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "object",
+    "data",
+    "model"
+  ],
+  "properties": {
+    "object": {
+      "type": "string",
+      "const": "list"
+    },
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "embedding"
+        ],
+        "properties": {
+          "object": {
+            "type": "string",
+            "const": "embedding"
+          },
+          "index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "embedding": {
+            "oneOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              },
+              {
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "model": {
+      "type": "string"
+    },
+    "usage": {
+      "type": "object",
+      "properties": {
+        "prompt_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_tokens": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
+```
+
+HTTP 400: Invalid body, unsupported field, or invalid input shape.
+
+HTTP 413: Request body exceeds the gateway's configured body limit.
+
+HTTP 401: Missing or invalid gateway credentials.
+
+HTTP 404: Model alias does not exist or is unavailable to this key.
+
+HTTP 409: Admission conflict before dispatch. Type route_configuration_changed identifies a changed managed credential/model configuration; that request was not sent upstream. Other conflicts retain their own error type.
+
+HTTP 501: The model route lacks the required embedding, configurable-dimension or base64 capability, or uses an unsupported protocol. The unsupported_operation_error message identifies the limitation and request alternative before admission.
+
+HTTP 502: Provider request failed or returned an invalid embedding response.
+
+HTTP 422: Request body is not valid JSON.
+
+HTTP 402: Insufficient balance or configured spending limit exceeded.
+
+HTTP 403: Source IP or enforced policy denies the request.
+
+HTTP 429: API key request, concurrency or token rate limit exceeded.
+
+HTTP 503: Durable storage or configured route unavailable.
+
 ## Shared schemas
 
 Local `#/components/schemas/…` references resolve to these definitions.
@@ -4987,5 +5195,26 @@ Local `#/components/schemas/…` references resolve to these definitions.
       "description": "Exact nonnegative decimal integer, within signed 64-bit range."
     }
   }
+}
+```
+
+## Authentication schemes
+
+### bearerAuth
+
+```json
+{
+  "type": "http",
+  "scheme": "bearer"
+}
+```
+
+### niuApiKeyAuth
+
+```json
+{
+  "type": "apiKey",
+  "in": "header",
+  "name": "X-Niu-API-Key"
 }
 ```

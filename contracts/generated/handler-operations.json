@@ -4276,6 +4276,216 @@
         "description": "Requires workspace write authority and an active selected key in that workspace. The key supplies model grants, IP policy, limits and billing attribution; the member token is not forwarded upstream. Uses the same Chat execution path as /v1/chat/completions, including streaming, tools and supported buffered structured output. No key secret is returned. HTTP 200 starts a stream and does not alone prove completed generation or known usage.",
         "x-niu-implementation": "implemented"
       }
+    },
+    "/v1/embeddings": {
+      "post": {
+        "operationId": "createEmbedding",
+        "summary": "Create OpenAI-compatible text embeddings",
+        "description": "The configured route must use an OpenAI-compatible protocol and explicitly declare embedding support. Optional dimensions and base64 output require separate route capabilities. These declarations are operator assertions, not provider conformance evidence. Unsupported providers or capabilities are rejected before durable operation and attempt creation. Workspace model grants, IP policy, rate/concurrency/token limits and configured customer billing apply before dispatch.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-niu-log-payloads",
+            "in": "header",
+            "required": false,
+            "description": "Request and sanitized customer response content is retained until 24 hours after the original request creation time by default. Send false (case-insensitive) to disable capture for this request; true or an omitted header retains content. Invalid values or repeated headers are rejected before inference. Requests exceeding the 1 MB capture limit are rejected; response capture is truncated at 1 MB. Does not backfill earlier requests.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ],
+              "default": "true"
+            }
+          },
+          {
+            "name": "X-Niu-Task-ID",
+            "in": "header",
+            "required": false,
+            "description": "Optional opaque task correlation key. Requests with the same value can be grouped in workspace activity. Niu stores the value as metadata and does not forward it to the provider.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "pattern": "^[!-~]{1,200}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "model",
+                  "input"
+                ],
+                "properties": {
+                  "model": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "input": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 2048,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      }
+                    ]
+                  },
+                  "encoding_format": {
+                    "type": "string",
+                    "enum": [
+                      "float",
+                      "base64"
+                    ],
+                    "default": "float"
+                  },
+                  "dimensions": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65536
+                  },
+                  "user": {
+                    "type": "string",
+                    "maxLength": 512
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "One validated embedding per input item; the configured upstream model is replaced with the public model alias.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "object",
+                    "data",
+                    "model"
+                  ],
+                  "properties": {
+                    "object": {
+                      "type": "string",
+                      "const": "list"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "embedding"
+                        ],
+                        "properties": {
+                          "object": {
+                            "type": "string",
+                            "const": "embedding"
+                          },
+                          "index": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "embedding": {
+                            "oneOf": [
+                              {
+                                "type": "array",
+                                "items": {
+                                  "type": "number"
+                                }
+                              },
+                              {
+                                "type": "string"
+                              }
+                            ]
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    },
+                    "model": {
+                      "type": "string"
+                    },
+                    "usage": {
+                      "type": "object",
+                      "properties": {
+                        "prompt_tokens": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "total_tokens": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "additionalProperties": true
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid body, unsupported field, or invalid input shape."
+          },
+          "413": {
+            "description": "Request body exceeds the gateway's configured body limit."
+          },
+          "401": {
+            "description": "Missing or invalid gateway credentials."
+          },
+          "404": {
+            "description": "Model alias does not exist or is unavailable to this key."
+          },
+          "409": {
+            "description": "Admission conflict before dispatch. Type route_configuration_changed identifies a changed managed credential/model configuration; that request was not sent upstream. Other conflicts retain their own error type."
+          },
+          "501": {
+            "description": "The model route lacks the required embedding, configurable-dimension or base64 capability, or uses an unsupported protocol. The unsupported_operation_error message identifies the limitation and request alternative before admission."
+          },
+          "502": {
+            "description": "Provider request failed or returned an invalid embedding response."
+          },
+          "422": {
+            "description": "Request body is not valid JSON."
+          },
+          "402": {
+            "description": "Insufficient balance or configured spending limit exceeded."
+          },
+          "403": {
+            "description": "Source IP or enforced policy denies the request."
+          },
+          "429": {
+            "description": "API key request, concurrency or token rate limit exceeded."
+          },
+          "503": {
+            "description": "Durable storage or configured route unavailable."
+          }
+        },
+        "x-niu-status": "OpenAI-compatible text inputs and float/base64 response vectors; no token-ID arrays, multimodal inputs, or streaming.",
+        "x-niu-implementation": "implemented"
+      }
     }
   },
   "components": {
@@ -4801,6 +5011,11 @@
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer"
+      },
+      "niuApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Niu-API-Key"
       }
     }
   }

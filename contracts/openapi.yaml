@@ -1439,50 +1439,7 @@ paths:
           description: Provider request failed.
       x-niu-status: Basic chat is implemented for configured native provider routes. Function tools, streaming tool deltas, and structured JSON are opt-in on OpenAI-compatible routes only. Niu validates tool-call shape and structured JSON against a valid self-contained schema; json_object output must be an object. Schema compilation is offline and limited to 64 KiB, 4096 JSON nodes and depth 32, with bounded regular expressions. Niu does not execute tools. Structured JSON streaming remains unsupported. Token-priced routes support function calls and text-only tool-result conversations under the same input/output rates. Serialized messages, tool definitions, tool choices and response-format instructions count toward the configured input byte guard. Hosted tools and additional billable modalities remain unsupported.
   /v1/embeddings:
-    post:
-      operationId: createEmbedding
-      summary: Create OpenAI-compatible text embeddings
-      description: The configured route must use provider openai and explicitly declare embedding support. Optional dimensions and base64 output require separate route capabilities. These declarations are operator assertions, not provider conformance evidence. Unsupported providers or capabilities are rejected before durable operation and attempt creation.
-      security:
-        - bearerAuth: []
-        - niuApiKeyAuth: []
-      parameters:
-        - $ref: './request-observability.openapi.yaml#/components/parameters/LogPayloads'
-        - name: X-Niu-Task-ID
-          in: header
-          required: false
-          description: Optional opaque task correlation key. Requests with the same value can be grouped in project activity. Niu stores the value as metadata and does not forward it to the provider.
-          schema: { type: string, minLength: 1, maxLength: 200, pattern: '^[!-~]{1,200}$' }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/EmbeddingRequest'
-      responses:
-        '200':
-          description: One validated embedding per input item; the configured upstream model is replaced with the public model alias.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EmbeddingResponse'
-        '400':
-          description: Invalid body, unsupported field, or invalid input shape.
-        '413':
-          description: Request body exceeds the gateway's configured body limit.
-        '401':
-          description: Missing or invalid gateway credentials.
-        '404':
-          description: Model alias does not exist or is unavailable to this key.
-        '409':
-          description: Admission conflict before dispatch. Type route_configuration_changed identifies a changed managed credential/model configuration; that request was not sent upstream. Other conflicts retain their own error type.
-        '501':
-          description: The model route lacks the required embedding, configurable-dimension or base64 capability, or uses an unsupported protocol. The unsupported_operation_error message identifies the limitation and request alternative before admission.
-        '502':
-          description: Provider request failed or returned an invalid embedding response.
-        '422':
-          description: Request body is not valid JSON.
-      x-niu-status: OpenAI-compatible text inputs and float/base64 response vectors; no token-ID arrays, multimodal inputs, or streaming.
+    $ref: './generated/handler-operations.json#/paths/~1v1~1embeddings'
   /v1/responses:
     post:
       operationId: createResponse

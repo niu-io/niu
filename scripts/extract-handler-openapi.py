@@ -7,6 +7,10 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+SECURITY_SCHEMES = {
+    'bearerAuth': {'type': 'http', 'scheme': 'bearer'},
+    'niuApiKeyAuth': {'type': 'apiKey', 'in': 'header', 'name': 'X-Niu-API-Key'},
+}
 
 
 def registered_methods(source):
@@ -140,8 +144,8 @@ def main():
                 if not isinstance(alternative, dict):
                     raise SystemExit(f'Invalid security alternative: {name}')
                 for scheme, scopes in alternative.items():
-                    if scheme != 'bearerAuth' or scopes != []:
-                        raise SystemExit(f'Unknown security scheme or unsupported bearer scopes: {name}')
+                    if scheme not in SECURITY_SCHEMES or scopes != []:
+                        raise SystemExit(f'Unknown security scheme or unsupported scopes: {name}')
             if not operation.get('responses') or not operation.get('description'):
                 raise SystemExit(f'Missing response or behavior contract: {name}')
             names.add(name)
@@ -154,8 +158,11 @@ def main():
                              'Local `#/components/schemas/…` references resolve to these definitions.', ''])
         for name, schema in sorted(schemas.items()):
             descriptions.extend([f'### {name}', '', *schema_block(schema)])
+    descriptions.extend(['## Authentication schemes', ''])
+    for name, scheme in SECURITY_SCHEMES.items():
+        descriptions.extend([f'### {name}', '', *schema_block(scheme)])
     spec = {'openapi': '3.1.0', 'info': {'title': 'Niu annotated handler operations', 'version': '0.1.0'},
-            'paths': paths, 'components': {'schemas': schemas, 'securitySchemes': {'bearerAuth': {'type': 'http', 'scheme': 'bearer'}}}}
+            'paths': paths, 'components': {'schemas': schemas, 'securitySchemes': SECURITY_SCHEMES}}
     validate_local_references(spec, spec)
     outputs = {
         'contracts/generated/handler-operations.json': json.dumps(spec, indent=2) + '\n',
