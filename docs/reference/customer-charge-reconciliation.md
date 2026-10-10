@@ -124,3 +124,21 @@ Configuration hashes, encrypted Supplier identities and durable business counts
 were preserved. The retained integration company's actual settled charge remains
 readable with a zero completed-unaccrued count. Migration 0240 was installed as
 part of that update; this does not add nonempty inspected-image cleanup evidence.
+
+### Nonzero pending-count authorization and currency isolation
+
+A separate fresh current-input run repeated the real completion/debit-fault
+workflow with USD and CNY accounts and a second company. While USD had one
+completed unaccrued attempt, CNY and the other company remained at zero. Company
+owner and admin sessions read the exact pending count with `Cache-Control:
+no-store`; both currency rows shared one observation timestamp. Company viewers,
+workspace owners and foreign-company owners received 404 without report fields.
+An inference key received 401.
+
+The same scope checks held after Gateway restart with the debit fault active,
+and again after recovery changed the USD pending count to zero. All temporary
+operator sessions were revoked and subsequently received 401. Independent
+database reopening confirmed session revocation, the one original completion and
+exact debit, and no open reservation or duplicate execution. No fixture outcome
+was used. This verifies the exercised company/currency boundaries for text
+recovery, not every media or financial-discrepancy state.
