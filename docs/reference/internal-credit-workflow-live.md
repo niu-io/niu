@@ -588,3 +588,25 @@ current account pointer, and confirmed zero attempts, balance entries or holds.
 This is actual configuration/pagination evidence, not received-money funding or
 inference-load qualification. Separate pages intentionally do not share one
 snapshot; callers refresh the first page to discover newer revisions.
+
+### Server-side balance transaction filters
+
+Company ledger pages now accept optional `currency` and `kind` filters before
+the existing 100-entry limit. The SDK exposes them on
+`getCustomerBalanceTransactions`. Cursor validation and page selection use one
+SQL snapshot and the same company/filter scope. A cursor from another currency
+or entry kind returns HTTP 409; omitted filters preserve the existing contract.
+
+A fresh native run generated two actual model charges and two partial refunds.
+SDK reads returned the two charges and two refunds separately, reconciled their
+exact signed totals, and traversed the charge subset using a same-filter cursor.
+Cross-kind and cross-currency cursor reuse returned 409. Empty EUR/funding filters
+returned empty pages, and invalid currency/kind queries returned 400. Restart
+preserved the full ledger response. Independent reopening reconciled the actual
+usages, debits, refunds and released holds. This exercises small populated filter
+sets, not large filtered-ledger capacity or a fixed export snapshot.
+
+The existing native service was refreshed without replacing configuration,
+encrypted identity or durable financial records. Its retained integration debit
+is readable through the USD/charge filter, while its refund filter remains empty.
+The docs site's served OpenAPI matches the generated contract.

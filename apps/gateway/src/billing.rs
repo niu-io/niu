@@ -2786,6 +2786,8 @@ pub async fn balance_reversal(
 #[serde(deny_unknown_fields)]
 pub struct BalanceTransactionsQuery {
     before: Option<Uuid>,
+    currency: Option<String>,
+    kind: Option<String>,
 }
 
 /// ```openapi
@@ -2814,9 +2816,31 @@ pub struct BalanceTransactionsQuery {
 ///           "format": "uuid"
 ///         },
 ///         "description": "next_cursor returned by the previous page. Must belong to this company."
+///       },
+///       {
+///         "name": "currency",
+///         "in": "query",
+///         "schema": {
+///           "type": "string",
+///           "pattern": "^[A-Z]{3}$"
+///         }
+///       },
+///       {
+///         "name": "kind",
+///         "in": "query",
+///         "schema": {
+///           "type": "string",
+///           "enum": [
+///             "funding",
+///             "charge",
+///             "refund",
+///             "funding_reversal",
+///             "adjustment"
+///           ]
+///         }
 ///       }
 ///     ],
-///     "description": "Organization-wide owner/admin or installation access required. Customer ledger only; no Supplier costs or margins. Ordered by descending recorded time and internal reference. UUIDs are API routing references and must not be displayed as product labels. Each page contains up to 100 entries; next_cursor is null at the end. Pass the cursor as before to read older entries. Unknown or foreign cursors return a conflict. Traversal is a live view, not a fixed export snapshot; newly inserted later entries appear on refresh.",
+///     "description": "Organization-wide owner/admin or installation access required. Customer ledger only; no Supplier costs or margins. Ordered by descending recorded time and internal reference. UUIDs are API routing references and must not be displayed as product labels. Each page contains up to 100 entries; next_cursor is null at the end. Pass the cursor as before to read older entries. Unknown or foreign cursors return a conflict. Traversal is a live view, not a fixed export snapshot; newly inserted later entries appear on refresh. Optional currency and kind filters apply before pagination. Keep filters fixed while following cursors; out-of-filter cursors return 409. Each page and cursor check share one database snapshot.",
 ///     "responses": {
 ///       "200": {
 ///         "description": "Customer balance entries",
@@ -2883,7 +2907,7 @@ pub struct BalanceTransactionsQuery {
 ///         }
 ///       },
 ///       "400": {
-///         "description": "Invalid query or cursor syntax"
+///         "description": "Invalid currency, entry kind or query"
 ///       },
 ///       "401": {
 ///         "description": "Authentication required"
@@ -2918,7 +2942,12 @@ pub async fn balance_transactions(
     }
     let (data, next_cursor) = state
         .store
-        .customer_balance_transaction_page(organization, query.before)
+        .customer_balance_transaction_page_filtered(
+            organization,
+            query.before,
+            query.currency.as_deref(),
+            query.kind.as_deref(),
+        )
         .await
         .map_err(ApiError::from_store)?;
     Ok(Json(json!({"data":data,"next_cursor":next_cursor})))

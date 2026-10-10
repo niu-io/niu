@@ -97,15 +97,40 @@ SELECT jsonb_build_object(
         organization: Uuid,
         before: Option<Uuid>,
     ) -> Result<(Vec<Value>, Option<Uuid>), StoreError> {
-        if let Some(cursor) = before {
-            let belongs: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM customer_balance_entries WHERE organization_id=$1 AND id=$2)")
-                .bind(organization).bind(cursor).fetch_one(&self.pool).await?;
-            if !belongs {
-                return Err(StoreError::Conflict);
-            }
+        self.customer_balance_transaction_page_filtered(organization, before, None, None)
+            .await
+    }
+
+    /// Cursor and rows share one snapshot and the same company/filter scope.
+    pub async fn customer_balance_transaction_page_filtered(
+        &self,
+        organization: Uuid,
+        before: Option<Uuid>,
+        currency: Option<&str>,
+        kind: Option<&str>,
+    ) -> Result<(Vec<Value>, Option<Uuid>), StoreError> {
+        if currency.is_some_and(|v| v.len() != 3 || !v.bytes().all(|b| b.is_ascii_uppercase()))
+            || kind.is_some_and(|v| {
+                !matches!(
+                    v,
+                    "funding" | "charge" | "refund" | "funding_reversal" | "adjustment"
+                )
+            })
+        {
+            return Err(StoreError::InvalidPrice);
         }
-        let mut entries: Vec<Value> = sqlx::query_scalar("SELECT jsonb_build_object('id',e.id,'kind',e.kind,'currency',e.currency,'amount_nanos',e.amount_nanos::text,'created_at',e.created_at,'reverses_entry_id',e.reverses_entry_id) FROM customer_balance_entries e WHERE e.organization_id=$1 AND ($2::uuid IS NULL OR (e.created_at,e.id)<(SELECT created_at,id FROM customer_balance_entries WHERE organization_id=$1 AND id=$2)) ORDER BY e.created_at DESC,e.id DESC LIMIT 101")
-            .bind(organization).bind(before).fetch_all(&self.pool).await?;
+        let (valid_cursor, rows): (bool, Value) =
+            sqlx::query_as(include_str!("balance_transactions.sql"))
+                .bind(organization)
+                .bind(before)
+                .bind(currency)
+                .bind(kind)
+                .fetch_one(&self.pool)
+                .await?;
+        if !valid_cursor {
+            return Err(StoreError::Conflict);
+        }
+        let mut entries = rows.as_array().ok_or(StoreError::Conflict)?.clone();
         let next = if entries.len() > 100 {
             entries.truncate(100);
             Some(

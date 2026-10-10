@@ -6513,9 +6513,31 @@
               "format": "uuid"
             },
             "description": "next_cursor returned by the previous page. Must belong to this company."
+          },
+          {
+            "name": "currency",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z]{3}$"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "funding",
+                "charge",
+                "refund",
+                "funding_reversal",
+                "adjustment"
+              ]
+            }
           }
         ],
-        "description": "Organization-wide owner/admin or installation access required. Customer ledger only; no Supplier costs or margins. Ordered by descending recorded time and internal reference. UUIDs are API routing references and must not be displayed as product labels. Each page contains up to 100 entries; next_cursor is null at the end. Pass the cursor as before to read older entries. Unknown or foreign cursors return a conflict. Traversal is a live view, not a fixed export snapshot; newly inserted later entries appear on refresh.",
+        "description": "Organization-wide owner/admin or installation access required. Customer ledger only; no Supplier costs or margins. Ordered by descending recorded time and internal reference. UUIDs are API routing references and must not be displayed as product labels. Each page contains up to 100 entries; next_cursor is null at the end. Pass the cursor as before to read older entries. Unknown or foreign cursors return a conflict. Traversal is a live view, not a fixed export snapshot; newly inserted later entries appear on refresh. Optional currency and kind filters apply before pagination. Keep filters fixed while following cursors; out-of-filter cursors return 409. Each page and cursor check share one database snapshot.",
         "responses": {
           "200": {
             "description": "Customer balance entries",
@@ -6582,7 +6604,7 @@
             }
           },
           "400": {
-            "description": "Invalid query or cursor syntax"
+            "description": "Invalid currency, entry kind or query"
           },
           "401": {
             "description": "Authentication required"

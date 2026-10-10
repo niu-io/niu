@@ -740,3 +740,11 @@ administration may read; workspace-only sessions and company viewers may not.
 An absent currency account returns 404, an absent revision cursor returns 409.
 Revision zero and empty history mean the account has no policy writes. Reads do
 not change funds or grant credit-policy write permission.
+
+Balance transaction reads also accept optional `currency` and `kind`:
+`getCustomerBalanceTransactions(organizationId, { currency: 'USD', kind: 'refund' })`.
+Filtering happens before the 100-entry page limit. Keep both filters unchanged
+when passing `next_cursor` as `before`; a cursor outside the selected company,
+currency or kind returns HTTP 409. Omitted filters preserve the complete company
+ledger view. These reads expose customer ledger amounts only, never procurement
+costs, and do not execute refunds or payments.

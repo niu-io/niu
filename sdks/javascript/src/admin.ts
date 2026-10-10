@@ -874,10 +874,19 @@ export class NiuAdminClient {
   }
 
   /** Company ledger pages of up to 100 entries. Pass next_cursor as before. */
-  getCustomerBalanceTransactions(organizationId: string, options?: RequestOptions & { before?: string }): Promise<{ data: CustomerBalanceTransaction[]; next_cursor: string | null }> {
-    const { before, ...transport } = options ?? {};
-    const query = before === undefined ? '' : `?before=${uuid(before)}`;
-    return this.request(`/organizations/${uuid(organizationId)}/billing/transactions${query}`, undefined, transport);
+  getCustomerBalanceTransactions(organizationId: string, options?: RequestOptions & { before?: string; currency?: string; kind?: CustomerBalanceTransaction['kind'] }): Promise<{ data: CustomerBalanceTransaction[]; next_cursor: string | null }> {
+    const { before, currency, kind, ...transport } = options ?? {};
+    const query = new URLSearchParams();
+    if (before !== undefined) query.set('before', uuid(before));
+    if (currency !== undefined) {
+      if (!/^[A-Z]{3}$/.test(currency)) throw new TypeError('Use an uppercase currency code');
+      query.set('currency', currency);
+    }
+    if (kind !== undefined) {
+      if (!['funding', 'charge', 'refund', 'funding_reversal', 'adjustment'].includes(kind)) throw new TypeError('Choose a supported ledger entry kind');
+      query.set('kind', kind);
+    }
+    return this.request(`/organizations/${uuid(organizationId)}/billing/transactions${query.size ? '?' + query : ''}`, undefined, transport);
   }
 
   /** Company-scoped immutable credit/warning revisions. Pass next_before for older pages. */

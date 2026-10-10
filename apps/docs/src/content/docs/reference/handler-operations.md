@@ -6779,7 +6779,7 @@ HTTP 409: Unknown or unsupported original entry, over-refund or conflicting repl
 
 `GET /admin/v1/organizations/{organization}/billing/transactions`
 
-Organization-wide owner/admin or installation access required. Customer ledger only; no Supplier costs or margins. Ordered by descending recorded time and internal reference. UUIDs are API routing references and must not be displayed as product labels. Each page contains up to 100 entries; next_cursor is null at the end. Pass the cursor as before to read older entries. Unknown or foreign cursors return a conflict. Traversal is a live view, not a fixed export snapshot; newly inserted later entries appear on refresh.
+Organization-wide owner/admin or installation access required. Customer ledger only; no Supplier costs or margins. Ordered by descending recorded time and internal reference. UUIDs are API routing references and must not be displayed as product labels. Each page contains up to 100 entries; next_cursor is null at the end. Pass the cursor as before to read older entries. Unknown or foreign cursors return a conflict. Traversal is a live view, not a fixed export snapshot; newly inserted later entries appear on refresh. Optional currency and kind filters apply before pagination. Keep filters fixed while following cursors; out-of-filter cursors return 409. Each page and cursor check share one database snapshot.
 
 Implementation: `implemented`. Operation: `getCustomerBalanceTransactions`.
 
@@ -6814,6 +6814,30 @@ next_cursor returned by the previous page. Must belong to this company.
 {
   "type": "string",
   "format": "uuid"
+}
+```
+
+`currency` (query, optional)
+
+```json
+{
+  "type": "string",
+  "pattern": "^[A-Z]{3}$"
+}
+```
+
+`kind` (query, optional)
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "funding",
+    "charge",
+    "refund",
+    "funding_reversal",
+    "adjustment"
+  ]
 }
 ```
 
@@ -6883,7 +6907,7 @@ Content type: `application/json`.
 }
 ```
 
-HTTP 400: Invalid query or cursor syntax
+HTTP 400: Invalid currency, entry kind or query
 
 HTTP 401: Authentication required
 
