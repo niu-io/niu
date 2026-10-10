@@ -6,7 +6,8 @@ Status: in progress. Updated 2026-10-10. This checklist supplements, rather than
 
 - Use the existing **NIU.IO — Current UX & Design Refinements** Stitch project for visual design and iteration. Inspect the relevant mature-product reference and current rendered page before requesting changes. Preserve Niu brand tokens, installed shadcn primitives and supported behavior.
 - Frontend implementation and browser verification run locally on main at port 2566 with HMR. The remote backend workstream owns API implementation, migrations and performance. Coordinate contract changes and blockers through shared commits and documentation while direct agent communication is unavailable.
-- A row is complete only after its actual interactions are verified at desktop and narrow widths. Record loading, empty and error states where applicable. Automated tests alone do not qualify a workflow.
+- Prioritize complete desktop business workflows: Supplier configuration and rates → workspace API keys and limits → generation → Logs diagnosis → billing and top-ups. Resolve API contract dependencies before visual polish. Responsive refinement is deferred; fix narrow-screen issues now only when they prevent an action. Preserve the outstanding narrow-width acceptance checks for later release qualification.
+- Qualify actual desktop interactions, including loading, empty, error and recovery states where applicable. Automated tests alone do not qualify a workflow. Full release acceptance still includes desktop and narrow-width verification.
 - External Agent Observability is separately owned and excluded from edits here. Container qualification remains deferred.
 
 ## Workflow checklist
