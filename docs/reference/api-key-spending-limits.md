@@ -151,3 +151,19 @@ Database inspection confirmed that the media debit guard uses the shared
 calculation. The customer ledger remained empty. These checks establish current
 migration/read compatibility only: actual paid overrun, simultaneous settlement,
 credit reduction with liabilities and refunds remain unverified.
+
+### Balance response snapshot
+
+Balance reporting computes posted funds, original holds and outstanding liability
+in one statement snapshot, materializing each account's amounts before serializing
+the response. It does not invoke the volatile admission helper separately for
+`outstanding_nanos` and `available_nanos`. Admission and settlement retain their
+account locks and current-visibility helper.
+
+On the rebuilt service, four concurrent readers made 120 actual balance requests
+while an independent writer applied 20 credit-policy revisions to a new empty
+company. Each response retained exact available-capacity arithmetic. Independent
+database inspection matched the final credit and revision and found no ledger
+entries. Credit was then reset to zero; no workspace or inference key was created.
+Release compilation and storage Clippy completed. Actual paid settlement
+contention remains unverified; empty-account policy traffic does not cover it.
