@@ -20,10 +20,12 @@ export default function PlatformConfiguration() {
   const [revision, setRevision] = useState(0);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
-    const controller = new AbortController(); setError('');
+    const controller = new AbortController(); setError('');setLoading(true);
+    setConfiguration(null);setSettings(null);setSavedSettings(null);setKey('');
     void Promise.all([request<{data: Configuration}>(token, '/admin/v1/platform/configuration', 'GET', undefined, controller.signal),request<{data: Settings}>(token, '/admin/v1/platform/payments/epay', 'GET', undefined, controller.signal)])
-      .then(([status, payment]) => { if (!controller.signal.aborted) {setConfiguration(status.data); setSettings(payment.data);setSavedSettings(payment.data);setKey('');} }).catch(reason => { if (!controller.signal.aborted) setError(reason.message); });
+      .then(([status, payment]) => { if (!controller.signal.aborted) {setConfiguration(status.data); setSettings(payment.data);setSavedSettings(payment.data);setKey('');} }).catch(reason => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : 'Payment gateways could not be loaded.'); }).finally(() => {if (!controller.signal.aborted) setLoading(false);});
     return () => controller.abort();
   }, [token, revision]);
   async function save(event: FormEvent) {
@@ -38,7 +40,7 @@ export default function PlatformConfiguration() {
   }
   return <section className="space-y-5 py-5">
     {error && !open && <p role="alert">{error}<Button variant="ghost" onClick={() => setRevision(value => value + 1)}>Retry</Button></p>}
-    {!configuration ? <p role="status">Loading payment gateways…</p> : <Table className="payment-gateway-table">
+    {loading ? <p role="status">Loading payment gateways…</p> : configuration ? <Table className="payment-gateway-table">
       <TableHeader><TableRow><TableHead>Gateway</TableHead><TableHead className="hidden sm:table-cell">Status</TableHead><TableHead className="w-28"><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
       <TableBody>{configuration.payment_gateways.filter(gateway => gateway.name === 'EPay' || gateway.configured).map(gateway => {
         const status = gateway.name === 'EPay' ? savedSettings?.enabled ? 'Enabled' : 'Disabled' : gateway.configured ? 'Configured' : 'Not configured';
@@ -48,7 +50,7 @@ export default function PlatformConfiguration() {
           <TableCell className="text-right align-top sm:align-middle">{gateway.name === 'EPay' && <Button variant="outline" size="sm" disabled={!savedSettings} onClick={() => {setSettings(savedSettings);setKey('');setError('');setOpen(true);}}>Configure</Button>}</TableCell>
         </TableRow>;
       })}</TableBody>
-    </Table>}
+    </Table> : null}
 
     <Dialog open={open} onOpenChange={value => {if (!busy) {setOpen(value);setKey('');}}}><DialogContent className="niu-modal max-h-[90dvh] overflow-y-auto"><DialogHeader><DialogTitle>Configure EPay</DialogTitle><DialogDescription>Connect your domestic payment gateway to company balance top-ups.</DialogDescription></DialogHeader>{settings && <form className="space-y-4" onSubmit={event => void save(event)}>
       <div className="flex items-center gap-2"><Checkbox id="epay-enabled" checked={settings.enabled} disabled={busy} onCheckedChange={value => setSettings({...settings, enabled:value === true})}/><Label htmlFor="epay-enabled">Enable EPay</Label></div>

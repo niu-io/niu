@@ -679,3 +679,15 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
   configured video route and its appropriate billing authorization. Backend test
   evidence is not substituted for rendered local qualification. Other frontend
   workflows can continue while this dependency is unresolved.
+
+### Payment configuration read recovery
+
+- Fixed the admin payment read lifecycle: failed reads now end loading rather
+  than retaining a perpetual loading message. Retry rereads both configuration
+  endpoints; beginning a new read clears previous configuration and key input.
+- Regression verification covers failure, loading termination and recovery using
+  four GET calls with no configuration writes. Dashboard type checking passes.
+- The actual desktop runtime reports disabled EPay and empty configuration.
+  Opening Configure after HMR displayed the existing fields; Cancel returned to
+  the unchanged Disabled row. This proves the reachable read/cancel path, not
+  the error path in a live browser or merchant activation/paid checkout.
