@@ -1244,3 +1244,20 @@ open. The newly pulled Supplier membership-directory contract removes silent
 100-record truncation without changing the existing frontend response shape;
 backend directory verification does not establish frontend business lifecycle
 completion.
+
+## Custom Activity calendar range — 2026-10-11
+
+Using the actual calendar picker and keyboard selection, both From and To were
+set to October 9. The URL retained both dates and the scoped Default workspace
+feed showed exactly four existing requests from that local day, excluding the
+October 8 and October 10 records seen in the unfiltered feed. A full reload
+retained the scope and dates, then restored those same four records. Desktop
+and measured 390 × 844 views were inspected with no page overflow or error.
+The histogram displayed the local midnight-to-midnight interval. No inference,
+financial mutation or source modification was required. Screenshots were retained
+outside the public tree.
+
+This resolves the preceding direct-fill ambiguity: selecting through the calendar
+commits the date correctly. It qualifies this populated single-day browser range
+and reload restoration, not daylight-saving/timezone changes, all date boundaries,
+task correlation or ordinary-role access.
