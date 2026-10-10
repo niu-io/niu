@@ -581,3 +581,12 @@ Invoice lines and model-price reads expose the pinned/current minimum as
 appropriate. Internal balance refunds remain bounded by the original charge,
 restore the refunded key allowance once and preserve historical invoice pricing. The SDK uses the same `minimum_charge_nanos` field. See the
 [contract and actual verification](https://github.com/niu-io/niu/blob/main/docs/reference/text-minimum-charges.md).
+
+## Existing video result recovery
+
+A current gateway recovered a previously generated personal video after the
+transport-status migration, queried its real upstream reference and retained the
+same successful job across restart. Downloaded bytes matched the original
+artifact's SHA-256 and independently decoded as H.264 video. No new generation or
+customer charge was created. This verifies that recovery path, not customer-funded
+video settlement. See the [recorded recovery evidence](https://github.com/niu-io/niu/blob/main/docs/reference/video-jobs.md#existing-result-recovery-after-migration-0228).

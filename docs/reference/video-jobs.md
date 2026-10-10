@@ -1335,3 +1335,23 @@ the identical timing entry and original job. Execution and usage stayed unknown;
 there was one submission, no customer charge/debit and no Chat successor. This
 verifies the new submission field, not polling-failure persistence. The original
 encrypted identity was unchanged and isolated processes were stopped.
+
+### Existing result recovery after migration 0228
+
+A retained isolated database from a previously completed actual personal video
+run was reopened with the current gateway. Existing timing IDs, phases, times and
+outcomes were unchanged by migration; their new HTTP-status field remained null.
+A newly authorized workspace key read the saved successful job and refreshed its
+real upstream reference. HTTP 200 produced one new `query` span with `received`
+and null failure status, preserving the original succeeded state and sole attempt.
+A further gateway restart retained that state and exact timing entry.
+
+The recovered result was then downloaded through Niu. Independent inspection
+hashed the actual downloaded bytes and matched the original generation artifact's
+SHA-256. ffprobe identified H.264 at 848×480, and a separate full ffmpeg decode
+completed. No generation was resubmitted and no customer charge or balance entry
+was created. The temporary key was revoked and the isolated database stopped.
+
+This verifies an existing personal result across upgrade, query, restart and
+content retrieval. It does not qualify customer-funded video settlement or an
+upstream HTTP query failure; those remain explicit open paths.
