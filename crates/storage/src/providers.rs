@@ -140,7 +140,7 @@ impl Store {
         )
     }
     pub async fn provider_businesses(&self) -> Result<Vec<Value>, StoreError> {
-        Ok(sqlx::query_scalar("SELECT jsonb_build_object('id',p.id,'name',p.name,'api_keys',(SELECT COUNT(*) FROM vendor_supplier_ownership o WHERE o.provider_id=p.id),'models',(SELECT COUNT(*) FROM vendor_models vm JOIN vendor_supplier_ownership o ON o.vendor_id=vm.vendor_id WHERE o.provider_id=p.id),'members',(SELECT COUNT(*) FROM provider_memberships m WHERE m.provider_id=p.id AND m.active),'qualification_status',CASE WHEN niu_supplier_qualification_current(p.id) THEN 'qualified' ELSE 'unqualified' END) FROM provider_businesses p WHERE p.deleted_at IS NULL ORDER BY p.name,p.id LIMIT 1000").fetch_all(&self.pool).await?)
+        Ok(sqlx::query_scalar("SELECT jsonb_build_object('id',p.id,'name',p.name,'api_keys',(SELECT COUNT(*) FROM vendor_supplier_ownership o WHERE o.provider_id=p.id),'models',(SELECT COUNT(*) FROM vendor_models vm JOIN vendor_supplier_ownership o ON o.vendor_id=vm.vendor_id WHERE o.provider_id=p.id),'members',(SELECT COUNT(*) FROM provider_memberships m WHERE m.provider_id=p.id AND m.active),'qualification_status',CASE WHEN niu_supplier_qualification_current(p.id) THEN 'qualified' ELSE 'unqualified' END) FROM provider_businesses p WHERE p.deleted_at IS NULL ORDER BY p.name,p.id").fetch_all(&self.pool).await?)
     }
 
     pub async fn qualify_provider_business(

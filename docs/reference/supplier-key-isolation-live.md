@@ -165,3 +165,22 @@ the deleted-scope rejection. Independent reopening confirmed the Supplier's
 retained deletion marker/audit and no credentials, inference or financial records.
 No fixture outcome was used. This run covers selected-scope validation, not
 concurrent deletion between authorization and list reads or populated pagination.
+
+## Complete Supplier directory beyond 1,000 records — 2026-10-11
+
+The existing installation-only `GET /admin/v1/providers` directory has no
+continuation cursor. It now returns all active Suppliers in name/ID order rather
+than silently dropping records after the first 1,000. The response shape and
+permissions are unchanged. This compatibility correction is not a bounded-page
+API or a claim of arbitrarily large-directory performance.
+
+An actual native run created 1,001 Suppliers through management HTTP and
+reproduced the previous 1,000-record response. A separate updated-binary run
+returned all 1,001 created IDs in order. Deleting the first record and restarting
+returned precisely the remaining 1,000, including the previously truncated tail.
+Independent reopening compared that complete response with the active database
+rows and confirmed the one retained deletion marker and all 1,001 creation audit
+records. No credentials, inference or financial data were created. This verifies
+complete directory navigation at the exercised size; populated per-Supplier
+counts and large-directory load remain separate qualification work. No fixture
+outcome was used as evidence.

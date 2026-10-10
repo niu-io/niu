@@ -309,7 +309,8 @@ paths:
   /admin/v1/providers:
     get:
       operationId: listProviderBusinesses
-      summary: Installation-only list of registered supplier businesses (up to 1000)
+      description: Returns all active Suppliers ordered by name and internal ID. This compatibility endpoint has no cursor and does not silently truncate the directory.
+      summary: Installation-only complete list of active supplier businesses
       responses:
         '200': { description: 'Data array of internal routing ID, name, API-key count, configured model count, active member count, and qualification status. Deleted Suppliers are excluded.' }
         '403': { description: Installation access required }
