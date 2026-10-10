@@ -254,3 +254,21 @@ retained media tombstones and no remaining retry markers. This demonstrates no
 duplicate successful mutation in the exercised two-process run; it does not
 claim both processes won a batch, bound transient connection acquisition, or
 measure priced admission under this backlog.
+
+## Existing native-runtime upgrade
+
+The existing development database was backed up in PostgreSQL custom format and
+its archive inventory checked before applying migrations 0238 and 0239. The
+Gateway restarted on its existing address and became ready with migration 0239
+recorded. Configuration hashes, Supplier credential ciphertext/revisions and
+organization, workspace, media-job and customer-ledger counts matched their
+pre-upgrade values. No database or encryption identity was replaced.
+
+Current saved-video history/billing and session authorization reads were repeated
+without new submission or financial entries. A fresh personal OpenRouter stream
+then returned its requested nonce and reported usage through the updated native
+Gateway. Independent SQL matched completed status and both token counts,
+confirmed the temporary key was revoked and found no customer debit for that
+personal request. Backup inventory readability is not a restore verification of
+this new archive; historical-backup restore evidence is described separately
+above. This checkpoint does not qualify customer-funded video settlement.
