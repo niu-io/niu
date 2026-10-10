@@ -426,3 +426,19 @@ exactly eight debits with no held customer reservations. The isolated processes
 stopped; database tracing and all parameters remained private. Internal credit
 and rates were verification inputs. Admission batching, mixed-workspace batches,
 poisoned completion records and sustained queue saturation remain unqualified.
+
+### Mixed-workspace completion queue
+
+A follow-up fresh native run used four keys in each of two workspaces with
+different customer tariffs. Eight actual personal OpenRouter calls overlapped
+while the same temporary charge-table lock accumulated completion work. After
+release, executed PostgreSQL completion statements contained batches of one,
+three and four attempts. Every batch contained exactly one workspace, and the
+eight attempt IDs appeared exactly once across those executed statements.
+
+All responses delivered their own fresh marker. Independent reopening after
+restart matched key/workspace attribution and reported usage, recalculated each
+charge against that workspace's distinct tariff, and checked debit amount and
+workspace against its charge. Exactly eight debits reconciled and no customer
+hold remained. This verifies scope grouping of the exercised completion queue,
+not a single atomic cross-workspace ledger transaction or admission batching.
