@@ -20,7 +20,7 @@ links existing evidence and the pinned New API reference.
 | IP allowlist | Implemented; actual direct/proxy, rotation and saved-video access verified | Validate addresses/CIDRs; use a defined trusted-proxy policy; reject disallowed origins before upstream dispatch |
 | Key request rate limit (RPM) | Implemented; actual two-instance admission and video rejection verified | Rolling 60-second dispatch count shared across rotations and gateways; reject before upstream calls |
 | Key token rate budget (TPM) | Estimated text admission implemented; dual-instance Chat and individual Responses/embeddings calls verified | Reserve estimated input/output before dispatch; count actual known usage and retain unknown reservations; qualify estimator and unsupported modalities explicitly |
-| Key concurrent-request limit | Implemented; actual two-instance admission, completion, disconnect, rotation and restart verified | Enforce across supported sync/stream/async lifecycles; release reliably on cancellation, error and recovery |
+| Key concurrent-request limit | Implemented; actual two-instance admission, completion, disconnect, rotation and restart verified; single-gateway Chat/Responses/embedding shared occupancy verified | Enforce across supported sync/stream/async lifecycles; release reliably on cancellation, error and recovery |
 | Key usage attribution | Implemented; partial actual evidence | Calls, provider usage and customer charges agree across key/detail/export views; unknown usage remains unknown |
 | Independent-key limit isolation | Actual personal-route RPM/concurrency/TPM isolation verified; batch and paid paths open | Exhausting one key must not reject another eligible key; shared workspace/company constraints still apply |
 

@@ -129,3 +129,23 @@ Full FFmpeg decoding completed without errors. SHA-256:
 `22994fe663364f6ed2fd7e6cd940902f443466b1f94649762feff6d28396f810`.
 Temporary keys were revoked after verification. This is personal upstream-funded
 execution, not evidence of prepaid customer settlement or commercial supply.
+
+## Mixed text protocols — current-input verification
+
+A new temporary owner-funded configuration exposed Chat/Responses and embedding
+mappings under one workspace key with a concurrency limit of one. An actual Chat
+request ran while an independent PostgreSQL read observed its dispatched, unresolved
+attempt. Responses and embedding requests made during that occupancy each returned
+429 `key_concurrency_exceeded`. After Chat completed, both protocols completed
+successfully through the same key.
+
+Response content/output and the embedding vector were inspected. Independent
+database reads matched exact reported token usage for all three completed
+dispatches and found zero remaining unresolved occupancy. Rejected calls added no
+dispatches. The customer ledger stayed empty and the original credential revision
+and ciphertext digest were unchanged. The temporary key was revoked and temporary
+mappings/credential disabled.
+
+This establishes shared occupancy and release across these three protocols on one
+live gateway. It does not establish mixed-protocol multi-gateway contention, paid
+admission, batch-writer behavior, sustained throughput or media settlement.
