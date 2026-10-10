@@ -208,3 +208,26 @@ represent commercial Supplier qualification or received funding. The original
 development database was unchanged. This verifies the exercised managed-route
 transition, not a unified immutable publication generation across database and
 static routes, overlapping publishers, or static-alias fallback behavior.
+
+## Credential replacement isolation under one Supplier
+
+A fresh isolated current-input run created one explicitly unqualified Supplier,
+two independent OpenRouter credentials and two model mappings through management
+APIs. Each workspace key was restricted to its corresponding model. Replacing
+the first credential with deliberately invalid input changed only its encrypted
+representation/revision; an update using its stale revision returned 409. Its
+actual upstream call returned 401 without a customer charge or open reservation.
+The second credential still completed a real model call while the first remained
+invalid. Restoring the first credential through its current revision and restarting
+the Gateway restored its actual model call as well.
+
+Independent verification reopened the stopped database and reconciled saved real
+responses with exact customer charges and matching debits. It confirmed both
+credential-to-Supplier links and model mappings, an unchanged second-credential
+ciphertext fingerprint/revision, exactly two customer charges/debits, no funding,
+no commercial qualification/offer records and no open customer reservations after
+another restart. This verifies Niu's independent credential replacement using
+personal upstream access and internal verification credit/rates. It does not
+rotate the upstream service's actual API key, qualify commercial supply, or
+implement master-key re-encryption. The original development credentials and
+database were not changed.
