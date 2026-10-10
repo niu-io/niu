@@ -725,6 +725,7 @@ async fn uncertain_submission_survives_store_reconstruction_without_inventing_a_
                     started_unix_ms: 1000 + i,
                     elapsed_ms: 10,
                     received: true,
+                    upstream_http_status: None,
                 },
             )
             .await

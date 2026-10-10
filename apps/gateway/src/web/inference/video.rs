@@ -1478,7 +1478,19 @@ pub(super) async fn create_as(
     )
     .await;
     clock
-        .save(&state, scope, attempt, "submission", result.is_ok())
+        .save(
+            &state,
+            scope,
+            attempt,
+            "submission",
+            result.is_ok(),
+            match &result {
+                Err(niu_media::submission::SubmissionError::UncertainHttpStatus(status)) => {
+                    Some(i32::from(*status))
+                }
+                _ => None,
+            },
+        )
         .await;
     let bound = match result {
         Ok(receipt) => state
@@ -1657,7 +1669,21 @@ pub(crate) async fn refresh_for_principal(
         )
         .await
     };
-    clock.save(state, scope, id, "query", result.is_ok()).await;
+    clock
+        .save(
+            state,
+            scope,
+            id,
+            "query",
+            result.is_ok(),
+            match &result {
+                Err(niu_media::transport::QueryTransportError::HttpStatus(status)) => {
+                    Some(i32::from(*status))
+                }
+                _ => None,
+            },
+        )
+        .await;
     let observation = result.map_err(|_| {
         ApiError::upstream_message(
             "Video status could not be refreshed; the original job remains unchanged",
@@ -1724,6 +1750,7 @@ impl TransportClock {
         id: Uuid,
         phase: &'static str,
         received: bool,
+        upstream_http_status: Option<i32>,
     ) {
         let Some(started_unix_ms) = self.unix_ms else {
             return;
@@ -1737,6 +1764,7 @@ impl TransportClock {
             started_unix_ms,
             elapsed_ms,
             received,
+            upstream_http_status,
         };
         if state
             .store

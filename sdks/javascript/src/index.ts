@@ -203,7 +203,7 @@ export type VideoLifecycleTiming = {
 export type VideoTransportTimings = {
   /** First gateway observations, not exact Supplier queue/run transitions. */
   lifecycle?: VideoLifecycleTiming;
-  data: Array<{ phase: 'submission' | 'query'; started_unix_ms: number; elapsed_ms: number; outcome: 'received' | 'unavailable' }>;
+  data: Array<{ phase: 'submission' | 'query'; started_unix_ms: number; elapsed_ms: number; outcome: 'received' | 'unavailable'; upstream_http_status?: number | null }>;
   has_more: boolean;
 };
 

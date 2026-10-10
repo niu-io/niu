@@ -50,6 +50,8 @@ pub struct MediaTransportTiming {
     pub started_unix_ms: i64,
     pub elapsed_ms: i64,
     pub received: bool,
+    /// Safe failure metadata only; never implies nonexecution or a refund.
+    pub upstream_http_status: Option<i32>,
 }
 
 /// Internal leased query identity; key authorization is rechecked by the worker.
@@ -350,19 +352,22 @@ impl Store {
         attempt: Uuid,
         timing: &MediaTransportTiming,
     ) -> Result<(), StoreError> {
-        if !matches!(timing.phase, "submission" | "query")
+        if timing
+            .upstream_http_status
+            .is_some_and(|status| timing.received || !(100..=599).contains(&status))
+            || !matches!(timing.phase, "submission" | "query")
             || !(0..=9007199254740991).contains(&timing.started_unix_ms)
             || !(0..=120000).contains(&timing.elapsed_ms)
         {
             return Err(StoreError::Conflict);
         }
-        sqlx::query("INSERT INTO media_transport_timings(id,organization_id,project_id,attempt_id,phase,started_unix_ms,elapsed_ms,outcome) VALUES($1,$2,$3,$4,$5,$6,$7,$8)")
-            .bind(timing.id).bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(timing.phase).bind(timing.started_unix_ms).bind(timing.elapsed_ms).bind(if timing.received {"received"} else {"unavailable"}).execute(&self.pool).await?;
+        sqlx::query("INSERT INTO media_transport_timings(id,organization_id,project_id,attempt_id,phase,started_unix_ms,elapsed_ms,outcome,upstream_http_status) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)")
+            .bind(timing.id).bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(timing.phase).bind(timing.started_unix_ms).bind(timing.elapsed_ms).bind(if timing.received {"received"} else {"unavailable"}).bind(timing.upstream_http_status).execute(&self.pool).await?;
         Ok(())
     }
 
     /// Last 100 measured spans, ordered chronologically with explicit truncation.
-    /// The response contains no internal timing IDs or upstream information.
+    /// The response contains no internal timing IDs, upstream identities, URLs or response bodies.
     pub async fn media_transport_timings_for_key(
         &self,
         principal: &crate::Principal,
@@ -376,7 +381,7 @@ impl Store {
             return Ok(None);
         }
         let scope = principal.scope();
-        let mut rows: Vec<serde_json::Value> = sqlx::query_scalar("SELECT jsonb_build_object('phase',phase,'started_unix_ms',started_unix_ms,'elapsed_ms',elapsed_ms,'outcome',outcome) FROM media_transport_timings WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3 ORDER BY started_unix_ms DESC,id DESC LIMIT 101")
+        let mut rows: Vec<serde_json::Value> = sqlx::query_scalar("SELECT jsonb_build_object('phase',phase,'started_unix_ms',started_unix_ms,'elapsed_ms',elapsed_ms,'outcome',outcome,'upstream_http_status',upstream_http_status) FROM media_transport_timings WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3 ORDER BY started_unix_ms DESC,id DESC LIMIT 101")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_all(&self.pool).await?;
         let has_more = rows.len() > 100;
         rows.truncate(100);

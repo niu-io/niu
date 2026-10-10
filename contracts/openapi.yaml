@@ -644,6 +644,7 @@ paths:
                         started_unix_ms: { type: integer, minimum: 0, maximum: 9007199254740991 }
                         elapsed_ms: { type: integer, minimum: 0, maximum: 120000 }
                         outcome: { type: string, enum: [received, unavailable] }
+                        upstream_http_status: { type: [integer, 'null'], minimum: 100, maximum: 599, description: "Safe HTTP failure status only; null for historical or unclassified outcomes. Does not prove generation nonexecution or authorize a refund." }
         '401': { description: Invalid credential }
         '404': { description: Missing job or workspace/model access denied }
   /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/refresh:
@@ -767,6 +768,7 @@ paths:
                         started_unix_ms: { type: integer, minimum: 0, maximum: 9007199254740991 }
                         elapsed_ms: { type: integer, minimum: 0, maximum: 120000 }
                         outcome: { type: string, enum: [received, unavailable] }
+                        upstream_http_status: { type: [integer, 'null'], minimum: 100, maximum: 599, description: "Safe HTTP failure status only; null for historical or unclassified outcomes. Does not prove generation nonexecution or authorize a refund." }
         '401': { description: Invalid credential }
         '404': { description: Missing job or workspace/model access denied }
   /v1/video/jobs/{id}/refresh:

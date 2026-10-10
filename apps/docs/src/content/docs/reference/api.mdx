@@ -540,6 +540,11 @@ and current verification limits. Images/references and customer-funded video
 qualification remain outside this verified subset. Browser restoration still
 requires frontend integration and verification.
 
+Video transport timing entries also expose nullable `upstream_http_status` for
+submission and refresh HTTP failures. Historical and unclassified spans retain
+null. This diagnostic never changes the saved generation state or proves that a
+charge or reservation can be released.
+
 Video submission HTTP errors now retain a safe `upstream_http_error` classification
 and status code in workspace request diagnostics. The create response remains
 `202` with `submission_unknown`; this does not prove nonexecution, release a held

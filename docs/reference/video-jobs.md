@@ -1310,3 +1310,28 @@ confirmed the operation remained pinned to `personal`, the new customer-media
 trigger was installed, and replay/restart retained one attempt and one submission
 without charges or retries. This verifies preservation of that personal failure
 path; it does not exercise customer snapshot insertion or historical backfill.
+
+## Per-transport HTTP failure status
+
+The video timing APIs now return additive, nullable `upstream_http_status` for
+individual submission and query spans. A non-success upstream HTTP response
+records its numeric status with `outcome: unavailable`; historical rows, transport
+failures and unclassified responses keep null. The optional JavaScript SDK field
+also supports older gateways that omit it. Migration 0228 adds only this nullable
+metadata and a constraint that a recorded failure status requires an unavailable
+outcome; it does not rewrite historical spans.
+
+This is observation metadata, not a generation state or billing event. Query
+failures still leave the saved job unchanged, and submission failures retain
+uncertain execution. The field contains no upstream URL, body, credential or
+procurement amount. A later successful query gets its own timing span instead of
+mutating an earlier failure. Polling HTTP-status persistence still needs an actual
+upstream query failure run; submission evidence is recorded separately.
+
+A fresh native run submitted an actual invalid-credential OpenRouter video request.
+The timing API and independent SQL both retained HTTP 401 on the sole submission
+span with `outcome: unavailable`. Idempotent replay and gateway restart returned
+the identical timing entry and original job. Execution and usage stayed unknown;
+there was one submission, no customer charge/debit and no Chat successor. This
+verifies the new submission field, not polling-failure persistence. The original
+encrypted identity was unchanged and isolated processes were stopped.
