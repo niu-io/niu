@@ -169,3 +169,15 @@ and these authorization boundaries, not media quote reads, inference, procuremen
 reservations or paid settlement. Compilation, all-target gateway Clippy, SDK build,
 formatting, OpenAPI YAML parsing and public-boundary checks also completed;
 fixture outcomes were not used as evidence.
+
+### JavaScript model-catalog type
+
+The SDK `Model.customer_pricing` type includes optional nullable
+`cached_prompt_rate`, preserving compatibility with older catalog responses.
+A current-input run used the built JavaScript `NiuClient.models.list()` against
+the running gateway, first with a flat tariff and then with a separate cache rate
+on an unconnected model. Both returned the exact revision and rates; independent
+PostgreSQL reads matched null and the configured cache rate respectively. No
+inference or ledger entry was created. The temporary key was revoked and the
+model/credential disabled. This verifies SDK catalog transport and the updated
+type build, not cached inference billing or frontend rendering.

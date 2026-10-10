@@ -80,7 +80,7 @@ export type Model = {
   id: string;
   object: 'model' | string;
   owned_by?: string;
-  customer_pricing?: { revision: string; currency: string; unit: 'nanounits_per_million_tokens'; prompt_rate: string; completion_rate: string } | null;
+  customer_pricing?: { revision: string; currency: string; unit: 'nanounits_per_million_tokens'; prompt_rate: string; completion_rate: string; cached_prompt_rate?: string | null } | null;
 };
 
 export type ModelList = {
