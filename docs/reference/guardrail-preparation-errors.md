@@ -144,3 +144,21 @@ marker. Output redaction does not redact the separately retained request input;
 that input remains subject to the existing capture and retention controls.
 No preparation refusal or cooldown was created. These two textual calls do not
 qualify streaming redaction, arbitrary metadata, tool output or external detectors.
+
+### Observe-only output matches
+
+A fresh native run activated an `observe_only` output policy with a block-action
+pattern for a unique marker. Actual Chat and Responses calls both delivered
+that marker unchanged with HTTP 200. Their scoped diagnostics recorded an output
+observation of `matched` / `pattern_match`, without including the marker itself;
+the observations remained readable after restart. The rule's block action does
+not turn observation mode into enforcement.
+
+Independent reopening found two completed attempts whose stored usage matched
+the actual response usage, individually correct tariff charges and matching
+total debits, released reservations, and two observations. There were no output
+enforcement decisions, preparation refusals or cooldowns. Saved response bodies
+also contained the unmodified delivered marker. Observation therefore does not
+provide redaction or content-withholding guarantees. This checks successful
+observation persistence for two non-streaming textual calls; observation-storage
+failure, streaming and other envelope types remain separately unverified.
