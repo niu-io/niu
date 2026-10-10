@@ -256,3 +256,39 @@ rendered qualification.
   readable. Temporary private credentials were removed from outside the repository.
   Ordinary-role authorization and IP behavior through different deployment proxies
   remain unqualified; this local check does not prove those scenarios.
+
+## Key spending-limit frontend increment — 2026-10-10
+
+- Added currency-specific lifetime key allowances below Source IP access, with
+  limit, committed customer amount, remaining allowance, Edit and History. Only
+  backend-discovered currencies appear; empty and failed reads remain distinct.
+  Amounts use exact decimal strings and BigInt nanounits, preserving nine decimal
+  places and the signed-64-bit bound without floating-point conversion.
+- Stitch reviewed this incremental composition in the existing NIU.IO project
+  (session `5391271498297900043`), using the inspected LiteLLM Max Budget form
+  and existing Niu rounded policy dialogs as references. Generated reset budgets,
+  funding claims and unsupported contract field suggestions were not adopted.
+  History reuses the existing three-column table and exact descending cursors.
+- Blank explicitly removes the key limit; zero is a valid finite limit. Client
+  validation prevents lowering below the saved commitment; backend 402 or 409
+  requires a fresh read and cannot be bypassed by closing/reopening the dialog.
+  Other write failures retain the draft. Read-only and inactive keys retain history
+  without edit controls. Company/workspace constraints still apply, changing a cap
+  adds no funds, and personal upstream routes do not consume customer allowance.
+- A separate actual test key saved USD 1.000000001, restored that exact value after
+  refresh, then saved zero and explicitly restored Unlimited. Actual history
+  recorded all three changes. An independent concurrent write while the editor
+  was open produced a real conflict; closing/reopening kept the editor blocked,
+  and Reload limits restored the other saved value. No inference or payment was
+  performed. The test key was revoked and temporary private credentials removed.
+- Desktop and measured 390×844 views were inspected: summary rows stack, history
+  amounts/names/dates fit, invalid decimal precision disables Save with readable
+  feedback, and cancelled drafts restore saved values. No horizontal page overflow
+  was observed; the temporary viewport was reset.
+- All 53 API-key tests across nine files and dashboard TypeScript checking passed.
+  They cover exact monetary/revision boundaries, null/zero, committed-liability
+  protection, conflict reload, failed read/write recovery, genuine empty currency
+  discovery, read-only controls and monetary history currency validation. Actual
+  paid-request cap enforcement, nonzero commitment UI, ordinary-role authorization
+  and multi-page monetary history remain unqualified. Token usage-window frontend
+  integration and the other release workflows remain open.
