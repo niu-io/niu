@@ -125,7 +125,7 @@ impl Store {
                 .bind(amount).bind(amount>maximum).bind(explanation).execute(&mut *tx).await?;
         }
         if amount > 0 {
-            let funded: bool = sqlx::query_scalar("SELECT COALESCE((SELECT SUM(amount_nanos) FROM customer_balance_entries WHERE account_id=a.id),0)+a.credit_limit_nanos-COALESCE((SELECT SUM(amount_nanos) FROM customer_balance_reservations WHERE account_id=a.id AND released_at IS NULL AND attempt_id<>$2),0)>=$3 FROM customer_balance_accounts a WHERE a.id=$1")
+            let funded: bool = sqlx::query_scalar("SELECT COALESCE((SELECT SUM(amount_nanos) FROM customer_balance_entries WHERE account_id=a.id),0)+a.credit_limit_nanos-niu_customer_account_outstanding(a.id, $2)>=$3 FROM customer_balance_accounts a WHERE a.id=$1")
                 .bind(account.0).bind(attempt).bind(amount).fetch_one(&mut *tx).await?;
             if !funded {
                 // Retain the full immutable liability and its hold for funding/

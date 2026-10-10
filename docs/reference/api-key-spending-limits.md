@@ -116,10 +116,9 @@ insufficient. Posted charges and linked refunds retain their existing contributi
 the original reservation is not rewritten.
 
 This is a source-level correction, not paid-workflow acceptance. Actual overrun
-settlement, refund and concurrent admission remain unverified. Company available
-capacity still uses reservation amounts and needs separate reconciliation with
-known unsettled liabilities; correcting key/workspace caps does not close that
-financial hierarchy gap.
+settlement, refund and concurrent admission remain unverified. Company capacity reconciliation is implemented separately in migration 0215
+and the corresponding gateway/storage changes described below; its paid
+end-to-end behavior also remains unverified.
 
 After a private database backup, the optimized gateway applied migration 0214
 and became ready on the existing database. Independent catalog inspection
@@ -128,3 +127,27 @@ workspace/key spending reads completed; the temporary key was revoked and the
 customer ledger remained empty. Storage checking and release compilation
 completed. These observations establish migration/read compatibility only, not
 the unexercised paid overrun branch.
+
+## Company outstanding liability
+
+Migration 0215 adds one outstanding-liability calculation shared by company
+admission, credit-policy changes, media settlement and its database debit guard.
+For each open, unposted reservation it uses the greater of the original hold and
+the known immutable media charge. Media settlement excludes its own attempt when
+checking capacity for its final debit; other outstanding work still consumes
+capacity. Already posted charges are excluded from outstanding amounts so their
+ledger debit is not counted again.
+
+Balance responses retain `reserved_nanos` as the original open-hold sum and add
+`outstanding_nanos` for effective outstanding liability. `available_nanos` is
+posted balance plus approved credit minus outstanding liability and can be
+negative. OpenAPI and the JavaScript SDK describe the additional exact-integer
+field; the SDK allows its absence when connected to older gateways.
+
+After a private backup, the rebuilt optimized gateway applied the migration and
+reached readiness on the existing database. Actual balance response fields
+matched independent database reads and exact available-capacity arithmetic.
+Database inspection confirmed that the media debit guard uses the shared
+calculation. The customer ledger remained empty. These checks establish current
+migration/read compatibility only: actual paid overrun, simultaneous settlement,
+credit reduction with liabilities and refunds remain unverified.

@@ -575,12 +575,19 @@ paths:
                     type: array
                     items:
                       type: object
-                      required: [currency, balance_nanos, reserved_nanos, available_nanos, credit_limit_nanos, warning_threshold_nanos, policy_revision, low_balance, posted_credit_exhausted]
+                      required: [currency, balance_nanos, reserved_nanos, outstanding_nanos, available_nanos, credit_limit_nanos, warning_threshold_nanos, policy_revision, low_balance, posted_credit_exhausted]
                       properties:
                         currency: { type: string, pattern: '^[A-Z]{3}$' }
                         balance_nanos: { type: string, pattern: '^-?[0-9]+$' }
                         reserved_nanos: { type: string, pattern: '^[0-9]+$' }
-                        available_nanos: { type: string, pattern: '^-?[0-9]+$' }
+                        outstanding_nanos:
+                          type: string
+                          pattern: '^[0-9]+$'
+                          description: Open customer liabilities, including known media charges above their original holds, excluding already posted debits.
+                        available_nanos:
+                          type: string
+                          pattern: '^-?[0-9]+$'
+                          description: Posted balance plus approved credit minus outstanding_nanos; may be negative.
                         credit_limit_nanos: { type: string, pattern: '^[0-9]+$' }
                         policy_revision: { type: string, pattern: '^[0-9]+$' }
                         warning_threshold_nanos: { type: [string, 'null'], pattern: '^[0-9]+$' }

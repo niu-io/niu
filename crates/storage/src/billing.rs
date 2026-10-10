@@ -196,7 +196,7 @@ impl Store {
         if revision != expected_revision {
             return Err(StoreError::Conflict);
         }
-        let safe:bool=sqlx::query_scalar("SELECT NOT EXISTS(SELECT 1 FROM customer_balance_reservations WHERE account_id=$1 AND released_at IS NULL) OR COALESCE((SELECT SUM(amount_nanos) FROM customer_balance_entries WHERE account_id=$1),0)+$2-COALESCE((SELECT SUM(amount_nanos) FROM customer_balance_reservations WHERE account_id=$1 AND released_at IS NULL),0)>=0")
+        let safe:bool=sqlx::query_scalar("SELECT NOT EXISTS(SELECT 1 FROM customer_balance_reservations WHERE account_id=$1 AND released_at IS NULL) OR COALESCE((SELECT SUM(amount_nanos) FROM customer_balance_entries WHERE account_id=$1),0)+$2-niu_customer_account_outstanding($1)>=0")
             .bind(account).bind(credit_limit_nanos).fetch_one(&mut *tx).await?;
         if !safe {
             return Err(StoreError::Unresolved);
@@ -360,7 +360,7 @@ impl Store {
         organization: Uuid,
     ) -> Result<Vec<Value>, StoreError> {
         Ok(sqlx::query_scalar(
-            "SELECT jsonb_build_object('currency',a.currency,'balance_nanos',COALESCE(SUM(e.amount_nanos),0)::text,'credit_limit_nanos',a.credit_limit_nanos::text,'policy_revision',a.policy_revision::text,'warning_threshold_nanos',a.warning_threshold_nanos::text,'low_balance',CASE WHEN a.warning_threshold_nanos IS NULL THEN false ELSE COALESCE(SUM(e.amount_nanos),0)<a.warning_threshold_nanos END,'posted_credit_exhausted',COALESCE(SUM(e.amount_nanos),0)+a.credit_limit_nanos<=0,'reserved_nanos',COALESCE((SELECT SUM(h.amount_nanos) FROM customer_balance_reservations h WHERE h.account_id=a.id AND h.released_at IS NULL),0)::text,'available_nanos',(COALESCE(SUM(e.amount_nanos),0)+a.credit_limit_nanos-COALESCE((SELECT SUM(h.amount_nanos) FROM customer_balance_reservations h WHERE h.account_id=a.id AND h.released_at IS NULL),0))::text) FROM customer_balance_accounts a LEFT JOIN customer_balance_entries e ON e.account_id=a.id AND e.organization_id=a.organization_id AND e.currency=a.currency WHERE a.organization_id=$1 GROUP BY a.id ORDER BY a.currency"
+            "SELECT jsonb_build_object('currency',a.currency,'balance_nanos',COALESCE(SUM(e.amount_nanos),0)::text,'credit_limit_nanos',a.credit_limit_nanos::text,'policy_revision',a.policy_revision::text,'warning_threshold_nanos',a.warning_threshold_nanos::text,'low_balance',CASE WHEN a.warning_threshold_nanos IS NULL THEN false ELSE COALESCE(SUM(e.amount_nanos),0)<a.warning_threshold_nanos END,'posted_credit_exhausted',COALESCE(SUM(e.amount_nanos),0)+a.credit_limit_nanos<=0,'reserved_nanos',COALESCE((SELECT SUM(h.amount_nanos) FROM customer_balance_reservations h WHERE h.account_id=a.id AND h.released_at IS NULL),0)::text,'outstanding_nanos',niu_customer_account_outstanding(a.id)::text,'available_nanos',(COALESCE(SUM(e.amount_nanos),0)+a.credit_limit_nanos-niu_customer_account_outstanding(a.id))::text) FROM customer_balance_accounts a LEFT JOIN customer_balance_entries e ON e.account_id=a.id AND e.organization_id=a.organization_id AND e.currency=a.currency WHERE a.organization_id=$1 GROUP BY a.id ORDER BY a.currency"
         ).bind(organization).fetch_all(&self.pool).await?)
     }
 
@@ -656,7 +656,7 @@ pub(crate) async fn reserve_customer_balance_in_tx(
             Err(StoreError::Conflict)
         };
     }
-    let funded: bool = sqlx::query_scalar("SELECT COALESCE((SELECT SUM(e.amount_nanos) FROM customer_balance_entries e WHERE e.account_id=a.id),0)+a.credit_limit_nanos-COALESCE((SELECT SUM(r.amount_nanos) FROM customer_balance_reservations r WHERE r.account_id=a.id AND r.released_at IS NULL),0)>=$2 FROM customer_balance_accounts a WHERE a.id=$1")
+    let funded: bool = sqlx::query_scalar("SELECT COALESCE((SELECT SUM(e.amount_nanos) FROM customer_balance_entries e WHERE e.account_id=a.id),0)+a.credit_limit_nanos-niu_customer_account_outstanding(a.id)>=$2 FROM customer_balance_accounts a WHERE a.id=$1")
             .bind(account).bind(maximum_nanos).fetch_one(&mut **tx).await?;
     if !funded {
         return Err(StoreError::BudgetExceeded);
