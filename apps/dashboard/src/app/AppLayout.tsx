@@ -306,6 +306,9 @@ export default function AppLayout() {
     }
     signOutPending.current = false;
     setSignOutFailed(false);
+    if (token === 'niu-browser-member-session') {
+      try { localStorage.setItem('niu.auth.signout', crypto.randomUUID()); } catch { /* Focus revalidation remains available. */ }
+    }
     connectionController.current?.abort();
     connectionController.current = null;
     connectionRevision.current += 1;
@@ -408,7 +411,7 @@ export default function AppLayout() {
           setDraftToken('');
           setModels([]);
           setSession(null);
-          setError('This admin session has expired or been revoked. Sign in again with valid administrator access.');
+          setError('Your session has expired or been revoked. Sign in again.');
         } else if (response.ok) {
           const currentSession = (await response.json() as { data: AdminSession }).data;
           if (revision === connectionRevision.current && !controller.signal.aborted) setSession(currentSession);
@@ -419,6 +422,36 @@ export default function AppLayout() {
     }
     if (revision === connectionRevision.current && token && controller && !controller.signal.aborted) await refreshModels();
   }, [refreshModels, token, gateway.check]);
+
+  useEffect(() => {
+    if (!token) return;
+    let pending = false;
+    const revalidate = () => {
+      if (document.visibilityState === 'hidden' || pending) return;
+      pending = true;
+      void refreshWorkspace().finally(() => { pending = false; });
+    };
+    window.addEventListener('focus', revalidate);
+    document.addEventListener('visibilitychange', revalidate);
+    return () => {
+      window.removeEventListener('focus', revalidate);
+      document.removeEventListener('visibilitychange', revalidate);
+    };
+  }, [token, refreshWorkspace]);
+
+  useEffect(() => {
+    if (token !== 'niu-browser-member-session') return;
+    const signedOutElsewhere = (event: StorageEvent) => {
+      if (event.key !== 'niu.auth.signout' || !event.newValue) return;
+      connectionController.current?.abort();
+      connectionController.current = null;
+      connectionRevision.current += 1;
+      try { sessionStorage.setItem('niu.signed-out', '1'); } catch { /* Storage is optional. */ }
+      setToken(''); setDraftToken(''); setSession(null); setModels([]); setChatKeys([]);
+    };
+    window.addEventListener('storage', signedOutElsewhere);
+    return () => window.removeEventListener('storage', signedOutElsewhere);
+  }, [token]);
 
   useEffect(() => {
     setWorkspacesLoadedFor('');

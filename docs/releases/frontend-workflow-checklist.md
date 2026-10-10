@@ -438,3 +438,25 @@ rendered qualification.
 - This qualifies the exercised owner rotation and preserved rate-policy subset.
   Ordinary-role denial, in-flight rotation and financial commitment preservation
   still require their own evidence; the complete key workflow remains partial.
+
+### Returning-tab session and cross-tab sign-out (2026-10-10)
+
+- The shared application layout now revalidates sessions on focus/visibility
+  restoration, coalescing simultaneous events. A confirmed session 401 clears
+  identity and preserves the protected destination through Login; transient
+  network failure does not discard a verified identity. Customer-facing expiry
+  copy no longer asks ordinary users for administrator access.
+- Successful browser-session logout sends a same-origin storage notification
+  containing only a random event marker. Other browser-session tabs immediately
+  abort their pending connection and clear identity. No credential or product
+  data is persisted by this notification. Independent bearer sessions do not
+  subscribe. Failed logout does not announce a confirmed sign-out.
+- All 50 application layout integration tests and dashboard TypeScript passed,
+  including revoked-session focus, transient network failure and cross-tab
+  sign-out regressions. In the real browser, logout in a second tab immediately
+  removed protected navigation in the original tab; password sign-in returned to
+  its original API keys page. Demo login was restored and the extra tab closed.
+- The actual measured viewport was 605×724 despite requested overrides. This
+  check qualifies the exercised interaction at that width only; it does not add
+  desktop/390px layout evidence. Server-triggered revocation on real focus,
+  session expiry and remaining ordinary-role workflows remain open.

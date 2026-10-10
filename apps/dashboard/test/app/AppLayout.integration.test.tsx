@@ -42,6 +42,43 @@ function mockHealth() {
 }
 
 describe('dashboard route layout', () => {
+  it('clears a browser session when another tab confirms sign-out', async () => {
+    mockHealth();
+    const router = renderAt('/workspaces/default/keys');
+    await screen.findByRole('navigation', { name: 'Product navigation' });
+    await act(async () => { window.dispatchEvent(new StorageEvent('storage', { key: 'niu.auth.signout', newValue: 'confirmed-signout' })); });
+    await screen.findByRole('button', { name: 'Sign in', exact: true });
+    expect(router.state.location.pathname).toBe('/login');
+    expect(screen.queryByRole('navigation', { name: 'Product navigation' })).toBeNull();
+  });
+  it('preserves the verified identity when focus revalidation has a network failure', async () => {
+    mockHealth();
+    const originalFetch = globalThis.fetch;
+    let offline = false;
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>((input, init) => String(input) === '/admin/v1/session' && offline
+      ? Promise.reject(new TypeError('Network unavailable')) : originalFetch(input, init)));
+    renderAt('/workspaces/default/keys');
+    await screen.findByRole('navigation', { name: 'Product navigation' });
+    offline = true;
+    await act(async () => { window.dispatchEvent(new Event('focus')); });
+    expect(screen.getByRole('navigation', { name: 'Product navigation' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Sign in', exact: true })).toBeNull();
+  });
+  it('revalidates a returning tab and redirects a revoked session with its destination preserved', async () => {
+    mockHealth();
+    const originalFetch = globalThis.fetch;
+    let revoked = false;
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>((input, init) => String(input) === '/admin/v1/session' && revoked
+      ? Promise.resolve(Response.json({}, { status: 401 })) : originalFetch(input, init)));
+    const router = renderAt('/workspaces/default/keys?filter=active');
+    await screen.findByRole('navigation', { name: 'Product navigation' });
+    revoked = true;
+    await act(async () => { window.dispatchEvent(new Event('focus')); });
+    await screen.findByRole('button', { name: 'Sign in', exact: true });
+    expect(screen.queryByRole('navigation', { name: 'Product navigation' })).toBeNull();
+    expect(router.state.location.pathname).toBe('/login');
+    expect(router.state.location.state?.from).toBe('/workspaces/default/keys?filter=active');
+  });
   it('passes the Supplier identity to the portal through its expected route parameter', () => {
     const matches = matchRoutes(appRoutes, '/suppliers/example-supplier/models');
     expect(matches?.at(-1)?.params.supplier).toBe('example-supplier');
