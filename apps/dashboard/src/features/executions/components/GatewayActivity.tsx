@@ -140,7 +140,7 @@ function chargeGroups(rows: ChargeBreakdown[], byKey: boolean) {
     return a.name.localeCompare(b.name);
   });
 }
-type ActivityFilters = { from: string; to: string; model: string; keyId: string; status: string; httpStatus?: string };
+type ActivityFilters = { from: string; to: string; model: string; keyId: string; status: string; httpStatus?: string; operationId?: string };
 const requestSorts = [
   ['time_desc', 'Newest first'], ['time_asc', 'Oldest first'],
   ['latency_desc', 'Highest latency'], ['input_desc', 'Most input tokens'], ['output_desc', 'Most output tokens'],
@@ -233,6 +233,7 @@ function filterQuery(filters: ActivityFilters) {
   if (filters.keyId) query.set('key_id', filters.keyId);
   if (filters.status) query.set('status', filters.status);
   if (filters.httpStatus) query.set('http_status', filters.httpStatus);
+  if (filters.operationId) query.set('operation_id', filters.operationId);
   return query.toString();
 }
 
@@ -245,6 +246,7 @@ function requestEvidenceHref(workspaceRoot: string, filters: ActivityFilters, ap
   if (keyId) query.set('keyId', keyId);
   if (filters.status) query.set('status', filters.status);
   if (filters.httpStatus) query.set('httpStatus', filters.httpStatus);
+  if (filters.operationId) query.set('operationId', filters.operationId);
   return `${workspaceRoot}/executions${query.size ? `?${query.toString()}` : ''}`;
 }
 
@@ -366,11 +368,12 @@ export default function GatewayActivity({ token, models, initialScope, compact =
     keyId: preferredKeyId ?? searchParams.get('keyId') ?? '',
     status: searchParams.get('status') ?? '',
     httpStatus: searchParams.get('httpStatus') ?? '',
+    operationId: searchParams.get('operationId') ?? '',
   }), [searchParams, preferredKeyId]);
   function setFilters(update: ActivityFilters | ((current: ActivityFilters) => ActivityFilters)) {
     const next = typeof update === 'function' ? update(filters) : update;
     const query = new URLSearchParams(searchParams);
-    for (const [field, name] of [['from', 'from'], ['to', 'to'], ['model', 'modelAlias'], ['keyId', 'keyId'], ['status', 'status'], ['httpStatus', 'httpStatus']] as const) {
+    for (const [field, name] of [['from', 'from'], ['to', 'to'], ['model', 'modelAlias'], ['keyId', 'keyId'], ['status', 'status'], ['httpStatus', 'httpStatus'], ['operationId', 'operationId']] as const) {
       if (next[field]) query.set(name, next[field]);
       else query.delete(name);
     }
@@ -664,7 +667,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
             <DropdownMenuContent align="end" className="w-52"><DropdownMenuLabel>Sort by</DropdownMenuLabel><DropdownMenuRadioGroup value={sort} onValueChange={setSort}>{requestSorts.map(([value, label]) => <DropdownMenuRadioItem key={value} value={value}>{label}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup><DropdownMenuSeparator /><DropdownMenuItem disabled={invalidDateRange || loading || Boolean(error)} onSelect={() => void exportRequests()}><FileDown />Export CSV</DropdownMenuItem></DropdownMenuContent>
           </DropdownMenu>}
         </div>
-        {(filters.model || filters.keyId || filters.status || filters.httpStatus) && <div className="request-filter-chips">{(['model', 'keyId', 'status', 'httpStatus'] as const).filter(field => filters[field]).map(field => <Button key={field} variant="outline" size="sm" onClick={() => updateFilter(field, '')}>{field === 'keyId' ? keys.find(key => key.id === filters.keyId)?.name ?? 'API key' : field === 'status' ? filterStatusLabel(filters.status) : field === 'httpStatus' ? filters.httpStatus === 'unknown' ? 'Unknown delivery status' : `HTTP ${filters.httpStatus}` : filters.model}<X size={12} /><span className="sr-only">Remove filter</span></Button>)}</div>}
+        {(filters.model || filters.keyId || filters.status || filters.httpStatus || filters.operationId) && <div className="request-filter-chips">{(['model', 'keyId', 'status', 'httpStatus', 'operationId'] as const).filter(field => filters[field]).map(field => <Button key={field} variant="outline" size="sm" onClick={() => updateFilter(field, '')}>{field === 'operationId' ? 'Related requests' : field === 'keyId' ? keys.find(key => key.id === filters.keyId)?.name ?? 'API key' : field === 'status' ? filterStatusLabel(filters.status) : field === 'httpStatus' ? filters.httpStatus === 'unknown' ? 'Unknown delivery status' : `HTTP ${filters.httpStatus}` : filters.model}<X size={12} /><span className="sr-only">Remove filter</span></Button>)}</div>}
         {keyFilterError && <p role="alert">{keyFilterError}</p>}
         {exporting && <p role="status">Preparing export…</p>}
         {exportError && <p role="alert">{exportError}</p>}
