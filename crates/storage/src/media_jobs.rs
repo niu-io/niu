@@ -298,9 +298,9 @@ impl Store {
             return Ok(false);
         }
         self.confirm_media_job_completion(scope, attempt).await?;
-        self.accrue_supplier_media_earning(attempt).await?;
-        self.settle_customer_media_charge(scope, attempt).await?;
-        Ok(true)
+        let supplier = self.accrue_supplier_media_earning(attempt).await;
+        let customer = self.settle_customer_media_charge(scope, attempt).await;
+        supplier.and(customer).map(|_| true)
     }
 
     /// One leased GET per job across replicas. A missing reference never enters
@@ -509,22 +509,30 @@ impl Store {
             return Ok(None);
         }
         self.confirm_media_job_completion(scope, attempt).await?;
-        if matches!(observation.quantity, ReportedQuantity::Reported(_)) {
-            self.accrue_supplier_media_earning(attempt).await?;
+        // Both liabilities use independent agreed rates. Persist one even when
+        // the other's validation or storage operation requires a later retry.
+        let supplier = if matches!(observation.quantity, ReportedQuantity::Reported(_)) {
+            self.accrue_supplier_media_earning(attempt).await
+        } else {
+            Ok(())
+        };
+        let customer = async {
+            if priced
+                && matches!(observation.quantity, ReportedQuantity::Reported(_))
+                && matches!(
+                    self.customer_media_usage_state(scope, attempt).await?,
+                    crate::MediaUsageState::Agreed(_)
+                )
+            {
+                self.settle_customer_media_charge(scope, attempt)
+                    .await
+                    .map(Some)
+            } else {
+                Ok(None)
+            }
         }
-        if priced
-            && matches!(observation.quantity, ReportedQuantity::Reported(_))
-            && matches!(
-                self.customer_media_usage_state(scope, attempt).await?,
-                crate::MediaUsageState::Agreed(_)
-            )
-        {
-            return self
-                .settle_customer_media_charge(scope, attempt)
-                .await
-                .map(Some);
-        }
-        Ok(None)
+        .await;
+        supplier.and(customer)
     }
 
     /// Bounded keyset sweep over durable dispatch intent. Includes crashes before

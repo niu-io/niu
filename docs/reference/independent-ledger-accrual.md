@@ -36,3 +36,29 @@ No customer ledger entries were created; the original credential identity was
 preserved. Temporary keys were revoked and temporary models/credentials disabled.
 These calls exercise the common completion path without commercial ledger entries;
 they do not establish the financial error-isolation cases listed above.
+
+## Media completion and recovery
+
+The same separation applies to succeeded video query observations and recovery
+from already recorded agreed media usage. After confirmed completion, Supplier
+accrual and eligible customer media settlement are both attempted; a Supplier
+error no longer skips the customer operation. The existing customer requirements
+remain: a pinned selling card, a succeeded job and agreed reported quantity.
+Supplier accrual retains its own usage and purchase-card validation. The first
+error is returned so polling/recovery does not mark an unresolved operation as
+fully settled. This does not issue a new generation request.
+
+Real paid media error interleavings, independently successful customer settlement
+during Supplier failure, and restart convergence for those cases remain
+unverified. The personal video checkpoint below cannot establish them.
+
+With the rebuilt gateway and original database identity, an actual refresh of a
+previously generated owner-funded video succeeded. The downloaded result matched
+the original artifact's SHA-256 and byte count and decoded fully with FFmpeg.
+The scoped viewer read succeeded, a foreign viewer was denied, and revoking the
+selected workspace key blocked subsequent access. Independent database counts
+showed no additional submission timing record, customer balance entry or Supplier
+earning for that job. Temporary viewer credentials and the key were revoked.
+This verifies the exercised personal refresh/result path after restart, not the
+paid media branches above. Gateway Clippy, release compilation and formatting
+completed; fixture outcomes were not used as evidence.
