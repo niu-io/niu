@@ -217,3 +217,22 @@ upstream cancellation, recover missing usage, settle a customer-funded request o
 qualify arbitrary disconnect timing. An unknown outcome continues to occupy its
 key concurrency allowance until authoritative resolution; revocation is access
 cleanup, not evidence that upstream execution never occurred.
+
+### Current-input Responses output-limit termination
+
+A real owner-funded Responses SSE request asked for longer counting output with
+`max_output_tokens: 1`. The upstream returned `response.incomplete`, status
+`incomplete` and `incomplete_details.reason: max_output_tokens`. Its reported total
+input/output, cached input and reasoning output quantities matched the completed
+attempt and token-category records in PostgreSQL. The independent finish record
+contained index zero with `length`. This is confirmed execution with truncated
+output, not successful completion of the user's counting task.
+
+The verification key had a concurrency limit of one. After the incomplete terminal
+response, a second real nonstreaming Responses request on that same key completed;
+independent inspection found both attempts completed. Thus this observed terminal
+path released active occupancy, whereas the separately verified early cancellation
+retained unknown occupancy. Neither run changed customer ledgers. Temporary access
+was revoked/disabled and the original credential remained unchanged. This qualifies
+the output-limit terminal case only; content-filter termination, paid settlement
+and malformed/contradictory terminal events remain unverified.
