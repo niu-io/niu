@@ -913,5 +913,8 @@ not display labels. Supplier costs and upstream credentials are excluded.
 
 This is a diagnostic read, not a release-funds or retry operation. Unknown
 execution/usage stays unknown. Separate pages are independent observations.
+A completed response with incomplete usage remains `usage_unknown`; a known-usage
+response awaiting accounting recovery reports `settlement_pending`. Actual calls
+verified both states across restart and release of only the recoverable hold.
 The SDK exposes `listCustomerBalanceReservations`; see the [scope and actual
 verification](https://github.com/niu-io/niu/blob/main/docs/reference/customer-charge-reconciliation.md#open-reservation-inspection).

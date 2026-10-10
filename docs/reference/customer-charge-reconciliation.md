@@ -259,9 +259,9 @@ There were no funding entries or fabricated commercial qualification records.
 
 The initial foreign-company setup omitted its independent procurement budget and
 correctly received 402 before dispatch; completing that setup enabled the intended
-foreign-hold scenario. No admission rule was relaxed. Media overruns, release
-concurrent with page reads, and populated `usage_unknown`/`settlement_pending`
-status cases remain unverified for this directory. No fixture outcome is evidence.
+foreign-hold scenario. No admission rule was relaxed. Media overruns and reads overlapping settlement within a single page statement
+remain unverified for this directory. The additional status/recovery evidence below
+covers settlement between page reads. No fixture outcome is evidence.
 
 
 A separate offline copy containing an actual unresolved reservation was upgraded
@@ -269,3 +269,35 @@ from migration 0253 to 0254. Prior migration checksums, encrypted credential
 revisions/ciphertext and the original hold were unchanged. The new API returned
 that hold after restart, and independent reopening confirmed the artifact and the
 valid company/open-reservation keyset index.
+
+
+### Unknown usage versus pending settlement
+
+A further fresh run sent two actual requests with configured internal credit and
+explicit customer prices. Native OpenRouter Messages returned the requested text
+but omitted at least one required cache/input usage category. Niu retained
+`confirmed_completed` execution with unknown aggregate usage, no invented zero
+counts and an open customer hold. The reservation directory reported `usage_unknown`.
+
+An actual structured Chat completion then returned the requested marker and known
+provider usage while an isolated database trigger rejected charge-debit insertion.
+The charge/debit transaction rolled back together. Its hold appeared as
+`settlement_pending`, beside the distinct `usage_unknown` entry. Both survived a
+Gateway restart while the fault remained active.
+
+The first one-row page supplied the newer Chat hold as its next cursor. Removing
+the isolated trigger allowed background recovery to post exactly one charge/debit
+and release that hold without resubmitting inference. Following the saved cursor
+after settlement still returned the older native hold. Another restart preserved
+that result. Revoking the request key did not erase the outstanding unknown
+liability. Balance reserved/outstanding amounts matched that remaining hold;
+posted balance matched the single exact Chat debit. Reconciliation reported one
+completed but unaccrued native attempt.
+
+Independent inspection of the saved actual responses and reopened database
+recomputed the known charge from provider usage and pinned rates, matched the
+single ledger entry and both directory states, and confirmed null aggregate usage
+and no charge for the incomplete native response. There were two inference
+attempts, one debit and no funding entry. This is current-input failure/recovery
+evidence, not simulated upstream usage or evidence that the missing native usage
+has been reconciled. No release or repair operation was added.
