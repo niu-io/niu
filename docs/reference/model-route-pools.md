@@ -103,7 +103,7 @@ and history from the actual service and matched its current revision.
 
 Formatting, release compilation, Clippy, test-target compilation, SDK checking/
 build and OpenAPI parsing completed. Fixture results supply no evidence.
-Long-run weighted distribution, embedding pool calls, customer-paid
+Long-run weighted distribution, customer-paid
 pool admission/settlement, native adapters, larger catalogs and sustained
 contention remain unverified. This increment does not provide health cooldowns,
 circuit breaking or safe post-rejection failover, and does not establish New API
@@ -169,3 +169,26 @@ These rejections created no additional attempts or dispatches. The customer
 ledger remained empty and the original credential revision/digest was unchanged.
 This run does not qualify embedding option selection, paid settlement, actual
 external tool execution or price-bound-aware reselection.
+
+## Embedding option selection
+
+A subsequent actual owner-funded run used two independent temporary mappings for
+the same embedding model. Both declared embeddings; only the lower-priority
+mapping declared configurable dimensions and base64 encoding. A 64-dimensional
+float request and a 64-dimensional base64 request selected that mapping. A request
+without either option selected the higher-priority mapping and returned 1536
+dimensions.
+
+Independent response inspection decoded base64 into 64 little-endian float32
+values and checked all returned values were finite. PostgreSQL records matched
+each response's customer pool alias, selected mapping, revision, completion and
+reported prompt usage, with zero completion tokens. After disabling the capable
+member, a dimensioned request returned 503; an invalid zero dimension returned
+400. Neither created another attempt: exactly three attempts were dispatched and
+completed. The customer ledger remained empty and the original credential
+revision/ciphertext digest was unchanged. Temporary pool, mappings and credentials
+were disabled and temporary keys revoked.
+
+This extends current-input capability-selection evidence to embedding options.
+It does not qualify vector semantic quality, arbitrary dimension support, paid
+settlement, independent upstream-account capacity or production throughput.
