@@ -1,9 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { listCustomerPrices, listPricingTargets, priceFromNanos, priceToNanos, readPriceHistory } from '../../../src/features/customer-pricing/api';
+import { listPricingModels, listCustomerPrices, listPricingTargets, priceFromNanos, priceToNanos, readPriceHistory } from '../../../src/features/customer-pricing/api';
 const target = {organization_id:'company',organization_name:'Company',workspace_id:'workspace',workspace_name:'Workspace'};
 const price = {model_alias:'example/model',revision:'revision',currency:'USD',prompt_rate:'0',completion_rate:'1600000000',cached_prompt_rate:null,request_fee_nanos:'1',minimum_charge_nanos:'0',created_at:'2026-10-11T00:00:00Z'};
 afterEach(() => vi.unstubAllGlobals());
 describe('customer selling configuration transport', () => {
+  it('discovers platform token models across enabled credentials without including video routes', async () => {
+    const fetch = vi.fn(async (input: RequestInfo | URL) => Response.json({data:String(input)==='/admin/v1/vendors'?[{id:'one',enabled:true},{id:'two',enabled:true},{id:'disabled',enabled:false}]:String(input).includes('/one/')?[{alias:'text',enabled:true,capabilities:{}},{alias:'video',enabled:true,capabilities:{video_schema:{}}}]:[{alias:'text',enabled:true,capabilities:{}},{alias:'other',enabled:true,capabilities:{}},{alias:'disabled-model',enabled:false,capabilities:{}}]}));
+    vi.stubGlobal('fetch',fetch);
+    expect(await listPricingModels('test')).toEqual(['other','text']);
+    expect(fetch.mock.calls.some(([path])=>String(path).includes('/disabled/'))).toBe(false);
+  });
   it('round trips exact decimal prices including zero and the maximum without floating point', () => {
     for (const [decimal,nanos] of [['0','0'],['0.000000001','1'],['9223372036.854775807','9223372036854775807']]) {
       expect(priceToNanos(decimal)).toBe(nanos);
