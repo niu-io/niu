@@ -158,3 +158,30 @@ exercised lock contention, not recovery of a populated backlog, poison-row
 fairness, sustained load or a production admission guarantee. No fixture result
 supports the observation. Isolated processes stopped and original development
 data and encrypted identity were preserved.
+
+## Request-payload retry isolation implementation
+
+Migration 0238 adds content-free retry scheduling for request-payload cleanup.
+The cleanup function selects at most 64 eligible expired rows, locks them with
+`SKIP LOCKED`, and uses one PostgreSQL exception subtransaction per deletion.
+Constraint violations, invalid data and explicit row-trigger exceptions defer
+that row for 60 seconds without rolling back successful neighboring deletions.
+The retry deadline is stored in PostgreSQL and survives Gateway replacement.
+Successful or explicit deletion cascades removal of its retry metadata.
+Infrastructure errors and statement deadlines still abort the bounded batch.
+The existing content-retention advisory ownership and timeout policy remain.
+
+This change covers request payloads only. Other content domains still need their
+own row-level isolation. It does not resolve the strict cross-Gateway connection
+bound: contenders still acquire a connection before trying the advisory claim.
+Nonempty naturally expired and poisoned-row runtime acceptance remains pending;
+compilation or fixture outcomes do not establish those behaviors.
+
+A fresh isolated native database applied this migration and served actual
+structured and streamed OpenRouter requests. Both unexpired request-payload
+records remained after an explicit cleanup invocation and Gateway restart; the
+cleanup returned zero and created no retry records. Independent database reopening
+confirmed those records and reconciled both actual usages, charges and refunds.
+This verifies installation and the exercised unexpired-row boundary, not the
+pending naturally expired or poisoned-row cases. The existing development
+database was not migrated during this verification.
