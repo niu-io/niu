@@ -17,6 +17,15 @@ import WorkspaceSpendingLimits from './WorkspaceSpendingLimits';
 
 type Tariff = { model_alias: string; revision: string; currency: string; prompt_rate: string; cached_prompt_rate?: string | null; completion_rate: string; request_fee_nanos?: string; minimum_charge_nanos?: string };
 type Invoice = { id: string; from_ms: number; to_ms: number; currency: string; amount_nanos: string; status: string };
+type InvoicePage = { data: Invoice[]; next_cursor: string | null };
+function checkedInvoices(page: InvoicePage) {
+  if (!Array.isArray(page.data) || (page.next_cursor !== null && (typeof page.next_cursor !== 'string' || !page.next_cursor))) throw new Error('Invalid statement history');
+  for (const row of page.data) {
+    if (!row || typeof row.id !== 'string' || !row.id || !Number.isSafeInteger(row.from_ms) || !Number.isSafeInteger(row.to_ms) || row.from_ms < 0 || row.to_ms <= row.from_ms || row.to_ms > 253402300799999
+      || !/^[A-Z]{3}$/.test(row.currency) || typeof row.amount_nanos !== 'string' || !/^[0-9]{1,19}$/.test(row.amount_nanos) || BigInt(row.amount_nanos) > 9_223_372_036_854_775_807n || !['issued', 'paid'].includes(row.status)) throw new Error('Invalid statement history');
+  }
+  return page;
+}
 type Billing = {
   balances: { currency: string; charged_nanos: string }[];
   unresolved: string; unpriced: string; tariffs: Tariff[]; invoices: Invoice[];
@@ -58,6 +67,41 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
   const [mediaLoading, setMediaLoading] = useState(false);
   const [mediaError, setMediaError] = useState('');
   const mediaRequest = useRef<AbortController | null>(null);
+  const [invoices, setInvoices] = useState<Invoice[] | null>(null);
+  const [invoiceNext, setInvoiceNext] = useState<string | null>(null);
+  const [invoiceLoading, setInvoiceLoading] = useState(false);
+  const [invoiceError, setInvoiceError] = useState('');
+  const [invoiceFailure, setInvoiceFailure] = useState<'latest' | 'older' | null>(null);
+  const [invoiceRevision, setInvoiceRevision] = useState(0);
+  const invoiceRequest = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (activeTab !== 'statements') { setInvoiceLoading(false); return; }
+    const controller = new AbortController();
+    invoiceRequest.current = controller;
+    setInvoiceLoading(true); setInvoiceError(''); setInvoiceFailure(null);
+    void request<InvoicePage>(token, `${base}/invoices?limit=50`, 'GET', undefined, controller.signal)
+      .then(result => { if (!controller.signal.aborted) { const page = checkedInvoices(result); setInvoices(page.data); setInvoiceNext(page.next_cursor); } })
+      .catch(() => { if (!controller.signal.aborted) { setInvoiceError('Could not load statements.'); setInvoiceFailure('latest'); } })
+      .finally(() => { if (invoiceRequest.current === controller) { invoiceRequest.current = null; if (!controller.signal.aborted) setInvoiceLoading(false); } });
+    return () => { controller.abort(); invoiceRequest.current?.abort(); invoiceRequest.current = null; };
+  }, [token, base, activeTab, revision, invoiceRevision]);
+
+  async function loadOlderInvoices() {
+    if (!invoiceNext || invoiceRequest.current) return;
+    const cursor = invoiceNext;
+    const controller = new AbortController(); invoiceRequest.current = controller;
+    setInvoiceLoading(true); setInvoiceError(''); setInvoiceFailure(null);
+    try {
+      const result = await request<InvoicePage>(token, `${base}/invoices?limit=50&before=${encodeURIComponent(cursor)}`, 'GET', undefined, controller.signal);
+      if (controller.signal.aborted) return;
+      const page = checkedInvoices(result);
+      if (page.next_cursor === cursor) throw new Error('Statement history did not advance');
+      setInvoices(current => [...(current ?? []), ...page.data.filter(row => !current?.some(saved => saved.id === row.id))]);
+      setInvoiceNext(page.next_cursor);
+    } catch { if (!controller.signal.aborted) { setInvoiceError('Could not load older statements.'); setInvoiceFailure('older'); } }
+    finally { if (invoiceRequest.current === controller) { invoiceRequest.current = null; if (!controller.signal.aborted) setInvoiceLoading(false); } }
+  }
 
   useEffect(() => {
     const controller = new AbortController();
@@ -100,7 +144,7 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
   }
 
   return <>
-    <PageHeader title="Usage statements" action={<Button variant="outline" aria-label="Refresh billing" disabled={loading} onClick={() => setRevision(value => value + 1)}><RefreshCw size={16} /></Button>} />
+    <PageHeader title="Usage statements" action={<Button variant="outline" aria-label="Refresh billing" disabled={loading || invoiceLoading} onClick={() => setRevision(value => value + 1)}><RefreshCw size={16} /></Button>} />
     {error && <Alert variant="destructive"><AlertTitle>Billing unavailable</AlertTitle><AlertDescription>{error}<Button variant="outline" onClick={() => setRevision(value => value + 1)}>Retry</Button></AlertDescription></Alert>}
     {loading && !data ? <p role="status">Loading billing…</p> : data && <Tabs value={activeTab} onValueChange={selectTab} className="billing-content">
       <TabsList aria-label="Billing sections"><TabsTrigger value="balance">Spending</TabsTrigger><TabsTrigger value="statements">Statements</TabsTrigger><TabsTrigger value="rates">Rates</TabsTrigger></TabsList>
@@ -115,15 +159,18 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
       </TabsContent>
       <TabsContent value="statements">
         <section className="panel">
-          <div className="provider-panel-heading"><h2>Usage statements</h2>{data.invoices.length > 0 && <p className="provider-intro billing-description">Latest 100 issued records</p>}</div>
-          {data.invoices.length ? <div className="table-wrap"><Table className="provider-ledger billing-invoices">
+          <div className="provider-panel-heading"><h2>Usage statements</h2></div>
+          {invoiceLoading && <p role="status">Loading statements…</p>}
+          {invoiceError && <Alert variant="destructive"><AlertDescription>{invoiceError}<Button variant="outline" disabled={invoiceLoading} onClick={() => invoiceFailure === 'older' ? void loadOlderInvoices() : setInvoiceRevision(value => value + 1)}>{invoiceFailure === 'older' ? 'Retry older statements' : 'Retry statements'}</Button></AlertDescription></Alert>}
+          {invoices?.length ? <div className="table-wrap"><Table className="provider-ledger billing-invoices">
             <TableHeader><TableRow><TableHead>Period</TableHead><TableHead>Amount</TableHead><TableHead>Status</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader>
-            <TableBody>{data.invoices.map(invoice => <TableRow key={invoice.id}>
-              <TableCell>{day(invoice.from_ms)} – {day(invoice.to_ms - 1)}<span className="billing-mobile-status">{invoice.status === 'paid' ? 'Payment recorded' : 'Issued'}</span></TableCell>
-              <TableCell>{money(invoice.amount_nanos, invoice.currency)}</TableCell><TableCell>{invoice.status === 'paid' ? 'Payment recorded' : 'Issued'}</TableCell>
+            <TableBody>{invoices.map(invoice => <TableRow key={invoice.id}>
+              <TableCell>{day(invoice.from_ms)} – {day(invoice.to_ms - 1)}<span className="billing-mobile-status">{invoice.status === 'paid' ? 'Settled' : 'Issued'}</span></TableCell>
+              <TableCell>{money(invoice.amount_nanos, invoice.currency)}</TableCell><TableCell>{invoice.status === 'paid' ? 'Settled' : 'Issued'}</TableCell>
               <TableCell><Button size="sm" variant="ghost" onClick={() => setSelected(invoice)}>View details</Button></TableCell>
             </TableRow>)}</TableBody>
-          </Table></div> : <Empty className="billing-empty"><EmptyHeader><EmptyMedia variant="icon"><IconReceipt aria-hidden="true"/></EmptyMedia><EmptyTitle>No statements yet</EmptyTitle><EmptyDescription>Issued usage statements appear here.</EmptyDescription></EmptyHeader></Empty>}
+          </Table></div> : invoices && !invoiceLoading && !invoiceError ? <Empty className="billing-empty"><EmptyHeader><EmptyMedia variant="icon"><IconReceipt aria-hidden="true"/></EmptyMedia><EmptyTitle>No statements yet</EmptyTitle><EmptyDescription>Issued usage statements appear here.</EmptyDescription></EmptyHeader></Empty> : null}
+          {invoiceNext && !invoiceError && <Button variant="outline" disabled={invoiceLoading} onClick={() => void loadOlderInvoices()}>Older statements</Button>}
         </section>
       </TabsContent>
       <TabsContent value="rates">
@@ -138,7 +185,7 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
     <Dialog open={Boolean(selected)} onOpenChange={open => { if (!open) setSelected(null); }}>
       <DialogContent className="niu-modal billing-detail-dialog">
         <DialogHeader className="text-left"><DialogTitle>Statement details</DialogTitle><DialogDescription>{selected ? `Billing period: ${day(selected.from_ms)} – ${day(selected.to_ms - 1)}` : 'Workspace usage'}</DialogDescription></DialogHeader>
-        {selected && <p>{money(selected.amount_nanos, selected.currency)} · {selected.status === 'paid' ? 'Payment recorded' : 'Issued'}</p>}
+        {selected && <p>{money(selected.amount_nanos, selected.currency)} · {selected.status === 'paid' ? 'Settled' : 'Issued'}</p>}
         {detailError ? <Alert variant="destructive"><AlertTitle>Details unavailable</AlertTitle><AlertDescription>{detailError}<Button variant="outline" onClick={() => setSelected(value => value && {...value})}>Retry details</Button></AlertDescription></Alert> : lines ? <>
           {lines.length > 0 && <div className="table-wrap"><Table className="provider-ledger" aria-label="Text charges"><TableHeader><TableRow><TableHead>Model</TableHead><TableHead>Amount</TableHead><TableHead>Requests</TableHead><TableHead>Input / output tokens</TableHead><TableHead>Rates</TableHead></TableRow></TableHeader>
             <TableBody>{lines.map(line => <TableRow key={line.revision}><TableCell>{line.model_alias}</TableCell><TableCell>{money(line.amount_nanos, line.currency)}</TableCell><TableCell>{line.requests}</TableCell><TableCell>{line.prompt_tokens} / {line.completion_tokens}{line.cached_prompt_rate != null && <small>Cached input: {line.cached_prompt_tokens ?? "Unknown"}</small>}</TableCell><TableCell>{money(line.prompt_rate, line.currency)} / {money(line.completion_rate, line.currency)} per 1M{line.cached_prompt_rate != null && <small>Cache read: {money(line.cached_prompt_rate, line.currency)} per 1M</small>}<small>Fixed fee / request: {line.request_fee_nanos != null ? money(line.request_fee_nanos, line.currency) : "Unknown"}</small><small>Minimum / request: {line.minimum_charge_nanos != null ? money(line.minimum_charge_nanos, line.currency) : "Unknown"}</small></TableCell></TableRow>)}</TableBody>

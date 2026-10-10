@@ -74,6 +74,17 @@ const data = {
   ],
 };
 function setup(kind = "operator", initialEntry = "/billing") {
+  // Older cases describe overview fixtures; supply their equivalent history page
+  // for the new independent list endpoint without altering invoice detail reads.
+  const originalFetch = globalThis.fetch;
+  vi.stubGlobal('fetch', async (...args: Parameters<typeof fetch>) => {
+    const response = await originalFetch(...args);
+    if (String(args[0]).includes('/invoices?limit=50') && response.ok) {
+      const payload = await response.clone().json();
+      if (payload.data && !Array.isArray(payload.data) && Array.isArray(payload.data.invoices)) return Response.json({ data: payload.data.invoices, next_cursor: null });
+    }
+    return response;
+  });
   fixture.context = {
     token: "test",
     workspace: { id: "project", organization_id: "org" },
@@ -498,3 +509,62 @@ describe('customer media statement pagination', () => {
   expect(within(row).getByText('USD 0.00')).toBeTruthy();
   expect(within(screen.getByRole('row',{name:/legacy\/model/})).getAllByText('Unknown')).toHaveLength(2);
  });
+
+it('pages complete statement history, preserves rows on failure and refreshes latest', async () => {
+  let olderReads = 0;
+  let latestReads = 0;
+  const fetcher = vi.fn(async input => {
+    const path = String(input);
+    if (path.endsWith('/invoices?limit=50')) { latestReads++; return Response.json({ data: data.invoices, next_cursor: 'older-cursor' }); }
+    if (path.endsWith('/invoices?limit=50&before=older-cursor')) {
+      olderReads++;
+      return olderReads === 1 ? new Response('{}', { status: 503 }) : Response.json({ data: [{ ...data.invoices[0], id: 'older-invoice', amount_nanos: '1000000000', status: 'paid' }], next_cursor: null });
+    }
+    return Response.json({ data });
+  });
+  vi.stubGlobal('fetch', fetcher); setup('operator', '/billing?tab=statements');
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'Older statements' }));
+  await screen.findByText('Could not load older statements.');
+  expect(screen.getByText('USD 6.5')).toBeTruthy();
+  await user.click(screen.getByRole('button', { name: 'Retry older statements' }));
+  await screen.findByRole('cell', { name: 'Settled', exact: true });
+  expect(screen.getAllByRole('button', { name: 'View details' })).toHaveLength(2);
+  expect(screen.queryByRole('button', { name: 'Older statements' })).toBeNull();
+  await user.click(screen.getByRole('button', { name: 'Refresh billing' }));
+  await screen.findByRole('button', { name: 'Older statements' });
+  expect(screen.getAllByRole('button', { name: 'View details' })).toHaveLength(1);
+  expect(latestReads).toBe(2); expect(olderReads).toBe(2);
+  expect(document.body.textContent).not.toContain('older-cursor');
+});
+it('does not substitute overview previews when complete history fails', async () => {
+  let failed = true;
+  vi.stubGlobal('fetch', vi.fn(async input => String(input).includes('/invoices?limit=50')
+    ? failed ? new Response('{}', { status: 503 }) : Response.json({ data: [], next_cursor: null })
+    : Response.json({ data })));
+  setup('operator', '/billing?tab=statements');
+  await screen.findByText('Could not load statements.');
+  expect(screen.queryByText('No statements yet')).toBeNull();
+  expect(screen.queryByRole('button', { name: 'View details' })).toBeNull();
+  failed = false;
+  await userEvent.click(screen.getByRole('button', { name: 'Retry statements' }));
+  await screen.findByText('No statements yet');
+});
+
+it('ignores a late older page after switching workspace', async () => {
+  let finish!: (value: Response) => void;
+  vi.stubGlobal('fetch', vi.fn(async input => {
+    const path = String(input);
+    if (path.includes('before=')) return new Promise<Response>(resolve => { finish = resolve; });
+    if (path.includes('/invoices?')) return Response.json({ data: path.includes('/project/') ? data.invoices : [], next_cursor: path.includes('/project/') ? 'older' : null });
+    return Response.json({ data });
+  }));
+  const view = setup('operator', '/billing?tab=statements');
+  await userEvent.click(await screen.findByRole('button', { name: 'Older statements' }));
+  fixture.context = { ...fixture.context, workspace: { ...fixture.context.workspace!, id: 'other-workspace' } };
+  view.rerender(<MemoryRouter initialEntries={['/billing?tab=statements']}><BillingRoute/></MemoryRouter>);
+  await screen.findByText('No statements yet');
+  await act(async () => finish(Response.json({ data: [{ ...data.invoices[0], amount_nanos: '99000000000' }], next_cursor: null })));
+  expect(screen.queryByText('USD 99.00')).toBeNull();
+  expect(screen.queryByRole('button', { name: 'View details' })).toBeNull();
+});
