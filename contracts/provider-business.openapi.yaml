@@ -368,46 +368,7 @@ paths:
     parameters:
       - $ref: '#/components/parameters/provider'
     post:
-      operationId: publishProviderPayoutRates
-      summary: Installation-only publication of an agreed immutable payout revision
-      description: Binds an existing vendor model alias and vendor to one supplier. Rates are integer currency nanounits per million text tokens, encoded as decimal strings. No platform fee is inferred. Existing attempts retain the rate pinned before dispatch. A stale expected_revision is rejected; initial creation requires null. Vendor ownership cannot be transferred through this API. Optional cached_prompt_rate prices reported cache-read input tokens separately. Null uses the ordinary input rate for all input tokens; omission is accepted only if the current revision has no cache rate. Missing reported cache quantity leaves a cached-rate earning unresolved, never zero. Publishing any revision pauses the offer and requires renewed qualification. Route procurement budget rates remain independent.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              required: [model_alias, currency, prompt_rate, completion_rate, expected_revision]
-              properties:
-                model_alias: { type: string, minLength: 1, maxLength: 200 }
-                currency: { type: string, pattern: '^[A-Z]{3}$' }
-                prompt_rate: { type: string, pattern: '^[0-9]+$', description: Maximum 1000000000000000 }
-                completion_rate: { type: string, pattern: '^[0-9]+$', description: Maximum 1000000000000000 }
-                cached_prompt_rate: { type: [string, 'null'], pattern: '^[0-9]+$', description: Maximum 1000000000000000; explicit null clears cache pricing }
-                reasoning_completion_rate: { type: [string, 'null'], pattern: '^[0-9]+$', description: Maximum 1000000000000000; explicit null clears separate reasoning pricing }
-                cache_write_prompt_rate: { type: [string, 'null'], pattern: '^[0-9]+$', description: Maximum 1000000000000000; explicit null clears separate cache-write pricing }
-                context_tiers:
-                  type: array
-                  maxItems: 32
-                  description: Whole-request schedules selected by inclusive aggregate input threshold; omission conflicts if tiers already exist, empty array clears, null is rejected. Category null means flat pricing within that tier.
-                  items:
-                    type: object
-                    additionalProperties: false
-                    required: [minimum_input_tokens, prompt_rate, completion_rate]
-                    properties:
-                      minimum_input_tokens: { type: string, pattern: '^[0-9]+$', description: Positive integer up to signed 64-bit maximum; unique across tiers }
-                      prompt_rate: { type: string, pattern: '^[0-9]+$' }
-                      completion_rate: { type: string, pattern: '^[0-9]+$' }
-                      cached_prompt_rate: { type: [string, 'null'], pattern: '^[0-9]+$' }
-                      cache_write_prompt_rate: { type: [string, 'null'], pattern: '^[0-9]+$' }
-                      reasoning_completion_rate: { type: [string, 'null'], pattern: '^[0-9]+$' }
-                expected_revision: { type: [string, 'null'], format: uuid }
-      responses:
-        '200': { description: New revision ID in data.revision }
-        '400': { description: Invalid monetary values }
-        '403': { description: Installation access required }
-        '409': { description: Ownership or expected revision conflict }
+      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1providers~1{provider}~1offers/post'
   /admin/v1/providers/{provider}/offers/{offer}/revisions/{revision}:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1providers~1{provider}~1offers~1{offer}~1revisions~1{revision}'
   /admin/v1/providers/{provider}/offers/{offer}:

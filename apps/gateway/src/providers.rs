@@ -505,6 +505,197 @@ pub async fn set_member(
         .map_err(ApiError::from_store)?;
     Ok(Json(json!({"data":{"active":input.active}})))
 }
+/// Immutable Supplier schedule publication.
+/// ```openapi
+/// {
+///   "path": "/admin/v1/providers/{provider}/offers",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "publishProviderPayoutRates",
+///     "x-niu-implementation": "implemented",
+///     "security": [{"bearerAuth": []}],
+///     "summary": "Publish an immutable agreed Supplier payout schedule",
+///     "description": "Installation-only publication binds an existing vendor model alias to one Supplier. Decimal prices are currency nanounits per million tokens. Existing attempts retain the revision pinned before dispatch. Stale expected_revision and incompatible vendor ownership conflict. Initial creation requires null expected_revision. Optional category rates price reported subsets separately; null uses ordinary rates. Omitting an existing category rate or tier schedule conflicts. Empty context_tiers clears the schedule; null is rejected. The highest inclusive threshold on aggregate input (including cache reads/writes) selects a complete schedule; category null within a tier does not inherit its base category rate. Missing required quantities leave earnings unresolved. Every publication pauses the offer and requires renewed qualification. Procurement budgets and customer charges remain independent.",
+///     "parameters": [
+///       {
+///         "name": "provider",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "model_alias",
+///               "currency",
+///               "prompt_rate",
+///               "completion_rate",
+///               "expected_revision"
+///             ],
+///             "properties": {
+///               "model_alias": {
+///                 "type": "string",
+///                 "minLength": 1,
+///                 "maxLength": 200
+///               },
+///               "currency": {
+///                 "type": "string",
+///                 "pattern": "^[A-Z]{3}$"
+///               },
+///               "prompt_rate": {
+///                 "type": "string",
+///                 "pattern": "^[0-9]+$",
+///                 "description": "Currency nanounits per million tokens; maximum 1000000000000000."
+///               },
+///               "completion_rate": {
+///                 "type": "string",
+///                 "pattern": "^[0-9]+$",
+///                 "description": "Currency nanounits per million tokens; maximum 1000000000000000."
+///               },
+///               "expected_revision": {
+///                 "type": [
+///                   "string",
+///                   "null"
+///                 ],
+///                 "format": "uuid"
+///               },
+///               "context_tiers": {
+///                 "type": "array",
+///                 "maxItems": 32,
+///                 "items": {
+///                   "type": "object",
+///                   "additionalProperties": false,
+///                   "required": [
+///                     "minimum_input_tokens",
+///                     "prompt_rate",
+///                     "completion_rate"
+///                   ],
+///                   "properties": {
+///                     "minimum_input_tokens": {
+///                       "type": "string",
+///                       "pattern": "^[0-9]+$",
+///                       "description": "Positive inclusive aggregate input threshold, at most 9223372036854775807."
+///                     },
+///                     "prompt_rate": {
+///                       "type": "string",
+///                       "pattern": "^[0-9]+$",
+///                       "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                     },
+///                     "completion_rate": {
+///                       "type": "string",
+///                       "pattern": "^[0-9]+$",
+///                       "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                     },
+///                     "cached_prompt_rate": {
+///                       "type": [
+///                         "string",
+///                         "null"
+///                       ],
+///                       "pattern": "^[0-9]+$",
+///                       "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                     },
+///                     "cache_write_prompt_rate": {
+///                       "type": [
+///                         "string",
+///                         "null"
+///                       ],
+///                       "pattern": "^[0-9]+$",
+///                       "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                     },
+///                     "reasoning_completion_rate": {
+///                       "type": [
+///                         "string",
+///                         "null"
+///                       ],
+///                       "pattern": "^[0-9]+$",
+///                       "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                     }
+///                   }
+///                 },
+///                 "description": "Complete whole-request schedules; highest inclusive input threshold wins. Null category rates do not inherit the base schedule. Empty array clears tiers; omitting existing tiers conflicts."
+///               },
+///               "cached_prompt_rate": {
+///                 "type": [
+///                   "string",
+///                   "null"
+///                 ],
+///                 "pattern": "^[0-9]+$",
+///                 "description": "Currency nanounits per million tokens; maximum 1000000000000000."
+///               },
+///               "cache_write_prompt_rate": {
+///                 "type": [
+///                   "string",
+///                   "null"
+///                 ],
+///                 "pattern": "^[0-9]+$",
+///                 "description": "Currency nanounits per million tokens; maximum 1000000000000000."
+///               },
+///               "reasoning_completion_rate": {
+///                 "type": [
+///                   "string",
+///                   "null"
+///                 ],
+///                 "pattern": "^[0-9]+$",
+///                 "description": "Currency nanounits per million tokens; maximum 1000000000000000."
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "200": {
+///         "description": "New immutable revision",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "required": [
+///                     "revision"
+///                   ],
+///                   "properties": {
+///                     "revision": {
+///                       "type": "string",
+///                       "format": "uuid"
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid prices or tier thresholds"
+///       },
+///       "403": {
+///         "description": "Installation administration required"
+///       },
+///       "409": {
+///         "description": "Ownership, expected revision, or omitted current schedule conflict"
+///       },
+///       "422": {
+///         "description": "JSON schema mismatch; context_tiers must be an array, never null"
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub async fn publish_offer(
     State(state): State<AppState>,
     headers: HeaderMap,
