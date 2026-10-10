@@ -60,3 +60,39 @@ demonstrate sustained throughput, isolate gateway overhead, or cover long prompt
 streaming, tool conversations, Guardrail detector overhead, video, overload,
 multi-instance load or large financial backlogs. Production rollout thresholds
 require those workloads and longer observations; the values above are not SLOs.
+
+## Plain-text streaming follow-up
+
+On 2026-10-10, backend `5a2449d` was exercised with the same isolated native setup
+and eight-connection pool, using actual plain-text streaming requests. An initial
+attempt combined strict JSON output and streaming; the gateway rejected that
+unsupported combination with 501 before generation. Those observations are not
+included in the generation measurements below.
+
+The supported workload used 154-byte JSON bodies, temperature zero, a 32-token
+output limit and a fresh ten-character nonce per request. The client consumed
+SSE incrementally, recording the arrival of the first nonempty content delta
+separately from full response completion. It required the exact requested text,
+reported usage and the terminal `[DONE]` event. No retries were issued.
+
+| Concurrency | Requests | Elapsed seconds | Requests/second | First content P50 / P95 ms | Complete P50 / P95 ms | Complete maximum ms |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 8 | 6.67 | 1.20 | 625 / 1,214 | 757 / 1,360 | 1,360 |
+| 4 | 16 | 3.36 | 4.76 | 657 / 917 | 814 / 969 | 969 |
+| 8 | 32 | 3.70 | 8.64 | 649 / 950 | 791 / 1,158 | 1,485 |
+
+All 56 actual responses completed with HTTP 200 and the expected content. Reported
+usage ranged from 13–19 input and 5–10 output tokens. Independent per-request
+calculations matched every charge and debit, totaling **506,315 USD nanounits**.
+No open reservation or reconciliation discrepancy remained. All 56 timing records
+were complete, no request failure or PostgreSQL deadlock was observed, and a
+restart preserved exactly 56 charges and debits. Fourteen one-second samples
+observed gateway RSS between 22,192 and 25,616 KiB.
+
+This adds short plain-text streaming evidence, including customer accounting,
+through eight concurrent calls. The latency includes upstream execution and is
+not gateway-only overhead; the first-content measurement is client-observed,
+not the provider's internal token-generation time. It does not qualify sustained
+load, slow readers, long streams, streaming structured output or production
+capacity. Temporary access and isolated processes were cleaned up, and the
+original database and encrypted credential identity were preserved.
