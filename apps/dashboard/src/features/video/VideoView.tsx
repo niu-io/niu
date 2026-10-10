@@ -8,7 +8,7 @@ import { IconChevronDown as ChevronDown, IconLayoutSidebarLeftExpand as PanelLef
 import type { VideoEstimate, VideoJobBilling, VideoJobHistory, VideoJobState, VideoModelList, VideoTransportTimings } from '../../../../../sdks/javascript/src/index';
 import { NiuAdminClient, type VideoIntentRequest, type VideoSubmissionIntent } from '../../../../../sdks/javascript/src/admin';
 import { VideoIntent } from './intent';
-import { videoSessionTitle } from './intent-history';
+import { findVideoIntent, videoSessionTitle } from './intent-history';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
@@ -88,6 +88,15 @@ export default function VideoView({context}:{context:DashboardContext}) {
   routeIntent.current=intentId;
   const intentClient=useMemo(()=>token ? new NiuAdminClient({adminToken:token,baseURL:new URL('/admin/v1',window.location.origin).href}):null,[token]);
   const retainedIntent=useMemo(()=>intentClient && workspace && intentId ? new VideoIntent(intentClient,{organizationId:workspace.organization_id,projectId:workspace.id},intentId):null,[intentClient,workspace?.organization_id,workspace?.id,intentId]);
+  useEffect(()=>{
+    if(!intentClient || !workspace || !selected || intentId || busy==='create')return;
+    const request=new AbortController();setIntentError('');
+    void findVideoIntent(intentClient,{organizationId:workspace.organization_id,projectId:workspace.id},selected,{signal:request.signal}).then(row=>{
+      if(request.signal.aborted || !row)return;
+      setSearch(previous=>{if(previous.get('intent') || previous.get('job')!==selected)return previous;const next=new URLSearchParams(previous);next.set('intent',row.id);if(row.keyId)next.set('key',row.keyId);return next;},{replace:true});
+    }).catch(error=>{if(!request.signal.aborted)setIntentError(message(error));});
+    return()=>request.abort();
+  },[intentClient,workspace?.organization_id,workspace?.id,selected,intentId,busy==='create',revision]);
   const scopePath=workspace ? projectKeyPath(workspace.organization_id,workspace.id) : '';
   const keyScopeIdentity=JSON.stringify([token,scopePath]);
   const base=keyId && keysScope===keyScopeIdentity && keys.some(key=>key.id===keyId) ? `${scopePath}/${encodeURIComponent(keyId)}/video` : '';
