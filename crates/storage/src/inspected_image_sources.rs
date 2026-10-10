@@ -662,8 +662,8 @@ impl Store {
     /// Preserve its one-shot claim and deletion fence; never redispatch it.
     /// The fixed minute exceeds the bounded 30-second upload transport.
     pub async fn recover_interrupted_asset_image_ingestions(&self) -> Result<u64, StoreError> {
-        Ok(sqlx::query("WITH stale AS (SELECT claim.consent_id,(EXTRACT(EPOCH FROM statement_timestamp()-claim.created_at)*1000)::bigint AS duration_ms FROM asset_image_ingestion_claims claim WHERE claim.created_at<=statement_timestamp()-interval '60 seconds' AND NOT EXISTS(SELECT 1 FROM asset_image_ingestion_outcomes outcome WHERE outcome.consent_id=claim.consent_id) ORDER BY claim.created_at,claim.consent_id LIMIT 16 FOR UPDATE OF claim SKIP LOCKED) INSERT INTO asset_image_ingestion_outcomes(consent_id,outcome,reason,duration_ms) SELECT consent_id,'uncertain','timeout',duration_ms FROM stale ON CONFLICT DO NOTHING")
-            .execute(&self.pool).await?.rows_affected())
+        self.execute_content_retention("WITH stale AS (SELECT claim.consent_id,(EXTRACT(EPOCH FROM statement_timestamp()-claim.created_at)*1000)::bigint AS duration_ms FROM asset_image_ingestion_claims claim WHERE claim.created_at<=statement_timestamp()-interval '60 seconds' AND NOT EXISTS(SELECT 1 FROM asset_image_ingestion_outcomes outcome WHERE outcome.consent_id=claim.consent_id) ORDER BY claim.created_at,claim.consent_id LIMIT 16 FOR UPDATE OF claim SKIP LOCKED) INSERT INTO asset_image_ingestion_outcomes(consent_id,outcome,reason,duration_ms) SELECT consent_id,'uncertain','timeout',duration_ms FROM stale ON CONFLICT DO NOTHING")
+            .await
     }
 
     /// Remove at most sixteen expired encrypted payloads per maintenance tick.

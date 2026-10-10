@@ -103,3 +103,30 @@ runner: expiry completed in 3.51 seconds, the fresh hash and charges were
 preserved, and row-lock skipping followed by deletion still worked. This
 supersedes the earlier try-only acquisition policy; no broader fairness or
 performance guarantee is implied.
+
+## Interrupted image recovery shares content ownership — 2026-10-11
+
+Interrupted asset-image ingestion and ingested-image readiness now execute their
+existing bounded SQL through the content-maintenance transaction helper. They
+share its cross-process advisory owner, bounded connection acquisition, 250 ms
+lock timeout and 2 s statement timeout. Their existing 16-row `SKIP LOCKED`
+selection, age threshold, conflict handling and uncertainty outcomes are unchanged.
+They do not redispatch upstream work. A failed domain returns its connection and
+does not stop the caller from attempting the next domain.
+
+A fresh native PostgreSQL database ran two gateway processes. An independently
+held content-owner advisory lock prevented either interrupted-image recovery SQL
+from entering while both processes ticked. With that owner released and both
+outcome tables held by an external transaction, independent activity sampling
+observed at most one blocked recovery statement at a time. Both gateway readiness
+endpoints remained responsive. Both recovery stages emitted retry diagnostics,
+and releasing the table locks restored normal operation. Independent reopening
+confirmed empty claims/outcomes and no inference or ledger records.
+
+This actual contention run verifies the exercised ownership and blocked-domain
+behavior on empty queues, not populated recovery, poison-row traversal, priced
+admission under backlog or sustained capacity. Claim checks can briefly occupy
+connections in competing processes; the owner bound is not a reservation of
+foreground capacity. Payment/video polling remains outside these ownership
+groups. Issue #13 remains open for its complete acceptance scope. Fixture
+outcomes were not used as evidence.

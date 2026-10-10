@@ -26,8 +26,8 @@ impl Store {
     /// Release only the outstanding-read admission lock after process loss.
     /// This records failure, never an asset status or reusable-reference grant.
     pub async fn recover_interrupted_ingested_image_reads(&self) -> Result<u64, StoreError> {
-        Ok(sqlx::query("WITH stale AS (SELECT claim.id,(EXTRACT(EPOCH FROM statement_timestamp()-claim.created_at)*1000)::bigint AS duration_ms FROM ingested_image_readiness_claims claim WHERE claim.created_at<=statement_timestamp()-interval '60 seconds' AND NOT EXISTS(SELECT 1 FROM ingested_image_readiness_outcomes outcome WHERE outcome.read_id=claim.id) ORDER BY claim.created_at,claim.id LIMIT 16 FOR UPDATE OF claim SKIP LOCKED) INSERT INTO ingested_image_readiness_outcomes(read_id,reason,duration_ms) SELECT id,'timeout',duration_ms FROM stale ON CONFLICT DO NOTHING")
-            .execute(&self.pool).await?.rows_affected())
+        self.execute_content_retention("WITH stale AS (SELECT claim.id,(EXTRACT(EPOCH FROM statement_timestamp()-claim.created_at)*1000)::bigint AS duration_ms FROM ingested_image_readiness_claims claim WHERE claim.created_at<=statement_timestamp()-interval '60 seconds' AND NOT EXISTS(SELECT 1 FROM ingested_image_readiness_outcomes outcome WHERE outcome.read_id=claim.id) ORDER BY claim.created_at,claim.id LIMIT 16 FOR UPDATE OF claim SKIP LOCKED) INSERT INTO ingested_image_readiness_outcomes(read_id,reason,duration_ms) SELECT id,'timeout',duration_ms FROM stale ON CONFLICT DO NOTHING")
+            .await
     }
 
     pub async fn claim_ingested_image_readiness(
