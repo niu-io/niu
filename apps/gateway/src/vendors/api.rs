@@ -174,7 +174,7 @@ pub struct VendorFilter {
 ///       }
 ///     },
 ///     "x-niu-implementation": "implemented",
-///     "description": " Requires installation administration or an explicitly granted platform administrator. Each configuration has independent credentials and model bindings. Credentials are write-only and never returned."
+///     "description": "Returns every matching configuration, including disabled configurations, in one data array. Optional supplier filtering uses explicit business ownership. No pagination or silent row cap; response memory grows with list size. Requires installation administration or an explicitly granted platform administrator. Each configuration has independent credentials and model bindings. Credentials are write-only and never returned."
 ///   },
 ///   "schemas": {
 ///     "Vendor": {

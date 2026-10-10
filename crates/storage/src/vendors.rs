@@ -201,26 +201,28 @@ impl Store {
         .await?)
     }
 
+    /// Compatibility list without pagination: never silently omit saved configurations.
     pub async fn vendors(&self) -> Result<Vec<VendorView>, StoreError> {
-        let query = format!("SELECT {VENDOR_COLUMNS} FROM vendors ORDER BY name,id LIMIT 1000");
+        let query = format!("SELECT {VENDOR_COLUMNS} FROM vendors ORDER BY name,id");
         Ok(sqlx::query_as::<_, VendorView>(&query)
             .fetch_all(&self.pool)
             .await?)
     }
 
-    /// Read credential configuration ownership without returning encrypted keys.
+    /// Read all matching credential configurations without returning encrypted keys.
+    /// This compatibility contract has no continuation cursor.
     pub async fn vendors_with_supplier(
         &self,
         supplier: Option<Uuid>,
     ) -> Result<Vec<Value>, StoreError> {
         Ok(sqlx::query_scalar(
-            "SELECT jsonb_build_object('id',v.id,'name',v.name,'adapter',v.adapter,             'api_base',v.api_base,'enabled',v.enabled,'revision',v.revision,             'has_credential',v.credential_ciphertext IS NOT NULL, 'owner_funded',EXISTS (SELECT 1 FROM personal_vendor_ownership po WHERE po.vendor_id=v.id),             'supplier',CASE WHEN p.id IS NULL THEN NULL ELSE jsonb_build_object('id',p.id,'name',p.name) END)              FROM vendors v LEFT JOIN vendor_supplier_ownership o ON o.vendor_id=v.id              LEFT JOIN provider_businesses p ON p.id=o.provider_id              WHERE ($1::uuid IS NULL OR p.id=$1) ORDER BY p.name NULLS LAST,v.name,v.id LIMIT 1000"
+            "SELECT jsonb_build_object('id',v.id,'name',v.name,'adapter',v.adapter,             'api_base',v.api_base,'enabled',v.enabled,'revision',v.revision,             'has_credential',v.credential_ciphertext IS NOT NULL, 'owner_funded',EXISTS (SELECT 1 FROM personal_vendor_ownership po WHERE po.vendor_id=v.id),             'supplier',CASE WHEN p.id IS NULL THEN NULL ELSE jsonb_build_object('id',p.id,'name',p.name) END)              FROM vendors v LEFT JOIN vendor_supplier_ownership o ON o.vendor_id=v.id              LEFT JOIN provider_businesses p ON p.id=o.provider_id              WHERE ($1::uuid IS NULL OR p.id=$1) ORDER BY p.name NULLS LAST,v.name,v.id"
         ).bind(supplier).fetch_all(&self.pool).await?)
     }
 
     pub async fn supplier_vendors(&self, supplier: Uuid) -> Result<Vec<VendorView>, StoreError> {
         let query = format!(
-            "SELECT {VENDOR_COLUMNS} FROM vendors WHERE id IN (SELECT vendor_id FROM vendor_supplier_ownership WHERE provider_id=$1) ORDER BY name,id LIMIT 1000"
+            "SELECT {VENDOR_COLUMNS} FROM vendors WHERE id IN (SELECT vendor_id FROM vendor_supplier_ownership WHERE provider_id=$1) ORDER BY name,id"
         );
         Ok(sqlx::query_as::<_, VendorView>(&query)
             .bind(supplier)

@@ -6641,7 +6641,7 @@ HTTP 503: Configuration storage unavailable
 
 `GET /admin/v1/vendors`
 
- Requires installation administration or an explicitly granted platform administrator. Each configuration has independent credentials and model bindings. Credentials are write-only and never returned.
+Returns every matching configuration, including disabled configurations, in one data array. Optional supplier filtering uses explicit business ownership. No pagination or silent row cap; response memory grows with list size. Requires installation administration or an explicitly granted platform administrator. Each configuration has independent credentials and model bindings. Credentials are write-only and never returned.
 
 Implementation: `implemented`. Operation: `listVendors`.
 

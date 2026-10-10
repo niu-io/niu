@@ -564,3 +564,19 @@ attempts. Isolated processes were stopped and the original encrypted credential
 identity was unchanged. This is configuration-read evidence, not model execution
 or a complete Supplier workflow qualification. Other credential directory limits
 remain separate work.
+
+### Credential directory completeness
+
+The subsequent credential-directory correction removes the same silent cap from
+unpaginated vendor storage reads, including the platform directory's optional
+Supplier filter. A native current-input run created 1,001 disabled encrypted
+credential configurations under one Supplier and one under another. The old binary
+returned only 1,000 for the first Supplier. A fresh run with the corrected binary
+returned all 1,001, excluded the other Supplier, and returned all 1,002 globally.
+The filtered response was identical after restart. Independent SQL confirmed the
+saved ownership count and zero inference attempts; the original encrypted
+identity was preserved. Responses excluded plaintext and encrypted credentials.
+An ordinary company owner received 403 and an inference key received 401. These
+runs created configuration records only; they do not qualify independent upstream
+accounts or inference behavior. The compatibility response still grows with the
+number of configurations and is not a bounded pagination API.
