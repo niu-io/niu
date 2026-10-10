@@ -172,6 +172,16 @@ impl ApiError {
         }
     }
 
+    /// Preparation policy refusal; detailed rules remain in authorized diagnostics.
+    pub(crate) fn guardrail_denied() -> Self {
+        Self {
+            failure: None,
+            status: StatusCode::FORBIDDEN,
+            kind: "guardrail_denied",
+            message: "The request was rejected by configured guardrails before model dispatch",
+        }
+    }
+
     pub fn forbidden() -> Self {
         Self {
             failure: None,

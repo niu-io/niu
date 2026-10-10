@@ -192,7 +192,7 @@ pub(super) async fn inspect_request_input_with_image_requirements(
                 .record_guardrail_preparation_denial(scope, principal.key_id(), &snapshot, reason)
                 .await
                 .map_err(ApiError::from_store)?;
-            return Err(ApiError::forbidden());
+            return Err(ApiError::guardrail_denied());
         }
     }
     if output_rule_count > 0
@@ -217,7 +217,7 @@ pub(super) async fn inspect_request_input_with_image_requirements(
             )
             .await
             .map_err(ApiError::from_store)?;
-        return Err(ApiError::forbidden());
+        return Err(ApiError::guardrail_denied());
     }
     if !rules.is_empty() {
         let started = std::time::Instant::now();
@@ -256,7 +256,7 @@ pub(super) async fn inspect_request_input_with_image_requirements(
                 .record_guardrail_preparation_denial(scope, principal.key_id(), &snapshot, reason)
                 .await
                 .map_err(ApiError::from_store)?;
-            return Err(ApiError::forbidden());
+            return Err(ApiError::guardrail_denied());
         }
     }
     if !detectors.is_empty() {
@@ -312,7 +312,7 @@ pub(super) async fn inspect_request_input_with_image_requirements(
                     )
                     .await
                     .map_err(ApiError::from_store)?;
-                return Err(ApiError::forbidden());
+                return Err(ApiError::guardrail_denied());
             }
         }
     }

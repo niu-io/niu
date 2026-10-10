@@ -212,7 +212,7 @@ use super::common::*;
 ///         "description": "Insufficient balance or configured spending limit exceeded."
 ///       },
 ///       "403": {
-///         "description": "Source IP or enforced policy denies the request."
+///         "description": "Source IP or enforced policy denies the request. Recorded preparation-policy refusals use error.type guardrail_denied before model dispatch; do not classify every 403 as a Guardrail refusal."
 ///       },
 ///       "429": {
 ///         "description": "API key request, concurrency or token rate limit exceeded."

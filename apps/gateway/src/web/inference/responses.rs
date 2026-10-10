@@ -312,7 +312,7 @@ pub(in crate::web) struct ResponsesRequestBounds {
 ///         "description": "Insufficient balance or spending limit exceeded."
 ///       },
 ///       "403": {
-///         "description": "Source IP or enforced policy denies the request."
+///         "description": "Source IP or enforced policy denies the request. Recorded preparation-policy refusals use error.type guardrail_denied before model dispatch; do not classify every 403 as a Guardrail refusal."
 ///       },
 ///       "413": {
 ///         "description": "Request body exceeds 1 MiB; rejected before inference whether payload capture is enabled or disabled. Framework responses may use a plain-text body."

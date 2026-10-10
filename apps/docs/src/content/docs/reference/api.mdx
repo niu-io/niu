@@ -838,3 +838,11 @@ Supplier membership does not grant this request-level reconciliation access.
 Internal selection IDs must not appear in product UI. The existing settlement
 write still revalidates unpaid selections and requires confirmed payment evidence.
 Nonempty pagination and full Supplier reconciliation remain unverified.
+
+### Guardrail preparation refusal
+
+Recorded preparation-policy refusals return HTTP 403 with
+`error.type: "guardrail_denied"`, indicating rejection before model dispatch.
+The response does not expose matched input or rules. Read authorized preparation
+diagnostics for the recorded reason; do not classify every 403 as Guardrails.
+Administrative permission failures retain their separate error type.
