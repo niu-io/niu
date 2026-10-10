@@ -1771,6 +1771,233 @@
         "x-niu-implementation": "implemented"
       }
     },
+    "/admin/v1/vendors/{vendor}/request-rate-limit": {
+      "get": {
+        "operationId": "getVendorRequestRateLimit",
+        "summary": "Read upstream credential request limit",
+        "description": "Platform administration only. Applies to mapped inference dispatches pinned to this saved credential across workspaces and gateway instances, independent of customer key RPM. Null is unlimited; zero denies dispatch. Revision starts at string 0 and survives credential edits. Rolling 60-second admissions count dispatch, including upstream failures and uncertain outcomes; polling and connection checks are not inference dispatch. Unlimited dispatches also count when a cap is subsequently enabled. No automatic route substitution or replay. Duplicated credentials saved under different vendor IDs have independent windows.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "vendor",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current policy or descending immutable history.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/VendorRequestRateLimit"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid limit, revision or query."
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Platform administration required."
+          },
+          "404": {
+            "description": "Credential configuration not found."
+          },
+          "409": {
+            "description": "Stale revision on policy update."
+          }
+        },
+        "x-niu-implementation": "implemented"
+      },
+      "put": {
+        "operationId": "setVendorRequestRateLimit",
+        "summary": "Set upstream credential request limit",
+        "description": "Platform administration only. Applies to mapped inference dispatches pinned to this saved credential across workspaces and gateway instances, independent of customer key RPM. Null is unlimited; zero denies dispatch. Revision starts at string 0 and survives credential edits. Rolling 60-second admissions count dispatch, including upstream failures and uncertain outcomes; polling and connection checks are not inference dispatch. Unlimited dispatches also count when a cap is subsequently enabled. No automatic route substitution or replay. Duplicated credentials saved under different vendor IDs have independent windows.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "vendor",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current policy or descending immutable history.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/VendorRequestRateLimit"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid limit, revision or query."
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Platform administration required."
+          },
+          "404": {
+            "description": "Credential configuration not found."
+          },
+          "409": {
+            "description": "Stale revision on policy update."
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "requests_per_minute",
+                  "expected_revision"
+                ],
+                "properties": {
+                  "requests_per_minute": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1000000
+                  },
+                  "expected_revision": {
+                    "type": "string",
+                    "pattern": "^[0-9]+$",
+                    "description": "Exact current revision. Concurrent stale updates return 409."
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/v1/vendors/{vendor}/request-rate-limit/history": {
+      "get": {
+        "operationId": "listVendorRequestRateLimitHistory",
+        "summary": "Read credential request-limit history",
+        "description": "Platform administration only. Applies to mapped inference dispatches pinned to this saved credential across workspaces and gateway instances, independent of customer key RPM. Null is unlimited; zero denies dispatch. Revision starts at string 0 and survives credential edits. Rolling 60-second admissions count dispatch, including upstream failures and uncertain outcomes; polling and connection checks are not inference dispatch. Unlimited dispatches also count when a cap is subsequently enabled. No automatic route substitution or replay. Duplicated credentials saved under different vendor IDs have independent windows.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "vendor",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "before_revision",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9223372036854775807
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current policy or descending immutable history.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/VendorRequestRateLimitRevision"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid limit, revision or query."
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "403": {
+            "description": "Platform administration required."
+          },
+          "404": {
+            "description": "Credential configuration not found."
+          },
+          "409": {
+            "description": "Stale revision on policy update."
+          }
+        },
+        "x-niu-implementation": "implemented"
+      }
+    },
     "/admin/v1/organizations/{organization}/projects/{project}/spending-limit": {
       "get": {
         "operationId": "listWorkspaceSpendingLimits",
@@ -10122,6 +10349,67 @@
             ],
             "pattern": "^[0-9]+$",
             "description": "Known plus reserved tokens, or null when unbounded requests prevent a complete total."
+          }
+        }
+      },
+      "VendorRequestRateLimit": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "requests_per_minute",
+          "revision"
+        ],
+        "properties": {
+          "requests_per_minute": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "VendorRequestRateLimitRevision": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "requests_per_minute",
+          "revision",
+          "recorded_at",
+          "actor_kind",
+          "actor_name"
+        ],
+        "properties": {
+          "requests_per_minute": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actor_kind": {
+            "type": "string",
+            "enum": [
+              "installation",
+              "member"
+            ]
+          },
+          "actor_name": {
+            "type": "string"
           }
         }
       },

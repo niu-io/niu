@@ -110,6 +110,7 @@ mod key_spending;
 mod key_token_rate;
 mod provider_offer_history;
 mod topups;
+mod vendor_request_rate;
 mod workspace_spending;
 pub use topups::{TopupInput, TopupOrder};
 mod keys;
@@ -286,6 +287,8 @@ pub enum StoreError {
     KeyIpDenied,
     #[error("API key request rate exhausted")]
     KeyRequestRateExceeded,
+    #[error("upstream credential request rate exhausted")]
+    VendorRequestRateExceeded,
     #[error("API key concurrent request limit reached")]
     KeyConcurrencyExceeded,
     #[error("API key token rate exhausted")]
@@ -689,6 +692,7 @@ impl Store {
                 return Err(match code.as_deref() {
                     Some("P0024") => StoreError::ManagedRouteChanged,
                     Some("P0020") => StoreError::KeyRequestRateExceeded,
+                    Some("P0025") => StoreError::VendorRequestRateExceeded,
                     Some("P0021") => StoreError::KeyConcurrencyExceeded,
                     Some("P0022") => StoreError::KeyTokenRateExceeded,
                     Some("P0023") => StoreError::KeyTokenBoundRequired,

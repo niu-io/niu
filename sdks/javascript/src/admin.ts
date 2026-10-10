@@ -1,3 +1,5 @@
+export type VendorRequestRateLimit = { requests_per_minute: number | null; revision: string };
+export type VendorRequestRateLimitRevision = VendorRequestRateLimit & { recorded_at: string; actor_kind: 'installation' | 'member'; actor_name: string };
 export type KeyTokenRateLimit = { snapshot_at: string; known_tokens: string; reserved_tokens: string; unbounded_requests: number; committed_tokens: string | null; tokens_per_minute: number | null; revision: string | null };
 export type KeyTokenRateLimitRevision = Omit<KeyTokenRateLimit, 'snapshot_at' | 'known_tokens' | 'reserved_tokens' | 'unbounded_requests' | 'committed_tokens'> & { revision: string; recorded_at: string; actor_kind: 'installation' | 'member'; actor_name: string };
 export type KeyTokenUsageWindow = { window_seconds: 60; window_end: string; requests: number; known_usage_requests: number; unknown_usage_requests: number; known_prompt_tokens: string; known_completion_tokens: string };
@@ -1016,6 +1018,30 @@ export class NiuAdminClient {
   /** Read known token subtotals; unknown requests are not zero usage. No TPM enforcement. */
   getKeyTokenUsageWindow(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: KeyTokenUsageWindow }> {
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/token-usage-window`, undefined, options);
+  }
+
+  getVendorRequestRateLimit(vendorId: string, options?: RequestOptions): Promise<{ data: VendorRequestRateLimit }> {
+    return this.request(`/vendors/${uuid(vendorId)}/request-rate-limit`, undefined, options);
+  }
+
+  /** Null removes the rate limit; zero denies dispatch. Credential edits preserve this independent policy. */
+  setVendorRequestRateLimit(vendorId: string, input: { requests_per_minute: number | null; expected_revision: string }, options?: RequestOptions): Promise<{ data: VendorRequestRateLimit }> {
+    if (input.requests_per_minute !== null && (!Number.isInteger(input.requests_per_minute) || input.requests_per_minute < 0 || input.requests_per_minute > 1_000_000)) throw new TypeError('Use an integer request limit from 0 to 1000000, or explicit null');
+    if (typeof input.expected_revision !== 'string' || !/^\d+$/.test(input.expected_revision) || BigInt(input.expected_revision) > 9223372036854775806n) throw new TypeError('Use an exact nonnegative revision');
+    return this.request(`/vendors/${uuid(vendorId)}/request-rate-limit`, { requests_per_minute: input.requests_per_minute, expected_revision: input.expected_revision }, options, 'PUT');
+  }
+
+  listVendorRequestRateLimitHistory(vendorId: string, query: { beforeRevision?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: VendorRequestRateLimitRevision[] }> {
+    const params = new URLSearchParams();
+    if (query.beforeRevision !== undefined) {
+      if (!/^\d+$/.test(query.beforeRevision) || BigInt(query.beforeRevision) < 1n || BigInt(query.beforeRevision) > 9223372036854775807n) throw new TypeError('Invalid history revision');
+      params.set('before_revision', query.beforeRevision);
+    }
+    if (query.limit !== undefined) {
+      if (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new TypeError('Invalid history page size');
+      params.set('limit', String(query.limit));
+    }
+    return this.request(`/vendors/${uuid(vendorId)}/request-rate-limit/history${params.size ? `?${params}` : ''}`, undefined, options);
   }
 
   getKeyRequestRateLimit(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: KeyRequestRateLimit }> {

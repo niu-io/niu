@@ -144,3 +144,10 @@ A separate workspace key could list the same shared alias but received null
 customer pricing, not the first workspace's tariff. Restart preserved the first
 workspace's response. Temporary keys were revoked and the fee was explicitly
 restored to zero without rewriting historical charges. No inference was sent.
+
+
+The shared-credit contention run was repeated with explicit sufficient procurement
+budgets on both competing workspaces. Two gateways still admitted one actual
+completion and refused the other before dispatch; independent reopened SQL
+confirmed one fixed-only charge/debit and no open holds. This removes missing
+workspace procurement configuration as an alternative explanation for refusal.

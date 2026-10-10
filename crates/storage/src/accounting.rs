@@ -308,6 +308,7 @@ pub(crate) fn map_gateway_admission_error(error: sqlx::Error) -> StoreError {
     match code.as_deref() {
         Some("P0024") => StoreError::ManagedRouteChanged,
         Some("P0020") => StoreError::KeyRequestRateExceeded,
+        Some("P0025") => StoreError::VendorRequestRateExceeded,
         Some("P0021") => StoreError::KeyConcurrencyExceeded,
         Some("P0022") => StoreError::KeyTokenRateExceeded,
         Some("P0023") => StoreError::KeyTokenBoundRequired,

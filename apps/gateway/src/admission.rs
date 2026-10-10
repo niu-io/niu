@@ -73,6 +73,7 @@ pub(crate) struct UnpricedAdmissionRequest<'a> {
 pub(crate) enum AdmissionError {
     ManagedRouteChanged,
     RequestRateExceeded,
+    VendorRequestRateExceeded,
     ConcurrencyExceeded,
     TokenRateExceeded,
     TokenBoundRequired,
@@ -445,6 +446,7 @@ async fn persist_admission_batch(store: &Store, batch: Vec<PendingAdmission>) {
         }
         Err(
             niu_storage::StoreError::ManagedRouteChanged
+            | niu_storage::StoreError::VendorRequestRateExceeded
             | niu_storage::StoreError::KeyRequestRateExceeded
             | niu_storage::StoreError::KeyConcurrencyExceeded
             | niu_storage::StoreError::KeyTokenRateExceeded
@@ -457,6 +459,9 @@ async fn persist_admission_batch(store: &Store, batch: Vec<PendingAdmission>) {
                     Ok(mut statuses) if statuses.len() == 1 => Ok(statuses.remove(0)),
                     Err(niu_storage::StoreError::ManagedRouteChanged) => {
                         Err(AdmissionError::ManagedRouteChanged)
+                    }
+                    Err(niu_storage::StoreError::VendorRequestRateExceeded) => {
+                        Err(AdmissionError::VendorRequestRateExceeded)
                     }
                     Err(niu_storage::StoreError::KeyRequestRateExceeded) => {
                         Err(AdmissionError::RequestRateExceeded)

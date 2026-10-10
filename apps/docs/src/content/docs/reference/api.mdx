@@ -696,3 +696,19 @@ return 409, and inaccessible Supplier/offer identities return 404.
 The SDK exposes `listSupplierOfferHistory`. Read the
 [pagination and confidentiality contract](https://github.com/niu-io/niu/blob/main/docs/reference/supplier-offer-history.md)
 before integrating. These are procurement prices, not customer billing data.
+
+
+## Upstream credential request limits
+
+Platform administrators can read or update
+`/admin/v1/vendors/{vendor}/request-rate-limit` and read its `/history`.
+PUT requires `requests_per_minute` (explicit null for unlimited, zero to stop
+dispatch) and the exact string `expected_revision`. Limits are independent of
+customer key RPM and shared across gateway instances using the same saved
+credential. History supports `before_revision` and `limit`.
+
+A local dispatch refusal returns 429, `upstream_request_rate_exceeded` and a
+conservative `Retry-After: 60`. It does not send another upstream request.
+The SDK provides `getVendorRequestRateLimit`, `setVendorRequestRateLimit` and
+`listVendorRequestRateLimitHistory`. See the
+[dispatch semantics and verification boundary](https://github.com/niu-io/niu/blob/main/docs/reference/upstream-credential-request-limits.md).

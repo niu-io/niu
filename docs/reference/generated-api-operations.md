@@ -1841,6 +1841,245 @@ HTTP 403: Workspace access denied
 
 HTTP 404: Workspace is outside operator scope, or key is absent from authorized workspace
 
+## Read upstream credential request limit
+
+`GET /admin/v1/vendors/{vendor}/request-rate-limit`
+
+Platform administration only. Applies to mapped inference dispatches pinned to this saved credential across workspaces and gateway instances, independent of customer key RPM. Null is unlimited; zero denies dispatch. Revision starts at string 0 and survives credential edits. Rolling 60-second admissions count dispatch, including upstream failures and uncertain outcomes; polling and connection checks are not inference dispatch. Unlimited dispatches also count when a cap is subsequently enabled. No automatic route substitution or replay. Duplicated credentials saved under different vendor IDs have independent windows.
+
+Implementation: `implemented`. Operation: `getVendorRequestRateLimit`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`vendor` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Current policy or descending immutable history.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/VendorRequestRateLimit"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid limit, revision or query.
+
+HTTP 401: Authentication required.
+
+HTTP 403: Platform administration required.
+
+HTTP 404: Credential configuration not found.
+
+HTTP 409: Stale revision on policy update.
+
+## Set upstream credential request limit
+
+`PUT /admin/v1/vendors/{vendor}/request-rate-limit`
+
+Platform administration only. Applies to mapped inference dispatches pinned to this saved credential across workspaces and gateway instances, independent of customer key RPM. Null is unlimited; zero denies dispatch. Revision starts at string 0 and survives credential edits. Rolling 60-second admissions count dispatch, including upstream failures and uncertain outcomes; polling and connection checks are not inference dispatch. Unlimited dispatches also count when a cap is subsequently enabled. No automatic route substitution or replay. Duplicated credentials saved under different vendor IDs have independent windows.
+
+Implementation: `implemented`. Operation: `setVendorRequestRateLimit`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`vendor` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "requests_per_minute",
+    "expected_revision"
+  ],
+  "properties": {
+    "requests_per_minute": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "expected_revision": {
+      "type": "string",
+      "pattern": "^[0-9]+$",
+      "description": "Exact current revision. Concurrent stale updates return 409."
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Current policy or descending immutable history.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/VendorRequestRateLimit"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid limit, revision or query.
+
+HTTP 401: Authentication required.
+
+HTTP 403: Platform administration required.
+
+HTTP 404: Credential configuration not found.
+
+HTTP 409: Stale revision on policy update.
+
+## Read credential request-limit history
+
+`GET /admin/v1/vendors/{vendor}/request-rate-limit/history`
+
+Platform administration only. Applies to mapped inference dispatches pinned to this saved credential across workspaces and gateway instances, independent of customer key RPM. Null is unlimited; zero denies dispatch. Revision starts at string 0 and survives credential edits. Rolling 60-second admissions count dispatch, including upstream failures and uncertain outcomes; polling and connection checks are not inference dispatch. Unlimited dispatches also count when a cap is subsequently enabled. No automatic route substitution or replay. Duplicated credentials saved under different vendor IDs have independent windows.
+
+Implementation: `implemented`. Operation: `listVendorRequestRateLimitHistory`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`vendor` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`before_revision` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 9223372036854775807
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Current policy or descending immutable history.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "$ref": "#/components/schemas/VendorRequestRateLimitRevision"
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid limit, revision or query.
+
+HTTP 401: Authentication required.
+
+HTTP 403: Platform administration required.
+
+HTTP 404: Credential configuration not found.
+
+HTTP 409: Stale revision on policy update.
+
 ## List workspace spending currencies
 
 `GET /admin/v1/organizations/{organization}/projects/{project}/spending-limit`
@@ -13007,6 +13246,77 @@ Local `#/components/schemas/…` references resolve to these definitions.
         "null"
       ],
       "minimum": 1
+    }
+  }
+}
+```
+
+### VendorRequestRateLimit
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "requests_per_minute",
+    "revision"
+  ],
+  "properties": {
+    "requests_per_minute": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    }
+  }
+}
+```
+
+### VendorRequestRateLimitRevision
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "requests_per_minute",
+    "revision",
+    "recorded_at",
+    "actor_kind",
+    "actor_name"
+  ],
+  "properties": {
+    "requests_per_minute": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "actor_kind": {
+      "type": "string",
+      "enum": [
+        "installation",
+        "member"
+      ]
+    },
+    "actor_name": {
+      "type": "string"
     }
   }
 }

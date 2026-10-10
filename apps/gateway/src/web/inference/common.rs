@@ -571,6 +571,9 @@ pub(super) async fn begin_retry_attempt(
                 crate::admission::AdmissionError::ConcurrencyExceeded => {
                     ApiError::from_store(niu_storage::StoreError::KeyConcurrencyExceeded)
                 }
+                crate::admission::AdmissionError::VendorRequestRateExceeded => {
+                    ApiError::from_store(niu_storage::StoreError::VendorRequestRateExceeded)
+                }
                 crate::admission::AdmissionError::RequestRateExceeded => {
                     ApiError::from_store(niu_storage::StoreError::KeyRequestRateExceeded)
                 }

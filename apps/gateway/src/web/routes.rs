@@ -221,6 +221,8 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/v1/responses", axum::routing::post(responses))
         .route("/v1/embeddings", axum::routing::post(embeddings))
         .route("/admin/v1/models", get(admin_models))
+        .route("/admin/v1/vendors/{vendor}/request-rate-limit", get(crate::admin::vendor_request_rate::read).put(crate::admin::vendor_request_rate::write))
+        .route("/admin/v1/vendors/{vendor}/request-rate-limit/history", get(crate::admin::vendor_request_rate::history))
         .route("/admin/v1/vendors", get(crate::vendors::list).post(crate::vendors::create))
         .route("/admin/v1/model-route-pools", axum::routing::get(crate::vendors::route_pools::get).put(crate::vendors::route_pools::put))
         .route("/admin/v1/model-route-pools/index", axum::routing::get(crate::vendors::route_pools::index))

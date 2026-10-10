@@ -45,6 +45,12 @@ impl ApiError {
                 kind: "key_concurrency_exceeded",
                 message: "This API key has reached its concurrent request limit; wait for active work to finish or resolve uncertain requests",
             },
+            niu_storage::StoreError::VendorRequestRateExceeded => Self {
+                failure: None,
+                status: StatusCode::TOO_MANY_REQUESTS,
+                kind: "upstream_request_rate_exceeded",
+                message: "The selected upstream route has reached its rolling 60-second request limit; retry after 60 seconds",
+            },
             niu_storage::StoreError::KeyRequestRateExceeded => Self {
                 failure: None,
                 status: StatusCode::TOO_MANY_REQUESTS,
@@ -419,7 +425,10 @@ impl IntoResponse for ApiError {
             }
         });
         let mut response = (self.status, Json(body)).into_response();
-        if self.kind == "key_request_rate_exceeded" {
+        if matches!(
+            self.kind,
+            "key_request_rate_exceeded" | "upstream_request_rate_exceeded"
+        ) {
             response.headers_mut().insert(
                 axum::http::header::RETRY_AFTER,
                 axum::http::HeaderValue::from_static("60"),
