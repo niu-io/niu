@@ -416,3 +416,28 @@ it('aborts earning history when its dialog closes and ignores the late result', 
   await screen.findByText('No unpaid earnings in the loaded history.');
   expect(screen.queryByText('Late model')).toBeNull();
 });
+
+it('locks a submitted payment selection and reference so an ambiguous retry preserves the original request', async () => {
+  setup('1000000000', false, false, 'settlements');
+  const originalFetch = globalThis.fetch;
+  const submitted: unknown[] = [];
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    if (String(input).includes('/earnings?')) return Response.json({data:[{id:'earning',model_alias:'Selected model',amount_nanos:'1000000000',currency:'USD',status:'accrued',created_at:'2026-10-10T12:00:00Z'}],next_cursor:null});
+    if (String(input).endsWith('/settlements') && init?.method === 'POST') {
+      submitted.push(JSON.parse(String(init.body)));
+      throw new TypeError('Connection lost');
+    }
+    return originalFetch(input, init);
+  }));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', {name:'Record payment'}));
+  await user.click(await screen.findByRole('checkbox'));
+  await user.type(screen.getByRole('textbox', {name:'External payment reference'}), 'Confirmed transfer');
+  await user.click(screen.getByRole('button', {name:'Record confirmed payment'}));
+  await screen.findByText('Connection lost');
+  expect(screen.getByRole('checkbox').hasAttribute('disabled')).toBe(true);
+  expect(screen.getByRole('textbox', {name:'External payment reference'}).hasAttribute('disabled')).toBe(true);
+  await user.click(screen.getByRole('button', {name:'Record confirmed payment'}));
+  await waitFor(() => expect(submitted).toHaveLength(2));
+  expect(submitted[1]).toEqual(submitted[0]);
+});
