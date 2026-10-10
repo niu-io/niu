@@ -43,9 +43,19 @@ A real owner-funded OpenRouter Chat stream also completed after the refactor.
 Reported token totals and categories matched saved evidence, the original
 credential identity remained unchanged, and no customer balance entry was added.
 
+A subsequent actual policy race exercised the denial commit separately. A new
+zero-balance company used explicitly zero customer and route rates and a zero
+procurement budget, with an unconfigured credential. After the request read its
+initial policy, a workspace row lock paused it at tariff binding. The management
+API activated a deny-all model policy before the lock was released. The request
+returned 409. Independent PostgreSQL reads found one durable `not_sent` attempt,
+null dispatch time and an `access_denied` audit, with no procurement reservation
+or customer balance entry. This verifies denial auditing after a concurrent
+policy change; zero rates are not evidence of commercial charging or supply.
+Temporary keys were revoked and mappings disabled.
+
 All-target Clippy, release compilation, formatting and public-tree boundary
 checks completed. No fixture outcome is evidence for this checkpoint. Successful
-priced dispatch, prepaid debit and release, durable Guardrails rejection under
-this new entry point, lost acknowledgement after commit, and concurrent financial
-recovery still require independent current-input verification. This does not
+priced dispatch, prepaid debit and release, lost acknowledgement after commit,
+and concurrent financial recovery still require independent current-input verification. This does not
 qualify the complete billing workflow or performance.
