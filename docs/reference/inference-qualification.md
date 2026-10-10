@@ -194,3 +194,26 @@ The built JavaScript SDK then completed a separate real Responses stream through
 its returned usage to PostgreSQL. A real Chat stream through the shared stream
 lifecycle also retained exact usage/category records after this change. Temporary
 access was disabled and customer ledgers stayed unchanged for both runs.
+
+### Current-input Responses cancellation and restart
+
+Using the built JavaScript SDK, a real owner-funded Responses stream requested
+bounded counting output and exited its async iterator immediately after the first
+text delta, before any terminal event. Independent database inspection recorded
+one dispatched attempt with `may_have_executed`, unknown usage, null token totals
+and no token-category row. With the temporary key limited to one concurrent
+request, its next Responses request returned `key_concurrency_exceeded` before
+another upstream dispatch. The unknown attempt was not automatically released or
+replayed. The timing record separately retained HTTP 200, an observed first output
+and incomplete delivery; successful response headers do not prove completion.
+
+After revoking the verification key and disabling its personal model/credential,
+the optimized gateway was restarted against the same database. The original
+attempt identity, execution/usage states, token totals, dispatch and completion
+timestamps were unchanged. No customer ledger entry was created and the original
+credential's revision/ciphertext digest remained unchanged. This verifies one
+actual early SDK cancellation and preservation across restart. It does not prove
+upstream cancellation, recover missing usage, settle a customer-funded request or
+qualify arbitrary disconnect timing. An unknown outcome continues to occupy its
+key concurrency allowance until authoritative resolution; revocation is access
+cleanup, not evidence that upstream execution never occurred.
