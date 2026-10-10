@@ -1,9 +1,9 @@
 import { it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import KeyLimitHistory from '@/features/keys/components/KeyLimitHistory';
+import KeyPolicyHistory from '@/features/keys/components/KeyPolicyHistory';
 const row=(revision:string,value:number|null=10)=>({revision,requests_per_minute:value,actor_name:'Workspace owner',actor_kind:'member',recorded_at:'2026-10-10T08:00:00Z'});
-function mount(){render(<KeyLimitHistory token="reader" endpoint="/key/request-rate-limit" label="Requests per minute" field="requests_per_minute"/>);return userEvent.setup();}
+function mount(){render(<KeyPolicyHistory token="reader" endpoint="/key/request-rate-limit" label="Requests per minute" field="requests_per_minute"/>);return userEvent.setup();}
 it('uses an exact descending cursor and retains rows when an older page fails',async()=>{
   const rows=Array.from({length:20},(_,i)=>row(String(9007199254741015n-BigInt(i))));let tries=0;
   const fetcher=vi.fn(async(input:RequestInfo|URL)=>String(input).includes('before_revision') ? ++tries===1 ? Response.json({error:{message:'Temporary failure'}},{status:503}) : Response.json({data:[row('9007199254740995',null)]}) : Response.json({data:rows}));
@@ -25,4 +25,9 @@ it('aborts history on close and ignores a late result',async()=>{
   let resolve!:(value:Response)=>void;let signal:AbortSignal|undefined;
   vi.stubGlobal('fetch',vi.fn((_input:RequestInfo|URL,init?:RequestInit)=>{signal=init?.signal as AbortSignal;return new Promise<Response>(r=>{resolve=r;});}));
   const user=mount();await user.click(screen.getByRole('button',{name:'Requests per minute history'}));await screen.findByText('Loading limit history…');await user.keyboard('{Escape}');expect(signal?.aborted).toBe(true);resolve(Response.json({data:[row('1')]}));await waitFor(()=>expect(screen.queryByText('Workspace owner')).toBeNull());
+});
+
+it('distinguishes unrestricted, blocked and listed source policy history',async()=>{
+  vi.stubGlobal('fetch',vi.fn(async()=>Response.json({data:[{revision:'3',allowed_cidrs:null,actor_name:'Owner',recorded_at:'2026-10-10T08:00:00Z'},{revision:'2',allowed_cidrs:[],actor_name:'Owner',recorded_at:'2026-10-10T08:00:00Z'},{revision:'1',allowed_cidrs:['2001:db8::/32'],actor_name:'Owner',recorded_at:'2026-10-10T08:00:00Z'}]})));
+  render(<KeyPolicyHistory token="reader" endpoint="/key/ip-policy" label="Source IP access" field="allowed_cidrs"/>);const user=userEvent.setup();await user.click(screen.getByRole('button',{name:'Source IP access history'}));await screen.findByText('Allow all sources');expect(screen.getByText('Block all sources')).toBeTruthy();expect(screen.getByText('2001:db8::/32')).toBeTruthy();
 });

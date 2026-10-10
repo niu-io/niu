@@ -204,3 +204,30 @@ rendered qualification.
   empty history, non-descending response rejection and close-time cancellation.
   Actual multi-page histories, ordinary-role browser qualification, IP policy,
   spending limits and token usage-window integration remain open.
+
+## Source IP access frontend increment — 2026-10-10
+
+- Added a key-scoped Source IP access summary, editor and read-only history.
+  The existing key policy form/dialog and history patterns were retained;
+  Stitch reviewed the increment in the NIU.IO project. The official OpenAI
+  allowlist guide informed IP/CIDR semantics; authenticated upstream settings
+  were not inspected or claimed as a visually copied reference.
+- Choice menus use installed DropdownMenu radio items directly. Allow all sends
+  explicit null, Block all sends an empty array, and Allow listed requires at
+  least one entry with the documented 64-entry/64-character bounds. Backend
+  address validation errors retain the draft. Saving re-reads normalized saved
+  networks. Conflict protection survives closing/reopening until Reload policy.
+- The shared exact-cursor history composition now handles source policies as
+  well as numeric limits. It shows network values, names and dates without
+  displaying revision identifiers; unrestricted and blocked policies remain
+  distinct. The component was renamed KeyPolicyHistory to match this scope.
+- Actual Demo key read showed Allow all sources and no recorded source policy
+  changes. Desktop and measured 390×844 mode menus were opened and inspected;
+  listed IPv4/IPv6 drafts, Block all guidance, cancellation/reopening and genuine
+  empty history worked without page overflow. Drafts were cancelled and the
+  viewport reset. Existing key IP permissions were not modified.
+- All 45 API-key tests and TypeScript checking passed. Tests cover explicit
+  null/empty/list writes, normalized reads, conflict reload, failed read retry,
+  retained server validation errors, entry bounds, viewer controls and source
+  history semantics. Actual isolated browser save/enforcement and ordinary-role
+  authorization remain unqualified; these are not implied by component checks.

@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { keyRequest, KeyRequestError } from '../api';
-import KeyLimitHistory from './KeyLimitHistory';
+import KeyPolicyHistory from './KeyPolicyHistory';
 import type { KeyRequestRateLimit, KeyConcurrencyLimit, KeyTokenRateLimit } from '../../../../../../sdks/javascript/src/admin';
 
 type Policy = KeyRequestRateLimit | KeyConcurrencyLimit | KeyTokenRateLimit;
@@ -73,7 +73,7 @@ function LimitPolicy({ token, endpoint, definition, canWrite }: { token: string;
   }
   return <div className="py-4 first:pt-0 last:pb-0">
     <div className="flex flex-wrap items-center justify-between gap-3"><div className="min-w-0"><h3 className="text-sm font-medium">{definition.label}</h3><p className="mt-1 text-sm text-muted-foreground">{loading ? 'Loading…' : error ? 'Unavailable' : policy ? valueOf(policy, definition.field) === null ? 'Unlimited' : valueOf(policy, definition.field) === 0 ? '0 · New requests blocked' : valueOf(policy, definition.field)?.toLocaleString() : 'Unavailable'}</p></div>
-    <div className="flex flex-wrap items-center gap-1"><KeyLimitHistory token={token} endpoint={endpoint} label={definition.label} field={definition.field} />
+    <div className="flex flex-wrap items-center gap-1"><KeyPolicyHistory token={token} endpoint={endpoint} label={definition.label} field={definition.field} />
     {!loading && !error && policy && canWrite && <Button variant="outline" aria-label={`Edit ${definition.label.toLowerCase()}`} onClick={() => {setDraft(valueOf(policy, definition.field) === null ? '' : String(valueOf(policy, definition.field)));if (!conflict) setEditError('');setNotice('');setOpen(true);}}>Edit</Button>}
     {error && <Button variant="outline" aria-label={`Retry ${definition.label.toLowerCase()}`} onClick={() => setReload(value => value + 1)}>Retry</Button>}</div></div>
     {error && <p role="alert" className="mt-2 text-sm text-destructive">{error}</p>}

@@ -13,6 +13,7 @@ import { keyRequest, KeyRequestError, keyStatus, keyLastUsed, projectKeyPath, wo
 import GatewayActivity from '@/features/executions/components/GatewayActivity';
 import KeyGuardrails from './KeyGuardrails';
 import KeyLimits from './KeyLimits';
+import KeySourceAccess from './KeySourceAccess';
 
 type Scope = { organizationId: string; projectId: string };
 
@@ -147,6 +148,7 @@ export default function KeyDetailView({ token, models, canWrite, initialScope }:
         active={!key.revoked && !key.expired}
       />}
       {initialScope && <KeyLimits token={token} endpoint={`${collectionPath}/${encodeURIComponent(key.id)}`} canWrite={canWrite} active={!key.revoked && !key.expired} />}
+      {initialScope && <KeySourceAccess key={`${token}:${key.id}:source`} token={token} endpoint={`${collectionPath}/${encodeURIComponent(key.id)}/ip-policy`} canWrite={canWrite} active={!key.revoked && !key.expired} />}
       {initialScope && <GatewayActivity
         key={`${token}:${key.id}`}
         compact
