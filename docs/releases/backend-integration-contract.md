@@ -207,3 +207,12 @@ envelopes confirmed the original secret survived the blank update and restart,
 and the replacement was saved exactly. Three accepted writes produced three
 audit events and no balance entries. Existing merchant configuration was not
 modified; no external checkout or merchant activation is implied.
+
+A separate current-input run used two gateway processes sharing the isolated
+native database. Concurrent EPay updates submitted the same revision with
+different merchant labels and blank keys. Exactly one returned 200 and one 409;
+the database added only one revision and audit event. Independent decryption
+matched the accepted merchant label and retained the prior secret. Restart
+preserved the accepted revision, with no balance entries. On 409, reload the
+configuration and let the caller resolve the edit; do not blindly replay it
+with a newer revision.
