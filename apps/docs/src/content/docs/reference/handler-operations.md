@@ -4206,14 +4206,24 @@ Content type: `application/json`.
           "type": "object",
           "description": "Explicitly reported token subsets over the full filtered snapshot. Sums cover reported requests only; null means no observations. Missing category data is never inferred as zero, and no category-specific billing rate is implied.",
           "required": [
+            "cache_write_input_tokens",
             "cached_input_tokens",
+            "cache_write_input_requests",
             "cached_input_requests",
+            "cache_write_input_unknown_requests",
             "cached_input_unknown_requests",
             "reasoning_output_tokens",
             "reasoning_output_requests",
             "reasoning_output_unknown_requests"
           ],
           "properties": {
+            "cache_write_input_tokens": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9]+$"
+            },
             "cached_input_tokens": {
               "type": [
                 "string",
@@ -4221,7 +4231,15 @@ Content type: `application/json`.
               ],
               "pattern": "^[0-9]+$"
             },
+            "cache_write_input_requests": {
+              "type": "integer",
+              "minimum": 0
+            },
             "cached_input_requests": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "cache_write_input_unknown_requests": {
               "type": "integer",
               "minimum": 0
             },
@@ -14358,6 +14376,14 @@ Local `#/components/schemas/…` references resolve to these definitions.
       ],
       "pattern": "^[0-9]+$"
     },
+    "cache_write_input_tokens": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$",
+      "description": "Explicitly reported subset of prompt tokens. Null means unknown."
+    },
     "cached_input_tokens": {
       "type": [
         "string",
@@ -14561,6 +14587,7 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "duration_ms",
     "prompt_tokens",
     "completion_tokens",
+    "cache_write_input_tokens",
     "cached_input_tokens",
     "reasoning_output_tokens",
     "customer_charge_nanos",
@@ -14698,6 +14725,13 @@ Local `#/components/schemas/…` references resolve to these definitions.
       "pattern": "^[0-9]+$"
     },
     "completion_tokens": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$"
+    },
+    "cache_write_input_tokens": {
       "type": [
         "string",
         "null"

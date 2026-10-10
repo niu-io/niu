@@ -47,6 +47,7 @@ pub struct GatewayActivityEntry {
     pub prompt_tokens: Option<String>,
     pub completion_tokens: Option<String>,
     pub cached_input_tokens: Option<String>,
+    pub cache_write_input_tokens: Option<String>,
     pub reasoning_output_tokens: Option<String>,
     pub finish_reasons: Option<sqlx::types::Json<Vec<crate::RequestChoiceFinish>>>,
     pub failure: Option<sqlx::types::Json<crate::RequestFailure>>,
@@ -135,6 +136,7 @@ pub struct GatewayActivityExportEntry {
     pub total_ms: Option<i64>,
     pub timing_complete: Option<bool>,
     pub cached_input_tokens: Option<String>,
+    pub cache_write_input_tokens: Option<String>,
     pub reasoning_output_tokens: Option<String>,
     pub finish_reasons: Option<sqlx::types::Json<Vec<crate::RequestChoiceFinish>>>,
     pub failure: Option<sqlx::types::Json<crate::RequestFailure>>,
@@ -341,6 +343,7 @@ impl Store {
                ELSE 'unpriced' END AS customer_charge_status, \
              c.currency AS customer_charge_currency, c.amount_nanos::text AS customer_charge_nanos, \
              t.total_ms, t.complete AS timing_complete, \
+             (SELECT cache_write_input_tokens::text FROM request_token_categories WHERE attempt_id=a.id) AS cache_write_input_tokens, \
              (SELECT cached_input_tokens::text FROM request_token_categories WHERE attempt_id=a.id) AS cached_input_tokens, \
              (SELECT reasoning_output_tokens::text FROM request_token_categories WHERE attempt_id=a.id) AS reasoning_output_tokens, \
              (SELECT choices FROM request_finish_reasons WHERE attempt_id=a.id) AS finish_reasons, \
@@ -406,6 +409,7 @@ impl Store {
              CASE WHEN a.dispatched_at IS NULL OR a.completed_at IS NULL THEN NULL ELSE GREATEST(0, round(extract(epoch FROM (a.completed_at - a.dispatched_at)) * 1000))::bigint END AS duration_ms, \
              (SELECT jsonb_build_object('dispatch_ms',t.dispatch_ms,'headers_ms',t.headers_ms,'first_output_ms',t.first_output_ms,'total_ms',t.total_ms,'complete',t.complete,'http_status',t.http_status) FROM request_timings t WHERE t.attempt_id=a.id) AS timing, \
              a.execution, a.usage_confidence, a.prompt_tokens::text AS prompt_tokens, a.completion_tokens::text AS completion_tokens, \
+             (SELECT cache_write_input_tokens::text FROM request_token_categories WHERE attempt_id=a.id) AS cache_write_input_tokens, \
              (SELECT cached_input_tokens::text FROM request_token_categories WHERE attempt_id=a.id) AS cached_input_tokens, \
              (SELECT reasoning_output_tokens::text FROM request_token_categories WHERE attempt_id=a.id) AS reasoning_output_tokens, \
              (SELECT choices FROM request_finish_reasons WHERE attempt_id=a.id) AS finish_reasons, \
@@ -599,6 +603,9 @@ impl Store {
         let delivery_statuses = delivery.build_query_as().fetch_all(&mut *snapshot).await?;
         let mut categories = QueryBuilder::new(
             "SELECT jsonb_build_object( \
+             'cache_write_input_tokens',SUM(details.cache_write_input_tokens::numeric)::text, \
+             'cache_write_input_requests',COUNT(details.cache_write_input_tokens), \
+             'cache_write_input_unknown_requests',COUNT(*)-COUNT(details.cache_write_input_tokens), \
              'cached_input_tokens',SUM(details.cached_input_tokens::numeric)::text, \
              'cached_input_requests',COUNT(details.cached_input_tokens), \
              'cached_input_unknown_requests',COUNT(*)-COUNT(details.cached_input_tokens), \

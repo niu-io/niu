@@ -173,3 +173,20 @@ charges/debits, historical invoice rates and exported amounts. Persisted dispatc
 headers and total times were ordered and nonnegative, with HTTP 200 and complete
 body timing; CSV durations matched those records. This verifies the observed
 nonstreaming delivery path, not streaming TTFT, cancellation or native streaming.
+
+### Cache-write reporting contract
+
+Request list/detail responses now expose nullable `cache_write_input_tokens`.
+The full-range summary adds its observed sum, observed request count and unknown
+request count. CSV adds `Cache-write input tokens`, leaving unknown values empty.
+These are provider-reported quantities, not Supplier prices or inferred charges.
+The SDK and generated handler OpenAPI describe the same fields.
+
+Current HTTP reads against retained actual cache-write/read requests matched their
+independently reopened database records, including a nonzero write and an explicit
+zero. The sum and observation counts covered both requests, and viewer/foreign-scope
+checks continued to hold. A separate retained actual Chat response lacking the
+category returned null, zero observations and one unknown; its CSV cell stayed
+empty before and after restart. Independent reopening again confirmed no invented
+charge and a retained unresolved reservation. These reporting checks reused actual
+response artifacts; they did not send another upstream inference request.

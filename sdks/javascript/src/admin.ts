@@ -414,6 +414,7 @@ export type GatewayActivityEntry = {
   usage_confidence: string;
   prompt_tokens: string | null;
   completion_tokens: string | null;
+  cache_write_input_tokens: string | null;
   cached_input_tokens: string | null;
   reasoning_output_tokens: string | null;
   /** Explicit terminal observations; Chat choice indexes, or index zero for a
@@ -448,6 +449,7 @@ export type GatewayUsageSummary = {
 export type GatewayActivitySummary = {
   /** Reported subsets only; coverage counts prevent treating partial sums as complete totals. */
   token_categories: {
+    cache_write_input_tokens: string | null; cache_write_input_requests: number; cache_write_input_unknown_requests: number;
     cached_input_tokens: string | null; cached_input_requests: number; cached_input_unknown_requests: number;
     reasoning_output_tokens: string | null; reasoning_output_requests: number; reasoning_output_unknown_requests: number;
   };

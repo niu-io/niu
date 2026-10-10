@@ -2106,6 +2106,7 @@ pub(super) fn gateway_activity_filter(
 ///         "duration_ms",
 ///         "prompt_tokens",
 ///         "completion_tokens",
+///         "cache_write_input_tokens",
 ///         "cached_input_tokens",
 ///         "reasoning_output_tokens",
 ///         "customer_charge_nanos",
@@ -2220,6 +2221,13 @@ pub(super) fn gateway_activity_filter(
 ///           "pattern": "^[0-9]+$"
 ///         },
 ///         "completion_tokens": {
+///           "type": [
+///             "string",
+///             "null"
+///           ],
+///           "pattern": "^[0-9]+$"
+///         },
+///         "cache_write_input_tokens": {
 ///           "type": [
 ///             "string",
 ///             "null"
@@ -2915,14 +2923,24 @@ pub async fn gateway_request(
 ///                       "type": "object",
 ///                       "description": "Explicitly reported token subsets over the full filtered snapshot. Sums cover reported requests only; null means no observations. Missing category data is never inferred as zero, and no category-specific billing rate is implied.",
 ///                       "required": [
+///                         "cache_write_input_tokens",
 ///                         "cached_input_tokens",
+///                         "cache_write_input_requests",
 ///                         "cached_input_requests",
+///                         "cache_write_input_unknown_requests",
 ///                         "cached_input_unknown_requests",
 ///                         "reasoning_output_tokens",
 ///                         "reasoning_output_requests",
 ///                         "reasoning_output_unknown_requests"
 ///                       ],
 ///                       "properties": {
+///                         "cache_write_input_tokens": {
+///                           "type": [
+///                             "string",
+///                             "null"
+///                           ],
+///                           "pattern": "^[0-9]+$"
+///                         },
 ///                         "cached_input_tokens": {
 ///                           "type": [
 ///                             "string",
@@ -2930,7 +2948,15 @@ pub async fn gateway_request(
 ///                           ],
 ///                           "pattern": "^[0-9]+$"
 ///                         },
+///                         "cache_write_input_requests": {
+///                           "type": "integer",
+///                           "minimum": 0
+///                         },
 ///                         "cached_input_requests": {
+///                           "type": "integer",
+///                           "minimum": 0
+///                         },
+///                         "cache_write_input_unknown_requests": {
 ///                           "type": "integer",
 ///                           "minimum": 0
 ///                         },
@@ -3208,6 +3234,14 @@ pub async fn gateway_request(
 ///             "null"
 ///           ],
 ///           "pattern": "^[0-9]+$"
+///         },
+///         "cache_write_input_tokens": {
+///           "type": [
+///             "string",
+///             "null"
+///           ],
+///           "pattern": "^[0-9]+$",
+///           "description": "Explicitly reported subset of prompt tokens. Null means unknown."
 ///         },
 ///         "cached_input_tokens": {
 ///           "type": [
