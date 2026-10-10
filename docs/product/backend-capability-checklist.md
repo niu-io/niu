@@ -59,6 +59,40 @@ releases must retain one historical key/budget attribution through rotation and
 recovery. Settled liabilities are recorded accurately even when actual reported
 usage exceeds the pre-dispatch bound; an overrun must not become hidden free work.
 
+## Financial capability inventory
+
+Source locations identify implemented mechanisms, not completed acceptance.
+The current-input [financial checkpoint](../releases/financial-authorization-live-2026-10-09.md)
+qualifies its explicitly documented authorization and policy subsets only.
+
+| Capability | Implementation boundary | Required independent acceptance evidence |
+| --- | --- | --- |
+| Supported payment list | Payment adapters expose availability and supported methods; external refunds are not supported | Inventory matches configured adapters and disabled/unavailable states; each advertised callback contract is checked separately from merchant activation |
+| Checkout identity and recovery | Saved orders, idempotency keys, creation claims, provider bindings and reconciliation exist in `payments.rs` | Retried and concurrent checkout creates one order; restart recovers the same pending order without a second charge |
+| Settled funding | Installation-only receipt recording and verified adapter settlement exist | Real settlement evidence corresponds to exactly one receipt and ledger credit; repeated receipt is idempotent; changed amount/currency/company is rejected |
+| Credit versus cash | Revisioned approved credit is separate from posted funding; empty-account configuration has actual evidence | Admission respects credit plus posted funds minus holds; a credit change never creates a payment or funding receipt |
+| Customer price history | Immutable text tariffs and media selling schedules are separate from Supplier rates | A completed request reproduces its customer charge from the pinned effective tariff after subsequent price changes |
+| Pre-dispatch reservation | Balance reservation and workspace/key spending checks exist | Concurrent real requests cannot spend the same capacity; denial occurs before upstream dispatch and records no customer charge |
+| Shared-company balance | Accounts belong to the company; workspace and key caps constrain their own usage | Competing workspaces share funds without sharing their limits; currency accounts never implicitly convert or net balances |
+| Final debit | Text and media charge accrual have separate implementations | Reported usage, historical tariff, exact charge, ledger debit and released hold agree; replay and restart do not duplicate debit |
+| Uncertain execution | Unresolved liabilities are retained; nonexecution release recovery exists | Disconnect, timeout and restart preserve uncertain holds; only evidenced nonexecution or completed settlement releases the appropriate amount |
+| Usage beyond reservation | Financial hierarchy requires accurate settled liability | Actual overrun remains visible in charge and cap accounting; it cannot be silently discarded or reported as free consumption |
+| Internal charge refund | Installation-only balance reversal links to the original charge; this does not execute an external refund | Partial/full concurrent refunds cannot exceed the original debit; idempotent replay is exact and key/workspace commitment is reduced once |
+| Funding reversal | Original funding entries support bounded linked reversals | Reversal cannot exceed received funds; resulting debt and remaining capacity are explicit; existing liabilities remain recorded |
+| Statements and invoices | Ledger keyset pagination, charge reporting, invoice issuance and invoice payment records exist | All pages reconcile to independent ledger sums; invoices and invoice-payment records do not double-fund prepaid balance or replace its ledger |
+| Financial authorization | Installation financial writes and scoped reads have partial actual evidence | Foreign scopes cannot read or mutate funds; customer responses/exports never disclose Supplier expenses, purchase rates or margins |
+| Reconciliation and recovery | Charge/release recovery and payment reconciliation mechanisms exist | Restart after each durable boundary converges to one financial result, with unresolved cases visible and no invented completion |
+
+The principal implementation sources are `apps/gateway/src/billing.rs`,
+`apps/gateway/src/payments.rs`, `crates/storage/src/billing.rs`,
+`crates/storage/src/key_spending.rs` and `crates/storage/src/media_pricing.rs`.
+Successful paid admission, debit, refund and reconciliation remain unverified in
+this current-input workstream. Owner-funded personal inference does not exercise
+these branches. Neither an approved credit configuration nor a fabricated settled
+receipt closes those gaps. External merchant activation is not an internal
+readiness prerequisite; truthful settlement evidence is still required to claim
+an actual payment or funded end-to-end result.
+
 ## Required workflow checks
 
 For each control, cover authorized configuration, unauthorized writes, stale
