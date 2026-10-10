@@ -37,5 +37,21 @@ The stored request showed redacted text and the unchanged cache marker; invalid
 cache metadata was rejected before any attempt existed. Independent reopening
 verified saved response hashes, exact category quantities, aggregate-token charges,
 matching debits, and released reservations. Served documentation matched the new
-OpenAPI contract. One-hour caching remains unverified. These observations do not
+OpenAPI contract. A separate request with a one-hour TTL is recorded below. These observations do not
 implement a separate cache-write price or claim a commercial Supplier offer.
+
+
+## One-hour metadata request and native refresh
+
+A fresh actual request using `ttl: "1h"` reported 5,297 cache creation tokens;
+a repeated request after Gateway restart reported 5,297 cache read tokens.
+Independent reopening verified the response hashes, category quantities, exact
+aggregate charges/debits, and released holds. Redaction preserved the one-hour
+metadata in the retained request. This checks acceptance and immediate reuse of
+the requested TTL; it does not measure retention over an elapsed hour or verify
+the upstream's separate TTL-specific charges.
+
+The existing native runtime applied migration 0245 after a private backup with
+archive inventory inspection. Configuration hashes, encrypted credential identities
+and revisions, and organization, workspace, media-job, and financial-entry counts
+were preserved. Backup restoration was not exercised.
