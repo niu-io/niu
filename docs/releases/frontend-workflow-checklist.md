@@ -292,3 +292,25 @@ rendered qualification.
   paid-request cap enforcement, nonzero commitment UI, ordinary-role authorization
   and multi-page monetary history remain unqualified. Token usage-window frontend
   integration and the other release workflows remain open.
+
+### Supplier generated-contract review (2026-10-10)
+
+- Reviewed the newly generated Supplier credential and model-binding contracts
+  against frontend writes. Model edits omit procurement pricing, preserving the
+  saved value; creation sends explicit null, and updates carry the saved integer
+  revision. Procurement prices remain separate from customer selling tariffs.
+- Corrected the Supplier integration-test API to preserve omitted pricing instead
+  of silently clearing it. Added a regression exercising capability editing on an
+  already priced mapping, its saved revision and subsequent read. All 18 tests in
+  the Supplier integration and model-list suites and dashboard TypeScript passed.
+- Inspected the actual local OpenRouter Supplier's 25 routes, alias filtering and
+  model editor at desktop and 390×844. A changed upstream-ID draft was cancelled;
+  reopening restored the saved upstream ID. The editor scrolls at narrow width.
+  No model write, credential change, inference or payment occurred in this review.
+- The local documentation site renders the new model-binding chapter and its
+  authentication, parameters and schema references. Root OpenAPI entrypoint
+  checking passed for 76 registered paths and 56 generated methods. This remains
+  an annotated subset, not a complete generated reference.
+- This increment does not qualify real procurement-price writes, stale-revision
+  recovery, multiple upstream accounts, commercial supply or video execution.
+  Those remain part of the full Supplier and Generations acceptance work.
