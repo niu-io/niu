@@ -58,3 +58,17 @@ found exactly two tariffs and two revisions, each attached to the correct
 company/workspace, with the grant removed. No attempts, customer charges, balance
 entries or reservations were created. This checks configuration scope and
 revocation, not cross-company inference or the browser price editor.
+
+### Concurrent publication conflict
+
+A fresh native run submitted eight simultaneous actual HTTP tariff writes using
+the same expected revision and distinct proposed prompt rates. Exactly one
+returned HTTP 200; the other seven returned HTTP 409. Restart retained the
+winning revision, and another write with the stale original revision also
+returned HTTP 409.
+
+Independent reopening found one tariff and exactly two immutable revisions:
+the unchanged original rate and the winning rate, with the current pointer on
+the winner. There were no inference attempts, charges, balance entries or
+reservations. This checks concurrent optimistic publication on one gateway;
+it does not qualify multi-gateway contention or concurrent inference repricing.
