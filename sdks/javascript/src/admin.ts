@@ -162,6 +162,7 @@ export type CustomerBalanceTransaction = {
   id: string; kind: 'funding' | 'charge' | 'refund' | 'funding_reversal' | 'adjustment';
   currency: string; amount_nanos: string; created_at: string; reverses_entry_id: string | null;
 };
+export type CustomerInvoicePage = { data: CustomerBilling['invoices']; next_cursor: string | null };
 export type CustomerBilling = {
   balances: Array<{ currency: string; charged_nanos: string; unbilled_nanos: string; due_nanos: string; paid_nanos: string }>;
   unresolved: string; unpriced: string; tariffs: CustomerTariff[];
@@ -180,7 +181,8 @@ export type SupplierOfferRevision = {
 /** Payment-record metadata only; never contains customer or request identities. */
 export type SupplierSettlement = { id: string; currency: string; amount_nanos: string; payment_reference: string; created_at: string };
 export type SupplierSettlementPage = { data: SupplierSettlement[]; next_cursor: string | null };
-export type SupplierSettlementQuery = { before?: string; currency?: string; fromMs?: number; toMs?: number; limit?: number };
+export type SupplierSettlementQuery = LedgerHistoryQuery;
+export type LedgerHistoryQuery = { before?: string; currency?: string; fromMs?: number; toMs?: number; limit?: number };
 /** Supplier procurement history, never customer workspace billing data. */
 export type SupplierOfferHistory = {
   current_revision: string | null;
@@ -744,16 +746,7 @@ export class NiuAdminClient {
 
   /** All-time Supplier payment history; keep filters fixed while following next_cursor. */
   listSupplierSettlements(supplierId: string, page: SupplierSettlementQuery = {}, options?: RequestOptions): Promise<SupplierSettlementPage> {
-    if (page.limit !== undefined && (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100)) throw new TypeError('Choose a settlement page size from 1 to 100');
-    if (page.currency !== undefined && !/^[A-Z]{3}$/.test(page.currency)) throw new TypeError('Currency must be three uppercase letters');
-    const query = new URLSearchParams();
-    if (page.before !== undefined) query.set('before', uuid(page.before));
-    if (page.currency !== undefined) query.set('currency', page.currency);
-    if (page.limit !== undefined) query.set('limit', String(page.limit));
-    for (const value of [page.fromMs, page.toMs]) if (value !== undefined && (!Number.isSafeInteger(value) || value < 0 || value > 253402300799999)) throw new TypeError('Invalid settlement time bound');
-    if (page.fromMs !== undefined && page.toMs !== undefined && page.fromMs >= page.toMs) throw new TypeError('Settlement range requires fromMs before toMs');
-    if (page.fromMs !== undefined) query.set('from_ms', String(page.fromMs));
-    if (page.toMs !== undefined) query.set('to_ms', String(page.toMs));
+    const query = ledgerHistoryQuery(page);
     return this.request(`/providers/${uuid(supplierId)}/settlements${query.size ? `?${query}` : ''}`, undefined, options);
   }
 
@@ -983,6 +976,12 @@ export class NiuAdminClient {
     if (!revision || revision.trim() !== revision || revision.length > 256 || /[\x00-\x1f\x7f/]/.test(revision)) throw new TypeError('Choose a valid media selling revision');
     if (!Number.isSafeInteger(effectiveUntil)) throw new TypeError('Retirement time must be exact Unix seconds');
     return this.request(`/organizations/${uuid(organizationId)}/billing/media-rates/${encodeURIComponent(revision)}/retire`, { effective_until: effectiveUntil }, options);
+  }
+
+  /** Full customer-only invoice history; existing balance debits count as settlement. */
+  listCustomerInvoices(scope: TenantScope, page: LedgerHistoryQuery = {}, options?: RequestOptions): Promise<CustomerInvoicePage> {
+    const query = ledgerHistoryQuery(page);
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/billing/invoices${query.size ? `?${query}` : ''}`, undefined, options);
   }
 
   /** Installation-only invoice closure. Preserve the caller's idempotency key on manual replay. */
@@ -1895,4 +1894,18 @@ function customerMediaRateBody(input: CustomerMediaRateCard): CustomerMediaRateC
       tariff: input.tariff, discounts: input.discounts, maximum_quantity: input.maximum_quantity,
       liability_qualification_revision: input.liability_qualification_revision,
     };
+}
+
+function ledgerHistoryQuery(page: LedgerHistoryQuery): URLSearchParams {
+    if (page.limit !== undefined && (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100)) throw new TypeError('Choose a ledger history page size from 1 to 100');
+    if (page.currency !== undefined && !/^[A-Z]{3}$/.test(page.currency)) throw new TypeError('Currency must be three uppercase letters');
+    const query = new URLSearchParams();
+    if (page.before !== undefined) query.set('before', uuid(page.before));
+    if (page.currency !== undefined) query.set('currency', page.currency);
+    if (page.limit !== undefined) query.set('limit', String(page.limit));
+    for (const value of [page.fromMs, page.toMs]) if (value !== undefined && (!Number.isSafeInteger(value) || value < 0 || value > 253402300799999)) throw new TypeError('Invalid ledger history time bound');
+    if (page.fromMs !== undefined && page.toMs !== undefined && page.fromMs >= page.toMs) throw new TypeError('History range requires fromMs before toMs');
+    if (page.fromMs !== undefined) query.set('from_ms', String(page.fromMs));
+    if (page.toMs !== undefined) query.set('to_ms', String(page.toMs));
+    return query;
 }

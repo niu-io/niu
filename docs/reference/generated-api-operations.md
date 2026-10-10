@@ -4100,6 +4100,201 @@ HTTP 401: Administrator authentication required.
 
 HTTP 400: Invalid path or query parameter.
 
+## Page complete workspace customer invoice history
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/billing/invoices`
+
+Requires administrative read permission for this workspace. Returns customer billing only, with exact amount strings. Records are ordered by creation time then id descending. Posted customer balance debits, including approved-credit debits, settle the invoice; they are not a new unpaid invoice debt. Refunds do not reopen the original invoice obligation. Reads do not create payment receipts, move funds or disclose Supplier purchase prices. A cursor missing from this workspace or filter scope returns 409. Newer inserts do not shift later pages; separate reads are not a frozen snapshot. Cache-Control is no-store. Existing invoice issuance and line reads are unchanged.
+
+Implementation: `implemented`. Operation: `listCustomerInvoices`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`before` (query, optional)
+
+Prior next_cursor. Keep filters fixed across pages.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`currency` (query, optional)
+
+One currency; no conversion.
+
+```json
+{
+  "type": "string",
+  "pattern": "^[A-Z]{3}$"
+}
+```
+
+`from_ms` (query, optional)
+
+Inclusive invoice creation time, Unix milliseconds; not the billed usage interval.
+
+```json
+{
+  "type": "integer",
+  "format": "int64",
+  "minimum": 0,
+  "maximum": 253402300799999
+}
+```
+
+`to_ms` (query, optional)
+
+Exclusive invoice creation time; must follow from_ms.
+
+```json
+{
+  "type": "integer",
+  "format": "int64",
+  "minimum": 0,
+  "maximum": 253402300799999
+}
+```
+
+`limit` (query, optional)
+
+Maximum page size.
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Customer invoice page; null next_cursor marks the end.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "next_cursor"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "from_ms",
+          "to_ms",
+          "currency",
+          "amount_nanos",
+          "created_at",
+          "status",
+          "payment_reference"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "from_ms": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "to_ms": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "amount_nanos": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "issued",
+              "paid"
+            ]
+          },
+          "payment_reference": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "next_cursor": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid query.
+
+HTTP 401: Invalid administrative credential.
+
+HTTP 404: Workspace absent or inaccessible.
+
+HTTP 409: Cursor outside workspace or filters.
+
+HTTP 503: Storage unavailable.
+
 ## Read workspace customer charges, tariffs and latest 100 invoices
 
 `GET /admin/v1/organizations/{organization}/projects/{project}/billing`

@@ -108,7 +108,7 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/admin/v1/organizations/{organization}/projects/{project}/billing", get(crate::billing::overview))
         .route("/admin/v1/organizations/{organization}/projects/{project}/billing/tariffs/{model}/history", get(crate::billing::tariff_history))
         .route("/admin/v1/organizations/{organization}/projects/{project}/billing/tariffs", axum::routing::post(crate::billing::tariff))
-        .route("/admin/v1/organizations/{organization}/projects/{project}/billing/invoices", axum::routing::post(crate::billing::issue))
+        .route("/admin/v1/organizations/{organization}/projects/{project}/billing/invoices", get(crate::billing::invoice_history::list).post(crate::billing::issue))
         .route("/admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}", get(crate::billing::lines))
         .route("/admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}/payment", axum::routing::post(crate::billing::payment))
         .route("/admin/v1/provider-memberships", get(crate::providers::memberships))

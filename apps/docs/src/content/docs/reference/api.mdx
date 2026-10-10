@@ -799,3 +799,18 @@ stall beyond that window emits `request_diagnostics_shutdown_timeout`; forced
 termination or storage failure can still leave missing diagnostics. Missing
 content is not permission to retry an uncertain upstream operation. See the
 [actual shutdown verification and limits](https://github.com/niu-io/niu/blob/main/docs/reference/graceful-request-diagnostics.md).
+
+
+## Complete customer invoice history
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/billing/invoices`
+continues beyond the overview's latest 100 invoices. Use `limit` (1–100),
+`before`, `currency`, `from_ms` and `to_ms`, then follow `next_cursor` until null.
+These time filters describe invoice **creation time**; each returned invoice's
+`from_ms` / `to_ms` still describes its billed usage interval. The SDK provides
+`listCustomerInvoices` with shared `LedgerHistoryQuery` (`fromMs`, `toMs`).
+
+The endpoint enforces workspace read scope and returns customer amounts only.
+Posted balance debits settle invoices even when approved credit was used; they
+do not become another unpaid invoice debt. Reading history creates no payment.
+See [the contract and 152-invoice actual verification](https://github.com/niu-io/niu/blob/main/docs/reference/customer-invoice-history.md).

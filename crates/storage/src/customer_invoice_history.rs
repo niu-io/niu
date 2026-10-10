@@ -1,20 +1,18 @@
-//! Full Supplier payment history without customer or request-level information.
-use crate::{Store, StoreError};
+//! Customer invoice history; never reads Supplier purchase prices.
+use crate::{LedgerHistoryQuery, Store, StoreError, TenantScope};
 use serde_json::Value;
-use uuid::Uuid;
-
-pub type ProviderSettlementQuery = crate::LedgerHistoryQuery;
 
 impl Store {
-    pub async fn provider_settlement_history(
+    pub async fn customer_invoice_history(
         &self,
-        provider: Uuid,
-        query: &ProviderSettlementQuery,
+        scope: TenantScope,
+        query: &LedgerHistoryQuery,
     ) -> Result<Option<Value>, StoreError> {
         let limit = query.validated_limit()?;
         let result: Option<(bool, Value)> =
-            sqlx::query_as(include_str!("provider_settlement_history.sql"))
-                .bind(provider)
+            sqlx::query_as(include_str!("customer_invoice_history.sql"))
+                .bind(scope.organization_id)
+                .bind(scope.project_id)
                 .bind(query.before)
                 .bind(&query.currency)
                 .bind(query.from_ms)

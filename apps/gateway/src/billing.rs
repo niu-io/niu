@@ -1,5 +1,6 @@
 //! Customer billing. Text tariff and invoice writes remain installation-owned.
 //! Media pricing also accepts explicitly granted platform administrators.
+pub(crate) mod invoice_history;
 use crate::{error::ApiError, state::AppState};
 use axum::{
     Json,

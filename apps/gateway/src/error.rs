@@ -18,6 +18,9 @@ impl ApiError {
             niu_storage::StoreError::InvalidObservation => Self::invalid_request(
                 "Invalid execution record version, graph, identifiers or size",
             ),
+            niu_storage::StoreError::InvalidLedgerHistoryQuery => {
+                Self::invalid_request("Invalid ledger history filters, time range or page size")
+            }
             niu_storage::StoreError::InvalidSupplierHistoryQuery => {
                 Self::invalid_request("Invalid Supplier history filters, time range or page size")
             }

@@ -102,14 +102,17 @@ pub use vendors::{
     VendorInput, VendorModelInput, VendorModelView, VendorRoute, VendorUpdate, VendorView,
 };
 mod billing;
+mod customer_invoice_history;
 mod customer_tariff_history;
 mod key_concurrency;
 mod key_ip;
 mod key_request_rate;
 mod key_spending;
 mod key_token_rate;
+mod ledger_history;
 mod provider_offer_history;
 mod provider_settlement_history;
+pub use ledger_history::LedgerHistoryQuery;
 pub use provider_settlement_history::ProviderSettlementQuery;
 mod topups;
 mod vendor_cooldown;
@@ -282,6 +285,8 @@ pub enum StoreError {
     InvalidPrice,
     #[error("invalid Supplier history filters or page size")]
     InvalidSupplierHistoryQuery,
+    #[error("invalid ledger history filters or page size")]
+    InvalidLedgerHistoryQuery,
     #[error("budget has insufficient available funds")]
     BudgetExceeded,
     #[error("customer workspace spending limit exceeded")]
