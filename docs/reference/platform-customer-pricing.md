@@ -143,3 +143,19 @@ Independent reopening found precisely the four scoped tariffs/revisions, no
 attempts, charges, balance entries or reservations, and the platform grant
 removed. Large-directory performance, concurrent pagination edits and frontend
 editor acceptance remain unverified.
+
+### JavaScript SDK editing chain
+
+A separate fresh native run used the built JavaScript SDK over actual HTTP to
+discover both named targets and traverse all three current prices in the chosen
+workspace one row at a time. It published a replacement price while preserving
+the explicit cache rate, minimum and fixed fee. Repeating the old expected
+revision returned 409. Two one-row history pages returned the new revision and
+the original revision, with no further cursor. The same operator's customer
+history read still returned 404.
+
+Independent database reopening retained four tariffs and exactly five immutable
+revisions, with no inference or ledger mutations and the temporary platform
+grant removed. This exercises the SDK method paths and exact-value serialization
+against the native server, not just TypeScript compilation. It does not qualify
+the frontend editor or charge requests during that SDK update.
