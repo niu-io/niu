@@ -427,12 +427,13 @@ SELECT jsonb_build_object(
         ).bind(organization).fetch_all(&self.pool).await?)
     }
 
-    /// Customer catalog prices only; never joins Supplier offers or upstream costs.
+    /// Complete customer catalog prices; this compatibility map has no cursor.
+    /// Never joins Supplier offers or upstream costs.
     pub async fn customer_model_prices(
         &self,
         scope: TenantScope,
     ) -> Result<std::collections::BTreeMap<String, Value>, StoreError> {
-        let rows: Vec<(String, Value)> = sqlx::query_as("SELECT t.model_alias,jsonb_build_object('revision',r.id,'currency',r.currency,'unit','nanounits_per_million_tokens','prompt_rate',r.prompt_rate::text,'completion_rate',r.completion_rate::text,'cached_prompt_rate',r.cached_prompt_rate::text) FROM customer_tariffs t JOIN customer_tariff_revisions r ON r.id=t.current_revision WHERE t.organization_id=$1 AND t.project_id=$2 ORDER BY t.model_alias LIMIT 1000")
+        let rows: Vec<(String, Value)> = sqlx::query_as("SELECT t.model_alias,jsonb_build_object('revision',r.id,'currency',r.currency,'unit','nanounits_per_million_tokens','prompt_rate',r.prompt_rate::text,'completion_rate',r.completion_rate::text,'cached_prompt_rate',r.cached_prompt_rate::text) FROM customer_tariffs t JOIN customer_tariff_revisions r ON r.id=t.current_revision WHERE t.organization_id=$1 AND t.project_id=$2 ORDER BY t.model_alias")
             .bind(scope.organization_id).bind(scope.project_id).fetch_all(&self.pool).await?;
         Ok(rows.into_iter().collect())
     }
@@ -735,7 +736,7 @@ SELECT jsonb_build_object(
                 .bind(scope.project_id)
                 .fetch_one(&mut *tx)
                 .await?;
-        let tariffs:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('model_alias',t.model_alias,'revision',r.id,'currency',r.currency,'prompt_rate',r.prompt_rate::text,'completion_rate',r.completion_rate::text,'cached_prompt_rate',r.cached_prompt_rate::text) FROM customer_tariffs t JOIN customer_tariff_revisions r ON r.id=t.current_revision WHERE t.organization_id=$1 AND t.project_id=$2 ORDER BY t.model_alias LIMIT 1000").bind(scope.organization_id).bind(scope.project_id).fetch_all(&mut *tx).await?;
+        let tariffs:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('model_alias',t.model_alias,'revision',r.id,'currency',r.currency,'prompt_rate',r.prompt_rate::text,'completion_rate',r.completion_rate::text,'cached_prompt_rate',r.cached_prompt_rate::text) FROM customer_tariffs t JOIN customer_tariff_revisions r ON r.id=t.current_revision WHERE t.organization_id=$1 AND t.project_id=$2 ORDER BY t.model_alias").bind(scope.organization_id).bind(scope.project_id).fetch_all(&mut *tx).await?;
 
         tx.commit().await?;
         Ok(

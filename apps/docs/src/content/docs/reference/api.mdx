@@ -60,7 +60,7 @@ endpoint does not detect secrets deliberately included in prompt or file content
 
 ## Customer billing
 
-The [customer billing contract](https://github.com/niu-io/niu/blob/main/contracts/billing.openapi.yaml), included by the main OpenAPI document, covers workspace-authorized billing summaries and invoice line reads. Customer charges use explicit selling tariffs, independent from Supplier prices. Unpriced requests are not assumed free; unresolved charges remain unknown. Monetary amounts and aggregate counts are exact decimal integer strings.
+The [customer billing contract](https://github.com/niu-io/niu/blob/main/contracts/billing.openapi.yaml), included by the main OpenAPI document, covers workspace-authorized billing summaries and invoice line reads. Customer charges use explicit selling tariffs, independent from Supplier prices. Unpriced requests are not assumed free; unresolved charges remain unknown. Monetary amounts and aggregate counts are exact decimal integer strings. Workspace billing tariff lists and model-discovery customer prices include every matching saved tariff; they do not silently stop at 1,000 entries. These compatibility responses remain unpaginated, with memory use proportional to their size.
 
 Tariff publication, invoice creation and confirmed external-payment recording require installation authority. Invoice intervals use UTC dispatch timestamps with an inclusive `from_ms` and exclusive `to_ms`, bounded to 366 days. Preserve the caller's idempotency key when replaying the same invoice request. Overlapping periods, unresolved priced requests and changed replay parameters produce conflicts; clients must not retry these by inventing a new key.
 

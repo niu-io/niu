@@ -322,3 +322,19 @@ and calculated both charges from reported quantities.
 This verifies the exercised text overrun, company refusal, idempotent internal
 refund and restored admission. It does not qualify bank refunds, received-cash
 funding, customer-funded media overruns or simultaneous overrun settlement.
+
+## Complete customer tariff discovery
+
+A current-input native management run created 1,003 customer tariffs through HTTP.
+Independent SQL confirmed the saved count, while the prior binary's workspace
+billing overview returned only 1,000. Both the overview and model-price lookup
+used a silent storage row cap despite exposing no continuation cursor.
+
+The corrected reads return the complete matching tariff set. A fresh run returned
+all 1,003 in database alias order; an inference key's `/v1/models` response carried
+the same revision and exact input/output rates for every saved tariff. Both reads
+were unchanged after gateway restart. No inference attempt was created, isolated
+processes stopped and the original encrypted identity remained unchanged. The
+responses retain their existing unpaginated format and proportional memory use;
+this does not qualify arbitrary-size price directories or change pricing math.
+Minimum per-request text charges remain a separate unimplemented capability.
