@@ -884,3 +884,18 @@ upstream rejection and restart were verified; successful Google generation,
 output processing and settled billing remain unverified. Supplier credentials accept `adapter: "gemini"`; model mappings require
 `capabilities.supports_generate_content: true`. Discovery and checks use native
 Google authentication and bounded catalog reads. See the [implementation and verification boundary](https://github.com/niu-io/niu/blob/main/docs/architecture/native-inference-protocols.md#gemini-generatecontent-text).
+
+
+## Native Messages pricing
+
+`POST /v1/messages` supports bounded nonstreaming text on explicitly opted-in
+OpenRouter or Anthropic mappings. Set `capabilities.supports_messages: true` for
+managed mappings. Anthropic mappings can save conservative route prices through
+the same Supplier configuration API; customer selling tariffs remain separate.
+Missing usage stays unknown. Unsupported reasoning rates, including explicit zero
+rates, are rejected before dispatch. An upstream refusal with uncertain execution
+retains its priced reservation for reconciliation.
+
+Actual configuration, prepaid denial, price-category rejection, output bounds and
+refusal persistence across restart are verified. Successful direct Anthropic
+settlement remains unverified. See the [native protocol scope](https://github.com/niu-io/niu/blob/main/docs/architecture/native-inference-protocols.md#priced-anthropic-mappings).

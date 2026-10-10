@@ -420,3 +420,28 @@ model checking and a fresh native Messages completion alongside a separate inval
 Anthropic credential. Independent artifacts preserved the selected credential,
 Supplier associations and restart isolation. Missing cache categories remained
 unknown; no customer charge or commercial supply claim was inferred.
+
+### Priced Anthropic mappings
+
+An actual management request exposed a remaining configuration mismatch: an
+Anthropic mapping explicitly declaring `supports_messages` could be saved without
+prices but received HTTP 400 when conservative route prices were supplied. The
+native Messages handler already uses shared pricing and admission. Configuration
+validation now permits priced Anthropic routes only when Messages is declared,
+just as Gemini pricing requires its native GenerateContent capability. Other
+non-OpenAI adapters and undeclared native capabilities retain their restrictions.
+
+A fresh current-input run saved the exact configured rates through the management
+API, rejected a priced mapping without Messages capability, and exercised empty
+balance (402), unsupported reasoning pricing including an explicit zero rate
+(422), and the configured output limit (400) before dispatch. After explicit
+internal credit and supported customer tariffs were configured, a request reached
+the real Anthropic endpoint with an intentionally invalid credential. Its refusal
+was persisted on the selected Supplier credential. Usage stayed unknown and one
+positive customer reservation survived restart; no charge or funding was created.
+Independent database reopening checked exact stored route prices, capability,
+encrypted identity, Supplier/attempt association, refusal artifact and liability.
+
+This corrects configuration and qualifies those admission/refusal paths. It does
+not establish successful direct Anthropic generation, complete category usage,
+settled native charges, commercial qualification or an external payment.

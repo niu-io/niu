@@ -315,9 +315,12 @@ impl AppConfig {
             }
             if let Some(price) = &model.pricing {
                 price.validate()?;
-                if !model.protocol().is_openai_compatible()
-                    && !(model.provider == "gemini" && model.supports_generate_content)
-                {
+                let native_token_usage = match model.provider.as_str() {
+                    "anthropic" => model.supports_messages,
+                    "gemini" => model.supports_generate_content,
+                    _ => false,
+                };
+                if !model.protocol().is_openai_compatible() && !native_token_usage {
                     return Err(ConfigError::Invalid(
                         "priced routes require supported native or OpenAI-compatible token usage"
                             .into(),
