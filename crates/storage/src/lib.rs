@@ -357,6 +357,20 @@ impl Store {
         Ok(Self { pool })
     }
 
+    /// Content maintenance has one dedicated connection per process so a sweep
+    /// cannot consume the admission pool. Migration ownership stays with startup.
+    pub async fn content_maintenance_store(&self) -> Result<Self, StoreError> {
+        let options = (*self.pool.connect_options())
+            .clone()
+            .application_name("niu-content-retention");
+        let pool = PgPoolOptions::new()
+            .max_connections(1)
+            .min_connections(0)
+            .connect_with(options)
+            .await?;
+        Ok(Self { pool })
+    }
+
     pub fn from_pool(pool: PgPool) -> Self {
         Self { pool }
     }

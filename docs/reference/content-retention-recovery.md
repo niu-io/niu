@@ -5,7 +5,8 @@ updated 2026-10-11. Large populated backlogs and poison-row progress remain
 unqualified; later sections distinguish the exercised recovery paths.
 
 Content expiry now uses a shared background transaction helper. It obtains a
-connection through the existing pool with at most a 250 ms acquisition wait, tries a database transaction advisory
+connection through a dedicated single-connection pool for scheduled maintenance,
+with at most a 250 ms acquisition wait, tries a database transaction advisory
 lock for content retention, and configures a 250 ms lock timeout and a 2 s SQL
 statement timeout. An acquisition timeout or another owner skips the operation; SQL timeout or
 failure rolls back that retention transaction. Transaction completion or process
@@ -21,8 +22,8 @@ in one transaction. Media result expiry now processes at most 500 references in
 expiry order with `FOR UPDATE SKIP LOCKED`, rather than updating the full expired
 set in one statement.
 
-Financial recovery shares the connection/timeout implementation but uses its
-own ownership key. Content maintenance and financial recovery remain independently
+Financial recovery shares the transaction/timeout implementation but uses its
+own ownership key and the existing admission pool. Content maintenance and financial recovery remain independently
 scheduled. This is not one global connection allowance for all background work:
 one owner in each group may run concurrently, and payments and video polling
 remain outside this retention claim. Advisory-lock contenders can briefly hold
@@ -359,3 +360,24 @@ reservation remained held. Release compilation, all-target Clippy, formatting
 and contract checks completed. These are installation and retained text-accounting
 observations, not nonempty asset cleanup evidence. No fixture outcome was used,
 and the original development database was not migrated at this checkpoint.
+
+## Dedicated scheduled-maintenance pool
+
+Scheduled content cleanup now uses a separate pool with at most one connection
+per Gateway, named `niu-content-retention` in PostgreSQL activity. It clones the
+existing database connection options and does not rerun migrations. Financial
+recovery retains the original pool. This adds at most one connection per process
+to the configured admission-pool budget; shared advisory ownership remains, but
+there is no strict global one-connection cap across competing Gateways.
+
+A fresh native run limited admission to one connection and independently observed
+one maintenance connection and one application connection, excluding the observer's
+own sessions. Actual structured and streaming upstream requests completed with
+exact customer charges, debits and reconciliation. One expired captured payload
+was removed while the unexpired payload retained its hash. A row locked across a
+scheduled cycle remained intact and was removed after unlock. Restart preserved
+charges, key limits, an idempotent refund and statement state. Independent reopening
+checked response hashes, stored usages, exact charges/debits, the refund and absence
+of retained payloads or open balance holds. This is not a saturated-backlog or
+multi-Gateway capacity measurement. The first connection-count observation included
+observer sessions; the corrected current-input run supplies this evidence.

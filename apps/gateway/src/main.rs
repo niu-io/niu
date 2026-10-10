@@ -58,10 +58,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if state.development_member_enabled() && !address.ip().is_loopback() {
         return Err("NIU_DEV_USERNAME and NIU_DEV_PASSWORD require a loopback bind".into());
     }
+    let content_store = state.store.content_maintenance_store().await?;
     let listener = TcpListener::bind(address).await?;
     let gateway_writes = state.gateway_writes.clone();
     let diagnostic_writes = state.diagnostic_writes.clone();
-    let recovery = background_recovery::spawn(state.store.clone());
+    let recovery = background_recovery::spawn(state.store.clone(), content_store);
     let payment_recovery = state.payments.clone().map(|payments| {
         let payment_state = state.clone();
         tokio::spawn(async move {

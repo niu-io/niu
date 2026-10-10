@@ -1,10 +1,10 @@
 //! Independent schedules for content maintenance and financial recovery.
-//! Both use the existing pool; financial scans keep their database ownership.
+//! Content has a dedicated bounded pool; financial scans keep their existing pool.
 use niu_storage::Store;
 use tokio::task::JoinHandle;
 
-pub(crate) fn spawn(store: Store) -> [JoinHandle<()>; 2] {
-    let recovery_store = store.clone();
+pub(crate) fn spawn(store: Store, content_store: Store) -> [JoinHandle<()>; 2] {
+    let recovery_store = content_store;
     let cleanup = tokio::spawn(async move {
         let mut interval = interval();
         loop {
