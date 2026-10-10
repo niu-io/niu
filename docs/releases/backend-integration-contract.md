@@ -442,3 +442,12 @@ an immediate repeat changed no mappings. PostgreSQL revision and restart reads
 matched. No inference attempts or ledger entries were created. A successful
 catalog check is not evidence of generation entitlement, available quota or
 successful inference.
+
+The workspace request-log list now uses a handler-generated contract, including
+filters, sort order, cursor, full-filter summary, customer charges, safe failure
+metadata and nullable phase timing. A current-input read paginated two retained
+actual embedding attempts one at a time. Their order, total summary count and
+prompt tokens matched independent PostgreSQL reads. Responses used no-store,
+retained owner-funded/null-charge semantics and contained no procurement or
+credential fields. This observation does not qualify every filter, timing state
+or error category; no new inference was dispatched for the log read.
