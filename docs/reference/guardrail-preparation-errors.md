@@ -34,7 +34,25 @@ customer hold was released and no credential cooldown was created. Internal
 credit/rates were verification inputs, not external funding or commercial supply.
 
 This checks local input-block refusal for the three exercised protocols and a
-positive Chat control. The other preparation reasons, external detectors, video
-and post-dispatch enforcement require separate evidence. Original development
+positive Chat control. External detectors, video and post-dispatch enforcement
+require separate evidence. Original development
 data and encrypted identity were preserved; isolated processes stopped. Fixture
 outcomes were not used as evidence.
+
+### Access and output-compatibility refusals
+
+A separate fresh native run activated three successive policies through the
+management API: deny all models, deny all Providers, and buffered output
+inspection with a fresh unique block pattern. Actual Chat and Responses requests
+requested streaming; embeddings used its normal input shape. Each of the three
+protocols returned HTTP 403 `guardrail_denied` under each policy, without exposing
+the pattern or internal denial reason. After gateway restart, streaming Chat
+remained refused under the saved output policy.
+
+Independent reopening of PostgreSQL found three `model_denied`, three
+`provider_denied` and four `output_incompatible` records, all bound to a workspace
+policy revision. There were no attempts, customer charges, balance entries,
+balance reservations, credential cooldowns or Supplier earnings. These requests
+exercise pre-dispatch refusal against the configured route; no upstream response
+was supplied or synthesized. This does not verify supported output inspection,
+external detector decisions, unsupported stored-policy recovery or video.
