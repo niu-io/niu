@@ -69,3 +69,30 @@ This verifies a nonempty matching text ledger with an idempotent partial refund.
 Missing/mismatched debits, duplicate sources, concurrent financial writes and
 customer media reconciliation remain unverified. No discrepancy or funding receipt
 was fabricated. Fixture outcomes provide no evidence for those cases.
+
+### Debit-write failure and atomic recovery — 2026-10-11
+
+A fresh native Gateway completed an actual strict-JSON OpenRouter request while
+an isolated database trigger rejected insertion of customer charge debits. The
+requested marker and reported usage were received. The completed attempt and
+usage persisted, but the text charge and balance debit both remained absent:
+they share one transaction, so the debit failure rolled back the charge too.
+The original customer reservation remained held through Gateway restart.
+
+Repeated read-only reconciliation returned zero charge records and zero
+discrepancies without changing the held reservation or ledger. This is a concrete
+example of the report's scope: zero discrepancies do not establish that every
+completed request has finished financial recovery.
+
+Removing the fault allowed background recovery to create the original charge
+and matching debit and release the hold. A further restart retained exactly one
+attempt and one debit. Independent reopening matched response token counts,
+recalculated the charge from the pinned internal customer rates, checked currency
+and workspace attribution, and confirmed the released reservation and revoked
+temporary key. No second inference was submitted to recover the financial write.
+
+The initial verifier expected a retained charge without a debit; actual execution
+and source inspection contradicted that assumption. The corrected run verified
+atomic rollback and recovery instead. It does not exercise mismatched debits,
+duplicate charge sources, media reconciliation or external funding. The original
+development database and encryption identity were unchanged.
