@@ -92,3 +92,18 @@ This checks the exercised concurrent workflow rather than maximum capacity or
 isolated retry overhead. It is not a controlled comparison with the earlier
 single-attempt runs. See the
 [workload, accounting evidence and measurement limits](https://github.com/niu-io/niu/blob/main/docs/reference/upstream-retry-policy.md#concurrent-bounded-failover-checkpoint).
+
+## Two gateways sharing PostgreSQL
+
+A subsequent current-input run split four workers between two native gateways,
+with eight database connections per instance. During a 60-second admission window,
+53 actual streamed operations completed in 64.194 seconds including drain.
+Completion P50/P95 was 4.593/5.657 seconds, including the real authentication
+rejection and subsequent upstream generation.
+
+Independent inspection parsed every saved raw SSE response and reopened the
+retained database: 106 attempts, 53 exact charges/debits, no remaining holds,
+and unchanged chains after restarting both gateways. This verifies distinct
+concurrent operations across instances; it does not establish maximum capacity,
+competing successors for one operation or restart during active generation.
+See the [two-gateway evidence and limits](https://github.com/niu-io/niu/blob/main/docs/reference/upstream-retry-policy.md#two-gateway-shared-database-checkpoint).

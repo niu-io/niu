@@ -172,3 +172,34 @@ maximum observed `ps` CPU of 9.2%. PostgreSQL resource usage was not measured.
 This is a scoped concurrent business/accounting checkpoint, not maximum capacity,
 a long soak, multi-instance qualification, competing successors for one operation,
 or a guarantee against every failure mode. Those boundaries remain open.
+
+## Two-gateway shared-database checkpoint
+
+Two native gateways on separate ports shared a fresh PostgreSQL database, each
+with an eight-connection pool. Four workers were split evenly between the two
+instances for a 60-second admission window, capped at 30 operations per worker.
+The workload retained the preceding checkpoint's real OpenRouter rejection then
+structured streamed generation, internal credit/rates, fresh markers and 1–200
+integer sequences. No client retries or warm-up were used.
+
+The gateways completed 26 and 27 operations respectively. The run completed
+53 operations in 64.194 seconds including drain, or 0.826
+completed operations/second. Completion P50/P95/maximum was 4.593/5.657/8.399
+seconds; first-content P50/P95 was 1.910/2.542 seconds. These include upstream
+latency and are not a controlled scaling comparison or a maximum-capacity claim.
+
+Each raw SSE response was saved privately. A separate inspection re-read its
+bytes, checked the saved SHA-256, terminal `[DONE]`, parsed output, fresh marker,
+integer sequence and usage. Reopening the stopped retained database independently
+confirmed 106 attempts in 53 two-attempt chains, 53 authentication rejections,
+53 exact customer charges/debits and no remaining customer/procurement holds.
+Independent token arithmetic reproduced 22,115,699 nanounits of customer charges
+and each configured expense. Both gateways were stopped and restarted after the
+workload; chain contents and charge counts remained unchanged. The original
+runtime's encrypted identity remained unchanged; isolated processes were stopped.
+
+Only the first gateway was resource-sampled: 64 samples, RSS 22,848–31,872 KiB,
+maximum observed `ps` CPU 6.2%. The second gateway and PostgreSQL resource usage
+were not measured. This qualifies concurrent distinct operations across two
+gateways, not two gateways racing to append a successor to the same operation,
+rolling restart during active generation, crash recovery, long soak or overload.
