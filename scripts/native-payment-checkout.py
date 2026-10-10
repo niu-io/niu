@@ -6,6 +6,7 @@ identity and merchant secret. Never contacts a payment service or submits a paid
 notification. This verifies local checkout capability, not merchant settlement.
 """
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
 import os
@@ -15,6 +16,7 @@ import shutil
 import socket
 import subprocess
 import tempfile
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -125,7 +127,16 @@ def main():
             base = f'/admin/v1/organizations/{org["id"]}/billing/topups'
             intent = dict(payment_gateway='epay', currency='CNY', amount_nanos='12340000000',
                 payment_method='alipay', idempotency_key=str(uuid.uuid4()))
-            order = api('POST', base, intent)['data']
+            barrier = threading.Barrier(8)
+
+            def create_concurrently(_):
+                barrier.wait(timeout=10)
+                return api('POST', base, intent)['data']
+
+            with ThreadPoolExecutor(max_workers=8) as workers:
+                orders = list(workers.map(create_concurrently, range(8)))
+            order = orders[0]
+            require(all(item == order for item in orders), 'Concurrent identical intents diverged')
             require(order['status'] == 'pending' and order['amount_nanos'] == intent['amount_nanos'],
                 'Checkout did not preserve pending intent')
             url = urllib.parse.urlsplit(order['checkout_url'])
@@ -141,6 +152,9 @@ def main():
             require(api('POST', base, intent)['data'] == order, 'Idempotent replay changed checkout')
             require(request('POST', base, dict(intent, amount_nanos='12350000000'))[0] == 409,
                 'Conflicting intent was accepted')
+            require(request('PUT', path, dict(settings, expected_revision=saved['revision'],
+                enabled=False, key=''))[0] == 409, 'Pending order allowed incompatible configuration change')
+            require(api('GET', path)['data'] == saved, 'Rejected change altered merchant configuration')
             stop_process(server)
             start()
             require(api('GET', base + '/' + order['id'])['data'] == order, 'Restart lost pending checkout')
