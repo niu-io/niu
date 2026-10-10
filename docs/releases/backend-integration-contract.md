@@ -179,3 +179,11 @@ field types, required fields and decimal patterns over real HTTP; each response
 used `Cache-Control: no-store`, and an absent request returned 404. This read-only
 check does not qualify new inference or billing behavior. Legacy task evidence
 remains an opaque field rather than an expanded observability contract.
+
+`GET /admin/v1/platform/configuration` is also implemented and included in the
+root contract. Its payment gateway flags describe configuration presence, not
+checkout availability or external merchant qualification. A saved disabled EPay
+configuration still counts as present. Actual HTTP returned only gateway names
+and boolean flags; an invalid bearer returned 401 and a workspace owner returned
+403. The temporary verification operator was revoked. Use integration inventory
+for supported adapters and customer payment-method discovery for usable checkout.

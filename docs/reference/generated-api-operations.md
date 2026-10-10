@@ -1788,6 +1788,69 @@ HTTP 401: Authentication required
 
 HTTP 403: Installation administrator required
 
+## Read platform payment configuration presence
+
+`GET /admin/v1/platform/configuration`
+
+Requires platform management permission. Returns configuration-presence flags without merchant credentials. EPay is configured when a saved configuration exists (including disabled configurations) or deployment configuration is present; Zhifux and Stripe reflect loaded runtime adapters. Use customer payment-method discovery for checkout availability and the integration inventory for supported capabilities. This response does not prove successful external payments.
+
+Implementation: `implemented`. Operation: `getPlatformConfiguration`.
+
+### Responses
+
+HTTP 200: Sanitized configuration presence
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "payment_gateways"
+      ],
+      "properties": {
+        "payment_gateways": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "configured"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "enum": [
+                  "Zhifux",
+                  "EPay",
+                  "Stripe"
+                ]
+              },
+              "configured": {
+                "type": "boolean",
+                "description": "Configuration presence only; not enabled checkout, merchant eligibility, or payment qualification."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform management permission required
+
+HTTP 503: Configuration storage unavailable
+
 ## Shared schemas
 
 Local `#/components/schemas/…` references resolve to these definitions.

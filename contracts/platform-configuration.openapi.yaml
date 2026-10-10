@@ -5,6 +5,9 @@ info:
 servers:
   - url: /
 paths:
+  /admin/v1/platform/configuration:
+    get:
+      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1platform~1configuration/get'
   /admin/v1/platform/payments/integrations:
     get:
       $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1platform~1payments~1integrations/get'

@@ -517,6 +517,81 @@ pub async fn publish_media_offer(
 }
 
 /// Sanitized platform capabilities; credentials and deployment paths stay private.
+/// ```openapi
+/// {
+///   "path": "/admin/v1/platform/configuration",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "getPlatformConfiguration",
+///     "summary": "Read platform payment configuration presence",
+///     "description": "Requires platform management permission. Returns configuration-presence flags without merchant credentials. EPay is configured when a saved configuration exists (including disabled configurations) or deployment configuration is present; Zhifux and Stripe reflect loaded runtime adapters. Use customer payment-method discovery for checkout availability and the integration inventory for supported capabilities. This response does not prove successful external payments.",
+///     "x-niu-implementation": "implemented",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Sanitized configuration presence",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "required": [
+///                     "payment_gateways"
+///                   ],
+///                   "properties": {
+///                     "payment_gateways": {
+///                       "type": "array",
+///                       "items": {
+///                         "type": "object",
+///                         "required": [
+///                           "name",
+///                           "configured"
+///                         ],
+///                         "properties": {
+///                           "name": {
+///                             "type": "string",
+///                             "enum": [
+///                               "Zhifux",
+///                               "EPay",
+///                               "Stripe"
+///                             ]
+///                           },
+///                           "configured": {
+///                             "type": "boolean",
+///                             "description": "Configuration presence only; not enabled checkout, merchant eligibility, or payment qualification."
+///                           }
+///                         }
+///                       }
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Platform management permission required"
+///       },
+///       "503": {
+///         "description": "Configuration storage unavailable"
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub async fn platform_configuration(
     State(state): State<AppState>,
     headers: HeaderMap,
