@@ -318,6 +318,35 @@ describe('vendor administration workflow', () => {
     expect(api.calls.filter(call => call.method === 'POST' && call.path === '/admin/v1/vendors')).toHaveLength(1);
   });
 
+  it.each(['transport', 'server', 'malformed'])('reconciles an uncertain %s creation through reads without reposting', async failure => {
+    const api = stubVendorApi({ existing: [openRouter] });
+    const original = api.fetchMock.getMockImplementation()!;
+    api.fetchMock.mockImplementation(async (input, init) => {
+      const response = await original(input, init);
+      if (String(input) === '/admin/v1/vendors' && init?.method === 'POST') {
+        if (failure === 'transport') throw new TypeError('Connection lost');
+        if (failure === 'server') return jsonResponse({ error: { message: 'Unavailable' } }, 503);
+        return jsonResponse({ data: null }, 201);
+      }
+      return response;
+    });
+    const user = userEvent.setup();
+    render(<SuppliersView token="installation-token" session={installationSession} refreshWorkspace={async () => {}} />);
+    await screen.findByRole('heading', { name: openRouter.name });
+    await user.click(screen.getByRole('button', { name: 'Add supplier' }));
+    await user.type(screen.getByLabelText('Supplier name'), 'Possibly saved Supplier');
+    await user.type(screen.getByLabelText('Supplier API key'), 'test-secret');
+    await user.click(screen.getByRole('button', { name: 'Create supplier' }));
+    expect(await screen.findByText(/API key creation could not be confirmed/)).toBeTruthy();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByLabelText('Supplier API key')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    await user.click(await screen.findByRole('button', { name: 'Select Supplier API key' }));
+    expect(await screen.findByRole('menuitemradio', { name: /Possibly saved Supplier/ })).toBeTruthy();
+    expect(api.calls.filter(call => call.method === 'POST' && call.path === '/admin/v1/vendors')).toHaveLength(1);
+    expect(localStorage.length).toBe(0);
+  });
+
   it('groups two keys under one Supplier and switches their independent model mappings', async () => {
     const first = { ...openRouter, name: 'General key', supplier: { id: 'business-one', name: 'Shared business' } };
     const second = { ...first, id: 'restricted-key', name: 'Restricted key', enabled: false };

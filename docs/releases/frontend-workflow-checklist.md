@@ -57,6 +57,6 @@ Every row remains partial. Verified subsets below do not establish the entire fl
 
 ## Verification baseline
 
-- Full dashboard regression: 90 files / 716 checks passed at the latest recorded full run; TypeScript checking passed. Subsequent scoped recovery checks are recorded separately in the journal.
+- Full dashboard regression: 90 files / 720 checks passed at the latest recorded full run; TypeScript checking passed. Subsequent scoped recovery checks are recorded separately in the journal.
 - Current actual browser evidence includes saved personal Chat/Video, narrow Video download, Logs restoration, customer-pricing target/menu/dialog reads, existing model mapping persistence, disabled EPay persistence and empty earning selection.
 - Fixtures are confined to tests and do not establish live acceptance. No full workflow row or F01–F10 release gate is marked complete.

@@ -226,7 +226,19 @@ export default function SuppliersView({ token, session, refreshWorkspace, worksp
 
   async function createVendor(input: VendorCreate) {
     await mutate(async (signal, generation) => {
-      const result = await request<{ data: Vendor }>(token, '/admin/v1/vendors', 'POST', input, signal);
+      let result: { data: Vendor };
+      try {
+        result = await request<{ data: Vendor }>(token, '/admin/v1/vendors', 'POST', input, signal);
+        if (!result?.data?.id || typeof result.data.id !== 'string') throw new Error('Invalid creation response.');
+      } catch (reason) {
+        if (signal.aborted || generation !== authGeneration.current) throw reason;
+        if (reason instanceof VendorRequestError && reason.status >= 400 && reason.status < 500 && reason.status !== 408) throw reason;
+        // A transport/server failure does not prove creation failed. Remove the
+        // secret-bearing form and reconcile through reads instead of reposting.
+        setAddingVendor(false);
+        setEditingVendor(false);
+        throw new Error('API key creation could not be confirmed. Refresh the Supplier list before creating another key; the previous request may have saved it.');
+      }
       if (signal.aborted || generation !== authGeneration.current || !currentScope.current.canManage || currentScope.current.token !== token) return;
       // Creation committed: close before discovery so a failed refresh cannot
       // invite a duplicate key creation.
