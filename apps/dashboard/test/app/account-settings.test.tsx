@@ -17,6 +17,16 @@ function context(projectId:string|null=null):DashboardContext {
 function view(path='/settings/appearance') {return <MemoryRouter initialEntries={[path]}><SidebarProvider><SettingsNavigation context={current}/></SidebarProvider><Link to="/settings/account">Account section</Link><Link to="/settings/appearance">Appearance section</Link><Link to="/settings/billing">Billing section</Link><Routes><Route path="/settings/:section" element={<SettingsPage/>}/></Routes></MemoryRouter>;}
 function mockRequests() {const fetcher=vi.fn(async(input:RequestInfo|URL)=>String(input)==='/admin/v1/auth/profile'?Response.json({data:{name:'Member',email:null,avatar_data_url:null,revision:0}}):Response.json({password_login:false,data:[]}));vi.stubGlobal('fetch',fetcher);return fetcher;}
 describe('global settings routes',()=>{
+ it('does not report a permission denial while an authorized billing account loads',()=>{
+  current={...context(),organization:null,organizations:[],workspaceLoading:true};mockRequests();
+  const rendered=render(view('/settings/billing'));
+  expect(screen.getByRole('status').textContent).toContain('Loading billing account');
+  expect(screen.queryByText(/billing is available to organization owners/)).toBeNull();
+  const reload=vi.fn();current={...current,workspaceLoading:false,reloadWorkspaces:reload};
+  rendered.rerender(view('/settings/billing'));
+  expect(screen.getByRole('alert').textContent).toContain('Could not load your billing account');
+  expect(screen.queryByText(/billing is available to organization owners/)).toBeNull();
+ });
  it('returns focus to the visible navigation trigger when Settings closes',async()=>{
   current=context();mockRequests();
   function Fixture(){const [open,setOpen]=useState(true);return <MemoryRouter><Button aria-label="Account menu" ref={node=>{if(node)node.getClientRects=()=>[] as unknown as DOMRectList;}}>Account</Button><Button className="sidebar-toggle" aria-label="Expand workspace navigation" ref={node=>{if(node)node.getClientRects=()=>[{}] as unknown as DOMRectList;}}>Navigation</Button>{open&&<SettingsDialog context={current} section="appearance" onClose={()=>setOpen(false)}/>}</MemoryRouter>;}

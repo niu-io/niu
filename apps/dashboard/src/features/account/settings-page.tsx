@@ -68,7 +68,13 @@ function SettingsContent({context, section}: {context: DashboardContext; section
     </section>}
     {section === 'payments' && <h2 className="text-sm font-semibold">Payments</h2>}
     {['billing', 'payments'].includes(section) && context.organization && <p className="text-muted-foreground">{context.organization.name} · Shared across workspaces</p>}
-    {['billing', 'payments'].includes(section) && (canViewBilling && context.organization ? <AccountBilling section={section as 'billing' | 'payments'} key={context.token + context.organization.id} token={context.token} organization={context.organization.id} canConfigure={Boolean(context.session?.permissions?.write)}/> : <p className="text-muted-foreground">Account billing is available to organization owners and administrators.</p>)}
+    {['billing', 'payments'].includes(section) && (canViewBilling
+      ? context.organization
+        ? <AccountBilling section={section as 'billing' | 'payments'} key={context.token + context.organization.id} token={context.token} organization={context.organization.id} canConfigure={Boolean(context.session?.permissions?.write)}/>
+        : context.workspaceLoading
+          ? <p role="status" className="text-muted-foreground">Loading billing account…</p>
+          : <div role="alert" className="space-y-3"><p>Could not load your billing account.</p><Button variant="secondary" onClick={context.reloadWorkspaces}>Retry</Button></div>
+      : <p className="text-muted-foreground">Account billing is available to organization owners and administrators.</p>)}
   </div>;
 }
 

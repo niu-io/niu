@@ -50,6 +50,7 @@ All observations below use the real local service and saved data. Narrow checks 
 
 ## Fixes and automated checks
 
+- Billing/Payments no longer misreports missing organization data during restoration as a permission denial. Authorized users see a loading state, then their account; failed account loading offers Retry. Twelve account Settings tests and TypeScript checking passed. Native browser restoration showed loading followed by the real unavailable-top-up/empty-history state. At measured 390×844, Settings navigation, Billing, warning-editor cancellation and Payments fit without page overflow; closing restored the original Models path and workspace query. No payment or credit setting was changed.
 - New-generation intent is consumed after confirming the fresh backend draft, so reload no longer clears unsent work. Model selection is preserved when consuming the parameter or opening account Settings. All 45 Chat/draft integration checks and TypeScript checking passed. Actual new-page input restored after reload; the 390×844 composer fit without overflow. The unsent test draft was cleared, with no model dispatch.
 - Readable retained JSON/SSE error messages preserve partial output without diagnostic metadata: 8 request-content tests passed.
 - Optional durable failure classification separates upstream status from gateway delivery: 50 GatewayActivity integration tests passed; real classified-record qualification remains open.
