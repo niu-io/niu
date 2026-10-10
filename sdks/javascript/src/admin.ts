@@ -365,6 +365,8 @@ export type RequestTiming = {
 export type RequestPayload = {
   request: unknown; response: string; content_type: string;
   complete: boolean; truncated: boolean; expires_at: string;
+  /** True when a truncated JSON response is withheld; response is an empty string. */
+  response_omitted?: boolean;
 };
 export type GatewayUsageSummary = {
   request_count: number; usage_count: number; prompt_tokens: string;

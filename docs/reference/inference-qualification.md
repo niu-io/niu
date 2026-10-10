@@ -363,3 +363,30 @@ All-target compilation, Clippy, release compilation, formatting and public-tree
 boundary checks completed. This evidence covers the two retained real captures;
 it does not qualify every truncation boundary, malformed historical payload,
 commercial settlement, or throughput. No fixture outcome supports this checkpoint.
+
+### Truncated nonstreaming JSON payloads (2026-10-10)
+
+An actual owner-funded Embeddings request returned 96 independently inspected
+finite 1,536-dimensional vectors in a 2,834,244-byte JSON response. Array indexes
+matched the inputs and reported usage matched the durable completed attempt.
+With payload retention explicitly enabled, the capture contained 1,048,576 bytes
+and retained `complete=true`, `truncated=true`. Before the fix, reading that
+payload returned 503 because the JSON fragment could not be safely parsed.
+
+The authorized payload API now keeps request content readable in this case. It
+returns an empty response string and `response_omitted=true`, preserving both
+original flags. It never exposes the unparsed fragment or fabricates a provider
+response. Other malformed structured captures continue to fail closed. The SDK
+and OpenAPI describe the additive omission field; older servers may omit it.
+
+After rebuilding and restarting, the actual saved payload returned 200 with the
+original request unchanged. Independent SHA-256 comparison showed its stored
+capture remained exactly the first 1 MiB of the original delivered response.
+A viewer scoped to another workspace received 404. The previously retained long
+SSE captures still returned their independently matched complete event prefixes.
+Temporary keys and viewer access were revoked and temporary mappings disabled.
+
+All-target Clippy, release compilation, SDK compilation, OpenAPI YAML parsing,
+formatting and public-tree checks completed. No fixture outcome supports this
+checkpoint. Frontend presentation of the new omission field remains a frontend
+integration task; paid accounting and broader protocol coverage remain open.

@@ -34,19 +34,31 @@ pub async fn get(
         .map_err(ApiError::from_store)?;
     if let Some(payload) = data.as_mut() {
         crate::request_payloads::remove_credentials(&mut payload["request"]);
-        let response = crate::customer_response::sanitize_retained(
-            payload["content_type"]
-                .as_str()
-                .ok_or_else(ApiError::unavailable)?,
-            payload["response"]
-                .as_str()
-                .ok_or_else(ApiError::unavailable)?,
-            payload["truncated"]
-                .as_bool()
-                .ok_or_else(ApiError::unavailable)?,
-        )
-        .ok_or_else(ApiError::unavailable)?;
+        let content_type = payload["content_type"]
+            .as_str()
+            .ok_or_else(ApiError::unavailable)?;
+        let retained = payload["response"]
+            .as_str()
+            .ok_or_else(ApiError::unavailable)?;
+        let truncated = payload["truncated"]
+            .as_bool()
+            .ok_or_else(ApiError::unavailable)?;
+        let sanitized =
+            crate::customer_response::sanitize_retained(content_type, retained, truncated);
+        let truncated_json = truncated
+            && content_type
+                .split(';')
+                .next()
+                .is_some_and(|mime| mime.trim().eq_ignore_ascii_case("application/json"));
+        let (response, omitted) = match sanitized {
+            Some(response) => (response, false),
+            // A capture limit must not hide the authorized request. Never expose
+            // unparsed JSON fragments or fabricate a replacement provider body.
+            None if truncated_json => (String::new(), true),
+            None => return Err(ApiError::unavailable()),
+        };
         payload["response"] = json!(response);
+        payload["response_omitted"] = json!(omitted);
     }
     Ok(([("cache-control", "no-store")], Json(json!({"data":data}))))
 }
