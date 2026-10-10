@@ -54,3 +54,39 @@ all schema features, arbitrary providers, disconnect recovery for this new
 combination, or sustained-load performance. No fixture outcome is used as
 integrated evidence. Original development data and encrypted identity were
 preserved; temporary gateways and databases were stopped.
+
+## Concurrent longer-output checkpoint
+
+Eight current-input schema streams ran through four workers with an eight-
+connection database pool. Each schema required a fresh marker and an integer
+array; independent response inspection required exactly the integers 1 through
+200, in order, plus the matching marker and `[DONE]`.
+
+| Measurement | Observed value |
+| --- | --- |
+| Total elapsed time | 9.825 seconds |
+| Completed requests per second | 0.814 |
+| Completion latency P50 / P95 | 3.929 / 5.353 seconds |
+| First content latency P50 / P95 | 0.803 / 2.272 seconds |
+| Sampled maximum gateway RSS | 26,384 KiB |
+| Sampled maximum gateway CPU | 5.6% |
+
+All eight actual outputs matched the requested documents. Independent arithmetic
+from each response's usage matched its customer charge and balance debit; their
+sum was 3,339,386 internal USD nanounits. No balance reservation remained active,
+reconciliation totals matched and restart retained exactly eight charges and
+eight debits. These are application observations including real upstream latency,
+not a gateway-only benchmark, memory bound, sustained-load result or capacity
+claim. One-second process samples can miss short peaks.
+
+## Existing native runtime checkpoint
+
+The development gateway was gracefully replaced using the previous process's
+exact environment and the current built backend. Original configuration files,
+Supplier credential ciphertext/revisions and the existing counts of companies,
+workspaces, video jobs and financial entries were independently unchanged across
+replacement. The ready endpoint returned 200. A fresh model-scoped temporary key
+then made an actual structured stream through the existing personal route: its
+fresh marker, terminal usage and saved attempt agreed, and no customer charge was
+created. The temporary key was revoked. This is a native backend checkpoint;
+frontend and packaged deployment qualification remain separate.
