@@ -814,3 +814,17 @@ The endpoint enforces workspace read scope and returns customer amounts only.
 Posted balance debits settle invoices even when approved credit was used; they
 do not become another unpaid invoice debt. Reading history creates no payment.
 See [the contract and 152-invoice actual verification](https://github.com/niu-io/niu/blob/main/docs/reference/customer-invoice-history.md).
+
+
+## Cancelled response streams
+
+Request detail may report `failure.kind: response_stream_cancelled` with null
+`upstream_http_status` when the body is dropped before terminal or explicit
+upstream-failure handling. This does not identify who cancelled delivery or prove
+that upstream execution did not occur. Headers may already be HTTP 200 while
+timing/content capture remains incomplete.
+
+Unknown usage, financial reservations and key concurrency occupancy remain;
+cancellation does not trigger a retry or credential cooldown. Completed streams
+and known upstream errors retain their own outcomes. See the
+[actual cancellation, completion and timeout verification](https://github.com/niu-io/niu/blob/main/docs/reference/stream-cancellation-diagnostics.md).

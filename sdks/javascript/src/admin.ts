@@ -400,7 +400,7 @@ export type GatewayActivityEntry = {
 /** Content-free gateway diagnosis; it does not establish usage or execution certainty. */
 export type RequestFailure = {
   kind: 'upstream_http_error' | 'upstream_region_unavailable' | 'upstream_timeout'
-    | 'upstream_connection_error' | 'upstream_transport_error' | 'upstream_invalid_response';
+    | 'upstream_connection_error' | 'upstream_transport_error' | 'upstream_invalid_response' | 'response_stream_cancelled';
   upstream_http_status: number | null;
 };
 export type RequestTiming = {

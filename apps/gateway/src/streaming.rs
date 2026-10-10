@@ -350,6 +350,7 @@ impl ChatEvidence {
 pub struct StreamAttempt {
     pub store: niu_storage::Store,
     pub gateway_writes: GatewayWrites,
+    pub diagnostic_writes: tokio_util::task::TaskTracker,
     pub scope: TenantScope,
     pub id: Uuid,
     pub priced: bool,
@@ -426,6 +427,28 @@ impl StreamAttempt {
     }
 }
 
+/// Once completion or an explicit upstream failure takes the context, dropping
+/// the body must not create a competing classification. A remaining context
+/// means delivery was cancelled before that evidence was handled, not that the
+/// Provider did no work. Its durable execution and financial holds stay intact.
+struct PendingStreamAttempt(Option<StreamAttempt>);
+impl PendingStreamAttempt {
+    fn take(&mut self) -> Option<StreamAttempt> {
+        self.0.take()
+    }
+}
+impl Drop for PendingStreamAttempt {
+    fn drop(&mut self) {
+        if let Some(context) = self.take() {
+            let writes = context.diagnostic_writes.clone();
+            writes.spawn(persist_stream_failure(
+                context,
+                niu_storage::RequestFailureKind::ResponseStreamCancelled,
+            ));
+        }
+    }
+}
+
 async fn persist_stream_failure(context: StreamAttempt, kind: niu_storage::RequestFailureKind) {
     context.failures.fetch_add(1, Ordering::Relaxed);
     if context
@@ -484,7 +507,7 @@ where
             ..Default::default()
         },
         crate::customer_response::CustomerSse::with_protocol(responses, public_model),
-        Some(attempt),
+        PendingStreamAttempt(Some(attempt)),
         false,
     );
     let timing = crate::request_timings::current();

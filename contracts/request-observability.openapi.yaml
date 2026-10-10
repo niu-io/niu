@@ -61,12 +61,13 @@ components:
       properties:
         kind:
           type: string
-          enum: [upstream_http_error, upstream_region_unavailable, upstream_timeout, upstream_connection_error, upstream_transport_error, upstream_invalid_response]
+          description: response_stream_cancelled records body cancellation before terminal or explicit upstream failure handling; it does not identify who cancelled delivery or prove nonexecution.
+          enum: [upstream_http_error, upstream_region_unavailable, upstream_timeout, upstream_connection_error, upstream_transport_error, upstream_invalid_response, response_stream_cancelled]
         upstream_http_status:
           type: [integer, 'null']
           minimum: 100
           maximum: 599
-          description: Recorded upstream non-success status. Null for transport or invalid-response classifications. This is independent of the HTTP status delivered by Niu.
+          description: Recorded upstream non-success status. Null for transport, invalid-response or response-cancellation classifications. This is independent of the HTTP status delivered by Niu.
     CustomerChargeBreakdown:
       type: object
       description: Full-range customer ledger totals grouped separately by currency; missing amounts stay null. Coverage counts partition each row's requests. Supplier expenses are excluded.

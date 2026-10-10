@@ -1360,6 +1360,7 @@ async fn stream_openai_compatible(
         crate::streaming::StreamAttempt {
             store: state.store.clone(),
             gateway_writes: state.gateway_writes.clone(),
+            diagnostic_writes: state.diagnostic_writes.clone(),
             scope,
             id: attempt,
             priced: model.pricing.is_some(),

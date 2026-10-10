@@ -594,6 +594,7 @@ async fn execute_responses(
             crate::streaming::StreamAttempt {
                 store: state.store.clone(),
                 gateway_writes: state.gateway_writes.clone(),
+                diagnostic_writes: state.diagnostic_writes.clone(),
                 scope: dispatch.scope,
                 id: dispatch.attempt,
                 priced: dispatch.priced,

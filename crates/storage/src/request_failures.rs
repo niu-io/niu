@@ -12,6 +12,7 @@ pub enum RequestFailureKind {
     UpstreamConnectionError,
     UpstreamTransportError,
     UpstreamInvalidResponse,
+    ResponseStreamCancelled,
 }
 
 impl RequestFailureKind {
@@ -23,6 +24,7 @@ impl RequestFailureKind {
             Self::UpstreamConnectionError => "upstream_connection_error",
             Self::UpstreamTransportError => "upstream_transport_error",
             Self::UpstreamInvalidResponse => "upstream_invalid_response",
+            Self::ResponseStreamCancelled => "response_stream_cancelled",
         }
     }
 }

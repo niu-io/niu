@@ -3246,8 +3246,10 @@ pub async fn gateway_request(
 ///                     "upstream_timeout",
 ///                     "upstream_connection_error",
 ///                     "upstream_transport_error",
-///                     "upstream_invalid_response"
-///                   ]
+///                     "upstream_invalid_response",
+///                     "response_stream_cancelled"
+///                   ],
+///                   "description": "response_stream_cancelled means the response body was dropped before terminal or explicit upstream failure handling. It does not identify who cancelled delivery or prove upstream nonexecution."
 ///                 },
 ///                 "upstream_http_status": {
 ///                   "type": [
@@ -3256,12 +3258,12 @@ pub async fn gateway_request(
 ///                   ],
 ///                   "minimum": 100,
 ///                   "maximum": 599,
-///                   "description": "Recorded upstream non-success status. Null for transport or invalid-response classifications. This is independent of the HTTP status delivered by Niu."
+///                   "description": "Recorded upstream non-success status. Null for transport, invalid-response or response-cancellation classifications. This is independent of the HTTP status delivered by Niu."
 ///                 }
 ///               }
 ///             }
 ///           ],
-///           "description": "Content-free immutable upstream diagnosis, independent of payload retention. Null means no recorded classification, not a successful request. Does not establish execution, usage or billing certainty."
+///           "description": "Content-free immutable upstream or delivery diagnosis, independent of payload retention. Null means no recorded classification, not a successful request. Does not establish execution, usage or billing certainty."
 ///         },
 ///         "finish_reasons": {
 ///           "type": [
