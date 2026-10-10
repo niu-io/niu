@@ -62,3 +62,20 @@ checking/build and OpenAPI parsing completed. Fixture outcomes supply no evidenc
 Actual cached customer-funded admission, debit, missing-category recovery, refund,
 invoice reconciliation and concurrent liabilities remain unverified. Supplier
 cache pricing and broader token-category schedules remain implementation gaps.
+
+### Live token-category inputs
+
+A subsequent current-input run used a temporary owner-funded OpenRouter mapping
+and workspace key with the optimized gateway. Chat nonstreaming, Chat streaming
+with usage requested, and Responses nonstreaming each returned explicit cached
+input and reasoning output quantities. The HTTP response (the terminal usage
+chunk for streamed Chat) matched the independently read attempt totals and
+persisted token-category row exactly. Final database inspection found three
+completed attempts with both categories, no customer ledger entries, no active
+verification keys and no enabled verification credentials. These calls establish
+usage-input preservation for these three paths, not customer-funded settlement.
+
+The fourth requested path, Responses streaming, returned HTTP 501 before creating
+an additional attempt. This agrees with the documented unimplemented Responses
+streaming subset. It remains a protocol coverage gap, not a qualified streaming
+path or a reason to infer zero cache usage.
