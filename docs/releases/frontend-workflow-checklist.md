@@ -648,3 +648,18 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
   generated content nor established inference access. No mapping or key changed.
 - Responsive polish is deferred at the user's request while desktop workflows
   are prioritized. The previously recorded cramped mobile result remains open.
+
+### Current desktop Models–Chat–Logs chain
+
+- Started from the scoped global Models catalog with 25 real entries. GPT-4.1
+  Mini's Try in Chat preserved the selected model and prepared Demo API key.
+- A small owner-funded request returned WORKFLOW_OK, Complete, 18 tokens and
+  Own API key attribution. Full reload restored the same title, prompt, response,
+  measured duration and request link. No configuration or credentials changed.
+- Inspect request opened its corresponding Logs detail. Saved messages matched
+  the prompt/reply, with HTTP 200, Completed, 14 input and 4 output tokens. Timing
+  displayed 61 ms preparation, 1.40 s first-output wait and 210 ms output stream,
+  totaling 1,667 ms. Chat's 1,673 ms client duration is a distinct measurement.
+- This verifies the exercised desktop happy path against the current backend,
+  not paid customer billing, video generation or failure/revocation states.
+  Responsive polish remains deferred.
