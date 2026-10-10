@@ -707,8 +707,12 @@ SELECT jsonb_build_object(
                 .bind(scope.project_id)
                 .fetch_one(&mut *tx)
                 .await?;
-        let unresolved:String=sqlx::query_scalar("SELECT COUNT(*)::text FROM attempts a JOIN customer_attempt_tariffs b ON b.attempt_id=a.id LEFT JOIN customer_charges c ON c.attempt_id=a.id WHERE a.organization_id=$1 AND a.project_id=$2 AND a.dispatched_at IS NOT NULL AND a.execution<>'confirmed_not_executed' AND c.attempt_id IS NULL").bind(scope.organization_id).bind(scope.project_id).fetch_one(&mut *tx).await?;
-        let unpriced:String=sqlx::query_scalar("SELECT COUNT(*)::text FROM attempts a LEFT JOIN customer_attempt_tariffs b ON b.attempt_id=a.id WHERE a.organization_id=$1 AND a.project_id=$2 AND a.dispatched_at IS NOT NULL AND a.execution<>'confirmed_not_executed' AND b.attempt_id IS NULL AND NOT EXISTS (SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=a.id)").bind(scope.organization_id).bind(scope.project_id).fetch_one(&mut *tx).await?;
+        let (unresolved, unpriced): (String, String) =
+            sqlx::query_as(include_str!("customer_billing_pending.sql"))
+                .bind(scope.organization_id)
+                .bind(scope.project_id)
+                .fetch_one(&mut *tx)
+                .await?;
         let tariffs:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('model_alias',t.model_alias,'revision',r.id,'currency',r.currency,'prompt_rate',r.prompt_rate::text,'completion_rate',r.completion_rate::text,'cached_prompt_rate',r.cached_prompt_rate::text) FROM customer_tariffs t JOIN customer_tariff_revisions r ON r.id=t.current_revision WHERE t.organization_id=$1 AND t.project_id=$2 ORDER BY t.model_alias LIMIT 1000").bind(scope.organization_id).bind(scope.project_id).fetch_all(&mut *tx).await?;
 
         tx.commit().await?;

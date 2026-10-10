@@ -703,8 +703,12 @@ paths:
                             paid_nanos:
                               allOf: [{ $ref: '#/components/schemas/IntegerString' }]
                               description: Charges settled by a balance debit or invoice receipt, counted once, including balance debits before invoicing.
-                      unresolved: { $ref: '#/components/schemas/IntegerString' }
-                      unpriced: { $ref: '#/components/schemas/IntegerString' }
+                      unresolved:
+                        allOf: [{ $ref: '#/components/schemas/IntegerString' }]
+                        description: Dispatched non-personal requests with a text or media price binding but no corresponding charge; excludes confirmed nonexecution.
+                      unpriced:
+                        allOf: [{ $ref: '#/components/schemas/IntegerString' }]
+                        description: Dispatched non-personal requests without either a text or media price binding; excludes confirmed nonexecution.
                       tariffs:
                         type: array
                         items: { $ref: '#/components/schemas/Tariff' }
