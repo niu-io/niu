@@ -216,3 +216,14 @@ matched the accepted merchant label and retained the prior secret. Restart
 preserved the accepted revision, with no balance entries. On 409, reload the
 configuration and let the caller resolve the edit; do not blindly replay it
 with a newer revision.
+
+A current-input EPay checkout run configured an isolated installation with a
+fresh secret and reserved example-domain checkout URLs, without contacting an
+external gateway or simulating a paid callback. The real HTTP top-up endpoint
+created a CNY 12.34 pending order. Independent parsing and MD5 calculation verified
+the checkout amount, method, merchant, order reference and signature; the URL did
+not contain the secret. Identical retries before and after restart returned the
+same saved checkout. Reusing the idempotency key with a changed amount returned
+409, as did a merchant configuration change while the order remained unresolved.
+Independent database reads found one order, no settlement and no balance entry.
+This qualifies checkout artifact creation and recovery only, not payment receipt.
