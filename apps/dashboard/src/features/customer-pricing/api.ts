@@ -1,11 +1,14 @@
-import { request, type Vendor, type VendorModel } from '@/features/vendors/api';
+import { request, VendorRequestError, type Vendor, type VendorModel } from '@/features/vendors/api';
 import type { CustomerTariffHistory, CustomerTariffInput, CustomerTariff } from '../../../../../sdks/javascript/src/admin';
 
 export type PricingTarget = { organization_id: string; organization_name: string; workspace_id: string; workspace_name: string };
 export type CurrentTariff = CustomerTariff & { created_at: string };
 export type PricingPage<T> = { data: T[]; next_after: string | null };
+export class PublicationUnconfirmedError extends Error {}
 const maximum = 9_223_372_036_854_775_807n;
+const maximumTokenRate = 1_000_000_000_000_000n;
 const exact = (value: unknown): value is string => typeof value === 'string' && /^\d{1,19}$/.test(value) && BigInt(value) <= maximum;
+const tokenRate = (value: unknown): value is string => exact(value) && BigInt(value) <= maximumTokenRate;
 
 /** Selling configuration amounts only; zero is a valid published price. */
 export function priceToNanos(value: string): string {
@@ -24,8 +27,8 @@ export function priceFromNanos(value: string): string {
 function checkedTariff(row: CurrentTariff) {
   if (!row || typeof row.model_alias !== 'string' || !row.model_alias.trim() ||
     typeof row.revision !== 'string' || !row.revision || !/^[A-Z]{3}$/.test(row.currency) ||
-    !exact(row.prompt_rate) || !exact(row.completion_rate) ||
-    (row.cached_prompt_rate != null && !exact(row.cached_prompt_rate)) ||
+    !tokenRate(row.prompt_rate) || !tokenRate(row.completion_rate) ||
+    (row.cached_prompt_rate != null && !tokenRate(row.cached_prompt_rate)) ||
     (row.request_fee_nanos != null && !exact(row.request_fee_nanos)) ||
     (row.minimum_charge_nanos != null && !exact(row.minimum_charge_nanos)) ||
     typeof row.created_at !== 'string' || !Number.isFinite(Date.parse(row.created_at)))
@@ -75,7 +78,18 @@ export async function readPriceHistory(token: string, target: PricingTarget, mod
   page.data.forEach(row => { checkedTariff(row); if (typeof row.is_current !== 'boolean') throw new Error('Price revisions could not be read.'); });
   return page;
 }
-export function publishCustomerPrice(token: string, target: PricingTarget, input: CustomerTariffInput, signal?: AbortSignal) {
-  return request<{ data: { revision: string } }>(token,
-    `/admin/v1/organizations/${encodeURIComponent(target.organization_id)}/projects/${encodeURIComponent(target.workspace_id)}/billing/tariffs`, 'POST', input, signal);
+export async function publishCustomerPrice(token: string, target: PricingTarget, input: CustomerTariffInput, signal?: AbortSignal) {
+  if (!tokenRate(input.prompt_rate) || !tokenRate(input.completion_rate) || input.cached_prompt_rate != null && !tokenRate(input.cached_prompt_rate))
+    throw new Error('Token prices cannot exceed 1,000,000 currency units per million tokens.');
+  let result: {data:{revision:string}};
+  try {
+    result = await request<{ data: { revision: string } }>(token,
+      `/admin/v1/organizations/${encodeURIComponent(target.organization_id)}/projects/${encodeURIComponent(target.workspace_id)}/billing/tariffs`, 'POST', input, signal);
+  } catch (reason) {
+    if (signal?.aborted || reason instanceof VendorRequestError && reason.status < 500) throw reason;
+    throw new PublicationUnconfirmedError('Publication could not be confirmed. Load the current price before trying again.');
+  }
+  if (!result || typeof result.data?.revision !== 'string' || !result.data.revision.trim() || result.data.revision === input.expected_revision)
+    throw new PublicationUnconfirmedError('Publication could not be confirmed. Load the current price before trying again.');
+  return result;
 }

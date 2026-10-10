@@ -18,6 +18,17 @@ const targets=()=>Response.json({data:[target],next_after:null});
 const prices=()=>Response.json({data:[price],next_after:null});
 
 describe('platform customer price workflow',()=>{
+  it('locks publication after an ambiguous transport failure until the current price is read',async()=>{
+    let writes=0;
+    setup((path,init)=>path.includes('/targets?')?targets():init?.method==='POST'?(writes++,Promise.reject(new TypeError('Connection lost'))):prices());
+    const user=userEvent.setup();
+    await user.click(await screen.findByRole('button',{name:'Edit example/model'}));
+    await user.click(screen.getAllByRole('button',{name:'Publish price'}).at(-1)!);
+    await screen.findByText('Publication could not be confirmed. Load the current price before trying again.');
+    expect((screen.getAllByRole('button',{name:'Publish price'}).at(-1) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByText('Customer price published. Future requests use the new price.')).toBeNull();
+    expect(writes).toBe(1);
+  });
   it('retains revision history when an older page fails and retries that boundary',async()=>{
     let olderReads=0;
     const requests=setup(path=>path.includes('/targets?')?targets():path.includes('/history?')?(path.includes('&before=older')?(++olderReads===1?Response.json({error:{message:'History temporarily unavailable'}},{status:503}):Response.json({data:[{...price,revision:'previous-revision',created_at:'2026-10-10T00:00:00Z',is_current:false}],current_revision:price.revision,has_more:false,next_before:null})):Response.json({data:[{...price,is_current:true}],current_revision:price.revision,has_more:true,next_before:'older'})):prices());
