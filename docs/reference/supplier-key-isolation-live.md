@@ -1,5 +1,29 @@
 # Supplier key configuration isolation with actual inference
 
+## In-flight tariff publication and credential disablement — 2026-10-11
+
+A fresh native Gateway dispatched an actual bounded structured OpenRouter
+request using explicit internal customer credit and rates. After independent SQL
+observed its dispatched, unresolved execution state, management API calls
+published a new customer tariff and disabled the credential configuration. Both
+changes completed before the original client request finished. That request
+returned its requested marker and reported usage, and retained its original
+tariff and exact charge.
+
+New requests to the disabled mapping returned 404 without another attempt,
+including after Gateway restart. Re-enabling the configuration allowed a second
+actual request, which used the newly published customer tariff. Independent
+database reopening verified both reported usages, distinct pinned tariff
+revisions and rates, exact charges and matching scoped debits. Only the two
+successful attempts existed, no reservation remained held, and the temporary
+workspace key was revoked.
+
+The owner's personal upstream credential and internal accounting inputs do not
+represent commercial Supplier qualification or received funding. The original
+development database was unchanged. This verifies the exercised managed-route
+transition, not a unified immutable publication generation across database and
+static routes, overlapping publishers, or static-alias fallback behavior.
+
 Date: 2026-10-10. Backend revision: `59922df`.
 
 An isolated native PostgreSQL database and gateway were configured through normal
