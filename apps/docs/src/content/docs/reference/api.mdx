@@ -66,6 +66,22 @@ Tariff publication, invoice creation and confirmed external-payment recording re
 
 The JavaScript SDK provides `getCustomerBilling`, `publishCustomerTariff`, `issueCustomerInvoice`, `getCustomerInvoiceLines`, and `recordCustomerInvoicePayment`. Its packaged `inspect-billing.mjs` example reads the latest 100 invoices and reconciles line totals using exact integer arithmetic. Invoice creation does not send an invoice or collect money, and payment recording only records an already confirmed external payment. Keep administration credentials server-side and internal invoice/rate identifiers out of product displays.
 
+## API key spending allowance
+
+Key spending limits apply to new customer-liability reservations. Read
+`committed_nanos` and `remaining_nanos` from the spending-limit API; preserve these
+exact decimal integer strings rather than converting them to floating-point money.
+Remaining allowance is clamped to zero when actual consumption exceeds the cap.
+A cap does not truncate an already incurred charge or cancel upstream work.
+Secret rotation retains the same spending identity and committed amount.
+
+An actual streamed text request exceeded its requested output bound: the original
+1,000-nano reservation was released, the full 11,000-nano customer charge was
+posted, and the rotated key showed zero remaining allowance and rejected further
+requests before and after restart. This is a scoped text-accounting observation,
+not qualification of media overruns or every provider. See the
+[verification details](https://github.com/niu-io/niu/blob/main/docs/reference/api-key-spending-limits.md#actual-text-overrun-rotation-and-restart--2026-10-10).
+
 ## Public model catalog
 
 `GET /catalog/v1/models` and the `/models/` page list aliases an operator explicitly marks with `public_catalog = true`. The response contains the alias, declared capabilities, and optional descriptive catalog metadata such as name, context limits and modalities; it omits provider names, upstream identifiers, endpoints, credentials and Provider prices. Catalog visibility does not authorize inference. Applications still use scoped keys with `/v1/models` and the inference endpoints.

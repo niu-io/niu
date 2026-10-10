@@ -175,3 +175,40 @@ one real completion alongside three simultaneous cap rejections. It also records
 the account-lock upgrade deadlock found in the initial run and the shared
 reservation helper correction. Exact charging, released holds and post-restart
 cap enforcement were checked independently; broad capacity remains unqualified.
+
+## Actual text overrun, rotation and restart — 2026-10-10
+
+A fresh native gateway/database used the saved personal OpenRouter credential
+with explicit internal customer tariffs and administrator-approved credit. This
+was a self-funded integration run, not a commercial Supplier or received-payment
+qualification. The customer tariff was zero for input and 1,000,000,000 USD nanos
+per million output tokens. The key cap was 1,000 nanos.
+
+One real strict-schema Chat stream requested `max_tokens: 1`. The upstream
+returned the complete requested marker, a terminal completion and usage reporting
+11 output tokens. The retained response was independently parsed; this observed
+behavior is not a promise that other requests or providers ignore that bound.
+
+Independent database reads confirmed the original 1,000-nano reservation remained
+unchanged and was released. One immutable customer charge and one debit both
+recorded the full 11,000 nanos, matching reported usage rather than truncating the
+charge to the requested bound or key cap. The attempt retained the same reported
+token counts and `confirmed_completed` state.
+
+After rotating the key, its management response reported limit `1000`, committed
+`11000` and remaining `0`, all decimal strings. Another inference request returned
+402 `key_spending_limit_exceeded`. Gateway restart retained those exact values
+and refused another request identically. Independent final reads still found only
+one attempt and one customer charge, with matching reconciliation totals and no
+open settled hold. The replacement key was revoked and isolated processes stopped;
+the original database and encrypted credential identity were preserved.
+
+The first verification script stopped after settlement because its reservation
+query used an incorrect column name. Verification resumed against that retained
+database and response; no replacement generation was used to erase or substitute
+for the original observation.
+
+This closes the exercised text settlement-overrun and remaining-allowance branch.
+It does not qualify customer-funded media overruns, company credit exhaustion,
+all token estimators or concurrent overrun settlement. An admission cap bounds
+new reservations; it cannot retroactively cancel upstream consumption.
