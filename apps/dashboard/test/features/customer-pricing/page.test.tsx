@@ -6,7 +6,7 @@ import CustomerPricingRoute from '../../../src/features/customer-pricing/page';
 
 vi.mock('../../../src/app/dashboard-context', () => ({useDashboardContext: () => ({token:'test-session',models:[{id:'example/model'}]})}));
 const target = {organization_id:'internal-company',organization_name:'Example company',workspace_id:'internal-workspace',workspace_name:'Application'};
-const price = {model_alias:'example/model',revision:'internal-revision',currency:'USD',prompt_rate:'1',completion_rate:'1600000000',cached_prompt_rate:'0',request_fee_nanos:'7',minimum_charge_nanos:'9',created_at:'2026-10-11T00:00:00Z'};
+const price = {model_alias:'example/model',revision:'internal-revision',currency:'USD',prompt_rate:'1',completion_rate:'1600000000',cached_prompt_rate:'0',reasoning_completion_rate:'2500000000',request_fee_nanos:'7',minimum_charge_nanos:'9',created_at:'2026-10-11T00:00:00Z'};
 const base='/admin/v1/pricing/organizations/internal-company/workspaces/internal-workspace/tariffs';
 function setup(handle: (path:string, init?:RequestInit)=>Response|Promise<Response>, selected=true) {
   const requests:{path:string;init?:RequestInit}[]=[];
@@ -49,14 +49,14 @@ describe('platform customer price workflow',()=>{
     await user.click(screen.getAllByRole('button',{name:'Publish price'}).at(-1)!);
     await screen.findByText('Customer price published. Future requests use the new price.');
     const write=requests.find(row=>row.init?.method==='POST')!;
-    expect(JSON.parse(String(write.init?.body))).toMatchObject({expected_revision:price.revision,prompt_rate:'1',cached_prompt_rate:'0',request_fee_nanos:'7',minimum_charge_nanos:'9'});
+    expect(JSON.parse(String(write.init?.body))).toMatchObject({expected_revision:price.revision,prompt_rate:'1',cached_prompt_rate:'0',reasoning_completion_rate:'2500000000',request_fee_nanos:'7',minimum_charge_nanos:'9'});
     expect(screen.queryByText(target.organization_id)).toBeNull();
     expect(screen.queryByText(price.revision)).toBeNull();
     expect(requests.every(row=>!row.path.includes('/providers')&&!row.path.includes('/billing/overview'))).toBe(true);
   });
   it('preserves a conflicting draft until an explicit reload and then uses the new revision',async()=>{
     let writes=0;
-    const requests=setup((path,init)=>path.includes('/targets?')?targets():init?.method==='POST'?(++writes===1?Response.json({error:{message:'Concurrent change'}},{status:409}):Response.json({data:{revision:'third'}})):path.includes('/history?')?Response.json({data:[{...price,revision:'second',prompt_rate:'2000000000',is_current:true}],current_revision:'second',has_more:false,next_before:null}):prices());
+    const requests=setup((path,init)=>path.includes('/targets?')?targets():init?.method==='POST'?(++writes===1?Response.json({error:{message:'Concurrent change'}},{status:409}):Response.json({data:{revision:'third'}})):path.includes('/history?')?Response.json({data:[{...price,revision:'second',prompt_rate:'2000000000',reasoning_completion_rate:'3100000000',is_current:true}],current_revision:'second',has_more:false,next_before:null}):prices());
     const user=userEvent.setup();
     await user.click(await screen.findByRole('button',{name:'Edit example/model'}));
     await user.clear(screen.getByLabelText('Input per million tokens'));await user.type(screen.getByLabelText('Input per million tokens'),'3');
@@ -68,7 +68,7 @@ describe('platform customer price workflow',()=>{
     await waitFor(()=>expect((screen.getByLabelText('Input per million tokens') as HTMLInputElement).value).toBe('2'));
     await user.click(screen.getAllByRole('button',{name:'Publish price'}).at(-1)!);
     await screen.findByText('Customer price published. Future requests use the new price.');
-    expect(JSON.parse(String(requests.filter(row=>row.init?.method==='POST')[1].init?.body)).expected_revision).toBe('second');
+    expect(JSON.parse(String(requests.filter(row=>row.init?.method==='POST')[1].init?.body))).toMatchObject({expected_revision:'second',reasoning_completion_rate:'3100000000'});
   });
   it('retries a failed target refresh from the first page rather than the retained continuation',async()=>{
     let reads=0;
