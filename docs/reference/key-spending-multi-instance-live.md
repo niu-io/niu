@@ -69,3 +69,37 @@ actual upstream execution. More keys/workspaces, concurrent policy changes,
 rotation during dispatch, long-running contention and production throughput
 remain separate qualification work. It does not establish a GitHub Actions root
 cause or claim that every CI failure is fixed.
+
+## Consumed quota across successive secret rotations
+
+A separate current-input run on 2026-10-10 used the release binary built from
+`582a885`, a new isolated native database, and the same bounded internal-credit
+setup. Four concurrent requests across two gateways produced one actual upstream
+completion and three key-cap rejections. The fresh response contained the
+requested nonce and reported 46 input and 10 output tokens. Independent integer
+calculation and database reads agreed on one charge/debit of 15,556 USD nanounits;
+reconciliation found no discrepancies and no reservation remained open.
+
+After settlement and gateway restart, the management API rotated the key three
+successive times. At every generation:
+
+- The preceding secret returned HTTP 401.
+- The replacement returned HTTP 402 `key_spending_limit_exceeded` because its
+  remaining capacity could not cover another maximum reservation.
+- The management response retained revision 1, limit 284,445, committed amount
+  15,556 and remaining amount 268,889. Independent database inspection confirmed
+  one shared spending identity and one unchanged absolute expiry across all four
+  key records. The attempt count remained one.
+
+An authorized limit update through the original, revoked key's management address
+then set the shared limit to the already-consumed 15,556 at expected revision 1.
+The latest replacement immediately exposed revision 2 and zero remaining quota.
+After another gateway restart, that response was unchanged and inference remained
+denied without another attempt. Historical key addresses retain administrative
+access to the shared cap; revoked bearer secrets do not regain inference access.
+
+The final key was revoked, the temporary mapping and Supplier disabled, and both
+isolated gateway processes and PostgreSQL stopped. The original encrypted
+credential identity was unchanged. This extends evidence to sequential rotation
+after actual consumption; rotation concurrent with dispatch or limit updates is
+still unverified. No fixture outcome is used as evidence.
