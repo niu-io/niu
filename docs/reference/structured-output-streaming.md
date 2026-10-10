@@ -50,8 +50,8 @@ and approved credit, without creating merchant funding or a commercial offer.
   the charge to the requested maximum.
 
 These runs do not qualify multi-choice streaming, refusals, the 1 MiB boundary,
-all schema features, arbitrary providers, disconnect recovery for this new
-combination, or sustained-load performance. No fixture outcome is used as
+all schema features, arbitrary providers, every disconnect timing, or production
+load capacity. Later checkpoints below cover specific load and disconnect paths. No fixture outcome is used as
 integrated evidence. Original development data and encrypted identity were
 preserved; temporary gateways and databases were stopped.
 
@@ -132,3 +132,32 @@ financial comparison, process sample and binary hash. This extends the measured
 workload beyond the earlier eight-request burst. It remains a single short run,
 not a production concurrency limit, long soak, gateway-only overhead measurement,
 or qualification of overload, slow readers, large inputs or multiple instances.
+
+
+## Interrupted structured stream and retained liability
+
+A current native run requested strict structured JSON containing a fresh marker
+and a long integer sequence through the actual personal OpenRouter route. The
+client received the first nonempty content delta and then closed the response
+before terminal usage. The run used isolated PostgreSQL, configured internal
+customer rates and approved credit; no funding receipt or commercial offer was
+created.
+
+Independent HTTP and database observations established one attempt with
+`may_have_executed` execution and unknown usage. Customer request detail retained
+null token counts and a pending, null charge rather than treating partial JSON as
+complete output. No customer charge or balance debit was inserted. One reservation
+of 758,519 USD nanounits remained, matching the configured 2,048-input/512-output
+liability and exact internal rates. This bound is not a measurement of actual
+upstream consumption.
+
+The selected key's cap equaled that reservation. Another request returned 402
+without creating an attempt, both before and after key rotation. The old secret
+returned 401. Gateway restart retained the same unknown attempt and reservation;
+recovery ticks did not invent usage or release capacity. Revoking the replacement
+key also retained the existing liability. The original database and credential
+identity were preserved, and isolated processes were stopped.
+
+This qualifies the exercised first-content disconnect, cap and restart path.
+It does not prove upstream cancellation, recover missing usage, settle the
+unknown charge, or qualify every disconnect timing and transport buffering mode.
