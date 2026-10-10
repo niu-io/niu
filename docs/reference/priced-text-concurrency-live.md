@@ -96,3 +96,36 @@ not the provider's internal token-generation time. It does not qualify sustained
 load, slow readers, long streams, streaming structured output or production
 capacity. Temporary access and isolated processes were cleaned up, and the
 original database and encrypted credential identity were preserved.
+
+## Longer fixed-concurrency streaming run
+
+A further current-input run on 2026-10-10 used backend `5a2449d`, the same
+154-byte plain-text streaming workload, a separate native PostgreSQL database,
+one gateway with an eight-connection pool, and four concurrent clients issuing
+512 requests without retries. The request phase lasted **116.38 seconds**.
+
+Observed throughput was 4.40 requests/second. Client-observed first-content
+latency was P50 682 ms / P95 1,296 ms; complete-response latency was P50 826 ms /
+P95 1,444 ms, with a maximum of 3,736 ms. These nearest-rank measurements include
+upstream execution. Every response was HTTP 200, contained the exact fresh
+requested nonce, reported usage and ended with `[DONE]`.
+
+Two independent database snapshots during the run showed 93 attempts / 89 charges
+and 308 attempts / 304 charges, each with four open reservations. After all
+responses completed, every one of the 512 customer charges and debits matched
+an independent calculation from that response's usage. No reservation or
+reconciliation discrepancy remained. All 512 timing records were complete,
+with no request-failure record or PostgreSQL deadlock diagnostic. Restart
+preserved exactly 512 charges and debits. Temporary access was revoked and the
+isolated processes stopped; the original database and credential were unchanged.
+
+This extends continuous short-request observation to roughly two minutes at four
+concurrent streams. It is not a soak test, a production capacity ceiling or a
+gateway-only benchmark; long-lived streams, slow readers, overload and mixed
+workloads remain outside this measurement.
+
+The exact customer debit total was 4,580,415 USD nanounits at the configured
+internal verification rates. Reported usage ranged from 13–19 input and 5–10
+output tokens. Across 115 one-second process samples, gateway RSS ranged from
+22,272 to 25,520 KiB and ended at 23,248 KiB; the maximum `ps` CPU reading was
+8.1%. These samples do not establish peak memory or absence of a long-term leak.
