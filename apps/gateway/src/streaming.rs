@@ -17,6 +17,7 @@ use uuid::Uuid;
 #[derive(Default)]
 pub struct ChatEvidence {
     responses: bool,
+    structured: Option<crate::structured_stream::StructuredStream>,
     line: Vec<u8>,
     data: Vec<u8>,
     skip_lf: bool,
@@ -305,6 +306,9 @@ impl ChatEvidence {
                     _ => self.ambiguous_usage = true,
                 }
             }
+            if let Some(structured) = &mut self.structured {
+                structured.observe(&value);
+            }
             self.observe_finish_reasons(&value);
             self.has_output |=
                 value
@@ -393,6 +397,28 @@ impl StreamAttempt {
         {
             tracing::error!(attempt_id = %self.id, "stream finish-reason observation could not be saved");
         }
+        if evidence
+            .structured
+            .as_ref()
+            .is_some_and(|output| !output.valid())
+        {
+            self.failures.fetch_add(1, Ordering::Relaxed);
+            if self
+                .store
+                .save_request_failure(
+                    self.scope,
+                    self.id,
+                    niu_storage::RequestFailure {
+                        kind: niu_storage::RequestFailureKind::UpstreamInvalidResponse,
+                        upstream_http_status: None,
+                    },
+                )
+                .await
+                .is_err()
+            {
+                tracing::error!(attempt_id = %self.id, "structured stream delivery failure could not be saved");
+            }
+        }
         if let Some((prompt, completion)) = usage {
             self.usage
                 .report(&json!({"prompt_tokens": prompt, "completion_tokens": completion}));
@@ -422,18 +448,22 @@ async fn persist_stream_failure(context: StreamAttempt, kind: niu_storage::Reque
 /// Cancellation drops the upstream stream and leaves durable uncertainty.
 /// Terminal usage evidence is queued after dispatch intent has been committed;
 /// a priced request retains its durable budget hold until settlement finishes.
-pub fn tracked_body<S>(upstream: S, attempt: StreamAttempt) -> Body
+pub fn tracked_body<S>(
+    upstream: S,
+    attempt: StreamAttempt,
+    structured: Option<crate::structured_stream::StructuredStream>,
+) -> Body
 where
     S: Stream<Item = Result<Bytes, reqwest::Error>> + Send + 'static,
 {
-    tracked_protocol_body(upstream, attempt, false, None)
+    tracked_protocol_body(upstream, attempt, false, None, structured)
 }
 
 pub fn tracked_responses_body<S>(upstream: S, attempt: StreamAttempt, public_model: String) -> Body
 where
     S: Stream<Item = Result<Bytes, reqwest::Error>> + Send + 'static,
 {
-    tracked_protocol_body(upstream, attempt, true, Some(public_model))
+    tracked_protocol_body(upstream, attempt, true, Some(public_model), None)
 }
 
 fn tracked_protocol_body<S>(
@@ -441,6 +471,7 @@ fn tracked_protocol_body<S>(
     attempt: StreamAttempt,
     responses: bool,
     public_model: Option<String>,
+    structured: Option<crate::structured_stream::StructuredStream>,
 ) -> Body
 where
     S: Stream<Item = Result<Bytes, reqwest::Error>> + Send + 'static,
@@ -449,6 +480,7 @@ where
         Box::pin(upstream),
         ChatEvidence {
             responses,
+            structured,
             ..Default::default()
         },
         crate::customer_response::CustomerSse::with_protocol(responses, public_model),
@@ -476,6 +508,25 @@ where
                             && let Some(timing) = &timing
                         {
                             timing.output();
+                        }
+                        if evidence.done
+                            && evidence
+                                .structured
+                                .as_ref()
+                                .is_some_and(|output| !output.valid())
+                        {
+                            let context = attempt.take().expect("active stream context");
+                            context.complete(&evidence).await;
+                            customer_output.suppress_chat_terminal();
+                            let output = customer_output.feed(&bytes).and_then(|mut output| {
+                                output.extend(customer_output.finish_terminal()?);
+                                output.extend_from_slice(b"data: {\"error\":{\"message\":\"Upstream structured output did not satisfy the response format\",\"type\":\"upstream_invalid_response\",\"code\":502}}\n\n");
+                                Ok(Bytes::from(output))
+                            }).map_err(io::Error::other);
+                            return Some((
+                                output,
+                                ((upstream, evidence, customer_output, attempt, true), timing),
+                            ));
                         }
                         let bytes = match customer_output.feed(&bytes) {
                             Ok(mut bytes) => {

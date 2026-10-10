@@ -3247,8 +3247,8 @@ async fn unsupported_capabilities_are_actionable_without_admission_or_egress(poo
         (
             "/v1/chat/completions",
             json!({"model":"fast","messages":text,"response_format":{"type":"json_object"},"stream":true}),
-            2,
-            "Set stream to false",
+            0,
+            "Structured JSON output is not enabled",
         ),
         (
             "/v1/chat/completions",

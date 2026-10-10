@@ -140,7 +140,7 @@ struct StreamExecution<'a> {
 ///         "description": "Durable storage or configured route unavailable."
 ///       }
 ///     },
-///     "x-niu-status": "Basic chat is implemented for configured native provider routes. Function tools, streaming tool deltas, and structured JSON are opt-in on OpenAI-compatible routes only. Niu validates tool-call shape and structured JSON against a valid self-contained schema; json_object output must be an object. Schema compilation is offline and limited to 64 KiB, 4096 JSON nodes and depth 32, with bounded regular expressions. Niu does not execute tools. Structured JSON streaming remains unsupported. Token-priced routes support function calls and text-only tool-result conversations under the same input/output rates. Serialized messages, tool definitions, tool choices and response-format instructions count toward the configured input byte guard. Hosted tools and additional billable modalities remain unsupported.",
+///     "x-niu-status": "Basic chat is implemented for configured native provider routes. Function tools, streaming tool deltas, and structured JSON are opt-in on OpenAI-compatible routes only. Niu validates tool-call shape and structured JSON against a valid self-contained schema; json_object output must be an object. Schema compilation is offline and limited to 64 KiB, 4096 JSON nodes and depth 32, with bounded regular expressions. Niu does not execute tools. Structured JSON streaming validates assembled output before releasing [DONE], with a 1 MiB total content/refusal bound and at most 128 choices. Partial deltas are provisional; invalid final output sends an upstream_invalid_response SSE error without [DONE], while reported terminal usage remains accounting evidence. Token-priced routes support function calls and text-only tool-result conversations under the same input/output rates. Serialized messages, tool definitions, tool choices and response-format instructions count toward the configured input byte guard. Hosted tools and additional billable modalities remain unsupported.",
 ///     "x-niu-implementation": "implemented",
 ///     "description": "Uses the workspace API key and its model grants, source policy, rate/concurrency/token limits and configured billing. Streaming HTTP 200 starts delivery; completion and reported usage require the terminal stream evidence. Niu does not execute function tools. See the supported scope below for structured output and modality restrictions."
 ///   },
@@ -316,7 +316,7 @@ struct StreamExecution<'a> {
 ///               "additionalProperties": true
 ///             }
 ///           ],
-///           "description": "Nonstreaming structured JSON is supported on explicitly enabled priced text routes. Serialized response-format instructions count toward the route input byte guard alongside messages; this guard is not a provider tokenizer or a guarantee against reported overruns."
+///           "description": "Buffered and streamed structured JSON are supported on explicitly enabled priced text routes. Serialized response-format instructions count toward the route input byte guard alongside messages; this guard is not a provider tokenizer or a guarantee against reported overruns."
 ///         },
 ///         "temperature": {
 ///           "type": [
@@ -643,8 +643,8 @@ pub(in crate::web) async fn chat(
 ///         "description": "Route or durable storage unavailable"
 ///       }
 ///     },
-///     "x-niu-status": "Basic chat is implemented for configured native provider routes. Function tools, streaming tool deltas, and structured JSON are opt-in on OpenAI-compatible routes only. Niu validates tool-call shape and structured JSON against a valid self-contained schema; json_object output must be an object. Schema compilation is offline and limited to 64 KiB, 4096 JSON nodes and depth 32, with bounded regular expressions. Niu does not execute tools. Structured JSON streaming remains unsupported. Token-priced routes support function calls and text-only tool-result conversations under the same input/output rates. Serialized messages, tool definitions, tool choices and response-format instructions count toward the configured input byte guard. Hosted tools and additional billable modalities remain unsupported.",
-///     "description": "Requires workspace write authority and an active selected key in that workspace. The key supplies model grants, IP policy, limits and billing attribution; the member token is not forwarded upstream. Uses the same Chat execution path as /v1/chat/completions, including streaming, tools and supported buffered structured output. No key secret is returned. HTTP 200 starts a stream and does not alone prove completed generation or known usage.",
+///     "x-niu-status": "Basic chat is implemented for configured native provider routes. Function tools, streaming tool deltas, and structured JSON are opt-in on OpenAI-compatible routes only. Niu validates tool-call shape and structured JSON against a valid self-contained schema; json_object output must be an object. Schema compilation is offline and limited to 64 KiB, 4096 JSON nodes and depth 32, with bounded regular expressions. Niu does not execute tools. Structured JSON streaming validates assembled output before releasing [DONE], with a 1 MiB total content/refusal bound and at most 128 choices. Partial deltas are provisional; invalid final output sends an upstream_invalid_response SSE error without [DONE], while reported terminal usage remains accounting evidence. Token-priced routes support function calls and text-only tool-result conversations under the same input/output rates. Serialized messages, tool definitions, tool choices and response-format instructions count toward the configured input byte guard. Hosted tools and additional billable modalities remain unsupported.",
+///     "description": "Requires workspace write authority and an active selected key in that workspace. The key supplies model grants, IP policy, limits and billing attribution; the member token is not forwarded upstream. Uses the same Chat execution path as /v1/chat/completions, including streaming, tools and structured output. No key secret is returned. HTTP 200 starts a stream and does not alone prove completed generation or known usage.",
 ///     "x-niu-implementation": "implemented"
 ///   }
 /// }
@@ -1176,6 +1176,17 @@ async fn stream_openai_compatible(
         strip_server_control_fields(object);
     }
     let usage_attempt = state.usage.begin();
+    let structured = match body
+        .pointer("/response_format/type")
+        .and_then(Value::as_str)
+    {
+        Some("json_object") => Some(crate::structured_stream::StructuredStream::new(None)),
+        Some("json_schema") => Some(crate::structured_stream::StructuredStream::new(Some(
+            structured_schema_validator(&body["response_format"]["json_schema"]["schema"])
+                .map_err(|_| ApiError::invalid_request("Invalid structured output schema"))?,
+        ))),
+        _ => None,
+    };
     let upstream = upstream_client
         .post(endpoint)
         .bearer_auth(api_key)
@@ -1228,6 +1239,7 @@ async fn stream_openai_compatible(
             usage: usage_attempt,
             failures: state.failures.clone(),
         },
+        structured,
     ));
     *response.status_mut() = status;
     response
@@ -1472,13 +1484,7 @@ fn chat_route_requirements(
             .ok_or_else(|| ApiError::invalid_request("response_format must be an object"))?;
         match format.get("type").and_then(Value::as_str) {
             Some("text") => {}
-            Some("json_object") => {
-                if stream {
-                    return Err(ApiError::unsupported_message(
-                        "Streaming structured JSON output is not supported. Set stream to false.",
-                    ));
-                }
-            }
+            Some("json_object") => {}
             Some("json_schema") => {
                 let schema = format
                     .get("json_schema")
@@ -1497,11 +1503,6 @@ fn chat_route_requirements(
                 {
                     return Err(ApiError::invalid_request(
                         "json_schema requires a name and JSON Schema object",
-                    ));
-                }
-                if stream {
-                    return Err(ApiError::unsupported_message(
-                        "Streaming structured JSON output is not supported. Set stream to false.",
                     ));
                 }
                 structured_schema_validator(&schema["schema"]).map_err(|_| {

@@ -273,3 +273,11 @@ A full-bound request still hit the spending cap, and restart preserved the exact
 charge and remaining monetary allowance. This verifies the exercised known-usage
 transition and expiry; unresolved/unbounded token usage has different retention
 semantics and was not qualified by this run. No browser behavior is claimed.
+
+## Structured streaming
+
+The [structured Chat streaming checkpoint](structured-output-streaming.md) adds
+actual `json_schema` and `json_object` streams with credit-backed accounting,
+plus an actual incomplete JSON stream whose delivery failure retained one exact
+charge and durable diagnostic across restart. Partial output is provisional;
+terminal schema validation and accounting are separate decisions.

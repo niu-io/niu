@@ -123,6 +123,7 @@ fn sanitize_usage(value: &mut Value) -> bool {
 
 #[derive(Default)]
 pub struct CustomerSse {
+    suppress_chat_terminal: bool,
     responses: bool,
     public_model: Option<String>,
     pending: Vec<u8>,
@@ -137,6 +138,10 @@ impl CustomerSse {
             public_model,
             ..Default::default()
         }
+    }
+    /// Preserve final sanitized usage but withhold a successful Chat terminator.
+    pub fn suppress_chat_terminal(&mut self) {
+        self.suppress_chat_terminal = true;
     }
     pub fn feed(&mut self, bytes: &[u8]) -> Result<Vec<u8>, &'static str> {
         if self.done {
@@ -166,7 +171,9 @@ impl CustomerSse {
                 .collect::<Vec<_>>()
                 .join("\n");
             if data == "[DONE]" {
-                output.extend_from_slice(&frame);
+                if !self.suppress_chat_terminal {
+                    output.extend_from_slice(&frame);
+                }
                 self.done = true;
                 self.pending.clear();
                 break;
