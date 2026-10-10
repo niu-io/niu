@@ -233,3 +233,24 @@ it.each([{ currency: 'USD' }, { amount_nanos: '2000000000' }, { payment_method: 
   expect(screen.getByLabelText('Amount (CNY)').hasAttribute('disabled')).toBe(true);
   expect(posts).toHaveLength(1);
 });
+
+it('retains saved checkout recovery when payment option discovery fails', async () => {
+  let unavailable = true;
+  const posts = vi.fn();
+  vi.stubGlobal('fetch', vi.fn(async (input, init) => {
+    if (init?.method === 'POST') posts();
+    if (String(input).endsWith('/payment-methods')) return unavailable ? new Response('{}', { status: 503 }) : Response.json({ data: availability });
+    return Response.json({ data: [order], next_cursor: null });
+  }));
+  render(<TopupFunding token="test" organization="company" canCreate onPaid={vi.fn()}/>);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'Continue payment' }));
+  expect(screen.getByRole('link', { name: 'Continue to payment' })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Add funds', hidden: true })).toBeNull();
+  await user.keyboard('{Escape}');
+  unavailable = false;
+  await user.click(screen.getByRole('button', { name: 'Retry top-ups' }));
+  await screen.findByRole('button', { name: 'Add funds' });
+  expect(screen.queryByText('Could not load payment options and saved top-ups.')).toBeNull();
+  expect(posts).not.toHaveBeenCalled();
+});

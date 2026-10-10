@@ -68,20 +68,31 @@ export default function TopupFunding({ token, organization, canCreate, currencie
   useEffect(() => {
     const controller = new AbortController();
     setLoadError(''); setLoadFailure(null); setLoading(true);
-    void Promise.all([
+    void Promise.allSettled([
       request<{ data: Availability }>(token, `/admin/v1/organizations/${organization}/billing/payment-methods${currency ? '?currency=' + encodeURIComponent(currency) : ''}`, 'GET', undefined, controller.signal),
       request<{ data: Topup[]; next_cursor: string | null }>(token, `/admin/v1/organizations/${organization}/billing/topups`, 'GET', undefined, controller.signal),
-    ]).then(([methods, history]) => {
+    ]).then(([methodsResult, historyResult]) => {
       if (controller.signal.aborted) return;
-      checkedHistory(history);
-      if (!Array.isArray(methods.data?.payment_methods) || typeof methods.data.available !== 'boolean' || !Array.isArray(history.data) || history.next_cursor === undefined) throw new Error('Invalid payment response');
-      if (!['CNY', 'USD'].includes(methods.data.currency) || (methods.data.available && !['epay', 'stripe', 'zhifux'].includes(methods.data.payment_gateway ?? ''))) throw new Error('Invalid payment integration');
-      if (currency && methods.data.currency !== currency) throw new Error('Mismatched payment currency');
-      setAvailability(methods.data); setOrders(history.data); setNext(history.next_cursor);
-      setMethod(current => methods.data.payment_methods.includes(current) ? current : methods.data.payment_methods[0] ?? '');
-      for (const order of history.data) if (order.status === 'paid' && !paidSeen.current.has(order.id)) { paidSeen.current.add(order.id); onPaid(); }
-      setResult(current => current ? history.data.find(order => order.id === current.id) ?? current : current);
-    }).catch(() => { if (!controller.signal.aborted) { setAvailability(null); setLoadFailure('latest'); setLoadError('Could not load payment options and saved top-ups.'); } }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
+      let failed = false;
+      try {
+        if (methodsResult.status === 'rejected') throw methodsResult.reason;
+        const methods = methodsResult.value;
+        if (!Array.isArray(methods.data?.payment_methods) || typeof methods.data.available !== 'boolean') throw new Error('Invalid payment response');
+        if (!['CNY', 'USD'].includes(methods.data.currency) || (methods.data.available && !['epay', 'stripe', 'zhifux'].includes(methods.data.payment_gateway ?? ''))) throw new Error('Invalid payment integration');
+        if (currency && methods.data.currency !== currency) throw new Error('Mismatched payment currency');
+        setAvailability(methods.data);
+        setMethod(current => methods.data.payment_methods.includes(current) ? current : methods.data.payment_methods[0] ?? '');
+      } catch { failed = true; setAvailability(null); }
+      try {
+        if (historyResult.status === 'rejected') throw historyResult.reason;
+        const history = checkedHistory(historyResult.value);
+        setOrders(history.data); setNext(history.next_cursor);
+        for (const order of history.data) if (order.status === 'paid' && !paidSeen.current.has(order.id)) { paidSeen.current.add(order.id); onPaid(); }
+        setResult(current => current ? history.data.find(order => order.id === current.id) ?? current : current);
+      } catch { failed = true; }
+      if (failed) { setLoadFailure('latest'); setLoadError('Could not load payment options and saved top-ups.'); }
+      setLoading(false);
+    });
     return () => controller.abort();
   }, [token, organization, currency, revision]);
   const create = async () => {
