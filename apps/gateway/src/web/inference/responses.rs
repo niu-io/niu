@@ -91,6 +91,7 @@ pub(in crate::web) async fn responses(
         &state,
         &principal,
         AttemptRequest {
+            managed_route: resolved.managed_route.as_ref(),
             personal_route: resolved.personal_route.as_ref(),
             public_model: &public_model,
             model,

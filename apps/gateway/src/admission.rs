@@ -57,6 +57,7 @@ struct PendingAdmission {
 }
 
 pub(crate) struct UnpricedAdmissionRequest<'a> {
+    pub managed_route: Option<niu_storage::ManagedRouteSnapshot>,
     pub token_bound: Option<i64>,
     pub inspected_guardrails: niu_storage::GuardrailSnapshot,
     pub(crate) scope: TenantScope,
@@ -107,6 +108,7 @@ impl GatewayWrites {
         let operation_id = Uuid::new_v4();
         let attempt_id = Uuid::new_v4();
         let record = GatewayAdmission {
+            managed_route: request.managed_route,
             token_bound: request.token_bound,
             inspected_guardrails: Some(request.inspected_guardrails),
             operation_id,
@@ -450,16 +452,20 @@ async fn persist_admission_batch(store: &Store, batch: Vec<PendingAdmission>) {
             }
         }
         Err(
-            niu_storage::StoreError::KeyRequestRateExceeded
+            niu_storage::StoreError::ManagedRouteChanged
+            | niu_storage::StoreError::KeyRequestRateExceeded
             | niu_storage::StoreError::KeyConcurrencyExceeded
             | niu_storage::StoreError::KeyTokenRateExceeded
             | niu_storage::StoreError::KeyTokenBoundRequired,
         ) => {
-            // A limit rejection proves the whole transaction rolled back before dispatch.
-            // Isolate limited keys without replaying ambiguous database failures.
+            // These explicit admission errors prove the transaction rolled back.
+            // Isolate rejected records without replaying ambiguous database failures.
             for (record, reply) in records.into_iter().zip(replies) {
                 let result = match store.admit_unpriced_gateway_batch(vec![record]).await {
                     Ok(mut statuses) if statuses.len() == 1 => Ok(statuses.remove(0)),
+                    Err(niu_storage::StoreError::ManagedRouteChanged) => {
+                        Err(AdmissionError::Conflict)
+                    }
                     Err(niu_storage::StoreError::KeyRequestRateExceeded) => {
                         Err(AdmissionError::RequestRateExceeded)
                     }

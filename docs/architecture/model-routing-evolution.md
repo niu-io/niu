@@ -69,7 +69,7 @@ polling must not create a replacement generation on another Supplier.
 
 | Increment | Required result | Current status |
 | --- | --- | --- |
-| Durable selected-route binding | Configuration races reject before dispatch; historical selection stays inspectable | Personal-route binding exists; general coverage needs implementation and verification |
+| Durable selected-route binding | Configuration races reject before dispatch; historical selection stays inspectable | Generic managed-route binding implemented; actual personal Chat model-revision race verified, broader paths open |
 | Separate customer models and supply mappings | Multiple credentials serve one customer alias without changing grants or tariffs | Not implemented |
 | Candidate administration | Revisioned membership, priority, weight, enabled state and scoped history | Not implemented |
 | Candidate selection | Eligible priority/weight selection, no disabled or foreign personal routes, defined no-route response | Not implemented |
@@ -83,3 +83,6 @@ Include configuration changes during admission, revoked credentials, concurrent
 selection, partial streams, restart and no eligible candidates. Fixture results
 do not establish any row above. External merchant activation and coverage of
 every possible upstream service are not prerequisites for internal capability.
+
+See [managed route bindings](../reference/managed-route-bindings.md) for the
+implemented first increment and the exact current-input verification boundary.

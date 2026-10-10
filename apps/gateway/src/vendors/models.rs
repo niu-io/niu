@@ -22,6 +22,7 @@ pub(super) struct Capabilities {
 }
 
 pub(crate) struct ResolvedModel {
+    pub managed_route: Option<niu_storage::ManagedRouteSnapshot>,
     pub model: ModelConfig,
     pub api_key: String,
     pub personal_route: Option<niu_storage::VendorRoute>,
@@ -51,6 +52,7 @@ pub(crate) async fn resolve_scoped_model(
         model.pricing = None;
         model.public_catalog = false;
         return Ok(ResolvedModel {
+            managed_route: Some(niu_storage::ManagedRouteSnapshot::from(&route)),
             model,
             api_key,
             personal_route: Some(route),
@@ -230,6 +232,7 @@ pub(crate) async fn resolve_model(
             .open(route.vendor.id, &route.credential_ciphertext)
             .map_err(|_| ApiError::unavailable())?;
         return Ok(ResolvedModel {
+            managed_route: Some(niu_storage::ManagedRouteSnapshot::from(&route)),
             model: stored_model(&route)?,
             api_key,
             personal_route: None,
@@ -246,6 +249,7 @@ pub(crate) async fn resolve_model(
         .ok_or_else(ApiError::unavailable)?
         .to_owned();
     Ok(ResolvedModel {
+        managed_route: None,
         model,
         api_key,
         personal_route: None,

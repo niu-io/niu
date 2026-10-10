@@ -106,6 +106,7 @@ async fn admit(store: &Store, f: &Fixture) -> Result<(), StoreError> {
                         .into_iter()
                         .flatten()
                         .map(|(operation, attempt)| GatewayAdmission {
+                            managed_route: None,
                             token_bound: None,
                             inspected_guardrails: None,
                             operation_id: operation,

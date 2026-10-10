@@ -79,6 +79,11 @@ round trips or by a green fixture workflow:
 
 ## Recent concrete corrections
 
+- [Managed route binding](../reference/managed-route-bindings.md) now carries
+  selected credential/model revisions to transactional dispatch checks. An actual
+  personal Chat configuration race rejected the stale version without dispatch;
+  a fresh request completed with independently verified binding and usage.
+
 - Per-key budget identity now survives secret rotation; spending limits, IP,
   RPM, concurrency and estimated TPM have separate management APIs, histories and
   SDK methods, linked from the primary OpenAPI.

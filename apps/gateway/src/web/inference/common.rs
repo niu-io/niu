@@ -320,6 +320,7 @@ pub(super) async fn inspect_request_input_with_image_requirements(
 }
 
 pub(super) struct AttemptRequest<'a> {
+    pub managed_route: Option<&'a niu_storage::ManagedRouteSnapshot>,
     pub personal_route: Option<&'a niu_storage::VendorRoute>,
     pub public_model: &'a str,
     pub model: &'a crate::config::ModelConfig,
@@ -389,6 +390,7 @@ pub(super) async fn begin_attempt(
     request: AttemptRequest<'_>,
 ) -> Result<DispatchContext, ApiError> {
     let AttemptRequest {
+        managed_route,
         personal_route,
         public_model,
         model,
@@ -451,6 +453,13 @@ pub(super) async fn begin_attempt(
             .prepare_gateway_attempt(scope, public_model, task_id, &revision)
             .await
             .map_err(ApiError::from_store)?;
+        if let Some(route) = managed_route {
+            state
+                .store
+                .bind_managed_route(scope, attempt, route)
+                .await
+                .map_err(ApiError::from_store)?;
+        }
         state
             .store
             .bind_key_token_bound(scope, attempt, token_bound)
@@ -483,6 +492,13 @@ pub(super) async fn begin_attempt(
             .prepare_gateway_attempt(scope, public_model, task_id, &revision)
             .await
             .map_err(ApiError::from_store)?;
+        if let Some(route) = managed_route {
+            state
+                .store
+                .bind_managed_route(scope, attempt, route)
+                .await
+                .map_err(ApiError::from_store)?;
+        }
         state
             .store
             .bind_key_token_bound(scope, attempt, token_bound)
@@ -521,6 +537,7 @@ pub(super) async fn begin_attempt(
             .admit_unpriced(
                 principal,
                 crate::admission::UnpricedAdmissionRequest {
+                    managed_route: managed_route.cloned(),
                     token_bound,
                     inspected_guardrails: snapshot,
                     scope,
