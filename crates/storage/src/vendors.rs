@@ -482,10 +482,10 @@ impl Store {
         Ok(vendor)
     }
 
+    /// Compatibility list: return every mapping; this contract has no continuation cursor.
     pub async fn vendor_models(&self, id: Uuid) -> Result<Vec<VendorModelView>, StoreError> {
-        let query = format!(
-            "SELECT {MODEL_COLUMNS} FROM vendor_models WHERE vendor_id=$1 ORDER BY alias LIMIT 1000"
-        );
+        let query =
+            format!("SELECT {MODEL_COLUMNS} FROM vendor_models WHERE vendor_id=$1 ORDER BY alias");
         Ok(sqlx::query_as::<_, VendorModelView>(&query)
             .bind(id)
             .fetch_all(&self.pool)
@@ -494,6 +494,7 @@ impl Store {
 
     /// Management read: availability uses the same eligibility checks as dispatch.
     /// Keep this read-only field out of model configuration writes.
+    /// Return all mappings: a silent row cap makes saved configuration inaccessible.
     pub async fn vendor_models_with_availability(
         &self,
         id: Uuid,
@@ -508,7 +509,7 @@ impl Store {
                     AND (EXISTS (SELECT 1 FROM personal_vendor_ownership o WHERE o.vendor_id=v.id)
                          OR niu_supplier_model_route_available(m.alias)))
              FROM vendor_models m JOIN vendors v ON v.id=m.vendor_id
-             WHERE m.vendor_id=$1 ORDER BY m.alias LIMIT 1000",
+             WHERE m.vendor_id=$1 ORDER BY m.alias",
         )
         .bind(id)
         .fetch_all(&self.pool)

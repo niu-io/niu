@@ -546,3 +546,21 @@ backup was created before upgrading the development database.
 This verifies the exercised personal Chat/procurement separation and controls,
 not every protocol, policy race or upstream billing statement. Video's separate
 preflight restriction on legacy procurement budgets remains in place.
+
+## Supplier model-management list completeness
+
+The compatibility `GET /admin/v1/vendors/{id}/models` endpoint returns all saved
+mappings in alias order. Its storage reads no longer silently discard rows after
+1,000. The response remains a single `data` array; memory and response size grow
+with the number of mappings. This correction does not introduce pagination or
+qualify arbitrarily large configuration sets.
+
+A current-input native HTTP run created 1,003 mappings through the management API.
+The prior binary returned only 1,000, omitting the last created mapping despite
+independent SQL confirming its persistence. A fresh run with the corrected binary
+returned all 1,003; after gateway restart, every returned object matched the
+pre-restart response. Independent SQL confirmed the saved count and zero inference
+attempts. Isolated processes were stopped and the original encrypted credential
+identity was unchanged. This is configuration-read evidence, not model execution
+or a complete Supplier workflow qualification. Other credential directory limits
+remain separate work.
