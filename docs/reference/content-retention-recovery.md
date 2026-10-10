@@ -48,3 +48,45 @@ multi-instance contention over a nonempty expired backlog, all expiry boundary
 races, statement-timeout CPU workloads, interrupted ingestion recovery, paid
 settlement or capacity. Cleanup limits are implementation bounds, not measured
 throughput guarantees.
+
+## Progress with a single database connection
+
+A current-input run on 2026-10-10 exposed starvation between consecutive
+retention domains. An isolated gateway with a one-connection pool completed two
+actual, internally credit-backed OpenRouter requests and captured their payloads.
+After shortening one captured row's expiry in the isolated database, multiple
+scheduled passes left it unerased for at least 30 seconds. The other payload was
+still unexpired. No synthetic request or financial rows were inserted.
+
+Source inspection identified a connection-lifecycle gap: SQLx 0.8.6 normally
+returns a dropped pooled connection asynchronously. After one cleanup committed,
+the next nonblocking acquisition could miss the still-returning connection;
+repeating the same domain order could starve later domains. The statement-based
+retention helper now borrows its transaction from an explicitly held pool
+connection and awaits SQLx's connection return before continuing. That return
+also flushes rollback after a domain error. Ownership and deadline configuration
+remain shared with financial recovery. Acquisition still does not queue or open
+a connection, and each domain retains its own transaction.
+
+With the rebuilt release binary, a fresh isolated current-input run verified:
+
+- Two actual upstream completions produced captured content and independently
+  checked customer charges. The expired capture was physically removed after
+  3.62 seconds; the fresh response retained its original SHA-256.
+- Expiring the remaining capture while the gateway was stopped, holding its row
+  lock, then restarting preserved it through a six-second scheduled-worker
+  observation. After releasing the lock, the capture was physically removed.
+  Both attempts and both customer charges remained present.
+- The credit workflow reconciled charges of 20,371 and 12,099 USD nanounits,
+  retained its paid statement,
+  rejected an additional external payment and an exhausted-key request, applied
+  one idempotent refund, and preserved accounting through another restart.
+  This used explicit internal verification rates and approved credit, not an
+  external top-up or a claim of commercial Supplier qualification.
+- Temporary access was revoked and the isolated gateway/database stopped. The
+  original development database and encrypted credential identity were preserved.
+
+This establishes progress and accounting preservation for two real captures in
+the stated small-pool scenario. It does not establish fairness under sustained
+foreground saturation, all background workers' progress, large-backlog capacity,
+or a root cause for every GitHub Actions failure. Fixture outcomes are not used.
