@@ -1261,3 +1261,22 @@ This resolves the preceding direct-fill ambiguity: selecting through the calenda
 commits the date correctly. It qualifies this populated single-day browser range
 and reload restoration, not daylight-saving/timezone changes, all date boundaries,
 task correlation or ordinary-role access.
+
+## Global Activity to retained request diagnostics — 2026-10-11
+
+The populated global feed's GPT-4.1 Mini request link opened its matching
+workspace Logs detail, preserving the request anchor through canonical workspace
+route resolution. The saved request and response were CHARGE_OK, with 14 input
+and 4 output tokens, HTTP 200 and customer attribution Own API key. Recorded
+timing showed 138 ms preparation, 1.99 s first-output wait and 378 ms output,
+2.51 s total. No Supplier purchase price was substituted for a customer charge.
+
+A full reload reopened the same retained detail. Desktop and measured 390 × 844
+views were inspected; document width remained 390. Next request switched to the
+distinct saved STREAM_OK payload and its timing; Previous request restored
+CHARGE_OK and its original timing. Close removed the request anchor and dialog
+and returned to the populated 73-row workspace list. No new inference, payment,
+credential or configuration mutation was performed. Screenshots were retained
+outside the public tree. This qualifies the exercised navigation and retained
+content, not stale/expired payloads, ordinary-role isolation or the complete
+request-failure matrix.
