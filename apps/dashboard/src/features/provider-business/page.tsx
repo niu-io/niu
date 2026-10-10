@@ -48,6 +48,8 @@ type Dashboard = {
     currency: string;
     prompt_rate: string;
     completion_rate: string;
+    cached_prompt_rate?: string | null;
+    cached_prompt_tokens?: string | null;
     requests: string;
     prompt_tokens: string;
     completion_tokens: string;
@@ -472,6 +474,11 @@ function ProviderBusiness({
                             </strong>
                           </span>
                           <span>
+                            Cache read{" "}
+                            <strong>{money(offer.cached_prompt_rate ?? offer.prompt_rate, offer.currency)}</strong>
+                            {offer.cached_prompt_rate == null && <small> (Input rate)</small>}
+                          </span>
+                          <span>
                             Output{" "}
                             <strong>
                               {money(offer.completion_rate, offer.currency)}
@@ -532,10 +539,12 @@ function ProviderBusiness({
                             <TableCell>
                               {count(entry.prompt_tokens)} /{" "}
                               {count(entry.completion_tokens)}
+                              <div className="text-sm text-muted-foreground">Cached: {entry.cached_prompt_tokens == null ? 'Unknown' : count(entry.cached_prompt_tokens)}</div>
                             </TableCell>
                             <TableCell>
                               {money(entry.prompt_rate, entry.currency)} /{" "}
                               {money(entry.completion_rate, entry.currency)}
+                              <div className="text-sm text-muted-foreground">Cache read: {money(entry.cached_prompt_rate ?? entry.prompt_rate, entry.currency)}{entry.cached_prompt_rate == null ? ' (Input rate)' : ''}</div>
                             </TableCell>
                             <TableCell>{money(entry.amount_nanos, entry.currency)}</TableCell>
                             <TableCell>{money(entry.unpaid_nanos, entry.currency)}</TableCell>

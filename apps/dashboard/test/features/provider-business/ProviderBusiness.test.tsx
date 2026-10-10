@@ -79,6 +79,27 @@ describe("provider business access and earnings", () => {
     expect(screen.queryByText("Output")).toBeNull();
   });
 
+  it.each([['100000000', 'USD 0.1', false], ['0', 'USD 0.00', false], [null, 'USD 1.00', true]])('shows a supplier-owned cache rate, including zero and input-rate fallback', async (cachedRate, expected, fallback) => {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({data:{...response,offers:[{...response.offers[0],cached_prompt_rate:cachedRate}]}})));
+    setup('viewer');
+    await screen.findByText('USD 1.2');
+    await userEvent.setup().click(screen.getByRole('link', {name:'Model offers',exact:true}));
+    const label = screen.getByText('Cache read').parentElement!;
+    expect(label.textContent).toContain(expected);
+    expect(label.textContent?.includes('(Input rate)')).toBe(fallback);
+    expect(screen.queryByRole('button', {name:'Pause'})).toBeNull();
+  });
+
+  it.each([['0', '0'], [null, 'Unknown']])('keeps the cache token subset separate from input/output totals', async (cachedTokens, expected) => {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({data:{...response,consumption:[{model_alias:'qwen/qwen3',revision:'private-revision',currency:'USD',prompt_rate:'1000000000',completion_rate:'2000000000',cached_prompt_rate:'0',cached_prompt_tokens:cachedTokens,requests:'1',prompt_tokens:'12',completion_tokens:'6',amount_nanos:'100',unpaid_nanos:'100'}]}})));
+    setup('viewer');
+    await screen.findByText('USD 1.2');
+    await userEvent.setup().click(screen.getByRole('link', {name:'Consumption',exact:true}));
+    expect(screen.getByText(`Cached: ${expected}`).parentElement?.textContent).toContain('12 / 6');
+    expect(screen.getByText('Cache read: USD 0.00')).toBeTruthy();
+    expect(document.body.textContent).not.toContain('private-revision');
+  });
+
   it("denies a customer even when they manage workspace operators, without fetching earnings", () => {
     const fetch = vi.fn();
     vi.stubGlobal("fetch", fetch);
