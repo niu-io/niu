@@ -298,3 +298,13 @@ separate empty workspace with 204. Revoking a workspace-scoped member did not
 remove its historical reference: installation deletion still returned 409 for
 that referenced workspace. This verifies authorization and dependent-record
 preservation, not a purge mechanism. Existing workspaces were not modified.
+
+The throughput-control integration was checked with actual workspace owner and
+viewer tokens on a temporary key. For RPM, concurrency and TPM independently,
+the viewer could read current policies and histories but both set-zero and
+remove-limit writes returned 403 without changing the limit or revision. The
+owner set zero and then explicit null; each policy independently advanced through
+string revisions `1` and `2`, with matching history. Snapshot timestamps may
+change on reads without a policy edit. No inference attempt was created and the
+Demo key's policies were untouched; temporary access was revoked. This is backend
+role verification, not rendered frontend authorization qualification.
