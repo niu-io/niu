@@ -25,3 +25,25 @@ and restart for the exercised owner-funded job. It does not establish deletion
 of the upstream file, cancellation, a refund or commercial settlement. It does
 not qualify an in-flight download/deletion race, automatic expiry, all media
 formats or frontend behavior. No fixture-test outcome is used as evidence.
+## Current-state follow-up — 2026-10-10
+
+Rechecking a previously saved real video on backend `5a2449d` found that its
+result reference had expired, had a deletion timestamp and no longer contained
+ciphertext. A current provider refresh returned successfully and retained the
+job's succeeded status, but scoped result retrieval remained HTTP 404. The
+earlier successful-download script could therefore no longer qualify a fresh
+download from this artifact; its old output hash was not reused as current
+evidence.
+
+A dedicated current-input HTTP run confirmed the same 404 after refresh,
+foreign-workspace viewer rejection with 403, and rejection with 401 after the
+selected key was revoked. Independent before/after database counts confirmed no
+new video submission, customer balance entry or Supplier earning. Temporary
+operators and keys were revoked. No retention timestamp or deleted result was
+reset to make the download succeed.
+
+Separately, a fresh read of an existing upstream video returned completed status
+and `usage.cost`, but no duration or reported billable quantity. That upstream
+expense is not a customer charge and does not establish seconds-based customer
+settlement. This checkpoint verifies current result unavailability and financial
+isolation, not a new video generation, decoded result or customer media debit.
