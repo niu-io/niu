@@ -19,6 +19,11 @@ A developer can install Niu, configure a qualified Supplier, create a workspace 
 
 Current-input backend checkpoints (none qualifies a complete release gate):
 
+- [Five-minute mixed-key text run](../reference/mixed-key-sustained-text.md):
+  600 actual bounded Chat completions across eight keys, with independently
+  reconciled usage, per-attempt debits and released holds after restart. This
+  extends sustained text evidence without qualifying maximum capacity or media.
+
 - [Two-gateway text load](../reference/two-gateway-text-load.md): 152 actual
   completions, a roughly one-minute paced phase and independently reconciled
   per-attempt charges after restart. Capacity, overload and broader workloads
