@@ -987,7 +987,7 @@ paths:
         '404': { description: No saved conversation for this workspace and owner }
         '503': { description: Durable storage unavailable }
   /admin/v1/organizations/{organization}/projects/{project}/guardrails/denials:
-    $ref: './guardrails.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1denials'
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1denials'
   /admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}:
     parameters:
       - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
