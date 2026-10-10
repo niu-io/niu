@@ -233,3 +233,25 @@ credential revision/digest was unchanged, and temporary keys/configuration were
 revoked/disabled. An HTTP rejection alone does not automatically prove
 nonexecution or release uncertain liabilities. Transport, regional rejection and
 malformed-response classification remain unverified by actual fault runs.
+
+## Undeliverable vectors and incurred usage
+
+Embedding result validation and execution accounting are separate. When an HTTP
+success response contains a synchronous `list` envelope with the expected number
+of indexed `embedding` items and valid reported usage, an invalid vector still
+returns the safe invalid-response error but preserves completed execution and
+reported input usage. Completion tokens are zero by the embedding contract.
+Missing terminal-envelope or usage evidence leaves the invalid response unresolved.
+The gateway does not turn a delivery error into an automatic retry or free work.
+
+This aligns the embedding implementation with the existing Chat distinction
+between upstream completion and usable output. The malformed-vector accounting
+branch has no actual upstream fault evidence and remains unverified, including
+its customer-priced settlement effects.
+
+On the updated optimized gateway, actual float/base64 requests again produced
+independently decoded vectors and exact durable usage. A separate actual upstream
+400 retained its safe status/diagnostic and unresolved execution without customer
+debit. Temporary configurations were disabled and keys revoked. These observations
+cover normal results and HTTP rejection, not the malformed-vector completion
+branch. Release compilation and Clippy completed.

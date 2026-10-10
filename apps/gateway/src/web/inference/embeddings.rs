@@ -306,20 +306,32 @@ async fn execute_embeddings(
                     }
                 })
         });
+    let provider_model = provider_reported_model(&value);
+    let usage = embedding_usage(&value);
     if !valid_data {
         state.failures.fetch_add(1, Ordering::Relaxed);
-        return Err(ApiError::upstream_invalid_response());
+        // A synchronous terminal envelope can establish incurred usage even
+        // when the returned vector violates the client's output contract.
+        let terminal = value.get("object").and_then(Value::as_str) == Some("list")
+            && value
+                .get("data")
+                .and_then(Value::as_array)
+                .is_some_and(|data| {
+                    data.len() == input_bounds.item_count
+                        && data.iter().enumerate().all(|(index, item)| {
+                            item.get("object").and_then(Value::as_str) == Some("embedding")
+                                && item.get("index").and_then(Value::as_u64) == Some(index as u64)
+                                && item.get("embedding").is_some()
+                        })
+                });
+        if !terminal || usage.is_none() {
+            return Err(ApiError::upstream_invalid_response());
+        }
     }
-    let provider_model = provider_reported_model(&value);
-    let usage = embedding_usage(&value).map(|(prompt_tokens, _)| {
-        // Embedding requests produce no completion tokens; that zero follows
-        // from the operation contract rather than missing provider evidence.
-        usage_attempt.report(&json!({
-            "prompt_tokens": prompt_tokens,
-            "completion_tokens": 0
-        }));
-        (prompt_tokens, 0)
-    });
+    if let Some((prompt_tokens, _)) = usage {
+        // Embeddings have zero completion tokens by their operation contract.
+        usage_attempt.report(&json!({"prompt_tokens": prompt_tokens, "completion_tokens": 0}));
+    }
     if let Some(object) = value.as_object_mut() {
         object.insert("object".to_owned(), json!("list"));
         object.insert("model".to_owned(), json!(public_model));
@@ -328,7 +340,11 @@ async fn execute_embeddings(
     Ok(ProviderResponse {
         finish_reasons: None,
         token_categories: None,
-        response: Json(value).into_response(),
+        response: if valid_data {
+            Json(value).into_response()
+        } else {
+            ApiError::upstream_invalid_response().into_response()
+        },
         completed: true,
         usage,
         provider_model,
