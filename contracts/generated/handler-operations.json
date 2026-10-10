@@ -5090,7 +5090,7 @@
       "get": {
         "operationId": "listPaymentIntegrations",
         "summary": "List supported payment integrations",
-        "description": "Installation administrator only. Capability inventory is independent of merchant activation. Returns no merchant configuration or credentials. Refunds means refund initiation; query recovery is limited to the declared scope.",
+        "description": "Installation credential or an explicit platform-administrator grant required, independent of customer company role. Capability inventory is independent of merchant activation. Returns no merchant configuration or credentials. Refunds means refund initiation; query recovery is limited to the declared scope.",
         "security": [
           {
             "bearerAuth": []
@@ -5171,7 +5171,7 @@
             "description": "Authentication required"
           },
           "403": {
-            "description": "Installation administrator required"
+            "description": "Platform administration authority required"
           }
         }
       }

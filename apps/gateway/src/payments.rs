@@ -31,7 +31,7 @@ use uuid::Uuid;
 ///   "operation": {
 ///     "operationId": "listPaymentIntegrations",
 ///     "summary": "List supported payment integrations",
-///     "description": "Installation administrator only. Capability inventory is independent of merchant activation. Returns no merchant configuration or credentials. Refunds means refund initiation; query recovery is limited to the declared scope.",
+///     "description": "Installation credential or an explicit platform-administrator grant required, independent of customer company role. Capability inventory is independent of merchant activation. Returns no merchant configuration or credentials. Refunds means refund initiation; query recovery is limited to the declared scope.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -112,7 +112,7 @@ use uuid::Uuid;
 ///         "description": "Authentication required"
 ///       },
 ///       "403": {
-///         "description": "Installation administrator required"
+///         "description": "Platform administration authority required"
 ///       }
 ///     }
 ///   }
@@ -122,12 +122,7 @@ pub(crate) async fn integrations(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
-    let authorization = state
-        .authorize_admin_headers(&headers, AdminPermission::Read)
-        .await?;
-    if !authorization.is_installation() {
-        return Err(ApiError::forbidden());
-    }
+    state.authorize_platform_headers(&headers).await?;
     Ok(Json(json!({"data": [
         {"id":"epay", "name":"EPay-compatible gateway", "configuration":"administration_api",
          "checkout":true, "signed_notifications":true, "query_recovery":"unsupported",

@@ -415,8 +415,9 @@ Creation/lifecycle integration verification: the gateway/PostgreSQL fixture now 
 
 `GET /admin/v1/platform/payments/integrations` returns the three supported adapter
 identifiers, display names, configuration mechanisms and capability boundaries.
-Use `admin.listPaymentIntegrations()` in the JavaScript SDK. This is installation
-administrator only; company owners and viewers cannot inspect platform payment
+Use `admin.listPaymentIntegrations()` in the JavaScript SDK. Installation credentials
+and members with an explicit platform-administrator grant can read this inventory.
+A company owner or viewer without that grant cannot inspect platform payment
 administration. It does not read merchant secrets or require upstream access.
 
 `query_recovery` is `unsupported` for EPay, `bound_session` for Stripe and
@@ -468,3 +469,20 @@ credentials were preserved; isolated processes were stopped.
 This verifies the actual local configuration, encryption, audit and authorization
 workflow. It does not establish merchant eligibility, upstream payment success,
 callback delivery or external settlement, and none was required for this check.
+
+### Platform-member inventory consistency — 2026-10-10
+
+A current native request reproduced a permission mismatch: a company viewer with
+an explicit platform-admin grant could use platform payment configuration but
+received 403 from the support inventory. The inventory now uses the same shared
+platform authorization helper. Customer company roles alone still grant no
+platform access, and no merchant configuration is included in the inventory.
+
+On a fresh isolated gateway/database, a viewer initially received 403. After an
+explicit database-administrator grant with its immutable event, the same session
+received 200 and exactly the installation-visible adapter/field inventory.
+Restart retained access. Revoking the grant with its event immediately restored
+403 for that session. Independent database reads confirmed both grant events,
+zero top-up orders and zero balance entries. The original development database
+and encrypted credential identity remained unchanged. This verifies the exercised
+permission and serialization boundary, not payment activation or settlement.

@@ -5318,7 +5318,7 @@ HTTP 422: Malformed JSON shape, missing fields or unknown fields
 
 `GET /admin/v1/platform/payments/integrations`
 
-Installation administrator only. Capability inventory is independent of merchant activation. Returns no merchant configuration or credentials. Refunds means refund initiation; query recovery is limited to the declared scope.
+Installation credential or an explicit platform-administrator grant required, independent of customer company role. Capability inventory is independent of merchant activation. Returns no merchant configuration or credentials. Refunds means refund initiation; query recovery is limited to the declared scope.
 
 Implementation: `implemented`. Operation: `listPaymentIntegrations`.
 
@@ -5407,7 +5407,7 @@ Content type: `application/json`.
 
 HTTP 401: Authentication required
 
-HTTP 403: Installation administrator required
+HTTP 403: Platform administration authority required
 
 ## Create or recover a company prepaid top-up
 

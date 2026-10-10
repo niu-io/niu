@@ -587,7 +587,7 @@ export class NiuAdminClient {
   private readonly base: string;
   private readonly requestFetch: typeof globalThis.fetch;
 
-  /** Installation-only supported adapters; does not imply merchant activation. */
+  /** Platform administrator inventory; does not imply merchant activation or enabled checkout. */
   listPaymentIntegrations(options?: RequestOptions): Promise<{ data: PaymentIntegration[] }> {
     return this.request('/platform/payments/integrations', undefined, options);
   }
