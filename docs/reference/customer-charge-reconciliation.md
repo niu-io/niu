@@ -142,3 +142,31 @@ database reopening confirmed session revocation, the one original completion and
 exact debit, and no open reservation or duplicate execution. No fixture outcome
 was used. This verifies the exercised company/currency boundaries for text
 recovery, not every media or financial-discrepancy state.
+
+### Short concurrent read workload on actual charge history
+
+On 2026-10-11, a stopped database containing the 600 actual requests from the
+[five-RPS text run](mixed-key-sustained-text.md#follow-up-at-five-scheduled-requests-per-second)
+was copied to an isolated native instance. One Gateway used a two-connection
+database pool. Eight client workers made 1,000 HTTP reconciliation reads; every
+response was 200, carried `no-store` and matched the original 600-charge totals
+and zero completed-unaccrued count.
+
+| Observation | Result |
+| --- | --- |
+| Total read workload duration | 1.324 seconds |
+| Observed throughput over that duration | 755.21 reads/second |
+| Client round-trip p50 | 10.225 ms |
+| Client round-trip nearest-rank p95 | 14.807 ms |
+| Maximum client round-trip | 21.292 ms |
+
+Gateway restart preserved the report. Independent reopening checked every
+original response's usage and key against its persisted attempt, recalculated all
+600 customer charges and matched their scoped debits. Financial counts and sums
+were unchanged and no reservation remained held. The source evidence database
+and original development runtime were untouched.
+
+This short read-only workload checks the added counter's exercised query overhead
+and consistency. It is not a sustained-load, cold-cache, multi-company scale,
+concurrent-write, inference-admission or production-capacity qualification. No
+process resource measurements or comparison with another gateway are established.
