@@ -50,8 +50,8 @@ created a flat revision without changing existing charges.
 
 This evidence covers non-streaming customer reasoning pricing with request fees
 and minimum charges. Concurrent admission under an explicit minimum and combined cache/reasoning
-pricing are verified below. Multiple Gateway instances and category-rate-only
-reservation races remain unverified. Missing-category retention is verified below;
+pricing are verified below. A two-Gateway reasoning-rate-only reservation race is also verified below;
+this is bounded concurrency evidence, not a sustained capacity result. Missing-category retention is verified below;
 recovering a subsequently supplied category remains unverified. The served
 documentation OpenAPI matches the generated contract, and its reference HTML
 contains the new rate field; visual browser acceptance is not claimed. Supplier reasoning rates,
@@ -106,3 +106,21 @@ charge arithmetic, single attempt/debit, and released reservation.
 This qualifies one Gateway's concurrent admission with a minimum charge. It does
 not establish multi-Gateway contention behavior or a reservation bound driven
 solely by the higher reasoning rate.
+
+
+## Two-Gateway reasoning-rate reservation
+
+Two native Gateway processes shared one isolated PostgreSQL database. Customer
+ordinary input/output rates, request fee, and minimum were all zero; the reasoning
+rate alone was 1,000,000 nanounits per million tokens. Internal credit was 512
+nanounits and each simultaneous actual request declared a 512-token output bound.
+One request returned HTTP 402 while the other was still running with a held
+reservation. The accepted request returned its marker and nonzero reasoning usage.
+
+Independent reopening matched the saved response hash and exact charge equal to
+the reported reasoning subset, with only one attempt and debit and no open hold.
+After restarting the surviving Gateway, another request was rejected because
+remaining credit could not cover the full 512-token bound. Remaining credit was
+not zero: admission correctly used the bound rather than the previous actual
+charge. This also exercises a nonzero reasoning rate when all ordinary rates are
+zero; it cannot use the free-request dispatch exemption.
