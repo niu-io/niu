@@ -4539,7 +4539,7 @@ HTTP 404: Workspace outside authorized scope
 
 `POST /admin/v1/organizations/{organization}/projects/{project}/billing/tariffs`
 
-Installation only. Rates are currency nanounits per million text tokens, bounded at 1000000000000000. Optional cached_prompt_rate independently prices reported cached input. Null selects flat input pricing. When replacing an existing cached tariff this field must be explicit; omission conflicts. Missing cached usage keeps charges unresolved. No retroactive billing. Cache-Control is no-store.
+Installation administration or an explicitly granted platform administrator required. Ordinary company/workspace owners cannot set selling prices. This does not grant invoice, payment or credit-policy writes. Rates are currency nanounits per million text tokens, bounded at 1000000000000000. Optional cached_prompt_rate independently prices reported cached input. Null selects flat input pricing. When replacing an existing cached tariff this field must be explicit; omission conflicts. Missing cached usage keeps charges unresolved. No retroactive billing. Cache-Control is no-store.
 
 Implementation: `implemented`. Operation: `publishCustomerSellingRate`.
 
@@ -4668,13 +4668,11 @@ Content type: `application/json`.
 
 HTTP 400: Invalid rates, currency or unavailable model alias
 
-HTTP 403: Installation authority required
+HTTP 403: Installation administration or explicit platform grant required
 
 HTTP 409: Stale expected revision
 
 HTTP 401: Invalid or expired administrative credential.
-
-HTTP 404: Workspace outside authorized scope.
 
 ## Publish an immutable customer video selling schedule
 

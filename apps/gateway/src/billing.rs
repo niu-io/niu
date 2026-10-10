@@ -1,5 +1,5 @@
-//! Customer billing. Text tariff and invoice writes remain installation-owned.
-//! Media pricing also accepts explicitly granted platform administrators.
+//! Customer billing. Text/media pricing accepts explicit platform administrators.
+//! Invoice and financial policy writes retain their separate authority.
 pub(crate) mod invoice_history;
 use crate::{error::ApiError, state::AppState};
 use axum::{
@@ -294,7 +294,7 @@ pub async fn overview(
 ///     ],
 ///     "operationId": "publishCustomerSellingRate",
 ///     "summary": "Publish an immutable customer selling rate revision",
-///     "description": "Installation only. Rates are currency nanounits per million text tokens, bounded at 1000000000000000. Optional cached_prompt_rate independently prices reported cached input. Null selects flat input pricing. When replacing an existing cached tariff this field must be explicit; omission conflicts. Missing cached usage keeps charges unresolved. No retroactive billing. Cache-Control is no-store.",
+///     "description": "Installation administration or an explicitly granted platform administrator required. Ordinary company/workspace owners cannot set selling prices. This does not grant invoice, payment or credit-policy writes. Rates are currency nanounits per million text tokens, bounded at 1000000000000000. Optional cached_prompt_rate independently prices reported cached input. Null selects flat input pricing. When replacing an existing cached tariff this field must be explicit; omission conflicts. Missing cached usage keeps charges unresolved. No retroactive billing. Cache-Control is no-store.",
 ///     "requestBody": {
 ///       "required": true,
 ///       "content": {
@@ -387,16 +387,13 @@ pub async fn overview(
 ///         "description": "Invalid rates, currency or unavailable model alias"
 ///       },
 ///       "403": {
-///         "description": "Installation authority required"
+///         "description": "Installation administration or explicit platform grant required"
 ///       },
 ///       "409": {
 ///         "description": "Stale expected revision"
 ///       },
 ///       "401": {
 ///         "description": "Invalid or expired administrative credential."
-///       },
-///       "404": {
-///         "description": "Workspace outside authorized scope."
 ///       }
 ///     },
 ///     "parameters": [
@@ -433,7 +430,7 @@ pub async fn tariff(
         organization_id,
         project_id,
     };
-    authorize(&state, &headers, scope, true).await?;
+    state.authorize_platform_headers(&headers).await?;
     let models = crate::vendors::effective_models(&state).await?;
     if !models.contains_key(&input.model_alias) {
         return Err(ApiError::invalid_request("Choose an available model alias"));

@@ -4451,7 +4451,7 @@
         ],
         "operationId": "publishCustomerSellingRate",
         "summary": "Publish an immutable customer selling rate revision",
-        "description": "Installation only. Rates are currency nanounits per million text tokens, bounded at 1000000000000000. Optional cached_prompt_rate independently prices reported cached input. Null selects flat input pricing. When replacing an existing cached tariff this field must be explicit; omission conflicts. Missing cached usage keeps charges unresolved. No retroactive billing. Cache-Control is no-store.",
+        "description": "Installation administration or an explicitly granted platform administrator required. Ordinary company/workspace owners cannot set selling prices. This does not grant invoice, payment or credit-policy writes. Rates are currency nanounits per million text tokens, bounded at 1000000000000000. Optional cached_prompt_rate independently prices reported cached input. Null selects flat input pricing. When replacing an existing cached tariff this field must be explicit; omission conflicts. Missing cached usage keeps charges unresolved. No retroactive billing. Cache-Control is no-store.",
         "requestBody": {
           "required": true,
           "content": {
@@ -4544,16 +4544,13 @@
             "description": "Invalid rates, currency or unavailable model alias"
           },
           "403": {
-            "description": "Installation authority required"
+            "description": "Installation administration or explicit platform grant required"
           },
           "409": {
             "description": "Stale expected revision"
           },
           "401": {
             "description": "Invalid or expired administrative credential."
-          },
-          "404": {
-            "description": "Workspace outside authorized scope."
           }
         },
         "parameters": [
