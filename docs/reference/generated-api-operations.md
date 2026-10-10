@@ -290,6 +290,335 @@ HTTP 403: Workspace access denied
 
 HTTP 404: Workspace is outside operator scope
 
+## Read API key source policy
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy`
+
+Scoped readers may inspect the policy shared across secret rotations.
+
+Implementation: `implemented`. Operation: `getKeyIpPolicy`.
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Null revision means never configured. Null networks permit all sources; an empty array denies all sources.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "allowed_cidrs",
+        "revision"
+      ],
+      "properties": {
+        "allowed_cidrs": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "description": "IPv4/IPv6 addresses or CIDRs, normalized to network CIDRs. Null permits all; empty denies all."
+        },
+        "revision": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[1-9][0-9]*$"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required
+
+HTTP 403: Workspace access denied
+
+HTTP 404: Workspace is outside operator scope
+
+## Set API key source policy
+
+`PUT /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy`
+
+Owner or installation administrator only. Rotation preserves this policy. Does not cancel already admitted requests.
+
+Implementation: `implemented`. Operation: `setKeyIpPolicy`.
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "allowed_cidrs",
+    "expected_revision"
+  ],
+  "properties": {
+    "allowed_cidrs": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "maxLength": 64
+      },
+      "description": "IPv4/IPv6 addresses or CIDRs, normalized to network CIDRs. Null permits all; empty denies all."
+    },
+    "expected_revision": {
+      "type": "string",
+      "pattern": "^[0-9]+$",
+      "description": "Zero for initial configuration; maximum 9223372036854775806."
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: New policy and immutable history committed atomically.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "revision"
+      ],
+      "properties": {
+        "revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid network or revision
+
+HTTP 401: Authentication required
+
+HTTP 403: Owner permission required
+
+HTTP 404: Workspace is outside operator scope
+
+HTTP 409: Stale policy revision
+
+HTTP 422: Missing or invalid JSON fields
+
+## List API key source policy history
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy/history`
+
+Scoped readers receive descending revisions shared across rotations. Use the last revision as the next page cursor.
+
+Implementation: `implemented`. Operation: `listKeyIpPolicyHistory`.
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`before_revision` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Immutable policy history; no internal actor identifiers.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "allowed_cidrs",
+          "revision",
+          "recorded_at",
+          "actor_kind",
+          "actor_name"
+        ],
+        "properties": {
+          "allowed_cidrs": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "maxItems": 64,
+            "items": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "description": "IPv4/IPv6 addresses or CIDRs, normalized to network CIDRs. Null permits all; empty denies all."
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actor_kind": {
+            "type": "string",
+            "enum": [
+              "installation",
+              "member"
+            ]
+          },
+          "actor_name": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid pagination
+
+HTTP 401: Authentication required
+
+HTTP 403: Workspace access denied
+
+HTTP 404: Workspace is outside operator scope
+
 ## Read API key request rate policy
 
 `GET /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/request-rate-limit`
