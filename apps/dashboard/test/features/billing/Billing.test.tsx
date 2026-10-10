@@ -316,6 +316,20 @@ describe('company history pagination', () => {
 
 describe('company warning preferences', () => {
  const account={currency:'CNY',balance_nanos:'1000000000',credit_limit_nanos:'5000000000',reserved_nanos:'0',available_nanos:'6000000000',low_balance:false,warning_threshold_nanos:null,policy_revision:'7'};
+ it('returns focus to the warning action after cancelling without writing', async () => {
+  const writes:unknown[]=[];
+  vi.stubGlobal('fetch',vi.fn(async (url,init)=>{
+   if(init?.method==='PUT')writes.push(init.body);
+   return Response.json({data:String(url).endsWith('/balance')?[account]:[]});
+  }));
+  const user=userEvent.setup();
+  render(<AccountBilling token="member" organization="company" canConfigure section="billing"/>);
+  const opener=await screen.findByRole('button',{name:'Configure CNY low balance warning'});
+  await user.click(opener);
+  await user.click(screen.getByRole('button',{name:'Cancel'}));
+  await waitFor(()=>expect(document.activeElement).toBe(opener));
+  expect(writes).toEqual([]);
+ });
  it('submits an exact threshold with Enter and supports disabling it', async () => {
   const writes:unknown[]=[];
   vi.stubGlobal('fetch',vi.fn(async (url,init) => {
