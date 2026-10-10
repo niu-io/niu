@@ -85,3 +85,15 @@ The subsequent [Responses streaming increment](inference-qualification.md#respon
 replaces the earlier 501 implementation boundary. A real completed Responses SSE
 request now preserved the reported cache and reasoning quantities in PostgreSQL.
 The customer-funded settlement limitations above still apply.
+
+### Flat-tariff catalog contract
+
+A current-input configuration run published an ordinary flat tariff on a temporary
+unconnected model and read both the actual workspace-key `/v1/models` endpoint
+and the scoped administration model catalog. Both returned the exact pinned
+revision, currency, unit and integer input/output rates with
+`cached_prompt_rate: null`. Independent PostgreSQL inspection matched that null
+rate and both integer rates. No inference or ledger mutation occurred; the key
+was revoked and temporary model/credential disabled. The older catalog source
+example was aligned with this explicit nullable field. Fixture outcomes are not
+business evidence, and catalog reads do not qualify inference or paid settlement.

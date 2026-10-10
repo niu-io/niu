@@ -827,7 +827,7 @@ async fn client_model_prices_are_retail_scoped_exact_and_unknown_without_a_tarif
     assert_eq!(priced["data"].as_array().unwrap().len(), 1);
     assert_eq!(
         priced["data"][0]["customer_pricing"],
-        json!({"revision":revision,"currency":"USD","unit":"nanounits_per_million_tokens","prompt_rate":"1234567891","completion_rate":"1000000000000000"})
+        json!({"revision":revision,"currency":"USD","unit":"nanounits_per_million_tokens","prompt_rate":"1234567891","completion_rate":"1000000000000000","cached_prompt_rate":null})
     );
     let dashboard_path = format!(
         "/admin/v1/models?organization_id={}&project_id={}",
