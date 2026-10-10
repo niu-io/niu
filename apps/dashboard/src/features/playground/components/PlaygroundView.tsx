@@ -543,7 +543,22 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
       .catch(() => { if (!controller.signal.aborted) setHistoryError('Could not load chat history.'); })
       .finally(() => { if (!controller.signal.aborted) setHistoryLoading(false); });
     return () => controller.abort();
-  }, [token, historyEndpoint, session?.operator?.id, startWithNewChat, historyRevision]);
+  }, [token, historyEndpoint, session?.operator?.id, historyRevision]);
+
+  // A new-generation URL is an action, not a permanent draft-restoration mode.
+  // Confirm the fresh composer before consuming it so reload restores that draft.
+  useEffect(() => {
+    if (!startWithNewChat || !draft.ready || draft.error) return;
+    let cancelled = false;
+    void draft.flush().then(saved => {
+      if (!saved || cancelled) return;
+      const params = new URLSearchParams(location.search);
+      params.delete('new');
+      const query = params.toString();
+      navigate(`${location.pathname}${query ? `?${query}` : ''}${location.hash}`, {replace:true});
+    });
+    return () => {cancelled = true;};
+  }, [startWithNewChat, draft.ready, draft.error, location.search, navigate]);
 
   async function closeChatSettings() {
     if (settingsSaving) return;
@@ -618,7 +633,7 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
       ? [preferred]
       : current.includes(preferred) ? current
       : [preferred, ...current.filter(model => model !== preferred)].slice(0, maxComparisonModels));
-  }, [preferredModel, startWithNewChat, usableModels]);
+  }, [preferredModel, usableModels]);
 
   useEffect(() => {
     if (modelsLoading || modelsError) return;

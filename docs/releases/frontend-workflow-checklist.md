@@ -48,6 +48,7 @@ All observations below use the real local service and saved data. Narrow checks 
 
 ## Fixes and automated checks
 
+- New-generation intent is consumed after confirming the fresh backend draft, so reload no longer clears unsent work. Model selection is preserved when consuming the parameter or opening account Settings. All 45 Chat/draft integration checks and TypeScript checking passed. Actual new-page input restored after reload; the 390×844 composer fit without overflow. The unsent test draft was cleared, with no model dispatch.
 - Readable retained JSON/SSE error messages preserve partial output without diagnostic metadata: 8 request-content tests passed.
 - Optional durable failure classification separates upstream status from gateway delivery: 50 GatewayActivity integration tests passed; real classified-record qualification remains open.
 - Logs histogram boundaries now match the query's local calendar days, including the full selected end date. All 51 GatewayActivity integration tests passed under Asia/Hong_Kong, and the dashboard TypeScript check passed. The rendered single-day axis showed midnight through the next midnight. At a measured 390×844 viewport, both axis labels, the date filter and the open sort/export menu fit without page overflow. The interrupted-request detail retained unknown usage and measured preparation/wait intervals without presenting them as complete latency; its content and navigation fit. The viewport override was reset after inspection.

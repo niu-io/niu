@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { webcrypto } from 'node:crypto';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Link, MemoryRouter, Route, Routes, useParams } from 'react-router';
+import { Link, MemoryRouter, Route, Routes, useParams, useLocation } from 'react-router';
 import PlaygroundView from '../../../../src/features/playground/components/PlaygroundView';
 
 vi.mock('../../../../src/app/dashboard-context', () => ({ useDashboardContext: () => ({
@@ -78,6 +78,19 @@ function stubFetch(fallback: ReturnType<typeof vi.fn>) {
 beforeEach(() => { localStorage.clear(); serverChats.clear(); serverDrafts.clear(); vi.stubGlobal('crypto', webcrypto); });
 
 describe('Global Chat', () => {
+  it('consumes new-generation intent and restores an unsent server draft after remount', async () => {
+    stubFetch(vi.fn(async () => jsonResponse({data:[]})));
+    function LocationProbe() { const location=useLocation(); return <output data-testid="draft-location">{location.pathname+location.search}</output>; }
+    function mount(url:string) { return render(<SidebarProvider><MemoryRouter initialEntries={[url]}><LocationProbe/><PlaygroundView token="admin-session" models={['fast']} initialScope={scope}/></MemoryRouter></SidebarProvider>); }
+    const first=mount('/generations?new=1&workspace=workspace-a');
+    await waitFor(()=>expect(screen.getByTestId('draft-location').textContent).toBe('/generations?workspace=workspace-a'));
+    await userEvent.type(screen.getByLabelText('Prompt for all selected models'),'Keep my unsent work');
+    await waitFor(()=>expect([...serverDrafts.values()].some(draft=>(draft.payload as {prompt:string})?.prompt==='Keep my unsent work')).toBe(true));
+    first.unmount();
+    mount('/generations?workspace=workspace-a');
+    await waitFor(()=>expect((screen.getByLabelText('Prompt for all selected models') as HTMLTextAreaElement).value).toBe('Keep my unsent work'));
+    expect(vi.mocked(fetch).mock.calls.some(([path])=>String(path).includes('/v1/chat/completions'))).toBe(false);
+  });
   it('opens Video from the task category without offering it as a single example task', async () => {
     stubFetch(vi.fn(async () => jsonResponse({data:[]})));
     render(<SidebarProvider><MemoryRouter initialEntries={['/generations?new=1']}>
