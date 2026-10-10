@@ -290,3 +290,11 @@ confirmed revision two, exactly two successful-call attempts and no customer
 charges. Temporary access and routes were disabled; the original encrypted
 credential remained unchanged. This verifies subsequent admission, not
 cancellation of requests already dispatched before a grant edit.
+
+Workspace deletion was exercised with actual scoped tokens in a separate native
+database. A workspace owner and company viewer each received 403; independent
+storage reads confirmed the workspace remained. A company owner deleted a
+separate empty workspace with 204. Revoking a workspace-scoped member did not
+remove its historical reference: installation deletion still returned 409 for
+that referenced workspace. This verifies authorization and dependent-record
+preservation, not a purge mechanism. Existing workspaces were not modified.
