@@ -62,6 +62,40 @@ def validate_local_references(value, document):
             validate_local_references(child, document)
 
 
+def validate_schema_dialect(schema, location):
+    """Reject the 3.0-only nullability keyword at schema nodes, not data fields."""
+    if not isinstance(schema, dict):
+        return  # JSON Schema also permits boolean schemas.
+    if 'nullable' in schema:
+        raise SystemExit(
+            f'OpenAPI 3.1 schema at {location} uses nullable; '
+            'include "null" in type or a composition branch instead')
+    for keyword in ('properties', 'patternProperties', '$defs', 'dependentSchemas'):
+        for name, child in schema.get(keyword, {}).items():
+            validate_schema_dialect(child, f'{location}/{keyword}/{name}')
+    for keyword in ('allOf', 'anyOf', 'oneOf', 'prefixItems'):
+        for index, child in enumerate(schema.get(keyword, [])):
+            validate_schema_dialect(child, f'{location}/{keyword}/{index}')
+    for keyword in ('items', 'additionalProperties', 'unevaluatedProperties',
+                    'unevaluatedItems', 'contains', 'propertyNames', 'not',
+                    'if', 'then', 'else', 'contentSchema'):
+        if keyword in schema:
+            validate_schema_dialect(schema[keyword], f'{location}/{keyword}')
+
+
+def validate_inline_schema_dialects(value, location):
+    """Find OpenAPI schema fields without interpreting example payloads as schemas."""
+    if isinstance(value, dict):
+        for name, child in value.items():
+            if name == 'schema':
+                validate_schema_dialect(child, f'{location}/schema')
+            elif name not in ('example', 'examples') and not name.startswith('x-'):
+                validate_inline_schema_dialects(child, f'{location}/{name}')
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            validate_inline_schema_dialects(child, f'{location}/{index}')
+
+
 def schema_block(schema):
     return ['```json', json.dumps(schema, indent=2), '```', '']
 
@@ -126,11 +160,13 @@ def main():
                 raise SystemExit(f'Malformed annotation in {source.relative_to(ROOT)}')
             value = json.loads('\n'.join(line[4:] for line in lines))
             for schema_name, schema in value.get('schemas', {}).items():
+                validate_schema_dialect(schema, f'{source.relative_to(ROOT)}:schemas/{schema_name}')
                 if schema_name in schemas and schemas[schema_name] != schema:
                     raise SystemExit(f'Conflicting shared schema: {schema_name}')
                 schemas[schema_name] = schema
             path, method, operation = value['path'], value['method'], value['operation']
             name = operation['operationId']
+            validate_inline_schema_dialects(operation, f'{source.relative_to(ROOT)}:{name}')
             if method not in {'get', 'post', 'put', 'patch', 'delete', 'head', 'options'}:
                 raise SystemExit(f'Invalid HTTP method: {method}')
             if method not in routes.get(path, set()):

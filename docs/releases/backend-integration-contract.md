@@ -130,7 +130,10 @@ Run `python3 scripts/extract-handler-openapi.py` to generate the annotated
 contracts reference generated operations, and the root contract must reference
 the focused path. `--check` detects stale generated files in CI. The generator
 checks literal Axum path/method registration, duplicate operations and local schema
-references; it does not prove response schemas or runtime behavior. Verify those against real HTTP and
+references. It rejects the OpenAPI 3.0 `nullable` keyword in annotated schema nodes;
+use an explicit null type or composition branch for OpenAPI 3.1. Example data and
+properties named `nullable` are not mistaken for schema keywords. This check is
+limited to handler annotations and does not prove response schemas or runtime behavior. Verify those against real HTTP and
 independent artifacts before qualifying the operation.
 
 Migrated operations include `listPaymentIntegrations`, workspace spending
