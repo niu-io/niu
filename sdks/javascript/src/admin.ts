@@ -38,7 +38,7 @@ export type SupplierRateInput = {
   expected_revision: string | null;
 };
 /** Customer selling rates, independent from Supplier procurement prices. */
-export type CustomerTariffInput = SupplierRateInput;
+export type CustomerTariffInput = SupplierRateInput & { cached_prompt_rate?: string | null };
 export type CustomerTariff = Omit<CustomerTariffInput, 'expected_revision'> & { revision: string };
 /** Optional versioned output mapping inside model capabilities.video_schema. Estimates are not liability bounds. */
 export type VideoOutputSchema = {
@@ -94,6 +94,7 @@ export type CustomerInvoiceInput = { from_ms: number; to_ms: number; currency: s
 export type CustomerInvoiceLine = {
   model_alias: string; revision: string; currency: string; requests: string;
   prompt_tokens: string; completion_tokens: string; prompt_rate: string; completion_rate: string; amount_nanos: string;
+  cached_prompt_tokens?: string | null; cached_prompt_rate?: string | null;
 };
 export type CustomerBalance = {
   currency: string; balance_nanos: string; reserved_nanos: string; available_nanos: string;
@@ -1644,6 +1645,10 @@ function validateRates(rates: SupplierRateInput | CustomerTariffInput): void {
   if (!rates.model_alias.trim() || rates.model_alias.length > 200 || !/^[A-Z]{3}$/.test(rates.currency)) throw new Error('A model alias and three-letter currency are required');
   for (const value of [rates.prompt_rate, rates.completion_rate]) {
     if (typeof value !== 'string' || !/^\d+$/.test(value) || BigInt(value) > 1_000_000_000_000_000n) throw new Error('Rates must be nonnegative integer strings up to 1000000000000000');
+  }
+  if ('cached_prompt_rate' in rates && rates.cached_prompt_rate !== undefined && rates.cached_prompt_rate !== null) {
+    const rate = rates.cached_prompt_rate;
+    if (typeof rate !== 'string' || !/^\d+$/.test(rate) || BigInt(rate) > 1_000_000_000_000_000n) throw new Error('Cached input rate must be a nonnegative integer string up to 1000000000000000');
   }
   if (rates.expected_revision !== null) uuid(rates.expected_revision);
 }

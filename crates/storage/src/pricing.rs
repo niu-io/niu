@@ -1,8 +1,8 @@
 use crate::StoreError;
 
 /// Integer currency nanounits per million aggregate input/output tokens.
-/// This flat schedule does not independently price cache or reasoning categories;
-/// providers with category-specific or additional charges need richer rates.
+/// `charge` uses a flat schedule. Cache pricing requires an explicit separate
+/// rate and quantity through `charge_with_cached_prompt`; reasoning is not split.
 #[derive(Clone, Copy, Debug)]
 pub struct TokenRates {
     pub prompt: i64,
@@ -19,6 +19,33 @@ impl TokenRates {
             return Err(StoreError::InvalidPrice);
         }
         let exact = i128::from(prompt) * i128::from(self.prompt)
+            + i128::from(completion) * i128::from(self.completion);
+        i64::try_from((exact + 999_999) / 1_000_000).map_err(|_| StoreError::InvalidPrice)
+    }
+    /// Price non-overlapping cached and ordinary input, rounding the total once.
+    pub fn charge_with_cached_prompt(
+        self,
+        prompt: i64,
+        completion: i64,
+        cached: i64,
+        cached_rate: i64,
+    ) -> Result<i64, StoreError> {
+        if [
+            self.prompt,
+            self.completion,
+            prompt,
+            completion,
+            cached,
+            cached_rate,
+        ]
+        .iter()
+        .any(|v| *v < 0)
+            || cached > prompt
+        {
+            return Err(StoreError::InvalidPrice);
+        }
+        let exact = i128::from(prompt - cached) * i128::from(self.prompt)
+            + i128::from(cached) * i128::from(cached_rate)
             + i128::from(completion) * i128::from(self.completion);
         i64::try_from((exact + 999_999) / 1_000_000).map_err(|_| StoreError::InvalidPrice)
     }

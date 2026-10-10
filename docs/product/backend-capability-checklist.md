@@ -96,15 +96,15 @@ an actual payment or funded end-to-end result.
 ## Text pricing capability boundaries
 
 Persisted token categories and their reports do not imply corresponding rate-card
-or settlement support. `TokenRates` and customer tariff revisions currently apply
-two flat rates to aggregate prompt/completion counts, rounding the combined exact
-amount upward once. This can represent an explicitly agreed flat tariff; it does
-not reproduce an upstream category-specific bill.
+or settlement support. Default customer tariffs apply two flat rates to aggregate prompt/completion
+counts, rounding the combined exact amount upward once. Customer tariffs now
+optionally price reported cached input separately; Supplier text offers still use
+flat rates. Neither mode implies reproduction of every upstream category charge.
 
 | Capability | Current implementation boundary | Required acceptance behavior |
 | --- | --- | --- |
 | Flat input/output tariff | Implemented in `TokenRates` and immutable customer tariff revisions; paid current-input verification open | Reproduce the exact charge from aggregate counts and the pinned rates, including one combined rounding step |
-| Separate cache-read price | Not implemented by the generic two-rate text tariff | Pin a distinct rate and non-overlapping counted quantities; unknown cache usage must not become an invented zero |
+| Separate cache-read price | Customer configuration, bounds and accrual implemented; actual configuration verified; Supplier cache pricing and paid settlement open | Pin a distinct rate and non-overlapping counted quantities; unknown cache usage must not become an invented zero |
 | Separate cache-write price | Not implemented by the generic two-rate text tariff | Distinguish declared write categories and applicable durations without charging included input twice |
 | Separate reasoning-output price | Not implemented by the generic two-rate text tariff | Specify whether reasoning is already included in reported output; apply the agreed schedule without double counting |
 | Long-context tiers | Not implemented by the generic two-rate text tariff | Pin threshold, tier selection and effective rates for the actual request, including boundary behavior |
@@ -141,3 +141,5 @@ See [key concurrency limits](../reference/api-key-concurrency-limits.md) for unr
 See [key token rate budgets](../reference/api-key-token-rate-limits.md) for estimation limits, window semantics and verification gaps.
 
 See [completion replay and category preservation](../reference/completion-replay.md) for the shared batch/fallback implementation and actual completed-request replay evidence. Paid and mixed-batch failure recovery remain unverified.
+
+See [customer cached-input pricing](../reference/cached-input-pricing.md) for versioning, conservative bounds, missing-usage behavior and the exact current-input verification boundary.

@@ -996,7 +996,7 @@ impl Store {
         .fetch_one(&mut *tx)
         .await?;
         if prepaid {
-            let rates: Option<(i64, i64)> = sqlx::query_as("SELECT r.prompt_rate,r.completion_rate FROM customer_attempt_tariffs b JOIN customer_tariff_revisions r ON r.id=b.revision_id JOIN customer_attempt_balance_accounts a ON a.attempt_id=b.attempt_id AND a.currency=r.currency WHERE b.attempt_id=$1 AND a.organization_id=$2 AND a.project_id=$3")
+            let rates: Option<(i64, i64)> = sqlx::query_as("SELECT GREATEST(r.prompt_rate,COALESCE(r.cached_prompt_rate,r.prompt_rate)),r.completion_rate FROM customer_attempt_tariffs b JOIN customer_tariff_revisions r ON r.id=b.revision_id JOIN customer_attempt_balance_accounts a ON a.attempt_id=b.attempt_id AND a.currency=r.currency WHERE b.attempt_id=$1 AND a.organization_id=$2 AND a.project_id=$3")
                 .bind(attempt_id).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut *tx).await?;
             let (prompt, completion) = rates.ok_or(StoreError::InvalidPrice)?;
             let maximum = TokenRates { prompt, completion }

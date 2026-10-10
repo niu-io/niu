@@ -41,11 +41,28 @@ pub async fn overview(
         json!({"data":state.store.customer_billing(scope).await.map_err(ApiError::from_store)?}),
     ))
 }
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CustomerTariffInput {
+    model_alias: String,
+    currency: String,
+    prompt_rate: String,
+    completion_rate: String,
+    expected_revision: Option<Uuid>,
+    #[serde(default, deserialize_with = "cache_rate_field")]
+    cached_prompt_rate: Option<Option<String>>,
+}
+fn cache_rate_field<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<Option<String>>, D::Error> {
+    Option::<String>::deserialize(deserializer).map(Some)
+}
+
 pub async fn tariff(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path((organization_id, project_id)): Path<(Uuid, Uuid)>,
-    Json(input): Json<ProviderOfferInput>,
+    Json(input): Json<CustomerTariffInput>,
 ) -> Result<Json<Value>, ApiError> {
     let scope = TenantScope {
         organization_id,
@@ -56,8 +73,19 @@ pub async fn tariff(
     if !models.contains_key(&input.model_alias) {
         return Err(ApiError::invalid_request("Choose an available model alias"));
     }
+    let rates = ProviderOfferInput {
+        model_alias: input.model_alias,
+        currency: input.currency,
+        prompt_rate: input.prompt_rate,
+        completion_rate: input.completion_rate,
+        expected_revision: input.expected_revision,
+    };
+    let cached = input
+        .cached_prompt_rate
+        .as_ref()
+        .map(|rate| rate.as_deref());
     Ok(Json(
-        json!({"data":{"revision":state.store.publish_customer_tariff(scope,&input).await.map_err(ApiError::from_store)?}}),
+        json!({"data":{"revision":state.store.publish_customer_tariff_with_cache(scope,&rates,cached).await.map_err(ApiError::from_store)?}}),
     ))
 }
 
