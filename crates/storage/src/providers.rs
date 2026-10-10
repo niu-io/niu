@@ -382,7 +382,7 @@ impl Store {
         &self,
         operator: Uuid,
     ) -> Result<Vec<ProviderMembership>, StoreError> {
-        Ok(sqlx::query_as("SELECT p.id,p.name,m.role FROM provider_businesses p JOIN provider_memberships m ON m.provider_id=p.id JOIN admin_operators a ON a.id=m.operator_id WHERE m.operator_id=$1 AND m.active AND a.revoked_at IS NULL ORDER BY p.name,p.id LIMIT 100")
+        Ok(sqlx::query_as("SELECT p.id,p.name,m.role FROM provider_businesses p JOIN provider_memberships m ON m.provider_id=p.id JOIN admin_operators a ON a.id=m.operator_id WHERE m.operator_id=$1 AND m.active AND a.revoked_at IS NULL AND p.deleted_at IS NULL ORDER BY p.name,p.id")
             .bind(operator).fetch_all(&self.pool).await?)
     }
 

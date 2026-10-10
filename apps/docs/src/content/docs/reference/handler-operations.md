@@ -8251,6 +8251,85 @@ HTTP 502: Integration unavailable or processing deadline exceeded; retry deliver
 
 HTTP 503: Durable storage unavailable; retry notification
 
+## List the signed-in operator’s complete active Supplier memberships
+
+`GET /admin/v1/provider-memberships`
+
+Returns every active membership for the current non-revoked operator, ordered by Supplier name then internal routing ID. This compatibility directory has no cursor or silent history cap. Installation sessions return an empty list. Company membership alone grants no Supplier access. Deleted Suppliers are excluded. IDs are routing references, not display labels.
+
+Implementation: `implemented`. Operation: `listProviderMemberships`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Responses
+
+HTTP 200: Complete current membership directory.
+
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "role"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "manager",
+              "viewer"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Missing or unusable session.
+
+HTTP 503: Storage unavailable.
+
 ## Read Supplier business profile
 
 `GET /admin/v1/providers/{provider}`

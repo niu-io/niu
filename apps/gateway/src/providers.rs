@@ -49,6 +49,83 @@ async fn member(
     }
 }
 
+/// ```openapi
+/// {
+///   "path": "/admin/v1/provider-memberships",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listProviderMemberships",
+///     "summary": "List the signed-in operator\u2019s complete active Supplier memberships",
+///     "description": "Returns every active membership for the current non-revoked operator, ordered by Supplier name then internal routing ID. This compatibility directory has no cursor or silent history cap. Installation sessions return an empty list. Company membership alone grants no Supplier access. Deleted Suppliers are excluded. IDs are routing references, not display labels.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Complete current membership directory.",
+///         "headers": {
+///           "Cache-Control": {
+///             "schema": {
+///               "type": "string",
+///               "const": "no-store"
+///             }
+///           }
+///         },
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "additionalProperties": false,
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "items": {
+///                     "type": "object",
+///                     "additionalProperties": false,
+///                     "required": [
+///                       "id",
+///                       "name",
+///                       "role"
+///                     ],
+///                     "properties": {
+///                       "id": {
+///                         "type": "string",
+///                         "format": "uuid"
+///                       },
+///                       "name": {
+///                         "type": "string"
+///                       },
+///                       "role": {
+///                         "type": "string",
+///                         "enum": [
+///                           "manager",
+///                           "viewer"
+///                         ]
+///                       }
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Missing or unusable session."
+///       },
+///       "503": {
+///         "description": "Storage unavailable."
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
 pub async fn memberships(
     State(state): State<AppState>,
     headers: HeaderMap,

@@ -762,3 +762,12 @@ human-readable message text. Missing codes remain undefined (including errors
 from older servers or intermediary/framework responses). The SDK does not retry
 these errors automatically. Existing response bodies and diagnostic references
 remain available.
+
+### Supplier memberships
+
+`admin.listSupplierMemberships()` returns every active Supplier membership for the
+signed-in operator, with its name, routing reference and viewer/manager role. The
+compatibility directory is not capped at 100 records and has no cursor. Installation
+sessions return an empty array; platform Supplier administration is separate.
+Company membership alone does not grant Supplier access. Re-read after grant or
+revocation changes, and use names rather than routing IDs in product UI.

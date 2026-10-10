@@ -1176,7 +1176,7 @@ paths:
   /admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}/payment:
     $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1invoices~1{invoice}~1payment'
   /admin/v1/provider-memberships:
-    $ref: './provider-business.openapi.yaml#/paths/~1admin~1v1~1provider-memberships'
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1provider-memberships'
   /admin/v1/platform/payments/epay:
     $ref: './platform-configuration.openapi.yaml#/paths/~1admin~1v1~1platform~1payments~1epay'
   /admin/v1/providers/{provider}:

@@ -300,12 +300,7 @@ paths:
         '422': { description: Malformed typed JSON }
         '503': { description: Durable storage unavailable }
   /admin/v1/provider-memberships:
-    get:
-      operationId: listProviderMemberships
-      summary: List active supplier memberships for this operator; installation sessions return an empty list
-      responses:
-        '200': { description: 'Data array of id, name, and role (manager or viewer).' }
-        '401': { description: Valid session required }
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1provider-memberships'
   /admin/v1/providers:
     get:
       operationId: listProviderBusinesses

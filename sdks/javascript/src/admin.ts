@@ -620,10 +620,17 @@ export type PaymentIntegration = {
   refunds: boolean;
 };
 
+export type SupplierMembership = { id: string; name: string; role: 'manager' | 'viewer' };
+
 export class NiuAdminClient {
   private readonly token: string;
   private readonly base: string;
   private readonly requestFetch: typeof globalThis.fetch;
+
+  /** Complete active Supplier grants for the signed-in operator; installation sessions return an empty list. */
+  listSupplierMemberships(options?: RequestOptions): Promise<{ data: SupplierMembership[] }> {
+    return this.request('/provider-memberships', undefined, options);
+  }
 
   /** Platform administrator inventory; does not imply merchant activation or enabled checkout. */
   listPaymentIntegrations(options?: RequestOptions): Promise<{ data: PaymentIntegration[] }> {
