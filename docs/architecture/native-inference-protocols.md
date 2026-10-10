@@ -154,3 +154,29 @@ key spending limits, concurrent partial-refund exclusion, replay, remainder refu
 and restart preservation were checked. An independent reopen reconciled both
 actual usages, charges and refunds. This checks those existing Chat/accounting
 paths alongside the Messages addition; it does not qualify every legacy protocol.
+
+### Native redaction and retained diagnostics
+
+A subsequent fresh current-input run used native Messages with the same personal
+upstream and internal verification rates. A generated private marker appeared in
+both the system text block and user text block; input rules replaced both with
+`[REDACTED]`. The actual response echoed the replacement. The captured native
+request contained the replacement in both positions, and neither its retained
+request nor returned response contained the original marker. This corroborates
+inspection of the native document passed to the existing dispatch path.
+
+After restarting the gateway, another actual generation exercised buffered output
+redaction. The delivered and retained native responses contained `[REDACTED]`,
+and the persisted output decision was `redacted`. The authorized retained request
+continued to reflect that request's input; output redaction does not implicitly
+redact historical input. Known generation usage still produced exact charges.
+
+Both complete, untruncated payloads were identical after restart. An inference
+key could not access the administrative payload endpoint, and a different
+workspace could not retrieve either record. Deleting one payload removed its
+content across a further restart without deleting the other payload or financial
+records. A separate process reopened the stopped database and checked the deletion
+tombstone, remaining request/response content, output decision, both actual usages,
+exact charges/debits and absence of held reservations. This narrows the previous
+unverified-redaction boundary to other unsupported content/protocol variants; it
+does not qualify media, tools, native streaming or nonzero cache pricing.
