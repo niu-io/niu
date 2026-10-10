@@ -102,6 +102,37 @@ This is positive text-charge evidence for the listed APIs and roles. It does not
 qualify Chat persistence, media receipts, every authorization role, frontend
 rendering or all possible serialized fields. No fixture outcome supports it.
 
+## Priced stream disconnected before terminal usage
+
+A current-input run on 2026-10-10 at backend revision `59922df` deliberately
+closed a real GPT-4.1-mini streaming response after receiving its first content
+event. It used another isolated database, the same explicit internal rates and
+credit setup, and a 512-token output limit. The API key's spending limit equaled
+the configured maximum reservation: **758,519 USD nanounits**.
+
+Independent database and management API reads established:
+
+- One dispatched attempt remained `may_have_executed`, with `unknown` usage,
+  absent input/output token totals, no customer charge and no balance debit.
+- The balance stayed zero, reserved capacity stayed 758,519 and available credit
+  stayed 999,241,481. Logs showed `pending` customer charging with no amount and
+  incomplete response timing. Its initial HTTP 200 did not imply full delivery;
+  no upstream failure cause was fabricated.
+- A further request returned HTTP 402 `key_spending_limit_exceeded`, without
+  another attempt. Rotation revoked the old secret (HTTP 401) but did not reset
+  the replacement's reservation or spending limit.
+- After restart and more than one recovery interval, the same unknown state,
+  pending charge, hold and key-cap refusal remained. Revoking the final key also
+  did not release the hold. No elapsed-time assumption converted uncertainty
+  into a free request or an estimated debit.
+
+The temporary mapping was disabled and the isolated processes stopped while
+preserving the unresolved record for diagnosis. The main database and original
+encrypted identity were unchanged. This verifies conservative handling of one
+actual interrupted priced stream; it does not determine the Provider's final
+bill, qualify later reconciliation without Provider evidence, or establish every
+cancellation race. No fixture outcome supports this result.
+
 ## Limits
 
 This qualifies the described credit-backed text/structured-output workflow with
