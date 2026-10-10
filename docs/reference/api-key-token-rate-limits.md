@@ -41,9 +41,11 @@ The initial estimator, `serialized-utf8-plus-output-v1`, reserves serialized JSO
 request byte length plus the explicit maximum output token count. It deliberately
 includes message framing and request options. Chat supports a single completion
 with string messages or nonempty pure-text content blocks, including validated
-ephemeral cache controls, and no requested tools/audio modalities. Cache metadata
-is included in the serialized byte estimate. Price and token admission share the
-same text-content validator. Responses
+ephemeral cache controls, plus supported function-tool requests and text tool
+results. Hosted tools, legacy function parameters and audio modalities remain
+unsupported. Cache metadata, function definitions, tool choices, arguments and
+result text are included in the serialized byte estimate. Price and token
+admission share the same message validator. Responses
 requires text input and an explicit maximum output. Text embeddings reserve the
 serialized input request with zero output. Unsupported input or missing explicit
 output bounds return 422 `key_token_bound_required` when a finite budget applies.
@@ -185,3 +187,32 @@ attempts, no open customer reservations and no funding. This is a single-key
 format-compatibility checkpoint, not a capacity benchmark or an exact-tokenizer
 claim. Existing multi-Gateway evidence above does not by itself qualify every
 new request format.
+
+### Function calls and finite token budgets
+
+The token-bound estimator now shares the priced Chat message validator for
+supported function calls and text-only tool-result conversations. It counts the
+entire serialized request, including tool definitions, choices, function
+arguments and result text, plus the total output ceiling. Niu does not execute
+the requested function. Unsupported hosted tools, media and legacy function
+parameters remain outside this budgeted shape.
+
+An actual pre-change API request with a sufficient finite budget was rejected
+as `key_token_bound_required` without dispatch. After the change, a new isolated
+run used the same finite key policy for an actual streamed function call, a
+buffered function call and a client-supplied text result after Gateway restart.
+The returned function name/arguments and final answer matched the requested
+marker. All three charged exactly once and released their customer reservations.
+Independent verification reopened the stopped database, parsed the saved real
+responses, and recomputed every persisted token bound from the saved request's
+serialized byte length plus output limit. It reconciled three exact charge/debit
+pairs, no funding and no open customer reservations. Invalid arguments, malformed
+controls, hosted tools, media and an oversized tool definition were rejected by
+the actual API before additional attempts were created.
+
+An earlier independent run reached upstream dispatch but timed out. Its stored
+failure remained `upstream_timeout`, execution `may_have_executed` and usage
+unknown. Independent database inspection confirmed one durable token bound, no
+customer charge, one retained customer reservation and no automatic successor.
+That evidence is preserved separately; the successful run used new request
+inputs and does not resolve or release the timed-out request's liability.

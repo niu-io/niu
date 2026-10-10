@@ -136,7 +136,7 @@ pub(super) fn validate_priced_request(
     Ok(())
 }
 
-fn text_message(message: &Value) -> bool {
+pub(super) fn text_message(message: &Value) -> bool {
     let Some(message) = message.as_object() else {
         return false;
     };

@@ -338,20 +338,14 @@ fn request_token_bound(body: &Value, protocol: &crate::guardrails::input::Protoc
         Protocol::Messages => body.get("max_tokens")?.as_i64()?,
         Protocol::Chat => {
             if body.get("n").is_some_and(|n| n.as_u64() != Some(1))
-                || [
-                    "tools",
-                    "functions",
-                    "function_call",
-                    "tool_choice",
-                    "modalities",
-                    "audio",
-                ]
-                .iter()
-                .any(|field| body.get(*field).is_some())
-                || body.get("messages")?.as_array()?.iter().any(|m| {
-                    !m.get("content")
-                        .is_some_and(super::priced_chat::text_content)
-                })
+                || ["functions", "function_call", "modalities", "audio"]
+                    .iter()
+                    .any(|field| body.get(*field).is_some())
+                || body
+                    .get("messages")?
+                    .as_array()?
+                    .iter()
+                    .any(|message| !super::priced_chat::text_message(message))
                 || (body.get("max_tokens").is_some() && body.get("max_completion_tokens").is_some())
             {
                 return None;
