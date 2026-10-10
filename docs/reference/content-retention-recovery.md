@@ -130,3 +130,27 @@ connections in competing processes; the owner bound is not a reservation of
 foreground capacity. Payment/video polling remains outside these ownership
 groups. Issue #13 remains open for its complete acceptance scope. Fixture
 outcomes were not used as evidence.
+
+### Actual priced foreground calls during image-recovery contention
+
+A separate fresh native run configured two gateway processes with two database
+connections each. Both image-recovery outcome tables remained locked by an
+external transaction. Once PostgreSQL activity showed a claimed recovery
+statement waiting on those locks, concurrent clients submitted one real
+OpenRouter strict-JSON request through each gateway. The table locks remained
+held until both responses had been received and inspected. Each response returned
+the requested fresh marker and provider-reported usage.
+
+Independent reopening confirmed exactly two completed attempts, two customer
+charges and two matching debits. Each charge was recalculated from its retained
+response token counts and pinned customer rates; customer reservations were
+released. Recovery owner exclusion and at-most-one sampled blocked recovery
+statement remained intact, and both readiness endpoints stayed available.
+
+This used the saved personal upstream account, explicit internal tariffs and
+approved internal credit, not external funding or commercial supply. The image
+recovery queues were empty: this establishes foreground progress during the
+exercised lock contention, not recovery of a populated backlog, poison-row
+fairness, sustained load or a production admission guarantee. No fixture result
+supports the observation. Isolated processes stopped and original development
+data and encrypted identity were preserved.
