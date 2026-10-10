@@ -7,6 +7,7 @@ use axum::{
     http::HeaderMap,
     response::{IntoResponse, Response},
 };
+use base64::Engine;
 use serde_json::{Value, json};
 
 use super::common::*;
@@ -277,12 +278,29 @@ async fn execute_embeddings(
                         };
                         match input_bounds.encoding_format {
                             "float" => embedding.as_array().is_some_and(|values| {
-                                input_bounds
-                                    .dimensions
-                                    .is_none_or(|dimensions| values.len() == dimensions)
+                                !values.is_empty()
+                                    && input_bounds
+                                        .dimensions
+                                        .is_none_or(|dimensions| values.len() == dimensions)
                                     && values.iter().all(Value::is_number)
                             }),
-                            "base64" => embedding.as_str().is_some(),
+                            "base64" => embedding.as_str().is_some_and(|encoded| {
+                                let Ok(bytes) =
+                                    base64::engine::general_purpose::STANDARD.decode(encoded)
+                                else {
+                                    return false;
+                                };
+                                !bytes.is_empty()
+                                    && bytes.len().is_multiple_of(4)
+                                    && input_bounds
+                                        .dimensions
+                                        .is_none_or(|dimensions| bytes.len() / 4 == dimensions)
+                                    && bytes
+                                        .as_chunks::<4>()
+                                        .0
+                                        .iter()
+                                        .all(|chunk| f32::from_le_bytes(*chunk).is_finite())
+                            }),
                             _ => false,
                         }
                     }

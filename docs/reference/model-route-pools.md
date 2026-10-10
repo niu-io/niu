@@ -192,3 +192,25 @@ were disabled and temporary keys revoked.
 This extends current-input capability-selection evidence to embedding options.
 It does not qualify vector semantic quality, arbitrary dimension support, paid
 settlement, independent upstream-account capacity or production throughput.
+
+## Embedding response integrity
+
+The gateway validates base64 embedding results as nonempty, decodable float32
+vectors with a whole number of components, finite values and the requested
+dimension count when supplied. Float-array results must also be nonempty.
+Invalid vectors take the existing safe upstream-error path rather than being
+returned as successful embedding data; no automatic retry is introduced.
+
+The [official Python client parser](https://github.com/openai/openai-python/blob/main/src/openai/lib/_parsing/_embeddings.py)
+also decodes base64 embeddings into float32 values. Niu's supported binary
+interpretation here is little-endian float32, matching the current-input upstream
+vectors independently decoded in the embedding checkpoint above. This does not
+qualify arbitrary upstream adapters or semantic vector quality.
+
+After rebuilding and restarting the gateway, the actual embedding capability
+workflow was repeated. Float and base64 responses decoded to the requested
+dimensions, and final PostgreSQL records matched selected routes and exact usage.
+Temporary configuration was disabled and keys revoked. Release compilation and
+Clippy completed. Malformed upstream vectors, nonfinite binary values and
+dimension-mismatch rejection have implementation checks but no current-input
+upstream failure evidence; their integrated behavior remains unverified.
