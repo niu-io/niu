@@ -115,17 +115,40 @@ All observations below use the real local service and saved data. Narrow checks 
 ## Frontend review of the generated documentation — 2026-10-10
 
 The local documentation build now serves `/docs/reference/handler-operations/`
-on the existing development origin. The generated page exposes 22 annotated
+on the existing development origin. The generated page exposes 29 annotated
 operations; it explicitly remains a subset of the root contract. Extraction
 freshness and the selected root-contract entrypoint checks passed. Desktop
 operation anchors and the measured 390-pixel layout were inspected; no page
 overflow was observed. This is documentation qualification, not live endpoint
 qualification.
 
-Two annotation corrections remain with the backend workstream:
-`KeyTokenRatePolicy.reserved_tokens` contains the unexpected schema keyword
-`without time-based expiry.`, and `committed_tokens` contains
-`or null when unbounded requests prevent a complete total.`. Both strings should
-be part of their respective descriptions, not separate JSON keys. Correct the
-Rust annotation source and regenerate the contract and documentation together;
-do not patch generated artifacts independently.
+The backend corrected both TPM description fragments in `80eb7993` and
+`51608069`. Regenerated schema descriptions now retain the complete sentences
+without extra JSON keywords. The documentation was rebuilt and opened on the
+local development origin after pulling these changes; extraction reports 29
+operations and the root entrypoint check reports 65 registered paths.
+
+## API key policy integration inventory
+
+Current `KeyDetailView` supports metadata, model access, expiry display,
+revocation, Guardrails and request activity. It does not yet expose the following
+implemented policies. Backend verification does not close these frontend flows.
+
+| Contract | Frontend integration requirement |
+| --- | --- |
+| Request-rate limit | Read/edit RPM and history; explicit null is unlimited, zero blocks new dispatch; preserve independent string revision. |
+| Concurrency limit | Read/edit limit and history; show unresolved active requests as a snapshot, including work retained after disconnection. |
+| Token-rate limit | Read/edit TPM and history; unknown committed usage remains unknown; explain unresolved reservations and unsupported video requests for finite policies. |
+| Token usage window | Read the rolling 60-second known subtotals with unknown-request count; never equate zero known usage with zero actual usage. |
+| Source IP policy | Read/edit IPv4/IPv6 addresses or CIDRs and history; null allows all, empty list denies all; retain normalized saved values. |
+| Key spending limit | Read/edit currency-specific customer allowance and history; preserve exact monetary strings; distinguish allowance from company balance; reject changes below committed liability. |
+
+Stitch reviewed the incremental Limits composition in the existing NIU.IO
+project (session `17988644959648407750`). The inspected LiteLLM optional-settings
+numeric form is the reference because OpenRouter's authenticated key settings
+were inaccessible. Keep the current key detail shell, add compact independent
+policy rows, and edit one policy in the existing rounded Dialog at a time.
+Each save needs its own revision and error recovery; there is no atomic combined
+policy save. At narrow widths, stack labels/values while retaining accessible
+Edit actions and scrollable dialog content. This is design review only; no new
+limit controls or rendered qualification are claimed.
