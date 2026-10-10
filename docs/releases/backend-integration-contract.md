@@ -264,3 +264,12 @@ and invalidated the old secret. Empty networks denied access, null restored it,
 and independent storage reads matched four policy-history revisions. Temporary
 keys and operators were revoked. This does not qualify every reverse-proxy
 deployment or video operation.
+
+A current-input expiry run created an eight-second workspace key and rotated it
+immediately. Independent database reads confirmed the replacement retained the
+exact original expiry timestamp. The old secret returned 401; the replacement
+completed a real personal-model request with the exact requested fresh marker
+before expiry. After expiry, the same inference endpoint returned 401 and the
+replacement still had exactly one attempt, with none for the original secret.
+Temporary keys were revoked and existing credentials were unchanged. Rotation
+must not be presented as an expiry extension in frontend integration.
