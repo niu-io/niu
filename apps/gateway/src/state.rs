@@ -87,37 +87,7 @@ impl AppState {
             }
         }
         crate::vendors::seed_from_env(&store, vendor_cipher.as_deref()).await?;
-        if vendor_cipher.is_none()
-            && !store
-                .vendors()
-                .await
-                .map_err(|_| "Cannot read vendor registry")?
-                .is_empty()
-        {
-            // Revoked inference credentials can coexist with other encrypted
-            // Supplier data; retain the existing missing-key startup guard.
-            return Err("NIU_VENDOR_ENCRYPTION_KEY is required for persisted vendors".into());
-        }
-        // A route-only scan skips credentials with no model mapping. Validate
-        // every retained Supplier inference credential before becoming ready.
-        let mut after = None;
-        loop {
-            let credentials = store
-                .vendor_credential_page(after)
-                .await
-                .map_err(|_| "Cannot read vendor credentials")?;
-            if credentials.is_empty() {
-                break;
-            }
-            let cipher = vendor_cipher
-                .as_ref()
-                .ok_or("NIU_VENDOR_ENCRYPTION_KEY is required for persisted vendor credentials")?;
-            for (vendor, ciphertext) in credentials {
-                cipher.open(vendor, &ciphertext)
-                    .map_err(|_| "Cannot decrypt persisted vendor credentials with the configured encryption key")?;
-                after = Some(vendor);
-            }
-        }
+        crate::vendors::validate_saved_credentials(&store, vendor_cipher.as_deref()).await?;
         let admin_tokens = TokenSet::parse(
             "NIU_ADMIN_TOKENS",
             env::var("NIU_ADMIN_TOKENS").unwrap_or_default(),

@@ -12,6 +12,26 @@ pub struct AssetManagementCredentialRevision {
 }
 
 impl Store {
+    /// Internal startup scan of every retained revision, including revoked history.
+    /// Erased ciphertext is intentionally absent. Never serialize or log these rows.
+    pub async fn asset_management_credential_page(
+        &self,
+        after: Option<(Uuid, i64)>,
+    ) -> Result<Vec<AssetManagementCredentialRevision>, StoreError> {
+        let (vendor, revision) = after.unzip();
+        Ok(sqlx::query_as(
+            "SELECT vendor_id,revision,upstream_project,credential_ciphertext
+             FROM vendor_asset_management_credentials
+             WHERE credential_ciphertext IS NOT NULL
+               AND ($1::uuid IS NULL OR (vendor_id,revision)>($1,$2))
+             ORDER BY vendor_id,revision LIMIT 100",
+        )
+        .bind(vendor)
+        .bind(revision)
+        .fetch_all(&self.pool)
+        .await?)
+    }
+
     /// Append under the vendor lock. `expected_revision` is zero for first setup.
     /// This does not enable asset operations, qualify rights or prove zero cost.
     pub async fn save_asset_management_credential(

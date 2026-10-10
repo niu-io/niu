@@ -11,6 +11,7 @@ mod bootstrap;
 pub(crate) mod crypto;
 mod models;
 pub(crate) mod route_pools;
+mod startup;
 
 pub use api::{
     asset_management_configuration, assign_personal_owner, associate_supplier, catalog,
@@ -24,3 +25,4 @@ pub(crate) use models::{
     ResolvedModel, effective_models, require_selectable_credential, resolve_scoped_model,
     resolve_scoped_model_excluding, scoped_models,
 };
+pub(crate) use startup::validate_saved_credentials;
