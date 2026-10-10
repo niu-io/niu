@@ -306,6 +306,39 @@ operation retries automatically. Dashboard preview/download and qualified live
 TLS/CDN media retrieval remain acceptance work.
 
 
+
+### Verify a current saved video
+
+Run `scripts/verify-video-result.py` against a job from an actual generation.
+The command reads saved state and billing, downloads the authorized result, and
+uses installed `ffprobe` and `ffmpeg` to inspect and fully decode its first video
+track. It does not submit or refresh a job or change keys or financial records.
+Supply an existing scoped workspace key through `NIU_API_KEY`, not a command-line
+argument. Keep the private output directory outside the checkout; it must not
+already exist.
+
+```sh
+python3 scripts/verify-video-result.py \
+  --base-url http://localhost:2567 \
+  --job "$VIDEO_JOB_ID" \
+  --output-dir "${TMPDIR:-/tmp}/niu-video-result-check"
+```
+
+The command saves the exact downloaded bytes and an independent media report,
+checks `no-store` and `nosniff`, refuses credential-bearing redirects, and bounds
+the download to 64 MiB. A succeeded job alone is not acceptance: download and
+full decode must complete. The report does not establish customer settlement,
+future upstream availability, or the full video workflow.
+
+A current run on 2026-10-10 used a saved personal OpenRouter job after the native
+backend update. It retrieved 105,708 bytes of MP4, independently identified an
+848×480 H.264 video track and a duration of 1.041667 seconds, and decoded the full
+first video track. Separate current HTTP reads denied a different workspace with
+404 and the revoked temporary key with 401. Independent database counts showed
+no additional submission, customer balance entry or Supplier earning for the job.
+Original saved jobs/results were not deleted. This checkpoint covers retrieval
+of that existing artifact, not a new generation or customer-priced media charge.
+
 ### Result availability and dashboard access
 
 `GET /v1/video/jobs/{id}/results`, exposed as

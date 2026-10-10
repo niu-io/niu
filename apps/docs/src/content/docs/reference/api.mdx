@@ -377,13 +377,26 @@ This creates a USD 100 lifetime upstream budget for the workspace. It does not s
 
 ## Installation vendors
 
-Shared upstream connections persist in PostgreSQL and are managed only with an installation administrator credential:
+Shared upstream connections persist in PostgreSQL and are managed with installation authority or an explicitly granted platform-administrator role:
 
 - `GET /admin/v1/vendors` lists metadata without credentials.
 - `POST /admin/v1/vendors` creates a vendor with a write-only `api_key`.
 - `PUT /admin/v1/vendors/{id}` updates metadata, enabled state or the credential using `expected_revision`.
 - `GET /admin/v1/vendors/{id}/models` lists the vendor's mappings.
 - `POST /admin/v1/vendors/{id}/models` creates a mapping without a revision or updates it using the current `expected_revision`.
-- `POST /admin/v1/vendors/{id}/check` with `{ "alias": "team/fast" }` performs a non-inference `GET /models` check. The check is capped at five seconds and 512 KiB, blocks redirects and private-network destinations, and returns only a status plus whether the exact upstream model ID appears in the provider catalog. Provider response content and credentials are never returned. A catalog listing does not prove inference access or quota; use Chat to test a real request through Niu.
+- `POST /admin/v1/vendors/{id}/check` with `{ "alias": "team/fast" }` performs a non-inference `GET /models` check. The check is capped at five seconds and 2 MiB, blocks redirects and private-network destinations, and returns only a status plus whether the exact upstream model ID appears in the provider catalog. Provider response content and credentials are never returned. A catalog listing does not prove inference access or quota; use Chat to test a real request through Niu.
 
-On a model update, omitting `pricing` preserves its exact stored value; explicit `null` clears it. Stale updates return `409`. Responses use `Cache-Control: no-store`. Organization and workspace operators cannot administer these installation-wide resources. See [Model routes](/docs/configuration/models/) for encryption, precedence and bootstrap behavior.
+On a model update, omitting `pricing` preserves its exact stored value; explicit `null` clears it. Stale updates return `409`. Responses use `Cache-Control: no-store`. Ordinary organization and workspace roles cannot administer these platform resources without an explicit platform-administrator grant. See [Model routes](/docs/configuration/models/) for encryption, precedence and bootstrap behavior.
+
+
+## Verify a saved video result
+
+`GET /v1/video/jobs/{id}/results/video` returns the authorized media file, not a
+private upstream URL. A saved `succeeded` status does not guarantee that the
+upstream result remains downloadable. Use the repository command
+[`scripts/verify-video-result.py`](https://github.com/niu-io/niu/blob/main/scripts/verify-video-result.py)
+to read an existing job, download its current result and independently decode
+the final file with FFmpeg. It makes no submission or refresh request and keeps
+the workspace key in an environment variable. See the
+[saved-result verification instructions](https://github.com/niu-io/niu/blob/main/docs/reference/video-jobs.md#verify-a-current-saved-video)
+for private artifacts, prerequisites and the precise verification scope.
