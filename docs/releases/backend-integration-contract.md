@@ -401,3 +401,12 @@ four real model calls and independent ledger records across credential editing,
 disablement and restart. Both configurations used the owner's same authorized
 upstream secret; this does not qualify distinct upstream accounts or commercial
 Supplier supply.
+
+Supplier model-binding list/upsert operations and their shared capability schemas
+are generated from the handlers. Route prices remain confidential platform
+procurement configuration; customer selling tariffs use the billing API.
+A current-input dual-configuration run checked actual model response fields
+against the generated schemas. After four real calls, omitting pricing retained
+the prior value, a stale revision returned 409, and explicit null cleared it.
+Independent PostgreSQL reads confirmed the new revision and null price; restart
+preserved the result and the existing customer debits remained unchanged.

@@ -5541,6 +5541,139 @@ HTTP 409: Stale revision or conflicting name.
 
 HTTP 401: Invalid or expired administrative credential.
 
+## List model bindings for one Supplier API-key configuration
+
+`GET /admin/v1/vendors/{id}/models`
+
+Management reads include route eligibility in available and an owner_funded flag. Owner-funded routes are private to their recorded account and excluded from shared supply and the public catalog, regardless of their legacy configured public_catalog flag. Available does not establish upstream entitlement, service quality or commercial qualification. Requires installation administration or an explicitly granted platform administrator. These platform-only route prices are procurement configuration, not customer selling tariffs.
+
+Implementation: `implemented`. Operation: `listVendorModels`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Model mappings wrapped in data.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "$ref": "#/components/schemas/VendorModel"
+      }
+    }
+  },
+  "required": [
+    "data"
+  ]
+}
+```
+
+HTTP 403: Platform administration permission required.
+
+HTTP 404: Vendor does not exist.
+
+HTTP 401: Invalid or expired administrative credential.
+
+## Create or update a model mapping with optimistic revision checks
+
+`POST /admin/v1/vendors/{id}/models`
+
+Omit expected_revision to create; provide the current revision to update. Aliases cannot be reassigned to another vendor. Disabled mappings still override static file aliases. Requires installation administration or an explicitly granted platform administrator. These platform-only route prices are procurement configuration, not customer selling tariffs. Omit pricing to preserve it on update; explicit null clears it. Changes do not rewrite previously pinned request prices.
+
+Implementation: `implemented`. Operation: `upsertVendorModel`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/VendorModelInput"
+}
+```
+
+### Responses
+
+HTTP 200: Persisted model mapping wrapped in data.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/VendorModel"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid alias, capabilities or pricing.
+
+HTTP 403: Platform administration permission required.
+
+HTTP 404: Vendor does not exist.
+
+HTTP 409: Stale revision, existing alias or different vendor ownership.
+
+HTTP 401: Invalid or expired administrative credential.
+
 ## Create an OpenAI-compatible chat completion
 
 `POST /v1/chat/completions`
@@ -6313,6 +6446,78 @@ HTTP 503: Durable storage or configured route unavailable.
 ## Shared schemas
 
 Local `#/components/schemas/…` references resolve to these definitions.
+
+### CatalogMetadata
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "description": "Descriptive provider metadata, stored under capabilities.catalog on vendor mappings and exposed as catalog on model listings. Advertised USD per-token prices are separate from billing rates. Missing values mean unknown, never zero.",
+  "properties": {
+    "name": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 300
+    },
+    "description": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 12000
+    },
+    "context_length": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "max_completion_tokens": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "input_modalities": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "maxLength": 40
+      }
+    },
+    "output_modalities": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "maxLength": 40
+      }
+    },
+    "input_price": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 64,
+      "description": "Advertised USD per input token."
+    },
+    "output_price": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 64,
+      "description": "Advertised USD per output token."
+    }
+  }
+}
+```
 
 ### ChatCompletionRequest
 
@@ -7209,6 +7414,51 @@ Local `#/components/schemas/…` references resolve to these definitions.
 }
 ```
 
+### VendorCapabilities
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "catalog": {
+      "$ref": "#/components/schemas/CatalogMetadata"
+    },
+    "video_schema": {
+      "$ref": "#/components/schemas/VideoSchema"
+    },
+    "supports_tool_calls": {
+      "type": "boolean",
+      "default": false
+    },
+    "supports_streaming_tool_calls": {
+      "type": "boolean",
+      "default": false
+    },
+    "supports_structured_output": {
+      "type": "boolean",
+      "default": false
+    },
+    "supports_embeddings": {
+      "type": "boolean",
+      "default": false
+    },
+    "supports_embedding_dimensions": {
+      "type": "boolean",
+      "default": false
+    },
+    "supports_embedding_base64": {
+      "type": "boolean",
+      "default": false
+    },
+    "supports_responses": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}
+```
+
 ### VendorCreate
 
 ```json
@@ -7264,6 +7514,116 @@ Local `#/components/schemas/…` references resolve to these definitions.
 }
 ```
 
+### VendorModel
+
+```json
+{
+  "type": "object",
+  "required": [
+    "alias",
+    "vendor_id",
+    "upstream_model",
+    "enabled",
+    "public_catalog",
+    "capabilities",
+    "pricing",
+    "revision"
+  ],
+  "properties": {
+    "alias": {
+      "type": "string"
+    },
+    "vendor_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "upstream_model": {
+      "type": "string"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "public_catalog": {
+      "type": "boolean"
+    },
+    "available": {
+      "type": "boolean",
+      "readOnly": true,
+      "description": "Configuration eligibility in the management list; not an upstream health or entitlement check."
+    },
+    "owner_funded": {
+      "type": "boolean",
+      "readOnly": true,
+      "description": "Management-list metadata identifying private owner-funded routes. Omitted from configuration writes."
+    },
+    "capabilities": {
+      "$ref": "#/components/schemas/VendorCapabilities"
+    },
+    "pricing": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    }
+  }
+}
+```
+
+### VendorModelInput
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "alias",
+    "upstream_model"
+  ],
+  "properties": {
+    "alias": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "^[A-Za-z0-9._/-]+$"
+    },
+    "upstream_model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "public_catalog": {
+      "type": "boolean",
+      "default": false
+    },
+    "capabilities": {
+      "$ref": "#/components/schemas/VendorCapabilities"
+    },
+    "pricing": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "description": "Optional validated route pricing. Personal-owned credentials require null pricing; non-null pricing is rejected at save. Null clears pricing; omission preserves existing pricing on updates and leaves cost unknown on creates."
+    },
+    "expected_revision": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    }
+  }
+}
+```
+
 ### VendorUpdate
 
 ```json
@@ -7300,6 +7660,417 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "expected_revision": {
       "type": "integer",
       "minimum": 1
+    }
+  }
+}
+```
+
+### VideoBooleanControl
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind"
+  ],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "const": "boolean"
+    },
+    "default": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    }
+  }
+}
+```
+
+### VideoChoiceControl
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "values"
+  ],
+  "description": "Values are canonical names of at most 256 UTF-8 bytes; any default must be one of them.",
+  "properties": {
+    "kind": {
+      "type": "string",
+      "const": "choice"
+    },
+    "values": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      }
+    },
+    "default": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}
+```
+
+### VideoHttpsControl
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "maximum_bytes"
+  ],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "const": "https_url"
+    },
+    "maximum_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 8192
+    }
+  }
+}
+```
+
+### VideoInputRule
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "maximum_items",
+    "maximum_bytes",
+    "https",
+    "data_mime_types",
+    "roles",
+    "role_required"
+  ],
+  "description": "Item/count bounds cannot exceed the enclosing request limits. Non-text inputs require HTTPS or at least one allowed Base64 MIME type; required roles need at least one allowed role. Names are trimmed, control-free and limited to 256 UTF-8 bytes.",
+  "properties": {
+    "maximum_items": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 32
+    },
+    "maximum_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 16777216
+    },
+    "https": {
+      "type": "boolean"
+    },
+    "data_mime_types": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256,
+        "pattern": "/"
+      }
+    },
+    "roles": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      }
+    },
+    "role_required": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### VideoIntegerControl
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "minimum",
+    "maximum"
+  ],
+  "description": "Signed 64-bit integer bounds; maximum must be at least minimum and any default must lie within them. The dashboard edits exact JavaScript-safe integers only.",
+  "properties": {
+    "kind": {
+      "type": "string",
+      "const": "integer"
+    },
+    "minimum": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "maximum": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "default": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "int64"
+    }
+  }
+}
+```
+
+### VideoOutputSchema
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "specifications",
+    "estimator",
+    "estimator_revision"
+  ],
+  "description": "Optional effective output mapping for this schema revision. Requires resolution, ratio and positive duration controls, each with a default or required input. Pixel estimation additionally requires a positive frames_per_second control; seconds estimation may omit it. Missing resolution/ratio combinations reject requests before dispatch. Estimates never establish reported usage or maximum liability. The ark-direct-v1 adapter qualifies video_tokens only; openrouter-video-v1 supports owner-funded text generation with seconds estimates and unknown reported quantity.",
+  "properties": {
+    "estimator": {
+      "type": "string",
+      "enum": [
+        "SeedancePixelsV1",
+        "OutputSecondsV1"
+      ]
+    },
+    "estimator_revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Reviewed configuration reference; at most 256 UTF-8 bytes."
+    },
+    "specifications": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "resolution",
+          "ratio",
+          "width",
+          "height"
+        ],
+        "properties": {
+          "resolution": {
+            "type": "string",
+            "description": "Must be accepted by the configured resolution control."
+          },
+          "ratio": {
+            "type": "string",
+            "description": "Must be accepted by the configured ratio control; each resolution/ratio pair is unique."
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4294967295
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4294967295
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### VideoSchema
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "description": "Versioned constraints for the exact alias/upstream model/channel. The enclosing capabilities document is limited to 16 KiB. Backend validation enforces relative bounds, defaults, input transport, roles and incompatible controls. Configuration does not qualify a route or enable unsupported media/callback transport.",
+  "required": [
+    "version",
+    "revision",
+    "model_alias",
+    "upstream_model",
+    "channel",
+    "maximum_body_bytes",
+    "maximum_content_items",
+    "inputs",
+    "controls",
+    "required_controls",
+    "exclusive_controls",
+    "callbacks_qualified"
+  ],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Trimmed canonical revision with no control characters; at most 256 UTF-8 bytes."
+    },
+    "model_alias": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Must match the enclosing model alias."
+    },
+    "upstream_model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Must match the enclosing upstream mapping."
+    },
+    "channel": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Exact canonical channel contract; at most 256 UTF-8 bytes."
+    },
+    "maximum_body_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 16777216
+    },
+    "maximum_content_items": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 32
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "text": {
+          "$ref": "#/components/schemas/VideoInputRule"
+        },
+        "image_url": {
+          "$ref": "#/components/schemas/VideoInputRule"
+        },
+        "video_url": {
+          "$ref": "#/components/schemas/VideoInputRule"
+        },
+        "audio_url": {
+          "$ref": "#/components/schemas/VideoInputRule"
+        }
+      }
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "duration": {
+          "$ref": "#/components/schemas/VideoIntegerControl"
+        },
+        "seed": {
+          "$ref": "#/components/schemas/VideoIntegerControl"
+        },
+        "frames_per_second": {
+          "$ref": "#/components/schemas/VideoIntegerControl"
+        },
+        "resolution": {
+          "$ref": "#/components/schemas/VideoChoiceControl"
+        },
+        "ratio": {
+          "$ref": "#/components/schemas/VideoChoiceControl"
+        },
+        "watermark": {
+          "$ref": "#/components/schemas/VideoBooleanControl"
+        },
+        "camera_fixed": {
+          "$ref": "#/components/schemas/VideoBooleanControl"
+        },
+        "return_last_frame": {
+          "$ref": "#/components/schemas/VideoBooleanControl"
+        },
+        "callback_url": {
+          "$ref": "#/components/schemas/VideoHttpsControl"
+        }
+      }
+    },
+    "required_controls": {
+      "type": "array",
+      "maxItems": 9,
+      "uniqueItems": true,
+      "description": "Every named control must be configured.",
+      "items": {
+        "type": "string",
+        "enum": [
+          "duration",
+          "resolution",
+          "ratio",
+          "seed",
+          "watermark",
+          "camera_fixed",
+          "return_last_frame",
+          "frames_per_second",
+          "callback_url"
+        ]
+      }
+    },
+    "exclusive_controls": {
+      "type": "array",
+      "maxItems": 32,
+      "description": "Each pair names distinct configured controls; both cannot have defaults.",
+      "items": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 2,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "enum": [
+            "duration",
+            "resolution",
+            "ratio",
+            "seed",
+            "watermark",
+            "camera_fixed",
+            "return_last_frame",
+            "frames_per_second",
+            "callback_url"
+          ]
+        }
+      }
+    },
+    "output": {
+      "$ref": "#/components/schemas/VideoOutputSchema"
+    },
+    "callbacks_qualified": {
+      "type": "boolean",
+      "description": "Required for a callback_url declaration; separate adapter/offer qualification and callback authentication still apply."
     }
   }
 }
