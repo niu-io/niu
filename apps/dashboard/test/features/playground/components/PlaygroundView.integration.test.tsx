@@ -799,6 +799,9 @@ describe('Global Chat', () => {
     {status:429,type:'upstream_request_rate_exceeded',message:'The selected upstream route has reached its rolling 60-second request limit; retry after 60 seconds'},
     {status:503,type:'upstream_credential_cooldown',message:'The model route is temporarily unavailable after confirmed upstream refusals'},
     {status:503,type:'route_pool_unavailable',message:'No eligible route is available for this model and protocol'},
+    {status:403,type:'guardrail_denied',message:'Configured Guardrails rejected this request before model dispatch'},
+    {status:403,type:'guardrail_output_withheld',message:'Output was withheld after model dispatch; generation charges may apply'},
+    {status:403,type:'permission_denied',message:'This request is not authorized'},
   ])('retains $type without retrying or substituting a model', async ({status,type,message}) => {
     let dispatches=0;
     stubFetch(vi.fn(async (input: RequestInfo | URL) => {
