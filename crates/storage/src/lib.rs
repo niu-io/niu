@@ -109,6 +109,8 @@ mod key_request_rate;
 mod key_spending;
 mod key_token_rate;
 mod provider_offer_history;
+mod provider_settlement_history;
+pub use provider_settlement_history::ProviderSettlementQuery;
 mod topups;
 mod vendor_cooldown;
 mod vendor_request_rate;
@@ -278,6 +280,8 @@ pub enum StoreError {
     Unauthorized,
     #[error("invalid price, currency or monetary amount")]
     InvalidPrice,
+    #[error("invalid Supplier history filters or page size")]
+    InvalidSupplierHistoryQuery,
     #[error("budget has insufficient available funds")]
     BudgetExceeded,
     #[error("customer workspace spending limit exceeded")]

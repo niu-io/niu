@@ -177,6 +177,10 @@ export type SupplierOfferRevision = {
   revision: string; model_alias: string; created_at: string;
 } & ({ rate_kind: 'text'; currency: string; prompt_rate: string; completion_rate: string; cached_prompt_rate: string | null }
   | { rate_kind: 'media'; currency: null; prompt_rate: null; completion_rate: null; cached_prompt_rate: null });
+/** Payment-record metadata only; never contains customer or request identities. */
+export type SupplierSettlement = { id: string; currency: string; amount_nanos: string; payment_reference: string; created_at: string };
+export type SupplierSettlementPage = { data: SupplierSettlement[]; next_cursor: string | null };
+export type SupplierSettlementQuery = { before?: string; currency?: string; fromMs?: number; toMs?: number; limit?: number };
 /** Supplier procurement history, never customer workspace billing data. */
 export type SupplierOfferHistory = {
   current_revision: string | null;
@@ -736,6 +740,21 @@ export class NiuAdminClient {
     if (page.before !== undefined) query.set('before', uuid(page.before));
     if (page.limit !== undefined) query.set('limit', String(page.limit));
     return this.request(`/providers/${uuid(supplierId)}/offers/${uuid(offerId)}/revisions${query.size ? `?${query}` : ''}`, undefined, options);
+  }
+
+  /** All-time Supplier payment history; keep filters fixed while following next_cursor. */
+  listSupplierSettlements(supplierId: string, page: SupplierSettlementQuery = {}, options?: RequestOptions): Promise<SupplierSettlementPage> {
+    if (page.limit !== undefined && (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100)) throw new TypeError('Choose a settlement page size from 1 to 100');
+    if (page.currency !== undefined && !/^[A-Z]{3}$/.test(page.currency)) throw new TypeError('Currency must be three uppercase letters');
+    const query = new URLSearchParams();
+    if (page.before !== undefined) query.set('before', uuid(page.before));
+    if (page.currency !== undefined) query.set('currency', page.currency);
+    if (page.limit !== undefined) query.set('limit', String(page.limit));
+    for (const value of [page.fromMs, page.toMs]) if (value !== undefined && (!Number.isSafeInteger(value) || value < 0 || value > 253402300799999)) throw new TypeError('Invalid settlement time bound');
+    if (page.fromMs !== undefined && page.toMs !== undefined && page.fromMs >= page.toMs) throw new TypeError('Settlement range requires fromMs before toMs');
+    if (page.fromMs !== undefined) query.set('from_ms', String(page.fromMs));
+    if (page.toMs !== undefined) query.set('to_ms', String(page.toMs));
+    return this.request(`/providers/${uuid(supplierId)}/settlements${query.size ? `?${query}` : ''}`, undefined, options);
   }
 
   /** Platform-administrator review. Does not activate offers or verify the underlying evidence. */

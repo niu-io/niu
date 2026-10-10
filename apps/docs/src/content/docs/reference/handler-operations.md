@@ -7918,6 +7918,174 @@ HTTP 409: Cursor does not belong to this offer.
 
 HTTP 503: Storage unavailable.
 
+## Page Supplier settlement history
+
+`GET /admin/v1/providers/{provider}/settlements`
+
+Platform administration or active membership of this Supplier required. Lists immutable records of externally confirmed payments; does not initiate payment or claim a bank balance. Ordered by created_at then id descending, with 1–100 rows per page. All amounts are exact currency nanounit strings. No customer, workspace, request, attempt, credential, or procurement detail is included. Time range is from_ms-inclusive and to_ms-exclusive (Unix milliseconds). Keep filters fixed while following next_cursor; a cursor outside this Supplier or the filters returns 409. Inserts newer than the cursor do not shift later pages; pages do not constitute a frozen multi-request snapshot. All responses are no-store. Existing POST recording semantics are unchanged.
+
+Implementation: `implemented`. Operation: `listSupplierSettlements`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
+  }
+]
+```
+
+### Parameters
+
+`provider` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`before` (query, optional)
+
+Prior next_cursor; omit for the first page.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`currency` (query, optional)
+
+Filter one currency without conversion.
+
+```json
+{
+  "type": "string",
+  "pattern": "^[A-Z]{3}$"
+}
+```
+
+`from_ms` (query, optional)
+
+Inclusive payment-record creation time. Unix milliseconds.
+
+```json
+{
+  "type": "integer",
+  "format": "int64",
+  "minimum": 0,
+  "maximum": 253402300799999
+}
+```
+
+`to_ms` (query, optional)
+
+Exclusive payment-record creation time; must follow from. Unix milliseconds.
+
+```json
+{
+  "type": "integer",
+  "format": "int64",
+  "minimum": 0,
+  "maximum": 253402300799999
+}
+```
+
+`limit` (query, optional)
+
+Maximum page size.
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Settlement page; null next_cursor means the end.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "next_cursor"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "currency",
+          "amount_nanos",
+          "payment_reference",
+          "created_at"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "amount_nanos": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "payment_reference": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "next_cursor": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid filters, range or page size.
+
+HTTP 401: Invalid credential.
+
+HTTP 403: Unsupported administrative authority.
+
+HTTP 404: Supplier not found or membership unavailable.
+
+HTTP 409: Cursor not in this Supplier and filter scope.
+
+HTTP 503: Storage unavailable.
+
 ## List Supplier API-key configurations without credentials
 
 `GET /admin/v1/vendors`

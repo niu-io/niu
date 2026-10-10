@@ -775,3 +775,17 @@ fails closed. Revoked asset credentials remain checked until explicitly erased;
 startup does not delete or re-encrypt them. Restore the matching key rather than
 erasing data to bypass the diagnostic. See
 [startup validation and its limits](https://github.com/niu-io/niu/blob/main/docs/reference/supplier-secret-startup.md).
+
+
+## Supplier settlement history
+
+`GET /admin/v1/providers/{provider}/settlements` provides history beyond the
+Supplier dashboard's latest 100 payment records. Platform administrators or
+active members of that Supplier can read it. Use `limit` (1–100), `before`,
+`currency`, `from_ms` (inclusive) and `to_ms` (exclusive); keep filters fixed while
+following `next_cursor` until null. Time bounds are Unix milliseconds. The SDK
+provides `listSupplierSettlements`, with `fromMs` and `toMs` query properties.
+
+Amounts are exact decimal strings. Rows contain payment-record metadata and
+exclude customer and request details. Reads do not record payments or transfer
+funds. See the [contract and verification boundary](https://github.com/niu-io/niu/blob/main/docs/reference/supplier-settlement-history.md).

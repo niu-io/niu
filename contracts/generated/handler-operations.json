@@ -7603,6 +7603,168 @@
         "x-niu-implementation": "implemented"
       }
     },
+    "/admin/v1/providers/{provider}/settlements": {
+      "get": {
+        "operationId": "listSupplierSettlements",
+        "summary": "Page Supplier settlement history",
+        "description": "Platform administration or active membership of this Supplier required. Lists immutable records of externally confirmed payments; does not initiate payment or claim a bank balance. Ordered by created_at then id descending, with 1\u2013100 rows per page. All amounts are exact currency nanounit strings. No customer, workspace, request, attempt, credential, or procurement detail is included. Time range is from_ms-inclusive and to_ms-exclusive (Unix milliseconds). Keep filters fixed while following next_cursor; a cursor outside this Supplier or the filters returns 409. Inserts newer than the cursor do not shift later pages; pages do not constitute a frozen multi-request snapshot. All responses are no-store. Existing POST recording semantics are unchanged.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Prior next_cursor; omit for the first page."
+          },
+          {
+            "name": "currency",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z]{3}$"
+            },
+            "description": "Filter one currency without conversion."
+          },
+          {
+            "name": "from_ms",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0,
+              "maximum": 253402300799999
+            },
+            "description": "Inclusive payment-record creation time. Unix milliseconds."
+          },
+          {
+            "name": "to_ms",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0,
+              "maximum": 253402300799999
+            },
+            "description": "Exclusive payment-record creation time; must follow from. Unix milliseconds."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "description": "Maximum page size."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Settlement page; null next_cursor means the end.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "next_cursor"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "currency",
+                          "amount_nanos",
+                          "payment_reference",
+                          "created_at"
+                        ],
+                        "additionalProperties": false,
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "currency": {
+                            "type": "string",
+                            "pattern": "^[A-Z]{3}$"
+                          },
+                          "amount_nanos": {
+                            "type": "string",
+                            "pattern": "^[0-9]+$"
+                          },
+                          "payment_reference": {
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    },
+                    "next_cursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid filters, range or page size."
+          },
+          "401": {
+            "description": "Invalid credential."
+          },
+          "403": {
+            "description": "Unsupported administrative authority."
+          },
+          "404": {
+            "description": "Supplier not found or membership unavailable."
+          },
+          "409": {
+            "description": "Cursor not in this Supplier and filter scope."
+          },
+          "503": {
+            "description": "Storage unavailable."
+          }
+        },
+        "x-niu-implementation": "implemented"
+      }
+    },
     "/admin/v1/vendors": {
       "get": {
         "operationId": "listVendors",
