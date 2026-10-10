@@ -707,3 +707,20 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
   The UI preserves these different meanings rather than presenting unresolved
   commitments as measured zero. Ordinary-role authorization and live enforcement
   remain separate open qualification gates.
+
+### Chat terminal streaming correctness
+
+- Fixed a protocol correctness defect: HTTP 200 SSE error envelopes and named
+  error events now fail the Chat result; EOF without [DONE] also fails rather
+  than being labelled Complete. A finish reason alone does not override a later
+  terminal validation error. Original attempt identity remains available for
+  inspection; these failures do not trigger an automatic inference retry.
+- All 44 Chat integration tests and dashboard type checking pass. Added cases
+  cover an error followed by [DONE], a named error event, and an early stream end
+  despite a finish reason, including persistence of the failed result. These are
+  automated protocol tests, not live upstream error injection.
+- Current desktop owner-funded GPT-4.1 Mini streaming still completed with
+  STREAM_OK, 16 reported tokens and 2,197 ms client elapsed time. The retained
+  older HTTP 502 Logs record separately shows uncertain upstream state, unknown
+  usage and expired bodies; its measured delivery interval does not prove
+  successful execution. No credentials or policy settings were changed.

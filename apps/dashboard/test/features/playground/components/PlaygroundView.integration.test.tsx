@@ -515,6 +515,27 @@ describe('Global Chat', () => {
     expect(await screen.findByText('Complete')).toBeTruthy();
   });
 
+  it.each([
+    ['data: {"error":{"message":"Upstream stream failed"}}\n\ndata: [DONE]\n\n', 'Upstream stream failed'],
+    ['event: error\ndata: {}\n\n', 'Niu reported an error during generation.'],
+    ['data: {"choices":[{"delta":{"content":"Partial"},"finish_reason":"stop"}]}\n\n', 'The response stream ended before completion. Inspect the request before trying again.'],
+  ])('does not mark an unsuccessful HTTP 200 stream complete', async (events, expectedError) => {
+    stubFetch(vi.fn(async (url: string) => {
+      if (url.endsWith('/keys')) return jsonResponse({data:[{id:'key-a',name:'Default',allowed_models:['fast'],revoked:false,expired:false}]});
+      if (url.endsWith('/chat/completions')) return new Response(events,{headers:{'content-type':'text/event-stream','x-niu-attempt-id':'attempt-error'}});
+      return jsonResponse({data:[]});
+    }));
+    const user=userEvent.setup();
+    renderPlayground(['fast']);
+    await screen.findByRole('button',{name:'API key: Default'});
+    await waitFor(()=>expect((screen.getByLabelText('Prompt for all selected models') as HTMLTextAreaElement).disabled).toBe(false));
+    await user.type(screen.getByRole('textbox',{name:'Prompt for all selected models'}),'Hello');
+    await user.click(screen.getByRole('button',{name:'Send to 1 model'}));
+    expect(await screen.findByText(expectedError)).toBeTruthy();
+    expect(screen.queryByText('Complete')).toBeNull();
+    await waitFor(()=>expect([...serverChats.values()].some(value => JSON.stringify(value).includes(expectedError))).toBe(true));
+  });
+
   it('runs an example with the selected managed key without requesting its secret', async () => {
     const requests: string[] = [];
     stubFetch(vi.fn(async (url: string, init?: RequestInit) => {

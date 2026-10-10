@@ -260,12 +260,18 @@ async function runModel(
     const decoder = new TextDecoder();
     let buffered = '';
     let completed = false;
+    let terminalReceived = false;
     const consumeEvent = (event: string) => {
       const data = event.split(/\r?\n/).filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n').trim();
-      if (!data || data === '[DONE]') return;
+      if (!data) return;
+      if (data === '[DONE]') {terminalReceived = true;return;}
+      const errorEvent = event.split(/\r?\n/).some(line => /^event:\s*error\s*$/.test(line));
       let payload: ChatResponse;
       try { payload = JSON.parse(data) as ChatResponse; }
       catch { throw new Error('Niu returned malformed streaming data.'); }
+      if (errorEvent || (payload && typeof payload === 'object' && 'error' in payload)) {
+        throw new Error(errorMessage(payload, 'Niu reported an error during generation.'));
+      }
       const choice = payload.choices?.[0];
       content += responseText(choice?.delta?.content);
       applyUsage(payload.usage);
@@ -286,6 +292,7 @@ async function runModel(
       completed = chunk.done;
     }
     if (buffered.trim()) consumeEvent(buffered);
+    if (!terminalReceived) throw new Error('The response stream ended before completion. Inspect the request before trying again.');
     const complete = result('complete');
     onUpdate(complete);
     return complete;
