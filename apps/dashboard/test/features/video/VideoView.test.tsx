@@ -45,6 +45,17 @@ function mockFetch(create:()=>Promise<Response>=async()=>Response.json({id:job,o
   }));
   return calls;
 }
+it('restores original saved input after job-only navigation without submitting another generation',async()=>{
+ const calls=mockFetch();const fallback=globalThis.fetch;
+ const intent='55555555-5555-4555-8555-555555555555';
+ const saved={id:intent,revision:1,created_at_ms:'1700000000000',expires_at_ms:'1800000000000',content_state:'retained',key_id:key,model:model.id,request:videoRequest(model,'Original saved orange ball',initialControls(model)),submission_state:'dispatched',job:{id:job,model:model.id,status:'queued'}};
+ vi.stubGlobal('fetch',vi.fn(async(path:string,init?:RequestInit)=>path.includes('/video-intents?')?Response.json({data:[saved],has_more:false,next_before:null}):path.endsWith('/video-intents/'+intent)?Response.json({data:saved}):fallback(path,init)));
+ mount(true,`/generations?mode=video&job=${job}&key=${key}`);
+ await screen.findByRole('heading',{name:'Video · Original saved orange ball'});
+ expect((screen.getByLabelText('Prompt') as HTMLTextAreaElement).value).toBe('Original saved orange ball');
+ expect((screen.getByLabelText('Prompt') as HTMLTextAreaElement).disabled).toBe(true);
+ expect(calls.some(call=>call.path.endsWith('/submit') || call.path.endsWith('/estimate'))).toBe(false);
+});
 it('requires a current estimate, invalidates it when input changes and submits once with defaults',async()=>{
   const calls=mockFetch();mount();const user=userEvent.setup();
   await screen.findByRole('button',{name:'Video model'});

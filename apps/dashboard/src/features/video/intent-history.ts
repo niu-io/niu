@@ -13,6 +13,22 @@ export function videoSessionTitle(data: Pick<VideoSubmissionIntent, 'request' | 
 }
 type HistoryClient = Pick<NiuAdminClient, 'listVideoIntents' | 'getVideoIntent'>;
 
+/** Resolve a saved job from authorized history, including older pages. */
+export async function findVideoIntent(client: HistoryClient, scope: TenantScope, jobId: string, options: RequestOptions = {}) {
+  let before: string | undefined;
+  const cursors = new Set<string>();
+  for (;;) {
+    options.signal?.throwIfAborted();
+    const page = await videoIntentHistory(client, scope, {limit:25, ...(before ? {before} : {})}, options);
+    const matches = page.data.filter(row => row.jobId === jobId);
+    if (matches.length > 1 || page.incomplete) throw new Error('Saved video input could not be resolved. Reload to try again.');
+    if (matches.length === 1) return matches[0];
+    if (!page.has_more) return null;
+    if (!page.next_before || cursors.has(page.next_before)) throw new Error('Saved video history did not advance. Reload to try again.');
+    before = page.next_before; cursors.add(before);
+  }
+}
+
 /** Read-only discovery. Restricted retained content does not hide erasable metadata. */
 export async function videoIntentHistory(client: HistoryClient, scope: TenantScope, query: VideoJobHistoryQuery = {}, options: RequestOptions = {}) {
   const page = await client.listVideoIntents(scope, query, options);
