@@ -106,7 +106,12 @@ export function responseMessages(response: string, contentType: string): { messa
       }
       if (event.type === 'response.completed' || event.type === 'response.failed' || event.type === 'response.incomplete') {
         const response = object(event.response);
-        if (response && (Array.isArray(response.output) || response.error)) terminalMessages = jsonMessages(response);
+        if (response && (Array.isArray(response.output) || response.error)) {
+          const retained = jsonMessages(response);
+          // An empty terminal snapshot must not erase already received deltas.
+          if (retained.some(item => item.role !== 'Error')) terminalMessages = retained;
+          else failures.push(...retained);
+        }
         done = event.type === 'response.completed';
         if (!done) partial = true;
         break;
