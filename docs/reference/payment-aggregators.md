@@ -486,3 +486,37 @@ Restart retained access. Revoking the grant with its event immediately restored
 zero top-up orders and zero balance entries. The original development database
 and encrypted credential identity remained unchanged. This verifies the exercised
 permission and serialization boundary, not payment activation or settlement.
+
+## EPay checkout and configuration concurrency
+
+EPay checkout admission carries the configuration revision read with its runtime
+settings. Before saving payment intent, it takes a shared PostgreSQL advisory
+transaction lock and rechecks that revision. Configuration replacement uses the
+same lock exclusively and retains its pending-order guard. Concurrent checkouts
+can share the lock; a configuration write cannot pass an unfinished checkout.
+Revision zero denotes deployment configuration and conflicts if saved database
+configuration appeared meanwhile. Runtime reads now obtain the revision and
+configuration from one database snapshot instead of two separate lookups.
+
+If checkout commits first, replacement sees the pending order and returns 409.
+If replacement commits first, stale checkout returns 409 before creating an
+order; retry reloads the current configuration. No HTTP fields or database schema
+change. Deployment-provided merchant configuration must still be consistent
+across replicas; a database revision cannot version independently edited process
+environments. This change does not rotate historical payment secrets.
+
+Two current-input native Gateway runs exercised both orderings on independent
+PostgreSQL instances. Database locks gated the actual HTTP mutations. In the
+checkout-first run, checkout returned 200 and replacement returned 409, retaining
+revision 1 and its merchant; replay retained one order. In the replacement-first
+run, revision 2 committed and stale checkout returned 409 with zero orders; a
+new request created one checkout for revision 2's merchant. Both survived restart.
+Independent reopening confirmed the matching merchant, configuration revision
+and audit-event count, one order/checkout, and no settlements, closures or balance
+entries. The temporary verification trigger was removed.
+
+These are local configuration/intent operations with verification-only merchant
+settings and an unvisited example checkout URL. No external merchant was
+contacted, no payment was made, and no callback or funding receipt was invented.
+This verifies cross-process admission/configuration consistency, not successful
+external payment, merchant activation or callback settlement.

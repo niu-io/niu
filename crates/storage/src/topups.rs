@@ -232,6 +232,31 @@ impl Store {
         organization: Uuid,
         input: &TopupInput<'_>,
     ) -> Result<TopupOrder, StoreError> {
+        self.create_customer_topup_inner(organization, input, None)
+            .await
+    }
+
+    /// EPay checkout pins the loaded configuration revision (zero means deployment
+    /// configuration). Serialize with configuration replacement before saving intent.
+    pub async fn create_customer_topup_with_payment_revision(
+        &self,
+        organization: Uuid,
+        input: &TopupInput<'_>,
+        revision: i64,
+    ) -> Result<TopupOrder, StoreError> {
+        if input.aggregator != "epay" || revision < 0 {
+            return Err(StoreError::Conflict);
+        }
+        self.create_customer_topup_inner(organization, input, Some(revision))
+            .await
+    }
+
+    async fn create_customer_topup_inner(
+        &self,
+        organization: Uuid,
+        input: &TopupInput<'_>,
+        configuration_revision: Option<i64>,
+    ) -> Result<TopupOrder, StoreError> {
         if input.amount_nanos <= 0
             || input.currency.len() != 3
             || !input.currency.bytes().all(|b| b.is_ascii_uppercase())
@@ -248,6 +273,20 @@ impl Store {
             return Err(StoreError::InvalidPrice);
         }
         let mut tx = self.pool.begin().await?;
+        if let Some(expected) = configuration_revision {
+            sqlx::query("SELECT pg_advisory_xact_lock_shared(716553)")
+                .execute(&mut *tx)
+                .await?;
+            let current: Option<i64> = sqlx::query_scalar(
+                "SELECT revision FROM payment_gateway_configuration WHERE gateway='epay'",
+            )
+            .fetch_optional(&mut *tx)
+            .await?;
+            if current.unwrap_or(0) != expected {
+                return Err(StoreError::Conflict);
+            }
+        }
+
         sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR UPDATE")
             .bind(organization)
             .fetch_optional(&mut *tx)

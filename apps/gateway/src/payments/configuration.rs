@@ -99,20 +99,20 @@ async fn settings(state: &AppState) -> Result<(i64, Settings), ApiError> {
     }
 }
 pub(super) async fn runtime(state: &AppState) -> Result<Option<Arc<EPayRuntime>>, ApiError> {
-    if state
-        .store
-        .payment_gateway_configuration()
-        .await
-        .map_err(ApiError::from_store)?
-        .is_none()
-    {
-        return Ok(state.epay_payments.clone());
+    runtime_snapshot(state).await.map(|(_, runtime)| runtime)
+}
+
+/// The revision accompanies checkout admission so another Gateway cannot
+/// replace merchant credentials between reading configuration and saving intent.
+pub(super) async fn runtime_snapshot(
+    state: &AppState,
+) -> Result<(i64, Option<Arc<EPayRuntime>>), ApiError> {
+    let (revision, settings) = settings(state).await?;
+    if revision == 0 {
+        return Ok((0, state.epay_payments.clone()));
     }
-    let (_, settings) = settings(state).await?;
-    settings
-        .runtime()
-        .map(|runtime| runtime.map(Arc::new))
-        .map_err(ApiError::invalid_request)
+    let runtime = settings.runtime().map_err(ApiError::invalid_request)?;
+    Ok((revision, runtime.map(Arc::new)))
 }
 /// ```openapi
 /// {

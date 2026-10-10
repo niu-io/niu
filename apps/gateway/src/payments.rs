@@ -678,7 +678,7 @@ pub(crate) async fn create_topup(
     // configuration queue. Concurrent checkouts share a read guard while
     // merchant configuration changes require exclusive access.
     let _configuration_guard = state.payment_configuration_guard.read().await;
-    let epay = configuration::runtime(&state).await?;
+    let (epay_revision, epay) = configuration::runtime_snapshot(&state).await?;
     if let Some(runtime) = epay.as_ref()
         && input
             .payment_gateway
@@ -690,7 +690,15 @@ pub(crate) async fn create_topup(
             .as_deref()
             .is_none_or(|currency| currency == "CNY")
     {
-        return create_epay_topup(&state, organization, runtime, checkout, input).await;
+        return create_epay_topup(
+            &state,
+            organization,
+            runtime,
+            checkout,
+            input,
+            epay_revision,
+        )
+        .await;
     }
     if let Some(runtime) = state.stripe_payments.as_ref()
         && input
@@ -3049,6 +3057,7 @@ async fn create_epay_topup(
     runtime: &EPayRuntime,
     checkout: &EPayCheckout,
     input: CreateTopup,
+    configuration_revision: i64,
 ) -> Result<Json<Value>, ApiError> {
     if input.amount_nanos.is_empty() || !input.amount_nanos.bytes().all(|b| b.is_ascii_digit()) {
         return Err(ApiError::invalid_request(
@@ -3063,7 +3072,7 @@ async fn create_epay_topup(
         .map_err(|_| ApiError::invalid_request("CNY top-ups require at most two decimal places"))?;
     let order = state
         .store
-        .create_customer_topup(
+        .create_customer_topup_with_payment_revision(
             organization,
             &niu_storage::TopupInput {
                 currency: "CNY",
@@ -3073,6 +3082,7 @@ async fn create_epay_topup(
                 payment_method: &input.payment_method,
                 idempotency_key: input.idempotency_key,
             },
+            configuration_revision,
         )
         .await
         .map_err(ApiError::from_store)?;
