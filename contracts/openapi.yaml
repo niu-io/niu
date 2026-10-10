@@ -1379,6 +1379,8 @@ paths:
           description: Invalid request, generation-parameter type or range, or unsupported operation; rejected before admission and Supplier dispatch.
         '401':
           description: Missing or invalid gateway credentials.
+        '409':
+          description: Admission conflict before dispatch. Type route_configuration_changed identifies a changed managed credential/model configuration; that request was not sent upstream. Other conflicts retain their own error type.
         '501':
           description: Tool or structured-output capability is disabled, or the requested combination is unsupported. The unsupported_operation_error message identifies the feature and a supported request alternative; rejection occurs before admission or upstream dispatch.
         '502':
@@ -1420,6 +1422,8 @@ paths:
           description: Missing or invalid gateway credentials.
         '404':
           description: Model alias does not exist or is unavailable to this key.
+        '409':
+          description: Admission conflict before dispatch. Type route_configuration_changed identifies a changed managed credential/model configuration; that request was not sent upstream. Other conflicts retain their own error type.
         '501':
           description: The model route lacks the required embedding, configurable-dimension or base64 capability, or uses an unsupported protocol. The unsupported_operation_error message identifies the limitation and request alternative before admission.
         '502':
@@ -1461,6 +1465,8 @@ paths:
           description: Missing or invalid gateway credentials.
         '404':
           description: Model alias does not exist or is unavailable to this key.
+        '409':
+          description: Admission conflict before dispatch. Type route_configuration_changed identifies a changed managed credential/model configuration; that request was not sent upstream. Other conflicts retain their own error type.
         '501':
           description: Responses support is disabled, the route protocol is unsupported, or streaming was requested. The unsupported_operation_error message identifies the limitation and supported alternative before admission.
         '502':

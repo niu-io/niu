@@ -112,14 +112,18 @@ impl ApiError {
                 kind: "workspace_not_empty",
                 message: "This workspace has saved records or is the installation default and cannot be deleted",
             },
-            niu_storage::StoreError::ManagedRouteChanged | niu_storage::StoreError::Conflict => {
-                Self {
-                    failure: None,
-                    status: StatusCode::CONFLICT,
-                    kind: "conflict_error",
-                    message: "The record is unavailable or its state changed",
-                }
-            }
+            niu_storage::StoreError::ManagedRouteChanged => Self {
+                failure: None,
+                status: StatusCode::CONFLICT,
+                kind: "route_configuration_changed",
+                message: "The model route changed before dispatch; this request was not sent upstream",
+            },
+            niu_storage::StoreError::Conflict => Self {
+                failure: None,
+                status: StatusCode::CONFLICT,
+                kind: "conflict_error",
+                message: "The record is unavailable or its state changed",
+            },
             _ => Self {
                 failure: None,
                 status: StatusCode::SERVICE_UNAVAILABLE,

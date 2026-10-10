@@ -71,6 +71,7 @@ pub(crate) struct UnpricedAdmissionRequest<'a> {
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum AdmissionError {
+    ManagedRouteChanged,
     RequestRateExceeded,
     ConcurrencyExceeded,
     TokenRateExceeded,
@@ -464,7 +465,7 @@ async fn persist_admission_batch(store: &Store, batch: Vec<PendingAdmission>) {
                 let result = match store.admit_unpriced_gateway_batch(vec![record]).await {
                     Ok(mut statuses) if statuses.len() == 1 => Ok(statuses.remove(0)),
                     Err(niu_storage::StoreError::ManagedRouteChanged) => {
-                        Err(AdmissionError::Conflict)
+                        Err(AdmissionError::ManagedRouteChanged)
                     }
                     Err(niu_storage::StoreError::KeyRequestRateExceeded) => {
                         Err(AdmissionError::RequestRateExceeded)

@@ -564,6 +564,9 @@ pub(super) async fn begin_attempt(
                     ApiError::from_store(niu_storage::StoreError::KeyRequestRateExceeded)
                 }
                 crate::admission::AdmissionError::Unauthorized => ApiError::unauthorized(),
+                crate::admission::AdmissionError::ManagedRouteChanged => {
+                    ApiError::from_store(niu_storage::StoreError::ManagedRouteChanged)
+                }
                 crate::admission::AdmissionError::Conflict => {
                     ApiError::from_store(niu_storage::StoreError::Conflict)
                 }

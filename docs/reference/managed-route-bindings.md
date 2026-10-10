@@ -9,7 +9,11 @@ are copied into this table. The binding is immutable.
 At the transition from `not_sent` to `may_have_executed`, a database trigger locks
 the selected credential and model, then checks their enabled state, revisions,
 adapter, model identity and personal ownership boundary. A mismatch rejects
-admission with HTTP 409. Existing personal-route and financial eligibility checks
+admission with HTTP 409 and error type `route_configuration_changed`. The safe
+message states that this request was not sent upstream, without exposing the
+credential identity, endpoint or mapping. Other admission conflicts keep their
+existing error types; clients must not interpret every 409 as this guarantee.
+Existing personal-route and financial eligibility checks
 remain in place. Changes after committed dispatch do not retroactively invalidate
 the recorded attempt or authorize generation resubmission.
 
@@ -51,3 +55,11 @@ model-revision race on a personal Chat route. Credential replacement races,
 commercial paid admission, unpriced mixed-record batch isolation, Responses and
 embedding races, and sustained concurrent configuration changes remain
 unverified. These boundaries must not be inferred from the shared code alone.
+
+The same current-input race was subsequently run on the binary with the explicit
+error contract. The stale request returned `route_configuration_changed`, the
+message confirmed no upstream submission, and neither the credential identifier
+nor temporary model alias appeared in the error. Independent database inspection
+again found an undispatched old-version attempt and a completed fresh-version
+request with matching usage. Batch-path error propagation is implemented but was
+not exercised by this personal-route run.
