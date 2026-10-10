@@ -40,3 +40,22 @@ boundary checks completed. Fixture outcomes were not used as evidence. These are
 configuration and concurrency checks, not procurement-budget, customer-funded
 billing or Supplier payout verification. Personal calls remain outside those
 commercial accounting paths.
+
+## Live inference after the configuration-lock change
+
+The rebuilt gateway subsequently completed an actual owner-funded Chat SSE call.
+Its terminal token totals and reported cache/reasoning categories matched the
+persisted attempt and token-category records. The original credential identity
+was unchanged and no customer ledger entry was created.
+
+A separate current-input route-pool run exercised two independently configured
+personal credential mappings backed by the same owner's upstream account. Four
+actual upstream completions matched the selected mapping, pinned pool revision
+and reported token totals in PostgreSQL. The run also checked public-alias grants,
+protocol selection, a disabled candidate, no eligible candidate, foreign scope
+rejection and concurrent pool updates. A request deliberately interleaved with a
+pool revision change was rejected before dispatch and remained undispatched in
+the database. All temporary mappings and pools were disabled and temporary keys
+and operators revoked. These results cover the exercised personal configuration
+and dispatch paths; the two mappings do not establish independent upstream
+capacity, commercial Supplier qualification, procurement budgets or paid billing.
