@@ -313,8 +313,22 @@ pinned tariff, charge and debit. These runs used personal upstream access and
 explicit internal verification credit/rates, not a commercial Supplier agreement
 or paid top-up.
 
-Nonempty Supplier-offer rejection and concurrent price-publication behavior have
-not been exercised in this checkpoint. This prevents a known unsupported pricing
+Nonempty Supplier-offer rejection has not been exercised in this checkpoint. This prevents a known unsupported pricing
 combination; it does not implement thinking support or qualify combined
 cache-write and reasoning billing. Previously dispatched unresolved liabilities
 are preserved, not automatically released or treated as zero usage.
+
+
+A subsequent current-input concurrency run paused admission immediately after
+binding its flat-output customer tariff, using a temporary transaction gate in an
+isolated database. A simultaneous API tariff publication introducing a separate
+reasoning rate was observed waiting on the workspace lock. After releasing the
+gate, the actual Messages call completed and was charged under its original
+immutable tariff; the new revision became current. Subsequent calls returned
+HTTP 422 with `x-niu-error-code: unsupported_token_pricing`, both before and after
+Gateway restart. The gate was removed. Independent verification reopened the
+stopped database and checked the retained response hash, exact charge/debit,
+original bound revision, new current reasoning rate, one total attempt, no
+funding and no open reservation. This verifies the admission-first publication
+ordering; it does not establish Supplier-offer concurrency or arbitrary protocol
+metering support.
