@@ -369,3 +369,21 @@ statement isolation and invoice replay. It does not qualify FX, mixed-currency
 settlement, every account combination, external funding, media billing or
 browser presentation. Isolated processes stopped and original development data
 and encrypted identity were preserved.
+
+### Role boundaries against the retained two-currency ledger
+
+A subsequent current-input HTTP run reopened the same actual USD/EUR billing
+database without submitting more inference. Workspace-scoped owners/viewers and
+an organization-wide viewer received 404 for company balance access. Company
+administrators and owners received the same complete balance response as the
+installation credential. All five operator identities received 403 when attempting
+to modify installation-only credit policy.
+
+Each workspace-scoped reader could retrieve its own real statement but received
+404 for the other workspace. Organization-wide readers retrieved both matching
+statement histories. Revoking each temporary operator made its next account read
+return 401. Independent reopening confirmed all five operators were revoked,
+policy-history counts were unchanged and both original currency/workspace charge,
+debit and invoice relationships still matched reported usage. No new inference,
+funding, debit or invoice was created. This qualifies the exercised role matrix,
+not every administrative permission or concurrent revocation race.
