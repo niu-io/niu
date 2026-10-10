@@ -1030,3 +1030,8 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
 
 - Source review confirms the publication POST now uses platform authority while existing billing and tariff-history GETs retain independent workspace read scope. The SDK publication comment now matches the implemented grant. The demo's combined roles cannot qualify platform-only global price administration.
 - Recorded the missing pricing-only discovery/current/history read contract in [the frontend contract request](../reference/platform-customer-pricing-frontend-request.md). Keep customer billing reads scoped and avoid granting access to customer content merely to edit selling prices. A global Admin editor remains unfinished; no placeholder page, invented endpoint or installation-token workaround was added.
+
+## Earning-page integrity regression — 2026-10-11
+
+- Continuation rows now update overlapping entries instead of silently retaining a stale unpaid status. A newly reported paid entry is removed from the selection; submitting freezes the request and aborts any in-flight history read. Invalid currencies, out-of-range exact amounts, duplicate page entries and empty cursors are rejected before they can influence a payment.
+- The pre-change full dashboard regression passed 87 files / 680 checks. After this increment, all 24 Supplier administration checks and dashboard TypeScript checking passed, including paid-status reconciliation and malformed-page rejection. Actual empty OpenRouter history was reinspected at desktop and 390×844 with no payment submitted. Real concurrent settlement remains a separate unqualified gate; fixture status transitions are not live financial evidence.

@@ -177,13 +177,20 @@ function Administration({ token }: { token: string }) {
         `/admin/v1/providers/${selected}/earnings?limit=50${before ? `&before=${encodeURIComponent(before)}` : ""}`,
         "GET", undefined, controller.signal);
       if (controller.signal.aborted) return;
-      if (!Array.isArray(page.data) || !(page.next_cursor === null || typeof page.next_cursor === "string") ||
+      if (!Array.isArray(page.data) || !(page.next_cursor === null || (typeof page.next_cursor === "string" && page.next_cursor.length > 0)) ||
         (before !== null && page.next_cursor === before) || page.data.some(item =>
-          typeof item.id !== "string" || typeof item.model_alias !== "string" ||
-          typeof item.currency !== "string" || typeof item.amount_nanos !== "string" || !/^[0-9]+$/.test(item.amount_nanos) ||
-          !["accrued", "paid"].includes(item.status) || !Number.isFinite(Date.parse(item.created_at))))
+          !item || typeof item.id !== "string" || !item.id || typeof item.model_alias !== "string" || !item.model_alias.trim() ||
+          typeof item.currency !== "string" || !/^[A-Z]{3}$/.test(item.currency) || typeof item.amount_nanos !== "string" || !/^[0-9]{1,19}$/.test(item.amount_nanos) || BigInt(item.amount_nanos) > 9_223_372_036_854_775_807n ||
+          !["accrued", "paid"].includes(item.status) || typeof item.created_at !== "string" || !Number.isFinite(Date.parse(item.created_at))) || new Set(page.data.map(item => item.id)).size !== page.data.length)
         throw new Error("Earning history could not be read. Please retry.");
-      setPaymentEarnings(current => before ? [...current, ...page.data.filter(item => !current.some(saved => saved.id === item.id))] : page.data);
+      setPaymentEarnings(current => {
+        if (!before) return page.data;
+        const combined = new Map(current.map(item => [item.id, item]));
+        for (const item of page.data) combined.set(item.id, item);
+        return [...combined.values()];
+      });
+      const paid = new Set(page.data.filter(item => item.status === "paid").map(item => item.id));
+      setAttempts(current => current.filter(id => !paid.has(id)));
       setEarningCursor(page.next_cursor);
     } catch (reason) {
       if (!controller.signal.aborted) setEarningError(reason instanceof Error ? reason.message : "Earning history could not be loaded.");
@@ -397,6 +404,8 @@ function Administration({ token }: { token: string }) {
           throw new Error("Select up to 1,000 unpaid earnings in one currency.");
         if (!reference.trim() || /[\u0000-\u001f\u007f]/.test(reference) || new TextEncoder().encode(reference).length > 200)
           throw new Error("Enter a payment reference of at most 200 bytes without control characters.");
+        earningRequest.current?.abort();
+        setEarningLoading(false);
         setPaymentSubmitted(true);
         await request(
           token,
