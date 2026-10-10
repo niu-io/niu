@@ -714,3 +714,19 @@ explicitly replay the same amount, entry and idempotency key. Conflicting reuse
 and cumulative reversals exceeding the original amount return HTTP 409. Read
 `getCustomerBalanceTransactions` to inspect the resulting ledger entries; keep
 routing identifiers out of customer-facing labels.
+
+### Approved customer credit
+
+Installation administration can call
+`setCustomerBalancePolicy(organizationId, currency, { credit_limit_nanos, warning_threshold_nanos, expected_revision })`.
+Amounts and revisions are exact nonnegative integer strings; a null warning
+threshold disables the warning. Read `getCustomerBalance` for the current
+`policy_revision`, and use revision `"0"` only to initialize an absent account.
+The result contains the new revision. A stale revision returns HTTP 409; the
+SDK never automatically retries or substitutes a freshly read revision.
+
+This changes approved borrowing capacity, not received funds or payment status.
+Reducing credit cannot invalidate held reservations. Without holds, a reduction
+may leave existing debt above the new capacity and block further admissions.
+Company administrators can use `setCustomerBalanceWarning` for the warning
+preference alone; they do not gain credit-policy write authority.

@@ -157,6 +157,10 @@ export type CustomerTopup = {
   id: string; currency: string; amount_nanos: string; payment_method: string;
   status: 'reconciliation_required' | 'pending' | 'paid' | 'closed'; checkout_url: string | null;
 };
+/** Exact nonnegative nanounits and optimistic revision for installation credit policy. */
+export type CustomerBalancePolicyInput = {
+  credit_limit_nanos: string; warning_threshold_nanos: string | null; expected_revision: string;
+};
 /** Exact positive nanounits; retain the same identity when replaying an uncertain write. */
 export type CustomerBalanceReversalInput = { amount_nanos: string; idempotency_key: string };
 
@@ -869,6 +873,18 @@ export class NiuAdminClient {
     const { before, ...transport } = options ?? {};
     const query = before === undefined ? '' : `?before=${uuid(before)}`;
     return this.request(`/organizations/${uuid(organizationId)}/billing/transactions${query}`, undefined, transport);
+  }
+
+  /** Installation-only approved credit policy. Changes borrowing capacity, never posts received funds. No automatic retry. */
+  setCustomerBalancePolicy(organizationId: string, currency: string, input: CustomerBalancePolicyInput, options?: RequestOptions): Promise<{ data: { revision: string } }> {
+    if (!/^[A-Z]{3}$/.test(currency)) throw new TypeError('Use an uppercase currency code');
+    const exact = (value: unknown, maximum: bigint) => typeof value === 'string' && /^\d{1,19}$/.test(value) && BigInt(value) <= maximum;
+    if (!exact(input.credit_limit_nanos, 9223372036854775807n)
+      || (input.warning_threshold_nanos !== null && !exact(input.warning_threshold_nanos, 9223372036854775807n))
+      || !exact(input.expected_revision, 9223372036854775806n)) throw new TypeError('Use exact nonnegative amounts and revision');
+    return this.request(`/organizations/${uuid(organizationId)}/billing/accounts/${currency}/policy`, {
+      credit_limit_nanos: input.credit_limit_nanos, warning_threshold_nanos: input.warning_threshold_nanos, expected_revision: input.expected_revision,
+    }, options, 'PUT');
   }
 
   /** Company warning preference only; cannot alter funds or approved credit. */

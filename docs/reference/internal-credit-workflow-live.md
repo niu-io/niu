@@ -496,3 +496,16 @@ Independent database reopening again reconciled the two actual usages and
 charges, exactly two refunds totaling the first charge, the second charge's net
 debt and no remaining customer holds. This qualifies the exercised SDK refund
 path; funding reversals and external refunds remain outside this run.
+
+### SDK approved-credit configuration
+
+Another fresh native run used `setCustomerBalancePolicy` to enable the internal
+credit above after observing the initial zero-credit refusal. The actual SDK
+write returned the incremented revision; replaying its stale expected revision
+returned HTTP 409. Reading the balance confirmed the approved credit while the
+posted balance remained zero. Actual structured and streamed model calls then
+completed the charge, key-cap and SDK refund workflow described above.
+Independent reopening confirmed exactly one policy revision, the configured
+credit and warning threshold, exact usage-based debits/refunds and no funding
+receipts. This validates the exercised SDK policy write and stale-version
+boundary, without claiming that approved credit represents received money.
