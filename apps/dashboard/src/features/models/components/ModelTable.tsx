@@ -6,6 +6,7 @@ import { IconCheck as Check } from "@tabler/icons-react";
 import { IconChevronDown as ChevronDown } from "@tabler/icons-react";
 import { IconCopy as Clipboard } from "@tabler/icons-react";
 import { IconKey as KeyRound } from "@tabler/icons-react";
+import { IconX as X } from "@tabler/icons-react";
 import { IconFilter as Search } from "@tabler/icons-react";
 import { Link, useParams } from 'react-router';
 import ReactMarkdown from 'react-markdown';
@@ -169,6 +170,10 @@ export default function ModelTable({ models, header }: { models: Model[]; header
           </DropdownMenu></div>
         </div>
 
+        {(authorsSelected.length > 0 || providersSelected.length > 0) && <div className="flex flex-wrap gap-2 px-5" aria-label="Active model filters">
+          {authors.filter(author => authorsSelected.includes(author.id)).map(author => <Button key={author.id} variant="secondary" size="sm" aria-label={`Remove ${author.name} developer filter`} onClick={() => chooseAuthor(author.id)}>{author.name}<X size={12} aria-hidden="true" /></Button>)}
+          {providersSelected.map(provider => <Button key={provider} variant="secondary" size="sm" aria-label={`Remove ${provider} provider filter`} onClick={() => { setProvidersSelected(current => current.filter(value => value !== provider)); setLimit(20); }}>{provider}<X size={12} aria-hidden="true" /></Button>)}
+        </div>}
         <div className="models-results-heading"><span aria-live="polite">{filtered.length.toLocaleString()} {filtered.length === 1 ? 'model' : 'models'}</span>{(authorsSelected.length > 0 || providersSelected.length > 0 || query) && <Button variant="ghost" size="sm" onClick={() => { setAuthorsSelected([]); setProvidersSelected([]); setQuery(''); setLimit(20); searchInputRef.current?.focus(); }}>Clear filters</Button>}</div>
         {filtered.length === 0 ? <Empty className="models-empty"><EmptyHeader><EmptyMedia variant="icon"><Search aria-hidden="true"/></EmptyMedia><EmptyTitle>No matching models</EmptyTitle><EmptyDescription>Try a different name or developer.</EmptyDescription></EmptyHeader></Empty> : <div className="models-cards">
           {visible.map(model => <article className="models-card" key={model.id}>
