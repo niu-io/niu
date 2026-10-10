@@ -535,3 +535,21 @@ same configured merchant, one configuration event, and no settlement, closure or
 funding records. This checks that the new shared configuration lock does not
 serialize independent company admissions. It is not a throughput benchmark or
 external payment qualification. No checkout URL was visited.
+
+### Concurrent EPay intent replay and company isolation
+
+A current-input native run sent 16 simultaneous identical checkout POSTs across
+two Gateway processes for one company. All returned the same saved response,
+and the database contained one order and one checkout. Reusing the idempotency
+key with a different amount returned 409 without changing that amount. A second
+company used the same idempotency key and received its own independent order.
+Restarting the Gateway and replaying the original request returned the same
+response without adding another order.
+
+Independent reopening confirmed two distinct company orders/checkouts sharing
+one client idempotency key, each with the intended CNY amount, one unchanged
+merchant configuration revision and no settlement, closure or balance entries.
+This is actual HTTP/database intent processing with unvisited verification-only
+checkout URLs; no external payment or funding evidence was simulated. It covers
+concurrent pending-intent replay, not replay after merchant rotation on a paid
+or closed historical order.
