@@ -929,3 +929,8 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
 - Fixed reopening a conflicted edit: retain the explanation while the field remains disabled and Reload limit is required. The integration regression now closes/reopens the dialog before reloading; both credential-limit tests pass.
 - Current browser input above 1,000,000 showed validation and disabled Save. An independent authenticated administration update kept Unlimited while advancing its revision; the old browser edit then received a real conflict. Closing/reopening retained the explanation, and Reload limit restored the current blank Unlimited field with Save disabled. No rejected edit overwrote the policy and no inference was submitted. History retains the explicit no-value-change administration update.
 - Pagination, transport-error rendering and ordinary-role exclusion remain separate qualification items.
+
+## Branding preview state checkpoint
+
+- Fixed the preview description to distinguish saved configuration from unsaved drafts. Current browser inspection read NIU.IO with Save/Discard disabled, opened the saved preview and inspected the appearance menu's open alignment and Dark selection. A temporary display-name draft appeared in the preview with the unsaved description; Discard restored NIU.IO and disabled both actions. No platform branding was saved or reset.
+- Existing branding tests passed; Supplier regressions passed all 36 tests across six files. This does not qualify branding asset upload, platform-save propagation, ordinary-role access or the complete theme workflow.
