@@ -52,6 +52,375 @@ pub(in crate::web) async fn chat(
     chat_as(state, headers, body, principal).await
 }
 
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/chat/completions",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "createDashboardChatCompletion",
+///     "summary": "Create a Chat completion with a selected workspace key",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "x-niu-log-payloads",
+///         "in": "header",
+///         "required": false,
+///         "description": "Request and sanitized customer response content is retained until 24 hours after the original request creation time by default. Send false (case-insensitive) to disable capture for this request; true or an omitted header retains content. Invalid values or repeated headers are rejected before inference. Requests exceeding the 1 MB capture limit are rejected; response capture is truncated at 1 MB. Does not backfill earlier requests.",
+///         "schema": {
+///           "type": "string",
+///           "enum": [
+///             "true",
+///             "false"
+///           ],
+///           "default": "true"
+///         }
+///       },
+///       {
+///         "name": "X-Niu-Task-ID",
+///         "in": "header",
+///         "required": false,
+///         "description": "Optional opaque task correlation key. Requests with the same value can be grouped in project activity. Niu stores the value as metadata and does not forward it to the provider.",
+///         "schema": {
+///           "type": "string",
+///           "minLength": 1,
+///           "maxLength": 200,
+///           "pattern": "^[!-~]{1,200}$"
+///         }
+///       }
+///     ],
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "required": [
+///               "model",
+///               "messages"
+///             ],
+///             "properties": {
+///               "model": {
+///                 "type": "string"
+///               },
+///               "messages": {
+///                 "type": "array",
+///                 "items": {
+///                   "type": "object"
+///                 }
+///               },
+///               "tools": {
+///                 "type": "array",
+///                 "minItems": 1,
+///                 "maxItems": 128,
+///                 "items": {
+///                   "type": "object",
+///                   "required": [
+///                     "type",
+///                     "function"
+///                   ],
+///                   "properties": {
+///                     "type": {
+///                       "type": "string",
+///                       "const": "function"
+///                     },
+///                     "function": {
+///                       "type": "object",
+///                       "required": [
+///                         "name"
+///                       ],
+///                       "properties": {
+///                         "name": {
+///                           "type": "string",
+///                           "minLength": 1,
+///                           "maxLength": 64,
+///                           "pattern": "^[A-Za-z0-9_-]+$"
+///                         },
+///                         "description": {
+///                           "type": "string"
+///                         },
+///                         "parameters": {
+///                           "type": "object",
+///                           "description": "JSON Schema object forwarded to the configured provider.",
+///                           "additionalProperties": true
+///                         },
+///                         "strict": {
+///                           "type": "boolean"
+///                         }
+///                       },
+///                       "additionalProperties": true
+///                     }
+///                   },
+///                   "additionalProperties": true
+///                 }
+///               },
+///               "tool_choice": {
+///                 "oneOf": [
+///                   {
+///                     "type": "string",
+///                     "enum": [
+///                       "none",
+///                       "auto",
+///                       "required"
+///                     ]
+///                   },
+///                   {
+///                     "type": "object",
+///                     "required": [
+///                       "type",
+///                       "function"
+///                     ],
+///                     "properties": {
+///                       "type": {
+///                         "type": "string",
+///                         "const": "function"
+///                       },
+///                       "function": {
+///                         "type": "object",
+///                         "required": [
+///                           "name"
+///                         ],
+///                         "properties": {
+///                           "name": {
+///                             "type": "string",
+///                             "minLength": 1,
+///                             "maxLength": 64
+///                           }
+///                         }
+///                       }
+///                     },
+///                     "additionalProperties": true
+///                   }
+///                 ]
+///               },
+///               "parallel_tool_calls": {
+///                 "type": "boolean"
+///               },
+///               "response_format": {
+///                 "oneOf": [
+///                   {
+///                     "type": "object",
+///                     "required": [
+///                       "type"
+///                     ],
+///                     "properties": {
+///                       "type": {
+///                         "type": "string",
+///                         "const": "text"
+///                       }
+///                     },
+///                     "additionalProperties": true
+///                   },
+///                   {
+///                     "type": "object",
+///                     "required": [
+///                       "type"
+///                     ],
+///                     "properties": {
+///                       "type": {
+///                         "type": "string",
+///                         "const": "json_object"
+///                       }
+///                     },
+///                     "additionalProperties": true
+///                   },
+///                   {
+///                     "type": "object",
+///                     "required": [
+///                       "type",
+///                       "json_schema"
+///                     ],
+///                     "properties": {
+///                       "type": {
+///                         "type": "string",
+///                         "const": "json_schema"
+///                       },
+///                       "json_schema": {
+///                         "type": "object",
+///                         "required": [
+///                           "name",
+///                           "schema"
+///                         ],
+///                         "properties": {
+///                           "name": {
+///                             "type": "string",
+///                             "minLength": 1,
+///                             "maxLength": 64
+///                           },
+///                           "description": {
+///                             "type": "string"
+///                           },
+///                           "strict": {
+///                             "type": "boolean"
+///                           },
+///                           "schema": {
+///                             "type": "object",
+///                             "additionalProperties": true
+///                           }
+///                         },
+///                         "additionalProperties": true
+///                       }
+///                     },
+///                     "additionalProperties": true
+///                   }
+///                 ]
+///               },
+///               "temperature": {
+///                 "type": [
+///                   "number",
+///                   "null"
+///                 ],
+///                 "minimum": 0,
+///                 "maximum": 2
+///               },
+///               "top_p": {
+///                 "type": [
+///                   "number",
+///                   "null"
+///                 ],
+///                 "minimum": 0,
+///                 "maximum": 1
+///               },
+///               "frequency_penalty": {
+///                 "type": [
+///                   "number",
+///                   "null"
+///                 ],
+///                 "minimum": -2,
+///                 "maximum": 2
+///               },
+///               "presence_penalty": {
+///                 "type": [
+///                   "number",
+///                   "null"
+///                 ],
+///                 "minimum": -2,
+///                 "maximum": 2
+///               },
+///               "max_tokens": {
+///                 "type": [
+///                   "integer",
+///                   "null"
+///                 ],
+///                 "minimum": 1,
+///                 "maximum": 9223372036854775807
+///               },
+///               "max_completion_tokens": {
+///                 "type": [
+///                   "integer",
+///                   "null"
+///                 ],
+///                 "minimum": 1,
+///                 "maximum": 9223372036854775807
+///               },
+///               "n": {
+///                 "type": [
+///                   "integer",
+///                   "null"
+///                 ],
+///                 "minimum": 1,
+///                 "maximum": 9223372036854775807
+///               },
+///               "seed": {
+///                 "type": [
+///                   "integer",
+///                   "null"
+///                 ],
+///                 "minimum": -9223372036854775808,
+///                 "maximum": 9223372036854775807
+///               },
+///               "stream": {
+///                 "type": "boolean"
+///               },
+///               "stream_options": {
+///                 "type": [
+///                   "object",
+///                   "null"
+///                 ],
+///                 "properties": {
+///                   "include_usage": {
+///                     "type": "boolean"
+///                   }
+///                 },
+///                 "additionalProperties": true
+///               }
+///             },
+///             "additionalProperties": true
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "200": {
+///         "description": "A normalized chat completion or compatible event stream."
+///       },
+///       "400": {
+///         "description": "Invalid request, generation-parameter type or range, or unsupported operation; rejected before admission and Supplier dispatch."
+///       },
+///       "401": {
+///         "description": "Missing or invalid gateway credentials."
+///       },
+///       "409": {
+///         "description": "Admission conflict before dispatch. Type route_configuration_changed identifies a changed managed credential/model configuration; that request was not sent upstream. Other conflicts retain their own error type."
+///       },
+///       "501": {
+///         "description": "Tool or structured-output capability is disabled, or the requested combination is unsupported. The unsupported_operation_error message identifies the feature and a supported request alternative; rejection occurs before admission or upstream dispatch."
+///       },
+///       "502": {
+///         "description": "Provider request failed."
+///       },
+///       "402": {
+///         "description": "Insufficient spending capacity or budget"
+///       },
+///       "403": {
+///         "description": "Workspace write or source-IP permission denied"
+///       },
+///       "404": {
+///         "description": "Requested model unavailable to the selected key"
+///       },
+///       "429": {
+///         "description": "Rate or concurrency admission limit exceeded"
+///       },
+///       "503": {
+///         "description": "Route or durable storage unavailable"
+///       }
+///     },
+///     "x-niu-status": "Basic chat is implemented for configured native provider routes. Function tools, streaming tool deltas, and structured JSON are opt-in on OpenAI-compatible routes only. Niu validates tool-call shape and structured JSON against a valid self-contained schema; json_object output must be an object. Schema compilation is offline and limited to 64 KiB, 4096 JSON nodes and depth 32, with bounded regular expressions. Niu does not execute tools. Structured JSON streaming remains unsupported. Token-priced routes support function calls and text-only tool-result conversations under the same input/output rates. Serialized messages, tool definitions, tool choices and response-format instructions count toward the configured input byte guard. Hosted tools and additional billable modalities remain unsupported.",
+///     "description": "Requires workspace write authority and an active selected key in that workspace. The key supplies model grants, IP policy, limits and billing attribution; the member token is not forwarded upstream. Uses the same Chat execution path as /v1/chat/completions, including streaming, tools and supported buffered structured output. No key secret is returned. HTTP 200 starts a stream and does not alone prove completed generation or known usage.",
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
 pub(in crate::web) async fn dashboard_chat(
     State(state): State<AppState>,
     axum::extract::Path((organization_id, project_id, key_id)): axum::extract::Path<(

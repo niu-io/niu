@@ -3344,6 +3344,358 @@ HTTP 403: Platform management permission required
 
 HTTP 503: Configuration storage unavailable
 
+## Create a Chat completion with a selected workspace key
+
+`POST /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/chat/completions`
+
+Requires workspace write authority and an active selected key in that workspace. The key supplies model grants, IP policy, limits and billing attribution; the member token is not forwarded upstream. Uses the same Chat execution path as /v1/chat/completions, including streaming, tools and supported buffered structured output. No key secret is returned. HTTP 200 starts a stream and does not alone prove completed generation or known usage.
+
+Implementation: `implemented`. Operation: `createDashboardChatCompletion`.
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`x-niu-log-payloads` (header, optional)
+
+Request and sanitized customer response content is retained until 24 hours after the original request creation time by default. Send false (case-insensitive) to disable capture for this request; true or an omitted header retains content. Invalid values or repeated headers are rejected before inference. Requests exceeding the 1 MB capture limit are rejected; response capture is truncated at 1 MB. Does not backfill earlier requests.
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "true",
+    "false"
+  ],
+  "default": "true"
+}
+```
+
+`X-Niu-Task-ID` (header, optional)
+
+Optional opaque task correlation key. Requests with the same value can be grouped in project activity. Niu stores the value as metadata and does not forward it to the provider.
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 200,
+  "pattern": "^[!-~]{1,200}$"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "model",
+    "messages"
+  ],
+  "properties": {
+    "model": {
+      "type": "string"
+    },
+    "messages": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "tools": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "required": [
+          "type",
+          "function"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "function"
+          },
+          "function": {
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9_-]+$"
+              },
+              "description": {
+                "type": "string"
+              },
+              "parameters": {
+                "type": "object",
+                "description": "JSON Schema object forwarded to the configured provider.",
+                "additionalProperties": true
+              },
+              "strict": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "tool_choice": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "none",
+            "auto",
+            "required"
+          ]
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "function"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "function"
+            },
+            "function": {
+              "type": "object",
+              "required": [
+                "name"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                }
+              }
+            }
+          },
+          "additionalProperties": true
+        }
+      ]
+    },
+    "parallel_tool_calls": {
+      "type": "boolean"
+    },
+    "response_format": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "text"
+            }
+          },
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "json_object"
+            }
+          },
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "json_schema"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "json_schema"
+            },
+            "json_schema": {
+              "type": "object",
+              "required": [
+                "name",
+                "schema"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "description": {
+                  "type": "string"
+                },
+                "strict": {
+                  "type": "boolean"
+                },
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        }
+      ]
+    },
+    "temperature": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 2
+    },
+    "top_p": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "frequency_penalty": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": -2,
+      "maximum": 2
+    },
+    "presence_penalty": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": -2,
+      "maximum": 2
+    },
+    "max_tokens": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "maximum": 9223372036854775807
+    },
+    "max_completion_tokens": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "maximum": 9223372036854775807
+    },
+    "n": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "maximum": 9223372036854775807
+    },
+    "seed": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": -9223372036854775808,
+      "maximum": 9223372036854775807
+    },
+    "stream": {
+      "type": "boolean"
+    },
+    "stream_options": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "include_usage": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
+```
+
+### Responses
+
+HTTP 200: A normalized chat completion or compatible event stream.
+
+HTTP 400: Invalid request, generation-parameter type or range, or unsupported operation; rejected before admission and Supplier dispatch.
+
+HTTP 401: Missing or invalid gateway credentials.
+
+HTTP 409: Admission conflict before dispatch. Type route_configuration_changed identifies a changed managed credential/model configuration; that request was not sent upstream. Other conflicts retain their own error type.
+
+HTTP 501: Tool or structured-output capability is disabled, or the requested combination is unsupported. The unsupported_operation_error message identifies the feature and a supported request alternative; rejection occurs before admission or upstream dispatch.
+
+HTTP 502: Provider request failed.
+
+HTTP 402: Insufficient spending capacity or budget
+
+HTTP 403: Workspace write or source-IP permission denied
+
+HTTP 404: Requested model unavailable to the selected key
+
+HTTP 429: Rate or concurrency admission limit exceeded
+
+HTTP 503: Route or durable storage unavailable
+
 ## Shared schemas
 
 Local `#/components/schemas/…` references resolve to these definitions.
