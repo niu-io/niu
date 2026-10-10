@@ -9,12 +9,12 @@ internal-readiness gate. Fixture outcomes have no evidentiary weight.
 
 | Required area | Current actual evidence | Still unverified or incomplete |
 | --- | --- | --- |
-| Supplier configuration | [Independent credentials, scoped routes and price revision concurrency](supplier-workspace-backend-verification-2026-10-09.md) | Complete commercial purchase/selling/settlement journey; broader provider coverage |
-| Workspace API keys | Actual calls, rotation and scope checks; [granular key controls](../product/backend-capability-checklist.md), including spending policy/history, IP policy, distributed RPM/concurrency and estimated TPM | Paid cap admission/settlement; estimator overruns; mixed-key batch fallback and sustained contention |
-| Prepaid and accounting | [Financial authorization, exact credit/warning revisions and available capacity](financial-authorization-live-2026-10-09.md); [supported payment inventory](../reference/payment-aggregators.md) | Full successful internal funding/reservation/debit/reconciliation lifecycle evidence, including concurrent liabilities and reversals |
-| Request diagnostics | Actual request detail and CSV agree with upstream usage and PostgreSQL; customer prices stay separate from procurement | Complete failure, cancellation, media and commercially charged cross-report coverage |
-| Video lifecycle | [Actual generation, idempotency, restart and byte-verified result retrieval](video-submission-idempotency-live-2026-10-09.md); [concurrency occupancy and corrected rotation recovery](../reference/api-key-concurrency-limits.md) | Commercial video settlement evidence; advertised input/channel coverage. Persisted result references depend on upstream content retention |
-| Performance | [Native list/detail read measurements](backend-read-performance-2026-10-09.md), [bounded real streaming](streaming-performance-2026-10-09.md), bounded result downloads | Mixed-load, large real datasets, sustained inference/financial contention and explicit operational capacity targets |
+| Supplier configuration | [Independent credentials and prices](supplier-workspace-backend-verification-2026-10-09.md); [priced candidate selection, separate expenses and immutable history](../reference/model-route-pools.md); startup now checks unbound/disabled credentials | Full commercial settlement workflow; broader provider coverage; master-key rotation remains unimplemented |
+| Workspace API keys | [Granular controls](../product/backend-capability-checklist.md); [credit-backed spending refusal, partial refunds and in-flight rotation](../reference/internal-credit-workflow-live.md); platform grants do not expand customer scope | Mixed-key batch writer, every estimator-overrun path and sustained multi-instance limiter contention |
+| Prepaid and accounting | [Actual credit-backed charges, debits, refunds, invoices and reconciliation](../reference/internal-credit-workflow-live.md); [shared-company contention](../reference/company-credit-concurrency-live.md); [nonempty recovery and database fault runs](../reference/financial-backlog-restart-live.md); [payment configuration, checkout and grant lifecycle](../reference/payment-aggregators.md) | Received-cash funding/reversal evidence and complete customer-funded media settlement. Credit-backed evidence is not a received-cash top-up; activation of every merchant is not required |
+| Request diagnostics | Actual request detail/CSV and [positive customer-charge reports](../reference/internal-credit-workflow-live.md#customer-reporting-with-actual-positive-charges); [structured-stream failures and disconnect liabilities](../reference/structured-output-streaming.md) | Full protocol/input/error matrix and complete media charge reporting; no overall diagnosis workflow claim |
+| Video lifecycle | [Actual generation and result retrieval](video-submission-idempotency-live-2026-10-09.md); [actor-owned intents, response-loss/restart recovery, concurrent status reads and deletion](../reference/video-submission-intents.md) | Customer-funded settlement and broader input/channel coverage. Saved references depend on upstream retention; browser integration remains a separate workstream |
+| Performance | [Native list/detail reads](backend-read-performance-2026-10-09.md), [actual priced streams](../reference/priced-text-concurrency-live.md), [one-minute structured streams with ledger checks](../reference/structured-output-streaming.md#one-minute-structured-stream-load-checkpoint) and [mixed-protocol accounting](backend-integration-contract.md#mixed-protocol-concurrent-accounting) | Operational capacity targets, long soak/overload, slow readers, larger actual datasets and broader multi-instance contention |
 
 These are scoped observations. They do not establish parity or superiority over
 another gateway. The remaining items must not be replaced by repeated checks of
@@ -51,16 +51,19 @@ separates key-level controls and financial layers into observable requirements.
 The following remain open; they are not satisfied by additional key-configuration
 round trips or by a green fixture workflow:
 
-1. Obtain actual successful internal funding, customer-priced admission, debit,
-   release and reversal/reconciliation evidence. Include shared-company funds,
-   workspace and key caps, concurrent liabilities and exact historical attribution.
-   External merchant activation is not an internal readiness gate. Personal
-   upstream-funded requests cannot establish customer debit or commercial supply.
-2. Qualify mixed-key batch admission and mixed-protocol concurrent workloads under
-   the new key limits. [Distinct-key personal-route isolation](key-limit-isolation-live-2026-10-10.md)
-   is verified for RPM, concurrency and TPM, but does not exercise the batch writer.
-   TPM uses an explicit byte/output estimate, retains unknown
-   reservations, and records known overrun debt; it is not an exact tokenizer.
+1. Close the remaining financial boundaries without repeating settled credit-backed
+   paths: received-cash funding and reversal, customer-funded media settlement,
+   and unresolved accounting cases outside the recorded recovery runs. Review
+   supported callback validation, idempotency and recovery as internal capabilities;
+   external merchant activation remains a deployment check. Do not invent a receipt
+   to claim payment, and do not require every supported merchant to activate before
+   continuing independent backend work.
+2. Exercise the remaining mixed-key batch writer and multi-instance limiter
+   combinations. [Actual mixed Chat/Responses/embedding accounting](backend-integration-contract.md#mixed-protocol-concurrent-accounting)
+   already covers one shared key through four workers. [Shared-company concurrency](../reference/company-credit-concurrency-live.md)
+   and [in-flight rotation](../reference/internal-credit-workflow-live.md#key-rotation-during-an-actual-stream)
+   cover their specific contention paths. They do not qualify every batch path or
+   every estimator overrun; TPM remains an explicit estimate, not an exact tokenizer.
 3. Review routing/failover behavior against the pinned reference. A retry that can
    duplicate uncertain paid execution does not qualify as an improvement. Keep
    attempts and customer charges distinguishable and auditable. The
@@ -71,12 +74,13 @@ round trips or by a green fixture workflow:
    identified the original one-alias/one-credential constraint. Additive
    [text pools](../reference/model-route-pools.md) now separate the customer alias
    from selected mappings and implement revisioned priority/weight policies.
-   Actual personal Chat/Responses selection and bounded concurrent weighted traffic
-   are verified; long-run distribution,
-   customer-paid attribution and post-rejection failover remain open.
+   Actual personal Chat/Responses selection, bounded weighted traffic, and
+   customer-priced candidate/revision attribution with distinct configured expenses
+   have scoped evidence. Long-run distribution, in-flight candidate changes and
+   post-rejection failover remain open.
 4. Measure sustained inference/financial contention and larger actual datasets
-   against explicit operational capacity targets. Current read measurements use
-   a small local dataset and do not establish production throughput.
+   against explicit operational capacity targets. Short actual priced/structured-stream runs include independent settlement
+   checks, but do not establish production throughput or long-soak limits.
 5. Close advertised media-input/channel coverage and commercial video settlement.
    Saved upstream result references still depend on upstream content retention.
 
@@ -98,8 +102,9 @@ round trips or by a green fixture workflow:
   key. Recovery now resolves an eligible current key in the same rotation lineage;
   the original saved job completed after the correction without resubmission.
 - [Chat output reservations](../reference/chat-output-reservations.md) now use the
-  validated request output bound. The priced input-size guard is implemented but
-  its paid end-to-end behavior remains unverified.
+  validated request output bound. The request envelope now consistently rejects oversized bodies with HTTP 413
+  across capture settings and chunked transport; this is distinct from model input
+  estimation and does not qualify arbitrary maximum-sized paid prompts.
 - [Financial integer inputs](../reference/billing-integer-inputs.md) reject signed,
   fractional, exponent and overflowing forms before storage. Actual invalid-input
   requests left the ledger unchanged; this does not establish successful payment.
