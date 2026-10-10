@@ -235,57 +235,7 @@ paths:
         '502': { description: "Integration unavailable, pending payment, unresolved evidence or query admission busy/rate limited" }
         '503': { description: Durable storage unavailable }
   /payments/epay/notify:
-    get:
-      operationId: receiveEPayQueryNotification
-      summary: Receive a signed classic EPay query notification
-      security: []
-      description: Bounded to 8192 query bytes. Duplicate or unknown fields are rejected. Verifies the configured merchant and exact saved CNY order, method and amount before binding payment identity and funding exactly once. A browser return is never payment evidence. Post-input processing has a two-second deadline; timeout requires delivery retry. Merchant compatibility and live collection remain unqualified.
-      parameters:
-        - {name: pid, in: query, required: true, schema: {type: string, pattern: '^[0-9]{1,32}$'}}
-        - {name: out_trade_no, in: query, required: true, schema: {type: string, pattern: '^[0-9a-f]{32}$'}}
-        - {name: trade_no, in: query, required: true, schema: {type: string, pattern: '^[A-Za-z0-9_-]{1,128}$'}}
-        - {name: type, in: query, required: true, schema: {type: string}}
-        - {name: money, in: query, required: true, schema: {type: string, description: Exact decimal CNY matching the saved intent.}}
-        - {name: trade_status, in: query, required: true, schema: {type: string, const: TRADE_SUCCESS}}
-        - {name: sign, in: query, required: true, schema: {type: string, pattern: '^[0-9a-f]{32}$'}}
-        - {name: sign_type, in: query, required: true, schema: {type: string, const: MD5}}
-        - {name: name, in: query, required: false, schema: {type: string, maxLength: 1024}}
-      responses:
-        '200': {$ref: '#/components/responses/EPayAcknowledgment'}
-        '400': {description: "Invalid notification, signature or saved-order evidence" }
-        '409': {description: Payment identity conflicts with an existing binding or another order}
-        '502': {description: Integration unavailable or processing deadline exceeded; retry delivery}
-        '503': {description: Durable storage unavailable; retry notification}
-    post:
-      operationId: receiveEPayFormNotification
-      summary: Receive a signed classic EPay form notification
-      security: []
-      description: Same verified funding contract as GET. Form bodies are limited to 8192 bytes. Rejects duplicate and unknown fields before verification. Post-body processing has a two-second deadline. Acknowledgment follows durable funding; replay never creates a second credit.
-      requestBody:
-        required: true
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              type: object
-              additionalProperties: false
-              required: [pid, out_trade_no, trade_no, type, money, trade_status, sign, sign_type]
-              properties:
-                pid: {type: string, pattern: '^[0-9]{1,32}$'}
-                out_trade_no: {type: string, pattern: '^[0-9a-f]{32}$'}
-                trade_no: {type: string, pattern: '^[A-Za-z0-9_-]{1,128}$'}
-                type: {type: string}
-                money: {type: string, description: Exact decimal CNY matching the saved intent.}
-                trade_status: {type: string, const: TRADE_SUCCESS}
-                sign: {type: string, pattern: '^[0-9a-f]{32}$'}
-                sign_type: {type: string, const: MD5}
-                name: {type: string, maxLength: 1024}
-      responses:
-        '200': {$ref: '#/components/responses/EPayAcknowledgment'}
-        '400': {description: "Invalid form content type, notification or signed saved-order evidence" }
-        '409': {description: Payment identity conflicts with an existing binding or another order}
-        '413': {description: Form exceeds 8192 bytes}
-        '502': {description: Integration unavailable or processing deadline exceeded; retry delivery}
-        '503': {description: Durable storage unavailable; retry notification}
+    $ref: './generated/handler-operations.json#/paths/~1payments~1epay~1notify'
   /payments/zhifux/notify:
     post:
       operationId: receiveZhifuxNotification
