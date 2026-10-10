@@ -525,12 +525,16 @@ pub async fn publish_offer(
     };
     let revision = state
         .store
-        .publish_provider_offer_with_categories(
+        .publish_provider_offer_with_cache_write(
             provider,
             &rates,
             cached,
             input
                 .reasoning_completion_rate
+                .as_ref()
+                .map(|rate| rate.as_deref()),
+            input
+                .cache_write_prompt_rate
                 .as_ref()
                 .map(|rate| rate.as_deref()),
         )
@@ -632,7 +636,8 @@ pub async fn publish_offer(
 ///             "prompt_rate",
 ///             "completion_rate",
 ///             "cached_prompt_rate",
-///             "reasoning_completion_rate"
+///             "reasoning_completion_rate",
+///             "cache_write_prompt_rate"
 ///           ],
 ///           "properties": {
 ///             "revision": {
@@ -675,6 +680,14 @@ pub async fn publish_offer(
 ///               ],
 ///               "pattern": "^[0-9]+$",
 ///               "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
+///             },
+///             "cache_write_prompt_rate": {
+///               "type": [
+///                 "string",
+///                 "null"
+///               ],
+///               "pattern": "^[0-9]+$",
+///               "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured Supplier rate prices it separately; missing quantity remains unresolved."
 ///             }
 ///           }
 ///         },
@@ -690,7 +703,8 @@ pub async fn publish_offer(
 ///             "prompt_rate",
 ///             "completion_rate",
 ///             "cached_prompt_rate",
-///             "reasoning_completion_rate"
+///             "reasoning_completion_rate",
+///             "cache_write_prompt_rate"
 ///           ],
 ///           "properties": {
 ///             "revision": {
@@ -722,6 +736,10 @@ pub async fn publish_offer(
 ///             "reasoning_completion_rate": {
 ///               "type": "null",
 ///               "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
+///             },
+///             "cache_write_prompt_rate": {
+///               "type": "null",
+///               "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured Supplier rate prices it separately; missing quantity remains unresolved."
 ///             }
 ///           }
 ///         }
@@ -1427,7 +1445,8 @@ pub struct OfferHistoryQuery {
 ///             "completion_rate",
 ///             "cached_prompt_rate",
 ///             "is_current",
-///             "reasoning_completion_rate"
+///             "reasoning_completion_rate",
+///             "cache_write_prompt_rate"
 ///           ],
 ///           "properties": {
 ///             "revision": {
@@ -1473,6 +1492,14 @@ pub struct OfferHistoryQuery {
 ///               ],
 ///               "pattern": "^[0-9]+$",
 ///               "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
+///             },
+///             "cache_write_prompt_rate": {
+///               "type": [
+///                 "string",
+///                 "null"
+///               ],
+///               "pattern": "^[0-9]+$",
+///               "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured Supplier rate prices it separately; missing quantity remains unresolved."
 ///             }
 ///           }
 ///         },
@@ -1489,7 +1516,8 @@ pub struct OfferHistoryQuery {
 ///             "completion_rate",
 ///             "cached_prompt_rate",
 ///             "is_current",
-///             "reasoning_completion_rate"
+///             "reasoning_completion_rate",
+///             "cache_write_prompt_rate"
 ///           ],
 ///           "properties": {
 ///             "revision": {
@@ -1524,6 +1552,10 @@ pub struct OfferHistoryQuery {
 ///             "reasoning_completion_rate": {
 ///               "type": "null",
 ///               "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
+///             },
+///             "cache_write_prompt_rate": {
+///               "type": "null",
+///               "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured Supplier rate prices it separately; missing quantity remains unresolved."
 ///             }
 ///           }
 ///         }
@@ -2022,7 +2054,8 @@ pub struct CurrentOfferPage {
 ///                       "completion_rate",
 ///                       "cached_prompt_rate",
 ///                       "route_ready",
-///                       "reasoning_completion_rate"
+///                       "reasoning_completion_rate",
+///                       "cache_write_prompt_rate"
 ///                     ],
 ///                     "properties": {
 ///                       "id": {
@@ -2082,6 +2115,13 @@ pub struct CurrentOfferPage {
 ///                           "null"
 ///                         ],
 ///                         "description": "Reported reasoning output is a subset of total completion tokens. A configured rate prices that subset separately; missing quantity remains unresolved."
+///                       },
+///                       "cache_write_prompt_rate": {
+///                         "type": [
+///                           "string",
+///                           "null"
+///                         ],
+///                         "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured Supplier rate prices it separately; missing quantity remains unresolved."
 ///                       }
 ///                     }
 ///                   }

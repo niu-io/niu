@@ -20,8 +20,8 @@ attempts and invoice lines retain their pinned rates.
 
 Migration 0246 adds nullable rate and separately billed quantity columns.
 Platform tariff lists, model prices, history, invoice lines, SDK, and generated
-OpenAPI expose the new customer fields. Supplier cache-write prices are separate
-unfinished work. No TTL-specific price distinction is introduced by this field.
+OpenAPI expose the new customer fields. Supplier [cache-write prices](supplier-cache-write-pricing.md) have a separate
+verification boundary. No TTL-specific price distinction is introduced by this field.
 
 ## Verification boundary
 
