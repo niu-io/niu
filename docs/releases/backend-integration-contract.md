@@ -246,3 +246,12 @@ request confirmed no top-up order or balance entry had been saved. The valid
 request then completed the pending-checkout/signature/restart workflow above.
 For CNY, send an exact positive nanounit integer string divisible by 10,000,000;
 do not send the displayed decimal amount as `amount_nanos`.
+
+Top-up history pagination was exercised with 105 pending orders created through
+the real EPay HTTP endpoint in an isolated database, without following checkout
+URLs. The first page returned 100 entries and the second five, with no further
+cursor. Their combined identities exactly matched an independent database query,
+without duplicates or omissions. Replaying the first cursor after gateway
+restart returned the same second page; a missing cursor returned 409. No order
+was settled and no balance entry was created. This fixed-data traversal does
+not establish snapshot pagination while orders are being inserted concurrently.
