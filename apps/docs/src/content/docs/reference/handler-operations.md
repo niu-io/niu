@@ -9867,7 +9867,15 @@ Content type: `application/json`.
           "amount_nanos",
           "billing_meter",
           "created_at",
-          "status"
+          "status",
+          "revision",
+          "offer_id",
+          "context_minimum_input_tokens",
+          "prompt_tokens",
+          "completion_tokens",
+          "cached_prompt_tokens",
+          "cache_write_prompt_tokens",
+          "reasoning_completion_tokens"
         ],
         "additionalProperties": false,
         "properties": {
@@ -9899,6 +9907,56 @@ Content type: `application/json`.
               "accrued",
               "paid"
             ]
+          },
+          "revision": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "offer_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "context_minimum_input_tokens": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "prompt_tokens": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "completion_tokens": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "cached_prompt_tokens": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "cache_write_prompt_tokens": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "reasoning_completion_tokens": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
           }
         }
       }

@@ -229,3 +229,20 @@ and financial-entry counts were unchanged. Backup restoration and nonempty
 Supplier settlement were not exercised by this upgrade. The implementation
 commit's GitHub contract workflow completed successfully; that is contract
 consistency evidence, not business-flow acceptance.
+
+### Supplier earning attribution contract
+
+Platform-admin Supplier earning pages and Supplier-scoped dashboard previews now include `revision`, `offer_id`,
+`context_minimum_input_tokens` and the stored ordinary/cache-read/cache-write/
+reasoning quantities. The offer and revision references let an authorized client
+retrieve the immutable original schedule; they are API references, not display
+labels. A null selected threshold denotes base pricing. Null category quantities
+must not be displayed as zero: a category may be unreported or not independently
+priced in that earning. Customer reporting remains separate.
+
+The SDK and generated earning-page schema expose these fields. Compilation and
+contract checks cover their integration, while current-input management checks
+exercise an empty administrator earning page and deny both Supplier members and
+unrelated operators. Supplier dashboard authorization remains separate. Nonempty
+Supplier earning serialization and financial reconciliation remain unverified;
+no synthetic earning or commercial qualification was introduced for this change.
