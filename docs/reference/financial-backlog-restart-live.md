@@ -138,3 +138,27 @@ financial inputs, process loss at a nonempty cursor, competing workers over this
 larger backlog, other ledgers or sustained production capacity. The trigger was
 explicit storage fault injection; upstream responses were actual and no fixture
 outcome supports the result.
+
+## Forced process loss with a saved batch cursor
+
+A further current-input run on 2026-10-10, using backend `5a2449d`, repeated the
+112 actual upstream completions and charge-write fault above. After independently
+observing the first committed batch, the verifier killed the gateway process
+with SIGKILL. A database read with the gateway stopped confirmed the exact same
+99 charges, 13 open reservations and nonempty recovery cursor. Thus this run
+exercised process loss between committed batches, rather than only restarting
+before recovery began.
+
+The restarted gateway advanced to 111 charges and one reservation belonging to
+the deliberately faulted attempt. Removing the write fault allowed that attempt
+to recover too. All 112 charge/debit pairs matched independent calculations from
+their actual response usage, totaling **1,884,504 USD nanounits**. There were no
+open reservations or reconciliation discrepancies. Another restart preserved
+exactly 112 charges and 112 debits. Temporary access was revoked and isolated
+processes stopped without changing the original credential or database.
+
+This extends the preceding checkpoint to an abrupt gateway exit with a durable
+nonempty cursor. It does not establish crash behavior inside a transaction,
+database-server loss, malformed financial input, concurrent recovery over this
+larger backlog, or other financial ledgers. The request phase included deliberate
+accounting faults and is not a normal-operation performance qualification.
