@@ -399,3 +399,21 @@ and retry records were empty. Repeated cleanup returned zero work. This run
 verifies the observed small restored backlog and restart path; it does not prove
 large-backlog capacity, nonempty interrupted-ingestion recovery, or a single
 connection across processes. Original storage was not modified.
+
+### Maintenance connection startup failure
+
+A maintenance-pool initialization failure now returns a fixed diagnostic rather
+than exposing the underlying database error. Initialization still precedes listener
+binding. In an isolated actual PostgreSQL run, a non-superuser login was limited
+to one connection while the admission pool was limited to one. The retained
+admission connection prevented maintenance initialization; the Gateway exited
+unsuccessfully without opening its HTTP listener. Captured output contained the
+fixed diagnostic and none of the test passwords, admin token, encryption key or
+connection URL. Raising the role allowance to two restored startup and the
+management-created organization remained readable.
+
+Independent reopening verified that organization and the repaired role allowance,
+with no attempts or financial entries. The first verification script used an
+incorrect organization-response envelope after successful recovery; the corrected
+complete run supplies the evidence. Operators must budget the additional per-process
+maintenance connection in database role/server limits as well as the admission pool.

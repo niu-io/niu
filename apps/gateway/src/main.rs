@@ -58,7 +58,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if state.development_member_enabled() && !address.ip().is_loopback() {
         return Err("NIU_DEV_USERNAME and NIU_DEV_PASSWORD require a loopback bind".into());
     }
-    let content_store = state.store.content_maintenance_store().await?;
+    let content_store = state
+        .store
+        .content_maintenance_store()
+        .await
+        .map_err(|_| "Cannot initialize content maintenance database connection")?;
     let listener = TcpListener::bind(address).await?;
     let gateway_writes = state.gateway_writes.clone();
     let diagnostic_writes = state.diagnostic_writes.clone();
