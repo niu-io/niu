@@ -962,3 +962,9 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
 - Top-up creation now verifies the returned currency, exact amount and payment method against the submitted intent before exposing its checkout link. A mismatch uses the existing uncertain-checkout recovery and does not automatically repost.
 - Validation: 24 TopupFunding tests passed, including all three mismatch cases; dashboard TypeScript checking passed. The successful-order fixtures now reflect the submitted intent rather than returning an unrelated fixed amount.
 - Actual localhost:2566 Payments rendered the current account, unavailable online funding, empty saved history and refresh action. No payment was submitted. The mismatch path is covered by regression tests; live checkout and settlement remain unqualified while funding is unavailable.
+
+### Saved top-up recovery independence checkpoint
+
+- Payment-option discovery and saved top-up history now retain successful results independently. A failed method lookup no longer discards returned pending orders; users can reopen a saved checkout and retry discovery without creating a replacement order.
+- Validation: 25 TopupFunding tests and dashboard TypeScript checking passed. The new regression covers method discovery failure, saved checkout recovery, retry and zero order creation.
+- localhost:2566 Payments was inspected at 1280×900 and 390×844: current account, unavailable funding, empty history and refresh remain readable and accessible. No payment was submitted. A populated real checkout during a live discovery outage remains unqualified; the failure recovery evidence is a regression test.
