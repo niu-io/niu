@@ -129,3 +129,24 @@ internal verification rates. Reported usage ranged from 13–19 input and 5–10
 output tokens. Across 115 one-second process samples, gateway RSS ranged from
 22,272 to 25,520 KiB and ended at 23,248 KiB; the maximum `ps` CPU reading was
 8.1%. These samples do not establish peak memory or absence of a long-term leak.
+
+## Sixteen concurrent short streams
+
+A current-input run on 2026-10-10 used backend code through `935a5ca`, one gateway,
+an eight-connection database pool and 16 concurrent clients for 128 fresh plain
+streaming requests, without retries. The request phase lasted 8.32 seconds:
+15.38 requests/second, complete-response P50 799 ms / P95 2,626 ms / maximum
+3,302 ms. First-content P50 was 675 ms and P95 2,468 ms. These are client-observed
+nearest-rank values including actual personal OpenRouter execution.
+
+All 128 responses returned HTTP 200, the requested fresh nonce, reported usage
+and the terminal stream marker. Independent per-response arithmetic matched all
+128 customer charge/debit pairs, totaling 1,139,428 USD nanounits at internal
+verification rates. No open customer reservation, reconciliation discrepancy,
+request-failure record or PostgreSQL deadlock diagnostic remained. All 128 timing
+records were complete. Restart retained exactly 128 charges and debits.
+
+The isolated access was revoked and processes stopped; existing business data
+and encrypted credentials were preserved. This extends the exercised concurrency
+to 16 for short requests, not sustained capacity, long streams, slow readers,
+provider-independent overhead or a comparison against another product.
