@@ -162,3 +162,34 @@ nonempty cursor. It does not establish crash behavior inside a transaction,
 database-server loss, malformed financial input, concurrent recovery over this
 larger backlog, or other financial ledgers. The request phase included deliberate
 accounting faults and is not a normal-operation performance qualification.
+
+## Foreground priced admission while recovery owns a connection
+
+A current-input native run used two gateways with two shared-pool connections per
+process. One actual streamed completion first became a pending charge through the
+same observed accounting-connection termination described above. Before recovery,
+SQL showed one confirmed completion, no customer debit and one open reservation.
+
+A temporary database trigger delayed only that pending attempt's charge insert
+by 1.5 seconds, below the worker's statement timeout. Independent
+`pg_stat_activity` inspection identified the gateway actively recovering the
+charge. A new priced request for a separate company was then sent to that same
+gateway. An independent joined snapshot observed the new attempt's non-null
+dispatch timestamp while the recovery backend was still in `PgSleep` inside its
+charge insertion. Thus foreground admission acquired another connection from the
+same bounded pool while financial work held its claimed connection. The second
+gateway was ready throughout; this checkpoint does not independently attribute
+ownership attempts to both processes.
+
+The foreground completion returned its newly requested strict JSON marker and
+reported usage. After recovery and restart, independently reopening the stopped
+database confirmed exactly two completed attempts, two usage-calculated customer
+charges and matching debits, with no open hold or funding receipt. The temporary
+trigger was removed and both temporary keys revoked. Original development data
+and encrypted identity were unchanged.
+
+This verifies overlap for one pending text charge, two-connection pools and a
+separate company's foreground admission. It does not reserve foreground capacity,
+qualify a one-connection overlap, prove same-account lock independence, or establish
+sustained backlog performance. The database delay is explicit storage fault
+injection; both upstream completions were actual, not fixture responses.
