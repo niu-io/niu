@@ -177,6 +177,57 @@ fn validate_name(name: &str) -> Result<(), ApiError> {
     Ok(())
 }
 
+/// ```openapi
+/// {
+///   "path": "/admin/v1/setup/default-workspace",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "getOrCreateDefaultWorkspace",
+///     "x-niu-implementation": "implemented",
+///     "summary": "Get or create the installation default workspace",
+///     "description": "Installation credential only. First use atomically creates company/workspace ownership and a zero-funded USD balance account with zero approved credit. Repeated and concurrent calls reuse the designated default. Existing defaults retain their billing configuration. Development login uses the same first-use initializer. No API key, payment receipt or spending capacity is created. No request body is required. The legacy project_id field identifies the workspace; these identifiers are routing references, not display labels.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Stable default ownership references, without a data wrapper.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "organization_id",
+///                 "project_id"
+///               ],
+///               "additionalProperties": false,
+///               "properties": {
+///                 "organization_id": {
+///                   "type": "string",
+///                   "format": "uuid"
+///                 },
+///                 "project_id": {
+///                   "type": "string",
+///                   "format": "uuid",
+///                   "description": "Workspace routing identifier."
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Missing, invalid, expired or inference-only credential."
+///       },
+///       "403": {
+///         "description": "Authenticated member lacks installation authority, including a platform administrator."
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub async fn default_workspace(
     State(state): State<AppState>,
     headers: HeaderMap,

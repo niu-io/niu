@@ -2929,17 +2929,7 @@ paths:
   /admin/v1/organizations/{organization}/projects/{project}/requests:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1requests'
   /admin/v1/setup/default-workspace:
-    post:
-      operationId: getOrCreateDefaultWorkspace
-      summary: Get or create the installation's default workspace
-      description: First use atomically creates company/workspace ownership and an initial zero-funded USD balance account with zero approved credit. Repeated or concurrent calls reuse the designated default. Existing defaults are not retroactively converted. No customer credit, settled funding or API key is fabricated.
-      security:
-        - adminBearerAuth: []
-      responses:
-        '200':
-          description: Stable default organization and project IDs. No API keys are created.
-        '401':
-          description: Administrator authentication required.
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1setup~1default-workspace'
   /admin/v1/organizations/{organization}/projects/{project}/collector-keys:
     get:
       operationId: listCollectorKeys

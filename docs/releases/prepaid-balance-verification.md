@@ -27,6 +27,21 @@ This qualifies first-use initialization and the exercised persistence boundary,
 not received-money funding, successful paid inference or complete F05 acceptance.
 Historical fixture outcomes in the older notes below have no evidentiary role.
 
+## Default setup API contract and concurrency — 2026-10-10
+
+The setup handler now owns its OpenAPI annotation, including the unwrapped
+`organization_id` / `project_id` response and installation-only authorization.
+The root contract references the generated operation rather than duplicating it.
+
+An actual fresh native gateway received 16 concurrent setup requests. Every
+response identified the same company and workspace; independent SQL found exactly
+one company, workspace and zero-credit USD balance account. An invalid credential
+and a newly issued inference key returned 401. An ordinary company owner returned
+403, as did the same member after an explicit audited platform-admin grant.
+Restart and another setup request retained the identifiers and one account.
+There were no balance entries or inference attempts. This verifies setup
+idempotence and the exercised permission boundary, not funding or inference.
+
 ## Historical implementation notes
 
 The organization/currency account schema has zero-default approved credit, an optional warning threshold and append-only signed balance entries. Customer tariff binding pins an existing matching account before dispatch. Confirmed customer-charge accrual records the debit in the same transaction as the immutable customer charge, using that charge's currency and amount. Account row locking serializes settlement; uniqueness prevents duplicate debits. Zero-cost requests create no monetary entry. Supplier costs are excluded.

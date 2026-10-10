@@ -2211,6 +2211,58 @@ HTTP 404: Workspace unavailable in the authorized scope
 
 HTTP 400: Invalid currency, decimal value or history query
 
+## Get or create the installation default workspace
+
+`POST /admin/v1/setup/default-workspace`
+
+Installation credential only. First use atomically creates company/workspace ownership and a zero-funded USD balance account with zero approved credit. Repeated and concurrent calls reuse the designated default. Existing defaults retain their billing configuration. Development login uses the same first-use initializer. No API key, payment receipt or spending capacity is created. No request body is required. The legacy project_id field identifies the workspace; these identifiers are routing references, not display labels.
+
+Implementation: `implemented`. Operation: `getOrCreateDefaultWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Responses
+
+HTTP 200: Stable default ownership references, without a data wrapper.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "organization_id",
+    "project_id"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "organization_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "project_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Workspace routing identifier."
+    }
+  }
+}
+```
+
+HTTP 401: Missing, invalid, expired or inference-only credential.
+
+HTTP 403: Authenticated member lacks installation authority, including a platform administrator.
+
 ## Rename a workspace
 
 `PATCH /admin/v1/organizations/{organization}/projects/{project}`
