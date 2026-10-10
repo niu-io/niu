@@ -231,3 +231,33 @@ personal upstream access and internal verification credit/rates. It does not
 rotate the upstream service's actual API key, qualify commercial supply, or
 implement master-key re-encryption. The original development credentials and
 database were not changed.
+
+
+## Disabled managed alias shadows static configuration — 2026-10-11
+
+A fresh isolated native run on backend revision `62e4a4c` loaded a static model
+and a database-managed model with the same alias. A second static control alias
+remained visible, confirming that the static configuration was loaded. The
+static routes used a deliberately invalid credential; the managed routes used
+the saved owner's personal OpenRouter credential. Two independently configured
+managed credentials belonged to one unqualified Supplier.
+
+Disabling the first managed credential through its revisioned API removed its
+alias from the workspace model list. Inference returned 404 before creating an
+attempt, both before and after Gateway restart. The static control alias remained
+visible. The second managed credential completed an actual request while the
+first was disabled. Re-enabling the first and restarting allowed its actual
+request to complete and restored its catalog visibility.
+
+Independent verification reopened the stopped database and inspected the saved
+static configuration and real response artifacts. Exactly two attempts existed;
+both were bound to their intended managed credentials. Their reported usage
+independently reproduced the two customer charges and matching debits. The second
+credential's ciphertext digest and revision remained unchanged, and there were
+no open reservations, funding entries or commercial offers. The original
+runtime credential identity was unchanged.
+
+This verifies disabled-credential shadowing and re-enablement for this shared
+static/database alias, not a unified immutable route publication, concurrent
+catalog mutations, model deletion semantics or commercial Supplier qualification.
+The run used internal verification credit/rates and no fixture result.
