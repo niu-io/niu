@@ -543,3 +543,18 @@ Use the `operation_id` returned by request metadata for correlation; keep intern
 identifiers out of product display labels. The JavaScript SDK exposes this as
 `operationId` in `listGatewayActivity` and `exportGatewayActivity`. This read-only
 filter does not initiate retries or imply that automatic failover is available.
+
+## Minimum text request charge
+
+Customer tariff publication accepts optional `minimum_charge_nanos`, an exact
+nonnegative decimal string within signed 64-bit range. A new tariff defaults to
+zero; replacing an existing nonzero minimum requires an explicit value, and
+`"0"` disables it for future requests. Null and malformed amounts are rejected.
+
+Known completed usage costs the greater of the rounded token amount and this
+minimum. Admission reserves the greater of the token bound and minimum, including
+when token rates are zero. Unknown usage remains unresolved. Existing history is
+not repriced, and this field does not configure Supplier or video charges.
+Invoice lines and model-price reads expose the pinned/current minimum as
+appropriate. The SDK uses the same `minimum_charge_nanos` field. See the
+[contract and actual verification](https://github.com/niu-io/niu/blob/main/docs/reference/text-minimum-charges.md).

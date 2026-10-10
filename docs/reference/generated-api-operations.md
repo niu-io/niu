@@ -3911,6 +3911,11 @@ Content type: `application/json`.
                 "type": "string",
                 "pattern": "^[0-9]+$"
               },
+              "minimum_charge_nanos": {
+                "type": "string",
+                "pattern": "^[0-9]+$",
+                "description": "Minimum customer charge in currency nanounits (0 to 9223372036854775807), not a token rate. Defaults to zero for new tariffs. Replacing a nonzero minimum requires an explicit value; zero disables it. Known completed usage is charged the greater of the rounded token amount and this minimum. Unknown usage remains unresolved."
+              },
               "cached_prompt_rate": {
                 "type": [
                   "string",
@@ -4058,6 +4063,11 @@ Content type: `application/json`.
     "completion_rate": {
       "type": "string",
       "pattern": "^[0-9]+$"
+    },
+    "minimum_charge_nanos": {
+      "type": "string",
+      "pattern": "^[0-9]+$",
+      "description": "Minimum customer charge in currency nanounits (0 to 9223372036854775807), not a token rate. Defaults to zero for new tariffs. Replacing a nonzero minimum requires an explicit value; zero disables it. Known completed usage is charged the greater of the rounded token amount and this minimum. Unknown usage remains unresolved."
     },
     "cached_prompt_rate": {
       "type": [
@@ -4341,6 +4351,11 @@ Content type: `application/json`.
                 "type": "string",
                 "pattern": "^[0-9]+$"
               },
+              "minimum_charge_nanos": {
+                "type": "string",
+                "pattern": "^[0-9]+$",
+                "description": "Minimum customer charge in currency nanounits (0 to 9223372036854775807), not a token rate. Defaults to zero for new tariffs. Replacing a nonzero minimum requires an explicit value; zero disables it. Known completed usage is charged the greater of the rounded token amount and this minimum. Unknown usage remains unresolved."
+              },
               "cached_prompt_rate": {
                 "type": [
                   "string",
@@ -4377,6 +4392,11 @@ Content type: `application/json`.
                   "null"
                 ],
                 "pattern": "^[0-9]+$"
+              },
+              "minimum_charge_nanos": {
+                "type": "string",
+                "pattern": "^[0-9]+$",
+                "description": "Minimum customer charge in currency nanounits (0 to 9223372036854775807), not a token rate. Defaults to zero for new tariffs. Replacing a nonzero minimum requires an explicit value; zero disables it. Known completed usage is charged the greater of the rounded token amount and this minimum. Unknown usage remains unresolved."
               },
               "cached_prompt_rate": {
                 "type": [

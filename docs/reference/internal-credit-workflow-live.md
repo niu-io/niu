@@ -337,4 +337,4 @@ were unchanged after gateway restart. No inference attempt was created, isolated
 processes stopped and the original encrypted identity remained unchanged. The
 responses retain their existing unpaginated format and proportional memory use;
 this does not qualify arbitrary-size price directories or change pricing math.
-Minimum per-request text charges remain a separate unimplemented capability.
+Minimum per-request text charges were separate from that directory correction; the subsequent [minimum-charge implementation](text-minimum-charges.md) records its contract and actual evidence.

@@ -153,6 +153,11 @@ async fn authorize(
 ///                             "type": "string",
 ///                             "pattern": "^[0-9]+$"
 ///                           },
+///                           "minimum_charge_nanos": {
+///                             "type": "string",
+///                             "pattern": "^[0-9]+$",
+///                             "description": "Minimum customer charge in currency nanounits (0 to 9223372036854775807), not a token rate. Defaults to zero for new tariffs. Replacing a nonzero minimum requires an explicit value; zero disables it. Known completed usage is charged the greater of the rounded token amount and this minimum. Unknown usage remains unresolved."
+///                           },
 ///                           "cached_prompt_rate": {
 ///                             "type": [
 ///                               "string",
@@ -314,6 +319,11 @@ pub async fn overview(
 ///                 "type": "string",
 ///                 "pattern": "^[0-9]+$"
 ///               },
+///               "minimum_charge_nanos": {
+///                 "type": "string",
+///                 "pattern": "^[0-9]+$",
+///                 "description": "Minimum customer charge in currency nanounits (0 to 9223372036854775807), not a token rate. Defaults to zero for new tariffs. Replacing a nonzero minimum requires an explicit value; zero disables it. Known completed usage is charged the greater of the rounded token amount and this minimum. Unknown usage remains unresolved."
+///               },
 ///               "cached_prompt_rate": {
 ///                 "type": [
 ///                   "string",
@@ -406,7 +416,7 @@ pub async fn tariff(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path((organization_id, project_id)): Path<(Uuid, Uuid)>,
-    Json(input): Json<crate::token_pricing::TokenRateInput>,
+    Json(input): Json<crate::token_pricing::CustomerTariffInput>,
 ) -> Result<Json<Value>, ApiError> {
     let scope = TenantScope {
         organization_id,
@@ -429,7 +439,7 @@ pub async fn tariff(
         .as_ref()
         .map(|rate| rate.as_deref());
     Ok(Json(
-        json!({"data":{"revision":state.store.publish_customer_tariff_with_cache(scope,&rates,cached).await.map_err(ApiError::from_store)?}}),
+        json!({"data":{"revision":state.store.publish_customer_tariff_with_minimum(scope,&rates,cached,input.minimum_charge_nanos.as_deref()).await.map_err(ApiError::from_store)?}}),
     ))
 }
 
@@ -788,6 +798,11 @@ pub struct InvoiceLinesQuery {
 ///                             "type": "string",
 ///                             "pattern": "^[0-9]+$"
 ///                           },
+///                           "minimum_charge_nanos": {
+///                             "type": "string",
+///                             "pattern": "^[0-9]+$",
+///                             "description": "Minimum customer charge in currency nanounits (0 to 9223372036854775807), not a token rate. Defaults to zero for new tariffs. Replacing a nonzero minimum requires an explicit value; zero disables it. Known completed usage is charged the greater of the rounded token amount and this minimum. Unknown usage remains unresolved."
+///                           },
 ///                           "cached_prompt_rate": {
 ///                             "type": [
 ///                               "string",
@@ -824,6 +839,11 @@ pub struct InvoiceLinesQuery {
 ///                               "null"
 ///                             ],
 ///                             "pattern": "^[0-9]+$"
+///                           },
+///                           "minimum_charge_nanos": {
+///                             "type": "string",
+///                             "pattern": "^[0-9]+$",
+///                             "description": "Minimum customer charge in currency nanounits (0 to 9223372036854775807), not a token rate. Defaults to zero for new tariffs. Replacing a nonzero minimum requires an explicit value; zero disables it. Known completed usage is charged the greater of the rounded token amount and this minimum. Unknown usage remains unresolved."
 ///                           },
 ///                           "cached_prompt_rate": {
 ///                             "type": [
