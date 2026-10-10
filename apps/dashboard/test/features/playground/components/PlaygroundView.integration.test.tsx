@@ -427,7 +427,7 @@ describe('Global Chat', () => {
     stubFetch(vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
       const url=String(input);
       if(url.endsWith('/chat/completions'))return streamResponse(JSON.parse(String(init?.body)).model,3,'attempt-fixture');
-      if(url.includes('/requests?')){chargeSignal=init?.signal??undefined;return new Promise<Response>(resolve=>{finish=resolve;});}
+      if(url.includes('/requests/')){chargeSignal=init?.signal??undefined;return new Promise<Response>(resolve=>{finish=resolve;});}
       if(url.endsWith('/keys'))return jsonResponse({data:[{id:'key-a',name:'Default',allowed_models:['*'],revoked:false,expired:false}]});
       return jsonResponse({data:[]});
     }));
@@ -657,11 +657,14 @@ describe('Global Chat', () => {
           if (pendingInference.length === 3) allInferenceStarted();
         });
       }
-      if (url === `/admin/v1/organizations/${scope.organizationId}/projects/${scope.workspaceId}/requests?limit=100`) {
-        return Promise.resolve(jsonResponse({ data: [
+      if (url.startsWith(`/admin/v1/organizations/${scope.organizationId}/projects/${scope.workspaceId}/requests/`)) {
+        const attempt = url.split('/').at(-1);
+        const entries = [
           { attempt_id: 'attempt-fast', customer_charge_status: 'charged', customer_charge_nanos: '1000000', customer_charge_currency: 'USD', cash_nanos: '999999999999', api_equivalent_nanos: '999999999999', currency: 'EUR' },
           { attempt_id: 'attempt-strong', customer_charge_status: 'charged', customer_charge_nanos: '2000000', customer_charge_currency: 'USD', cash_nanos: '999999999999', currency: 'EUR' },
-        ], next_cursor: null }));
+        ];
+        const entry = entries.find(item => item.attempt_id === attempt);
+        return Promise.resolve(entry ? jsonResponse({data:entry}) : new Response('', {status:404}));
       }
       return Promise.reject(new Error(`Unexpected request: ${url}`));
     }));
@@ -746,6 +749,8 @@ describe('Global Chat', () => {
     expect(within(metrics).getByRole('columnheader', { name: /Baseline.*fast/ })).toBeTruthy();
     expect(within(metrics).getByRole('columnheader', { name: 'strong' })).toBeTruthy();
     expect(within(metrics).getByText('USD 0.001')).toBeTruthy();
+    expect(requests.filter(request => request.url.includes('/requests/')).map(request => request.url.split('/').at(-1)).sort()).toEqual(['attempt-balanced', 'attempt-fast', 'attempt-strong']);
+    expect(requests.some(request => request.url.includes('/requests?'))).toBe(false);
     expect(within(metrics).getAllByText('USD 0.002')).toHaveLength(1);
     expect(screen.queryByText('API-equivalent cost')).toBeNull();
     expect(screen.queryByText(/EUR /)).toBeNull();
@@ -799,7 +804,7 @@ describe('Global Chat', () => {
         if (model === 'strong' && ++strongCalls === 1) return Promise.resolve(new Response(JSON.stringify({ error: { message: 'This model is temporarily unavailable.' } }), { status: 503, headers: { 'content-type': 'application/json' } }));
         return Promise.resolve(streamResponse(model, 12, 'attempt-' + model));
       }
-      if (url.endsWith('/requests?limit=100')) return Promise.resolve(jsonResponse({ data: [], next_cursor: null }));
+      if (url.includes('/requests/')) return Promise.resolve(jsonResponse({ data: [], next_cursor: null }));
       return Promise.reject(new Error(`Unexpected request: ${url}`));
     }));
     const user = userEvent.setup();

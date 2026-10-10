@@ -733,9 +733,15 @@ export default function PlaygroundView({ token, models, modelsLoading = false, m
   async function loadCharges(attemptIds: string[], signal?: AbortSignal) {
     if (!attemptIds.length) return new Map<string, RequestLedgerEntry>();
     const base = '/admin/v1/organizations/' + encodeURIComponent(organization) + '/projects/' + encodeURIComponent(workspaceId);
-    const response = await fetch(base + '/requests?limit=100', { signal, headers: { authorization: 'Bearer ' + token } });
-    const entries = await responseData<RequestLedgerEntry[]>(response);
-    return new Map(entries.filter(entry => attemptIds.includes(entry.attempt_id)).map(entry => [entry.attempt_id, entry]));
+    const reads = await Promise.allSettled([...new Set(attemptIds)].map(async attemptId => {
+      const response = await fetch(base + '/requests/' + encodeURIComponent(attemptId), { signal, headers: { authorization: 'Bearer ' + token } });
+      const entry = await responseData<RequestLedgerEntry>(response);
+      if (entry?.attempt_id !== attemptId) throw new Error('Request metadata did not match the generation.');
+      return entry;
+    }));
+    const entries = reads.flatMap(read => read.status === 'fulfilled' ? [read.value] : []);
+    if (!entries.length) throw new Error('Customer charges are not available yet.');
+    return new Map(entries.map(entry => [entry.attempt_id, entry]));
   }
 
   async function compare(event?: FormEvent<HTMLFormElement>, example?: string) {
