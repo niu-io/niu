@@ -14,7 +14,7 @@ import { money } from '@/lib/money';
 import { request } from '@/features/vendors/api';
 import WorkspaceSpendingLimits from './WorkspaceSpendingLimits';
 
-type Tariff = { model_alias: string; revision: string; currency: string; prompt_rate: string; completion_rate: string };
+type Tariff = { model_alias: string; revision: string; currency: string; prompt_rate: string; cached_prompt_rate?: string | null; completion_rate: string };
 type Invoice = { id: string; from_ms: number; to_ms: number; currency: string; amount_nanos: string; status: string };
 type Billing = {
   balances: { currency: string; charged_nanos: string }[];
@@ -22,7 +22,7 @@ type Billing = {
 };
 type Line = {
   model_alias: string; revision: string; currency: string; requests: string;
-  prompt_tokens: string; completion_tokens: string; prompt_rate: string; completion_rate: string; amount_nanos: string;
+  prompt_tokens: string; cached_prompt_tokens?: string | null; completion_tokens: string; prompt_rate: string; cached_prompt_rate?: string | null; completion_rate: string; amount_nanos: string;
 };
 const day = (ms: number) => new Date(ms).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
 
@@ -100,8 +100,8 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
       <TabsContent value="rates">
         <section className="panel billing-rates">
           <div className="provider-panel-heading"><h2>Model rates</h2>{data.tariffs.length > 0 && <p className="provider-intro billing-description">Per million text tokens</p>}</div>
-          {data.tariffs.length ? <div className="table-wrap"><Table className="provider-ledger"><TableHeader><TableRow><TableHead>Model</TableHead><TableHead>Input</TableHead><TableHead>Output</TableHead></TableRow></TableHeader>
-            <TableBody>{data.tariffs.map(tariff => <TableRow key={tariff.model_alias}><TableCell>{tariff.model_alias}</TableCell><TableCell>{money(tariff.prompt_rate, tariff.currency)}</TableCell><TableCell>{money(tariff.completion_rate, tariff.currency)}</TableCell></TableRow>)}</TableBody>
+          {data.tariffs.length ? <div className="table-wrap"><Table className="provider-ledger"><TableHeader><TableRow><TableHead>Model</TableHead><TableHead>Input</TableHead><TableHead>Cache read</TableHead><TableHead>Output</TableHead></TableRow></TableHeader>
+            <TableBody>{data.tariffs.map(tariff => <TableRow key={tariff.model_alias}><TableCell>{tariff.model_alias}</TableCell><TableCell>{money(tariff.prompt_rate, tariff.currency)}</TableCell><TableCell>{tariff.cached_prompt_rate != null ? money(tariff.cached_prompt_rate, tariff.currency) : "Input rate"}</TableCell><TableCell>{money(tariff.completion_rate, tariff.currency)}</TableCell></TableRow>)}</TableBody>
           </Table></div> : <Empty className="billing-empty"><EmptyHeader><EmptyMedia variant="icon"><IconCurrencyDollar aria-hidden="true"/></EmptyMedia><EmptyTitle>No rates published</EmptyTitle><EmptyDescription>Published customer prices appear here.</EmptyDescription></EmptyHeader></Empty>}
         </section>
       </TabsContent>
@@ -111,7 +111,7 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
         <DialogHeader className="text-left"><DialogTitle>Statement details</DialogTitle><DialogDescription>{selected ? `Billing period: ${day(selected.from_ms)} – ${day(selected.to_ms - 1)}` : 'Workspace usage'}</DialogDescription></DialogHeader>
         {selected && <p>{money(selected.amount_nanos, selected.currency)} · {selected.status === 'paid' ? 'Payment recorded' : 'Issued'}</p>}
         {detailError ? <Alert variant="destructive"><AlertTitle>Details unavailable</AlertTitle><AlertDescription>{detailError}<Button variant="outline" onClick={() => setSelected(value => value && {...value})}>Retry details</Button></AlertDescription></Alert> : lines && lines.length === 0 ? <p className="text-sm text-muted-foreground">No line items available.</p> : lines ? <div className="table-wrap"><Table className="provider-ledger"><TableHeader><TableRow><TableHead>Model</TableHead><TableHead>Amount</TableHead><TableHead>Requests</TableHead><TableHead>Input / output tokens</TableHead><TableHead>Rates / 1M</TableHead></TableRow></TableHeader>
-          <TableBody>{lines.map(line => <TableRow key={line.revision}><TableCell>{line.model_alias}</TableCell><TableCell>{money(line.amount_nanos, line.currency)}</TableCell><TableCell>{line.requests}</TableCell><TableCell>{line.prompt_tokens} / {line.completion_tokens}</TableCell><TableCell>{money(line.prompt_rate, line.currency)} / {money(line.completion_rate, line.currency)}</TableCell></TableRow>)}</TableBody>
+          <TableBody>{lines.map(line => <TableRow key={line.revision}><TableCell>{line.model_alias}</TableCell><TableCell>{money(line.amount_nanos, line.currency)}</TableCell><TableCell>{line.requests}</TableCell><TableCell>{line.prompt_tokens} / {line.completion_tokens}{line.cached_prompt_rate != null && <small>Cached input: {line.cached_prompt_tokens ?? "Unknown"}</small>}</TableCell><TableCell>{money(line.prompt_rate, line.currency)} / {money(line.completion_rate, line.currency)}{line.cached_prompt_rate != null && <small>Cache read: {money(line.cached_prompt_rate, line.currency)}</small>}</TableCell></TableRow>)}</TableBody>
         </Table></div> : <p role="status">Loading line items…</p>}
       </DialogContent>
     </Dialog>
