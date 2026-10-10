@@ -129,6 +129,8 @@ export type CustomerInvoiceMediaLine = {
 };
 export type CustomerChargeReconciliation = {
   currency: string; observed_at: string; charge_records: string;
+  /** Completed prepaid-bound attempts awaiting a charge record; not proof of missing money. */
+  completed_unaccrued_attempts: string;
   expected_charge_nanos: string; posted_charge_nanos: string;
   missing_charge_entries: string; mismatched_charge_entries: string;
   unexpected_charge_entries: string; duplicate_charge_sources: string;

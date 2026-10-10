@@ -36,6 +36,10 @@ WITH accounts AS MATERIALIZED (
 SELECT jsonb_build_object(
     'currency',a.currency,'observed_at',statement_timestamp(),
     'charge_records',(SELECT COUNT(*)::text FROM expected e WHERE e.account_id=a.id),
+    'completed_unaccrued_attempts',(SELECT COUNT(*)::text FROM customer_attempt_balance_accounts b
+      JOIN attempts t ON t.id=b.attempt_id AND t.organization_id=b.organization_id AND t.project_id=b.project_id
+      WHERE b.account_id=a.id AND b.organization_id=$1 AND t.execution='confirmed_completed'
+        AND NOT EXISTS(SELECT 1 FROM charges c WHERE c.attempt_id=t.id)),
     'expected_charge_nanos',COALESCE((SELECT SUM(e.amount) FROM expected e WHERE e.account_id=a.id),0)::text,
     'posted_charge_nanos',COALESCE((SELECT SUM(p.amount) FROM posted p WHERE p.account_id=a.id),0)::text,
     'missing_charge_entries',(SELECT COUNT(*)::text FROM compared c WHERE c.account_id=a.id AND c.expected_amount>0 AND c.posted_attempt IS NULL),

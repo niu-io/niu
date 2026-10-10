@@ -15,6 +15,7 @@ without such a binding are a separate accounting system.
 | Field | Meaning |
 | --- | --- |
 | `charge_records` | Distinct prepaid-bound attempts with a text or media charge |
+| `completed_unaccrued_attempts` | Completed prepaid-bound attempts without any text or media charge record; may await usage or financial recovery |
 | `expected_charge_nanos` | Total original text/media customer charges |
 | `posted_charge_nanos` | Total original balance charge debits, expressed positively |
 | `missing_charge_entries` | Positive customer charges without a balance debit |
@@ -25,7 +26,10 @@ without such a binding are a separate accounting system.
 
 Refunds do not change comparison against the original immutable charge. This
 report does not recalculate tariffs, verify external payment settlement, reconcile
-funding/refunds, detect unknown usage before a charge exists, or repair records.
+funding/refunds, diagnose missing usage, or repair records. The completed-unaccrued
+count exposes a pending accounting state without assigning a monetary value.
+It excludes in-flight and owner-funded attempts; a nonzero count is not evidence
+of corruption or permission to repeat inference.
 A media charge can precede its debit while settlement is pending. A discrepancy
 is an observation to investigate, not proof of corruption; compare subsequent
 observations and the underlying authorized records. Zero discrepancies on an
@@ -96,3 +100,27 @@ and source inspection contradicted that assumption. The corrected run verified
 atomic rollback and recovery instead. It does not exercise mismatched debits,
 duplicate charge sources, media reconciliation or external funding. The original
 development database and encryption identity were unchanged.
+
+### Completed but unaccrued visibility
+
+The report now includes `completed_unaccrued_attempts` in the same statement
+snapshot as the charge/debit comparison. The generated OpenAPI and JavaScript
+SDK expose the field as an exact nonnegative decimal string. Existing discrepancy
+counts retain their meanings; the new counter does not assign an estimated
+charge or cause recovery writes.
+
+A new actual OpenRouter completion with an injected debit-write failure was read
+through the built SDK. The counter was `1` while the charge and debit were absent,
+including after Gateway restart; the original reservation remained held. Removing
+the fault allowed financial recovery to commit one charge/debit and release its
+hold, and the counter became `0`. Independent database reopening matched reported
+usage and exact tariff arithmetic, one attempt and one scoped debit, with no
+duplicate execution or balance entry. This verifies the exercised text path;
+missing-usage media and other discrepancy categories retain their own boundaries.
+
+The existing native database was privately backed up before the runtime update.
+Archive inventory readability was checked, not a restore of that new backup.
+Configuration hashes, encrypted Supplier identities and durable business counts
+were preserved. The retained integration company's actual settled charge remains
+readable with a zero completed-unaccrued count. Migration 0240 was installed as
+part of that update; this does not add nonempty inspected-image cleanup evidence.

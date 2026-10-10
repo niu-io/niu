@@ -6385,6 +6385,7 @@ Content type: `application/json`.
           "currency",
           "observed_at",
           "charge_records",
+          "completed_unaccrued_attempts",
           "expected_charge_nanos",
           "posted_charge_nanos",
           "missing_charge_entries",
@@ -6405,6 +6406,11 @@ Content type: `application/json`.
           "charge_records": {
             "type": "string",
             "pattern": "^[0-9]+$"
+          },
+          "completed_unaccrued_attempts": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Completed prepaid-bound attempts without a text or media charge record. May await usage or financial recovery; not an amount, corruption finding or authorization to retry inference."
           },
           "expected_charge_nanos": {
             "type": "string",
