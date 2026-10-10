@@ -77,6 +77,7 @@ export const appRoutes: RouteObject[] = [{
         { path: 'providers/:provider/:section?', element: <LegacySupplierAccountRedirect /> },
         { path: 'admin', element: <Administration />, children: [
           { index: true, element: <Navigate to="suppliers" replace /> },
+          { path: 'pricing', lazy: async () => ({ Component: (await import('@/features/customer-pricing/page')).default }) },
           { path: 'branding', lazy: async () => ({ Component: (await import('@/features/branding/page')).default }) },
           ...['payments'].map(path => ({ path, lazy: async () => ({ Component: (await import('@/features/platform/page')).default }) })),
           { path: 'suppliers', lazy: async () => ({ Component: (await import('@/features/vendors/page')).default }) },

@@ -1,4 +1,4 @@
-import { request } from '@/features/vendors/api';
+import { request, type Vendor, type VendorModel } from '@/features/vendors/api';
 import type { CustomerTariffHistory, CustomerTariffInput, CustomerTariff } from '../../../../../sdks/javascript/src/admin';
 
 export type PricingTarget = { organization_id: string; organization_name: string; workspace_id: string; workspace_name: string };
@@ -46,6 +46,22 @@ export async function listPricingTargets(token: string, after?: string, signal?:
   }, after);
 }
 export const pricingBase = (target: PricingTarget) => `/admin/v1/pricing/organizations/${encodeURIComponent(target.organization_id)}/workspaces/${encodeURIComponent(target.workspace_id)}/tariffs`;
+/** Platform route inventory, independent of the administrator's customer workspace. */
+export async function listPricingModels(token: string, signal?: AbortSignal): Promise<string[]> {
+  const vendors = await request<{data: Vendor[]}>(token, '/admin/v1/vendors', 'GET', undefined, signal);
+  if (!Array.isArray(vendors.data)) throw new Error('Pricing models could not be read.');
+  const pages = await Promise.all(vendors.data.filter(vendor => vendor.enabled).map(vendor =>
+    request<{data: VendorModel[]}>(token, `/admin/v1/vendors/${encodeURIComponent(vendor.id)}/models`, 'GET', undefined, signal)));
+  const aliases = new Set<string>();
+  for (const page of pages) {
+    if (!Array.isArray(page.data)) throw new Error('Pricing models could not be read.');
+    for (const model of page.data) {
+      if (typeof model.alias !== 'string' || !model.capabilities || typeof model.enabled !== 'boolean') throw new Error('Pricing models could not be read.');
+      if (model.enabled && !model.capabilities.video_schema && !model.capabilities.catalog?.output_modalities?.includes('video')) aliases.add(model.alias);
+    }
+  }
+  return [...aliases].sort();
+}
 export async function listCustomerPrices(token: string, target: PricingTarget, after?: string, signal?: AbortSignal) {
   const page = await request<PricingPage<CurrentTariff>>(token, `${pricingBase(target)}?limit=50${after ? `&after=${encodeURIComponent(after)}` : ''}`, 'GET', undefined, signal);
   return checkedPage(page, checkedTariff, after);
