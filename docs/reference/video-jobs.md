@@ -1287,3 +1287,26 @@ exactly one attempt and one transport record. SQL independently confirmed unknow
 execution/usage, no customer charge, balance entry, procurement cost or Chat retry
 chain. The original encrypted identity was unchanged. This qualifies this failure
 path and its persistent diagnostics, not customer-funded video settlement.
+
+## Operation funding identity
+
+Migration 0227 includes customer media price snapshots in the immutable operation
+funding contract used by text billing and personal routes. An insert pins
+`customer` while holding the operation row lock; subsequent personal binding for
+that operation conflicts, and a personal operation cannot acquire a customer
+media snapshot. This uses the existing funding-binding function rather than a
+second media-specific definition of funding identity.
+
+The migration backfills existing media snapshots without rewriting any price,
+usage, charge or balance entry. Historical mixed funding aborts the migration;
+operators must investigate rather than have Niu choose a funding source. This
+constraint does not enable media retries or qualify a new customer billing meter.
+Customer-funded video admission, historical media backfill and settlement still
+require current-input integrated verification.
+
+After adding the constraint, a fresh native gateway/database run submitted an
+actual invalid-credential personal video request to OpenRouter. Independent SQL
+confirmed the operation remained pinned to `personal`, the new customer-media
+trigger was installed, and replay/restart retained one attempt and one submission
+without charges or retries. This verifies preservation of that personal failure
+path; it does not exercise customer snapshot insertion or historical backfill.
