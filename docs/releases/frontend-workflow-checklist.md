@@ -50,10 +50,11 @@ All observations below use the real local service and saved data. Narrow checks 
 - Logs histogram boundaries now match the query's local calendar days, including the full selected end date. All 51 GatewayActivity integration tests passed under Asia/Hong_Kong, and the dashboard TypeScript check passed. The rendered single-day axis showed midnight through the next midnight; narrow-layout qualification of this fix remains open.
 - Correct negative warning feedback and payment-editor saved/draft separation: dashboard TypeScript check and live HMR/browser checks passed.
 - Models component checks: 12 tests passed. An accidentally started full-suite run was interrupted after failures; it is not a passing full-suite result.
+- Current main at `6cf816db`: all 77 dashboard test files and 550 tests passed, and the dashboard TypeScript check passed. This automated checkpoint does not close the rendered workflow requirements above.
 
 ## Remaining dependencies
 
-- Browser control is currently unavailable after repeated page-read timeouts and an application restart. Current tool discovery exposes no browser-control entry point. Further rendered qualification is blocked; existing evidence does not qualify newly untested states.
+- In-app browser page reads and the Chrome extension inventory timed out. Native Chrome accessibility control works and reached the authenticated payment configuration page; concurrent user tab changes interrupted further actions. Continue browser qualification through native Chrome when the browser is available for agent interaction. Existing evidence does not qualify newly untested states.
 - Configure a supported local video route before real submission qualification.
 - Qualify domestic currency funding, merchant checkout and authenticated payment confirmation; do not infer FX or credit accounts from callbacks alone. Native Zhifux/Stripe configuration is server-managed; OAuth configuration remains unimplemented and must not be an empty Admin destination.
 - Financial acceptance follows the [independent capability inventory](../product/backend-capability-checklist.md#financial-capability-inventory): checkout/recovery, actual settled funding, pinned customer tariffs, concurrent reservations, final debit, uncertain liabilities, reversals and statements each require separate evidence. Owner-funded personal Chat does not qualify prepaid admission or payment settlement.
