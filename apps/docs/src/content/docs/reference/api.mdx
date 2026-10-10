@@ -553,7 +553,8 @@ zero; replacing an existing nonzero minimum requires an explicit value, and
 
 Known completed usage costs the greater of the rounded token amount and this
 minimum. Admission reserves the greater of the token bound and minimum, including
-when token rates are zero. Unknown usage remains unresolved. Existing history is
+when token rates are zero. Unknown usage remains unresolved; a client disconnect
+does not authorize charging the minimum or releasing its outstanding reservation. Existing history is
 not repriced, and this field does not configure Supplier or video charges.
 Invoice lines and model-price reads expose the pinned/current minimum as
 appropriate. Internal balance refunds remain bounded by the original charge,

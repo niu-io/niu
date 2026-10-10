@@ -68,7 +68,7 @@ nonexecution release does not turn the floor into a failed-request fee.
 
 These are scoped actual text and configuration observations, not external funding,
 commercial resale, customer-funded video, every protocol, concurrent tariff edits
-or a minimum-aware interrupted-stream qualification. No fixture result supports
+or every stream failure mode. No fixture result supports
 the observations.
 
 ## Refund and key allowance recovery
@@ -87,3 +87,20 @@ without additional entries; key commitments and invoice lines were unchanged.
 The original encrypted identity was preserved and isolated processes stopped.
 This qualifies internal balance refund of the exercised actual minimum charge;
 it is not an external merchant refund or evidence of received cash funding.
+
+## Interrupted stream with a minimum-only tariff
+
+A fresh native current-input run configured zero token rates, a 1,000,000-nanounit
+minimum and a key spending cap of the same amount. An actual OpenRouter streaming
+request returned initial content; the client closed before terminal usage.
+Independent SQL and scoped APIs then showed `may_have_executed`, unknown token
+counts, no customer charge/debit and one active 1,000,000 customer reservation.
+The operation retained the minimum-bearing tariff revision.
+
+The hold continued to exhaust the key allowance after key rotation and after
+gateway restart with recovery ticks. New requests were rejected before another
+attempt, and the revoked original secret was rejected. Finally revoking the
+replacement did not release the unresolved hold. The isolated database retains
+that uncertainty; no completed usage, refund or nonexecution was invented. Its
+processes stopped, and the original encrypted identity was unchanged. This covers
+one actual early client disconnect, not all upstream/transport failure modes.
