@@ -171,4 +171,3 @@ credential revision and encrypted identity were unchanged.
 This verifies sequential tariff publication and historical attribution for these
 two real requests. Concurrent publication during dispatch, cached-token tariff
 changes, media rates and multiple gateway instances are outside this run.
-
