@@ -956,3 +956,9 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
 - At a DOM-measured 390×844 viewport (document width 390), restored the existing successful personal video intent. The saved prompt title, Succeeded result, one-second orange-ball preview and download action fit. Loaded the retained preview without a new generation or Supplier status query.
 - Billing showed Own Supplier account and 480p · 1 s without an invented customer debit or FPS. Input retained the original Demo API key, model, prompt, duration, ratio and resolution; saved inputs and Generate remained disabled. The history drawer exposed the unified Chat/Video list; reopening the same video preserved its original intent/job and closed mobile history. Viewport override was reset.
 - This qualifies the inspected success/restoration subset, not narrow download completion, result expiry/deletion, failed/uncertain states, commercial settlement or the complete Video release gate. At c0903bac the complete dashboard suite passed: 87 files, 663 tests, four concurrent workers.
+
+### Checkout intent validation checkpoint
+
+- Top-up creation now verifies the returned currency, exact amount and payment method against the submitted intent before exposing its checkout link. A mismatch uses the existing uncertain-checkout recovery and does not automatically repost.
+- Validation: 24 TopupFunding tests passed, including all three mismatch cases; dashboard TypeScript checking passed. The successful-order fixtures now reflect the submitted intent rather than returning an unrelated fixed amount.
+- Actual localhost:2566 Payments rendered the current account, unavailable online funding, empty saved history and refresh action. No payment was submitted. The mismatch path is covered by regression tests; live checkout and settlement remain unqualified while funding is unavailable.

@@ -33,7 +33,7 @@ it('does not replace a saved checkout or refresh funds from another order status
   expect(screen.getByRole('link', { name: 'Continue to payment' })).toBeTruthy();
   expect(onPaid).not.toHaveBeenCalled();
 });
-function setup({ available = availability, saved = [] as typeof order[], failure = false, canCreate = true } = {}) {
+function setup({ available = availability, saved = [] as typeof order[], failure = false, canCreate = true, mismatch = {} as Partial<typeof order> } = {}) {
   const posts: Record<string, unknown>[] = [];
   const onPaid = vi.fn();
   let orders = saved;
@@ -41,9 +41,12 @@ function setup({ available = availability, saved = [] as typeof order[], failure
     const path = String(input);
     if (path.endsWith('/payment-methods')) return Response.json({ data: available });
     if (path.endsWith('/topups') && init?.method === 'POST') {
-      posts.push(JSON.parse(String(init.body))); orders = [order];
+      const submitted = JSON.parse(String(init.body));
+      posts.push(submitted);
+      const created = { ...order, currency: submitted.currency, amount_nanos: submitted.amount_nanos, payment_method: submitted.payment_method, ...mismatch };
+      orders = [created];
       if (failure) throw new Error('uncertain network response');
-      return Response.json({ data: order });
+      return Response.json({ data: created });
     }
     if (path.endsWith('/topups')) return Response.json({ data: orders, next_cursor: null });
     if (path.endsWith(`/topups/${id}`)) return Response.json({ data: orders.find(saved => saved.id === id) });
@@ -217,4 +220,16 @@ it('keeps empty history and refresh available when online funding is unavailable
  await waitFor(() => expect(vi.mocked(fetch).mock.calls.length).toBeGreaterThan(initialCalls));
  await screen.findByText('No top-ups yet');
  expect(screen.queryByRole('button', { name: 'Add funds' })).toBeNull();
+});
+
+it.each([{ currency: 'USD' }, { amount_nanos: '2000000000' }, { payment_method: 'alipay' }])('does not offer a checkout that differs from the submitted intent: %j', async mismatch => {
+  const { posts } = setup({ mismatch });
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'Add funds' }));
+  await user.type(screen.getByLabelText('Amount (CNY)'), '1');
+  await user.click(screen.getByRole('button', { name: 'Continue', exact: true }));
+  await screen.findByText(/Checkout was not confirmed/);
+  expect(screen.queryByRole('link', { name: 'Continue to payment' })).toBeNull();
+  expect(screen.getByLabelText('Amount (CNY)').hasAttribute('disabled')).toBe(true);
+  expect(posts).toHaveLength(1);
 });
