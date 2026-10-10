@@ -273,3 +273,11 @@ before expiry. After expiry, the same inference endpoint returned 401 and the
 replacement still had exactly one attempt, with none for the original secret.
 Temporary keys were revoked and existing credentials were unchanged. Rotation
 must not be presented as an expiry extension in frontend integration.
+
+Trusted-proxy inference was separately verified on a real secondary listener
+with loopback peers configured as trusted. A forwarded chain containing an
+allowed prefix followed by a disallowed untrusted hop returned 403 and created
+no attempt. An allowed client followed only by trusted hops completed an actual
+personal-model request with the exact fresh marker and one persisted attempt.
+The listener stopped and the temporary key was revoked. This validates the
+exercised configured trust chain, not an arbitrary production proxy deployment.

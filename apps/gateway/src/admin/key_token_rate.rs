@@ -59,8 +59,7 @@ pub struct History {
 ///         "description": "Workspace access denied"
 ///       },
 ///       "404": {
-///         "description": "Workspace is outside operator scope",
-///         "or key is absent from authorized workspace": null
+///         "description": "Workspace is outside operator scope, or key is absent from authorized workspace"
 ///       }
 ///     },
 ///     "parameters": [
@@ -139,8 +138,7 @@ pub struct History {
 ///         "reserved_tokens": {
 ///           "type": "string",
 ///           "pattern": "^[0-9]+$",
-///           "description": "Estimates retained for unresolved usage",
-///           "without time-based expiry.": null
+///           "description": "Estimates retained for unresolved usage, without time-based expiry."
 ///         },
 ///         "unbounded_requests": {
 ///           "type": "integer",
@@ -153,8 +151,7 @@ pub struct History {
 ///             "null"
 ///           ],
 ///           "pattern": "^[0-9]+$",
-///           "description": "Known plus reserved tokens",
-///           "or null when unbounded requests prevent a complete total.": null
+///           "description": "Known plus reserved tokens, or null when unbounded requests prevent a complete total."
 ///         }
 ///       }
 ///     }
@@ -257,8 +254,7 @@ pub async fn read(
 ///         "description": "Owner permission required"
 ///       },
 ///       "404": {
-///         "description": "Workspace is outside operator scope",
-///         "or key is absent from authorized workspace": null
+///         "description": "Workspace is outside operator scope, or key is absent from authorized workspace"
 ///       },
 ///       "409": {
 ///         "description": "Stale policy revision"
@@ -476,8 +472,7 @@ pub async fn write(
 ///         "description": "Workspace access denied"
 ///       },
 ///       "404": {
-///         "description": "Workspace is outside operator scope",
-///         "or key is absent from authorized workspace": null
+///         "description": "Workspace is outside operator scope, or key is absent from authorized workspace"
 ///       }
 ///     },
 ///     "summary": "List API key token rate policy history",

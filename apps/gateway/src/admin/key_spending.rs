@@ -265,9 +265,7 @@ pub async fn list(
 ///         "description": "Key does not exist in the authorized workspace"
 ///       },
 ///       "409": {
-///         "description": "Stale revision",
-///         "missing account": null,
-///         "or unresolved attribution": null
+///         "description": "Stale revision, missing account, or unresolved attribution"
 ///       },
 ///       "422": {
 ///         "description": "Missing or invalid body fields"

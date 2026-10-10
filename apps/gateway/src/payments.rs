@@ -1102,8 +1102,7 @@ pub(crate) struct PaymentMethodsQuery {
 ///                         "zhifux",
 ///                         null
 ///                       ],
-///                       "description": "Selected configured integration for these methods. Forward this value with currency when creating a top-up; null means no matching integration. This is adapter identity",
-///                       "not merchant credentials or a payment-method display label.": null
+///                       "description": "Selected configured integration for these methods. Forward this value with currency when creating a top-up; null means no matching integration. This is adapter identity, not merchant credentials or a payment-method display label."
 ///                     },
 ///                     "unavailable_reason": {
 ///                       "type": [

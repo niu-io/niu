@@ -40,8 +40,7 @@
             "description": "Workspace access denied"
           },
           "404": {
-            "description": "Workspace is outside operator scope",
-            "or key is absent from authorized workspace": null
+            "description": "Workspace is outside operator scope, or key is absent from authorized workspace"
           }
         },
         "parameters": [
@@ -147,8 +146,7 @@
             "description": "Owner permission required"
           },
           "404": {
-            "description": "Workspace is outside operator scope",
-            "or key is absent from authorized workspace": null
+            "description": "Workspace is outside operator scope, or key is absent from authorized workspace"
           },
           "409": {
             "description": "Stale policy revision"
@@ -308,8 +306,7 @@
             "description": "Workspace access denied"
           },
           "404": {
-            "description": "Workspace is outside operator scope",
-            "or key is absent from authorized workspace": null
+            "description": "Workspace is outside operator scope, or key is absent from authorized workspace"
           }
         },
         "summary": "List API key concurrency policy history",
@@ -376,8 +373,7 @@
             "description": "Workspace access denied"
           },
           "404": {
-            "description": "Workspace is outside operator scope",
-            "or key is absent from authorized workspace": null
+            "description": "Workspace is outside operator scope, or key is absent from authorized workspace"
           }
         },
         "parameters": [
@@ -492,8 +488,7 @@
             "description": "Owner permission required"
           },
           "404": {
-            "description": "Workspace is outside operator scope",
-            "or key is absent from authorized workspace": null
+            "description": "Workspace is outside operator scope, or key is absent from authorized workspace"
           },
           "409": {
             "description": "Stale policy revision"
@@ -662,8 +657,7 @@
             "description": "Workspace access denied"
           },
           "404": {
-            "description": "Workspace is outside operator scope",
-            "or key is absent from authorized workspace": null
+            "description": "Workspace is outside operator scope, or key is absent from authorized workspace"
           }
         },
         "x-niu-implementation": "implemented",
@@ -705,8 +699,7 @@
             "description": "Workspace access denied"
           },
           "404": {
-            "description": "Workspace is outside operator scope",
-            "or key is absent from authorized workspace": null
+            "description": "Workspace is outside operator scope, or key is absent from authorized workspace"
           }
         },
         "parameters": [
@@ -812,8 +805,7 @@
             "description": "Owner permission required"
           },
           "404": {
-            "description": "Workspace is outside operator scope",
-            "or key is absent from authorized workspace": null
+            "description": "Workspace is outside operator scope, or key is absent from authorized workspace"
           },
           "409": {
             "description": "Stale policy revision"
@@ -1083,8 +1075,7 @@
             "description": "Workspace access denied"
           },
           "404": {
-            "description": "Workspace is outside operator scope",
-            "or key is absent from authorized workspace": null
+            "description": "Workspace is outside operator scope, or key is absent from authorized workspace"
           }
         },
         "summary": "List API key request rate policy history",
@@ -1281,9 +1272,7 @@
             "description": "Key does not exist in the authorized workspace"
           },
           "409": {
-            "description": "Stale revision",
-            "missing account": null,
-            "or unresolved attribution": null
+            "description": "Stale revision, missing account, or unresolved attribution"
           },
           "422": {
             "description": "Missing or invalid body fields"
@@ -1509,8 +1498,7 @@
             "description": "Workspace access denied"
           },
           "404": {
-            "description": "Workspace is outside operator scope",
-            "or key is absent from authorized workspace": null
+            "description": "Workspace is outside operator scope, or key is absent from authorized workspace"
           }
         },
         "parameters": [
@@ -1616,8 +1604,7 @@
             "description": "Owner permission required"
           },
           "404": {
-            "description": "Workspace is outside operator scope",
-            "or key is absent from authorized workspace": null
+            "description": "Workspace is outside operator scope, or key is absent from authorized workspace"
           },
           "409": {
             "description": "Stale policy revision"
@@ -1777,8 +1764,7 @@
             "description": "Workspace access denied"
           },
           "404": {
-            "description": "Workspace is outside operator scope",
-            "or key is absent from authorized workspace": null
+            "description": "Workspace is outside operator scope, or key is absent from authorized workspace"
           }
         },
         "summary": "List API key token rate policy history",
@@ -2327,8 +2313,7 @@
         },
         "responses": {
           "200": {
-            "description": "Sanitized saved configuration in data",
-            "without key": null,
+            "description": "Sanitized saved configuration in data, without key",
             "content": {
               "application/json": {
                 "schema": {
@@ -2839,8 +2824,7 @@
                             "zhifux",
                             null
                           ],
-                          "description": "Selected configured integration for these methods. Forward this value with currency when creating a top-up; null means no matching integration. This is adapter identity",
-                          "not merchant credentials or a payment-method display label.": null
+                          "description": "Selected configured integration for these methods. Forward this value with currency when creating a top-up; null means no matching integration. This is adapter identity, not merchant credentials or a payment-method display label."
                         },
                         "unavailable_reason": {
                           "type": [
@@ -3170,8 +3154,7 @@
           "reserved_tokens": {
             "type": "string",
             "pattern": "^[0-9]+$",
-            "description": "Estimates retained for unresolved usage",
-            "without time-based expiry.": null
+            "description": "Estimates retained for unresolved usage, without time-based expiry."
           },
           "unbounded_requests": {
             "type": "integer",
@@ -3184,8 +3167,7 @@
               "null"
             ],
             "pattern": "^[0-9]+$",
-            "description": "Known plus reserved tokens",
-            "or null when unbounded requests prevent a complete total.": null
+            "description": "Known plus reserved tokens, or null when unbounded requests prevent a complete total."
           }
         }
       },

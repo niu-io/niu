@@ -282,8 +282,7 @@ pub(crate) struct Write {
 ///     },
 ///     "responses": {
 ///       "200": {
-///         "description": "Sanitized saved configuration in data",
-///         "without key": null,
+///         "description": "Sanitized saved configuration in data, without key",
 ///         "content": {
 ///           "application/json": {
 ///             "schema": {

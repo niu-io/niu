@@ -68,7 +68,7 @@ HTTP 401: Authentication required
 
 HTTP 403: Workspace access denied
 
-HTTP 404: Workspace is outside operator scope
+HTTP 404: Workspace is outside operator scope, or key is absent from authorized workspace
 
 ## Set API key concurrency policy
 
@@ -169,7 +169,7 @@ HTTP 401: Authentication required
 
 HTTP 403: Owner permission required
 
-HTTP 404: Workspace is outside operator scope
+HTTP 404: Workspace is outside operator scope, or key is absent from authorized workspace
 
 HTTP 409: Stale policy revision
 
@@ -291,7 +291,7 @@ HTTP 401: Authentication required
 
 HTTP 403: Workspace access denied
 
-HTTP 404: Workspace is outside operator scope
+HTTP 404: Workspace is outside operator scope, or key is absent from authorized workspace
 
 ## Read API key source policy
 
@@ -379,7 +379,7 @@ HTTP 401: Authentication required
 
 HTTP 403: Workspace access denied
 
-HTTP 404: Workspace is outside operator scope
+HTTP 404: Workspace is outside operator scope, or key is absent from authorized workspace
 
 ## Set API key source policy
 
@@ -489,7 +489,7 @@ HTTP 401: Authentication required
 
 HTTP 403: Owner permission required
 
-HTTP 404: Workspace is outside operator scope
+HTTP 404: Workspace is outside operator scope, or key is absent from authorized workspace
 
 HTTP 409: Stale policy revision
 
@@ -620,7 +620,7 @@ HTTP 401: Authentication required
 
 HTTP 403: Workspace access denied
 
-HTTP 404: Workspace is outside operator scope
+HTTP 404: Workspace is outside operator scope, or key is absent from authorized workspace
 
 ## Read API key request rate policy
 
@@ -683,7 +683,7 @@ HTTP 401: Authentication required
 
 HTTP 403: Workspace access denied
 
-HTTP 404: Workspace is outside operator scope
+HTTP 404: Workspace is outside operator scope, or key is absent from authorized workspace
 
 ## Read API key token usage window
 
@@ -886,7 +886,7 @@ HTTP 401: Authentication required
 
 HTTP 403: Owner permission required
 
-HTTP 404: Workspace is outside operator scope
+HTTP 404: Workspace is outside operator scope, or key is absent from authorized workspace
 
 HTTP 409: Stale policy revision
 
@@ -1008,7 +1008,7 @@ HTTP 401: Authentication required
 
 HTTP 403: Workspace access denied
 
-HTTP 404: Workspace is outside operator scope
+HTTP 404: Workspace is outside operator scope, or key is absent from authorized workspace
 
 ## List API key spending limits
 
@@ -1226,7 +1226,7 @@ HTTP 403: Owner permission required
 
 HTTP 404: Key does not exist in the authorized workspace
 
-HTTP 409: Stale revision
+HTTP 409: Stale revision, missing account, or unresolved attribution
 
 HTTP 422: Missing or invalid body fields
 
@@ -1427,7 +1427,7 @@ HTTP 401: Authentication required
 
 HTTP 403: Workspace access denied
 
-HTTP 404: Workspace is outside operator scope
+HTTP 404: Workspace is outside operator scope, or key is absent from authorized workspace
 
 ## Set API key token rate policy
 
@@ -1528,7 +1528,7 @@ HTTP 401: Authentication required
 
 HTTP 403: Owner permission required
 
-HTTP 404: Workspace is outside operator scope
+HTTP 404: Workspace is outside operator scope, or key is absent from authorized workspace
 
 HTTP 409: Stale policy revision
 
@@ -1650,7 +1650,7 @@ HTTP 401: Authentication required
 
 HTTP 403: Workspace access denied
 
-HTTP 404: Workspace is outside operator scope
+HTTP 404: Workspace is outside operator scope, or key is absent from authorized workspace
 
 ## List workspace spending currencies
 
@@ -2143,7 +2143,7 @@ Content type: `application/json`.
 
 ### Responses
 
-HTTP 200: Sanitized saved configuration in data
+HTTP 200: Sanitized saved configuration in data, without key
 
 Content type: `application/json`.
 
@@ -2620,8 +2620,7 @@ Content type: `application/json`.
             "zhifux",
             null
           ],
-          "description": "Selected configured integration for these methods. Forward this value with currency when creating a top-up; null means no matching integration. This is adapter identity",
-          "not merchant credentials or a payment-method display label.": null
+          "description": "Selected configured integration for these methods. Forward this value with currency when creating a top-up; null means no matching integration. This is adapter identity, not merchant credentials or a payment-method display label."
         },
         "unavailable_reason": {
           "type": [
@@ -3234,8 +3233,7 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "reserved_tokens": {
       "type": "string",
       "pattern": "^[0-9]+$",
-      "description": "Estimates retained for unresolved usage",
-      "without time-based expiry.": null
+      "description": "Estimates retained for unresolved usage, without time-based expiry."
     },
     "unbounded_requests": {
       "type": "integer",
@@ -3248,8 +3246,7 @@ Local `#/components/schemas/…` references resolve to these definitions.
         "null"
       ],
       "pattern": "^[0-9]+$",
-      "description": "Known plus reserved tokens",
-      "or null when unbounded requests prevent a complete total.": null
+      "description": "Known plus reserved tokens, or null when unbounded requests prevent a complete total."
     }
   }
 }

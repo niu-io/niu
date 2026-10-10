@@ -34,6 +34,13 @@ def registered_methods(source):
 
 def validate_local_references(value, document):
     if isinstance(value, dict):
+        # Unquoted commas in YAML flow descriptions can become null-valued
+        # prose keys when migrating an operation to JSON annotations.
+        if isinstance(value.get('description'), str):
+            fragments = [key for key, child in value.items()
+                         if child is None and any(char.isspace() for char in key)]
+            if fragments:
+                raise SystemExit(f'Description fragments must not be object keys: {fragments}')
         reference = value.get('$ref')
         if reference is not None:
             if not reference.startswith('#/'):

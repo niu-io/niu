@@ -82,8 +82,7 @@ pub struct History {
 ///         "description": "Workspace access denied"
 ///       },
 ///       "404": {
-///         "description": "Workspace is outside operator scope",
-///         "or key is absent from authorized workspace": null
+///         "description": "Workspace is outside operator scope, or key is absent from authorized workspace"
 ///       }
 ///     },
 ///     "parameters": [
@@ -225,8 +224,7 @@ pub async fn read(
 ///         "description": "Owner permission required"
 ///       },
 ///       "404": {
-///         "description": "Workspace is outside operator scope",
-///         "or key is absent from authorized workspace": null
+///         "description": "Workspace is outside operator scope, or key is absent from authorized workspace"
 ///       },
 ///       "409": {
 ///         "description": "Stale policy revision"
@@ -453,8 +451,7 @@ pub async fn write(
 ///         "description": "Workspace access denied"
 ///       },
 ///       "404": {
-///         "description": "Workspace is outside operator scope",
-///         "or key is absent from authorized workspace": null
+///         "description": "Workspace is outside operator scope, or key is absent from authorized workspace"
 ///       }
 ///     },
 ///     "x-niu-implementation": "implemented",
