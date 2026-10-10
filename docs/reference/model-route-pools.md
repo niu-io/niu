@@ -214,3 +214,22 @@ Temporary configuration was disabled and keys revoked. Release compilation and
 Clippy completed. Malformed upstream vectors, nonfinite binary values and
 dimension-mismatch rejection have implementation checks but no current-input
 upstream failure evidence; their integrated behavior remains unverified.
+
+## Embedding failure diagnosis
+
+Embedding dispatch now uses the same bounded, sanitized upstream rejection
+classification as Chat. Non-success HTTP status is preserved with a static safe
+message and durable failure kind/status; transport and malformed-response paths
+also use the existing typed diagnostics. Raw upstream messages, metadata and
+credentials are not returned. This changes the former generic embedding 502
+behavior for upstream HTTP rejections; it does not add retries.
+
+An actual request through an independent temporary personal mapping named a
+nonexistent upstream model. The upstream returned 400, and the customer response
+retained 400 with the static safe message. Independent database inspection found
+one dispatch with `upstream_http_error`, upstream status 400 and conservative
+`may_have_executed` execution. No customer debit was posted, the original
+credential revision/digest was unchanged, and temporary keys/configuration were
+revoked/disabled. An HTTP rejection alone does not automatically prove
+nonexecution or release uncertain liabilities. Transport, regional rejection and
+malformed-response classification remain unverified by actual fault runs.

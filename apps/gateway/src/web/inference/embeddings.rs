@@ -248,17 +248,17 @@ async fn execute_embeddings(
         .json(&body)
         .send()
         .await
-        .map_err(|_| {
+        .map_err(|error| {
             state.failures.fetch_add(1, Ordering::Relaxed);
-            ApiError::upstream()
+            ApiError::upstream_transport(&error)
         })?;
     if !upstream.status().is_success() {
         state.failures.fetch_add(1, Ordering::Relaxed);
-        return Err(ApiError::upstream());
+        return Err(provider_rejection(upstream).await);
     }
     let mut value: Value = provider_json(upstream).await.map_err(|_| {
         state.failures.fetch_add(1, Ordering::Relaxed);
-        ApiError::upstream()
+        ApiError::upstream_invalid_response()
     })?;
     let valid_data = value
         .get("data")
@@ -308,7 +308,7 @@ async fn execute_embeddings(
         });
     if !valid_data {
         state.failures.fetch_add(1, Ordering::Relaxed);
-        return Err(ApiError::upstream());
+        return Err(ApiError::upstream_invalid_response());
     }
     let provider_model = provider_reported_model(&value);
     let usage = embedding_usage(&value).map(|(prompt_tokens, _)| {
