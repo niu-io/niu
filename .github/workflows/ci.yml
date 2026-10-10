@@ -45,7 +45,9 @@ jobs:
       - name: Verify selective upstream imports and checksums
         run: python3 scripts/verify-imports.py
       - name: Check generated handler OpenAPI and documentation
-        run: python3 scripts/extract-handler-openapi.py --check
+        run: |
+          python3 scripts/extract-handler-openapi.py --check
+          python3 scripts/check-openapi-entrypoints.py
       - name: Install pinned Cargo license auditor
         run: cargo +1.98.0 install cargo-deny --version 0.20.2 --locked
       - name: Check Rust dependency licenses

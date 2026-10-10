@@ -6,6 +6,32 @@ info:
 servers:
   - url: /
 paths:
+  /admin/v1/auth/password:
+    $ref: './password-sessions.openapi.yaml#/paths/~1admin~1v1~1auth~1password'
+  /admin/v1/auth/config:
+    $ref: './password-sessions.openapi.yaml#/paths/~1admin~1v1~1auth~1config'
+  /admin/v1/auth/browser/login:
+    $ref: './password-sessions.openapi.yaml#/paths/~1admin~1v1~1auth~1browser~1login'
+  /admin/v1/auth/browser/logout:
+    $ref: './password-sessions.openapi.yaml#/paths/~1admin~1v1~1auth~1browser~1logout'
+  /admin/v1/auth/logout:
+    $ref: './password-sessions.openapi.yaml#/paths/~1admin~1v1~1auth~1logout'
+  /admin/v1/auth/login:
+    $ref: './password-sessions.openapi.yaml#/paths/~1admin~1v1~1auth~1login'
+  /admin/v1/operators/{operator}/password:
+    $ref: './password-sessions.openapi.yaml#/paths/~1admin~1v1~1operators~1{operator}~1password'
+  /admin/v1/organizations/{organization}/billing/media-rates/{revision}/retire:
+    $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1media-rates~1{revision}~1retire'
+  /admin/v1/organizations/{organization}/billing/media-rate-models:
+    $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1media-rate-models'
+  /admin/v1/organizations/{organization}/billing/media-rates/replace:
+    $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1media-rates~1replace'
+  /admin/v1/organizations/{organization}/billing/media-rates:
+    $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1media-rates'
+  /admin/v1/organizations/{organization}/billing/charge-reconciliation:
+    $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1charge-reconciliation'
+  /admin/v1/providers/{provider}/offers/{offer}/revisions/{revision}:
+    $ref: './provider-business.openapi.yaml#/paths/~1admin~1v1~1providers~1{provider}~1offers~1{offer}~1revisions~1{revision}'
   /admin/v1/platform/payments/integrations:
     $ref: './platform-configuration.openapi.yaml#/paths/~1admin~1v1~1platform~1payments~1integrations'
   /admin/v1/model-route-pools:

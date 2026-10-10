@@ -136,3 +136,12 @@ The first migrated operation is `listPaymentIntegrations`; the remaining handler
 still use their existing focused contracts. Annotation migration is incremental,
 not a claim that the full API is generated yet. Frontend integration should use
 the root contract, which includes both migrated and existing operations.
+
+Root-entrypoint coverage is checked by `scripts/check-openapi-entrypoints.py`
+for authentication, billing, Supplier business, platform configuration, key
+policies and request reporting contracts. It checks registered path visibility,
+not full API completeness or runtime correctness. Thirteen previously omitted
+authentication, billing and Supplier revision paths have been linked into the
+root contract; actual reads of authentication configuration, charge reconciliation,
+media price models and media rates returned HTTP 200 on the current runtime.
+This does not qualify media charge settlement or the listed write operations.
