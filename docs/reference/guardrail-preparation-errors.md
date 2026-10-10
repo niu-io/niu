@@ -126,3 +126,21 @@ The delivered response's reported usage matched its persisted attempt. The
 withheld response's charge was independently calculated from persisted usage;
 its raw content was not exposed. Non-null extensions and other unsupported
 envelopes were not live-qualified by these two calls.
+
+### Delivered and retained redaction
+
+A separate fresh native run activated a buffered output-redaction rule for a
+new unique marker and made actual personal OpenRouter Chat and Responses calls
+requesting that text. Both returned HTTP 200 with `[REDACTED]`; the original
+marker was absent from the entire delivered response and the scoped Guardrail
+diagnostic. Both diagnostics recorded `redacted` / `inspected_text` and remained
+readable after restart.
+
+Independent database reopening matched each response's reported usage to its
+completed attempt, independently calculated each pinned-tariff charge, and
+reconciled the two debits with released reservations. Both saved response bodies
+were complete, untruncated and contained redaction instead of the original
+marker. Output redaction does not redact the separately retained request input;
+that input remains subject to the existing capture and retention controls.
+No preparation refusal or cooldown was created. These two textual calls do not
+qualify streaming redaction, arbitrary metadata, tool output or external detectors.
