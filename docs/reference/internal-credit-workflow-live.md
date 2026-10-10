@@ -442,3 +442,22 @@ charge against that workspace's distinct tariff, and checked debit amount and
 workspace against its charge. Exactly eight debits reconciled and no customer
 hold remained. This verifies scope grouping of the exercised completion queue,
 not a single atomic cross-workspace ledger transaction or admission batching.
+
+### One failed charge inside a completion batch
+
+A fresh isolated native run used eight actual personal OpenRouter requests and
+the temporary charge-table lock above to accumulate completion work. A database
+trigger then rejected customer-charge insertion for one selected admitted
+attempt only. PostgreSQL execution parameters placed that attempt in a seven-row
+completion batch, and the gateway recorded its batch failure and individual
+fallback. No upstream response or usage was synthesized.
+
+While the fault remained active, all eight requests had delivered their requested
+markers and persisted completed usage; the other seven customer charges and
+debits existed. The selected attempt had no charge. Removing the isolated fault
+and restarting the gateway recovered the eighth charge without another model
+request. Independent reopening matched all response usages, key attribution and
+individually calculated charges, exactly eight debits and released customer holds.
+This exercises charge-accrual failure after completion evidence is durable. It
+does not qualify loss of completion evidence itself, arbitrary corrupted rows,
+Supplier-ledger failure or the non-financial retention sweep.
