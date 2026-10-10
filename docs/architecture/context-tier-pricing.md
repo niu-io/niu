@@ -341,8 +341,8 @@ flag. The current response parsers support these categories:
 
 | Protocol | Cache read | Cache write | Reasoning output |
 | --- | --- | --- | --- |
-| Chat | Yes | No | Yes |
-| Responses | Yes | No | Yes |
+| Chat | Yes | Yes | Yes |
+| Responses | Yes | Yes | Yes |
 | Messages | Yes | Yes | No |
 | Embeddings | No | No | No |
 
@@ -362,10 +362,47 @@ prices, two real OpenRouter embedding batches across restart returned finite
 1536-dimensional vectors and produced exact customer charges and matching debits.
 Independent verification reopened the stopped database, checked saved response
 hashes/vectors and reported token counts, and confirmed two total attempts, no
-open reservations and no funding. Separate actual Chat and Responses API requests
-with a zero cache-write price were rejected before dispatch; independent database
+open reservations and no funding. Before the subsequent cache-write parser extension, actual Chat and Responses
+API requests with a zero cache-write price were rejected before dispatch; independent database
 inspection confirmed zero attempts, holds and financial entries after restart.
 These checks use internal verification credit/rates and personal upstream access,
 not commercial Supplier qualification. Nonempty Supplier binding remains
 unverified. The adapter limitations in this table remain implementation gaps;
 refusal is not support for combined cache-write and reasoning metering.
+
+### OpenRouter Chat cache-write quantities
+
+The OpenAI-compatible usage parser now reads explicit
+`prompt_tokens_details.cache_write_tokens` for Chat and
+`input_tokens_details.cache_write_tokens` for Responses, as documented by
+[OpenRouter's cache usage contract](https://openrouter.ai/docs/guides/best-practices/prompt-caching).
+These are subsets of aggregate input, not extra tokens to add to the total.
+Cache read plus write must fit aggregate input; contradictory pairs are retained
+as unknown rather than used for charging. Missing, null, negative or oversized
+quantities remain unknown. Reasoning remains a separate output subset.
+
+Priced Chat accepts pure text content blocks with validated ephemeral
+`cache_control` metadata, including supported TTL values. Input inspection can
+redact their text while preserving valid cache metadata. The existing serialized
+input bound covers the complete message content. This does not add support for
+multimodal pricing or claim that every model honors cache instructions.
+
+A real nonstreaming OpenRouter Claude Haiku 4.5 call through Niu reported 5,270
+cache-write tokens; the same prefix after Gateway restart reported 5,270
+cache-read tokens. Both requests bound separate read/write/reasoning rates and
+reported zero reasoning tokens. Each produced an exact category charge and
+matching debit. Independent verification reopened the stopped database and
+reconciled saved response hashes, quantities and monetary entries, with no open
+reservations or funding. This verifies nonzero Chat cache writes and reads, not
+simultaneously nonzero cache-write and reasoning usage. Responses cache-write
+usage, streaming cache writes and inconsistent-category upstream responses remain
+unverified in this checkpoint. Personal upstream access and internal verification
+credit do not qualify commercial supply.
+
+A follow-up actual run enabled a text-redaction rule on the cached prefix and
+rejected invalid cache modes, TTLs and extra metadata before any attempt was
+created. Retained request content was read after asynchronous persistence: the
+private marker was redacted and valid ephemeral cache metadata remained intact.
+Actual write/read quantities were 5,279 tokens across restart; independent saved
+response and database reconciliation again confirmed exact charges and no open
+holds. No claim is made from fixture outcomes.

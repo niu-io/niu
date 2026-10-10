@@ -11387,7 +11387,7 @@ HTTP 402: Insufficient balance or spending limit exceeded.
 
 HTTP 403: Source IP or enforced policy denies the request. Recorded preparation-policy refusals use error.type guardrail_denied before model dispatch; post-dispatch output withholding uses guardrail_output_withheld and generation charges may apply. Do not classify every 403 as a Guardrail refusal.
 
-HTTP 422: Configured pricing requires an unavailable token category (unsupported_token_pricing), or a token admission bound is unavailable. Chat does not currently report cache-write quantities; separate cache-write rates in bound base or reachable tier schedules are rejected before dispatch.
+HTTP 422: Configured pricing requires an unavailable token category (unsupported_token_pricing), or a token admission bound is unavailable. Chat reads explicit prompt_tokens_details.cache_write_tokens as a subset of total input, alongside cache reads and reasoning output; missing categories remain unknown. Priced text content blocks accept bounded ephemeral cache_control metadata.
 
 HTTP 429: API key request, concurrency or token rate limit exceeded.
 
@@ -12593,7 +12593,7 @@ HTTP 403: Source IP or enforced policy denies the request. Recorded preparation-
 
 HTTP 413: Request body exceeds 1 MiB; rejected before inference whether payload capture is enabled or disabled. Framework responses may use a plain-text body.
 
-HTTP 422: Invalid JSON or unsupported token admission/pricing requirements. Responses does not currently report cache-write quantities. Separate rates for unavailable categories in a bound base or reachable tier schedule return unsupported_token_pricing before dispatch or reservation commits.
+HTTP 422: Invalid JSON or unsupported token admission/pricing requirements. Responses reads explicit input_tokens_details.cache_write_tokens alongside cache reads and reasoning output; missing categories remain unknown. Separate rates for unavailable categories in a bound base or reachable tier schedule return unsupported_token_pricing before dispatch or reservation commits.
 
 HTTP 429: API key request, concurrency or token rate limit exceeded.
 

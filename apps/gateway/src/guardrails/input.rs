@@ -248,8 +248,14 @@ pub fn inspect_chat(
                 if !part.as_object().is_some_and(|object| {
                     object
                         .keys()
-                        .all(|key| ["type", "text"].contains(&key.as_str()))
+                        .all(|key| ["type", "text", "cache_control"].contains(&key.as_str()))
                 }) {
+                    return Err(InspectionError::UnsupportedContent);
+                }
+                if part
+                    .get("cache_control")
+                    .is_some_and(|control| !valid_message_cache_control(control))
+                {
                     return Err(InspectionError::UnsupportedContent);
                 }
                 if part.get("type").and_then(serde_json::Value::as_str) != Some("text") {

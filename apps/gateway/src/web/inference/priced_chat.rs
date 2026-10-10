@@ -137,8 +137,23 @@ fn text_message(message: &Value) -> bool {
         }
         _ => return false,
     };
-    message.get("content").is_some_and(Value::is_string)
-        || (has_calls && message.get("content").is_none_or(Value::is_null))
+    message.get("content").is_some_and(|content| {
+        content.is_string()
+            || content.as_array().is_some_and(|parts| {
+                !parts.is_empty()
+                    && parts.iter().all(|part| {
+                        part.as_object().is_some_and(|object| {
+                            object.keys().all(|key| {
+                                ["type", "text", "cache_control"].contains(&key.as_str())
+                            })
+                        }) && part.get("type").and_then(Value::as_str) == Some("text")
+                            && part.get("text").is_some_and(Value::is_string)
+                            && part
+                                .get("cache_control")
+                                .is_none_or(crate::guardrails::input::valid_message_cache_control)
+                    })
+            })
+    }) || (has_calls && message.get("content").is_none_or(Value::is_null))
 }
 
 fn nonempty_string(value: Option<&Value>) -> bool {

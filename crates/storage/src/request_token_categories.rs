@@ -16,6 +16,7 @@ impl RequestTokenCategories {
             usage,
             totals,
             "/prompt_tokens_details/cached_tokens",
+            "/prompt_tokens_details/cache_write_tokens",
             "/completion_tokens_details/reasoning_tokens",
         )
     }
@@ -25,6 +26,7 @@ impl RequestTokenCategories {
             usage,
             totals,
             "/input_tokens_details/cached_tokens",
+            "/input_tokens_details/cache_write_tokens",
             "/output_tokens_details/reasoning_tokens",
         )
     }
@@ -33,6 +35,7 @@ impl RequestTokenCategories {
         usage: &serde_json::Value,
         totals: (u64, u64),
         cached_path: &str,
+        written_path: &str,
         reasoning_path: &str,
     ) -> Option<Self> {
         let quantity = |path: &str, total: u64| {
@@ -42,13 +45,27 @@ impl RequestTokenCategories {
                 .filter(|value| *value <= total)
                 .and_then(|value| i64::try_from(value).ok())
         };
-        let details = Self {
-            cache_write_input_tokens: None,
+        let mut details = Self {
+            cache_write_input_tokens: quantity(written_path, totals.0),
             cached_input_tokens: quantity(cached_path, totals.0),
             reasoning_output_tokens: quantity(reasoning_path, totals.1),
         };
-        (details.cached_input_tokens.is_some() || details.reasoning_output_tokens.is_some())
-            .then_some(details)
+        // Both categories are disjoint subsets of aggregate input. Contradictory
+        // totals cannot establish either subset; keep independent reasoning usage.
+        if let (Some(read), Some(written)) = (
+            details.cached_input_tokens,
+            details.cache_write_input_tokens,
+        ) && read
+            .checked_add(written)
+            .is_none_or(|sum| sum as u64 > totals.0)
+        {
+            details.cached_input_tokens = None;
+            details.cache_write_input_tokens = None;
+        }
+        (details.cached_input_tokens.is_some()
+            || details.cache_write_input_tokens.is_some()
+            || details.reasoning_output_tokens.is_some())
+        .then_some(details)
     }
 }
 

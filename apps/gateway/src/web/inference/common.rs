@@ -543,9 +543,10 @@ pub(super) async fn begin_retry_attempt(
                             protocol,
                             crate::guardrails::input::Protocol::Embeddings
                         ),
-                        cache_write_input: matches!(
+                        cache_write_input: !matches!(
                             protocol,
-                            crate::guardrails::input::Protocol::Messages
+                            crate::guardrails::input::Protocol::Embeddings
+                                | crate::guardrails::input::Protocol::VideoText
                         ),
                         reasoning_output: matches!(
                             protocol,
