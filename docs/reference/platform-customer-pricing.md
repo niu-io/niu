@@ -174,3 +174,13 @@ These are short local configuration-read observations with an eight-connection
 gateway pool, not inference throughput, saturation, a production latency target
 or a large-directory capacity claim. They do not measure concurrent directory
 changes or current-tariff pages at comparable scale.
+
+A separate current-tariff run created 105 model mappings and price configurations
+through management HTTP, then traversed their directory in 50-row pages without
+omission or duplication. Forty first-page reads at four workers measured local
+round-trip p50 1.75 ms, nearest-rank p95 9.41 ms and maximum 10.43 ms. Restart
+retained the first page. Independent reopening matched all 105 tariff aliases to
+the traversal and exactly 105 immutable revisions; the 104 added configurations
+retained their fixed/minimum fees, and 52 retained explicit cache rates while
+the others remained null. No inference or financial records were created.
+This extends bounded directory coverage, not sustained capacity qualification.
