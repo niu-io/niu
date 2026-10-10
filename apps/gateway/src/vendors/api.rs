@@ -14,12 +14,7 @@ const MAX_MODEL_CATALOG_BYTES: usize = 2 * 1024 * 1024;
 const MAX_DISCOVERED_MODELS: usize = 2_000;
 
 pub(super) async fn installation(state: &AppState, headers: &HeaderMap) -> Result<(), ApiError> {
-    let authorization = state
-        .authorize_admin_headers(headers, niu_storage::AdminPermission::ManageOperators)
-        .await?;
-    if !authorization.can_manage_platform() {
-        return Err(ApiError::forbidden());
-    }
+    state.authorize_platform_headers(headers).await?;
     Ok(())
 }
 

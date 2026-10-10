@@ -42,12 +42,7 @@ pub(crate) async fn save(
     headers: HeaderMap,
     Json(input): Json<Write>,
 ) -> Result<Json<Value>, ApiError> {
-    let auth = state
-        .authorize_admin_headers(&headers, AdminPermission::Write)
-        .await?;
-    if !auth.can_manage_platform() {
-        return Err(ApiError::forbidden());
-    }
+    let auth = state.authorize_platform_headers(&headers).await?;
     let expected = input
         .expected_revision
         .parse::<i64>()

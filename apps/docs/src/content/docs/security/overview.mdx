@@ -31,3 +31,19 @@ Owners can also issue scoped operator session tokens for API administration. The
 ## Data handling
 
 Every protocol adapter must document what request and response data it transforms, buffers, records, or sends to a provider. Streaming behavior and output inspection need explicit limits and failure semantics.
+
+
+## Platform grants and customer roles
+
+An explicit platform-administrator grant is separate from the member's role in
+a customer company or workspace. Platform-only Supplier, route-pool, branding,
+payment-configuration and media-pricing handlers check that grant after session
+authentication; they do not require the member to be a customer-company owner.
+An ordinary company owner has no platform authority without the explicit grant.
+
+Customer endpoints continue to enforce the member's original role and tenant
+scope. Platform administration does not grant access to another workspace's keys,
+requests or balances, nor does it allow a customer viewer to create workspaces.
+Installation-only financial policy operations remain installation-only. Grant
+changes are read on authenticated requests, so revocation removes platform access
+from an existing session without granting or removing its separate customer role.

@@ -8,7 +8,7 @@ use axum::{
     extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
 };
-use niu_storage::{AdminPermission, AssetOperationQualification, OperatorAuditActor, TenantScope};
+use niu_storage::{AssetOperationQualification, OperatorAuditActor, TenantScope};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -17,12 +17,7 @@ pub(super) async fn platform_actor(
     state: &AppState,
     headers: &HeaderMap,
 ) -> Result<OperatorAuditActor, ApiError> {
-    let auth = state
-        .authorize_admin_headers(headers, AdminPermission::ManageOperators)
-        .await?;
-    if !auth.can_manage_platform() {
-        return Err(ApiError::forbidden());
-    }
+    let auth = state.authorize_platform_headers(headers).await?;
     Ok(match auth {
         AdminAuthorization::Installation => OperatorAuditActor::Installation,
         AdminAuthorization::Operator(operator) => OperatorAuditActor::Operator(operator.id),

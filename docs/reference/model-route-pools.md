@@ -328,5 +328,25 @@ revisioned disable and history pagination, while ordinary company-owner and
 workspace-key credentials were denied. Invalid cursor zero, unknown input fields
 and stale writes were rejected. Restart retained the disabled pool and both
 immutable revisions; independent database reads found no inference attempts or
-financial entries. This run did not exercise an explicitly granted platform-member
-session; that supported authorization branch still requires its own live check.
+financial entries. This management-only run did not exercise an explicitly granted platform-member
+session; the later platform-grant checkpoint below covers that boundary.
+
+
+## Platform grant independent of customer role
+
+A current native request exposed a coupling in the old authorization path: a
+company viewer with an explicit platform-admin grant still received 403 on pool
+read because the Supplier helper required customer operator-management permission.
+Pure platform handlers now authenticate the session and check the separate
+platform grant through one shared helper. Customer authorization is unchanged.
+
+In an isolated current-input run, a company viewer initially received 403. A
+database-administrator grant, recorded with its immutable grant event, enabled
+pool read/write, Supplier configuration read/write and branding read/write through
+the existing session. Restart preserved that access. Foreign-workspace key reads,
+customer workspace creation and installation-only credit policy remained denied.
+Revoking the grant with its audit event immediately restored 403 on pool and
+Supplier access while own-workspace key reads still worked. Independent database
+checks found two grant events, zero inference attempts and zero financial entries.
+This verifies the exercised API authorization boundary, not browser grant
+management or every payment/media-pricing business workflow.

@@ -388,6 +388,22 @@ impl AppState {
         }
     }
 
+    /// Platform grants are independent of the member's customer role. This
+    /// authenticates a session without granting any additional tenant access.
+    pub(crate) async fn authorize_platform_headers(
+        &self,
+        headers: &HeaderMap,
+    ) -> Result<AdminAuthorization, ApiError> {
+        let authorization = self
+            .authorize_admin_headers(headers, niu_storage::AdminPermission::Read)
+            .await?;
+        if authorization.can_manage_platform() {
+            Ok(authorization)
+        } else {
+            Err(ApiError::forbidden())
+        }
+    }
+
     pub(crate) async fn authorize_admin_headers(
         &self,
         headers: &HeaderMap,

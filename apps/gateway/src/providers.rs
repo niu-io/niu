@@ -387,12 +387,7 @@ pub async fn rename(
     Path(provider): Path<Uuid>,
     Json(input): Json<SupplierProfileUpdate>,
 ) -> Result<Json<Value>, ApiError> {
-    state
-        .authorize_admin_headers(&headers, AdminPermission::Write)
-        .await?
-        .can_manage_platform()
-        .then_some(())
-        .ok_or_else(ApiError::forbidden)?;
+    state.authorize_platform_headers(&headers).await?;
     let data = state
         .store
         .update_supplier_profile(provider, &input)
@@ -405,12 +400,7 @@ pub async fn delete(
     headers: HeaderMap,
     Path(provider): Path<Uuid>,
 ) -> Result<Json<Value>, ApiError> {
-    state
-        .authorize_admin_headers(&headers, AdminPermission::Write)
-        .await?
-        .can_manage_platform()
-        .then_some(())
-        .ok_or_else(ApiError::forbidden)?;
+    state.authorize_platform_headers(&headers).await?;
     state
         .store
         .delete_provider_business(provider)
@@ -703,12 +693,7 @@ pub async fn media_rate(
     Path(provider): Path<Uuid>,
     Json(input): Json<niu_storage::SupplierMediaRateCard>,
 ) -> Result<Json<Value>, ApiError> {
-    let authorization = state
-        .authorize_admin_headers(&headers, AdminPermission::Write)
-        .await?;
-    if !authorization.can_manage_platform() {
-        return Err(ApiError::forbidden());
-    }
+    state.authorize_platform_headers(&headers).await?;
     state
         .store
         .register_supplier_media_rate(provider, &input)
@@ -777,12 +762,7 @@ pub async fn replace_media_rate(
     Path(provider): Path<Uuid>,
     Json(input): Json<MediaRateReplacement>,
 ) -> Result<Json<Value>, ApiError> {
-    let authorization = state
-        .authorize_admin_headers(&headers, AdminPermission::Write)
-        .await?;
-    if !authorization.can_manage_platform() {
-        return Err(ApiError::forbidden());
-    }
+    state.authorize_platform_headers(&headers).await?;
     state
         .store
         .replace_supplier_media_rate(provider, &input.previous_revision, &input.rate)
@@ -798,12 +778,7 @@ pub async fn retire_media_rate(
     Path((provider, revision)): Path<(Uuid, String)>,
     Json(input): Json<MediaRateRetirement>,
 ) -> Result<Json<Value>, ApiError> {
-    let authorization = state
-        .authorize_admin_headers(&headers, AdminPermission::Write)
-        .await?;
-    if !authorization.can_manage_platform() {
-        return Err(ApiError::forbidden());
-    }
+    state.authorize_platform_headers(&headers).await?;
     state
         .store
         .retire_supplier_media_rate(provider, &revision, input.effective_until)
@@ -835,13 +810,7 @@ pub async fn publish_media_offer(
     Path(provider): Path<Uuid>,
     Json(input): Json<niu_storage::SupplierMediaOfferInput>,
 ) -> Result<Json<Value>, ApiError> {
-    if !state
-        .authorize_admin_headers(&headers, AdminPermission::Write)
-        .await?
-        .can_manage_platform()
-    {
-        return Err(ApiError::forbidden());
-    }
+    state.authorize_platform_headers(&headers).await?;
     let revision = state
         .store
         .publish_supplier_media_offer(provider, &input)
