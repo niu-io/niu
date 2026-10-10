@@ -854,7 +854,7 @@ paths:
       security: [{ adminBearerAuth: [] }]
       operationId: recordCustomerExternalPayment
       summary: Record one confirmed full external invoice payment
-      description: Installation only. Does not charge any payment method. Invoice and reference form an idempotent pair; references cannot be reused on another invoice. Cache-Control is no-store.
+      description: Installation only. Records a full external payment only for a positive invoice with no balance-bound charges. Mixed invoices, balance-backed invoices and zero-value invoices conflict. Does not top up an account or accept partial payments. Existing exact retries remain idempotent. Does not charge any payment method. References cannot be reused on another invoice. Cache-Control is no-store.
       requestBody:
         required: true
         content:
@@ -869,7 +869,7 @@ paths:
         '200': { $ref: '#/components/responses/InvoiceIdentity' }
         '400': { description: Invalid reference }
         '403': { description: Installation authority required }
-        '409': { description: Invoice missing, already recorded with another reference, or reference already used }
+        '409': { description: Invoice missing, balance-bound or zero-value invoice, already recorded with another reference, or reference already used }
 components:
   responses:
     EPayAcknowledgment:

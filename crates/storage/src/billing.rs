@@ -680,6 +680,21 @@ SELECT jsonb_build_object(
                 Err(StoreError::Conflict)
             };
         }
+        // This API records a full external invoice payment, not a top-up or a
+        // partial payment. Balance-bound charges must settle through their
+        // pinned account, even if recovery has not posted the debit yet.
+        // Inspect the immutable binding rather than racing the debit worker.
+        let receivable: bool = sqlx::query_scalar(
+            "SELECT i.amount_nanos>0 AND EXISTS(SELECT 1 FROM customer_invoice_entries e WHERE e.invoice_id=i.id) AND NOT EXISTS(SELECT 1 FROM customer_invoice_entries e JOIN customer_attempt_balance_accounts b ON b.attempt_id=e.attempt_id WHERE e.invoice_id=i.id) FROM customer_invoices i WHERE i.id=$1 AND i.organization_id=$2 AND i.project_id=$3",
+        )
+        .bind(invoice)
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .fetch_one(&mut *tx)
+        .await?;
+        if !receivable {
+            return Err(StoreError::Conflict);
+        }
         let duplicate: bool = sqlx::query_scalar(
             "SELECT EXISTS(SELECT 1 FROM customer_invoice_payments WHERE payment_reference=$1)",
         )

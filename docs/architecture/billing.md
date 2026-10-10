@@ -48,7 +48,7 @@ Invoices summarize charges and do not grant spending capacity. `due_nanos` exclu
 
 An invoice uses a closed UTC dispatch interval `[from_ms, to_ms)`, at most 366 days, and one currency. Issuance rejects future periods, overlapping invoices in the same workspace/currency, empty periods and any priced dispatched request awaiting reconciliation. A project lock serializes admission with closure. The immutable invoice links every included charge once; text line items group by model and pinned rate revision, while media lines retain each immutable retail receipt. Exact retries with the same idempotency key return the original invoice; changed payloads conflict.
 
-Customer payment reconciliation records one confirmed full external payment per invoice. The reference is unique across customer payments. Repeated submissions of the same invoice/reference are idempotent. This is a usage statement, not a jurisdiction-specific tax invoice, and no card is charged by this action.
+Customer payment reconciliation records one confirmed full external payment per positive, invoice-only receivable. New records are rejected for invoices containing any balance-bound charge, including mixed invoices and charges awaiting a debit; those obligations belong to the pinned balance account. Zero-value invoices are also rejected. This API does not support partial external payments. The reference is unique across customer payments. Repeated submissions of the same invoice/reference are idempotent. This is a usage statement, not a jurisdiction-specific tax invoice, and no card is charged by this action.
 
 ## Provider settlement
 
@@ -75,3 +75,7 @@ Workspace billing pending counts recognize both text tariffs and media pricing s
 After the pending-count change, the running gateway returned HTTP 200 and zero unresolved/unpriced requests for a workspace with 177 independently observed dispatched personal requests. This verifies that existing owner-funded traffic remains excluded; it does not verify the absent commercial media branch.
 
 Migration 0219 and the media invoice API checkpoint are documented in [media invoice integration](../reference/media-invoice-integration.md). Positive paid and pagination-backlog qualification remain open.
+
+The external-payment write guard uses immutable attempt/account bindings rather than the presence of a debit, so a recovery worker cannot race a new full-payment record. Existing matching payment-reference retries remain idempotent. Positive invoice-payment and balance-bound rejection branches remain unverified on actual financial records.
+
+On 2026-10-10 the rebuilt gateway rejected an empty payment reference (HTTP 400), a nonexistent invoice (409) and an inference-key payment write (401). Independent reads showed no payment-ledger change; the temporary key was revoked. These are input/authorization observations, not evidence for positive receivable settlement or the balance-bound branch.
