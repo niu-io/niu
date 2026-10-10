@@ -403,3 +403,26 @@ received-cash payment or commercial Supplier agreement. It covers concurrent
 mixed-key attribution within one workspace and gateway; it does not establish
 which writes coalesced into a batch, cross-workspace batching, limiter contention
 or sustained capacity. No fixture outcome was used as evidence.
+
+## Observed mixed-key completion batch — 2026-10-11
+
+A fresh native run sent eight simultaneous actual personal OpenRouter Chat
+requests through eight distinct workspace keys. A separate PostgreSQL session
+temporarily held a SHARE lock on `customer_charges`. The verifier observed a
+real charge statement waiting on that lock, then released it after eight seconds.
+All eight responses returned their requested unique markers and reported usage.
+
+Private PostgreSQL statement/parameter logs identified two executed completion
+updates: one attempt, followed by seven attempts belonging to seven distinct API
+keys. Parse and bind records were excluded from this count. This establishes
+that the completion writer actually processed a mixed-key batch, rather than
+inferring batching from concurrent HTTP success. Ledger accrual still follows
+its existing independent per-attempt transactions; the observation does not
+claim the entire seven-request financial workflow is one atomic transaction.
+
+After gateway restart, independent reopening matched each response's usage and
+key to its completed attempt, recalculated every customer charge and reconciled
+exactly eight debits with no held customer reservations. The isolated processes
+stopped; database tracing and all parameters remained private. Internal credit
+and rates were verification inputs. Admission batching, mixed-workspace batches,
+poisoned completion records and sustained queue saturation remain unqualified.
