@@ -211,3 +211,22 @@ This verifies the documented live-view pagination behavior for actual charge and
 refund entries. It does not establish snapshot export semantics, large-ledger
 performance or externally settled funding reversals. The original development
 database and encrypted credential identity were unchanged.
+
+## Shared company credit across workspaces
+
+A fresh isolated current-input run on 2026-10-10 configured two workspaces with
+independent API keys and the same customer tariff under one company. Approved
+credit equaled exactly one request's configured maximum liability, using its
+input bound and forwarded output limit. Two concurrent actual requests competed
+for that capacity: one completed with the requested marker and the other returned
+HTTP 402.
+
+Independent database reads found exactly one durable dispatch and one charge.
+The charge matched integer arithmetic from the successful response's reported
+tokens. No active reservation remained. Only the winning workspace's billing
+included that charge; the shared company balance and available capacity matched
+it exactly. Restart preserved the single charge and company balance. Both keys
+were revoked afterwards, and the original development identity was unchanged.
+This verifies the exercised two-workspace admission boundary, not a throughput
+limit or every combination of workspace/key caps. No settled funding receipt or
+commercial Supplier qualification was introduced.
