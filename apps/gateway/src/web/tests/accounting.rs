@@ -845,7 +845,7 @@ async fn buffered_output_withholds_content_but_preserves_incurred_charges(pool: 
         .unwrap();
     for body in [
         json!({"model":"fast","stream":true,"messages":[{"role":"user","content":"hi"}]}),
-        json!({"model":"fast","tools":[],"messages":[{"role":"user","content":"hi"}]}),
+        json!({"model":"fast","tools":[{"type":"function","function":{"name":"confirm","parameters":{"type":"object"}}}],"messages":[{"role":"user","content":"hi"}]}),
     ] {
         let response = app
             .clone()

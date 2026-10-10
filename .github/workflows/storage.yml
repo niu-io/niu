@@ -4,6 +4,10 @@ on:
   pull_request:
 permissions:
   contents: read
+concurrency:
+  group: storage-${{ github.event.pull_request.number || github.ref }}
+  # Finish the active main run; retain the latest pending commit.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   postgres:
     runs-on: ubuntu-latest
