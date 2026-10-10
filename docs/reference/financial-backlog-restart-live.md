@@ -63,3 +63,41 @@ nonempty work, cursor traversal beyond a batch, poisoned records, merchant
 funding or sustained throughput. The lock and terminated sessions were explicit
 fault injection into the isolated database, not simulated upstream responses.
 No fixture outcome supports this checkpoint.
+
+## Two gateways recovering one real backlog
+
+A further current-input run on 2026-10-10 used backend revision `59922df` and
+another isolated native database. The same table-lock and two-connection-loss
+injection left one actual streaming completion with confirmed usage, no customer
+charge and one open reservation. The client received its requested nonce,
+complete SSE termination and usage of 16 input and 8 output tokens.
+
+After stopping the original process, the verifier released the charge-table lock
+and held the financial scheduler's transaction advisory lock instead. Two gateway
+processes then started against that database, each with a one-connection pool.
+Both reached readiness. PostgreSQL statement diagnostics tied to their separate
+backend connections independently recorded financial ownership attempts from
+both processes. Across a six-second observation with ownership held, all four
+progress records remained unchanged; the charge was still absent and the
+reservation remained open.
+
+Releasing ownership allowed recovery to proceed:
+
+- Exactly one charge and one debit were recorded, both **9,877 USD nanounits**,
+  matching an independent integer calculation from client-reported usage and
+  the internal verification rates. The open reservation count became zero.
+- All four recovery progress records advanced. Observations stayed within two
+  gateway database connections in total; no second pool was introduced.
+- Charge reconciliation found no missing, mismatched, unexpected or duplicate
+  entries and no settled open reservation.
+- After both gateways stopped and one restarted, the database still contained
+  one debit and the same one attempt. Temporary access was revoked, the mapping
+  and Supplier disabled, and both isolated gateways and PostgreSQL stopped.
+  The original development credential identity was unchanged.
+
+This extends qualification to two recovery contenders over one nonempty customer
+backlog. It does not prove large-batch traversal, poisoned-row progress, sustained
+load, financial-owner loss mid-commit, media/Supplier settlement or absence of
+every possible duplicate-egress path. The run used explicit internal credit and
+personal upstream access, with no fabricated funding receipt or commercial
+Supplier qualification. No fixture outcome supports this evidence.
