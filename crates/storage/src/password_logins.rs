@@ -61,7 +61,10 @@ impl Store {
         if !crate::passwords::supported_password_hash(password_hash) {
             return Err(StoreError::InvalidOperator);
         }
-        let workspace = self.default_workspace().await?;
+        // Match first-use customer setup regardless of which bootstrap runs first.
+        // The shared initializer reuses existing defaults without converting their
+        // billing configuration or changing saved credentials.
+        let workspace = self.default_prepaid_workspace().await?;
         let mut tx = self.pool.begin().await?;
         sqlx::query("SELECT pg_advisory_xact_lock(78641239)")
             .execute(&mut *tx)

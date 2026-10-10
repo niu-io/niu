@@ -2,6 +2,33 @@
 
 Reviewed 2026-10-04. F05 remains incomplete.
 
+## Current-input development initialization correction — 2026-10-10
+
+The loopback development member bootstrap previously called the legacy default
+workspace initializer. In an actual fresh native database, starting that login
+service before calling `POST /admin/v1/setup/default-workspace` left zero customer
+balance accounts: setup reused the already-created workspace. This made fresh
+local billing behavior depend on initialization order.
+
+Development member provisioning now calls the same prepaid initializer as setup.
+A fresh native gateway start, setup HTTP request and independent database reads
+confirmed one USD account with zero approved credit, no funding entries and no
+inference attempts. The balance HTTP endpoint returned that account. Restarting
+with a different development seed password retained the member's saved password
+hash, revision and role, the same workspace and the same account count.
+
+The database retained from the pre-fix run was then started with the corrected
+binary. Setup and balance HTTP reads still reflected its original legacy state
+with no account. Restart preserved that state and its member credential. Existing
+workspaces are not silently converted. Isolated processes were stopped; the
+original development database and encrypted Supplier credential were unchanged.
+
+This qualifies first-use initialization and the exercised persistence boundary,
+not received-money funding, successful paid inference or complete F05 acceptance.
+Historical fixture outcomes in the older notes below have no evidentiary role.
+
+## Historical implementation notes
+
 The organization/currency account schema has zero-default approved credit, an optional warning threshold and append-only signed balance entries. Customer tariff binding pins an existing matching account before dispatch. Confirmed customer-charge accrual records the debit in the same transaction as the immutable customer charge, using that charge's currency and amount. Account row locking serializes settlement; uniqueness prevents duplicate debits. Zero-cost requests create no monetary entry. Supplier costs are excluded.
 
 An account created later does not automatically debit historical invoice-era requests: only attempts with a pre-dispatch account binding are eligible. Existing invoice records and compatibility APIs remain intact during implementation; this is not yet the requested balance-first payment workflow.

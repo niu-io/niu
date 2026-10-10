@@ -32,6 +32,19 @@ Owners can also issue scoped operator session tokens for API administration. The
 
 Every protocol adapter must document what request and response data it transforms, buffers, records, or sends to a provider. Streaming behavior and output inspection need explicit limits and failure semantics.
 
+## Development account initialization
+
+The explicitly enabled loopback development login uses the same first-use
+workspace initializer as the setup API. A new default workspace receives a USD
+customer balance account with zero funds and zero approved credit. Starting the
+login service before calling setup does not bypass prepaid account creation.
+This creates no payment receipt and grants no spending capacity.
+
+An existing default workspace keeps its saved billing configuration, including
+legacy workspaces without a balance account. Restart does not reset a saved
+member's password, role or revocation. Converting a legacy workspace to prepaid
+billing remains an explicit administrative operation.
+
 
 ## Platform grants and customer roles
 
