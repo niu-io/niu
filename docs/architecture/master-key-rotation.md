@@ -81,3 +81,16 @@ Independent AES-GCM decryption of the stored bytes verified the saved merchant
 secret; the three management writes had exactly three audit events and no
 customer balance entries. This is startup failure containment, not rotation or
 complete validation of all retained encrypted content.
+
+A follow-up isolated run saved another configuration through the real management
+API, stopped the Gateway, and deliberately damaged only that isolated database's
+saved representation. Truncation and a changed authentication-tag byte each
+prevented startup. A separately authenticated encrypted JSON object missing the
+required configuration fields reached decoding and was also rejected. Each
+failed startup left the supplied ciphertext hash and revision unchanged; error
+messages distinguished decryption from invalid configuration without including
+merchant keys or the decrypted object. Restoring the original saved bytes
+restored normal reads, and independent AES-GCM decoding matched the saved secret.
+The original three configuration audit events remained, with no customer balance
+entries. This is fault injection against actual persisted management input, not
+an upstream payment or master-key migration acceptance run.
