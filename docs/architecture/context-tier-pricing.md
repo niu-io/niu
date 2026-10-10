@@ -135,3 +135,18 @@ or debit was invented, and its balance reservation remained held across restart.
 Independent reopening verified the saved response and immutable selected schedule,
 missing category, absent financial entries and retained hold. Unknown category
 usage therefore remains unresolved for this observed tier path.
+
+### Native integration runtime
+
+The native development Gateway was rebuilt and upgraded from migration 247 to
+248 using its existing configuration, database connection and encryption identity.
+A private database backup was created first; its archive inventory was checked,
+but backup restoration was not exercised. After graceful process replacement,
+readiness returned HTTP 200 and migration 248 was recorded successfully. Original
+configuration hashes, encrypted credential revisions/ciphertexts and organization,
+workspace, video-job and financial-entry counts remained unchanged.
+
+The running docs server returned the current generated handler OpenAPI JSON
+unchanged, and its reference HTML included the selected context-tier field. These
+checks establish runtime/schema availability and served contract consistency;
+they do not constitute browser visual acceptance or another production billing run.
