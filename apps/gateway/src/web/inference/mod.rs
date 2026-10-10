@@ -3,6 +3,7 @@ mod codex;
 mod common;
 pub(super) mod dashboard_video;
 mod embeddings;
+mod priced_chat;
 mod responses;
 pub(super) mod video;
 pub(super) mod video_images;

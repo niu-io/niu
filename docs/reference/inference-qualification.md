@@ -59,7 +59,7 @@ The table below describes implementation boundaries only. Fixture outcomes provi
 | --- | --- |
 | OpenRouter Chat streaming | Compatible endpoint, public model mapping, reported terminal usage and scoped durable attempt evidence |
 | Function tools | Explicit route opt-in, declared function names, JSON-object arguments, forwarded tool choice and provider-reported usage; Niu does not execute tools |
-| Streaming function tools | Separate opt-in, preserved wire deltas and terminal usage; priced tool calls remain unsupported |
+| Streaming function tools | Separate opt-in, preserved wire deltas and terminal usage; token-priced calls support bounded function definitions and text-only result history |
 | Structured JSON output | Valid self-contained schemas compile before admission; returned JSON must match the requested schema, and `json_object` must return an object. External retrieval is disabled; schema size, depth, node count and regex work are bounded. Nonempty upstream refusals remain refusals rather than fabricated JSON. |
 | Responses | Explicit opt-in; text input, nonstreaming output and SSE output with durable terminal input/output usage; see current streaming evidence below |
 | Embeddings | Explicit compatible-route declaration, supported input validation, scoped admission and input-only usage settlement |
@@ -425,7 +425,7 @@ No fixture outcome supports this checkpoint.
 
 Priced single-text Chat routes now accept `response_format`, subject to the
 existing explicit structured-output capability and schema validation. Streaming
-structured output and priced function-tool calls remain unsupported. Serialized
+structured output remains unsupported. Function tools were outside this checkpoint; later priced-tool evidence is linked below. Serialized
 response-format instructions count alongside serialized messages in the existing
 UTF-8 input byte guard. This is not a provider tokenizer or a guaranteed upper
 bound on reported usage. Output limits and independent customer/Supplier/upstream
@@ -446,3 +446,7 @@ paid output remain unverified by this run; the personal upstream checkpoint abov
 does not qualify those financial paths. No fixture outcome supports this result.
 
 The later [isolated credit-backed workflow](internal-credit-workflow-live.md) extends the priced structured-output checkpoint to a successful real response, exact customer debit and post-restart text stream. Merchant funding, media charging and rejected-output financial paths remain outside that evidence.
+
+### Priced function tools — 2026-10-10
+
+The [current-input priced function workflow](priced-function-tools-live.md) covers streamed and buffered function responses, tool-result follow-up after restart, exact customer debits and six rejected input shapes. It extends the earlier personal-only and structured-output checkpoints. Parallel returned calls, other models and cancellation remain outside this evidence.

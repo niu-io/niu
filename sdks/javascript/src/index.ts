@@ -25,6 +25,8 @@ export type ChatResponseFormat =
   | { type: 'json_schema'; json_schema: { name: string; schema: Record<string, unknown>; strict?: boolean; description?: string } };
 
 export type ChatToolCall = {
+  /** Optional position retained by compatible upstreams, including buffered calls. */
+  index?: number;
   id: string;
   type: 'function';
   function: { name: string; arguments: string };
@@ -65,6 +67,7 @@ export type ChatCompletionRequest = {
   messages: ChatMessage[];
   tools?: ChatFunctionTool[];
   tool_choice?: ChatToolChoice;
+  parallel_tool_calls?: boolean;
   response_format?: ChatResponseFormat;
   stream?: false;
   [key: string]: unknown;

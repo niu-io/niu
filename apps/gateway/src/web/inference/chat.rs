@@ -15,6 +15,7 @@ use uuid::Uuid;
 use crate::{error::ApiError, state::AppState};
 
 use super::common::*;
+use super::priced_chat::validate_priced_request;
 
 struct ChatExecution<'a> {
     public_model: &'a str,
