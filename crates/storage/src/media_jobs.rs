@@ -498,7 +498,25 @@ impl Store {
         attempt: Uuid,
         observation: &niu_media::query::QueryObservation,
     ) -> Result<Option<i64>, StoreError> {
+        self.apply_media_query_observation_with_results(scope, attempt, observation, &[])
+            .await
+    }
+
+    /// Save validated query evidence, status and encrypted result references in
+    /// one transaction before completion or independent financial settlement.
+    pub async fn apply_media_query_observation_with_results(
+        &self,
+        scope: TenantScope,
+        attempt: Uuid,
+        observation: &niu_media::query::QueryObservation,
+        results: &[(crate::MediaResultKind, Vec<u8>)],
+    ) -> Result<Option<i64>, StoreError> {
         use niu_media::query::{QueryStatus, ReportedQuantity};
+        if results.len() > 2
+            || (!results.is_empty() && observation.status != QueryStatus::Succeeded)
+        {
+            return Err(StoreError::InvalidUsage);
+        }
         let identity: Option<(String,String)> = sqlx::query_as("SELECT j.upstream_job_id,r.upstream_model FROM media_jobs j JOIN media_recovery_routes r ON r.attempt_id=j.attempt_id WHERE j.organization_id=$1 AND j.project_id=$2 AND j.attempt_id=$3")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_optional(&self.pool).await?;
         if identity
@@ -533,7 +551,6 @@ impl Store {
                 return Err(StoreError::Conflict);
             }
         }
-        tx.commit().await?;
         let status = match observation.status {
             QueryStatus::Queued => MediaJobStatus::Queued,
             QueryStatus::Running => MediaJobStatus::Running,
@@ -545,7 +562,18 @@ impl Store {
             }
             QueryStatus::Unknown => MediaJobStatus::Unknown,
         };
-        self.record_media_job_status(scope, attempt, status).await?;
+        sqlx::query("INSERT INTO media_job_observations(organization_id,project_id,attempt_id,status) VALUES($1,$2,$3,$4) ON CONFLICT(attempt_id,status) DO NOTHING")
+            .bind(scope.organization_id).bind(scope.project_id).bind(attempt)
+            .bind(status.observation().ok_or(StoreError::Conflict)?).execute(&mut *tx).await?;
+        let failed: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM media_job_observations WHERE attempt_id=$1 AND status='failed')")
+            .bind(attempt).fetch_one(&mut *tx).await?;
+        if !failed {
+            for (kind, ciphertext) in results {
+                Self::save_media_result_reference_in_tx(&mut tx, scope, attempt, *kind, ciphertext)
+                    .await?;
+            }
+        }
+        tx.commit().await?;
         let priced = self.customer_media_pricing(scope, attempt).await?.is_some();
         if priced && let ReportedQuantity::Reported(quantity) = observation.quantity {
             self.record_customer_media_usage(

@@ -150,10 +150,41 @@ the same job restored that reference, after which the video downloaded and fully
 decoded. Independent reopening of the stopped database and rehashing/decoding the
 file confirmed the final state, one submission, revoked keys, removed fault and
 no financial entries. Another restart preserved completion. This verifies
-automatic state recovery, but **automatic result-reference recovery for this
-interruption remains incomplete**; it currently requires an authorized refresh.
+automatic state recovery, but **at this checkpoint automatic result-reference recovery for this
+interruption remained incomplete**; it required an authorized refresh (see the subsequent atomic persistence change below).
 The run does not qualify paid-media settlement.
 
 The native installation subsequently applied migration 251 after a private
 backup, preserving configuration, encrypted identity and business record counts.
 Existing owner-funded video read/authorization checks were repeated.
+
+## Atomic query evidence and result references
+
+The Gateway now encrypts returned result references before handing a validated
+query observation to storage. Storage commits receipt metadata, reported model,
+status and those encrypted references in one transaction, before completion
+marking and independent settlement. An error in reference storage rolls back
+that observation; a later completion/settlement error cannot discard references
+from the committed observation. No plaintext result URL enters the database.
+
+The transaction reuses the existing reference upsert, including its deletion
+and expiry protections. Conflicting terminal status remains inaccessible and
+does not publish new references. The legacy storage observation method delegates
+with no references for callers that do not have encrypted results. No schema or
+public HTTP contract changes are required.
+
+A new actual owner-funded video request repeated the isolated completion-write
+fault. Success and an encrypted video reference committed while the completion
+update failed. After revoking the original key, stopping the Gateway and removing
+the fault, restart with polling disabled and one admission connection restored
+completion without a new query. A newly authorized reader downloaded the result
+without an extra refresh; the full video decoded. A second restart preserved
+completion, with one generation submission and no customer charges.
+
+Independent reopening of the stopped database confirmed the saved encrypted
+reference, success/completion state, revoked reader keys, removed fault and empty
+customer ledgers. The downloaded file's SHA-256 matched its receipt and a separate
+FFmpeg run decoded the entire video. This closes the demonstrated completion-write
+interruption for newly observed results. Historical observations that already
+lost their result reference still require an authorized refresh; expiring upstream
+URLs and paid-media settlement remain separate verification requirements.

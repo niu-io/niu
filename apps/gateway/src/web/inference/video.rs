@@ -1734,18 +1734,8 @@ pub(crate) async fn refresh_for_principal(
             "Video status could not be refreshed; the original job remains unchanged",
         )
     })?;
-    state
-        .store
-        .apply_media_query_observation(scope, id, &observation)
-        .await
-        .map_err(ApiError::from_store)?;
-    if state
-        .store
-        .media_job_status(scope, id)
-        .await
-        .map_err(ApiError::from_store)?
-        == Some(niu_storage::MediaJobStatus::Succeeded)
-    {
+    let mut results = Vec::new();
+    if observation.status == niu_media::query::QueryStatus::Succeeded {
         for (kind, url) in [
             (niu_storage::MediaResultKind::Video, observation.video_url()),
             (
@@ -1757,14 +1747,15 @@ pub(crate) async fn refresh_for_principal(
                 let encrypted = cipher
                     .seal_media_result(scope, id, kind, url)
                     .map_err(|_| ApiError::unavailable())?;
-                state
-                    .store
-                    .save_media_result_reference(scope, id, kind, &encrypted)
-                    .await
-                    .map_err(ApiError::from_store)?;
+                results.push((kind, encrypted));
             }
         }
     }
+    state
+        .store
+        .apply_media_query_observation_with_results(scope, id, &observation, &results)
+        .await
+        .map_err(ApiError::from_store)?;
     let saved = state
         .store
         .media_job_state_for_key(principal, id)

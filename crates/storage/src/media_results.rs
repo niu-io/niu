@@ -24,14 +24,31 @@ impl Store {
         kind: MediaResultKind,
         ciphertext: &[u8],
     ) -> Result<bool, StoreError> {
+        let mut tx = self.pool.begin().await?;
+        let saved =
+            Self::save_media_result_reference_in_tx(&mut tx, scope, attempt, kind, ciphertext)
+                .await?;
+        tx.commit().await?;
+        Ok(saved)
+    }
+
+    pub(crate) async fn save_media_result_reference_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: TenantScope,
+        attempt: Uuid,
+        kind: MediaResultKind,
+        ciphertext: &[u8],
+    ) -> Result<bool, StoreError> {
         if !(30..=16413).contains(&ciphertext.len()) {
             return Err(StoreError::InvalidUsage);
         }
-        if self.media_job_status(scope, attempt).await? != Some(MediaJobStatus::Succeeded) {
+        let succeeded: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM media_job_observations WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3 AND status='succeeded') AND NOT EXISTS(SELECT 1 FROM media_job_observations WHERE attempt_id=$3 AND status='failed')")
+            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_one(&mut **tx).await?;
+        if !succeeded {
             return Err(StoreError::Conflict);
         }
         let result=sqlx::query("INSERT INTO media_result_references(organization_id,project_id,attempt_id,kind,ciphertext) SELECT organization_id,project_id,attempt_id,$4,$5 FROM media_jobs WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3 ON CONFLICT(attempt_id,kind) DO UPDATE SET ciphertext=EXCLUDED.ciphertext WHERE media_result_references.organization_id=EXCLUDED.organization_id AND media_result_references.project_id=EXCLUDED.project_id AND media_result_references.deleted_at IS NULL AND media_result_references.expires_at>clock_timestamp()")
-            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(kind.as_str()).bind(ciphertext).execute(&self.pool).await?;
+            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(kind.as_str()).bind(ciphertext).execute(&mut **tx).await?;
         Ok(result.rows_affected() == 1)
     }
     /// Access callers must additionally authorize current key/model grants.
