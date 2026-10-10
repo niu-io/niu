@@ -13,6 +13,16 @@ SECURITY_SCHEMES = {
 }
 
 
+def unique_object(pairs):
+    """Do not silently overwrite a handler contract at any JSON nesting level."""
+    result = {}
+    for name, value in pairs:
+        if name in result:
+            raise ValueError(f'Duplicate JSON field: {name}')
+        result[name] = value
+    return result
+
+
 def registered_methods(source):
     """Read literal Axum route builders; skip quoted strings and comments."""
     result = {}
@@ -154,11 +164,18 @@ def main():
     paths, names, descriptions, schemas = {}, set(), [], {}
     routes = registered_methods((ROOT / 'apps/gateway/src/web/routes.rs').read_text())
     for source in sorted((ROOT / 'apps/gateway/src').rglob('*.rs')):
-        for block in re.findall(r'(?m)^/// ```openapi\n(.*?)^/// ```\s*$', source.read_text(), re.S):
-            lines = block.splitlines()
+        content = source.read_text()
+        for match in re.finditer(r'(?m)^/// ```openapi\n(.*?)^/// ```\s*$', content, re.S):
+            line_number = content.count('\n', 0, match.start()) + 1
+            location = f'{source.relative_to(ROOT)}:{line_number}'
+            lines = match[1].splitlines()
             if not all(line.startswith('/// ') for line in lines):
                 raise SystemExit(f'Malformed annotation in {source.relative_to(ROOT)}')
-            value = json.loads('\n'.join(line[4:] for line in lines))
+            try:
+                value = json.loads('\n'.join(line[4:] for line in lines),
+                                   object_pairs_hook=unique_object)
+            except ValueError as error:
+                raise SystemExit(f'Invalid OpenAPI annotation at {location}: {error}') from error
             for schema_name, schema in value.get('schemas', {}).items():
                 validate_schema_dialect(schema, f'{source.relative_to(ROOT)}:schemas/{schema_name}')
                 if schema_name in schemas and schemas[schema_name] != schema:
