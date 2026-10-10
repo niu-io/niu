@@ -84,5 +84,30 @@ thresholds returned HTTP 400; omitted existing schedules returned 409. Explicit
 null returned JSON-schema HTTP 422, rather than clearing the schedule.
 
 These thresholds and rates are internal verification configuration, not advertised
-commercial context tiers. Category-bearing tiers, in-flight edits, SDK publication,
-customer exports and two-Gateway reservation races still require actual evidence.
+commercial context tiers. Customer exports, unknown required quantities in a
+selected tier, and two-Gateway tier reservation races still require actual evidence.
+
+### Cache categories and concurrent publication
+
+A separate actual Claude Haiku 4.5 run through the personal OpenRouter connection
+published a threshold-1,000 schedule through the JavaScript admin SDK. The first
+request reported 5,296 cache-write tokens; after Gateway restart, the same prefix
+reported 5,296 cache-read tokens. Input inspection redacted the private marker
+while preserving validated cache-control metadata.
+
+After observing the first attempt in `may_have_executed` while its HTTP call was
+still pending, the verifier published a new revision with different cache rates.
+The first charge retained the original revision and its selected write rate; the
+second request used the new revision and read rate. This checks revision pinning,
+not a claim about upstream cache pricing or commercial Supplier qualification.
+
+Clearing the active tier schedule did not change either historical invoice line.
+Another Gateway restart preserved those lines. An independent process reopened
+the stopped PostgreSQL database, checked saved response hashes, selected the tier
+from each immutable stored revision using actual aggregate input, and recomputed
+the exact category charges and matching debits. Both invoice lines retained their
+selected threshold and rates, and no balance reservation remained held.
+
+The first verification attempt stopped because the verification script queried
+an incorrectly named execution column. The corrected run and independent artifact
+inspection supply the evidence above; the interrupted run is not product evidence.
