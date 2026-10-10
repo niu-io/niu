@@ -85,8 +85,9 @@ readiness evidence.
   and global Settings browser behavior, which is not established by those API
   and database runs.
 - [Category/tier prices (#17)](https://github.com/niu-io/niu/issues/17):
-  cache-read plus reasoning has actual combined-charge evidence; cache-write
-  plus reasoning does not. Treat these as distinct coverage. The
+  cache-read plus reasoning and nonstreaming cache-write plus reasoning have
+  actual combined-charge evidence. Streaming with both categories nonzero remains
+  unverified. The
   [actual tier failover run](../reference/upstream-retry-policy.md#context-tier-pricing-across-an-actual-successor)
   confirms operation-level price pinning across an in-flight tier edit, not
   every category combination or commercial Supplier settlement.
