@@ -57,25 +57,38 @@ impl Store {
         attempt: Uuid,
     ) -> Result<i64, StoreError> {
         let mut tx = self.pool.begin().await?;
+        let result = Self::settle_customer_media_charge_in_tx(&mut tx, scope, attempt).await;
+        // Insufficient funding still commits the immutable liability and keeps
+        // the hold. All other failures roll back the attempted settlement.
+        if result.is_ok() || matches!(result, Err(StoreError::BudgetExceeded)) {
+            tx.commit().await?;
+        }
+        result
+    }
+
+    pub(crate) async fn settle_customer_media_charge_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: TenantScope,
+        attempt: Uuid,
+    ) -> Result<i64, StoreError> {
         sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR SHARE")
             .bind(scope.organization_id)
-            .fetch_optional(&mut *tx)
+            .fetch_optional(&mut **tx)
             .await?
             .ok_or(StoreError::Conflict)?;
         let account: (Uuid,String) = sqlx::query_as("SELECT c.id,c.currency FROM customer_balance_accounts c JOIN customer_attempt_balance_accounts b ON b.account_id=c.id AND b.organization_id=c.organization_id AND b.currency=c.currency WHERE b.organization_id=$1 AND b.project_id=$2 AND b.attempt_id=$3 FOR UPDATE OF c")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt)
-            .fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
+            .fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
         let execution: String = sqlx::query_scalar("SELECT execution FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt)
-            .fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
+            .fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
         let prior: Option<i64> = sqlx::query_scalar("SELECT amount_nanos FROM customer_media_charges WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt)
-            .fetch_optional(&mut *tx).await?;
+            .fetch_optional(&mut **tx).await?;
         if let Some(amount) = prior {
             let settled: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM customer_activity_charges WHERE attempt_id=$1 AND amount_nanos=$2 AND organization_id=$3 AND project_id=$4 AND currency=$5)")
-                .bind(attempt).bind(amount).bind(scope.organization_id).bind(scope.project_id).bind(&account.1).fetch_one(&mut *tx).await?;
+                .bind(attempt).bind(amount).bind(scope.organization_id).bind(scope.project_id).bind(&account.1).fetch_one(&mut **tx).await?;
             if settled {
-                tx.commit().await?;
                 return Ok(amount);
             }
         }
@@ -83,20 +96,20 @@ impl Store {
             return Err(StoreError::Unresolved);
         }
         let job_unresolved: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM media_jobs j WHERE j.attempt_id=$1 AND (NOT EXISTS(SELECT 1 FROM media_job_observations WHERE attempt_id=j.attempt_id AND status='succeeded') OR EXISTS(SELECT 1 FROM media_job_observations WHERE attempt_id=j.attempt_id AND status='failed')))")
-            .bind(attempt).fetch_one(&mut *tx).await?;
+            .bind(attempt).fetch_one(&mut **tx).await?;
         if job_unresolved {
             return Err(StoreError::Unresolved);
         }
         let maximum: i64 = sqlx::query_scalar("SELECT r.amount_nanos FROM customer_balance_reservations r JOIN customer_media_liability_bounds b ON b.attempt_id=r.attempt_id AND b.maximum_nanos=r.amount_nanos WHERE r.attempt_id=$1 AND r.organization_id=$2 AND r.account_id=$3 AND r.released_at IS NULL")
             .bind(attempt).bind(scope.organization_id).bind(account.0)
-            .fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
+            .fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
         let snapshot: serde_json::Value = sqlx::query_scalar("SELECT snapshot FROM customer_media_attempt_pricing WHERE attempt_id=$1 AND organization_id=$2 AND project_id=$3")
             .bind(attempt).bind(scope.organization_id).bind(scope.project_id)
-            .fetch_one(&mut *tx).await?;
+            .fetch_one(&mut **tx).await?;
         let snapshot =
             PricingSnapshot::decode(&snapshot.to_string()).map_err(|_| StoreError::InvalidPrice)?;
         let rows: Vec<(String,serde_json::Value)> = sqlx::query_as("SELECT DISTINCT meter,quantity FROM customer_media_usage_observations WHERE attempt_id=$1 AND organization_id=$2 AND project_id=$3 LIMIT 2")
-            .bind(attempt).bind(scope.organization_id).bind(scope.project_id).fetch_all(&mut *tx).await?;
+            .bind(attempt).bind(scope.organization_id).bind(scope.project_id).fetch_all(&mut **tx).await?;
         if rows.len() != 1 {
             return Err(StoreError::Unresolved);
         }
@@ -122,24 +135,22 @@ impl Store {
         } else {
             sqlx::query("INSERT INTO customer_media_charges(organization_id,project_id,attempt_id,currency,amount_nanos,bound_exceeded,explanation) VALUES($1,$2,$3,$4,$5,$6,$7)")
                 .bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(&receipt.currency)
-                .bind(amount).bind(amount>maximum).bind(explanation).execute(&mut *tx).await?;
+                .bind(amount).bind(amount>maximum).bind(explanation).execute(&mut **tx).await?;
         }
         if amount > 0 {
             let funded: bool = sqlx::query_scalar("SELECT COALESCE((SELECT SUM(amount_nanos) FROM customer_balance_entries WHERE account_id=a.id),0)+a.credit_limit_nanos-niu_customer_account_outstanding(a.id, $2)>=$3 FROM customer_balance_accounts a WHERE a.id=$1")
-                .bind(account.0).bind(attempt).bind(amount).fetch_one(&mut *tx).await?;
+                .bind(account.0).bind(attempt).bind(amount).fetch_one(&mut **tx).await?;
             if !funded {
                 // Retain the full immutable liability and its hold for funding/
                 // approved-credit reconciliation; do not create an overdraft.
-                tx.commit().await?;
                 return Err(StoreError::BudgetExceeded);
             }
             sqlx::query("INSERT INTO customer_balance_entries(id,organization_id,account_id,currency,kind,amount_nanos,idempotency_key,project_id,attempt_id) VALUES($1,$2,$3,$4,'charge',$5,$6,$7,$6)")
                 .bind(Uuid::new_v4()).bind(scope.organization_id).bind(account.0).bind(&receipt.currency)
-                .bind(-amount).bind(attempt).bind(scope.project_id).execute(&mut *tx).await?;
+                .bind(-amount).bind(attempt).bind(scope.project_id).execute(&mut **tx).await?;
         }
         sqlx::query("UPDATE customer_balance_reservations SET released_at=now() WHERE attempt_id=$1 AND released_at IS NULL")
-            .bind(attempt).execute(&mut *tx).await?;
-        tx.commit().await?;
+            .bind(attempt).execute(&mut **tx).await?;
         Ok(amount)
     }
 

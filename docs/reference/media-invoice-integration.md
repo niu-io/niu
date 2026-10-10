@@ -92,3 +92,35 @@ An unrelated or mismatched debit cannot make the retry report success and stop
 background recovery. Ledger uniqueness and the existing transaction continue to
 guard writes; this does not rewrite a conflicting debit or forgive its liability.
 The nonempty paid-media retry and mismatched-debit branches remain unverified.
+
+## Financial recovery without video polling
+
+Customer media settlement now has a durable stage in the existing financial
+worker. A completed job with saved success evidence and an unposted customer
+charge remains eligible even when `NIU_VIDEO_POLLING=false`. Failed/conflicting
+jobs are excluded. Missing or conflicting usage remains unresolved; the worker
+uses the original pricing and usage, never a new upstream request. Supplier
+earnings continue through their existing independent financial stage.
+
+The media stage shares the financial advisory lock, bounded single connection,
+100-attempt keyset traversal, durable cursor and per-attempt savepoint. Its
+settlement implementation is shared with the direct video path. Insufficient
+funding commits the immutable liability while retaining the hold, reports a
+sanitized retry failure and permits later funding reconciliation. Other errors
+roll back the attempt savepoint. Migration 250 adds only the recovery stage.
+
+Current-input verification started a native Gateway against a fresh PostgreSQL
+instance with video polling disabled and the admission pool limited to one
+connection. Migration 250 applied, the media stage timestamp advanced across
+multiple scheduled ticks and process replacement, and an API-created organization
+survived. Independently reopening the stopped database confirmed the durable
+stage and organization, with no attempts or financial entries. This verifies
+worker startup/traversal on an empty backlog, not paid media settlement.
+
+After a private pre-upgrade backup, the existing native installation applied
+migration 250 without changing configuration, encrypted credential identities
+or durable business record counts. Actual retained owner-funded video reads and
+foreign/revoked access checks were repeated; financial and transport counts stayed
+unchanged. Nonempty paid-media recovery, insufficient-funding retry and populated
+cursor traversal remain unverified. Build and static checks completed separately;
+no fixture results are used as evidence.

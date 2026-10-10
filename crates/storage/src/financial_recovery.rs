@@ -13,6 +13,7 @@ pub enum FinancialRecoveryFailure {
 pub(crate) enum FinancialStage {
     BalanceRelease,
     CustomerCharge,
+    CustomerMediaCharge,
     SupplierEarning,
     UpstreamCost,
 }
@@ -22,6 +23,7 @@ impl FinancialStage {
         match self {
             Self::BalanceRelease => "balance_release",
             Self::CustomerCharge => "customer_charge",
+            Self::CustomerMediaCharge => "customer_media_charge",
             Self::SupplierEarning => "supplier_earning",
             Self::UpstreamCost => "upstream_cost",
         }
@@ -33,6 +35,9 @@ impl FinancialStage {
             }
             Self::CustomerCharge => {
                 "SELECT a.id,a.organization_id,a.project_id FROM attempts a JOIN customer_attempt_tariffs b ON b.attempt_id=a.id LEFT JOIN customer_charges c ON c.attempt_id=a.id WHERE c.attempt_id IS NULL AND a.execution='confirmed_completed' AND a.usage_confidence='provider_reported' AND ($1::uuid IS NULL OR a.id>$1) ORDER BY a.id LIMIT 100"
+            }
+            Self::CustomerMediaCharge => {
+                "SELECT a.id,a.organization_id,a.project_id FROM attempts a JOIN customer_media_attempt_pricing p ON p.attempt_id=a.id WHERE a.execution='confirmed_completed' AND EXISTS(SELECT 1 FROM media_job_observations o WHERE o.attempt_id=a.id AND o.status='succeeded') AND NOT EXISTS(SELECT 1 FROM media_job_observations o WHERE o.attempt_id=a.id AND o.status='failed') AND NOT EXISTS(SELECT 1 FROM customer_media_charges c JOIN customer_activity_charges posted ON posted.attempt_id=c.attempt_id AND posted.organization_id=c.organization_id AND posted.project_id=c.project_id AND posted.currency=c.currency AND posted.amount_nanos=c.amount_nanos WHERE c.attempt_id=a.id) AND ($1::uuid IS NULL OR a.id>$1) ORDER BY a.id LIMIT 100"
             }
             Self::SupplierEarning => {
                 "SELECT a.id,a.organization_id,a.project_id FROM attempts a JOIN provider_attempt_offers b ON b.attempt_id=a.id LEFT JOIN provider_earnings e ON e.attempt_id=a.id WHERE e.attempt_id IS NULL AND a.execution='confirmed_completed' AND (a.usage_confidence='provider_reported' OR EXISTS(SELECT 1 FROM supplier_media_attempt_pricing p WHERE p.attempt_id=a.id)) AND ($1::uuid IS NULL OR a.id>$1) ORDER BY a.id LIMIT 100"
@@ -52,6 +57,7 @@ impl Store {
         for stage in [
             FinancialStage::BalanceRelease,
             FinancialStage::CustomerCharge,
+            FinancialStage::CustomerMediaCharge,
             FinancialStage::SupplierEarning,
             FinancialStage::UpstreamCost,
         ] {
@@ -125,6 +131,11 @@ impl Store {
                 FinancialStage::CustomerCharge => {
                     Self::accrue_customer_charge_in_tx(&mut row_tx, attempt).await
                 }
+                FinancialStage::CustomerMediaCharge => {
+                    Self::settle_customer_media_charge_in_tx(&mut row_tx, scope, attempt)
+                        .await
+                        .map(|_| ())
+                }
                 FinancialStage::SupplierEarning => {
                     Self::accrue_provider_earning_in_tx(&mut row_tx, attempt).await
                 }
@@ -149,6 +160,13 @@ impl Store {
             };
             if result.is_ok() {
                 row_tx.commit().await?;
+            } else if matches!(stage, FinancialStage::CustomerMediaCharge)
+                && matches!(result, Err(StoreError::BudgetExceeded))
+            {
+                // Preserve a known media liability even before funding permits
+                // its debit; subsequent sweeps retry without another Provider call.
+                row_tx.commit().await?;
+                failed += 1;
             } else {
                 row_tx.rollback().await?;
                 failed += 1;
