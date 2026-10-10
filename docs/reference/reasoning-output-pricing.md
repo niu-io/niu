@@ -48,8 +48,8 @@ restart without duplicate charges. A replacement that omitted the configured
 reasoning rate returned HTTP 409 without creating a revision; explicit null
 created a flat revision without changing existing charges.
 
-This evidence covers non-streaming customer reasoning pricing with request fees
-and minimum charges. Concurrent admission under an explicit minimum and combined cache/reasoning
+The initial evidence covers non-streaming customer reasoning pricing with
+request fees and minimum charges. Completed-stream verification is recorded below. Concurrent admission under an explicit minimum and combined cache/reasoning
 pricing are verified below. A two-Gateway reasoning-rate-only reservation race is also verified below;
 this is bounded concurrency evidence, not a sustained capacity result. Missing-category retention is verified below;
 recovering a subsequently supplied category remains unverified. The served
@@ -124,3 +124,19 @@ remaining credit could not cover the full 512-token bound. Remaining credit was
 not zero: admission correctly used the bound rather than the previous actual
 charge. This also exercises a nonzero reasoning rate when all ordinary rates are
 zero; it cannot use the free-request dispatch exemption.
+
+
+## Completed streaming requests
+
+Three actual streaming `openai/o4-mini` requests each reported 5,120 cached input
+tokens and 128 reasoning output tokens. Each SSE response contained the requested
+marker, a terminal usage event, and `[DONE]`. The final call followed a Gateway
+restart and used a new minimum-charge revision.
+
+The independent verifier read saved raw SSE bytes, checked response hashes,
+required exactly one usage event and a final `[DONE]`, then reopened PostgreSQL.
+The four-category calculation, one rounding, fee/minimum, pinned quantities and
+rates, debit entries, refund-adjusted balance, invoice total, and released holds
+matched. Total customer charges were 13,180,740 currency nanounits. This verifies
+completed streams; interrupted streams and later recovery of missing category
+usage are not qualified by this run.
