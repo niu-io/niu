@@ -268,3 +268,21 @@ content without terminal usage, selected the pinned tier schedule, recomputed th
 retained reservation. This covers the observed first-content disconnect only;
 it does not prove upstream cancellation, resolve missing usage, or verify a race
 between client disconnect and terminal settlement.
+
+### Client close after terminal usage
+
+A separate actual Chat stream used the same tier-only schedule and conservative
+bound. The client consumed through the terminal usage event, then closed without
+reading `[DONE]`. The resulting attempt had provider-reported complete usage,
+one exact tier-priced charge/debit and no open balance reservation. The customer
+request reported charged status with matching token quantities. A subsequent
+full-bound request remained denied because the consumed amount still counted
+against the key spending limit.
+
+Secret rotation, Gateway restart across recovery ticks and key revocation retained
+that single settlement. Independent reopening checked the saved stream-prefix
+hash and its one terminal usage object, recalculated the amount from the pinned
+schedule, and matched the selected threshold, charge, debit and released hold.
+This complements the first-content disconnect observation. It does not establish
+all transport-buffering or simultaneous terminal/cancellation orderings, nor does
+it assert that the server had not already written `[DONE]` before client closure.
