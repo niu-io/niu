@@ -15,7 +15,7 @@ Status: in progress. Updated 2026-10-10. This checklist supplements, rather than
 | --- | --- | --- |
 | Sign-in and session | Protected destination → login → original destination; reload/restoration, expiry and sign-out; installation setup clearly distinct | Partial; sign-out, protected-route redirect, password login, query-preserving return and reload verified; expiry/revocation and installation distinction open |
 | Models → generation | Global catalog, first-row filter, sort/menu alignment, model details and supported capabilities, selected model preserved when starting a generation | Partial; filter, sort menu and selected-model handoff verified; reference comparison and remaining interaction states open |
-| Workspace API keys | Create with essential values, copy/setup example, grants and limits, rotation/revocation, authorized details and useful failure recovery | Partial; real key list/details, creation dialog/expiration menu/cancel and Generations link verified; name write/reload and narrow model-access menu verified; creation and single-model save/reload/discovery plus revoked-credential 401 verified; rotation and ordinary-role grants open |
+| Workspace API keys | Create with essential values, copy/setup example, grants and limits, rotation/revocation, authorized details and useful failure recovery | Partial; real key list/details, creation dialog/expiration menu/cancel and Generations link verified; name write/reload and narrow model-access menu verified; creation and single-model save/reload/discovery plus revoked-credential 401 verified; rotation with preserved expiry/grants/rate policy and old-secret 401 verified; ordinary-role grants open |
 | Chat | Key-based scope, saved-session title/history, streaming/cancellation, actionable upstream failure, backend restoration and matching Logs | Partial; existing successful history, title, reload restoration and mobile session navigation verified; fresh successful request and restoration verified; connection-stage and live mid-stream cancellation/restoration verified; live partial output and matching interrupted Logs verified; actionable upstream failures and remaining draft conflict states open |
 | Video | Task category → supported inputs → submission → durable status → preview/download; unavailable, failed, unknown and expired states; matching Logs and customer charges | Open; depends on qualified backend capabilities |
 | Logs | Request filters → payload and response → measured timing waterfall → failure diagnosis; exports, unknown values and customer-only costs | Partial; key drilldown, real retained request/error and timing verified; date restoration and mobile detail verified; exports, classified failures and remaining mobile states open |
@@ -419,3 +419,22 @@ rendered qualification.
   capability, not an implemented interface. Full Video submission recovery stays
   incomplete; do not add a fresh-identity retry or claim at-most-once browser
   recovery from the existing component lock.
+
+
+### Live API key rotation qualification (2026-10-10)
+
+- Created a disposable 90-day, GPT-4.1 Mini-only key in the isolated verification
+  workspace and saved a rolling limit of seven requests. Rotated it through the
+  actual dashboard action and confirmation dialog. The replacement secret appeared
+  once; full reload retained the original Revoked row and replacement Active row.
+- Independent API reads confirmed exact expiry and model grants were preserved,
+  together with the saved request-rate policy and revision. The original secret
+  returned HTTP 401; the replacement returned HTTP 200 and exactly the one granted
+  model from the public catalog. No inference or payment was submitted.
+- Desktop action/confirmation and the 390×844 action menu and confirmation were
+  inspected. Cancelling a second rotation returned focus to the action trigger.
+  Both disposable keys were revoked, the separate verification session signed out
+  and private credential material deleted. The viewport override was reset.
+- This qualifies the exercised owner rotation and preserved rate-policy subset.
+  Ordinary-role denial, in-flight rotation and financial commitment preservation
+  still require their own evidence; the complete key workflow remains partial.
