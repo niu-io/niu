@@ -33,6 +33,39 @@ independent final-artifact checks, recording unverified scope explicitly.
 
 Current-input backend checkpoints (none qualifies a complete release gate):
 
+
+- [Customer and Supplier context pricing](../architecture/context-tier-pricing.md):
+  immutable whole-request tiers, cache-read/write and reasoning category rates,
+  bounded customer reservations, selected-tier invoices and Supplier earning
+  attribution are implemented. Actual customer requests cover tier boundaries,
+  in-flight price edits, cache reuse, two-Gateway admission, unknown usage and
+  two stream-disconnect timings, with independent stored-artifact reconciliation.
+  Supplier management publication/history/permissions are exercised; nonempty
+  Supplier earnings, recovery and settlement remain unverified.
+
+- [Content maintenance isolation](../reference/content-retention-recovery.md):
+  scheduled cleanup uses one dedicated connection per Gateway instead of borrowing
+  admission-pool connections. Actual priced structured/streaming calls, retention
+  boundaries and a restored two-Gateway backlog with a poisoned row and restart
+  were checked independently. This adds a per-process connection and is not a
+  global one-connection cap. Large-backlog capacity and nonempty interrupted-image
+  recovery remain unqualified.
+
+- [Customer charge reconciliation](../reference/customer-charge-reconciliation.md):
+  a 30-second read workload against 600 actual charges recorded Gateway CPU/RSS
+  and observed connection counts, and independently preserved every charge and
+  debit after restart. This is single-organization read evidence, not production
+  inference capacity or a benchmark comparison with another gateway.
+
+Recent contract delivery includes generated Supplier price-publication and earning
+attribution schemas, customer cache-write quantities in Logs/summary/CSV, and native
+Messages delivery timing. Contract generation, builds and CI establish contract or
+compilation consistency only; the linked current-input checks define business
+coverage. Supported payment integration capability remains distinct from merchant
+activation as specified above. Customer-funded media settlement, mixed populated
+media invoices and nonempty Supplier financial flows still require their own
+verification; text accounting evidence does not cover them.
+
 - [Five-minute mixed-key text run](../reference/mixed-key-sustained-text.md):
   600 actual bounded Chat completions across eight keys, with independently
   reconciled usage, per-attempt debits and released holds after restart. This
