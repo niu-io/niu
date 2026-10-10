@@ -51,7 +51,7 @@ The temporary key was revoked and temporary mapping disabled afterward.
 
 Release compilation, formatting, Clippy and storage/gateway test-target
 compilation completed. No fixture outcome is used. The actual run covers a
-model-revision race on a personal Chat route. Credential replacement races,
+model-revision race on a personal Chat route. External key revocation/rotation,
 commercial paid admission, unpriced mixed-record batch isolation, Responses and
 embedding races, and sustained concurrent configuration changes remain
 unverified. These boundaries must not be inferred from the shared code alone.
@@ -63,3 +63,27 @@ nor temporary model alias appeared in the error. Independent database inspection
 again found an undispatched old-version attempt and a completed fresh-version
 request with matching usage. Batch-path error propagation is implemented but was
 not exercised by this personal-route run.
+
+## Credential configuration revision race
+
+A separate actual run created an independent temporary credential configuration,
+assigned it to the personal account and bound a temporary model mapping. It used
+the existing private test secret without modifying the original configuration.
+While a Chat request waited before dispatch, the management API saved that same
+secret again in the temporary configuration. Its encrypted ciphertext changed
+and its credential revision advanced from two to three; model revision stayed one.
+
+The pending request returned HTTP 409 `route_configuration_changed`. Independent
+PostgreSQL inspection confirmed its bound credential revision two and `not_sent`
+execution without a dispatch timestamp. A subsequent real upstream request
+completed using revision three, with recorded token counts equal to its response.
+Final inspection found two bindings and exactly one dispatched attempt for the
+temporary mapping. The temporary key was revoked; the configuration and mapping
+were disabled. Before/after reads of the original currently mapped credential
+confirmed the same revision and ciphertext digest.
+
+This verifies a credential-configuration update racing with admission, including
+new encryption of the same secret. It does not establish external key rotation,
+revocation of an upstream key, switching between different upstream accounts or
+commercial supply eligibility. Private secrets, ciphertext and identifiers remain
+outside the repository. No fixture result is used.
