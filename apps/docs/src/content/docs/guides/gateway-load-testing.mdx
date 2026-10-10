@@ -75,3 +75,20 @@ streams in 63.256 seconds, with completion P50/P95 of 3.418/4.319 seconds. All
 all holds were released and restart preserved the debit count. This includes
 upstream generation and is not an isolated measurement of binding overhead or
 maximum capacity. See the [operation-tariff checkpoint](https://github.com/niu-io/niu/blob/main/docs/reference/structured-output-streaming.md#operation-tariff-concurrency-checkpoint).
+
+
+## Concurrent bounded Chat failover checkpoint
+
+A four-worker run with a 60-second admission window completed 54 structured
+streams in 63.821 seconds including drain. Every operation first received a real
+OpenRouter authentication rejection, then completed on another credential:
+108 durable attempts, 54 exact customer charges/debits, no remaining holds and
+unchanged chains after restart. Saved outputs and independently reopened database
+records were checked separately. Completion P50/P95 was 4.531/5.272 seconds,
+including rejection, selection and upstream generation; completed-operation
+throughput was 0.846/second.
+
+This checks the exercised concurrent workflow rather than maximum capacity or
+isolated retry overhead. It is not a controlled comparison with the earlier
+single-attempt runs. See the
+[workload, accounting evidence and measurement limits](https://github.com/niu-io/niu/blob/main/docs/reference/upstream-retry-policy.md#concurrent-bounded-failover-checkpoint).

@@ -138,3 +138,37 @@ Original encryption identities were unchanged and isolated processes stopped.
 These observations do not qualify generic statuses/providers, competing successor
 transactions across multiple gateways, every uncertain-commit failure, broad
 capacity or circuit-breaker recovery. No fixture outcome supports these claims.
+
+
+## Concurrent bounded-failover checkpoint
+
+A fresh native run used four workers, an eight-connection gateway database pool,
+a 60-second admission window and at most 30 operations per worker, with no client
+retry or warm-up. The highest-priority credential was deliberately invalid; the
+next credential used the owner's real OpenRouter account. Every operation asked
+for a strict JSON stream containing a fresh marker and integers 1 through 200,
+with a 1,024-token output bound. This is internal credit-backed accounting
+verification, not commercial supply or proof of received funding.
+
+The run completed 54 operations in 63.821 seconds including drain: 0.846 completed
+operations/second. Completion P50/P95/maximum was 4.531/5.272/6.982 seconds;
+first-content P50/P95 was 1.832/2.623 seconds. These times include the actual
+upstream rejection, candidate transition and generation. They do not isolate
+Niu overhead or establish a causal comparison with earlier single-attempt runs.
+
+Independent final-artifact inspection verified every saved marker/integer sequence;
+the live stream reader recorded terminal completion for every response. Reopening the stopped retained PostgreSQL database confirmed
+108 attempts linked in 54 two-attempt chains, 54 recorded authentication refusals,
+and exactly 54 customer charges/debits. Every charge and configured procurement
+expense matched independently calculated token arithmetic. Customer charges
+summed to 22,543,356 nanounits; no customer/procurement hold remained. The earlier
+rejection retained observed elapsed timing without fabricated downstream stages;
+completed successors retained complete HTTP timing. Restart preserved the chains
+and debit count without resubmission. Original encrypted identity was unchanged,
+and isolated processes stopped after both the run and independent inspection.
+
+The gateway's 63 process samples reported RSS between 22,896 and 34,656 KiB and
+maximum observed `ps` CPU of 9.2%. PostgreSQL resource usage was not measured.
+This is a scoped concurrent business/accounting checkpoint, not maximum capacity,
+a long soak, multi-instance qualification, competing successors for one operation,
+or a guarantee against every failure mode. Those boundaries remain open.
