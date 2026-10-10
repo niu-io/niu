@@ -11290,6 +11290,28 @@ Content type: `application/json`.
               },
               "text": {
                 "type": "string"
+              },
+              "cache_control": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "ephemeral"
+                    ]
+                  },
+                  "ttl": {
+                    "type": "string",
+                    "enum": [
+                      "5m",
+                      "1h"
+                    ]
+                  }
+                }
               }
             }
           }
@@ -11365,6 +11387,28 @@ Content type: `application/json`.
                     },
                     "text": {
                       "type": "string"
+                    },
+                    "cache_control": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "type"
+                      ],
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "ephemeral"
+                          ]
+                        },
+                        "ttl": {
+                          "type": "string",
+                          "enum": [
+                            "5m",
+                            "1h"
+                          ]
+                        }
+                      }
                     }
                   }
                 }

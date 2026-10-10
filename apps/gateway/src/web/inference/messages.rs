@@ -89,6 +89,28 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///                         },
 ///                         "text": {
 ///                           "type": "string"
+///                         },
+///                         "cache_control": {
+///                           "type": "object",
+///                           "additionalProperties": false,
+///                           "required": [
+///                             "type"
+///                           ],
+///                           "properties": {
+///                             "type": {
+///                               "type": "string",
+///                               "enum": [
+///                                 "ephemeral"
+///                               ]
+///                             },
+///                             "ttl": {
+///                               "type": "string",
+///                               "enum": [
+///                                 "5m",
+///                                 "1h"
+///                               ]
+///                             }
+///                           }
 ///                         }
 ///                       }
 ///                     }
@@ -164,6 +186,28 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///                               },
 ///                               "text": {
 ///                                 "type": "string"
+///                               },
+///                               "cache_control": {
+///                                 "type": "object",
+///                                 "additionalProperties": false,
+///                                 "required": [
+///                                   "type"
+///                                 ],
+///                                 "properties": {
+///                                   "type": {
+///                                     "type": "string",
+///                                     "enum": [
+///                                       "ephemeral"
+///                                     ]
+///                                   },
+///                                   "ttl": {
+///                                     "type": "string",
+///                                     "enum": [
+///                                       "5m",
+///                                       "1h"
+///                                     ]
+///                                   }
+///                                 }
 ///                               }
 ///                             }
 ///                           }
@@ -612,7 +656,13 @@ fn validate(body: &Value) -> Result<i64, ApiError> {
                 !parts.is_empty()
                     && parts.len() <= 128
                     && parts.iter().all(|p| {
-                        p.as_object().is_some_and(|p| p.len() == 2)
+                        p.as_object().is_some_and(|p| {
+                            p.keys().all(|key| {
+                                ["type", "text", "cache_control"].contains(&key.as_str())
+                            })
+                        }) && p
+                            .get("cache_control")
+                            .is_none_or(crate::guardrails::input::valid_message_cache_control)
                             && p["type"] == "text"
                             && p["text"].is_string()
                     })

@@ -142,6 +142,19 @@ pub enum InspectionError {
 /// Textual message subset only. Returns a transformed clone; failures never mutate input.
 /// Use one inspection pass for all original system/message text. The temporary
 /// Chat-shaped document is local inspection input only, never an upstream body.
+/// Native cache metadata contains no inspectable text and is preserved verbatim.
+pub(crate) fn valid_message_cache_control(value: &serde_json::Value) -> bool {
+    value.as_object().is_some_and(|object| {
+        object
+            .keys()
+            .all(|key| ["type", "ttl"].contains(&key.as_str()))
+            && value["type"] == "ephemeral"
+            && value
+                .get("ttl")
+                .is_none_or(|ttl| ttl == "5m" || ttl == "1h")
+    })
+}
+
 pub fn inspect_messages(
     body: &serde_json::Value,
     rules: &[TextRule],
@@ -156,7 +169,26 @@ pub fn inspect_messages(
     if let Some(system) = body.get("system") {
         messages.insert(0, serde_json::json!({"role":"system","content":system}));
     }
-    let normalized = inspect_chat(&serde_json::json!({"messages":messages}), rules)?;
+    let mut cache_controls = Vec::new();
+    for (message_index, message) in messages.iter_mut().enumerate() {
+        if let Some(parts) = message["content"].as_array_mut() {
+            for (part_index, part) in parts.iter_mut().enumerate() {
+                if let Some(control) = part
+                    .as_object_mut()
+                    .and_then(|part| part.remove("cache_control"))
+                {
+                    if !valid_message_cache_control(&control) {
+                        return Err(InspectionError::UnsupportedContent);
+                    }
+                    cache_controls.push((message_index, part_index, control));
+                }
+            }
+        }
+    }
+    let mut normalized = inspect_chat(&serde_json::json!({"messages":messages}), rules)?;
+    for (message_index, part_index, control) in cache_controls {
+        normalized["messages"][message_index]["content"][part_index]["cache_control"] = control;
+    }
     let mut messages = normalized["messages"].as_array().unwrap().clone();
     if has_system {
         inspected["system"] = messages.remove(0)["content"].clone();

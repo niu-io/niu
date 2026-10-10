@@ -20,3 +20,22 @@ unknown, no charge was invented, and its reservation survived Gateway restart.
 The run does not qualify nonzero cache creation, explicit cache controls,
 cache-write pricing, or category-specific recovery. Those remain unfinished.
 The original runtime and database were unchanged by this isolated verification.
+
+
+## Explicit cache controls and nonzero observations
+
+Native Messages text blocks now accept `cache_control` with type `ephemeral`
+and optional `5m` or `1h` TTL. Other metadata keys, types, and TTLs are rejected.
+The protocol shape follows the [Claude prompt caching documentation](https://platform.claude.com/docs/en/build-with-claude/prompt-caching).
+Content inspection validates and temporarily removes cache metadata, inspects or
+redacts every text block, then restores the metadata on the transformed request.
+
+An actual OpenRouter Claude Haiku request with a unique long prefix and a 5-minute
+cache marker reported 5,295 cache creation tokens. After Gateway restart, the
+repeated request reported 5,295 cache read tokens and zero cache creation tokens.
+The stored request showed redacted text and the unchanged cache marker; invalid
+cache metadata was rejected before any attempt existed. Independent reopening
+verified saved response hashes, exact category quantities, aggregate-token charges,
+matching debits, and released reservations. Served documentation matched the new
+OpenAPI contract. One-hour caching remains unverified. These observations do not
+implement a separate cache-write price or claim a commercial Supplier offer.

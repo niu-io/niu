@@ -9,7 +9,7 @@ export type MessagesRequest = {
   top_p?: number;
   stop_sequences?: string[];
 };
-export type MessagesText = string | Array<{ type: 'text'; text: string }>;
+export type MessagesText = string | Array<{ type: 'text'; text: string; cache_control?: { type: 'ephemeral'; ttl?: '5m' | '1h' } }>;
 export type MessagesResponse = {
   id: string; type: 'message'; role: 'assistant'; model: string;
   content: Array<{ type: 'text'; text: string }>;
