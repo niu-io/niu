@@ -58,6 +58,7 @@ pub fn inspect(
             "previous_response_id",
             "prompt",
             "prompt_cache_key",
+            "prompt_cache_options",
             "reasoning",
             "safety_identifier",
             "service_tier",
@@ -354,6 +355,11 @@ fn inspect_response_metadata(body: &Value, paths: &mut Vec<String>) -> Result<()
     }
     if body.get("error").is_some_and(|value| !value.is_null())
         || body.get("prompt").is_some_and(|value| !value.is_null())
+        // OpenRouter emits this absent configuration explicitly as null.
+        // Nonempty cache metadata has no declared inspection coverage.
+        || body
+            .get("prompt_cache_options")
+            .is_some_and(|value| !value.is_null())
     {
         return Err(InspectionError::UnsupportedContent);
     }
@@ -394,7 +400,8 @@ fn inspect_response_metadata(body: &Value, paths: &mut Vec<String>) -> Result<()
             .ok_or(InspectionError::UnsupportedContent)?;
         if object
             .keys()
-            .any(|key| !["effort", "summary"].contains(&key.as_str()))
+            .any(|key| !["effort", "summary", "context"].contains(&key.as_str()))
+            || object.get("context").is_some_and(|value| !value.is_null())
         {
             return Err(InspectionError::UnsupportedContent);
         }

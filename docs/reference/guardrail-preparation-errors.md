@@ -104,3 +104,25 @@ and debit, released reservations, and no preparation denial or cooldown.
 Internal credit and verification tariffs do not represent merchant funding or
 commercial supply. This covers a Chat pattern block, not Responses output,
 redaction, indeterminate inspection or diagnostic-storage failure.
+
+### Responses envelope compatibility
+
+The Responses output inspector accepts absent or null `prompt_cache_options`
+and `reasoning.context`. A current personal OpenRouter response included both
+fields as null; previously, that otherwise textual envelope was withheld with
+an `indeterminate` / `unsupported_content` diagnostic. Non-null values remain
+unsupported, as do unknown fields. This compatibility adjustment does not grant
+inspection coverage for opaque cache configuration or reasoning context.
+
+After the adjustment, a fresh native run made an actual personal OpenRouter
+Responses generation under a buffered block rule. It returned
+`guardrail_output_withheld` and persisted `blocked` / `pattern_denial`, which
+remained readable after restart. Activating a nonmatching output rule then
+allowed a second actual Responses generation to deliver the requested unique
+marker. Independently reopened PostgreSQL retained both completed attempts,
+their blocked/allowed decisions, exact tariff charges and corresponding total
+debits, with released reservations and no preparation refusals or cooldowns.
+The delivered response's reported usage matched its persisted attempt. The
+withheld response's charge was independently calculated from persisted usage;
+its raw content was not exposed. Non-null extensions and other unsupported
+envelopes were not live-qualified by these two calls.
