@@ -112,6 +112,8 @@ excluded. The compatibility `/v1/models` response remains a complete list; bound
 database fetches do not imply a fixed-size response or a cross-page snapshot.
 Workspace discovery applies shared and eligible personal pools once per request; it does
 not resolve the shared inventory again after adding personal mappings.
+Personal ownership is read with internal route metadata, avoiding a separate
+ownership query for every mapping; it does not add fields to customer responses.
 
 A revisioned pool update applies to selection for new requests. Disabling a
 candidate does not cancel a generation already dispatched through it. That request

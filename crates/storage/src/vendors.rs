@@ -67,6 +67,8 @@ pub struct VendorRoute {
     pub model: VendorModelView,
     pub vendor: VendorView,
     pub credential_ciphertext: Vec<u8>,
+    /// Internal ownership from the same statement snapshot as this route.
+    pub personal_organization_id: Option<Uuid>,
 }
 
 #[derive(FromRow)]
@@ -87,6 +89,7 @@ struct VendorRouteRow {
     vendor_revision: i64,
     has_credential: bool,
     credential_ciphertext: Vec<u8>,
+    personal_organization_id: Option<Uuid>,
 }
 
 impl VendorRouteRow {
@@ -112,6 +115,7 @@ impl VendorRouteRow {
                 has_credential: self.has_credential,
             },
             credential_ciphertext: self.credential_ciphertext,
+            personal_organization_id: self.personal_organization_id,
         }
     }
 }
@@ -830,8 +834,11 @@ fn route_query(filter: &str) -> String {
          m.public_catalog,m.enabled AS model_enabled,m.capabilities,m.pricing, \
          m.revision AS model_revision,v.id AS vendor_id,v.name AS vendor_name, \
          v.adapter,v.api_base,v.enabled AS vendor_enabled,v.revision AS vendor_revision, \
-         (v.credential_ciphertext IS NOT NULL) AS has_credential,v.credential_ciphertext \
-         FROM vendor_models m JOIN vendors v ON v.id=m.vendor_id {filter} ORDER BY m.alias"
+         (v.credential_ciphertext IS NOT NULL) AS has_credential,v.credential_ciphertext, \
+         personal_owner.organization_id AS personal_organization_id \
+         FROM vendor_models m JOIN vendors v ON v.id=m.vendor_id \
+         LEFT JOIN personal_vendor_ownership personal_owner ON personal_owner.vendor_id=v.id \
+         {filter} ORDER BY m.alias"
     )
 }
 

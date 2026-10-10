@@ -480,3 +480,34 @@ Independent SQL still showed no inference attempts or financial entries. Tempora
 keys were revoked, isolated processes stopped and the original database/encrypted
 credential identity remained unchanged. This verifies discovery and its exercised
 visibility boundaries, not actual inference or a cross-query configuration snapshot.
+
+## Ownership read with route metadata
+
+Shared model discovery previously queried personal ownership once for every
+mapping, including mappings on the same credential. Internal route rows now
+include their optional personal organization through a left join in the same SQL
+statement. Discovery excludes personally owned mappings from that internal field.
+The route type remains non-serializable and non-debuggable; the field is not a
+customer API response or a new cache.
+
+Actual before/after reads on one native database with 123 mappings recorded 123
+separate ownership queries per request before and zero after, across eight reads
+per version following warm-up. Full owner and foreign model responses matched;
+60 additional personal mappings marked catalog-visible remained absent from the
+foreign company and public catalog. Restart retained identical owner discovery.
+Local median latency was 30.10 ms before and 23.60 ms after. This is a small
+sequential read observation, not a production throughput claim.
+
+A supplemental personal generation in the existing verification workspace was
+rejected with 409 before dispatch because that workspace retained a procurement
+budget and the unpriced route had no procurement reservation. The saved attempt
+was independently confirmed `not_sent` with no dispatch timestamp. That record
+was retained. In a new workspace under the same company without that budget,
+a real personal model call completed with the requested marker. Independent SQL
+matched provider-reported prompt/completion counts and confirmed execution; no
+customer charge was created. Temporary keys were revoked and isolated processes
+stopped. Original configuration, data and encrypted identity were unchanged.
+
+The procurement-budget interaction above is an existing boundary, not fixed by
+this query optimization. This checkpoint does not qualify every adapter or races
+between ownership changes and dispatch.

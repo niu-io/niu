@@ -250,13 +250,7 @@ async fn base_models(state: &AppState) -> Result<BTreeMap<String, ModelConfig>, 
         // A disabled database route still shadows its static predecessor.
         models.remove(&route.model.alias);
         // Personal credentials must never enter the shared or public catalog.
-        if state
-            .store
-            .personal_vendor_organization(route.vendor.id)
-            .await
-            .map_err(ApiError::from_store)?
-            .is_some()
-        {
+        if route.personal_organization_id.is_some() {
             continue;
         }
         if route.vendor.enabled && route.model.enabled {
