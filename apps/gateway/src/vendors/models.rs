@@ -32,7 +32,16 @@ pub(crate) async fn resolve_scoped_model(
     state: &AppState,
     organization_id: uuid::Uuid,
     alias: &str,
+    protocol: crate::guardrails::input::Protocol,
 ) -> Result<ResolvedModel, ApiError> {
+    if let Some(pool) = state
+        .store
+        .model_route_pool(alias)
+        .await
+        .map_err(ApiError::from_store)?
+    {
+        return resolve_pool(state, Some(organization_id), pool, Some(&protocol)).await;
+    }
     if let Some(route) = state
         .store
         .personal_vendor_route(organization_id, alias)
@@ -59,6 +68,117 @@ pub(crate) async fn resolve_scoped_model(
         });
     }
     resolve_model(state, alias).await
+}
+
+async fn resolve_pool(
+    state: &AppState,
+    organization: Option<uuid::Uuid>,
+    pool: niu_storage::ModelRoutePool,
+    protocol: Option<&crate::guardrails::input::Protocol>,
+) -> Result<ResolvedModel, ApiError> {
+    if !pool.enabled
+        || pool
+            .organization_id
+            .is_some_and(|owner| Some(owner) != organization)
+    {
+        return Err(ApiError::not_found());
+    }
+    let mut eligible = Vec::new();
+    for candidate in &pool.candidates {
+        if !candidate.enabled {
+            continue;
+        }
+        let Some(route) = state
+            .store
+            .vendor_route(&candidate.alias)
+            .await
+            .map_err(ApiError::from_store)?
+        else {
+            continue;
+        };
+        if !route.vendor.enabled
+            || !route.model.enabled
+            || route.model.capabilities.get("video_schema").is_some()
+        {
+            continue;
+        }
+        let owner = state
+            .store
+            .personal_vendor_organization(route.vendor.id)
+            .await
+            .map_err(ApiError::from_store)?;
+        if owner != pool.organization_id {
+            continue;
+        }
+        if owner.is_none()
+            && (route.model.pricing.is_none()
+                || !state
+                    .store
+                    .supplier_model_available(&candidate.alias)
+                    .await
+                    .map_err(ApiError::from_store)?)
+        {
+            continue;
+        }
+        if let Some(protocol) = protocol {
+            use crate::guardrails::input::Protocol;
+            let model = stored_model(&route)?;
+            let supported = match protocol {
+                Protocol::Chat => model.protocol().supports_chat_completions(),
+                Protocol::Responses => {
+                    model.protocol().is_openai_compatible() && model.supports_responses
+                }
+                Protocol::Embeddings => {
+                    model.protocol().is_openai_compatible() && model.supports_embeddings
+                }
+                Protocol::VideoText => false,
+            };
+            if !supported {
+                continue;
+            }
+        }
+        eligible.push((candidate, route));
+    }
+    let priority = eligible
+        .iter()
+        .map(|(c, _)| c.priority)
+        .max()
+        .ok_or_else(ApiError::route_pool_unavailable)?;
+    eligible.retain(|(c, _)| c.priority == priority);
+    let total: u64 = eligible.iter().map(|(c, _)| u64::from(c.weight)).sum();
+    // Routing randomness is not a secret or authorization decision.
+    let mut ticket = (uuid::Uuid::new_v4().as_u128() as u64 & 0x3fff_ffff_ffff_ffff) % total;
+    let mut selected = None;
+    for (candidate, route) in eligible {
+        if ticket < u64::from(candidate.weight) {
+            selected = Some(route);
+            break;
+        }
+        ticket -= u64::from(candidate.weight);
+    }
+    let route = selected.ok_or_else(ApiError::unavailable)?;
+    let cipher = state
+        .vendor_cipher
+        .as_ref()
+        .ok_or_else(ApiError::unavailable)?;
+    let api_key = cipher
+        .open(route.vendor.id, &route.credential_ciphertext)
+        .map_err(|_| ApiError::unavailable())?;
+    let mut model = stored_model(&route)?;
+    model.public_catalog = false;
+    let personal = pool.organization_id.is_some();
+    if personal {
+        model.pricing = None;
+    }
+    let mut snapshot = niu_storage::ManagedRouteSnapshot::from(&route);
+    snapshot.pool_alias = Some(pool.alias);
+    snapshot.pool_revision = Some(pool.revision);
+    Ok(ResolvedModel {
+        model,
+        api_key,
+        managed_route: Some(snapshot),
+        personal_route: personal.then_some(route),
+    })
 }
 
 pub(super) fn make_model(
@@ -160,6 +280,24 @@ pub(crate) async fn effective_models(
     {
         models.remove(&alias);
     }
+    for pool in state
+        .store
+        .model_route_pools()
+        .await
+        .map_err(ApiError::from_store)?
+    {
+        models.remove(&pool.alias);
+        if pool.organization_id.is_none() && pool.enabled {
+            let alias = pool.alias.clone();
+            match resolve_pool(state, None, pool, None).await {
+                Ok(resolved) => {
+                    models.insert(alias, resolved.model);
+                }
+                Err(error) if error.unavailable_catalog_route() => {}
+                Err(error) => return Err(error),
+            }
+        }
+    }
     Ok(models)
 }
 
@@ -178,6 +316,26 @@ pub(crate) async fn scoped_models(
         model.pricing = None;
         model.public_catalog = false;
         models.insert(route.model.alias, model);
+    }
+    for pool in state
+        .store
+        .model_route_pools()
+        .await
+        .map_err(ApiError::from_store)?
+    {
+        models.remove(&pool.alias);
+        if pool.enabled
+            && (pool.organization_id.is_none() || pool.organization_id == Some(organization_id))
+        {
+            let alias = pool.alias.clone();
+            match resolve_pool(state, Some(organization_id), pool, None).await {
+                Ok(resolved) => {
+                    models.insert(alias, resolved.model);
+                }
+                Err(error) if error.unavailable_catalog_route() => {}
+                Err(error) => return Err(error),
+            }
+        }
     }
     Ok(models)
 }

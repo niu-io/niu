@@ -10,6 +10,7 @@ pub(crate) mod asset_updates;
 mod bootstrap;
 pub(crate) mod crypto;
 mod models;
+pub(crate) mod route_pools;
 
 pub use api::{
     asset_management_configuration, assign_personal_owner, associate_supplier, catalog,

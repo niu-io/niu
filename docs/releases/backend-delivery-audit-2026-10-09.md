@@ -68,9 +68,11 @@ round trips or by a green fixture workflow:
    single-route resolution and incomplete business fallback orchestration; the
    shared client's implicit reqwest retry policy is now explicitly disabled.
    [Schema and candidate-policy review](../architecture/model-routing-evolution.md)
-   confirms that one alias currently binds one credential/offer; multiple
-   mappings per customer alias and revisioned priority/weight pools need
-   implementation before generic failover can preserve pricing and grants.
+   identified the original one-alias/one-credential constraint. Additive
+   [text pools](../reference/model-route-pools.md) now separate the customer alias
+   from selected mappings and implement revisioned priority/weight policies.
+   Actual personal Chat/Responses selection is verified; weighted traffic,
+   customer-paid attribution and post-rejection failover remain open.
 4. Measure sustained inference/financial contention and larger actual datasets
    against explicit operational capacity targets. Current read measurements use
    a small local dataset and do not establish production throughput.
@@ -78,6 +80,10 @@ round trips or by a green fixture workflow:
    Saved upstream result references still depend on upstream content retention.
 
 ## Recent concrete corrections
+
+- Text route pools now preserve customer aliases while selecting separate supply
+  mappings. Actual API/database checks cover priority/protocol selection, disabled
+  members, pool revision races, scope isolation and concurrent policy updates.
 
 - [Managed route binding](../reference/managed-route-bindings.md) now carries
   selected credential/model revisions to transactional dispatch checks. An actual

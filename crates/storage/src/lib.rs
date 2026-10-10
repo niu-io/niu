@@ -11,6 +11,8 @@ pub use agent_observations::*;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use uuid::Uuid;
 mod branding;
+mod route_pools;
+pub use route_pools::{ModelRoutePool, RoutePoolCandidate};
 mod managed_routes;
 pub use branding::BrandingSettings;
 mod accounting;
@@ -192,6 +194,8 @@ pub struct Attempt {
 /// Immutable managed-route resolution metadata; contains no credential material.
 #[derive(Clone)]
 pub struct ManagedRouteSnapshot {
+    pub pool_alias: Option<String>,
+    pub pool_revision: Option<i64>,
     pub vendor_id: Uuid,
     pub model_alias: String,
     pub vendor_revision: i64,

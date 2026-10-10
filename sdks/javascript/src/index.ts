@@ -574,3 +574,5 @@ export type { KeyConcurrencyLimit, KeyConcurrencyLimitRevision } from './admin.j
 export type { KeyTokenUsageWindow } from './admin.js';
 
 export type { KeyTokenRateLimit, KeyTokenRateLimitRevision } from './admin.js';
+
+export type { ModelRoutePool, ModelRoutePoolCandidate, ModelRoutePoolInput, ModelRoutePoolRevision } from './admin.js';

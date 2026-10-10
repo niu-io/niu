@@ -6,6 +6,10 @@ info:
 servers:
   - url: /
 paths:
+  /admin/v1/model-route-pools:
+    $ref: './model-route-pools.openapi.yaml#/paths/~1admin~1v1~1model-route-pools'
+  /admin/v1/model-route-pools/history:
+    $ref: './model-route-pools.openapi.yaml#/paths/~1admin~1v1~1model-route-pools~1history'
   /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit:
     $ref: './key-token-rate.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1token-rate-limit'
   /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit/history:

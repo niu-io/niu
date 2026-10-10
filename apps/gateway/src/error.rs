@@ -205,6 +205,22 @@ impl ApiError {
         }
     }
 
+    pub(crate) fn route_pool_unavailable() -> Self {
+        Self {
+            failure: None,
+            status: StatusCode::SERVICE_UNAVAILABLE,
+            kind: "route_pool_unavailable",
+            message: "No eligible route is available for this model and protocol",
+        }
+    }
+
+    pub(crate) fn unavailable_catalog_route(&self) -> bool {
+        matches!(
+            self.kind,
+            "route_pool_unavailable" | "not_found_error" | "upstream_error"
+        )
+    }
+
     pub fn unavailable() -> Self {
         Self {
             failure: None,

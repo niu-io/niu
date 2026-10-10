@@ -1,0 +1,124 @@
+openapi: 3.1.0
+info:
+  title: NIU.IO model route pools
+  version: 0.1.0
+paths:
+  /admin/v1/model-route-pools:
+    get:
+      operationId: getModelRoutePool
+      security: [{ bearerAuth: [] }]
+      summary: Read an installation-managed model candidate pool
+      parameters:
+        - { in: query, name: alias, required: true, schema: { type: string, minLength: 1, maxLength: 200 } }
+      responses:
+        '200':
+          description: Current pool configuration
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/ModelRoutePool' }
+        '403': { description: Installation administration required }
+        '404': { description: Pool not found }
+    put:
+      operationId: setModelRoutePool
+      security: [{ bearerAuth: [] }]
+      summary: Create or revise a model candidate pool
+      description: Revisions start at zero for creation. Ownership is immutable. Candidate aliases identify existing credential/model mappings, not nested pools. Personal pools require all candidates owned by that organization; shared pools require nonpersonal priced mappings. Video mappings are rejected. Highest eligible priority wins, with weighted selection within that tier. No post-dispatch retries are performed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [alias, organization_id, enabled, expected_revision, candidates]
+              properties:
+                alias: { type: string, minLength: 1, maxLength: 200, pattern: '^[!-~]+$' }
+                organization_id: { type: [string, 'null'], format: uuid }
+                enabled: { type: boolean }
+                expected_revision: { type: integer, minimum: 0, maximum: 9007199254740990 }
+                candidates:
+                  type: array
+                  minItems: 1
+                  maxItems: 64
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [alias, priority, weight, enabled]
+                    properties:
+                      alias: { type: string, minLength: 1, maxLength: 200 }
+                      priority: { type: integer, minimum: -1000, maximum: 1000 }
+                      weight: { type: integer, minimum: 1, maximum: 10000 }
+                      enabled: { type: boolean }
+      responses:
+        '200':
+          description: Saved revision; changes apply to later admission and stale snapshots reject before dispatch
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [revision]
+                    properties:
+                      revision: { type: integer, minimum: 1, maximum: 9007199254740991 }
+        '400': { description: Invalid candidates, bounds, ownership, reserved alias or unsupported mapping }
+        '403': { description: Installation administration required }
+        '409': { description: Stale revision or attempted ownership change }
+  /admin/v1/model-route-pools/history:
+    get:
+      operationId: listModelRoutePoolHistory
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { in: query, name: alias, required: true, schema: { type: string } }
+        - { in: query, name: before_revision, schema: { type: integer, minimum: 1 } }
+      responses:
+        '200':
+          description: At most 100 immutable revisions in descending order
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    maxItems: 100
+                    items:
+                      allOf:
+                        - { $ref: '#/components/schemas/ModelRoutePool' }
+                        - type: object
+                          required: [recorded_at]
+                          properties:
+                            recorded_at: { type: string, format: date-time }
+        '403': { description: Installation administration required }
+        '404': { description: Pool not found }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer }
+  schemas:
+    ModelRoutePool:
+      type: object
+      required: [alias, organization_id, enabled, revision, candidates]
+      properties:
+        alias: { type: string }
+        organization_id: { type: [string, 'null'], format: uuid }
+        enabled: { type: boolean }
+        revision: { type: integer, minimum: 1, maximum: 9007199254740991 }
+        candidates:
+          type: array
+          minItems: 1
+          maxItems: 64
+          items:
+            type: object
+            required: [alias, priority, weight, enabled]
+            properties:
+              alias: { type: string }
+              priority: { type: integer, minimum: -1000, maximum: 1000 }
+              weight: { type: integer, minimum: 1, maximum: 10000 }
+              enabled: { type: boolean }

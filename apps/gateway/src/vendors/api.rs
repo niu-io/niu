@@ -13,7 +13,7 @@ use uuid::Uuid;
 const MAX_MODEL_CATALOG_BYTES: usize = 2 * 1024 * 1024;
 const MAX_DISCOVERED_MODELS: usize = 2_000;
 
-async fn installation(state: &AppState, headers: &HeaderMap) -> Result<(), ApiError> {
+pub(super) async fn installation(state: &AppState, headers: &HeaderMap) -> Result<(), ApiError> {
     let authorization = state
         .authorize_admin_headers(headers, niu_storage::AdminPermission::ManageOperators)
         .await?;

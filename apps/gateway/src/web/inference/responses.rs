@@ -48,6 +48,7 @@ pub(in crate::web) async fn responses(
         &state,
         principal.scope().organization_id,
         &public_model,
+        crate::guardrails::input::Protocol::Responses,
     )
     .await?;
     let model = &resolved.model;

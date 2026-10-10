@@ -524,7 +524,7 @@ pub(super) async fn begin_attempt(
             .bind_provider_offer(
                 scope,
                 attempt,
-                public_model,
+                managed_route.map_or(public_model, |route| route.model_alias.as_str()),
                 &model.upstream_model,
                 model.api_base.as_deref(),
             )

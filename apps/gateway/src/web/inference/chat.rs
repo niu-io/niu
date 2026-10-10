@@ -101,6 +101,7 @@ async fn chat_as(
         &state,
         principal.scope().organization_id,
         &public_model,
+        crate::guardrails::input::Protocol::Chat,
     )
     .await?;
     let model = &resolved.model;

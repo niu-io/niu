@@ -1,15 +1,18 @@
 # Model routing: current constraints and required implementation
 
-Status: implementation design, 2026-10-10. This document records an inspected
-backend gap; it does not announce a working route pool or failover feature.
+Status: evolving implementation design, 2026-10-10. The additive
+[text route pool implementation](../reference/model-route-pools.md) now provides
+candidate administration and pre-dispatch selection. Complete business failover
+and paid pool qualification remain open.
 
 ## Inspected current structure
 
 `vendor_models.alias` is the primary key introduced by migration 0013. A mapping
 selects one `vendor_id`. `provider_offers.model_alias` is unique and references
 that mapping. Creating independent Supplier credentials therefore does not make
-them interchangeable candidates for one customer model. Multiple mappings can
-target the same upstream model under different aliases.
+them interchangeable candidates for one customer model by themselves. Migration
+0213 adds pools above these existing mappings without rewriting their aliases or
+history. Multiple mappings can target the same upstream model under different aliases.
 
 `vendors/models.rs` resolves an owner-scoped personal route, a shared stored route,
 or a static model. `begin_attempt` binds customer tariffs by public model and
@@ -70,9 +73,9 @@ polling must not create a replacement generation on another Supplier.
 | Increment | Required result | Current status |
 | --- | --- | --- |
 | Durable selected-route binding | Configuration races reject before dispatch; historical selection stays inspectable | Generic managed-route binding implemented; actual personal Chat model-revision race verified, broader paths open |
-| Separate customer models and supply mappings | Multiple credentials serve one customer alias without changing grants or tariffs | Not implemented |
-| Candidate administration | Revisioned membership, priority, weight, enabled state and scoped history | Not implemented |
-| Candidate selection | Eligible priority/weight selection, no disabled or foreign personal routes, defined no-route response | Not implemented |
+| Separate customer models and supply mappings | Multiple credentials serve one customer alias without changing grants or tariffs | Additive text pools implemented; actual personal alias/grant behavior verified; paid tariff behavior open |
+| Candidate administration | Revisioned membership, priority, weight, enabled state and scoped history | Implemented with actual configuration/history/concurrency evidence |
+| Candidate selection | Eligible priority/weight selection, no disabled or foreign personal routes, defined no-route response | Implemented; actual priority/protocol/disabled-member selection and scope rejection verified; nondegenerate weighted traffic open |
 | Safe failover orchestration | Distinct attempts, bounded retries and deadlines, no uncertain resubmission | Not implemented for generic inference |
 | Health and recovery | Defined cooldown and re-entry under concurrent gateways without a probe flood | Complete cross-adapter behavior unverified |
 | Financial and performance qualification | Actual multi-candidate traffic reconciles reservations, charges and route attribution under contention | Unverified |

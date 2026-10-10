@@ -5,6 +5,8 @@ use uuid::Uuid;
 impl From<&VendorRoute> for ManagedRouteSnapshot {
     fn from(route: &VendorRoute) -> Self {
         Self {
+            pool_alias: None,
+            pool_revision: None,
             vendor_id: route.vendor.id,
             model_alias: route.model.alias.clone(),
             vendor_revision: route.vendor.revision,
@@ -19,9 +21,9 @@ impl Store {
         attempt: Uuid,
         route: &ManagedRouteSnapshot,
     ) -> Result<(), StoreError> {
-        sqlx::query("INSERT INTO managed_attempt_routes(attempt_id,vendor_id,model_alias,vendor_revision,model_revision) VALUES($1,$2,$3,$4,$5)")
+        sqlx::query("INSERT INTO managed_attempt_routes(attempt_id,vendor_id,model_alias,vendor_revision,model_revision,pool_alias,pool_revision) VALUES($1,$2,$3,$4,$5,$6,$7)")
             .bind(attempt).bind(route.vendor_id).bind(&route.model_alias)
-            .bind(route.vendor_revision).bind(route.model_revision)
+            .bind(route.vendor_revision).bind(route.model_revision).bind(&route.pool_alias).bind(route.pool_revision)
             .execute(executor).await.map_err(crate::accounting::map_gateway_admission_error)?;
         Ok(())
     }

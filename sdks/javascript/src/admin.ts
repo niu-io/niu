@@ -17,6 +17,11 @@ export type BrandingSettings = {
 export type BrandingColorToken = 'background' | 'foreground' | 'primary' | 'primary-foreground' | 'sidebar' | 'sidebar-foreground' | 'accent' | 'accent-foreground';
 export type BrandingConfiguration = { data: { revision: string; settings: BrandingSettings } };
 
+export type ModelRoutePoolCandidate = { alias: string; priority: number; weight: number; enabled: boolean };
+export type ModelRoutePool = { alias: string; organization_id: string | null; enabled: boolean; revision: number; candidates: ModelRoutePoolCandidate[] };
+export type ModelRoutePoolInput = Omit<ModelRoutePool, 'revision'> & { expected_revision: number };
+export type ModelRoutePoolRevision = ModelRoutePool & { recorded_at: string };
+
 export type TenantScope = { organizationId: string; projectId: string };
 /** Customer limits share history across secret rotation; null means unlimited. */
 export type KeyIpPolicy = { allowed_cidrs: string[] | null; revision: string | null };
@@ -963,6 +968,25 @@ export class NiuAdminClient {
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/concurrency-limit/history${params.size ? `?${params}` : ''}`, undefined, options);
   }
 
+
+  /** Installation-only candidate pool; customer permissions remain attached to its alias. */
+  getModelRoutePool(alias: string, options?: RequestOptions): Promise<{ data: ModelRoutePool }> {
+    return this.request(`/model-route-pools?${new URLSearchParams({ alias })}`, undefined, options);
+  }
+
+  setModelRoutePool(input: ModelRoutePoolInput, options?: RequestOptions): Promise<{ data: { revision: number } }> {
+    if (!Number.isSafeInteger(input.expected_revision) || input.expected_revision < 0) throw new TypeError('Use an exact nonnegative pool revision');
+    return this.request('/model-route-pools', input, options, 'PUT');
+  }
+
+  listModelRoutePoolHistory(alias: string, beforeRevision?: number, options?: RequestOptions): Promise<{ data: ModelRoutePoolRevision[] }> {
+    const query = new URLSearchParams({ alias });
+    if (beforeRevision !== undefined) {
+      if (!Number.isSafeInteger(beforeRevision) || beforeRevision < 1) throw new TypeError('Use a positive pool history revision');
+      query.set('before_revision', String(beforeRevision));
+    }
+    return this.request(`/model-route-pools/history?${query}`, undefined, options);
+  }
 
   listKeySpendingLimits(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: KeySpendingAccount[] }> {
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/spending-limit`, undefined, options);

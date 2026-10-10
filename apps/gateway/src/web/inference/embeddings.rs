@@ -31,6 +31,7 @@ pub(in crate::web) async fn embeddings(
         &state,
         principal.scope().organization_id,
         &public_model,
+        crate::guardrails::input::Protocol::Embeddings,
     )
     .await?;
     let model = &resolved.model;
