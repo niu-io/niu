@@ -142,6 +142,11 @@ export type SupplierOffer = {
   cached_prompt_rate?: string | null;
 } & ({ rate_kind?: 'text'; currency: string; prompt_rate: string; completion_rate: string }
   | { rate_kind: 'media'; currency: null; prompt_rate: null; completion_rate: null });
+/** Immutable procurement quote; media prices are in the separate media rate card. */
+export type SupplierOfferRevision = {
+  revision: string; model_alias: string; created_at: string;
+} & ({ rate_kind: 'text'; currency: string; prompt_rate: string; completion_rate: string; cached_prompt_rate: string | null }
+  | { rate_kind: 'media'; currency: null; prompt_rate: null; completion_rate: null; cached_prompt_rate: null });
 /** Draft media model bindings. Availability and purchase-rate qualification are separate. */
 export type SupplierMediaOfferModel = {
   model_alias: string; api_key_name: string; vendor_id: string;
@@ -641,6 +646,11 @@ export class NiuAdminClient {
   publishSupplierRates(supplierId: string, rates: SupplierRateInput, options?: RequestOptions): Promise<{ data: { revision: string } }> {
     validateRates(rates);
     return this.request(`/providers/${uuid(supplierId)}/offers`, rates, options);
+  }
+
+  /** Platform administration or active membership in this Supplier is required. */
+  getSupplierOfferRevision(supplierId: string, offerId: string, revisionId: string, options?: RequestOptions): Promise<{ data: SupplierOfferRevision }> {
+    return this.request(`/providers/${uuid(supplierId)}/offers/${uuid(offerId)}/revisions/${uuid(revisionId)}`, undefined, options);
   }
 
   /** Platform-administrator review. Does not activate offers or verify the underlying evidence. */

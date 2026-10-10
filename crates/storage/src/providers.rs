@@ -691,6 +691,30 @@ impl Store {
         Ok(())
     }
 
+    /// Read an immutable agreed rate by its full Supplier/offer/revision identity.
+    pub async fn provider_offer_revision(
+        &self,
+        provider: Uuid,
+        offer: Uuid,
+        revision: Uuid,
+    ) -> Result<Option<Value>, StoreError> {
+        Ok(sqlx::query_scalar(
+            "SELECT jsonb_build_object(
+                'revision',r.id,'model_alias',o.model_alias,'rate_kind',r.rate_kind,
+                'currency',r.currency,'prompt_rate',r.prompt_rate::text,
+                'completion_rate',r.completion_rate::text,
+                'cached_prompt_rate',r.cached_prompt_rate::text,'created_at',r.created_at)
+             FROM provider_offer_revisions r
+             JOIN provider_offers o ON o.id=r.offer_id
+             WHERE o.provider_id=$1 AND o.id=$2 AND r.id=$3",
+        )
+        .bind(provider)
+        .bind(offer)
+        .bind(revision)
+        .fetch_optional(&self.pool)
+        .await?)
+    }
+
     /// Snapshot the agreed rate before dispatch. Route changes cannot assign another vendor's work.
     pub async fn bind_provider_offer(
         &self,

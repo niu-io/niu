@@ -143,3 +143,29 @@ Compilation, all-target gateway Clippy, SDK build and OpenAPI YAML parsing
 completed. Actual cached Supplier accrual, missing-category recovery, nonempty
 consumption aggregation, payout reconciliation and procurement-bound integration
 remain unverified. No fixture outcome is evidence for these claims.
+
+### Reading the original Supplier quote
+
+`GET /admin/v1/providers/{provider}/offers/{offer}/revisions/{revision}` returns a
+known immutable quote, including its model alias, meter kind, creation time and
+exact text rates. All three identities must match. Platform administrators and
+active members of that Supplier may read it; company ownership alone grants no
+procurement access. Pausing or superseding a quote does not erase it. Reading a
+quote does not establish current qualification, activation, earnings or payment.
+Media offer revisions have null text rates; their purchase cards remain available
+through the separate media pricing API. The JavaScript SDK exposes
+`getSupplierOfferRevision` and `SupplierOfferRevision`. Internal identifiers are
+API references and must not be displayed as product labels.
+
+A current-input run read all four previously published configuration revisions
+through the optimized gateway. Independent PostgreSQL reads matched each exact
+currency, ordinary rate and cached rate, including superseded flat, cached and
+explicitly cleared revisions. Actual company owner/viewer credentials were denied;
+an explicitly granted Supplier viewer could read its quote. Mismatched Supplier,
+offer and revision references were denied, as was the same viewer after membership
+revocation. Temporary memberships and operators were revoked. Customer balance
+entries and Supplier earnings remained unchanged. This covers text quote reads
+and these authorization boundaries, not media quote reads, inference, procurement
+reservations or paid settlement. Compilation, all-target gateway Clippy, SDK build,
+formatting, OpenAPI YAML parsing and public-boundary checks also completed;
+fixture outcomes were not used as evidence.

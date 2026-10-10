@@ -402,6 +402,39 @@ paths:
         '400': { description: Invalid monetary values }
         '403': { description: Installation access required }
         '409': { description: Ownership or expected revision conflict }
+  /admin/v1/providers/{provider}/offers/{offer}/revisions/{revision}:
+    parameters:
+      - $ref: '#/components/parameters/provider'
+      - { name: offer, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: revision, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      operationId: getSupplierOfferRevision
+      summary: Read an immutable Supplier quote for a known revision
+      description: Platform administration or active membership in this Supplier is required. All three path identities must match. Paused or superseded text quotes remain readable with their exact rates; media revisions return null text rates and use the separate media rate card API. The response does not imply current qualification, activation, settled earnings or payment. Internal identifiers must remain outside product UI. No customer prices, credentials or endpoints are returned.
+      responses:
+        '200':
+          description: Immutable quote in data
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: false
+                    required: [revision, model_alias, rate_kind, currency, prompt_rate, completion_rate, cached_prompt_rate, created_at]
+                    properties:
+                      revision: { type: string, format: uuid }
+                      model_alias: { type: string }
+                      rate_kind: { type: string, enum: [text, media] }
+                      currency: { type: [string, 'null'] }
+                      prompt_rate: { type: [string, 'null'], pattern: '^[0-9]+$' }
+                      completion_rate: { type: [string, 'null'], pattern: '^[0-9]+$' }
+                      cached_prompt_rate: { type: [string, 'null'], pattern: '^[0-9]+$' }
+                      created_at: { type: string, format: date-time }
+        '401': { description: Missing or expired authentication }
+        '404': { description: Supplier membership unavailable or quote identity does not match }
   /admin/v1/providers/{provider}/offers/{offer}:
     parameters:
       - $ref: '#/components/parameters/provider'

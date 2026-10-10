@@ -225,6 +225,25 @@ pub async fn publish_offer(
     Ok(Json(json!({"data":{"revision":revision}})))
 }
 
+/// Historical rates are procurement data, even after an offer is paused.
+pub async fn offer_revision(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((provider, offer, revision)): Path<(Uuid, Uuid, Uuid)>,
+) -> Result<Json<Value>, ApiError> {
+    let authorization = auth(&state, &headers).await?;
+    if !authorization.can_manage_platform() {
+        member(&state, &headers, provider, false).await?;
+    }
+    let data = state
+        .store
+        .provider_offer_revision(provider, offer, revision)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    Ok(Json(json!({"data":data})))
+}
+
 pub async fn qualify_business(
     State(state): State<AppState>,
     headers: HeaderMap,

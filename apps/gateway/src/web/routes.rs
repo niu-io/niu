@@ -124,6 +124,7 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/admin/v1/providers/{provider}/administration", get(crate::providers::administration_dashboard))
         .route("/admin/v1/providers/{provider}/dashboard", get(crate::providers::dashboard))
         .route("/admin/v1/providers/{provider}/offers/{offer}", axum::routing::patch(crate::providers::set_offer))
+        .route("/admin/v1/providers/{provider}/offers/{offer}/revisions/{revision}", get(crate::providers::offer_revision))
         .route("/admin/v1/providers/{provider}/offers/{offer}/qualification", axum::routing::put(crate::providers::qualify_offer))
         .route("/admin/v1/providers/{provider}/offers/{offer}/qualification/revoke", axum::routing::post(crate::providers::revoke_offer_qualification))
         .route("/admin/v1/session", get(crate::admin::current_session).layer(middleware::from_fn(password_response_headers)))
