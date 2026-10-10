@@ -192,8 +192,8 @@ describe("policy version review and restore", () => {
         exact: true,
       }),
     );
-    await screen.findByText("email_v1");
-    expect(screen.getByText("api_key_prefix_v1")).toBeTruthy();
+    await screen.findByText("Email addresses", { exact: false });
+    expect(screen.getByText("API key prefixes", { exact: false })).toBeTruthy();
     await user.click(
       screen.getByRole("button", { name: "Restore this version" }),
     );
@@ -214,7 +214,7 @@ describe("policy version review and restore", () => {
         exact: true,
       }),
     );
-    await screen.findByText("email_v1");
+    await screen.findByText("Email addresses", { exact: false });
     await user.click(
       screen.getByRole("button", { name: "Restore this version" }),
     );
@@ -233,10 +233,42 @@ describe("policy version review and restore", () => {
         exact: true,
       }),
     );
-    await screen.findByText("email_v1");
+    await screen.findByText("Email addresses", { exact: false });
     expect(
       screen.queryByRole("button", { name: "Restore this version" }),
     ).toBeNull();
     expect(writes).toHaveLength(0);
   });
+});
+
+
+it('uses established pattern names in history while preserving custom expressions and hiding unknown codes', async () => {
+  const privateCode='37c459e0-848e-4918-bc8f-2686bb56ca81';
+  const version = {
+    revision: 1,
+    policy: {
+      name: 'Policy version 1',
+      models: {mode:'inherit'}, providers: {mode:'inherit'},
+      input_rules: [
+        {preset:'email_v1',action:'block'},
+        {preset:'niu_api_key_v1',action:'redact'},
+        {pattern:'confidential-[0-9]+',action:'block'},
+      ],
+      output: {mode:'buffered_full',rules:[
+        {preset:'api_key_prefix_v1',action:'block'},
+        {preset:privateCode,action:'block'},
+      ]},
+    },
+  };
+  vi.stubGlobal('fetch',vi.fn(async url=>Response.json(
+    String(url).includes('/revisions/') ? {data:version} : {data:[row(1)],next_cursor:null},
+  )));
+  const user=mount();
+  await user.click(await screen.findByRole('button',{name:'Policy version 1'}));
+  await screen.findByText('Email addresses',{exact:false});
+  expect(screen.getByText('Niu API keys',{exact:false})).toBeTruthy();
+  expect(screen.getByText('API key prefixes',{exact:false})).toBeTruthy();
+  expect(screen.getByText('confidential-[0-9]+').tagName).toBe('CODE');
+  expect(screen.getByText('Pattern name unavailable',{exact:false})).toBeTruthy();
+  for(const code of ['email_v1','niu_api_key_v1','api_key_prefix_v1',privateCode]) expect(screen.queryByText(code,{exact:false})).toBeNull();
 });

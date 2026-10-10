@@ -23,6 +23,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { request, VendorRequestError } from "@/features/vendors/api";
+import { presets } from "./rules";
 
 type Revision = {
   revision: number;
@@ -370,7 +371,7 @@ export default function GuardrailHistory({
                         <strong>
                           {rule.action === "block" ? "Block" : "Redact"}
                         </strong>
-                        : <code>{rule.preset ?? rule.pattern}</code>
+                        : {rule.preset ? presets.find(preset => preset.value === rule.preset)?.label ?? "Pattern name unavailable" : <code>{rule.pattern}</code>}
                       </li>
                     ))}
                   </ul>
@@ -390,7 +391,7 @@ export default function GuardrailHistory({
                           <strong>
                             {version.policy.output?.mode === "observe_only" ? "Observe" : rule.action === "block" ? "Block" : "Redact"}
                           </strong>
-                          : <code>{rule.preset ?? rule.pattern}</code>
+                          : {rule.preset ? presets.find(preset => preset.value === rule.preset)?.label ?? "Pattern name unavailable" : <code>{rule.pattern}</code>}
                         </li>
                       ))}
                     </ul>
