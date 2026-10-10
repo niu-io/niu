@@ -330,3 +330,22 @@ currently accepts null or positive revisions, whereas this credential contract
 starts with string zero; copying its revision validator would reject the initial
 policy. UI qualification remains open. Backend dispatch/refusal, rolling-window
 recovery and performance evidence are separate from this interface acceptance.
+
+### Supplier credential cooldown — frontend acceptance
+
+F03/F04 must consume the read-only
+[credential cooldown contract](../reference/upstream-credential-cooldown.md)
+without conflating it with the API key's enabled flag or RPM policy:
+
+- Platform administration can read the selected credential's current cooldown,
+  qualifying failure count and returned deadline, with explicit refresh and
+  unavailable/retry states. There is no manual reset or editable policy.
+- An expired deadline with `active: false` is not an active cooldown. Do not
+  infer readiness from the browser clock or advertise a health probe.
+- Customer Chat preserves the public `upstream_credential_cooldown` and
+  `route_pool_unavailable` refusal messages as failures without automatic replay,
+  model substitution or procurement detail. Existing dispatched work and saved
+  video recovery remain accessible under their original bindings.
+- Inspect the existing Supplier credential surface and mature reference, iterate
+  through Stitch, and qualify current rendered active/inactive/error states.
+  Backend rolling-window, restart and concurrency evidence does not qualify UI.

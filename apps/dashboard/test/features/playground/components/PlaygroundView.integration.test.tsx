@@ -795,13 +795,16 @@ describe('Global Chat', () => {
     expect(requests.filter(request => request.url === '/v1/chat/completions').every(request => request.signal?.aborted)).toBe(true);
   });
 
-  it('retains an upstream credential rate refusal without retrying or substituting a model', async () => {
+  it.each([
+    {status:429,type:'upstream_request_rate_exceeded',message:'The selected upstream route has reached its rolling 60-second request limit; retry after 60 seconds'},
+    {status:503,type:'upstream_credential_cooldown',message:'The model route is temporarily unavailable after confirmed upstream refusals'},
+    {status:503,type:'route_pool_unavailable',message:'No eligible route is available for this model and protocol'},
+  ])('retains $type without retrying or substituting a model', async ({status,type,message}) => {
     let dispatches=0;
-    const message='The selected upstream route has reached its rolling 60-second request limit; retry after 60 seconds';
     stubFetch(vi.fn(async (input: RequestInfo | URL) => {
       const url=String(input);
       if(url.endsWith('/keys'))return jsonResponse({data:[{id:'key-a',name:'Default',allowed_models:['fast'],revoked:false,expired:false}]});
-      if(url.endsWith('/chat/completions')){dispatches++;return new Response(JSON.stringify({error:{type:'upstream_request_rate_exceeded',message}}),{status:429,headers:{'content-type':'application/json','retry-after':'60'}});}
+      if(url.endsWith('/chat/completions')){dispatches++;return new Response(JSON.stringify({error:{type,message}}),{status,headers:{'content-type':'application/json',...(status===429?{'retry-after':'60'}:{})}});}
       return jsonResponse({data:[]});
     }));
     const user=userEvent.setup();renderPlayground(['fast']);
