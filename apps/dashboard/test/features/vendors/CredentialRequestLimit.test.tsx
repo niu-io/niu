@@ -29,6 +29,10 @@ it('requires reloading a conflicting policy before another write',async()=>{
   await user.click(await screen.findByRole('button',{name:'Edit limit'}));await user.type(screen.getByLabelText('Limit'),'10');await user.click(screen.getByRole('button',{name:'Save limit'}));
   await screen.findByText('This limit changed. Reload the saved limit before trying again.');
   expect(screen.getByLabelText('Limit').hasAttribute('disabled')).toBe(true);
+  await user.click(screen.getByRole('button',{name:'Cancel'}));
+  await user.click(screen.getByRole('button',{name:'Edit limit'}));
+  expect(screen.getByText('This limit changed. Reload the saved limit before trying again.')).toBeTruthy();
+  expect(screen.getByLabelText('Limit').hasAttribute('disabled')).toBe(true);
   await user.click(screen.getByRole('button',{name:'Reload limit'}));
   await waitFor(()=>expect((screen.getByLabelText('Limit') as HTMLInputElement).value).toBe('20'));
   expect(writes).toBe(1);
