@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import AccountBilling from "../../../src/features/billing/AccountBilling";
@@ -402,5 +402,73 @@ describe('customer cached-input billing evidence', () => {
     expect(await screen.findByText(expected)).toBeTruthy();
     expect(screen.getByText('Cache read: USD 0.1')).toBeTruthy();
     expect(screen.queryByText('private-revision')).toBeNull();
+  });
+});
+
+
+const textReceipt = {model_alias:'qwen/text',revision:'private-text-revision',currency:'USD',requests:'1',prompt_tokens:'7',completion_tokens:'1',prompt_rate:'300000000',completion_rate:'2500000000',amount_nanos:'4600'};
+const mediaReceipt = {model_alias:'example/video',currency:'USD',amount_nanos:'123456789',tariff_revision:'private-media-revision',meter:'seconds',measured_quantity:{numerator:'1',denominator:'2'},billable_quantity:{numerator:'1',denominator:'1'},discount_revisions:['private-discount-revision'],bound_exceeded:false};
+
+describe('customer media statement pagination', () => {
+  it('renders a media-only statement without a false empty state or private identifiers', async () => {
+    vi.stubGlobal('fetch', vi.fn(async url => Response.json({data:String(url).endsWith('/invoice-1') ? [] : data, ...(String(url).endsWith('/invoice-1') ? {media_lines:[mediaReceipt],media_next_cursor:null} : {})})));
+    setup('operator', '/billing?tab=statements');
+    await userEvent.setup().click(await screen.findByRole('button',{name:'View details'}));
+    const media = await screen.findByRole('region',{name:'Media charges'});
+    expect(within(media).getByText('USD 0.123456789')).toBeTruthy();
+    expect(within(media).getByText('1/2 seconds')).toBeTruthy();
+    expect(within(media).getByText('1 second')).toBeTruthy();
+    expect(screen.queryByText('No line items available.')).toBeNull();
+    expect(screen.queryByRole('table',{name:'Text charges'})).toBeNull();
+    for (const id of ['private-media-revision','private-discount-revision']) expect(screen.queryByText(id)).toBeNull();
+    expect(screen.queryByRole('button',{name:'Show more media charges'})).toBeNull();
+  });
+  it('appends media pages without repeating text groups or dropping identical separate charges', async () => {
+    const fetcher=vi.fn(async url=>Response.json(String(url).includes('/invoices/') ? {data:[textReceipt],media_lines:[mediaReceipt],media_next_cursor:String(url).includes('media_after=') ? null:'private-cursor'} : {data}));
+    vi.stubGlobal('fetch',fetcher);
+    setup('operator','/billing?tab=statements');
+    const user=userEvent.setup();
+    await user.click(await screen.findByRole('button',{name:'View details'}));
+    await user.click(await screen.findByRole('button',{name:'Show more media charges'}));
+    await waitFor(()=>expect(within(screen.getByRole('region',{name:'Media charges'})).getAllByText('example/video')).toHaveLength(2));
+    expect(within(screen.getByRole('table',{name:'Text charges'})).getAllByText('qwen/text')).toHaveLength(1);
+    expect(fetcher.mock.calls.map(([url])=>String(url))).toContain('/admin/v1/organizations/org/projects/project/billing/invoices/invoice-1?media_after=private-cursor');
+    expect(screen.queryByText('private-cursor')).toBeNull();
+    expect(screen.queryByRole('button',{name:'Show more media charges'})).toBeNull();
+  });
+  it('retains loaded charges and retries a failed page using the same cursor', async () => {
+    let fail=true;
+    vi.stubGlobal('fetch',vi.fn(async url=>String(url).includes('media_after=') && fail ? Response.json({error:{message:'Page temporarily unavailable'}},{status:503}) : Response.json(String(url).includes('/invoices/') ? {data:[],media_lines:[mediaReceipt],media_next_cursor:String(url).includes('media_after=') ? null:'private-cursor'}:{data})));
+    setup('operator','/billing?tab=statements');
+    const user=userEvent.setup();
+    await user.click(await screen.findByRole('button',{name:'View details'}));
+    await user.click(await screen.findByRole('button',{name:'Show more media charges'}));
+    await screen.findByText('Page temporarily unavailable');
+    expect(screen.getAllByText('example/video')).toHaveLength(1);
+    fail=false;
+    await user.click(screen.getByRole('button',{name:'Retry media charges'}));
+    await waitFor(()=>expect(screen.getAllByText('example/video')).toHaveLength(2));
+    expect(screen.queryByText('Page temporarily unavailable')).toBeNull();
+  });
+  it('aborts an old media page and ignores its completion after choosing another statement', async () => {
+    let finish!: (response: Response)=>void;
+    let pendingSignal: AbortSignal | undefined;
+    vi.stubGlobal('fetch',vi.fn(async (url, init:RequestInit|undefined)=>{
+      if(String(url).includes('media_after=')) {pendingSignal=init?.signal as AbortSignal; return new Promise<Response>(resolve=>{finish=resolve;});}
+      return Response.json(String(url).endsWith('/invoice-1') ? {data:[],media_lines:[mediaReceipt],media_next_cursor:'private-cursor'} : String(url).endsWith('/invoice-2') ? {data:[],media_lines:[{...mediaReceipt,model_alias:'example/second-video'}],media_next_cursor:null} : {data:{...data,invoices:[...data.invoices,{...data.invoices[0],id:'invoice-2'}]}});
+    }));
+    setup('operator','/billing?tab=statements');
+    const user=userEvent.setup();
+    await waitFor(()=>expect(screen.getAllByRole('button',{name:'View details'})).toHaveLength(2));
+    await user.click(screen.getAllByRole('button',{name:'View details'})[0]);
+    await user.click(await screen.findByRole('button',{name:'Show more media charges'}));
+    await screen.findByRole('button',{name:'Loading more…'});
+    await user.click(screen.getByRole('button',{name:'Close',exact:true}));
+    await user.click(screen.getAllByRole('button',{name:'View details'})[1]);
+    await screen.findByText('example/second-video');
+    expect(pendingSignal?.aborted).toBe(true);
+    await act(async()=>finish(Response.json({data:[],media_lines:[{...mediaReceipt,model_alias:'example/stale-video'}],media_next_cursor:null})));
+    expect(screen.queryByText('example/stale-video')).toBeNull();
+    expect(screen.queryByRole('button',{name:'Loading more…'})).toBeNull();
   });
 });

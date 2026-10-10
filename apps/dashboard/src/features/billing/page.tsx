@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { CustomerInvoiceLine, CustomerInvoiceMediaLine } from '../../../../../sdks/javascript/src/admin';
 import { useSearchParams } from 'react-router';
 import { IconReceipt, IconCurrencyDollar } from '@tabler/icons-react';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
@@ -20,9 +21,12 @@ type Billing = {
   balances: { currency: string; charged_nanos: string }[];
   unresolved: string; unpriced: string; tariffs: Tariff[]; invoices: Invoice[];
 };
-type Line = {
-  model_alias: string; revision: string; currency: string; requests: string;
-  prompt_tokens: string; cached_prompt_tokens?: string | null; completion_tokens: string; prompt_rate: string; cached_prompt_rate?: string | null; completion_rate: string; amount_nanos: string;
+type Line = CustomerInvoiceLine;
+type InvoiceDetails = { data: Line[]; media_lines?: CustomerInvoiceMediaLine[]; media_next_cursor?: string | null };
+const quantity = (value: { numerator: string; denominator: string }) => value.denominator === '1' ? value.numerator : `${value.numerator}/${value.denominator}`;
+const mediaMeter = (value: string, count: { numerator: string; denominator: string }) => {
+  const single = count.numerator === '1' && count.denominator === '1';
+  return value === 'seconds' ? single ? 'second' : 'seconds' : value === 'video_tokens' ? single ? 'video token' : 'video tokens' : single ? 'billing unit' : 'billing units';
 };
 const day = (ms: number) => new Date(ms).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
 
@@ -49,6 +53,11 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
   const [selected, setSelected] = useState<Invoice | null>(null);
   const [lines, setLines] = useState<Line[] | null>(null);
   const [detailError, setDetailError] = useState('');
+  const [mediaLines, setMediaLines] = useState<CustomerInvoiceMediaLine[]>([]);
+  const [mediaNext, setMediaNext] = useState<string | null>(null);
+  const [mediaLoading, setMediaLoading] = useState(false);
+  const [mediaError, setMediaError] = useState('');
+  const mediaRequest = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -62,13 +71,33 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
 
   useEffect(() => {
     setLines(null); setDetailError('');
+    setMediaLines([]); setMediaNext(null); setMediaLoading(false); setMediaError('');
     if (!selected) return;
     const controller = new AbortController();
-    void request<{data: Line[]}>(token, `${base}/invoices/${selected.id}`, 'GET', undefined, controller.signal)
-      .then(result => { if (!controller.signal.aborted) setLines(result.data); })
+    void request<InvoiceDetails>(token, `${base}/invoices/${selected.id}`, 'GET', undefined, controller.signal)
+      .then(result => { if (!controller.signal.aborted) { setLines(result.data); setMediaLines(result.media_lines ?? []); setMediaNext(result.media_next_cursor ?? null); } })
       .catch(reason => { if (!controller.signal.aborted) setDetailError(reason.message); });
-    return () => controller.abort();
+    return () => { controller.abort(); mediaRequest.current?.abort(); mediaRequest.current = null; };
   }, [token, base, selected]);
+
+  async function loadMoreMedia() {
+    if (!selected || !mediaNext || mediaRequest.current) return;
+    const controller = new AbortController();
+    mediaRequest.current = controller;
+    const cursor = mediaNext;
+    setMediaLoading(true); setMediaError('');
+    try {
+      const result = await request<InvoiceDetails>(token, `${base}/invoices/${selected.id}?media_after=${encodeURIComponent(cursor)}`, 'GET', undefined, controller.signal);
+      if (controller.signal.aborted) return;
+      if (result.media_next_cursor === cursor) throw new Error('Media charges could not advance to the next page. Retry later.');
+      setMediaLines(current => [...current, ...(result.media_lines ?? [])]);
+      setMediaNext(result.media_next_cursor ?? null);
+    } catch (reason) {
+      if (!controller.signal.aborted) setMediaError(reason instanceof Error && !(reason instanceof TypeError) ? reason.message : 'More media charges could not be loaded. Check your connection and retry.');
+    } finally {
+      if (mediaRequest.current === controller) { mediaRequest.current = null; if (!controller.signal.aborted) setMediaLoading(false); }
+    }
+  }
 
   return <>
     <PageHeader title="Usage statements" action={<Button variant="outline" aria-label="Refresh billing" disabled={loading} onClick={() => setRevision(value => value + 1)}><RefreshCw size={16} /></Button>} />
@@ -110,9 +139,26 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
       <DialogContent className="niu-modal billing-detail-dialog">
         <DialogHeader className="text-left"><DialogTitle>Statement details</DialogTitle><DialogDescription>{selected ? `Billing period: ${day(selected.from_ms)} – ${day(selected.to_ms - 1)}` : 'Workspace usage'}</DialogDescription></DialogHeader>
         {selected && <p>{money(selected.amount_nanos, selected.currency)} · {selected.status === 'paid' ? 'Payment recorded' : 'Issued'}</p>}
-        {detailError ? <Alert variant="destructive"><AlertTitle>Details unavailable</AlertTitle><AlertDescription>{detailError}<Button variant="outline" onClick={() => setSelected(value => value && {...value})}>Retry details</Button></AlertDescription></Alert> : lines && lines.length === 0 ? <p className="text-sm text-muted-foreground">No line items available.</p> : lines ? <div className="table-wrap"><Table className="provider-ledger"><TableHeader><TableRow><TableHead>Model</TableHead><TableHead>Amount</TableHead><TableHead>Requests</TableHead><TableHead>Input / output tokens</TableHead><TableHead>Rates / 1M</TableHead></TableRow></TableHeader>
-          <TableBody>{lines.map(line => <TableRow key={line.revision}><TableCell>{line.model_alias}</TableCell><TableCell>{money(line.amount_nanos, line.currency)}</TableCell><TableCell>{line.requests}</TableCell><TableCell>{line.prompt_tokens} / {line.completion_tokens}{line.cached_prompt_rate != null && <small>Cached input: {line.cached_prompt_tokens ?? "Unknown"}</small>}</TableCell><TableCell>{money(line.prompt_rate, line.currency)} / {money(line.completion_rate, line.currency)}{line.cached_prompt_rate != null && <small>Cache read: {money(line.cached_prompt_rate, line.currency)}</small>}</TableCell></TableRow>)}</TableBody>
-        </Table></div> : <p role="status">Loading line items…</p>}
+        {detailError ? <Alert variant="destructive"><AlertTitle>Details unavailable</AlertTitle><AlertDescription>{detailError}<Button variant="outline" onClick={() => setSelected(value => value && {...value})}>Retry details</Button></AlertDescription></Alert> : lines ? <>
+          {lines.length > 0 && <div className="table-wrap"><Table className="provider-ledger" aria-label="Text charges"><TableHeader><TableRow><TableHead>Model</TableHead><TableHead>Amount</TableHead><TableHead>Requests</TableHead><TableHead>Input / output tokens</TableHead><TableHead>Rates / 1M</TableHead></TableRow></TableHeader>
+            <TableBody>{lines.map(line => <TableRow key={line.revision}><TableCell>{line.model_alias}</TableCell><TableCell>{money(line.amount_nanos, line.currency)}</TableCell><TableCell>{line.requests}</TableCell><TableCell>{line.prompt_tokens} / {line.completion_tokens}{line.cached_prompt_rate != null && <small>Cached input: {line.cached_prompt_tokens ?? "Unknown"}</small>}</TableCell><TableCell>{money(line.prompt_rate, line.currency)} / {money(line.completion_rate, line.currency)}{line.cached_prompt_rate != null && <small>Cache read: {money(line.cached_prompt_rate, line.currency)}</small>}</TableCell></TableRow>)}</TableBody>
+          </Table></div>}
+          {mediaLines.length > 0 && <section aria-label="Media charges" className="min-w-0 space-y-3">
+            <h3 className="text-sm font-medium">Media usage</h3>
+            <div className="table-wrap"><Table className="provider-ledger"><TableHeader><TableRow><TableHead>Model</TableHead><TableHead>Amount</TableHead><TableHead>Measured usage</TableHead><TableHead>Billable usage</TableHead></TableRow></TableHeader>
+              <TableBody>{mediaLines.map((line, index) => <TableRow key={index}>
+                <TableCell>{line.model_alias}</TableCell>
+                <TableCell>{money(line.amount_nanos, line.currency)}</TableCell>
+                <TableCell>{quantity(line.measured_quantity)} {mediaMeter(line.meter, line.measured_quantity)}</TableCell>
+                <TableCell>{quantity(line.billable_quantity)} {mediaMeter(line.meter, line.billable_quantity)}</TableCell>
+              </TableRow>)}</TableBody>
+            </Table></div>
+          </section>}
+          {mediaError && <Alert variant="destructive"><AlertTitle>More media charges unavailable</AlertTitle><AlertDescription>{mediaError}<Button variant="outline" disabled={mediaLoading} onClick={() => void loadMoreMedia()}>{mediaLoading ? 'Loading more…' : 'Retry media charges'}</Button></AlertDescription></Alert>}
+          {mediaNext && !mediaError && <Button variant="outline" disabled={mediaLoading} onClick={() => void loadMoreMedia()}>{mediaLoading ? 'Loading more…' : 'Show more media charges'}</Button>}
+          {lines.length === 0 && mediaLines.length === 0 && !mediaNext && <p className="text-sm text-muted-foreground">No line items available.</p>}
+        </> : <p role="status">Loading line items…</p>}
+
       </DialogContent>
     </Dialog>
   </>;
