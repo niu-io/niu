@@ -60,7 +60,11 @@ export type SupplierRateInput = {
   cache_write_prompt_rate?: string | null;
 };
 /** Customer selling rates, independent from Supplier procurement prices. */
-export type CustomerTariffInput = SupplierRateInput & { minimum_charge_nanos?: string; request_fee_nanos?: string };
+export type ContextPriceTier = {
+  minimum_input_tokens: string; prompt_rate: string; completion_rate: string;
+  cached_prompt_rate?: string | null; cache_write_prompt_rate?: string | null; reasoning_completion_rate?: string | null;
+};
+export type CustomerTariffInput = SupplierRateInput & { context_tiers?: ContextPriceTier[]; minimum_charge_nanos?: string; request_fee_nanos?: string };
 export type CustomerTariff = Omit<CustomerTariffInput, 'expected_revision'> & { revision: string };
 export type CustomerTariffHistoryEntry = CustomerTariff & { created_at: string; is_current: boolean };
 export type CustomerTariffHistory = { current_revision: string | null; data: CustomerTariffHistoryEntry[]; has_more: boolean; next_before: string | null };
@@ -121,6 +125,7 @@ export type CustomerInvoiceLine = {
   cached_prompt_tokens?: string | null; cached_prompt_rate?: string | null;
   reasoning_completion_tokens?: string | null; reasoning_completion_rate?: string | null;
   cache_write_prompt_tokens?: string | null; cache_write_prompt_rate?: string | null;
+  context_minimum_input_tokens?: string | null;
   minimum_charge_nanos?: string; request_fee_nanos?: string;
 };
 /** Customer media receipts, separate from text-token line groups. */
@@ -1981,6 +1986,20 @@ function validateRates(rates: SupplierRateInput | CustomerTariffInput): void {
   }
   for (const rate of [rates.cached_prompt_rate, 'reasoning_completion_rate' in rates ? rates.reasoning_completion_rate : undefined, 'cache_write_prompt_rate' in rates ? rates.cache_write_prompt_rate : undefined]) {
     if (rate !== undefined && rate !== null && (typeof rate !== 'string' || !/^\d+$/.test(rate) || BigInt(rate) > 1_000_000_000_000_000n)) throw new Error('Category rates must be nonnegative integer strings up to 1000000000000000');
+  }
+  if ('context_tiers' in rates && rates.context_tiers !== undefined) {
+    if (!Array.isArray(rates.context_tiers) || rates.context_tiers.length > 32) throw new Error('At most 32 context tiers are allowed');
+    const seen = new Set<string>();
+    for (const tier of rates.context_tiers) {
+      if (!tier || typeof tier.minimum_input_tokens !== 'string' || !/^\d+$/.test(tier.minimum_input_tokens)) throw new Error('A positive integer input threshold is required');
+      const threshold = BigInt(tier.minimum_input_tokens);
+      if (threshold <= 0n || threshold > 9_223_372_036_854_775_807n || seen.has(threshold.toString())) throw new Error('Context thresholds must be positive, unique signed 64-bit integers');
+      seen.add(threshold.toString());
+      validateRates({ model_alias: rates.model_alias, currency: rates.currency, expected_revision: null,
+        prompt_rate: tier.prompt_rate, completion_rate: tier.completion_rate,
+        cached_prompt_rate: tier.cached_prompt_rate, cache_write_prompt_rate: tier.cache_write_prompt_rate,
+        reasoning_completion_rate: tier.reasoning_completion_rate });
+    }
   }
   if (rates.expected_revision !== null) uuid(rates.expected_revision);
 }

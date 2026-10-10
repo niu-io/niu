@@ -1,3 +1,4 @@
+import type { ContextPriceTier } from './admin.js';
 /** Explicit native text subset; no tools, media, beta features or streaming. */
 export type MessagesRequest = {
   model: string;
@@ -105,7 +106,7 @@ export type Model = {
   id: string;
   object: 'model' | string;
   owned_by?: string;
-  customer_pricing?: { revision: string; currency: string; unit: 'nanounits_per_million_tokens'; prompt_rate: string; completion_rate: string; cached_prompt_rate?: string | null; reasoning_completion_rate?: string | null; cache_write_prompt_rate?: string | null; minimum_charge_nanos?: string; request_fee_nanos?: string } | null;
+  customer_pricing?: { revision: string; currency: string; unit: 'nanounits_per_million_tokens'; context_tiers?: ContextPriceTier[]; prompt_rate: string; completion_rate: string; cached_prompt_rate?: string | null; reasoning_completion_rate?: string | null; cache_write_prompt_rate?: string | null; minimum_charge_nanos?: string; request_fee_nanos?: string } | null;
 };
 
 export type ModelList = {
@@ -607,7 +608,7 @@ async function* parseChatStream(body: ReadableStream<Uint8Array>, signal?: Abort
 
 export { NiuAdminClient, NiuCollectorClient, chatBranchMessages } from './admin.js';
 export type { OrdinaryAssetGroupDeletionConsentInput, OrdinaryAssetGroupDeletionConsentStatus, AssetManagementConfiguration, AssetManagementConfigurationInput, AssetOperationAuthorizationInput, AssetOperationAuthorization, OrdinaryAssetGroupInput, OrdinaryAssetGroupUpdateInput, OrdinaryAssetGroupUpdatePreparation, OrdinaryAssetGroupUpdateAudit, OrdinaryAssetGroupReadInput, OrdinaryAssetListingInput, OrdinaryAssetListing, OrdinaryAssetListingAudit, OrdinaryAssetLookupInput, OrdinaryAssetLookupAudit, OrdinaryAssetLookupResult } from './admin.js';
-export type { CustomerInvoiceInput, CustomerInvoiceLine } from './admin.js';
+export type { ContextPriceTier, CustomerInvoiceInput, CustomerInvoiceLine } from './admin.js';
 export type { WorkspaceSpendingAccount, WorkspaceSpendingLimit, WorkspaceSpendingLimitRevision } from './admin.js';
 export type { SupplierMediaOfferInput, SupplierMediaOfferModel, SupplierMediaRateModel, SupplierMediaRateRecord, SupplierMediaRateCard, CustomerMediaRateCard, CustomerMediaRateRecord, CustomerMediaRateModel, VideoOutputSchema, ExactMediaQuantity, MediaBillingDimensions } from './admin.js';
 export type { GuardrailPreparationDenial } from './admin.js';

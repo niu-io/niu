@@ -27,6 +27,8 @@ fn cache_rate_field<'de, D: serde::Deserializer<'de>>(
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CustomerTariffInput {
+    #[serde(default, deserialize_with = "context_tiers_field")]
+    pub context_tiers: Option<Vec<niu_storage::ContextPriceTier>>,
     pub model_alias: String,
     pub currency: String,
     pub prompt_rate: String,
@@ -48,4 +50,10 @@ fn minimum_field<'de, D: serde::Deserializer<'de>>(
     deserializer: D,
 ) -> Result<Option<String>, D::Error> {
     String::deserialize(deserializer).map(Some)
+}
+
+fn context_tiers_field<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<Vec<niu_storage::ContextPriceTier>>, D::Error> {
+    Vec::<niu_storage::ContextPriceTier>::deserialize(deserializer).map(Some)
 }

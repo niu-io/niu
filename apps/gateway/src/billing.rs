@@ -188,6 +188,61 @@ async fn authorize(
 ///                             ],
 ///                             "pattern": "^[0-9]+$",
 ///                             "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured rate prices it separately; missing quantity remains unresolved."
+///                           },
+///                           "context_tiers": {
+///                             "type": "array",
+///                             "maxItems": 32,
+///                             "items": {
+///                               "type": "object",
+///                               "additionalProperties": false,
+///                               "required": [
+///                                 "minimum_input_tokens",
+///                                 "prompt_rate",
+///                                 "completion_rate"
+///                               ],
+///                               "properties": {
+///                                 "minimum_input_tokens": {
+///                                   "type": "string",
+///                                   "pattern": "^[0-9]+$",
+///                                   "description": "Positive inclusive aggregate input threshold, at most 9223372036854775807."
+///                                 },
+///                                 "prompt_rate": {
+///                                   "type": "string",
+///                                   "pattern": "^[0-9]+$",
+///                                   "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                                 },
+///                                 "completion_rate": {
+///                                   "type": "string",
+///                                   "pattern": "^[0-9]+$",
+///                                   "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                                 },
+///                                 "cached_prompt_rate": {
+///                                   "type": [
+///                                     "string",
+///                                     "null"
+///                                   ],
+///                                   "pattern": "^[0-9]+$",
+///                                   "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                                 },
+///                                 "cache_write_prompt_rate": {
+///                                   "type": [
+///                                     "string",
+///                                     "null"
+///                                   ],
+///                                   "pattern": "^[0-9]+$",
+///                                   "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                                 },
+///                                 "reasoning_completion_rate": {
+///                                   "type": [
+///                                     "string",
+///                                     "null"
+///                                   ],
+///                                   "pattern": "^[0-9]+$",
+///                                   "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                                 }
+///                               }
+///                             },
+///                             "description": "Complete whole-request schedules; highest inclusive input threshold wins. Null category rates do not inherit the base schedule. Empty array clears tiers; omitting existing tiers conflicts."
 ///                           }
 ///                         }
 ///                       }
@@ -383,6 +438,61 @@ pub async fn overview(
 ///                 ],
 ///                 "pattern": "^[0-9]+$",
 ///                 "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured rate prices it separately; missing quantity remains unresolved."
+///               },
+///               "context_tiers": {
+///                 "type": "array",
+///                 "maxItems": 32,
+///                 "items": {
+///                   "type": "object",
+///                   "additionalProperties": false,
+///                   "required": [
+///                     "minimum_input_tokens",
+///                     "prompt_rate",
+///                     "completion_rate"
+///                   ],
+///                   "properties": {
+///                     "minimum_input_tokens": {
+///                       "type": "string",
+///                       "pattern": "^[0-9]+$",
+///                       "description": "Positive inclusive aggregate input threshold, at most 9223372036854775807."
+///                     },
+///                     "prompt_rate": {
+///                       "type": "string",
+///                       "pattern": "^[0-9]+$",
+///                       "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                     },
+///                     "completion_rate": {
+///                       "type": "string",
+///                       "pattern": "^[0-9]+$",
+///                       "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                     },
+///                     "cached_prompt_rate": {
+///                       "type": [
+///                         "string",
+///                         "null"
+///                       ],
+///                       "pattern": "^[0-9]+$",
+///                       "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                     },
+///                     "cache_write_prompt_rate": {
+///                       "type": [
+///                         "string",
+///                         "null"
+///                       ],
+///                       "pattern": "^[0-9]+$",
+///                       "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                     },
+///                     "reasoning_completion_rate": {
+///                       "type": [
+///                         "string",
+///                         "null"
+///                       ],
+///                       "pattern": "^[0-9]+$",
+///                       "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                     }
+///                   }
+///                 },
+///                 "description": "Complete whole-request schedules; highest inclusive input threshold wins. Null category rates do not inherit the base schedule. Empty array clears tiers; omitting existing tiers conflicts."
 ///               }
 ///             }
 ///           }
@@ -428,6 +538,9 @@ pub async fn overview(
 ///       },
 ///       "401": {
 ///         "description": "Invalid or expired administrative credential."
+///       },
+///       "422": {
+///         "description": "Request fields do not match the JSON schema; context_tiers must be an array, never null."
 ///       }
 ///     },
 ///     "parameters": [
@@ -481,7 +594,7 @@ pub async fn tariff(
         .as_ref()
         .map(|rate| rate.as_deref());
     Ok(Json(
-        json!({"data":{"revision":state.store.publish_customer_tariff_schedule(scope,&rates,niu_storage::CustomerCategoryRates { cached_prompt: cached, reasoning_completion: input.reasoning_completion_rate.as_ref().map(|rate| rate.as_deref()), cache_write_prompt: input.cache_write_prompt_rate.as_ref().map(|rate| rate.as_deref()) },input.minimum_charge_nanos.as_deref(),input.request_fee_nanos.as_deref()).await.map_err(ApiError::from_store)?}}),
+        json!({"data":{"revision":state.store.publish_customer_tariff_schedule(scope,&rates,niu_storage::CustomerCategoryRates { cached_prompt: cached, reasoning_completion: input.reasoning_completion_rate.as_ref().map(|rate| rate.as_deref()), cache_write_prompt: input.cache_write_prompt_rate.as_ref().map(|rate| rate.as_deref()) },input.minimum_charge_nanos.as_deref(),input.request_fee_nanos.as_deref(),input.context_tiers.as_deref()).await.map_err(ApiError::from_store)?}}),
     ))
 }
 
@@ -1890,6 +2003,61 @@ pub struct InvoiceLinesQuery {
 ///                             ],
 ///                             "pattern": "^[0-9]+$",
 ///                             "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured rate prices it separately; missing quantity remains unresolved."
+///                           },
+///                           "context_tiers": {
+///                             "type": "array",
+///                             "maxItems": 32,
+///                             "items": {
+///                               "type": "object",
+///                               "additionalProperties": false,
+///                               "required": [
+///                                 "minimum_input_tokens",
+///                                 "prompt_rate",
+///                                 "completion_rate"
+///                               ],
+///                               "properties": {
+///                                 "minimum_input_tokens": {
+///                                   "type": "string",
+///                                   "pattern": "^[0-9]+$",
+///                                   "description": "Positive inclusive aggregate input threshold, at most 9223372036854775807."
+///                                 },
+///                                 "prompt_rate": {
+///                                   "type": "string",
+///                                   "pattern": "^[0-9]+$",
+///                                   "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                                 },
+///                                 "completion_rate": {
+///                                   "type": "string",
+///                                   "pattern": "^[0-9]+$",
+///                                   "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                                 },
+///                                 "cached_prompt_rate": {
+///                                   "type": [
+///                                     "string",
+///                                     "null"
+///                                   ],
+///                                   "pattern": "^[0-9]+$",
+///                                   "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                                 },
+///                                 "cache_write_prompt_rate": {
+///                                   "type": [
+///                                     "string",
+///                                     "null"
+///                                   ],
+///                                   "pattern": "^[0-9]+$",
+///                                   "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                                 },
+///                                 "reasoning_completion_rate": {
+///                                   "type": [
+///                                     "string",
+///                                     "null"
+///                                   ],
+///                                   "pattern": "^[0-9]+$",
+///                                   "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                                 }
+///                               }
+///                             },
+///                             "description": "Complete whole-request schedules; highest inclusive input threshold wins. Null category rates do not inherit the base schedule. Empty array clears tiers; omitting existing tiers conflicts."
 ///                           }
 ///                         }
 ///                       },
@@ -1973,6 +2141,13 @@ pub struct InvoiceLinesQuery {
 ///                             ],
 ///                             "pattern": "^[0-9]+$",
 ///                             "description": "Separately priced reported cache-write tokens; null when this category has no separate rate."
+///                           },
+///                           "context_minimum_input_tokens": {
+///                             "type": [
+///                               "string",
+///                               "null"
+///                             ],
+///                             "description": "Pinned inclusive input threshold; null means the base schedule."
 ///                           }
 ///                         }
 ///                       }
@@ -3186,7 +3361,8 @@ pub struct CustomerTariffHistoryQuery {
 ///         "request_fee_nanos",
 ///         "cached_prompt_rate",
 ///         "reasoning_completion_rate",
-///         "cache_write_prompt_rate"
+///         "cache_write_prompt_rate",
+///         "context_tiers"
 ///       ],
 ///       "properties": {
 ///         "model_alias": {
@@ -3245,6 +3421,61 @@ pub struct CustomerTariffHistoryQuery {
 ///           ],
 ///           "pattern": "^[0-9]+$",
 ///           "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured rate prices it separately; missing quantity remains unresolved."
+///         },
+///         "context_tiers": {
+///           "type": "array",
+///           "maxItems": 32,
+///           "items": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "minimum_input_tokens",
+///               "prompt_rate",
+///               "completion_rate"
+///             ],
+///             "properties": {
+///               "minimum_input_tokens": {
+///                 "type": "string",
+///                 "pattern": "^[0-9]+$",
+///                 "description": "Positive inclusive aggregate input threshold, at most 9223372036854775807."
+///               },
+///               "prompt_rate": {
+///                 "type": "string",
+///                 "pattern": "^[0-9]+$",
+///                 "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///               },
+///               "completion_rate": {
+///                 "type": "string",
+///                 "pattern": "^[0-9]+$",
+///                 "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///               },
+///               "cached_prompt_rate": {
+///                 "type": [
+///                   "string",
+///                   "null"
+///                 ],
+///                 "pattern": "^[0-9]+$",
+///                 "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///               },
+///               "cache_write_prompt_rate": {
+///                 "type": [
+///                   "string",
+///                   "null"
+///                 ],
+///                 "pattern": "^[0-9]+$",
+///                 "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///               },
+///               "reasoning_completion_rate": {
+///                 "type": [
+///                   "string",
+///                   "null"
+///                 ],
+///                 "pattern": "^[0-9]+$",
+///                 "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///               }
+///             }
+///           },
+///           "description": "Complete whole-request schedules; highest inclusive input threshold wins. Null category rates do not inherit the base schedule. Empty array clears tiers; omitting existing tiers conflicts."
 ///         }
 ///       }
 ///     }

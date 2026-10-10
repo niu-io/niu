@@ -17,7 +17,7 @@ SELECT ($4::uuid IS NULL OR EXISTS(SELECT 1 FROM anchor)),
         'data',COALESCE((SELECT jsonb_agg(jsonb_build_object(
             'model_alias',t.model_alias,'revision',r.id,'currency',r.currency,
             'prompt_rate',r.prompt_rate::text,'completion_rate',r.completion_rate::text,
-            'cached_prompt_rate',r.cached_prompt_rate::text,'reasoning_completion_rate',r.reasoning_completion_rate::text,'cache_write_prompt_rate',r.cache_write_prompt_rate::text,
+            'cached_prompt_rate',r.cached_prompt_rate::text,'reasoning_completion_rate',r.reasoning_completion_rate::text,'cache_write_prompt_rate',r.cache_write_prompt_rate::text,'context_tiers',r.context_tiers,
             'minimum_charge_nanos',r.minimum_charge_nanos::text,
             'request_fee_nanos',r.request_fee_nanos::text,
             'created_at',r.created_at,'is_current',r.id=t.current_revision

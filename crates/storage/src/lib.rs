@@ -102,6 +102,11 @@ pub use operators::{
 pub use vendors::{
     VendorInput, VendorModelInput, VendorModelView, VendorRoute, VendorUpdate, VendorView,
 };
+mod context_pricing;
+pub use context_pricing::{
+    ContextPriceTier, ContextTierRates, context_token_reservation, normalize_context_tiers,
+    select_context_tier,
+};
 mod billing;
 pub use billing::CustomerCategoryRates;
 mod customer_invoice_history;

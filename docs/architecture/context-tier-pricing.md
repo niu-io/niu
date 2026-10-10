@@ -1,7 +1,7 @@
 # Context-tier pricing
 
-Status: implementation design; no tiered tariff is exposed yet. Category prices
-are implemented separately. This design extends their immutable schedules and
+Status: customer tier publication, admission, charging and invoice grouping are
+implemented, with current-input boundaries below. Supplier tiers remain unimplemented. This design extends their immutable schedules and
 existing admission/ledger transaction boundaries rather than creating another
 billing engine.
 
@@ -65,3 +65,24 @@ request, historical invoice grouping, restart/replay, and concurrent admission
 from two Gateways. Verify that customer exports contain only customer rates and
 charges. A small internal verification threshold may exercise boundary selection;
 it must not be presented as a commercial long-context threshold or load result.
+
+
+## Current customer verification
+
+Actual OpenRouter GPT-4.1-mini calls first calibrated a 29-input-token request.
+A published schedule used inclusive thresholds 29 and 32, with lower prices at
+the higher threshold. Subsequent actual inputs of 14, 29 and 75 tokens selected
+the base schedule, threshold 29 and threshold 32 respectively. The final call
+followed Gateway restart. After clearing current tiers with an empty array, the
+invoice retained four separate revision/threshold lines and their exact rates.
+Repeated invoice creation and another restart preserved the same lines.
+
+An independent process reopened the stopped PostgreSQL database, verified saved
+response hashes, selected schedules from pinned revisions, and recomputed all
+four charges/debits and the invoice total. No hold remained. Duplicate or zero
+thresholds returned HTTP 400; omitted existing schedules returned 409. Explicit
+null returned JSON-schema HTTP 422, rather than clearing the schedule.
+
+These thresholds and rates are internal verification configuration, not advertised
+commercial context tiers. Category-bearing tiers, in-flight edits, SDK publication,
+customer exports and two-Gateway reservation races still require actual evidence.
