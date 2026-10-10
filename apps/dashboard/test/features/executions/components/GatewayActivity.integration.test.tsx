@@ -991,3 +991,25 @@ it('preserves operation scope through pagination and export and removes it witho
   await waitFor(() => expect(calls.filter(url => url.includes('/requests?')).at(-1)).not.toContain('operation_id='));
   expect(calls.filter(url => url.includes('/requests?')).at(-1)).toContain('model_alias=fast');
 });
+
+it.each([
+  ['response_stream_cancelled', 'Response delivery ended before the stream completed. This does not confirm that the Provider stopped processing.'],
+  ['upstream_timeout', 'The upstream request exceeded its deadline.'],
+])('explains %s without inferring nonexecution from delivered HTTP 200', async (kind, description) => {
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>(async input => {
+    const path = String(input);
+    if (path.endsWith('/keys')) return Response.json({ data: [] });
+    if (path.includes('/payload') || path.endsWith('/guardrails')) return Response.json({ data: null });
+    return Response.json({ data: [{ ...makeRequest('interrupted', null, 'fast'), execution: 'may_have_executed', usage_confidence: 'unknown', prompt_tokens: null, completion_tokens: null,
+      customer_charge_status: 'unknown', failure: { kind, upstream_http_status: null }, timing: { http_status: 200, total_ms: 1200, complete: false } }], next_cursor: null, summary });
+  }));
+  render(<MemoryRouter><GatewayActivity token="test" models={['fast']} initialScope={{ organizationId: 'org-1', projectId: 'project-1' }}/></MemoryRouter>);
+  await userEvent.click(await screen.findByRole('button', { name: 'fast', exact: true }));
+  const dialog = await screen.findByRole('dialog', { name: 'Request details' });
+  expect(within(dialog).getByText(description)).toBeTruthy();
+  expect(within(dialog).getByText('HTTP 200')).toBeTruthy();
+  expect(within(dialog).getByText('Uncertain')).toBeTruthy();
+  expect(within(dialog).queryByText('Not charged')).toBeNull();
+  expect(within(dialog).queryByText(/before sending response headers/)).toBeNull();
+  expect(within(dialog).queryByText(/Upstream HTTP/)).toBeNull();
+});

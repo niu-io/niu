@@ -214,7 +214,8 @@ function requestStatus(item: GatewayRequest) {
 const failureDescriptions: Record<string, string> = {
   upstream_http_error: 'The upstream service rejected the request.',
   upstream_region_unavailable: 'This model is unavailable in the upstream account’s region.',
-  upstream_timeout: 'The upstream service timed out before sending response headers.',
+  upstream_timeout: 'The upstream request exceeded its deadline.',
+  response_stream_cancelled: 'Response delivery ended before the stream completed. This does not confirm that the Provider stopped processing.',
   upstream_connection_error: 'Could not connect to the upstream service.',
   upstream_transport_error: 'The upstream request failed during transport.',
   upstream_invalid_response: 'The upstream service returned an invalid response.',
