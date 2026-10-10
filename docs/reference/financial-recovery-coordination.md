@@ -60,3 +60,21 @@ no paid unsettled backlog: it does not verify competing settlement writes,
 nonempty cursor recovery after process loss, poisoned-row progress, paid
 idempotent debit/release, or throughput. Those require separate current-input
 runs and independent financial artifact verification before qualification.
+
+### Contended progress and safe diagnostics
+
+An additional actual worker run held a row lock on the customer-charge progress
+record. That stage's progress remained unchanged while the other three stages
+committed progress; after releasing the lock, customer-charge recovery resumed.
+The verifier did not insert or change financial evidence or ledger data.
+
+The scheduler now reports each failed stage separately rather than discarding
+all but the first storage error. Gateway warnings identify the stage and, for
+per-attempt failures, their count. They never interpolate raw database errors,
+SQL, credentials or financial amounts. After rebuilding and restarting, the same
+lock check confirmed a runtime storage warning for `customer_charge`, with no
+raw SQL or credential fields, while the other stages continued.
+
+This verifies stage-level lock-timeout isolation and its diagnostic output.
+It does not substitute for a malformed financial row, a paid backlog or restart
+at a nonempty traversal cursor.

@@ -17,6 +17,7 @@ mod managed_routes;
 pub use branding::BrandingSettings;
 mod accounting;
 mod financial_recovery;
+pub use financial_recovery::FinancialRecoveryFailure;
 mod media_submissions;
 mod priced_admission;
 mod request_failures;

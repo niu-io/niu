@@ -3,6 +3,12 @@ use crate::{Store, StoreError, TenantScope};
 use sqlx::Acquire;
 use uuid::Uuid;
 
+/// Safe recovery diagnostics; never includes database messages or ledger data.
+pub enum FinancialRecoveryFailure {
+    Attempts { stage: &'static str, count: usize },
+    Storage { stage: &'static str },
+}
+
 #[derive(Clone, Copy)]
 pub(crate) enum FinancialStage {
     BalanceRelease,
@@ -41,9 +47,8 @@ impl FinancialStage {
 impl Store {
     /// Each ledger commits independently; one unavailable ledger never prevents
     /// trying another. No connection is queued when the shared pool is busy.
-    pub async fn recover_financial_work(&self) -> Result<usize, StoreError> {
-        let mut failures = 0;
-        let mut first_error = None;
+    pub async fn recover_financial_work(&self) -> Vec<FinancialRecoveryFailure> {
+        let mut failures = Vec::new();
         for stage in [
             FinancialStage::BalanceRelease,
             FinancialStage::CustomerCharge,
@@ -51,14 +56,19 @@ impl Store {
             FinancialStage::UpstreamCost,
         ] {
             match self.recover_financial_stage(stage, None).await {
-                Ok(Some((_, count))) => failures += count,
-                Ok(None) => {}
-                Err(error) => {
-                    first_error.get_or_insert(error);
+                Ok(Some((_, count))) if count > 0 => {
+                    failures.push(FinancialRecoveryFailure::Attempts {
+                        stage: stage.name(),
+                        count,
+                    })
                 }
+                Ok(_) => {}
+                Err(_) => failures.push(FinancialRecoveryFailure::Storage {
+                    stage: stage.name(),
+                }),
             }
         }
-        first_error.map_or(Ok(failures), Err)
+        failures
     }
 
     /// None uses the durable cursor; Some preserves the explicit-cursor library

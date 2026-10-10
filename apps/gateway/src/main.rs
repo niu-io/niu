@@ -99,12 +99,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             {
                 tracing::warn!("Interrupted image readiness recovery requires retry");
             }
-            match recovery_store.recover_financial_work().await {
-                Ok(failures) if failures > 0 => {
-                    tracing::warn!(failures, "Financial recovery requires retry")
+            for failure in recovery_store.recover_financial_work().await {
+                match failure {
+                    niu_storage::FinancialRecoveryFailure::Attempts { stage, count } => {
+                        tracing::warn!(
+                            stage,
+                            failures = count,
+                            "Financial recovery requires retry"
+                        );
+                    }
+                    niu_storage::FinancialRecoveryFailure::Storage { stage } => {
+                        tracing::warn!(stage, "Financial recovery storage unavailable");
+                    }
                 }
-                Ok(_) => {}
-                Err(_) => tracing::warn!("Financial recovery storage unavailable"),
             }
         }
     });
