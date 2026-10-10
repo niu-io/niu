@@ -381,3 +381,21 @@ checked response hashes, stored usages, exact charges/debits, the refund and abs
 of retained payloads or open balance holds. This is not a saturated-backlog or
 multi-Gateway capacity measurement. The first connection-count observation included
 observer sessions; the corrected current-input run supplies this evidence.
+
+### Two-Gateway dedicated-pool verification
+
+Two current Gateway processes restored a private database containing 15 naturally
+expired actual request payloads and three expired actual media results. PostgreSQL
+activity showed two `niu-content-retention` connections, one per process. Isolated
+cleanup audit triggers recorded the backend application name and each affected
+object. An injected failure on one media row did not prevent all payloads and the
+other media results from being cleaned. The failed row's durable retry survived
+Gateway restart and completed after the fault was removed.
+
+Independent reopening verified exactly one cleanup event for each of the 18
+objects, and every event used the dedicated maintenance application name. Expired
+payloads were absent, expired media ciphertext was erased with tombstones retained,
+and retry records were empty. Repeated cleanup returned zero work. This run
+verifies the observed small restored backlog and restart path; it does not prove
+large-backlog capacity, nonempty interrupted-ingestion recovery, or a single
+connection across processes. Original storage was not modified.
