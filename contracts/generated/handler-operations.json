@@ -2126,6 +2126,155 @@
         }
       }
     },
+    "/admin/v1/organizations/{organization}/projects/{project}": {
+      "patch": {
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-niu-implementation": "implemented",
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "operationId": "renameWorkspace",
+        "summary": "Rename a workspace",
+        "description": "Requires scoped workspace write access. Trims the saved name. Returns the existing workspace identity and new name; no optimistic revision is accepted.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Must contain non-whitespace text and be at most 200 UTF-8 bytes before trimming."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved workspace name",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "name"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid name or identifier"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Write permission required"
+          },
+          "404": {
+            "description": "Workspace missing or outside authorized scope"
+          },
+          "422": {
+            "description": "Invalid body shape"
+          },
+          "503": {
+            "description": "Storage unavailable"
+          }
+        }
+      },
+      "delete": {
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-niu-implementation": "implemented",
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "operationId": "deleteWorkspace",
+        "summary": "Delete an empty workspace",
+        "description": "Requires installation authority or company-level membership with member-management permission. Workspace-scoped members cannot delete a workspace. Referenced workspaces are protected by storage foreign keys and return 409; no cascade deletion of business history is requested.",
+        "responses": {
+          "204": {
+            "description": "Workspace deleted; empty body"
+          },
+          "400": {
+            "description": "Invalid identifier"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Required company-level management permission missing"
+          },
+          "404": {
+            "description": "Workspace missing or outside authorized scope"
+          },
+          "409": {
+            "description": "Workspace still has dependent records"
+          },
+          "503": {
+            "description": "Storage unavailable"
+          }
+        }
+      }
+    },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}": {
       "patch": {
         "operationId": "updateKeyMetadata",

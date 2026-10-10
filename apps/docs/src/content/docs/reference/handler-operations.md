@@ -1974,6 +1974,136 @@ HTTP 404: Workspace unavailable in the authorized scope
 
 HTTP 400: Invalid currency, decimal value or history query
 
+## Rename a workspace
+
+`PATCH /admin/v1/organizations/{organization}/projects/{project}`
+
+Requires scoped workspace write access. Trims the saved name. Returns the existing workspace identity and new name; no optimistic revision is accepted.
+
+Implementation: `implemented`. Operation: `renameWorkspace`.
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Must contain non-whitespace text and be at most 200 UTF-8 bytes before trimming."
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Saved workspace name
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "id",
+    "name"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "name": {
+      "type": "string"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid name or identifier
+
+HTTP 401: Authentication required
+
+HTTP 403: Write permission required
+
+HTTP 404: Workspace missing or outside authorized scope
+
+HTTP 422: Invalid body shape
+
+HTTP 503: Storage unavailable
+
+## Delete an empty workspace
+
+`DELETE /admin/v1/organizations/{organization}/projects/{project}`
+
+Requires installation authority or company-level membership with member-management permission. Workspace-scoped members cannot delete a workspace. Referenced workspaces are protected by storage foreign keys and return 409; no cascade deletion of business history is requested.
+
+Implementation: `implemented`. Operation: `deleteWorkspace`.
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 204: Workspace deleted; empty body
+
+HTTP 400: Invalid identifier
+
+HTTP 401: Authentication required
+
+HTTP 403: Required company-level management permission missing
+
+HTTP 404: Workspace missing or outside authorized scope
+
+HTTP 409: Workspace still has dependent records
+
+HTTP 503: Storage unavailable
+
 ## Update workspace API key name and model grants
 
 `PATCH /admin/v1/organizations/{organization}/projects/{project}/keys/{key}`
