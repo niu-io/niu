@@ -33,6 +33,10 @@ export async function findVideoIntent(client: HistoryClient, scope: TenantScope,
 export async function videoIntentHistory(client: HistoryClient, scope: TenantScope, query: VideoJobHistoryQuery = {}, options: RequestOptions = {}) {
   const page = await client.listVideoIntents(scope, query, options);
   options.signal?.throwIfAborted();
+  if (!page || !Array.isArray(page.data) || typeof page.has_more !== 'boolean' ||
+    !(page.next_before === null || typeof page.next_before === 'string' && !!page.next_before) ||
+    page.has_more !== (page.next_before !== null) || query.before !== undefined && page.next_before === query.before)
+    throw new Error('Saved video history did not advance. Reload to try again.');
   const entries = page.data.filter(entry => entry.content_state !== 'deleted');
   const rows: VideoIntentHistoryRow[] = new Array(entries.length);
   let next = 0;

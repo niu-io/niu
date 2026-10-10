@@ -1,6 +1,11 @@
 import {expect,it,vi} from 'vitest';
 import {findVideoIntent} from '@/features/video/intent-history';
 const scope={organizationId:'company',projectId:'workspace'};
+it.each([{data:[],has_more:true,next_before:null},{data:[],has_more:false,next_before:'hidden-page'},{data:[],has_more:true,next_before:''}])('does not treat inconsistent pagination as missing original input',async page=>{
+ const listVideoIntents=vi.fn(async()=>page);
+ await expect(findVideoIntent({listVideoIntents,getVideoIntent:vi.fn()} as never,scope,'job')).rejects.toThrow('did not advance');
+ expect(listVideoIntents).toHaveBeenCalledTimes(1);
+});
 it('resolves an older job only through the authorized workspace history',async()=>{
  const listVideoIntents=vi.fn(async(_scope:unknown,query?:{before?:string})=>({data:[{id:query?.before?'older':'recent',revision:1,content_state:'retained',expires_at_ms:'1800000000000'}],has_more:!query?.before,next_before:query?.before?null:'next'}));
  const getVideoIntent=vi.fn(async(_scope:unknown,id:string)=>({data:{id,revision:1,model:'Example video',key_id:'saved-key',content_state:'retained',expires_at_ms:'1800000000000',job:{id:id==='older'?'requested-job':'different-job'}}}));
