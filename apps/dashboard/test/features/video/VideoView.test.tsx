@@ -83,6 +83,22 @@ it('does not automatically retry a lost paid submission response',async()=>{
   await waitFor(()=>expect(calls.some(call=>call.path.includes('/video-intents/') && call.body===null)).toBe(true));
   expect(calls.filter(call=>call.path.endsWith('/submit') || call.path.endsWith('/jobs'))).toHaveLength(1);
 });
+it('shows a credential rate refusal without retrying or presenting a queued video',async()=>{
+  const message='The selected upstream route has reached its rolling 60-second request limit; retry after 60 seconds';
+  const calls=mockFetch(async()=>Response.json({error:{type:'upstream_request_rate_exceeded',message}},{status:429,headers:{'retry-after':'60'}}));
+  mount();const user=userEvent.setup();
+  await screen.findByRole('button',{name:'Video model'});
+  await user.type(screen.getByLabelText('Prompt'),'A mountain');
+  await user.click(screen.getByRole('button',{name:'Estimate',exact:true}));
+  await screen.findByText('Estimated CNY 1.00');
+  await user.click(screen.getByRole('button',{name:'Generate video'}));
+  await screen.findByText(message);
+  await waitFor(()=>expect(calls.some(call=>call.path.includes('/video-intents/') && call.body===null)).toBe(true));
+  expect(calls.filter(call=>call.path.endsWith('/submit') || call.path.endsWith('/jobs'))).toHaveLength(1);
+  expect(screen.queryByText('Queued')).toBeNull();
+  expect(screen.queryByText('Succeeded')).toBeNull();
+  expect(calls.some(call=>call.path.includes(`/jobs/${job}`))).toBe(false);
+});
 it('reader can estimate but cannot submit',async()=>{
   const calls=mockFetch();mount(false);const user=userEvent.setup();
   await screen.findByRole('button',{name:'Video model'});await user.type(screen.getByLabelText('Prompt'),'A mountain');
