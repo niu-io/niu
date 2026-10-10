@@ -61,7 +61,7 @@ was rejected by typed JSON validation. No cash receipt or commercial Supplier
 qualification was fabricated. These runs used the owner's personal upstream
 account for internal accounting verification.
 
-Fee-specific cached usage, crash/uncertain usage and bounded-capacity contention
+Fee-specific cached usage, broader failure boundaries and sustained overload
 remain open. Shared implementation or earlier minimum-only evidence is not
 evidence that those fee paths passed.
 
@@ -93,3 +93,27 @@ workflow evidence, not saturation or limited-balance contention qualification.
 All runs used explicitly approved internal credit and personal upstream testing,
 with no received-cash receipt or commercial Supplier qualification. Isolated
 processes were stopped after verification.
+
+
+### Shared credit contention and interrupted fixed-fee liability
+
+Two native gateways shared one fresh database and company account. Separate keys
+in two workspaces concurrently requested actual model completions with zero token
+rates, zero minimum and a fixed fee of 1,000,000 nanounits. Approved internal
+credit was exactly 1,000,000. One request completed and the other returned HTTP
+402; independent reopened-database inspection found one dispatched attempt and
+one matching charge/debit of 1,000,000, with no open holds or funding receipt.
+Only the winning workspace reported a charge. After restarting both gateways,
+both keys were denied before dispatch because the shared capacity was exhausted.
+This verifies that exercised two-request contention, not saturation or every
+currency/key/workspace-cap combination.
+
+A separate real streamed request used the same fixed-only tariff and a key cap
+of 1,000,000. SIGKILL immediately after the first received content event bypassed
+graceful cleanup. Restart retained unknown execution/usage, no charge or debit,
+and a 1,000,000-nanounit hold. New dispatch stayed blocked through key rotation
+and another restart; revocation did not release the unresolved liability. No
+alternative pool credential was sent. Independent inspection parsed the raw SSE
+prefix and reopened the database to confirm one unknown attempt and the exact
+held amount. This does not establish whether upstream generation finished after
+the crash or qualify all failure/commit boundaries.
