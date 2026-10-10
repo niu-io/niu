@@ -563,6 +563,36 @@ describe('Global Chat', () => {
     expect(dispatches).toBe(1);
   });
 
+  it.each([
+    ['{"error":{"message":"Generation rejected"}}', 'Generation rejected'],
+    ['not json', 'Niu returned an invalid chat response. Inspect the request before trying again.'],
+    ['null', 'Niu returned an invalid chat response. Inspect the request before trying again.'],
+    ['{"choices":[]}', 'Niu returned an invalid chat response. Inspect the request before trying again.'],
+    ['{"choices":[{"message":{"content":"JSON_OK"}}],"usage":{"prompt_tokens":3,"completion_tokens":1,"total_tokens":4}}', null],
+  ])('classifies HTTP 200 non-streaming responses and saves their actual outcome', async (body, message) => {
+    stubFetch(vi.fn(async (url: string) => {
+      if (url.endsWith('/keys')) return jsonResponse({data:[{id:'key-a',name:'Default',allowed_models:['fast'],revoked:false,expired:false}]});
+      if (url.endsWith('/chat/completions')) return new Response(body, {headers:{'content-type':'application/json','x-niu-attempt-id':'attempt-invalid-json'}});
+      return jsonResponse({data:[]});
+    }));
+    const user = userEvent.setup();
+    renderPlayground(['fast']);
+    await screen.findByRole('button', {name:'API key: Default'});
+    await waitFor(() => expect((screen.getByLabelText('Prompt for all selected models') as HTMLTextAreaElement).disabled).toBe(false));
+    await user.type(screen.getByRole('textbox', {name:'Prompt for all selected models'}), 'Hello');
+    await user.click(screen.getByRole('button', {name:'Send to 1 model'}));
+    if (message) {
+      expect(await screen.findByText(message)).toBeTruthy();
+      expect(screen.queryByText('Complete')).toBeNull();
+    } else {
+      expect(await screen.findByText('JSON_OK')).toBeTruthy();
+      expect(screen.getByText('Complete')).toBeTruthy();
+      expect(screen.getByText('4')).toBeTruthy();
+    }
+    await waitFor(() => expect([...serverChats.values()].some(value => JSON.stringify(value).includes(message ?? 'JSON_OK'))).toBe(true));
+    expect(screen.getByRole('link', {name:'Inspect request'}).getAttribute('href')).toContain('attempt-invalid-json');
+  });
+
   it('runs an example with the selected managed key without requesting its secret', async () => {
     const requests: string[] = [];
     stubFetch(vi.fn(async (url: string, init?: RequestInit) => {
