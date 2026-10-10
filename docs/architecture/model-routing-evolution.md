@@ -129,3 +129,32 @@ These are implementation prerequisites derived from the current source, not
 completed functionality or runtime acceptance. The existing no-retry behavior
 remains in force. Actual rejection, price-change, competing-successor, unknown
 commit, stream and restart evidence is required before enabling failover.
+
+## Operation retail-tariff binding foundation
+
+Migration 0223 adds an immutable `customer_operation_tariffs` binding and preserves
+existing attempt bindings through an exact backfill. A conflicting historical
+operation aborts the migration instead of selecting a tariff or repricing history.
+A database trigger serializes new attempt-tariff bindings on the operation row
+and rejects a different tariff revision. The standard tariff-binding path prefers
+an already pinned operation revision over the current administrative revision.
+
+This foundation does not append attempts or enable failover. The existing generic
+admission path still creates one operation per request; safe predecessor evidence,
+operation-level retry policy and append-attempt admission remain to be implemented.
+
+Current-input verification used a fresh native database and three actual
+OpenRouter completions backed by approved internal credit. After two completions,
+the second model's customer tariff changed; the two existing operation bindings
+were unchanged before and after restart. A subsequent completion used the new
+revision. All three attempt bindings matched their operation binding and their
+independently calculated charges matched posted debits, with released holds and
+no reconciliation discrepancy. This used internal prices, not a commercial offer.
+
+A separate upgrade of the retained database containing two actual paid pool
+completions backfilled exactly its two operation bindings. Each matched the
+historical attempt revision; request details and customer CSV still reconciled
+to the database and remained identical after restart. No new inference was sent
+for that upgrade check. Both isolated environments stopped and original encrypted
+identity checks were unchanged. Same-operation successor concurrency, a deliberate
+conflicting-history migration and retry orchestration remain unverified.
