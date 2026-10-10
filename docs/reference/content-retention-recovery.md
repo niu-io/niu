@@ -237,3 +237,20 @@ ciphertext, retention of media tombstones, and empty retry tables. No retention
 or retry timestamp was rewritten. This exercises a media-row failure separately
 from the payload-row failure above; it still does not qualify multi-Gateway
 nonempty contention, active media preservation or other asset cleanup domains.
+
+### Two-Gateway nonempty cleanup overlap
+
+Another fresh restore started two Gateway processes against the same database;
+both readiness endpoints responded before the external content-owner lock was
+released. One media-row fault remained active during concurrent background
+maintenance. All 15 expired payloads and the other two media references were
+cleaned. Both processes were stopped, one restarted, and the failed media row
+recovered after fault removal and its real retry delay.
+
+Private verification triggers recorded successful payload deletions and media
+ciphertext erasures. Independent reopening reconciled exactly 15 payload events
+and three media events, with each domain/record identity appearing exactly once,
+retained media tombstones and no remaining retry markers. This demonstrates no
+duplicate successful mutation in the exercised two-process run; it does not
+claim both processes won a batch, bound transient connection acquisition, or
+measure priced admission under this backlog.
