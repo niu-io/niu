@@ -420,3 +420,27 @@ This covers those request shapes on this personal model only. Commercial tool
 billing, parallel tools, schema rejection, cancellation during tool output,
 restart of this exact conversation and broad model coverage remain unverified.
 No fixture outcome supports this checkpoint.
+
+### Priced structured-output admission — 2026-10-10
+
+Priced single-text Chat routes now accept `response_format`, subject to the
+existing explicit structured-output capability and schema validation. Streaming
+structured output and priced function-tool calls remain unsupported. Serialized
+response-format instructions count alongside serialized messages in the existing
+UTF-8 input byte guard. This is not a provider tokenizer or a guaranteed upper
+bound on reported usage. Output limits and independent customer/Supplier/upstream
+accounting remain unchanged.
+
+An actual API-created, unfunded workspace and unconnected priced mapping received
+a fresh strict-schema request. Before the change it returned HTTP 400 at request
+shape validation. After rebuilding and restarting, the same request shape reached
+financial admission and returned HTTP 402. An oversized schema returned HTTP 400.
+Independent database reads found no attempts, balance entries or customer charges
+for either verification workspace. Temporary keys were revoked and mappings and
+Suppliers disabled. No upstream call or funding receipt was fabricated.
+
+Rust release compilation, static checks, contract parsing and public-boundary
+checks completed. This establishes the changed admission boundary only. Successful
+funded structured generation, positive debit/reconciliation and schema-rejected
+paid output remain unverified by this run; the personal upstream checkpoint above
+does not qualify those financial paths. No fixture outcome supports this result.

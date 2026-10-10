@@ -1361,6 +1361,7 @@ paths:
                   $ref: '#/components/schemas/ChatToolChoice'
                 response_format:
                   $ref: '#/components/schemas/ChatResponseFormat'
+                  description: Nonstreaming structured JSON is supported on explicitly enabled priced text routes. Serialized response-format instructions count toward the route input byte guard alongside messages; this guard is not a provider tokenizer or a guarantee against reported overruns.
                 temperature: { type: [number, 'null'], minimum: 0, maximum: 2 }
                 top_p: { type: [number, 'null'], minimum: 0, maximum: 1 }
                 frequency_penalty: { type: [number, 'null'], minimum: -2, maximum: 2 }

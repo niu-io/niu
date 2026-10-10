@@ -883,8 +883,8 @@ pub(super) fn validate_priced_request(
     let object = body
         .as_object_mut()
         .ok_or_else(|| ApiError::invalid_request("Expected a JSON object"))?;
-    // The first priced contract covers a single text completion. Additional
-    // modalities and tool execution require their own billable dimensions.
+    // The priced contract covers a single text completion, including structured
+    // JSON. Additional modalities and tool execution remain outside this shape.
     const ALLOWED: &[&str] = &[
         "model",
         "messages",
@@ -900,6 +900,7 @@ pub(super) fn validate_priced_request(
         "presence_penalty",
         "frequency_penalty",
         "user",
+        "response_format",
     ];
     if object.keys().any(|k| !ALLOWED.contains(&k.as_str()))
         || object.get("n").is_some_and(|v| v.as_u64() != Some(1))
@@ -929,6 +930,17 @@ pub(super) fn validate_priced_request(
     let input_bytes = serde_json::to_vec(&object["messages"])
         .map_err(|_| ApiError::invalid_request("Invalid Chat messages"))?
         .len();
+    // Schema instructions are also part of the model input. Preserve the
+    // existing message-only bound when no response format is requested.
+    let format_bytes = object
+        .get("response_format")
+        .map(serde_json::to_vec)
+        .transpose()
+        .map_err(|_| ApiError::invalid_request("Invalid response format"))?
+        .map_or(0, |format| format.len());
+    let input_bytes = input_bytes
+        .checked_add(format_bytes)
+        .ok_or_else(|| ApiError::invalid_request("Chat input exceeds the priced route bound"))?;
     if price.max_input_tokens <= 0 || input_bytes as u128 > price.max_input_tokens as u128 {
         return Err(ApiError::invalid_request(
             "Chat input exceeds the priced route's serialized UTF-8 byte bound",
