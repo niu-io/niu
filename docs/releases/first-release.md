@@ -111,6 +111,11 @@ performance testing. Both workstreams use main and coordinate API contracts and
 blockers. Preserve the dependency order: Supplier credentials and model/rate
 configuration → workspace API-key access → inference → durable usage, customer
 charges and diagnostic records. Keep container qualification deferred.
+Track current rendered acceptance and next actions in the compact
+[frontend workflow checklist](frontend-workflow-checklist.md); retain historical
+observations in its separate [evidence journal](frontend-workflow-evidence.md).
+Neither an automated checkpoint nor an empty-state observation closes a full
+release gate.
 
 Backend readiness is assessed separately from external account activation.
 Payment acceptance requires a documented supported-integration list and verified
