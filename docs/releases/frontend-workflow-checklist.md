@@ -633,3 +633,18 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
 - The mobile check-result text is cramped in the action column. A reference-led
   responsive treatment remains open; this pass preserves the established layout
   and does not qualify all Supplier configuration or multiple-key lifecycle work.
+
+### Supplier check configuration identity
+
+- Model directory checks now bind their pending/result/error state to the saved
+  credential and mapping revisions. Changing configuration hides the previous
+  result, and an older response cannot replace or clear a newer pending check.
+- Nineteen Supplier tests and dashboard type checking pass. The regression
+  exercises an overlapping same-alias check after a mapping revision change and
+  invalidation after a credential revision change. These races were verified in
+  tests, not by altering the saved live Supplier configuration.
+- On the current desktop development page, the actual GPT-4.1 Mini check showed
+  Checking followed by Reachable/model listed. This directory operation neither
+  generated content nor established inference access. No mapping or key changed.
+- Responsive polish is deferred at the user's request while desktop workflows
+  are prioritized. The previously recorded cramped mobile result remains open.

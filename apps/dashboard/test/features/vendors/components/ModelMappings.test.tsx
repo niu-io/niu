@@ -45,3 +45,25 @@ it('keeps each concurrent model check pending until its own response arrives', a
   await waitFor(()=>expect(within(first).getByRole('button',{name:'Check',exact:true})).toBeTruthy());
   expect(onCheck).toHaveBeenCalledTimes(2);
 });
+
+it('does not attribute an old check to a revised mapping or credential, or replace a newer check', async () => {
+  const model:VendorModel={alias:'same-alias',upstream_model:'first-upstream',vendor_id:'supplier',public_catalog:false,enabled:true,pricing:null,revision:1,
+    capabilities:{supports_tool_calls:false,supports_streaming_tool_calls:false,supports_structured_output:false,supports_embeddings:false,supports_embedding_dimensions:false,supports_embedding_base64:false,supports_responses:false}};
+  const completions:Array<(result:ProviderModelCheck)=>void>=[];
+  const props={catalog:[],catalogLoading:false,catalogError:'',loading:false,disabled:false,onRefresh:vi.fn(),onLoadCatalog:vi.fn(),onSave:vi.fn(),onCheck:vi.fn(()=>new Promise<ProviderModelCheck>(resolve=>completions.push(resolve)))};
+  const view=render(<MemoryRouter><ModelMappings {...props} models={[model]} credentialRevision={1}/></MemoryRouter>);
+  const user=userEvent.setup();
+  await user.click(screen.getByRole('button',{name:'Check',exact:true}));
+  const updated={...model,revision:2,upstream_model:'second-upstream'};
+  view.rerender(<MemoryRouter><ModelMappings {...props} models={[updated]} credentialRevision={1}/></MemoryRouter>);
+  expect(screen.queryByRole('button',{name:'Checking…'})).toBeNull();
+  await user.click(screen.getByRole('button',{name:'Check',exact:true}));
+  completions[0]({status:'credentials_rejected',model:'unknown'});
+  await waitFor(()=>expect(screen.getByRole('button',{name:'Checking…'})).toBeTruthy());
+  expect(screen.queryByText('Key rejected. Check the saved supplier key.')).toBeNull();
+  completions[1]({status:'connected',model:'listed'});
+  await screen.findByText('Reachable · model listed. Try Chat to verify access.');
+  view.rerender(<MemoryRouter><ModelMappings {...props} models={[updated]} credentialRevision={2}/></MemoryRouter>);
+  expect(screen.queryByText('Reachable · model listed. Try Chat to verify access.')).toBeNull();
+  expect(screen.getByRole('button',{name:'Check',exact:true})).toBeTruthy();
+});

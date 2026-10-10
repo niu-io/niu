@@ -28,7 +28,8 @@ function capabilityNames(model: VendorModel) {
   return names;
 }
 
-export default function ModelMappings({ ownerFunded = false, models, catalog, catalogLoading, catalogError, loading, disabled, onRefresh, onLoadCatalog, onSave, onCheck }: {
+export default function ModelMappings({ credentialRevision = 0, ownerFunded = false, models, catalog, catalogLoading, catalogError, loading, disabled, onRefresh, onLoadCatalog, onSave, onCheck }: {
+  credentialRevision?: number;
   ownerFunded?: boolean;
   models: VendorModel[];
   catalog: ProviderCatalogModel[];
@@ -46,9 +47,9 @@ export default function ModelMappings({ ownerFunded = false, models, catalog, ca
   const filterRef = useRef<HTMLInputElement>(null);
   const editorTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [page, setPage] = useState(0);
-  const [checkingAliases, setCheckingAliases] = useState<Set<string>>(() => new Set());
-  const [checkResults, setCheckResults] = useState<Record<string, ProviderModelCheck>>({});
-  const [checkErrors, setCheckErrors] = useState<Record<string, string>>({});
+  const checkSequence = useRef(0);
+  const [checks, setChecks] = useState<Record<string, { identity: string; sequence: number; pending: boolean; result?: ProviderModelCheck; error?: string }>>({});
+  const checkIdentity = (model: VendorModel) => JSON.stringify([model.vendor_id, credentialRevision, model.revision, model.upstream_model, model.enabled]);
   const filteredModels = useMemo(() => {
     const value = query.trim().toLowerCase();
     return models.filter(model => !value || `${model.alias} ${model.upstream_model}`.toLowerCase().includes(value)
@@ -71,19 +72,18 @@ export default function ModelMappings({ ownerFunded = false, models, catalog, ca
     void onLoadCatalog();
   }
 
-  async function check(alias: string) {
-    setCheckingAliases(current => new Set(current).add(alias));
-    setCheckErrors(current => ({ ...current, [alias]: '' }));
+  async function checkModelRow(model: VendorModel) {
+    const alias = model.alias;
+    const identity = checkIdentity(model);
+    const sequence = ++checkSequence.current;
+    setChecks(current => ({ ...current, [alias]: { identity, sequence, pending: true } }));
     try {
       const result = await onCheck(alias);
-      setCheckResults(current => ({ ...current, [alias]: result }));
+      setChecks(current => current[alias]?.sequence === sequence
+        ? { ...current, [alias]: { identity, sequence, pending: false, result } } : current);
     } catch (reason) {
-      setCheckErrors(current => ({
-        ...current,
-        [alias]: reason instanceof Error ? reason.message : 'Check failed.',
-      }));
-    } finally {
-      setCheckingAliases(current => {const next = new Set(current);next.delete(alias);return next;});
+      setChecks(current => current[alias]?.sequence === sequence
+        ? { ...current, [alias]: { identity, sequence, pending: false, error: reason instanceof Error ? reason.message : 'Check failed.' } } : current);
     }
   }
 
@@ -123,6 +123,7 @@ export default function ModelMappings({ ownerFunded = false, models, catalog, ca
             <TableHeader><TableRow><TableHead scope="col">Niu alias</TableHead><TableHead scope="col">Upstream model</TableHead><TableHead scope="col">Optional features</TableHead><TableHead scope="col">Catalog</TableHead><TableHead scope="col">Status</TableHead><TableHead scope="col"><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
             <TableBody>{visibleModels.map(model => {
               const features = capabilityNames(model);
+              const check = checks[model.alias]?.identity === checkIdentity(model) ? checks[model.alias] : undefined;
               return <TableRow key={model.alias}>
                 <TableCell><span className="provider-model-cell"><ProviderLogo provider={modelIdentity({ id: model.alias, upstream_model: model.upstream_model })} size="small" /><strong className="vendor-model-alias">{model.alias}</strong></span></TableCell>
                 <TableCell><span className="vendor-upstream-model">{model.upstream_model}</span></TableCell>
@@ -131,13 +132,13 @@ export default function ModelMappings({ ownerFunded = false, models, catalog, ca
                 <TableCell><span className={'vendor-state' + (model.available === true ? ' is-enabled' : '')}>{!model.enabled ? 'Disabled' : model.available === true ? 'Available' : model.available === false ? 'Unavailable' : 'Not checked'}</span></TableCell>
                 <TableCell className="vendor-model-actions">
                   <div className="vendor-model-action-buttons">
-                    <Button type="button" size="xs" variant="outline" disabled={disabled || checkingAliases.has(model.alias)} onClick={() => void check(model.alias)}>{checkingAliases.has(model.alias) ? 'Checking…' : 'Check'}</Button>
+                    <Button type="button" size="xs" variant="outline" disabled={disabled || check?.pending} onClick={() => void checkModelRow(model)}>{check?.pending ? 'Checking…' : 'Check'}</Button>
                     <Button type="button" size="xs" variant="ghost" disabled={disabled} onClick={event => { editorTriggerRef.current = event.currentTarget; setEditing(model); }}>Edit</Button>
                   </div>
-                  {checkErrors[model.alias]
-                    ? <span className="vendor-check-result is-error" role="alert">{checkErrors[model.alias]}</span>
-                    : checkResults[model.alias]
-                      ? <span className="vendor-check-result" aria-live="polite">{checkLabel(checkResults[model.alias], model)}</span>
+                  {check?.error
+                    ? <span className="vendor-check-result is-error" role="alert">{check?.error}</span>
+                    : check?.result
+                      ? <span className="vendor-check-result" aria-live="polite">{checkLabel(check?.result, model)}</span>
                       : null}
                 </TableCell>
               </TableRow>;

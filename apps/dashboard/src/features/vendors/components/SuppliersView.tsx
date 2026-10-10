@@ -402,6 +402,7 @@ export default function SuppliersView({ token, session, refreshWorkspace, worksp
         </DialogHeader>
         {selectedVendor && <ModelMappings
       key={selectedVendor.id}
+      credentialRevision={selectedVendor.revision}
       ownerFunded={selectedVendor.owner_funded === true}
       models={models}
       catalog={catalog}
