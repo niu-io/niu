@@ -488,3 +488,24 @@ another restart. This extends the successful combined-category evidence to
 streaming. Interrupted streams without terminal usage, subsequent upstream usage
 corrections and nonempty Supplier earnings retain their separate verification
 requirements.
+
+### Customer reporting for combined categories
+
+An offline copy of the completed cache-write/reasoning history run was reopened
+with the current Gateway. No new inference was submitted. A workspace-scoped
+viewer read both actual request details, the Logs list and CSV export; reported
+cache-write/read and reasoning quantities and customer amounts matched the
+original calls and posted debits, despite the later tariff publication. The
+administrator returned the same request representation. A different organization
+received 404 for detail/export access; the viewer received 403 from procurement
+cost access. Recursive response checks and CSV header checks found no procurement
+rates, upstream cost, margins or credential fields.
+
+After Gateway restart the CSV was byte-identical and request details were
+unchanged. Temporary reporting identities were revoked. Independent verification
+reopened the stopped copied database and reconciled saved customer JSON/CSV
+against both charge/debit pairs and stored category quantities. Attempt and
+financial-entry counts were unchanged, with no unresolved reservation. The
+original evidence database was preserved. This is backend reporting and access
+verification; no browser workflow or nonempty Supplier settlement is qualified
+by these reads.
