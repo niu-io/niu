@@ -3200,6 +3200,87 @@ HTTP 409: Stale revision, missing or deleted Supplier
 
 HTTP 422: Invalid body shape or unknown field
 
+## List Supplier business members
+
+`GET /admin/v1/providers/{provider}/members`
+
+Requires platform management permission. Lists saved memberships ordered by member name and internal identity. active is false when membership is disabled or the member account is revoked; revoked reports account revocation separately. No tokens, merchant secrets or procurement amounts are returned. Internal operator identities are for routing, not product labels.
+
+Implementation: `implemented`. Operation: `listSupplierMembers`.
+
+### Parameters
+
+`provider` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Saved membership list, including inactive or revoked members
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "operator_id",
+          "name",
+          "role",
+          "active",
+          "revoked"
+        ],
+        "properties": {
+          "operator_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "manager",
+              "viewer"
+            ]
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "revoked": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid identifier
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform management permission required
+
+HTTP 409: Supplier missing or deleted
+
+HTTP 503: Storage unavailable
+
 ## Read platform payment configuration presence
 
 `GET /admin/v1/platform/configuration`

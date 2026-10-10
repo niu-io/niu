@@ -578,6 +578,101 @@ pub async fn list(
         json!({"data":state.store.provider_businesses().await.map_err(ApiError::from_store)?}),
     ))
 }
+/// ```openapi
+/// {
+///   "path": "/admin/v1/providers/{provider}/members",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listSupplierMembers",
+///     "summary": "List Supplier business members",
+///     "description": "Requires platform management permission. Lists saved memberships ordered by member name and internal identity. active is false when membership is disabled or the member account is revoked; revoked reports account revocation separately. No tokens, merchant secrets or procurement amounts are returned. Internal operator identities are for routing, not product labels.",
+///     "x-niu-implementation": "implemented",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "provider",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Saved membership list, including inactive or revoked members",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "items": {
+///                     "type": "object",
+///                     "required": [
+///                       "operator_id",
+///                       "name",
+///                       "role",
+///                       "active",
+///                       "revoked"
+///                     ],
+///                     "properties": {
+///                       "operator_id": {
+///                         "type": "string",
+///                         "format": "uuid"
+///                       },
+///                       "name": {
+///                         "type": "string"
+///                       },
+///                       "role": {
+///                         "type": "string",
+///                         "enum": [
+///                           "manager",
+///                           "viewer"
+///                         ]
+///                       },
+///                       "active": {
+///                         "type": "boolean"
+///                       },
+///                       "revoked": {
+///                         "type": "boolean"
+///                       }
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid identifier"
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Platform management permission required"
+///       },
+///       "409": {
+///         "description": "Supplier missing or deleted"
+///       },
+///       "503": {
+///         "description": "Storage unavailable"
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub async fn members(
     State(state): State<AppState>,
     headers: HeaderMap,
