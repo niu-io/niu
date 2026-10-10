@@ -43,6 +43,30 @@ Existing gateway code supports native Zhifux and Stripe creation, signed callbac
 
 ## Classic EPay protocol boundary
 
+### Current-input inventory and inactive-installation check — 2026-10-10
+
+An actual gateway process using backend `5a2449d` and a separate native
+PostgreSQL database was started without merchant configuration. Through HTTP,
+installation administration listed EPay, Stripe and native PaymentFM support.
+The returned inventory explicitly reported no refunds, unsupported EPay query
+recovery, Stripe bound-session recovery and native PaymentFM saved-order recovery.
+An ordinary company owner received 403 for the platform inventory; an invalid
+credential received 401.
+
+The company owner separately requested each integration through customer method
+discovery. All returned unavailable, with no methods and no selected gateway.
+Explicit checkout requests were refused. Independent database reads confirmed
+zero top-up orders, provider bindings, funding receipts and balance entries.
+After stopping and restarting the gateway, the support inventory was unchanged
+and no order had appeared. Temporary access was revoked and the isolated
+processes stopped; existing merchant configuration and databases were untouched.
+
+This verifies the separation between supported integrations and enabled customer
+payment methods on an unconfigured installation. It does not verify positive
+checkout, signed payment acceptance, merchant activation or funding recovery.
+No external payment or fixture response was used. Historical fixture outcomes
+below are not evidence of integrated correctness or readiness.
+
 Callback parsing regression verified on 2026-10-07: malformed raw percent escapes
 are rejected before form decoding, even when the permissively decoded fields
 would have a matching signature. Correctly percent-encoded literal percent values
