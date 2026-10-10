@@ -17,6 +17,7 @@ import SupplierDirectory from './SupplierDirectory';
 import SupplierEditor, { type VendorCreate } from './SupplierEditor';
 import ModelMappings from './ModelMappings';
 import CodexSubscriptions from './CodexSubscriptions';
+import CredentialRequestLimit from './CredentialRequestLimit';
 
 export default function SuppliersView({ token, session, refreshWorkspace, workspaces = [], catalogPath = '/models?workspace=default' }: {
   workspaces?: Workspace[];
@@ -391,6 +392,7 @@ export default function SuppliersView({ token, session, refreshWorkspace, worksp
         <div className="supplier-detail-identity"><ProviderLogo provider={connectionIdentity(selectedVendor)} size="large" /><div><h2 id="vendor-detail-title">{selectedVendor.name}</h2><p>{selectedVendor.adapter === 'openrouter' ? 'OpenRouter API' : 'OpenAI-compatible API'}</p></div><span className={'vendor-status-badge' + (selectedVendor.enabled ? ' is-enabled' : '')}>{selectedVendor.enabled ? 'Enabled' : 'Disabled'}</span></div>
         <div className="supplier-detail-bottom"><p className="supplier-endpoint">{selectedVendor.api_base}</p><div className="vendor-detail-actions"><Button type="button" size="sm" onClick={() => setManagingModels(true)} disabled={loadingModels}>Model routes{!loadingModels && ` (${models.length})`}</Button><Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => { setError(''); setEditingVendor(true); }}><Pencil size={15} />Edit API key</Button><Button asChild size="sm" variant="ghost"><Link to={catalogPath}>Model catalog<ArrowUpRight size={14} /></Link></Button></div></div>
         {!selectedVendor.has_credential && <p className="error-text" role="status">No credential stored. Edit this API key to configure access.</p>}
+        {canManage && <CredentialRequestLimit key={`${token}:${selectedVendor.id}`} token={token} vendorId={selectedVendor.id} />}
       </section> : loadingVendors ? <section className="panel vendor-detail-panel vendor-editor-loading" role="status">Loading API keys…</section> : <section className="panel vendor-detail-panel"><div className="vendor-empty"><span className="vendor-empty-mark"><Router size={17} /></span><strong>No API keys</strong><p>Add an API key to configure the models supplied by this Supplier.</p><Button type="button" onClick={() => setAddingVendor(true)}>Add API key</Button></div></section>}
     </div>
     {!supplierId && <CodexSubscriptions token={token} workspaces={workspaces} />}
