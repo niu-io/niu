@@ -234,3 +234,23 @@ HTTP artifact comparison confirmed the same result. This exercises the unpriced
 query branch only. Original native runtime replacement also preserved existing
 configuration, encrypted identity and durable counts; saved video billing reads
 and access checks were repeated. Compilation/static checks completed separately.
+
+## Recovered video in customer request reports
+
+A fresh copy of the actual completion-recovery video's stopped database was
+opened with the current native Gateway. Workspace-viewer request list, detail
+and CSV export agreed with the installation read: `confirmed_completed`,
+`owner_funded`, null customer currency/amount in JSON and empty charge fields in
+CSV. The list identified the request as video. A foreign organization viewer
+received 404 for detail/export, and the workspace viewer received 403 from the
+procurement cost endpoint. Customer serialization contained no Supplier cost,
+credential or route configuration fields.
+
+After process replacement, the CSV was byte-identical and detail unchanged.
+Attempt, transport-observation and financial-entry counts stayed constant. An
+independent process reopened the stopped database and matched the saved JSON/CSV
+to the completed attempt, its personal funding binding and absent customer
+charge. These reads made no upstream request and did not alter the original
+installation or the retained source database. This verifies customer reporting
+for the recovered owner-funded job; it does not qualify paid-media reporting or
+browser presentation.
