@@ -93,6 +93,31 @@ receipt closes those gaps. External merchant activation is not an internal
 readiness prerequisite; truthful settlement evidence is still required to claim
 an actual payment or funded end-to-end result.
 
+## Text pricing capability boundaries
+
+Persisted token categories and their reports do not imply corresponding rate-card
+or settlement support. `TokenRates` and customer tariff revisions currently apply
+two flat rates to aggregate prompt/completion counts, rounding the combined exact
+amount upward once. This can represent an explicitly agreed flat tariff; it does
+not reproduce an upstream category-specific bill.
+
+| Capability | Current implementation boundary | Required acceptance behavior |
+| --- | --- | --- |
+| Flat input/output tariff | Implemented in `TokenRates` and immutable customer tariff revisions; paid current-input verification open | Reproduce the exact charge from aggregate counts and the pinned rates, including one combined rounding step |
+| Separate cache-read price | Not implemented by the generic two-rate text tariff | Pin a distinct rate and non-overlapping counted quantities; unknown cache usage must not become an invented zero |
+| Separate cache-write price | Not implemented by the generic two-rate text tariff | Distinguish declared write categories and applicable durations without charging included input twice |
+| Separate reasoning-output price | Not implemented by the generic two-rate text tariff | Specify whether reasoning is already included in reported output; apply the agreed schedule without double counting |
+| Long-context tiers | Not implemented by the generic two-rate text tariff | Pin threshold, tier selection and effective rates for the actual request, including boundary behavior |
+| Per-request charges and minimums | Not implemented by the generic two-rate text tariff | Declare the billable event and minimum/rounding rules independently of token usage |
+| Text promotions and discounts | No generic text discount schedule in this tariff | Pin eligibility, priority, stacking and exact effective amounts; editing a promotion cannot reprice history |
+| Multimodal text-endpoint units | Generic priced Chat restricts the request to supported plain text | Require explicit meter and liability bounds for image/audio or other billable inputs rather than silently using text rates |
+
+Versioned media rate cards are a separate implementation. Their dimension,
+discount and unit mechanisms do not establish generic text tariff coverage.
+Customer tariffs and confidential Supplier procurement schedules need independent
+histories and authorization. These gaps are required follow-up capabilities, not
+reasons to reinterpret a flat tariff as category-specific pricing.
+
 ## Required workflow checks
 
 For each control, cover authorized configuration, unauthorized writes, stale

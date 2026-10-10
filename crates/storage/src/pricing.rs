@@ -1,7 +1,8 @@
 use crate::StoreError;
 
-/// Integer currency nanounits per million tokens. This initial schedule covers
-/// uncached text tokens only; providers with additional charges need richer rates.
+/// Integer currency nanounits per million aggregate input/output tokens.
+/// This flat schedule does not independently price cache or reasoning categories;
+/// providers with category-specific or additional charges need richer rates.
 #[derive(Clone, Copy, Debug)]
 pub struct TokenRates {
     pub prompt: i64,
