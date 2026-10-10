@@ -943,3 +943,27 @@ it('offers filter recovery instead of implying the workspace has never had activ
  await waitFor(() => expect(screen.getByLabelText('Route query').textContent).toBe('?tokens=reasoning'));
  expect(await screen.findByRole('link', {name:/Open Chat/})).toBeTruthy();
 });
+
+it('preserves operation scope through pagination and export and removes it without exposing the identifier', async () => {
+  const operationId = 'd642d223-641d-4e32-87c8-595db464eefe';
+  const calls: string[] = [];
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>(async input => {
+    const url = String(input); calls.push(url);
+    if (url.endsWith('/keys')) return Response.json({data: []});
+    if (url.includes('/requests/export')) return new Response('', {status: 413});
+    const params = new URL(url, 'http://localhost').searchParams;
+    return Response.json({data: [makeRequest(params.has('after') ? 'second' : 'first', null, 'fast')], next_cursor: params.has('after') ? null : 'next', summary});
+  }));
+  render(<MemoryRouter initialEntries={[`/workspaces/demo/executions?operationId=${operationId}&modelAlias=fast`]}><GatewayActivity token="test" models={['fast']} initialScope={{organizationId: 'org-1', projectId: 'project-1'}} /></MemoryRouter>);
+  const user = userEvent.setup();
+  await screen.findByRole('button', {name: 'fast', exact: true});
+  expect(document.body.textContent).not.toContain(operationId);
+  await user.click(screen.getByRole('button', {name: 'Load older requests'}));
+  await waitFor(() => expect(calls.some(url => url.includes(`operation_id=${operationId}`) && url.includes('after=next'))).toBe(true));
+  await user.click(screen.getByRole('button', {name: 'Request actions'}));
+  await user.click(screen.getByRole('menuitem', {name: 'Export CSV'}));
+  await waitFor(() => expect(calls.some(url => url.includes('/requests/export?') && url.includes(`operation_id=${operationId}`))).toBe(true));
+  await user.click(screen.getByRole('button', {name: 'Related requestsRemove filter'}));
+  await waitFor(() => expect(calls.filter(url => url.includes('/requests?')).at(-1)).not.toContain('operation_id='));
+  expect(calls.filter(url => url.includes('/requests?')).at(-1)).toContain('model_alias=fast');
+});

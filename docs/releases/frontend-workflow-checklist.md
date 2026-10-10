@@ -740,3 +740,9 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
 - This qualifies desktop optimistic-conflict recovery against the running API;
   it does not establish disconnected-network or uncertain-save recovery. No new
   UI code or synthetic backend data was needed for this verification.
+
+## Operation-scoped Logs
+
+- Logs now consumes the backend's operation filter from deep links and preserves it in list queries, pagination, CSV export and Activity drilldowns. The existing removable filter uses “Related requests”; internal operation identifiers are never rendered.
+- All 52 GatewayActivity integration tests and dashboard TypeScript checking passed. Coverage verifies scoped pagination/export, removal without losing the model filter, and identifier concealment.
+- On the real desktop service, protected navigation retained the operation query through password sign-in. An unknown operation produced “No matching requests”; removing its chip restored populated workspace Logs and removed the query. No inference, key or saved configuration was changed. Populated multi-attempt operation qualification remains open; responsive refinement is deferred under the current workflow priority.
