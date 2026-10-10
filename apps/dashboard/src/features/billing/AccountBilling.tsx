@@ -62,6 +62,7 @@ export default function AccountBilling({token, organization, canConfigure = fals
  const companyAccess = true;
  const showTransactions = section !== 'payments';
  const [editing,setEditing] = useState<Balance | null>(null);
+ const warningOpener = useRef<HTMLButtonElement | null>(null);
  const [warningEnabled,setWarningEnabled] = useState(false);
  const [threshold,setThreshold] = useState('');
  const [saving,setSaving] = useState(false);
@@ -150,7 +151,7 @@ export default function AccountBilling({token, organization, canConfigure = fals
             </dl>
             <div className="flex items-center justify-between gap-3 py-3">
               <div><h3 className="font-medium">Low balance warning</h3><p className="text-sm text-muted-foreground">{account.warning_threshold_nanos === null ? 'Disabled' : `Below ${money(account.warning_threshold_nanos,account.currency)} · In app`}</p></div>
-              {canConfigure && <Button variant="ghost" size="sm" aria-label={`Configure ${account.currency} low balance warning`} onClick={()=>editWarning(account)}>Configure</Button>}
+              {canConfigure && <Button variant="ghost" size="sm" aria-label={`Configure ${account.currency} low balance warning`} onClick={event=>{warningOpener.current=event.currentTarget;editWarning(account);}}>Configure</Button>}
             </div>
             {BigInt(account.available_nanos) <= 0n
               ? <Alert variant="destructive"><AlertTitle>Insufficient funds</AlertTitle><AlertDescription>{canConfigure ? 'Paid requests are paused until funds are added.' : 'Paid requests are paused. Contact your billing administrator to add funds.'}</AlertDescription></Alert>
@@ -172,7 +173,7 @@ export default function AccountBilling({token, organization, canConfigure = fals
           </> : !transactionError && (transactionsLoading ? <p role="status" className="text-muted-foreground">Loading transactions…</p> : <p className="text-muted-foreground">No transactions yet.</p>)}
         </section>}
 <Dialog open={editing !== null} onOpenChange={open=>{if (!open && !saving) setEditing(null);}}>
- <DialogContent>
+ <DialogContent onCloseAutoFocus={event=>{if(warningOpener.current?.isConnected){event.preventDefault();warningOpener.current.focus();}}}>
   <DialogHeader><DialogTitle>Low balance warning</DialogTitle><DialogDescription>Show an in-app warning when your account balance falls below this amount. Credit allowances are excluded.</DialogDescription></DialogHeader>
   <form onSubmit={event=>{event.preventDefault();void saveWarning();}} className="grid gap-4">
   <div className="flex items-center gap-3"><Checkbox id="balance-warning-enabled" checked={warningEnabled} disabled={saving} onCheckedChange={value=>setWarningEnabled(value===true)}/><Label htmlFor="balance-warning-enabled">Enabled</Label></div>

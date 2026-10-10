@@ -598,3 +598,23 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
   No mock records were seeded. The new Video action menu/deletion dialog, actual
   deletion and saved-input/result restoration therefore remain pending real-data
   browser qualification. The full Video workflow remains partial.
+
+### Global Billing and Payments responsive follow-up
+
+- Opened Settings from the authenticated account menu over Generations. Actual
+  Billing reads showed a zero USD balance, disabled warning and empty transaction
+  history. Payments showed unavailable online top-ups and no saved top-ups. These
+  are current backend states, not seeded examples or proof of checkout recovery.
+- Inspected both sections at 1280×720 and 390×844. Mobile section links remain
+  accessible above the content; the balance and nested warning dialog fit the
+  narrow viewport. Enabling the warning exposes its input; cancelling preserves
+  the saved disabled state without a write. No payment or policy was submitted.
+- Fixed a rendered keyboard-focus defect in the existing layout: cancelling or
+  dismissing the warning dialog now returns focus to its Configure button instead
+  of the document root. Browser checks passed for mobile Cancel and desktop
+  Escape after HMR; 31 Billing tests and dashboard type checking pass, including
+  a regression for cancellation returning focus without a write.
+- Closing Settings preserves the originating Generations workspace route and
+  returns focus to the account menu. Merchant activation, actual paid checkout,
+  saved-order recovery and nonempty transaction reconciliation remain unqualified
+  by this read-only browser pass.
