@@ -290,3 +290,29 @@ actual selected route agreed with the documented highest-priority rule. The
 corrected complete run above used that rule. This checkpoint does not qualify
 candidate changes during dispatch, distinct Supplier expense schedules, overload,
 commercial resale, automatic failover or safe retry of an uncertain attempt.
+
+## Distinct configured expenses and historical repricing
+
+A second current-input run used two independently stored credential records and
+model mappings with different internal procurement rates, backed by the same
+personal upstream account and model. The customer tariff remained attached to
+the pool alias. Each actual request's durable binding selected the expected
+credential record, model revision and pool revision; its expense matched separate
+arithmetic using that candidate's configured rates. These verification rates are
+not external Supplier invoices or evidence of independent commercial supply.
+
+After the first structured completion, its mapping's procurement price was
+changed. Independent SQL inspection confirmed the original expense stayed fixed.
+The first candidate was then disabled in the next pool revision; after restart,
+a real text stream selected the second candidate and its different expense rates.
+Customer charges were 15,433 and 7,655 USD nanounits from reported token counts
+45/10 and 14/6 respectively, totaling 23,088. Those charges used the unchanged
+customer tariff rather than either procurement rate.
+
+The complete run also checked exact balance debits, released holds, reconciliation,
+a settled statement, key-cap refusal, idempotent balance refund and preservation
+of charges/debits after another restart. Both temporary credential records were
+disabled and the API key revoked before stopping the isolated processes. Original
+development data and encrypted identity were unchanged. This extends configured
+price/binding evidence, not automatic failover, concurrent configuration changes
+during dispatch, or commercial Supplier qualification.
