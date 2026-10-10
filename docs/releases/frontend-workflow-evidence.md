@@ -1302,3 +1302,19 @@ This is compatibility protection, not complete reasoning-pricing UX. Explicit
 category display/editing, mature-reference/Stitch design, actual populated
 publication/history, and customer rate/statement presentation remain required.
 Fixture writes do not qualify those live workflows.
+
+## Reasoning-pricing design preparation — 2026-10-11
+
+Stitch extended the existing NIU.IO customer-pricing design with the optional
+reasoning-output rate, a flat-output fallback description, matching current-price
+and revision-history presentation, and the existing dialog/grid structure. The
+generated screen was inspected as a design artifact; generated values are not
+product data or publication evidence. No new product layout was implemented.
+
+Browser reference navigation and two subsequent browser-state reads timed out
+with session resets. Current reference interaction and rendered qualification
+were therefore unavailable. Implementation of the visual category controls is
+held until that validation path is available. Remaining changes must cover Admin
+editing/history, customer model prices and Billing rates/statement categories;
+reasoning is a subset of total output and must never be summed a second time.
+Existing compatibility protection and the full frontend goal remain active.
