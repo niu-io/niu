@@ -156,3 +156,21 @@ restore, idempotent content deletion, and rejection of a deleted submission.
 Independent database inspection confirmed no submission preparation in that
 management-only run. This does not qualify browser recovery or customer-funded
 video settlement.
+
+## Concurrent status reads
+
+Restoration reads the dispatch marker and job observations in one database
+statement snapshot. The public job-state endpoint uses the same read and status
+reduction; conflicting terminal observations still require reconciliation.
+This prevents combining an earlier undispatched marker with a later queued,
+running, or completed job. The enclosing intent content and authorization checks
+are separate reads; this is not a transaction-wide snapshot of every field.
+
+A current-input personal video submission was sampled through 150 concurrent
+restore requests, then recovered after response loss and process restart. The
+same single upstream submission reached success and its downloaded video fully
+decoded. Independent database inspection found one submission and no customer
+charges. A separate native database dispatch interruption retained one prepared,
+undispatched attempt across restart and explicit replay, with no transport or
+ledger entry. These runs cover the exercised states, not every possible
+interleaving or customer-funded video settlement.

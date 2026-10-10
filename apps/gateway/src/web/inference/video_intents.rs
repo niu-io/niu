@@ -86,23 +86,19 @@ async fn restored(
         .await
         .map_err(ApiError::from_store)?;
     let (submission_state, job) = if let Some(attempt) = attempt {
-        let dispatched = state
+        let (dispatched, job) = state
             .store
-            .video_intent_dispatched(scope, attempt)
+            .media_job_snapshot_for_key(&principal, attempt)
             .await
-            .map_err(ApiError::from_store)?;
-        let job = state
-            .store
-            .media_job_state_for_key(&principal, attempt)
-            .await
-            .map_err(ApiError::from_store)?;
+            .map_err(ApiError::from_store)?
+            .ok_or_else(ApiError::not_found)?;
         (
             if dispatched {
                 "dispatched"
             } else {
                 "not_dispatched"
             },
-            job,
+            Some(job),
         )
     } else {
         ("saved", None)
@@ -384,7 +380,7 @@ pub(in crate::web) struct SaveInput {
 ///             "not_dispatched",
 ///             "dispatched"
 ///           ],
-///           "description": "Read-only snapshot. not_dispatched means original preparation has no recorded dispatch; it never grants a fresh submission right."
+///           "description": "Dispatch and job status are read from one database statement snapshot. not_dispatched means original preparation has no recorded dispatch; it never grants a fresh submission right."
 ///         },
 ///         "job": {
 ///           "anyOf": [

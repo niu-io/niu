@@ -11408,7 +11408,7 @@ Local `#/components/schemas/…` references resolve to these definitions.
         "not_dispatched",
         "dispatched"
       ],
-      "description": "Read-only snapshot. not_dispatched means original preparation has no recorded dispatch; it never grants a fresh submission right."
+      "description": "Dispatch and job status are read from one database statement snapshot. not_dispatched means original preparation has no recorded dispatch; it never grants a fresh submission right."
     },
     "job": {
       "anyOf": [

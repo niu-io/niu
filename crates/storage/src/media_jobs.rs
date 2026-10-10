@@ -433,13 +433,42 @@ impl Store {
         principal: &crate::Principal,
         attempt: Uuid,
     ) -> Result<Option<serde_json::Value>, StoreError> {
+        Ok(self
+            .media_job_snapshot_for_key(principal, attempt)
+            .await?
+            .map(|(_, job)| job))
+    }
+
+    /// Read dispatch and job observations from one statement snapshot, so an
+    /// intent restore cannot combine pre-dispatch state with a later job state.
+    pub async fn media_job_snapshot_for_key(
+        &self,
+        principal: &crate::Principal,
+        attempt: Uuid,
+    ) -> Result<Option<(bool, serde_json::Value)>, StoreError> {
         let scope = principal.scope();
-        let model: Option<String> = sqlx::query_scalar("SELECT a.resource_id FROM attempts a WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=$3 AND ((a.dispatched_at IS NOT NULL AND EXISTS(SELECT 1 FROM media_recovery_routes r WHERE r.attempt_id=a.id)) OR EXISTS(SELECT 1 FROM media_submission_keys s WHERE s.attempt_id=a.id))")
-            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_optional(&self.pool).await?;
-        let Some(model) = model.filter(|m| principal.allows_model(m)) else {
+        let row: Option<(String, bool, Option<Vec<String>>)> = sqlx::query_as(
+            "SELECT a.resource_id, a.dispatched_at IS NOT NULL,
+             CASE WHEN j.attempt_id IS NULL THEN NULL ELSE
+               ARRAY(SELECT status FROM media_job_observations o WHERE o.attempt_id=a.id)
+             END
+             FROM attempts a LEFT JOIN media_jobs j
+               ON j.attempt_id=a.id AND j.organization_id=a.organization_id AND j.project_id=a.project_id
+             WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=$3
+               AND ((a.dispatched_at IS NOT NULL AND EXISTS(SELECT 1 FROM media_recovery_routes r WHERE r.attempt_id=a.id))
+                    OR EXISTS(SELECT 1 FROM media_submission_keys s WHERE s.attempt_id=a.id))",
+        )
+        .bind(scope.organization_id)
+        .bind(scope.project_id)
+        .bind(attempt)
+        .fetch_optional(&self.pool)
+        .await?;
+        let Some((model, dispatched, observations)) =
+            row.filter(|(model, _, _)| principal.allows_model(model))
+        else {
             return Ok(None);
         };
-        let status = match self.media_job_status(scope, attempt).await? {
+        let status = match observations.map(media_status_from_observations) {
             None => "submission_unknown",
             Some(MediaJobStatus::Queued) => "queued",
             Some(MediaJobStatus::Running) => "running",
@@ -448,9 +477,10 @@ impl Store {
             Some(MediaJobStatus::Unknown) => "unknown",
             Some(MediaJobStatus::Conflicting) => "reconciliation_required",
         };
-        Ok(Some(
+        Ok(Some((
+            dispatched,
             serde_json::json!({"id":attempt,"object":"video.job","model":model,"status":status}),
-        ))
+        )))
     }
 
     /// Apply a decoded query only to its original durable identity. The caller
@@ -870,21 +900,23 @@ impl Store {
     ) -> Result<Option<MediaJobStatus>, StoreError> {
         let statuses: Option<Vec<String>> = sqlx::query_scalar("SELECT ARRAY(SELECT status FROM media_job_observations o WHERE o.attempt_id=j.attempt_id) FROM media_jobs j WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_optional(&self.pool).await?;
-        Ok(statuses.map(|values| {
-            let has = |s| values.iter().any(|v| v == s);
-            if has("succeeded") && has("failed") {
-                MediaJobStatus::Conflicting
-            } else if has("succeeded") {
-                MediaJobStatus::Succeeded
-            } else if has("failed") {
-                MediaJobStatus::Failed
-            } else if has("unknown") || values.is_empty() {
-                MediaJobStatus::Unknown
-            } else if has("running") {
-                MediaJobStatus::Running
-            } else {
-                MediaJobStatus::Queued
-            }
-        }))
+        Ok(statuses.map(media_status_from_observations))
+    }
+}
+
+fn media_status_from_observations(values: Vec<String>) -> MediaJobStatus {
+    let has = |s| values.iter().any(|v| v == s);
+    if has("succeeded") && has("failed") {
+        MediaJobStatus::Conflicting
+    } else if has("succeeded") {
+        MediaJobStatus::Succeeded
+    } else if has("failed") {
+        MediaJobStatus::Failed
+    } else if has("unknown") || values.is_empty() {
+        MediaJobStatus::Unknown
+    } else if has("running") {
+        MediaJobStatus::Running
+    } else {
+        MediaJobStatus::Queued
     }
 }

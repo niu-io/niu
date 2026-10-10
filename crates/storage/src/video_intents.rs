@@ -135,12 +135,4 @@ impl Store {
     pub async fn purge_expired_video_intents(&self) -> Result<u64, StoreError> {
         self.execute_content_retention("UPDATE video_submission_intents SET request=NULL,deleted_at=clock_timestamp(),revision=revision+1 WHERE (organization_id,project_id,owner,id) IN (SELECT organization_id,project_id,owner,id FROM video_submission_intents WHERE request IS NOT NULL AND expires_at<=clock_timestamp() ORDER BY expires_at,id LIMIT 500 FOR UPDATE SKIP LOCKED)").await
     }
-
-    pub async fn video_intent_dispatched(
-        &self,
-        scope: TenantScope,
-        attempt: Uuid,
-    ) -> Result<bool, StoreError> {
-        Ok(sqlx::query_scalar("SELECT dispatched_at IS NOT NULL FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=$3").bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_optional(&self.pool).await?.unwrap_or(false))
-    }
 }
