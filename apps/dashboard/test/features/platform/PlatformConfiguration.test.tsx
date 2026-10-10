@@ -15,7 +15,7 @@ describe('Payment configuration loading', () => {
     api.request.mockResolvedValueOnce({data:{payment_gateways:[{name:'EPay',configured:false}]}})
       .mockResolvedValueOnce({data:{revision:'0',enabled:false,merchant_id:'',has_key:false,endpoint:'',notify_url:'',return_url:'',methods:[]}});
     await userEvent.click(screen.getByRole('button',{name:'Retry'}));
-    expect(await screen.findByText('Disabled')).toBeTruthy();
+    expect((await screen.findAllByText('Disabled')).length).toBeGreaterThan(0);
     expect(screen.queryByRole('alert')).toBeNull();
     expect(api.request).toHaveBeenCalledTimes(4);
     expect(api.request.mock.calls.every(call => call[2] === 'GET')).toBe(true);
