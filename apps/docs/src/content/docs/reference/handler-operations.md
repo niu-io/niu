@@ -4626,6 +4626,317 @@ HTTP 429: API key request, concurrency or token rate limit exceeded.
 
 HTTP 503: Durable storage or configured route unavailable.
 
+## Create a text response
+
+`POST /v1/responses`
+
+The route must be an OpenAI-compatible provider route with supports_responses enabled. This public subset accepts a single text input and optional text instructions, output limit, sampling values, metadata and user identifier. Text streaming returns Responses SSE events and preserves terminal reported usage. Each Responses event is bounded to 16 MiB of UTF-8 bytes because terminal events repeat the full output; Chat events retain their separate 64 KiB bound. Oversized or malformed events fail the stream without inventing usage. Multimodal input, tools, prior-response state and other fields are rejected. HTTP 200 at stream start does not establish completion; inspect the terminal response event. Workspace model grants, source policy, rate/concurrency/token limits and configured billing apply.
+
+Implementation: `implemented`. Operation: `createResponse`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
+  }
+]
+```
+
+### Parameters
+
+`x-niu-log-payloads` (header, optional)
+
+Request and sanitized customer response content is retained until 24 hours after the original request creation time by default. Send false (case-insensitive) to disable capture for this request; true or an omitted header retains content. Invalid values or repeated headers are rejected before inference. Requests exceeding the 1 MB capture limit are rejected; response capture is truncated at 1 MB. Does not backfill earlier requests.
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "true",
+    "false"
+  ],
+  "default": "true"
+}
+```
+
+`X-Niu-Task-ID` (header, optional)
+
+Optional opaque task correlation key. Requests with the same value can be grouped in workspace activity. Niu stores the value as metadata and does not forward it to the provider.
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 200,
+  "pattern": "^[!-~]{1,200}$"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "model",
+    "input"
+  ],
+  "properties": {
+    "model": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input": {
+      "type": "string",
+      "minLength": 1
+    },
+    "instructions": {
+      "type": "string"
+    },
+    "max_output_tokens": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000000
+    },
+    "temperature": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 2
+    },
+    "top_p": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "metadata": {
+      "type": "object",
+      "maxProperties": 16,
+      "additionalProperties": {
+        "type": "string",
+        "maxLength": 512
+      }
+    },
+    "user": {
+      "type": "string",
+      "maxLength": 512
+    },
+    "stream": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: A validated Responses API text response with the public model alias.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "id",
+    "object",
+    "status",
+    "model",
+    "output"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "object": {
+      "type": "string",
+      "const": "response"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "incomplete"
+      ]
+    },
+    "model": {
+      "type": "string"
+    },
+    "output": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "role",
+              "content"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "const": "message"
+              },
+              "role": {
+                "type": "string",
+                "const": "assistant"
+              },
+              "status": {
+                "type": "string"
+              },
+              "content": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "type",
+                        "text"
+                      ],
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "const": "output_text"
+                        },
+                        "text": {
+                          "type": "string"
+                        },
+                        "annotations": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      },
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "type",
+                        "refusal"
+                      ],
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "const": "refusal"
+                        },
+                        "refusal": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": true
+                    }
+                  ]
+                }
+              }
+            },
+            "additionalProperties": true
+          },
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "const": "reasoning"
+              },
+              "summary": {
+                "type": "array"
+              },
+              "encrypted_content": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true
+          }
+        ]
+      }
+    },
+    "usage": {
+      "type": "object",
+      "required": [
+        "input_tokens",
+        "output_tokens"
+      ],
+      "properties": {
+        "input_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "output_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_tokens": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
+```
+
+Content type: `text/event-stream`.
+
+```json
+{
+  "type": "string"
+}
+```
+
+HTTP 400: Invalid body, unsupported field or invalid request shape.
+
+HTTP 401: Missing or invalid gateway credentials.
+
+HTTP 404: Model alias does not exist or is unavailable to this key.
+
+HTTP 409: Admission conflict before dispatch. Type route_configuration_changed identifies a changed managed credential/model configuration; that request was not sent upstream. Other conflicts retain their own error type.
+
+HTTP 501: Responses support is disabled, the route protocol is unsupported, or the requested feature is unsupported. The unsupported_operation_error message identifies the limitation and supported alternative before admission.
+
+HTTP 502: Provider request failed or returned an invalid text response. Valid terminal usage is retained for accounting even when output delivery is rejected; an HTTP error alone does not prove nonexecution or authorize a safe retry.
+
+HTTP 402: Insufficient balance or spending limit exceeded.
+
+HTTP 403: Source IP or enforced policy denies the request.
+
+HTTP 413: Request body exceeds the gateway body limit.
+
+HTTP 422: Request body is not valid JSON.
+
+HTTP 429: API key request, concurrency or token rate limit exceeded.
+
+HTTP 503: Durable storage or configured route unavailable.
+
 ## Shared schemas
 
 Local `#/components/schemas/…` references resolve to these definitions.

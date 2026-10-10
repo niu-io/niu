@@ -1441,48 +1441,7 @@ paths:
   /v1/embeddings:
     $ref: './generated/handler-operations.json#/paths/~1v1~1embeddings'
   /v1/responses:
-    post:
-      operationId: createResponse
-      summary: Create a text response
-      description: The route must be an OpenAI-compatible provider route with supports_responses enabled. This public subset accepts a single text input and optional text instructions, output limit, sampling values, metadata and user identifier. Text streaming returns Responses SSE events and preserves terminal reported usage. Each Responses event is bounded to 16 MiB of UTF-8 bytes because terminal events repeat the full output; Chat events retain their separate 64 KiB bound. Oversized or malformed events fail the stream without inventing usage. Multimodal input, tools, prior-response state and other fields are rejected.
-      security:
-        - bearerAuth: []
-        - niuApiKeyAuth: []
-      parameters:
-        - $ref: './request-observability.openapi.yaml#/components/parameters/LogPayloads'
-        - name: X-Niu-Task-ID
-          in: header
-          required: false
-          description: Optional opaque task correlation key. Requests with the same value can be grouped in project activity. Niu stores the value as metadata and does not forward it to the provider.
-          schema: { type: string, minLength: 1, maxLength: 200, pattern: '^[!-~]{1,200}$' }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ResponsesRequest'
-      responses:
-        '200':
-          description: A validated Responses API text response with the public model alias.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ResponsesResponse'
-            text/event-stream:
-              schema: { type: string }
-        '400':
-          description: Invalid body, unsupported field or invalid request shape.
-        '401':
-          description: Missing or invalid gateway credentials.
-        '404':
-          description: Model alias does not exist or is unavailable to this key.
-        '409':
-          description: Admission conflict before dispatch. Type route_configuration_changed identifies a changed managed credential/model configuration; that request was not sent upstream. Other conflicts retain their own error type.
-        '501':
-          description: Responses support is disabled, the route protocol is unsupported, or the requested feature is unsupported. The unsupported_operation_error message identifies the limitation and supported alternative before admission.
-        '502':
-          description: Provider request failed or returned an invalid text response. Valid terminal usage is retained for accounting even when output delivery is rejected; an HTTP error alone does not prove nonexecution or authorize a safe retry.
-      x-niu-status: Text-only subset on explicitly configured OpenAI-compatible routes. Streaming requires a completed or incomplete response terminal event; disconnects retain uncertainty. Tool, multimodal and stateful conversation semantics are not implemented.
+    $ref: './generated/handler-operations.json#/paths/~1v1~1responses'
   /admin/v1/models:
     get:
       operationId: adminListModels
