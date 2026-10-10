@@ -4132,6 +4132,574 @@ HTTP 401: Invalid or expired administrative credential.
 
 HTTP 404: Workspace outside authorized scope.
 
+## Publish an immutable customer video selling schedule
+
+`POST /admin/v1/organizations/{organization}/billing/media-rates`
+
+Platform administrator with write access required. Ordinary company members and inference keys cannot publish prices or liability limits. Pins exact credential/model/schema revisions and a configured qualification reference; registration does not qualify commercial supply or enable video dispatch. Rejects personal credentials and stale routes. Replaying identical current configuration is idempotent; changed content under the same revision conflicts. Procurement terms never belong in this body. Maximum JSON body is 128 KiB.
+
+Implementation: `implemented`. Operation: `publishCustomerMediaRate`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/MediaBillingCustomerMediaRateCard"
+}
+```
+
+### Responses
+
+HTTP 200: Customer selling revision published or identical replay accepted
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision"
+      ],
+      "properties": {
+        "revision": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid tariff, dimensions, discount or liability configuration
+
+HTTP 401: Administrator authentication required
+
+HTTP 403: Platform-administrator write permission required
+
+HTTP 409: Changed revision, stale route or personal credential
+
+HTTP 413: Body exceeds 128 KiB
+
+HTTP 422: Malformed typed JSON body
+
+HTTP 503: Durable storage unavailable
+
+## Read named qualified commercial video configuration choices
+
+`GET /admin/v1/organizations/{organization}/billing/media-rate-models`
+
+Platform-administrator read permission required. Installation credentials and explicitly granted member administrators are supported. Lists currently active, qualified, nonpersonal routes with exact credential/model/offer/schema bindings. No credentials, endpoints, purchase prices or customer charges. Cursor advances over raw model aliases even when invalid schemas are omitted; empty pages can therefore have a continuation. Choices do not authorize dispatch or guarantee later availability.
+
+Implementation: `implemented`. Operation: `listCustomerMediaRateModels`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`after` (query, optional)
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 256
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Bounded current choices
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "has_more",
+    "next_after"
+  ],
+  "properties": {
+    "has_more": {
+      "type": "boolean"
+    },
+    "next_after": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "model_alias",
+          "api_key_name",
+          "vendor_id",
+          "offer_revision",
+          "vendor_revision",
+          "model_revision",
+          "schema_revision",
+          "channel",
+          "resolutions",
+          "reference_video"
+        ],
+        "properties": {
+          "model_alias": {
+            "type": "string"
+          },
+          "api_key_name": {
+            "type": "string"
+          },
+          "vendor_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Internal configuration binding; never a display label."
+          },
+          "offer_revision": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vendor_revision": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "model_revision": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "schema_revision": {
+            "type": "string"
+          },
+          "channel": {
+            "type": "string"
+          },
+          "resolutions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reference_video": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid cursor or page size
+
+HTTP 401: Administrator authentication required
+
+HTTP 403: Platform-administrator read permission required
+
+HTTP 503: Durable storage unavailable
+
+## Read bounded immutable customer selling history
+
+`GET /admin/v1/organizations/{organization}/billing/media-rates`
+
+Platform-administrator read permission required. Installation credentials and explicitly granted member administrators are supported. Ordinary company members and inference keys cannot read platform pricing configuration. Returns original cards, immutable retirement and creation time; never reads Supplier purchase terms. Card vendor/model revisions, tariff amount/time values and discount times are exact decimal strings, while quantities retain numerator/denominator strings. Ordering and cursors use the immutable card revision.
+
+Implementation: `implemented`. Operation: `listCustomerMediaRates`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`after` (query, optional)
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 256
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Scoped history page, including an empty page
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "has_more",
+    "next_after"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "card",
+          "retirement_effective_until",
+          "created_at"
+        ],
+        "properties": {
+          "card": {
+            "$ref": "#/components/schemas/MediaBillingCustomerMediaRateRecordCard"
+          },
+          "retirement_effective_until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^-?[0-9]+$"
+          },
+          "created_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "has_more": {
+      "type": "boolean"
+    },
+    "next_after": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}
+```
+
+HTTP 400: Invalid page size or cursor
+
+HTTP 401: Administrator authentication required
+
+HTTP 403: Platform-administrator read permission required
+
+HTTP 503: Durable storage unavailable
+
+## Atomically replace a customer media selling schedule
+
+`POST /admin/v1/organizations/{organization}/billing/media-rates/replace`
+
+Platform-administrator write permission required. Installation credentials and explicitly granted member administrators are supported. Publishes the immutable replacement and retires the previous scoped schedule at the new effective start in one transaction. Dimensions and meter must match; competing effective schedules conflict. Identical replay is accepted while route bindings remain current. Any publication or retirement failure rolls back both changes. Historical cards and pinned jobs are unchanged. No procurement fallback or automatic submission retry.
+
+Implementation: `implemented`. Operation: `replaceCustomerMediaRate`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "previous_revision",
+    "rate"
+  ],
+  "properties": {
+    "previous_revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "rate": {
+      "$ref": "#/components/schemas/MediaBillingCustomerMediaRateCard"
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Replacement committed or identical replay accepted
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "revision",
+        "effective_from"
+      ],
+      "properties": {
+        "revision": {
+          "type": "string"
+        },
+        "effective_from": {
+          "type": "string",
+          "pattern": "^-?[0-9]+$"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid card, changed dimensions or cutoff outside original interval
+
+HTTP 401: Administrator authentication required
+
+HTTP 403: Platform-administrator write permission required
+
+HTTP 409: Missing scoped revision, competing schedule, stale route or conflicting receipt
+
+HTTP 413: Body exceeds 128 KiB
+
+HTTP 422: Malformed typed JSON body
+
+HTTP 503: Durable storage unavailable
+
+## End a published customer media rate's eligibility
+
+`POST /admin/v1/organizations/{organization}/billing/media-rates/{revision}/retire`
+
+Platform-administrator write permission required. Installation credentials and explicitly granted member administrators are supported. Appends an immutable cutoff without modifying the original card or historical job snapshots. Cutoff is inclusive for retirement and must be within the original effective interval, including its start/end boundaries. Exact replay is idempotent; changed cutoff or unknown customer/revision conflicts. Publish the replacement with an effective start matching the cutoff. No rate or procurement fallback occurs if no eligible replacement exists; remaining overlaps are rejected as ambiguous.
+
+Implementation: `implemented`. Operation: `retireCustomerMediaRate`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`revision` (path, required)
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 256
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "effective_until"
+  ],
+  "properties": {
+    "effective_until": {
+      "type": "integer",
+      "description": "Unix seconds"
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Retirement saved or identical replay accepted
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision",
+        "effective_until"
+      ],
+      "properties": {
+        "revision": {
+          "type": "string"
+        },
+        "effective_until": {
+          "type": "string",
+          "pattern": "^-?[0-9]+$"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid revision or cutoff outside original interval
+
+HTTP 401: Administrator authentication required
+
+HTTP 403: Platform-administrator write permission required
+
+HTTP 409: Missing scoped revision or conflicting previous cutoff
+
+HTTP 413: Body exceeds 1 KiB
+
+HTTP 422: Malformed typed JSON body
+
+HTTP 503: Durable storage unavailable
+
 ## Issue an immutable itemized usage statement
 
 `POST /admin/v1/organizations/{organization}/projects/{project}/billing/invoices`
@@ -7253,7 +7821,7 @@ HTTP 401: Invalid or expired administrative credential.
 
 `GET /admin/v1/model-route-pools`
 
-Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access. 
+Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access.
 
 Implementation: `implemented`. Operation: `getModelRoutePool`.
 
@@ -7313,7 +7881,7 @@ HTTP 400: Invalid query or revision cursor; framework query errors may use plain
 
 `PUT /admin/v1/model-route-pools`
 
-Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access. Revisions start at zero for creation. Ownership is immutable. Candidate aliases identify existing credential/model mappings, not nested pools. Personal pools require all candidates owned by that organization; shared pools require nonpersonal priced mappings. Video mappings are rejected. Highest eligible priority wins, with weighted selection within that tier. No post-dispatch retries are performed.
+Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access. Revisions start at zero for creation. Ownership is immutable. Candidate aliases identify existing credential/model mappings, not nested pools. Personal pools require all candidates owned by that organization; shared pools require nonpersonal priced mappings. Video mappings are rejected. Highest eligible priority wins, with weighted selection within that tier. Chat pools permit at most one successor after a qualified OpenRouter authentication rejection; other failures and uncertain or streamed outcomes do not trigger automatic failover. See the Chat completion contract for exact eligibility and deadline constraints.
 
 Implementation: `implemented`. Operation: `setModelRoutePool`.
 
@@ -7451,7 +8019,7 @@ HTTP 422: Malformed body schema or unknown fields; framework rejection may use p
 
 `GET /admin/v1/model-route-pools/history`
 
-Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access. 
+Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access.
 
 Implementation: `implemented`. Operation: `listModelRoutePoolHistory`.
 
@@ -10882,6 +11450,488 @@ Local `#/components/schemas/…` references resolve to these definitions.
   "minimum": 0,
   "maximum": 1000000000000,
   "description": "Token budget includes unresolved reservations plus provider-reported usage completed in the last 60 seconds. Null is unlimited; zero denies dispatch."
+}
+```
+
+### MediaBillingCustomerMediaRateCard
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "revision",
+    "vendor_id",
+    "vendor_revision",
+    "model_revision",
+    "schema_revision",
+    "offer_revision",
+    "tariff",
+    "discounts",
+    "maximum_quantity",
+    "liability_qualification_revision"
+  ],
+  "properties": {
+    "revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "vendor_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Internal route reference; never a display label."
+    },
+    "vendor_revision": {
+      "type": "integer",
+      "minimum": 1,
+      "format": "int64"
+    },
+    "model_revision": {
+      "type": "integer",
+      "minimum": 1,
+      "format": "int64"
+    },
+    "schema_revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "offer_revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "tariff": {
+      "$ref": "#/components/schemas/MediaBillingMediaSellingTariff"
+    },
+    "discounts": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/components/schemas/MediaBillingMediaSellingDiscount"
+      }
+    },
+    "maximum_quantity": {
+      "$ref": "#/components/schemas/MediaBillingExactMediaQuantity"
+    },
+    "liability_qualification_revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Reference to independently qualified upper-bound evidence; a point estimate is insufficient."
+    }
+  }
+}
+```
+
+### MediaBillingCustomerMediaRateRecordCard
+
+```json
+{
+  "type": "object",
+  "required": [
+    "revision",
+    "vendor_id",
+    "vendor_revision",
+    "model_revision",
+    "schema_revision",
+    "offer_revision",
+    "tariff",
+    "discounts",
+    "maximum_quantity",
+    "liability_qualification_revision"
+  ],
+  "properties": {
+    "revision": {
+      "type": "string"
+    },
+    "vendor_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "vendor_revision": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "model_revision": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "schema_revision": {
+      "type": "string"
+    },
+    "offer_revision": {
+      "type": "string"
+    },
+    "maximum_quantity": {
+      "$ref": "#/components/schemas/MediaBillingExactMediaQuantity"
+    },
+    "liability_qualification_revision": {
+      "type": "string"
+    },
+    "tariff": {
+      "$ref": "#/components/schemas/MediaBillingMediaSellingTariffRecord"
+    },
+    "discounts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/components/schemas/MediaBillingMediaSellingDiscountRecord"
+      }
+    }
+  }
+}
+```
+
+### MediaBillingExactMediaQuantity
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "numerator",
+    "denominator"
+  ],
+  "description": "Reduced nonnegative rational quantity; canonical decimal strings bounded to u128. Denominator must be positive. Maximum liability quantity must be positive.",
+  "properties": {
+    "numerator": {
+      "type": "string",
+      "maxLength": 39,
+      "pattern": "^(0|[1-9][0-9]*)$"
+    },
+    "denominator": {
+      "type": "string",
+      "maxLength": 39,
+      "pattern": "^[1-9][0-9]*$"
+    }
+  }
+}
+```
+
+### MediaBillingMediaBillingDimensions
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "model",
+    "channel",
+    "resolution",
+    "reference_video"
+  ],
+  "properties": {
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "channel": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "resolution": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "reference_video": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### MediaBillingMediaSellingDiscount
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "revision",
+    "effective_from",
+    "priority",
+    "stacking",
+    "multiplier"
+  ],
+  "properties": {
+    "revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "dimensions": {
+      "anyOf": [
+        {
+          "$ref": "#/components/schemas/MediaBillingMediaBillingDimensions"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "offer": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "customer": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "effective_from": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "effective_until": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "int64"
+    },
+    "priority": {
+      "type": "integer",
+      "format": "int32"
+    },
+    "stacking": {
+      "type": "string",
+      "enum": [
+        "Exclusive",
+        "Multiply"
+      ]
+    },
+    "multiplier": {
+      "$ref": "#/components/schemas/MediaBillingExactMediaQuantity"
+    }
+  }
+}
+```
+
+### MediaBillingMediaSellingDiscountRecord
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "revision",
+    "effective_from",
+    "priority",
+    "stacking",
+    "multiplier"
+  ],
+  "properties": {
+    "revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "dimensions": {
+      "anyOf": [
+        {
+          "$ref": "#/components/schemas/MediaBillingMediaBillingDimensions"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "offer": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "customer": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "effective_from": {
+      "type": "string",
+      "pattern": "^-?[0-9]+$"
+    },
+    "effective_until": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^-?[0-9]+$"
+    },
+    "priority": {
+      "type": "integer",
+      "format": "int32"
+    },
+    "stacking": {
+      "type": "string",
+      "enum": [
+        "Exclusive",
+        "Multiply"
+      ]
+    },
+    "multiplier": {
+      "$ref": "#/components/schemas/MediaBillingExactMediaQuantity"
+    }
+  }
+}
+```
+
+### MediaBillingMediaSellingTariff
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "revision",
+    "dimensions",
+    "meter",
+    "currency",
+    "decimal_places",
+    "amount_units",
+    "per_quantity",
+    "minimum_quantity",
+    "rounding",
+    "effective_from"
+  ],
+  "properties": {
+    "revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "dimensions": {
+      "$ref": "#/components/schemas/MediaBillingMediaBillingDimensions"
+    },
+    "meter": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "decimal_places": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9
+    },
+    "amount_units": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Exact u64 smallest accounting units at the declared decimal precision. JavaScript SDK requires a safe integer."
+    },
+    "per_quantity": {
+      "$ref": "#/components/schemas/MediaBillingExactMediaQuantity"
+    },
+    "minimum_quantity": {
+      "$ref": "#/components/schemas/MediaBillingExactMediaQuantity"
+    },
+    "rounding": {
+      "type": "string",
+      "enum": [
+        "Down",
+        "Up",
+        "HalfEven"
+      ]
+    },
+    "effective_from": {
+      "type": "integer",
+      "format": "int64",
+      "description": "Unix seconds, inclusive."
+    },
+    "effective_until": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "int64",
+      "description": "Unix seconds, exclusive; must exceed effective_from."
+    }
+  }
+}
+```
+
+### MediaBillingMediaSellingTariffRecord
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "revision",
+    "dimensions",
+    "meter",
+    "currency",
+    "decimal_places",
+    "amount_units",
+    "per_quantity",
+    "minimum_quantity",
+    "rounding",
+    "effective_from"
+  ],
+  "properties": {
+    "revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "dimensions": {
+      "$ref": "#/components/schemas/MediaBillingMediaBillingDimensions"
+    },
+    "meter": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "decimal_places": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9
+    },
+    "amount_units": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "per_quantity": {
+      "$ref": "#/components/schemas/MediaBillingExactMediaQuantity"
+    },
+    "minimum_quantity": {
+      "$ref": "#/components/schemas/MediaBillingExactMediaQuantity"
+    },
+    "rounding": {
+      "type": "string",
+      "enum": [
+        "Down",
+        "Up",
+        "HalfEven"
+      ]
+    },
+    "effective_from": {
+      "type": "string",
+      "pattern": "^-?[0-9]+$"
+    },
+    "effective_until": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^-?[0-9]+$"
+    }
+  }
 }
 ```
 

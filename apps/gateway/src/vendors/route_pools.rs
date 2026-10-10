@@ -80,7 +80,7 @@ pub struct PoolInput {
 ///       }
 ///     },
 ///     "x-niu-implementation": "implemented",
-///     "description": "Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access. "
+///     "description": "Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access."
 ///   },
 ///   "schemas": {
 ///     "ModelRoutePool": {
@@ -174,7 +174,7 @@ pub async fn get(
 ///       }
 ///     ],
 ///     "summary": "Create or revise a model candidate pool",
-///     "description": "Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access. Revisions start at zero for creation. Ownership is immutable. Candidate aliases identify existing credential/model mappings, not nested pools. Personal pools require all candidates owned by that organization; shared pools require nonpersonal priced mappings. Video mappings are rejected. Highest eligible priority wins, with weighted selection within that tier. No post-dispatch retries are performed.",
+///     "description": "Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access. Revisions start at zero for creation. Ownership is immutable. Candidate aliases identify existing credential/model mappings, not nested pools. Personal pools require all candidates owned by that organization; shared pools require nonpersonal priced mappings. Video mappings are rejected. Highest eligible priority wins, with weighted selection within that tier. Chat pools permit at most one successor after a qualified OpenRouter authentication rejection; other failures and uncertain or streamed outcomes do not trigger automatic failover. See the Chat completion contract for exact eligibility and deadline constraints.",
 ///     "requestBody": {
 ///       "required": true,
 ///       "content": {
@@ -402,7 +402,7 @@ pub async fn put(
 ///     },
 ///     "x-niu-implementation": "implemented",
 ///     "summary": "Read immutable model candidate pool revisions",
-///     "description": "Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access. "
+///     "description": "Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access."
 ///   }
 /// }
 /// ```

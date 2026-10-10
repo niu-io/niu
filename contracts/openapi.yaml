@@ -45,13 +45,13 @@ paths:
   /admin/v1/operators/{operator}/password:
     $ref: './password-sessions.openapi.yaml#/paths/~1admin~1v1~1operators~1{operator}~1password'
   /admin/v1/organizations/{organization}/billing/media-rates/{revision}/retire:
-    $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1media-rates~1{revision}~1retire'
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1media-rates~1{revision}~1retire'
   /admin/v1/organizations/{organization}/billing/media-rate-models:
-    $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1media-rate-models'
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1media-rate-models'
   /admin/v1/organizations/{organization}/billing/media-rates/replace:
-    $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1media-rates~1replace'
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1media-rates~1replace'
   /admin/v1/organizations/{organization}/billing/media-rates:
-    $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1media-rates'
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1media-rates'
   /admin/v1/organizations/{organization}/billing/charge-reconciliation:
     $ref: './billing.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1charge-reconciliation'
   /admin/v1/providers/{provider}/offers/{offer}/revisions/{revision}:
