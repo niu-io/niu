@@ -88,6 +88,8 @@ def operation_documentation(path, method, operation):
     if body:
         lines.extend(['### Request body', '',
                       'Required.' if body.get('required') else 'Optional.', ''])
+        if body.get('description'):
+            lines.extend([body['description'], ''])
         for media_type, media in body.get('content', {}).items():
             lines.extend([f'Content type: `{media_type}`.', ''])
             lines.extend(schema_block(media['schema']))
@@ -131,6 +133,15 @@ def main():
                 raise SystemExit(f'Duplicate operation: {name}')
             if operation.get('x-niu-implementation') not in {'implemented', 'stub'}:
                 raise SystemExit(f'Missing implementation status: {name}')
+            security = operation.get('security')
+            if not isinstance(security, list):
+                raise SystemExit(f'Missing explicit security requirements: {name}')
+            for alternative in security:
+                if not isinstance(alternative, dict):
+                    raise SystemExit(f'Invalid security alternative: {name}')
+                for scheme, scopes in alternative.items():
+                    if scheme != 'bearerAuth' or scopes != []:
+                        raise SystemExit(f'Unknown security scheme or unsupported bearer scopes: {name}')
             if not operation.get('responses') or not operation.get('description'):
                 raise SystemExit(f'Missing response or behavior contract: {name}')
             names.add(name)

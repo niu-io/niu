@@ -3397,6 +3397,8 @@ Stripe timestamp and v1 signature of the unmodified request body.
 
 Required.
 
+Original signed Stripe event JSON; proxies must preserve its bytes.
+
 Content type: `application/json`.
 
 ```json
