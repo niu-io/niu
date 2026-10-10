@@ -441,3 +441,33 @@ it('locks a submitted payment selection and reference so an ambiguous retry pres
   await waitFor(() => expect(submitted).toHaveLength(2));
   expect(submitted[1]).toEqual(submitted[0]);
 });
+
+it('removes a selected earning when a continuation reports that it has already been paid', async () => {
+  setup('1000000000', false, false, 'settlements');
+  const originalFetch = globalThis.fetch;
+  const row = {id:'earning',model_alias:'Previously unpaid',amount_nanos:'1000000000',currency:'USD',status:'accrued',created_at:'2026-10-10T12:00:00Z'};
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    if (String(input).includes('/earnings?')) return Response.json(String(input).includes('before=') ? {data:[{...row,status:'paid'}],next_cursor:null} : {data:[row],next_cursor:'older'});
+    return originalFetch(input, init);
+  }));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', {name:'Record payment'}));
+  await user.click(await screen.findByRole('checkbox'));
+  await user.click(screen.getByRole('button', {name:'Older earnings'}));
+  await screen.findByText('No unpaid earnings in the loaded history.');
+  expect(screen.queryByRole('checkbox')).toBeNull();
+  expect(screen.getByText(/0 requests selected/)).toBeTruthy();
+  expect(screen.getByRole('button', {name:'Record confirmed payment'}).hasAttribute('disabled')).toBe(true);
+});
+
+it.each(['duplicate', 'overflow', 'invalid-currency', 'empty-cursor'])('refuses malformed %s earning pages instead of enabling a financial action', async kind => {
+  setup('1000000000', false, false, 'settlements');
+  const originalFetch = globalThis.fetch;
+  const row = {id:'earning',model_alias:'Invalid financial record',amount_nanos:kind === 'overflow' ? '9223372036854775808' : '1000000000',currency:kind === 'invalid-currency' ? 'bad' : 'USD',status:'accrued',created_at:'2026-10-10T12:00:00Z'};
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => String(input).includes('/earnings?') ? Response.json({data:kind === 'duplicate' ? [row,row] : [row],next_cursor:kind === 'empty-cursor' ? '' : null}) : originalFetch(input, init)));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', {name:'Record payment'}));
+  await screen.findByText('Earning history could not be read. Please retry.');
+  expect(screen.queryByRole('checkbox')).toBeNull();
+  expect(screen.getByRole('button', {name:'Record confirmed payment'}).hasAttribute('disabled')).toBe(true);
+});
