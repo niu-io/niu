@@ -715,6 +715,117 @@ pub struct Settlement {
     payment_reference: String,
     attempt_ids: Vec<Uuid>,
 }
+/// ```openapi
+/// {
+///   "path": "/admin/v1/providers/{provider}/settlements",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "recordExternalProviderPayment",
+///     "summary": "Record an already completed external Supplier payment",
+///     "description": "Platform administration required; Supplier membership does not grant this write. Does not transfer funds. Selected earnings must belong to this Supplier, share one currency, remain unpaid and have a positive exact total. The server computes the amount. Reuse the supplied idempotency key with the identical reference and entry set for retries; entry order is irrelevant. Changed replay, duplicate payment reference or unavailable selections return 409. No customer balance credit or Supplier qualification is created.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "provider",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "idempotency_key",
+///               "payment_reference",
+///               "attempt_ids"
+///             ],
+///             "properties": {
+///               "idempotency_key": {
+///                 "type": "string",
+///                 "format": "uuid"
+///               },
+///               "payment_reference": {
+///                 "type": "string",
+///                 "minLength": 1,
+///                 "maxLength": 200,
+///                 "description": "Nonblank reference, at most 200 UTF-8 bytes, no control characters. Preserve the exact value on retry."
+///               },
+///               "attempt_ids": {
+///                 "type": "array",
+///                 "minItems": 1,
+///                 "maxItems": 1000,
+///                 "uniqueItems": true,
+///                 "items": {
+///                   "type": "string",
+///                   "format": "uuid"
+///                 },
+///                 "description": "Internal selection IDs from the platform earning history; never display IDs or require users to paste them."
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "200": {
+///         "description": "Recorded or replayed settlement identity.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "required": [
+///                     "id"
+///                   ],
+///                   "properties": {
+///                     "id": {
+///                       "type": "string",
+///                       "format": "uuid"
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid reference, entry set, or currency mix."
+///       },
+///       "401": {
+///         "description": "Invalid administrative credential."
+///       },
+///       "403": {
+///         "description": "Platform administration required."
+///       },
+///       "409": {
+///         "description": "Supplier or earnings unavailable, changed replay, or duplicate payment reference."
+///       },
+///       "503": {
+///         "description": "Storage unavailable."
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
 pub async fn record_settlement(
     State(state): State<AppState>,
     headers: HeaderMap,

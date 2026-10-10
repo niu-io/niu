@@ -7826,6 +7826,117 @@ HTTP 404: Supplier membership denied or quote identity not found.
 
 HTTP 503: Storage unavailable.
 
+## Record an already completed external Supplier payment
+
+`POST /admin/v1/providers/{provider}/settlements`
+
+Platform administration required; Supplier membership does not grant this write. Does not transfer funds. Selected earnings must belong to this Supplier, share one currency, remain unpaid and have a positive exact total. The server computes the amount. Reuse the supplied idempotency key with the identical reference and entry set for retries; entry order is irrelevant. Changed replay, duplicate payment reference or unavailable selections return 409. No customer balance credit or Supplier qualification is created.
+
+Implementation: `implemented`. Operation: `recordExternalProviderPayment`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`provider` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "idempotency_key",
+    "payment_reference",
+    "attempt_ids"
+  ],
+  "properties": {
+    "idempotency_key": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "payment_reference": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Nonblank reference, at most 200 UTF-8 bytes, no control characters. Preserve the exact value on retry."
+    },
+    "attempt_ids": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1000,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "description": "Internal selection IDs from the platform earning history; never display IDs or require users to paste them."
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Recorded or replayed settlement identity.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid reference, entry set, or currency mix.
+
+HTTP 401: Invalid administrative credential.
+
+HTTP 403: Platform administration required.
+
+HTTP 409: Supplier or earnings unavailable, changed replay, or duplicate payment reference.
+
+HTTP 503: Storage unavailable.
+
 ## List Supplier business members
 
 `GET /admin/v1/providers/{provider}/members`

@@ -45,3 +45,25 @@ agreement, earning or external payment was fabricated. Fixture outcomes were not
 used as evidence. An initial isolated startup exposed a proposed duplicate index;
 the redundant uncommitted migration was removed in favor of the existing index
 before revalidation. Original development data and encrypted identity were kept.
+
+## SDK settlement recording
+
+`recordSupplierSettlement(supplierId, input)` calls the existing platform-only
+settlement POST. Supply `idempotency_key`, the exact `payment_reference` and the
+selected `attempt_ids`. It records an already confirmed external payment; it does
+not send money. Preserve the same values after an ambiguous response and retry
+with the original key. The server treats entry order as irrelevant and computes
+the exact total from the selected unpaid ledger entries.
+
+The SDK validates 1–1,000 unique UUID selections and a nonblank reference with no
+control characters and at most 200 UTF-8 bytes. It does not generate an idempotency
+key or payment reference. Handler annotations now expose this existing write in
+the generated OpenAPI and documentation.
+
+A current-input SDK run against the native gateway submitted an unmatched entry
+selection twice using one key and received 409 both times. A Supplier viewer was
+rejected with 403, including while its membership was active. Independent
+reopening confirmed no payment, settlement entry or earning was created; the
+HTTP run also checked absence of a payment-recorded audit. Successful payment
+recording, positive idempotent replay and concurrent settlement remain unverified.
+No external payment was claimed or fabricated for this rejection check.

@@ -182,6 +182,7 @@ export type SupplierOfferRevision = {
 export type SupplierSettlement = { id: string; currency: string; amount_nanos: string; payment_reference: string; created_at: string };
 export type SupplierEarning = { id: string; model_alias: string; currency: string; amount_nanos: string; billing_meter: string; created_at: string; status: 'accrued' | 'paid' };
 export type SupplierEarningPage = { data: SupplierEarning[]; next_cursor: string | null };
+export type SupplierSettlementInput = { idempotency_key: string; payment_reference: string; attempt_ids: string[] };
 export type SupplierSettlementPage = { data: SupplierSettlement[]; next_cursor: string | null };
 export type SupplierSettlementQuery = LedgerHistoryQuery;
 export type LedgerHistoryQuery = { before?: string; currency?: string; fromMs?: number; toMs?: number; limit?: number };
@@ -750,6 +751,16 @@ export class NiuAdminClient {
   listSupplierEarnings(supplierId: string, page: LedgerHistoryQuery = {}, options?: RequestOptions): Promise<SupplierEarningPage> {
     const query = ledgerHistoryQuery(page);
     return this.request(`/providers/${uuid(supplierId)}/earnings${query.size ? `?${query}` : ''}`, undefined, options);
+  }
+
+  /** Record confirmed external payment only; preserve the supplied key/reference/selection on retry. */
+  recordSupplierSettlement(supplierId: string, input: SupplierSettlementInput, options?: RequestOptions): Promise<{ data: { id: string } }> {
+    const reference = input.payment_reference;
+    if (typeof reference !== 'string' || !reference.trim() || new TextEncoder().encode(reference).length > 200 || /[\x00-\x1f\x7f-\x9f]/.test(reference)) throw new TypeError('Use a nonblank payment reference of at most 200 UTF-8 bytes without control characters');
+    if (!Array.isArray(input.attempt_ids) || input.attempt_ids.length < 1 || input.attempt_ids.length > 1000) throw new TypeError('Select 1 to 1000 earning entries');
+    const entries = input.attempt_ids.map(value => uuid(value).toLowerCase());
+    if (new Set(entries).size !== entries.length) throw new TypeError('Select each earning entry only once');
+    return this.request(`/providers/${uuid(supplierId)}/settlements`, { idempotency_key: uuid(input.idempotency_key), payment_reference: reference, attempt_ids: entries }, options);
   }
 
   /** All-time Supplier payment history; keep filters fixed while following next_cursor. */
