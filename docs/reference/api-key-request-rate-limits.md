@@ -129,3 +129,33 @@ aggregate using the response's exact `window_end` timestamp agreed. Addressing t
 key under another workspace returned 404. Temporary keys were revoked and the
 unknown request remained unresolved. No missing usage was filled with invented
 zero-token completion evidence. These observations do not verify TPM enforcement.
+## Current-input priced request verification — 2026-10-10
+
+A separate native database and gateway running backend `5a2449d` exercised this
+policy with actual personal OpenRouter calls, explicit internal tariffs and
+administrator-approved credit. Management HTTP set one key to one request per
+minute. After its first real completion, the next request returned 429 with
+`key_request_rate_exceeded` and a `Retry-After` header.
+
+Rotation revoked the original credential, which then returned 401. After gateway
+restart, the replacement still returned 429, and an independent database read
+confirmed only the original attempt existed. A separately created key in the same
+workspace then completed a streamed request, demonstrating that the first key's
+policy did not block the other key.
+
+Administration explicitly removed the limit using its current revision. A stale
+revision update returned 409. The formerly limited replacement immediately
+completed another streamed request without restarting. After another restart,
+management still reported the unlimited policy at revision 2.
+
+All three completed requests returned the requested content and usage. Each
+customer charge and debit matched independently calculated retail arithmetic;
+configured procurement arithmetic was checked separately. No open reservation
+or reconciliation discrepancy remained. The final database contained exactly
+three attempts and charges. Temporary access was revoked and isolated processes
+stopped; the original saved credential and database were preserved.
+
+This verifies sequential admission, key isolation, rotation, restart and explicit
+policy removal with actual charged traffic. It does not establish concurrent
+request-rate contention, automatic window expiry, every endpoint or production
+rate capacity. No fixture outcome supports this checkpoint.
