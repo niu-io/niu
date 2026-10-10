@@ -1106,3 +1106,31 @@ The newly pulled customer charge reconciliation evidence also demonstrates that
 zero discrepancies can coexist with a completed request awaiting atomic charge
 recovery and a held reservation. A zero-discrepancy report alone must not close
 customer billing or funded-request acceptance.
+
+## Supplier creation acknowledgement recovery — 2026-10-11
+
+Source inspection found that transport/server failures or an invalid successful
+response could leave the secret-bearing creation form available for resubmission
+after the server might already have committed a credential. The frontend now
+closes that form and explicitly asks for a Supplier-list refresh. The existing
+recovery action performs reads, never a second creation request. Explicit 4xx
+rejections other than timeout retain normal correction behavior. Aborted or
+superseded authentication scopes do not update the new session.
+
+The Supplier integration suite passed all 19 checks, including three new cases
+where creation commits but its transport response, server acknowledgement or
+response shape fails. Read recovery discovers the saved configuration and each
+case records exactly one POST, with no browser storage. TypeScript checking and
+diff whitespace checks passed.
+
+The running hot-reloaded configuration and unsaved Add API key dialog were
+inspected at desktop and 390 × 844. The existing key retained 26 routes; the
+complete narrow form, disabled submit and close action remained reachable.
+Screenshots were saved outside the repository. No secret was entered and no
+credential mutation or deliberate live transport fault was performed. The new
+uncertain-acknowledgement path has regression evidence, not induced live-browser
+failure evidence; independent credential onboarding remains unqualified.
+
+Final full dashboard regression passed: 90 files / 720 checks, 37.09 seconds.
+The earlier broad run encountered an Admin-navigation assertion that passed on
+focused rerun and on the final full run; no navigation source was changed.
