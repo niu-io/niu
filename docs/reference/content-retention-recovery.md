@@ -255,6 +255,30 @@ duplicate successful mutation in the exercised two-process run; it does not
 claim both processes won a batch, bound transient connection acquisition, or
 measure priced admission under this backlog.
 
+### Priced foreground requests while a failed cleanup remains queued
+
+A further isolated restore started with 15 naturally expired payloads and three
+expired media references. Two Gateways processed maintenance while a temporary
+trigger rejected one media erasure. After the other expired rows were cleaned,
+one real OpenRouter structured request was submitted through each Gateway
+concurrently, using a newly created workspace key and explicit internal credit
+and customer tariffs. Both responses returned their fresh requested markers.
+The failed expired media ciphertext remained queued before and after those calls.
+
+After Gateway replacement, removing the fault and waiting for the real retry
+deadline allowed the last media erasure to complete. Independent reopening of
+PostgreSQL verified each cleanup identity was mutated exactly once, retained
+media tombstones, empty retry tables, and no expired payload or media ciphertext.
+It also matched both responses' usage and key attribution, recalculated both
+customer charges, matched their scoped USD debits, and confirmed released
+reservations and revocation of the temporary key.
+
+This verifies foreground progress while a failed expired item remains queued.
+The successful neighboring cleanup had already completed before inference;
+the run does not establish simultaneous active cleanup/dispatch, a strict global
+connection limit, sustained admission fairness or a large-backlog throughput
+bound. Internal credit is not external funding or commercial supply evidence.
+
 ## Existing native-runtime upgrade
 
 The existing development database was backed up in PostgreSQL custom format and
