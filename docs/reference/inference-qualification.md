@@ -257,3 +257,26 @@ entry was created, and the original credential revision/ciphertext digest stayed
 unchanged. The temporary instance exited, verification keys were revoked and its
 personal model/credential disabled. Other transport errors and malformed upstream
 SSE remain unverified by current-input runs; fixture outcomes supply no evidence.
+
+### Responses execution evidence versus output validity
+
+Nonstreaming Responses now separates a trustworthy terminal envelope from the
+supported customer output shape. When a nonempty response identity, response
+object, completed/incomplete status, output array, no contradictory error and
+valid reported usage exist, unsupported output still returns a safe invalid-
+response error to the customer while preserving execution, usage, token categories
+and model evidence for accounting. Invalid output must not erase incurred usage.
+Missing or contradictory terminal evidence does not authorize completion or a
+fabricated charge. Stream terminals now also reject non-null errors, blank
+identities and missing output arrays.
+
+The invalid-output-with-valid-usage branch and contradictory terminal branches
+remain unverified against actual upstream output; source-contract examples and
+fixture outcomes do not qualify them. Normal response and HTTP-rejection evidence
+must be kept separate from those exceptional branches.
+On the final optimized build for this change, real nonstreaming and streamed
+Responses calls preserved exact reported totals/categories in PostgreSQL. A real
+upstream HTTP 400 remained one dispatch with safe rejection diagnostics and
+uncertain execution. Temporary access was disabled and customer ledgers remained
+unchanged. These runs cover those normal/rejection paths only, not the exceptional
+terminal-output branch above.

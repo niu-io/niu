@@ -1123,8 +1123,8 @@ async fn responses_are_opt_in_text_only_and_persist_reported_usage(pool: PgPool)
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(unresolved.execution, "may_have_executed");
-    assert_eq!(unresolved.usage_confidence, "unknown");
+    assert_eq!(unresolved.execution, "confirmed_completed");
+    assert_eq!(unresolved.usage_confidence, "provider_reported");
     let (_, malformed_forwarded) = captured.0.lock().unwrap().take().unwrap();
     assert_eq!(malformed_forwarded["input"], "broken");
 
@@ -1160,8 +1160,8 @@ async fn responses_are_opt_in_text_only_and_persist_reported_usage(pool: PgPool)
         .await
         .unwrap();
     assert_eq!(
-        category_count, 1,
-        "malformed and rejected requests must not create categories"
+        category_count, 2,
+        "terminal reported usage survives invalid output; rejected requests have no categories"
     );
     Arc::make_mut(&mut state.config)
         .models

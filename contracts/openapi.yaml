@@ -1476,7 +1476,7 @@ paths:
         '501':
           description: Responses support is disabled, the route protocol is unsupported, or the requested feature is unsupported. The unsupported_operation_error message identifies the limitation and supported alternative before admission.
         '502':
-          description: Provider request failed or returned an invalid text response.
+          description: Provider request failed or returned an invalid text response. Valid terminal usage is retained for accounting even when output delivery is rejected; an HTTP error alone does not prove nonexecution or authorize a safe retry.
       x-niu-status: Text-only subset on explicitly configured OpenAI-compatible routes. Streaming requires a completed or incomplete response terminal event; disconnects retain uncertainty. Tool, multimodal and stateful conversation semantics are not implemented.
   /admin/v1/models:
     get:

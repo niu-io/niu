@@ -315,6 +315,23 @@ async fn execute_responses(
     })?;
     if !valid_responses_response(&value) {
         state.failures.fetch_add(1, Ordering::Relaxed);
+        // Invalid customer output does not erase independently reported execution.
+        if terminal_responses_response(&value)
+            && let Some(usage) = responses_usage(&value)
+        {
+            usage_attempt.report(&json!({"prompt_tokens":usage.0,"completion_tokens":usage.1}));
+            return Ok(ProviderResponse {
+                response: ApiError::upstream_invalid_response().into_response(),
+                completed: true,
+                usage: Some(usage),
+                provider_model: provider_reported_model(&value),
+                token_categories: niu_storage::RequestTokenCategories::from_responses_usage(
+                    &value["usage"],
+                    usage,
+                ),
+                finish_reasons: niu_storage::RequestChoiceFinish::from_responses_response(&value),
+            });
+        }
         return Err(ApiError::upstream_invalid_response());
     }
     let provider_model = provider_reported_model(&value);
@@ -341,17 +358,22 @@ async fn execute_responses(
     })
 }
 
-pub(in crate::web) fn valid_responses_response(response: &Value) -> bool {
-    if response
+fn terminal_responses_response(response: &Value) -> bool {
+    response
         .get("id")
         .and_then(Value::as_str)
-        .is_none_or(str::is_empty)
-        || response.get("object").and_then(Value::as_str) != Some("response")
-        || !matches!(
+        .is_some_and(|id| !id.trim().is_empty())
+        && response.get("object").and_then(Value::as_str) == Some("response")
+        && matches!(
             response.get("status").and_then(Value::as_str),
             Some("completed" | "incomplete")
         )
-    {
+        && response.get("error").is_none_or(Value::is_null)
+        && response.get("output").is_some_and(Value::is_array)
+}
+
+pub(in crate::web) fn valid_responses_response(response: &Value) -> bool {
+    if !terminal_responses_response(response) {
         return false;
     }
     let Some(output) = response.get("output").and_then(Value::as_array) else {

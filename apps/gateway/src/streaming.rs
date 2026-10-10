@@ -69,7 +69,11 @@ impl ChatEvidence {
         };
         if response["object"] != "response"
             || response["status"] != status
-            || response["id"].as_str().is_none_or(str::is_empty)
+            || response["id"]
+                .as_str()
+                .is_none_or(|id| id.trim().is_empty())
+            || response.get("error").is_some_and(|error| !error.is_null())
+            || !response.get("output").is_some_and(Value::is_array)
         {
             return Err("invalid Responses terminal envelope");
         }
