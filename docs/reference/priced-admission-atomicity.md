@@ -61,3 +61,5 @@ and concurrent financial recovery still require independent current-input verifi
 qualify the complete billing workflow or performance.
 
 A later [two-gateway key-cap run](key-spending-multi-instance-live.md) found and corrected an account-row lock-upgrade deadlock introduced by pinning and reservation sharing a transaction. The reservation helper now uses `FOR NO KEY UPDATE`, preserving serialization and allowing foreign-key pins. The actual post-change burst produced one completed charge and three expected spending-cap rejections.
+
+The application lock correction must be paired with migration 0220: database account guards otherwise upgrade the lock again during reservation insertion. The [cross-workspace current-input checkpoint](company-credit-concurrency-live.md) documents the observed deadlock, unchanged financial predicates and the synchronized four-request verification.

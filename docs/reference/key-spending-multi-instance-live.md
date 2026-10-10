@@ -29,6 +29,14 @@ The change is in the shared balance-reservation helper. Atomic admission, tenant
 scope, balance arithmetic, cap enforcement and the single transaction are retained.
 No retry of an upstream call was added.
 
+## Follow-up correction
+
+The application change alone did not cover database guard triggers. A later
+[cross-workspace run](company-credit-concurrency-live.md) reproduced the lock
+upgrade at reservation insertion. Migration 0220 aligns all five account guards
+with the application lock mode and is required for the complete correction.
+The single-key scenario below was also repeated after that migration.
+
 ## Current-input verification after the change
 
 The key cap was 284,445 USD nanounits: enough for exactly one configured maximum
