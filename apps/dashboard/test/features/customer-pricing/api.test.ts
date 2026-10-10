@@ -14,8 +14,8 @@ describe('customer selling configuration transport', () => {
     vi.stubGlobal('fetch',vi.fn(async()=>Response.json({data:[{...price,revision:'older',is_current:false}],current_revision:price.revision,has_more:false,next_before:null})));
     expect((await readPriceHistory('test',target,price.model_alias,'boundary')).data).toHaveLength(1);
   });
-  it('treats server failure as an unconfirmed write and retains explicit conflict status', async () => {
-    vi.stubGlobal('fetch',vi.fn(async()=>Response.json({error:{message:'Server failure'}},{status:503})));
+  it.each([408,503])('treats %s as an unconfirmed write and retains explicit conflict status', async status => {
+    vi.stubGlobal('fetch',vi.fn(async()=>Response.json({error:{message:'Server failure'}},{status})));
     await expect(publishCustomerPrice('test',target,{...price,expected_revision:price.revision})).rejects.toThrow('Publication could not be confirmed');
     vi.stubGlobal('fetch',vi.fn(async()=>Response.json({error:{message:'Conflict'}},{status:409})));
     await expect(publishCustomerPrice('test',target,{...price,expected_revision:price.revision})).rejects.toMatchObject({status:409});

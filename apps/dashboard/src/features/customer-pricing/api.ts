@@ -1,4 +1,4 @@
-import { request, VendorRequestError, type Vendor, type VendorModel } from '@/features/vendors/api';
+import { request, writeMayHaveCommitted, type Vendor, type VendorModel } from '@/features/vendors/api';
 import type { CustomerTariffHistory, CustomerTariffInput, CustomerTariff } from '../../../../../sdks/javascript/src/admin';
 
 export type PricingTarget = { organization_id: string; organization_name: string; workspace_id: string; workspace_name: string };
@@ -97,7 +97,7 @@ export async function publishCustomerPrice(token: string, target: PricingTarget,
     result = await request<{ data: { revision: string } }>(token,
       `/admin/v1/organizations/${encodeURIComponent(target.organization_id)}/projects/${encodeURIComponent(target.workspace_id)}/billing/tariffs`, 'POST', input, signal);
   } catch (reason) {
-    if (signal?.aborted || reason instanceof VendorRequestError && reason.status < 500) throw reason;
+    if (signal?.aborted || !writeMayHaveCommitted(reason)) throw reason;
     throw new PublicationUnconfirmedError('Publication could not be confirmed. Load the current price before trying again.');
   }
   if (!result || typeof result.data?.revision !== 'string' || !result.data.revision.trim() || result.data.revision === input.expected_revision)

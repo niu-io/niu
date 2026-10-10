@@ -1318,3 +1318,22 @@ held until that validation path is available. Remaining changes must cover Admin
 editing/history, customer model prices and Billing rates/statement categories;
 reasoning is a subset of total output and must never be summed a second time.
 Existing compatibility protection and the full frontend goal remain active.
+
+## Customer publication timeout recovery — 2026-10-11
+
+Customer-price publication classified every HTTP 4xx response as a definite
+rejection, including 408. A timeout may follow a committed revision. The transport
+now uses the existing shared write-uncertainty classification so 408 locks another
+publication until the current price is explicitly read. Explicit conflict and
+validation failures retain their existing handling. No layout was changed.
+
+The focused pricing run passed 27 checks and TypeScript passed. A regression
+models a committed revision followed by 408, checks that no automatic second write
+occurs and publication is disabled, then explicitly reads current history before
+a subsequent write uses the new revision and reasoning rate. Fixture outcomes
+are not live publication evidence.
+
+A new browser-state read again timed out with a session reset. Rendered timeout
+recovery remains unqualified; the prior existing-editor checks do not establish
+this changed failure path. Visual reasoning controls remain pending as recorded
+above. No merchant, credential, price or paid inference mutation was performed.
