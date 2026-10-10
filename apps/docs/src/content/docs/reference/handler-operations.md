@@ -6076,6 +6076,199 @@ HTTP 404: Vendor does not exist.
 
 HTTP 401: Invalid or expired administrative credential.
 
+## Discover upstream models for a Supplier API-key configuration
+
+`GET /admin/v1/vendors/{id}/catalog`
+
+Makes a bounded GET to the configured provider /models endpoint using the encrypted server-side credential. No inference request is sent. Redirects are blocked, the response body is capped at 2 MiB, and only allowlisted model IDs and catalog metadata (display name, description, context and output limits, modalities, and advertised USD token prices) are returned. Provider credentials and raw response data are never returned. Requires installation administration or an explicitly granted platform administrator.
+
+Implementation: `implemented`. Operation: `listProviderModelCatalog`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Provider model metadata wrapped in data.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "maxItems": 2000,
+      "items": {
+        "$ref": "#/components/schemas/ProviderCatalogModel"
+      }
+    }
+  }
+}
+```
+
+HTTP 403: Platform administration permission required.
+
+HTTP 404: Vendor does not exist.
+
+HTTP 502: Provider rejected the credential or returned an invalid catalog or request error.
+
+HTTP 401: Invalid or expired administrative credential.
+
+## Check provider reachability and whether a mapped model is listed
+
+`POST /admin/v1/vendors/{id}/check`
+
+Performs a bounded GET to the provider's /models endpoint. It does not send an inference request. Redirects are blocked, response bodies are capped at 2 MiB, and provider response content and credentials are never returned. A listed model does not prove inference entitlement or quota. Requires installation administration or an explicitly granted platform administrator.
+
+Implementation: `implemented`. Operation: `checkVendorModel`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "alias"
+  ],
+  "properties": {
+    "alias": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Sanitized provider check result wrapped in data.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "status",
+        "model",
+        "http_status",
+        "duration_ms",
+        "checked_at_ms"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "connected",
+            "credentials_rejected",
+            "endpoint_unavailable",
+            "private_endpoint_blocked",
+            "invalid_endpoint",
+            "redirect_blocked",
+            "provider_rate_limited",
+            "provider_error",
+            "model_catalog_unavailable",
+            "model_catalog_too_large",
+            "invalid_model_catalog"
+          ]
+        },
+        "model": {
+          "type": "string",
+          "enum": [
+            "listed",
+            "not_listed",
+            "unknown"
+          ]
+        },
+        "http_status": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "checked_at_ms": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid model alias.
+
+HTTP 403: Platform administration permission required.
+
+HTTP 404: Model alias is not mapped to this vendor.
+
+HTTP 503: Credential decryption or storage unavailable.
+
+HTTP 401: Invalid or expired administrative credential.
+
 ## Create or update a model mapping with optimistic revision checks
 
 `POST /admin/v1/vendors/{id}/models`
@@ -6146,6 +6339,66 @@ HTTP 403: Platform administration permission required.
 HTTP 404: Vendor does not exist.
 
 HTTP 409: Stale revision, existing alias or different vendor ownership.
+
+HTTP 401: Invalid or expired administrative credential.
+
+## Refresh descriptive metadata for existing vendor model mappings
+
+`POST /admin/v1/vendors/{id}/catalog`
+
+Fetches the bounded provider catalog and updates matching upstream IDs only. Preserves aliases, routing, capability declarations and billing prices. Increments revisions when metadata changes. Missing provider models are retained. Requires installation administration or an explicitly granted platform administrator.
+
+Implementation: `implemented`. Operation: `refreshProviderCatalogMetadata`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Number of updated mappings.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "updated": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "updated"
+  ]
+}
+```
+
+HTTP 403: Platform administration permission required.
+
+HTTP 404: Vendor does not exist.
+
+HTTP 502: Provider catalog unavailable or invalid.
 
 HTTP 401: Invalid or expired administrative credential.
 
@@ -7914,6 +8167,45 @@ Local `#/components/schemas/…` references resolve to these definitions.
   "minimum": 0,
   "maximum": 1000000000000,
   "description": "Token budget includes unresolved reservations plus provider-reported usage completed in the last 60 seconds. Null is unlimited; zero denies dispatch."
+}
+```
+
+### ProviderCatalogModel
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "context_length",
+    "catalog"
+  ],
+  "properties": {
+    "catalog": {
+      "$ref": "#/components/schemas/CatalogMetadata"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Provider model ID used for inference routing."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300,
+      "description": "Display name supplied by the provider."
+    },
+    "context_length": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    }
+  }
 }
 ```
 

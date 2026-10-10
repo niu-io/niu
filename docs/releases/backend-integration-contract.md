@@ -432,3 +432,13 @@ against that schema without dispatching a model request. A malformed UUID path
 returned plain text with HTTP 400; that alternate content type is documented.
 Clients must inspect HTTP status and content type before decoding an error body;
 the shared schema does not promise that framework or intermediary errors are JSON.
+
+Supplier model discovery, explicit catalog refresh and connection checks now use
+handler-generated contracts. A current-input isolated run queried the actual
+OpenRouter catalog and confirmed the mapped model was listed. Discovery/check
+left the local mapping unchanged. Explicit refresh updated descriptive metadata
+once while retaining prices, alias, upstream identity and declared capabilities;
+an immediate repeat changed no mappings. PostgreSQL revision and restart reads
+matched. No inference attempts or ledger entries were created. A successful
+catalog check is not evidence of generation entitlement, available quota or
+successful inference.

@@ -2267,93 +2267,9 @@ paths:
   /admin/v1/vendors/{id}/models:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1vendors~1{id}~1models'
   /admin/v1/vendors/{id}/catalog:
-    parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: string, format: uuid }
-    get:
-      operationId: listProviderModelCatalog
-      summary: Discover models available from an installation vendor
-      description: Makes a bounded GET to the configured provider /models endpoint using the encrypted server-side credential. No inference request is sent. Redirects are blocked, the response body is capped at 2 MiB, and only allowlisted model IDs and catalog metadata (display name, description, context and output limits, modalities, and advertised USD token prices) are returned. Provider credentials and raw response data are never returned.
-      security: [{ adminBearerAuth: [] }]
-      responses:
-        '200':
-          description: Provider model metadata wrapped in data.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [data]
-                properties:
-                  data:
-                    type: array
-                    maxItems: 2000
-                    items: { $ref: '#/components/schemas/ProviderCatalogModel' }
-        '403': { description: Installation administrator required. }
-        '404': { description: Vendor does not exist. }
-        '502': { description: Provider rejected the credential or returned an invalid catalog or request error. }
-    post:
-      operationId: refreshProviderCatalogMetadata
-      summary: Refresh descriptive metadata for existing vendor model mappings
-      description: Fetches the bounded provider catalog and updates matching upstream IDs only. Preserves aliases, routing, capability declarations and billing prices. Increments revisions when metadata changes. Missing provider models are retained.
-      security: [{ adminBearerAuth: [] }]
-      responses:
-        '200':
-          description: Number of updated mappings.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  updated: { type: integer, minimum: 0 }
-        '403': { description: Installation administrator required. }
-        '404': { description: Vendor does not exist. }
-        '502': { description: Provider catalog unavailable or invalid. }
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1vendors~1{id}~1catalog'
   /admin/v1/vendors/{id}/check:
-    parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: string, format: uuid }
-    post:
-      operationId: checkVendorModel
-      summary: Check provider reachability and whether a mapped model is listed
-      description: Performs a bounded GET to the provider's /models endpoint. It does not send an inference request. Redirects are blocked, response bodies are capped at 2 MiB, and provider response content and credentials are never returned. A listed model does not prove inference entitlement or quota.
-      security: [{ adminBearerAuth: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [alias]
-              properties:
-                alias: { type: string, minLength: 1, maxLength: 200 }
-      responses:
-        '200':
-          description: Sanitized provider check result wrapped in data.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [data]
-                properties:
-                  data:
-                    type: object
-                    required: [status, model, http_status, duration_ms, checked_at_ms]
-                    properties:
-                      status:
-                        type: string
-                        enum: [connected, credentials_rejected, endpoint_unavailable, private_endpoint_blocked, invalid_endpoint, redirect_blocked, provider_rate_limited, provider_error, model_catalog_unavailable, model_catalog_too_large, invalid_model_catalog]
-                      model: { type: string, enum: [listed, not_listed, unknown] }
-                      http_status: { type: [integer, 'null'] }
-                      duration_ms: { type: integer, minimum: 0 }
-                      checked_at_ms: { type: integer, minimum: 0 }
-        '400': { description: Invalid model alias. }
-        '403': { description: Installation administrator required. }
-        '404': { description: Model alias is not mapped to this vendor. }
-        '503': { description: Credential decryption or storage unavailable. }
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1vendors~1{id}~1check'
   /admin/v1/session:
     get:
       operationId: getAdminSessionIdentity
@@ -3696,14 +3612,7 @@ components:
     CatalogMetadata:
       $ref: './generated/handler-operations.json#/components/schemas/CatalogMetadata'
     ProviderCatalogModel:
-      type: object
-      additionalProperties: false
-      required: [id, name, context_length, catalog]
-      properties:
-        catalog: { $ref: '#/components/schemas/CatalogMetadata' }
-        id: { type: string, minLength: 1, maxLength: 200, description: Provider model ID used for inference routing. }
-        name: { type: string, minLength: 1, maxLength: 300, description: Display name supplied by the provider. }
-        context_length: { type: [integer, 'null'], minimum: 1 }
+      $ref: './generated/handler-operations.json#/components/schemas/ProviderCatalogModel'
     GatewayActivity:
       type: object
       additionalProperties: false

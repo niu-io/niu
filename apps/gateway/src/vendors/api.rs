@@ -1317,6 +1317,106 @@ pub async fn list_models(
 
 /// Read the provider's model catalog using its encrypted server-side
 /// credential. Only a small allowlist of model metadata reaches the dashboard.
+/// ```openapi
+/// {
+///   "path": "/admin/v1/vendors/{id}/catalog",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listProviderModelCatalog",
+///     "summary": "Discover upstream models for a Supplier API-key configuration",
+///     "description": "Makes a bounded GET to the configured provider /models endpoint using the encrypted server-side credential. No inference request is sent. Redirects are blocked, the response body is capped at 2 MiB, and only allowlisted model IDs and catalog metadata (display name, description, context and output limits, modalities, and advertised USD token prices) are returned. Provider credentials and raw response data are never returned. Requires installation administration or an explicitly granted platform administrator.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Provider model metadata wrapped in data.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "maxItems": 2000,
+///                   "items": {
+///                     "$ref": "#/components/schemas/ProviderCatalogModel"
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "403": {
+///         "description": "Platform administration permission required."
+///       },
+///       "404": {
+///         "description": "Vendor does not exist."
+///       },
+///       "502": {
+///         "description": "Provider rejected the credential or returned an invalid catalog or request error."
+///       },
+///       "401": {
+///         "description": "Invalid or expired administrative credential."
+///       }
+///     },
+///     "parameters": [
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "x-niu-implementation": "implemented"
+///   },
+///   "schemas": {
+///     "ProviderCatalogModel": {
+///       "type": "object",
+///       "additionalProperties": false,
+///       "required": [
+///         "id",
+///         "name",
+///         "context_length",
+///         "catalog"
+///       ],
+///       "properties": {
+///         "catalog": {
+///           "$ref": "#/components/schemas/CatalogMetadata"
+///         },
+///         "id": {
+///           "type": "string",
+///           "minLength": 1,
+///           "maxLength": 200,
+///           "description": "Provider model ID used for inference routing."
+///         },
+///         "name": {
+///           "type": "string",
+///           "minLength": 1,
+///           "maxLength": 300,
+///           "description": "Display name supplied by the provider."
+///         },
+///         "context_length": {
+///           "type": [
+///             "integer",
+///             "null"
+///           ],
+///           "minimum": 1
+///         }
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub async fn catalog(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -1453,6 +1553,136 @@ pub struct CheckModelInput {
 
 /// Check provider reachability and whether the configured upstream model is
 /// listed. This is a bounded catalog read, not a billable inference request.
+/// ```openapi
+/// {
+///   "path": "/admin/v1/vendors/{id}/check",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "checkVendorModel",
+///     "summary": "Check provider reachability and whether a mapped model is listed",
+///     "description": "Performs a bounded GET to the provider's /models endpoint. It does not send an inference request. Redirects are blocked, response bodies are capped at 2 MiB, and provider response content and credentials are never returned. A listed model does not prove inference entitlement or quota. Requires installation administration or an explicitly granted platform administrator.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "required": [
+///               "alias"
+///             ],
+///             "properties": {
+///               "alias": {
+///                 "type": "string",
+///                 "minLength": 1,
+///                 "maxLength": 200
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "200": {
+///         "description": "Sanitized provider check result wrapped in data.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "required": [
+///                     "status",
+///                     "model",
+///                     "http_status",
+///                     "duration_ms",
+///                     "checked_at_ms"
+///                   ],
+///                   "properties": {
+///                     "status": {
+///                       "type": "string",
+///                       "enum": [
+///                         "connected",
+///                         "credentials_rejected",
+///                         "endpoint_unavailable",
+///                         "private_endpoint_blocked",
+///                         "invalid_endpoint",
+///                         "redirect_blocked",
+///                         "provider_rate_limited",
+///                         "provider_error",
+///                         "model_catalog_unavailable",
+///                         "model_catalog_too_large",
+///                         "invalid_model_catalog"
+///                       ]
+///                     },
+///                     "model": {
+///                       "type": "string",
+///                       "enum": [
+///                         "listed",
+///                         "not_listed",
+///                         "unknown"
+///                       ]
+///                     },
+///                     "http_status": {
+///                       "type": [
+///                         "integer",
+///                         "null"
+///                       ]
+///                     },
+///                     "duration_ms": {
+///                       "type": "integer",
+///                       "minimum": 0
+///                     },
+///                     "checked_at_ms": {
+///                       "type": "integer",
+///                       "minimum": 0
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid model alias."
+///       },
+///       "403": {
+///         "description": "Platform administration permission required."
+///       },
+///       "404": {
+///         "description": "Model alias is not mapped to this vendor."
+///       },
+///       "503": {
+///         "description": "Credential decryption or storage unavailable."
+///       },
+///       "401": {
+///         "description": "Invalid or expired administrative credential."
+///       }
+///     },
+///     "parameters": [
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
 pub async fn check_model(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -1754,6 +1984,67 @@ pub async fn upsert_model(
 }
 
 /// Explicit metadata refresh; discovery GET stays read-only.
+/// ```openapi
+/// {
+///   "path": "/admin/v1/vendors/{id}/catalog",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "refreshProviderCatalogMetadata",
+///     "summary": "Refresh descriptive metadata for existing vendor model mappings",
+///     "description": "Fetches the bounded provider catalog and updates matching upstream IDs only. Preserves aliases, routing, capability declarations and billing prices. Increments revisions when metadata changes. Missing provider models are retained. Requires installation administration or an explicitly granted platform administrator.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Number of updated mappings.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "properties": {
+///                 "updated": {
+///                   "type": "integer",
+///                   "minimum": 0
+///                 }
+///               },
+///               "required": [
+///                 "updated"
+///               ]
+///             }
+///           }
+///         }
+///       },
+///       "403": {
+///         "description": "Platform administration permission required."
+///       },
+///       "404": {
+///         "description": "Vendor does not exist."
+///       },
+///       "502": {
+///         "description": "Provider catalog unavailable or invalid."
+///       },
+///       "401": {
+///         "description": "Invalid or expired administrative credential."
+///       }
+///     },
+///     "parameters": [
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
 pub async fn refresh_catalog(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
