@@ -1,5 +1,10 @@
 use super::*;
 
+// Priced Chat bounds include serialized role/content framing. Keep the sample
+// request within that contract and derive its liability at the rates below.
+const PRICED_INPUT_BOUND: i64 = 64;
+const PRICED_RESERVATION: i64 = PRICED_INPUT_BOUND + 10 * 2;
+
 #[sqlx::test(migrations = "../../crates/storage/migrations")]
 #[ignore = "requires PostgreSQL"]
 async fn priced_streaming_settles_only_terminal_usage(pool: sqlx::PgPool) {
@@ -97,7 +102,7 @@ async fn priced_streaming_settles_only_terminal_usage(pool: sqlx::PgPool) {
             api_completion_rate: 4_000_000,
             cash_prompt_rate: 1_000_000,
             cash_completion_rate: 2_000_000,
-            max_input_tokens: 10,
+            max_input_tokens: PRICED_INPUT_BOUND,
             max_output_tokens: 10,
         });
         let org = state
@@ -110,7 +115,11 @@ async fn priced_streaming_settles_only_terminal_usage(pool: sqlx::PgPool) {
             .create_project(org, "stream-costs")
             .await
             .unwrap();
-        state.store.create_budget(scope, "USD", 30).await.unwrap();
+        state
+            .store
+            .create_budget(scope, "USD", PRICED_RESERVATION)
+            .await
+            .unwrap();
         let key = state
             .store
             .issue_key(scope, "client", &["fast".into()], 3600)
@@ -143,7 +152,11 @@ async fn priced_streaming_settles_only_terminal_usage(pool: sqlx::PgPool) {
         let budget = state.store.budget(scope).await.unwrap().unwrap();
         assert_eq!(
             (budget.spent_nanos, budget.reserved_nanos),
-            if settled { (4, 0) } else { (0, 30) }
+            if settled {
+                (4, 0)
+            } else {
+                (0, PRICED_RESERVATION)
+            }
         );
         assert_eq!(
             state
@@ -210,12 +223,16 @@ async fn priced_inference_reserves_settles_and_blocks_exhaustion(pool: sqlx::PgP
         api_completion_rate: 4_000_000,
         cash_prompt_rate: 1_000_000,
         cash_completion_rate: 2_000_000,
-        max_input_tokens: 10,
+        max_input_tokens: PRICED_INPUT_BOUND,
         max_output_tokens: 10,
     });
     let org = state.store.create_organization("priced").await.unwrap();
     let scope = state.store.create_project(org, "priced").await.unwrap();
-    state.store.create_budget(scope, "USD", 34).await.unwrap();
+    state
+        .store
+        .create_budget(scope, "USD", PRICED_RESERVATION + 4)
+        .await
+        .unwrap();
     let key = state
         .store
         .issue_key(scope, "all models client", &["*".into()], 3600)
@@ -786,11 +803,15 @@ async fn buffered_output_withholds_content_but_preserves_incurred_charges(pool: 
         api_completion_rate: 4_000_000,
         cash_prompt_rate: 1_000_000,
         cash_completion_rate: 2_000_000,
-        max_input_tokens: 10,
+        max_input_tokens: PRICED_INPUT_BOUND,
         max_output_tokens: 10,
     });
     let scope = state.store.default_workspace().await.unwrap();
-    state.store.create_budget(scope, "USD", 100).await.unwrap();
+    state
+        .store
+        .create_budget(scope, "USD", PRICED_RESERVATION + 70)
+        .await
+        .unwrap();
     state
         .store
         .publish_customer_tariff(
@@ -1265,7 +1286,7 @@ async fn prepaid_balance_denies_before_dispatch_and_recovers_after_funding(pool:
         api_completion_rate: 4000000,
         cash_prompt_rate: 1000000,
         cash_completion_rate: 2000000,
-        max_input_tokens: 10,
+        max_input_tokens: PRICED_INPUT_BOUND,
         max_output_tokens: 10,
     });
     Arc::make_mut(&mut state.config)
@@ -1314,9 +1335,9 @@ async fn prepaid_balance_denies_before_dispatch_and_recovers_after_funding(pool:
     let app = router(state.clone());
     for (funding, expected) in [
         (None, StatusCode::PAYMENT_REQUIRED),
-        (Some(30), StatusCode::OK),
+        (Some(PRICED_RESERVATION), StatusCode::OK),
         (None, StatusCode::PAYMENT_REQUIRED),
-        (Some(30), StatusCode::OK),
+        (Some(PRICED_RESERVATION), StatusCode::OK),
     ] {
         if let Some(amount) = funding {
             state
@@ -1380,7 +1401,7 @@ async fn prepaid_balance_denies_before_dispatch_and_recovers_after_funding(pool:
         .bind(org).bind(scope.project_id).fetch_one(&pool).await.unwrap();
     state
         .store
-        .set_customer_workspace_spending_limit(scope, "USD", spent + 29, 0)
+        .set_customer_workspace_spending_limit(scope, "USD", spent + PRICED_RESERVATION - 1, 0)
         .await
         .unwrap();
     for (path, body) in [
@@ -1420,7 +1441,7 @@ async fn prepaid_balance_denies_before_dispatch_and_recovers_after_funding(pool:
     assert_eq!(after_denial, (2, 0));
     state
         .store
-        .set_customer_workspace_spending_limit(scope, "USD", spent + 30, 1)
+        .set_customer_workspace_spending_limit(scope, "USD", spent + PRICED_RESERVATION, 1)
         .await
         .unwrap();
     let admitted = app
@@ -1453,7 +1474,7 @@ async fn prepaid_balance_denies_before_dispatch_and_recovers_after_funding(pool:
     );
     state
         .store
-        .set_customer_workspace_spending_limit(scope, "USD", total + 30, 2)
+        .set_customer_workspace_spending_limit(scope, "USD", total + PRICED_RESERVATION, 2)
         .await
         .unwrap();
     *captured.0.lock().unwrap() = None;
