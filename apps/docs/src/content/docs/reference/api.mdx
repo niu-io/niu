@@ -88,7 +88,7 @@ workspace procurement budget therefore does not by itself prevent an authorized
 personal Chat or video call. Current key/model permissions, Guardrails and request-rate
 controls still apply. Shared priced routes retain procurement admission checks;
 this distinction does not grant access to another company's personal credential.
-Shared video routes retain the legacy procurement-budget restriction; personal video routes do not reserve or debit that budget.
+Shared video routes retain the legacy procurement-budget restriction; personal video routes do not reserve or debit that budget. Personal video still enforces key RPM/concurrency controls. A finite key token-rate budget rejects video with `422 key_token_bound_required` when the channel lacks a supported token admission bound.
 
 ## API key spending allowance
 

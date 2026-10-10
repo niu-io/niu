@@ -1228,3 +1228,22 @@ charges or balance entries. Deleting the intent prevented another submission.
 Temporary keys were revoked and isolated processes stopped; original development
 data and encrypted identity were preserved. This verifies the exercised personal
 video lifecycle, not customer-funded video settlement or all provider models.
+
+### Key controls with a saved procurement budget
+
+Three fresh native current-input runs against `b5fc71f` independently configured
+an owner-funded video route and a one-nanounit workspace procurement budget. A
+zero request-rate policy returned 429 `key_request_rate_exceeded`; a zero
+concurrency policy returned 429 `key_concurrency_exceeded`; a finite token-rate
+policy returned 422 `key_token_bound_required`, since this video channel does not
+provide the required token admission bound. Each outcome was checked before and
+after gateway restart. Revoking the corresponding key then returned 401.
+
+Independent SQL confirmed zero dispatched attempts, no media transport records,
+and no customer charges, balance entries, customer holds, procurement costs or
+procurement holds in each run. Procurement budget responses were unchanged.
+Prepared attempts may remain as safe diagnostic evidence. The original encrypted
+identity was unchanged and isolated processes were stopped. These observations
+verify that excluding personal video from platform procurement does not bypass
+the exercised key controls; they do not establish finite-token video support,
+nonzero-limit contention or customer-funded settlement.
