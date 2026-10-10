@@ -22,7 +22,8 @@ function mockFetch(create:()=>Promise<Response>=async()=>Response.json({id:job,o
   const intents=new Map<string,unknown>();
   vi.stubGlobal('fetch',vi.fn(async(path:string,init?:RequestInit)=>{
     calls.push({path,body:init?.body ? JSON.parse(String(init.body)):null});
-    if(path.endsWith('/chat-sessions'))return Response.json({data:[]});
+    if(path.endsWith('/video-intents') || path.includes('/video-intents?'))return Response.json({data:[],has_more:false,next_before:null});
+  if(path.endsWith('/chat-sessions'))return Response.json({data:[]});
     if(path.endsWith('/keys'))return Response.json({data:[{id:key,name:'Review key',revoked:false,expired:false}]});
     if(path.endsWith('/models'))return Response.json({object:'list',data:[catalogModel]});
     if(path.includes('/jobs?'))return Response.json({data:[],has_more:false,next_before:null});
@@ -78,7 +79,7 @@ it('does not automatically retry a lost paid submission response',async()=>{
   await screen.findByRole('button',{name:'Video model'});await user.type(screen.getByLabelText('Prompt'),'A mountain');
   await user.click(screen.getByRole('button',{name:'Estimate',exact:true}));await screen.findByText('Estimated CNY 1.00');
   await user.click(screen.getByRole('button',{name:'Generate video'}));
-  await screen.findByText(/Submission may have reached/);
+  await screen.findByText('Network unavailable');
   await waitFor(()=>expect(calls.some(call=>call.path.includes('/video-intents/') && call.body===null)).toBe(true));
   expect(calls.filter(call=>call.path.endsWith('/submit') || call.path.endsWith('/jobs'))).toHaveLength(1);
 });
@@ -178,7 +179,8 @@ it('recovers a failed saved-job read without submitting another generation',asyn
   const reads:string[]=[];
   vi.stubGlobal('fetch',vi.fn(async(path:string,init?:RequestInit)=>{
     reads.push(path);
-    if(path.endsWith('/chat-sessions'))return Response.json({data:[]});
+    if(path.endsWith('/video-intents') || path.includes('/video-intents?'))return Response.json({data:[],has_more:false,next_before:null});
+  if(path.endsWith('/chat-sessions'))return Response.json({data:[]});
     if(path.endsWith('/keys'))return Response.json({data:[{id:key,name:'Review key',revoked:false,expired:false}]});
     if(path.endsWith('/models'))return Response.json({object:'list',data:[model]});
     if(path.includes('/jobs?'))return Response.json({data:[],has_more:false,next_before:null});
@@ -204,7 +206,8 @@ it('does not leave a saved job loading forever when no active API key remains',a
   const calls:string[]=[];
   vi.stubGlobal('fetch',vi.fn(async(path:string)=>{
     calls.push(path);
-    if(path.endsWith('/chat-sessions'))return Response.json({data:[]});
+    if(path.endsWith('/video-intents') || path.includes('/video-intents?'))return Response.json({data:[],has_more:false,next_before:null});
+  if(path.endsWith('/chat-sessions'))return Response.json({data:[]});
     if(path.endsWith('/keys'))return Response.json({data:[{id:key,name:'Old key',revoked:true,expired:false}]});
     throw new Error('No video API should be read without an active key');
   }));
@@ -228,7 +231,8 @@ it('retries a failed API-key read before loading models without submitting a vid
  const calls:string[]=[];
  vi.stubGlobal('fetch',vi.fn(async(path:string)=>{
    calls.push(path);
-   if(path.endsWith('/chat-sessions'))return Response.json({data:[]});
+   if(path.endsWith('/video-intents') || path.includes('/video-intents?'))return Response.json({data:[],has_more:false,next_before:null});
+  if(path.endsWith('/chat-sessions'))return Response.json({data:[]});
    if(path.endsWith('/keys')) {
      if(++keyReads === 1)return Response.json({error:{message:'API keys temporarily unavailable'}},{status:503});
      return Response.json({data:[{id:key,name:'Review key',revoked:false,expired:false}]});
@@ -346,7 +350,8 @@ it('waits for the new workspace key list instead of querying it with the old key
   const paths:string[]=[];
   vi.stubGlobal('fetch',vi.fn(async(input:string)=>{
     paths.push(input);
-    if(input.endsWith('/chat-sessions'))return Response.json({data:[]});
+    if(input.endsWith('/video-intents') || input.includes('/video-intents?'))return Response.json({data:[],has_more:false,next_before:null});
+  if(input.endsWith('/chat-sessions'))return Response.json({data:[]});
     if(input.endsWith('/keys'))return input.includes(other.id) ? new Promise<Response>(resolve=>{finish=resolve;}) : Response.json({data:[{id:key,name:'Original key',revoked:false,expired:false}]});
     if(input.endsWith('/models'))return Response.json({data:[model]});
     if(input.includes('/jobs?'))return Response.json({data:[],has_more:false,next_before:null});

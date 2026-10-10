@@ -154,6 +154,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
       if(controller.signal.aborted)return;
       loadedIntent.current=restoring;
       setIntentDocument(document);
+      setPrompt('');setControls({});setImages([]);setModelId(document.model);
       if(document.request){
         setPrompt(document.request.content.map(item=>item.text).join('\n'));
         setModelId(document.model);
@@ -253,7 +254,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
         <Button asChild variant="outline" disabled={Boolean(busy)}><Link to={`/generations?new=1${workspace ? `&workspace=${encodeURIComponent(workspace.id)}`:''}`}><Plus size={16}/>New generation</Link></Button>
         </div>
         {historyError && <p role="alert">{historyError}</p>}
-        <SessionHistory context={context} currentKeys={keys} videoKeyId={keyId} videos={jobs.map(item=>({...item,keyId}))} activeVideo={selected} disabled={Boolean(busy)}/>
+        <SessionHistory context={context} currentKeys={keys} videoKeyId={keyId} videos={jobs.map(item=>({...item,keyId}))} activeVideo={selected} activeIntent={intentId} onIntentDeleted={id=>{if(id===intentId)setRevision(value=>value+1);}} disabled={Boolean(busy)}/>
         {nextBefore && <Button variant="ghost" onClick={()=>void more()} disabled={Boolean(busy)}>Load more</Button>}
       </SidebarContent>
     </Sidebar>

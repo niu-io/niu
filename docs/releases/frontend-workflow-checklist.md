@@ -564,3 +564,37 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
   reference tab still timed out. Owned-intent history discovery, deletion and
   retained/expired-input presentation still need reference/Stitch design and
   rendered verification; the full Video workflow remains partial.
+
+### Owned Video input history and deletion follow-up
+
+- Inspected OpenRouter's actual saved-room actions and deletion confirmation;
+  cancelled without changing reference data. Iterated the history/deletion
+  pattern in the existing Niu Stitch design system at desktop and mobile sizes.
+  Generated example identifiers, models and unsupported capabilities were not
+  adopted. The implementation uses installed Sidebar, DropdownMenu and Dialog
+  primitives with the shared dialog radius.
+- Actor-owned intent indexes now participate in the shared history, including
+  pagination. Read-only content hydration is bounded to four reads per workspace,
+  preserves index order and uses meaningful titles. Restricted full-content reads
+  retain discoverable metadata. Known original jobs and retained inputs share one
+  row; deleting input keeps the original job in history.
+- Current-workspace writers can explicitly delete saved input with its revision.
+  Confirmation explains that deletion does not cancel generation, remove results
+  or refund charges. Failed deletion remains visible and can be cancelled; it is
+  never automatically retried. Restored deleted/expired documents clear stale
+  composer input rather than leaving the previous prompt on screen.
+- The bounded-concurrency full dashboard run passed 630 tests in 84 files before
+  the final scope/action guards. After those changes and the latest backend pull,
+  all 57 relevant tests in eight files, dashboard type checking and diff checking
+  passed. These tests cover lifecycle recovery, index hydration, cancellation,
+  restricted content, deletion success/failure and original-job preservation.
+- The actual HMR service rendered five existing saved chats without a history
+  error. Search open, autofocus, Escape dismissal and returned focus were checked
+  at desktop and actual 390×844 mobile dimensions. Mobile history opens as a
+  drawer; the search panel fits the viewport without horizontal document overflow.
+  Browser viewport control now works after reconnecting; earlier narrow checks
+  remain unqualified, rather than being retroactively inferred from this check.
+- The local demo still has an empty intent index and no Video route on its key.
+  No mock records were seeded. The new Video action menu/deletion dialog, actual
+  deletion and saved-input/result restoration therefore remain pending real-data
+  browser qualification. The full Video workflow remains partial.
