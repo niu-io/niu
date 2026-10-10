@@ -275,7 +275,7 @@ impl Store {
                 if self.customer_media_pricing(scope, attempt).await?.is_none() {
                     return Ok(true);
                 }
-                Ok(sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM customer_media_charges c WHERE c.organization_id=$1 AND c.project_id=$2 AND c.attempt_id=$3 AND (EXISTS(SELECT 1 FROM customer_balance_entries e WHERE e.attempt_id=c.attempt_id AND e.kind='charge') OR (c.amount_nanos=0 AND NOT EXISTS(SELECT 1 FROM customer_balance_reservations h WHERE h.attempt_id=c.attempt_id AND h.released_at IS NULL))))")
+                Ok(sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM customer_media_charges c JOIN customer_activity_charges posted ON posted.attempt_id=c.attempt_id AND posted.organization_id=c.organization_id AND posted.project_id=c.project_id AND posted.currency=c.currency AND posted.amount_nanos=c.amount_nanos WHERE c.organization_id=$1 AND c.project_id=$2 AND c.attempt_id=$3)")
                     .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_one(&self.pool).await?)
             }
             _ => Ok(false),
@@ -604,7 +604,7 @@ impl Store {
         if !(1..=100).contains(&limit) {
             return Err(StoreError::Conflict);
         }
-        let rows: Vec<(Uuid, bool)> = sqlx::query_as("SELECT a.id,EXISTS(SELECT 1 FROM media_jobs j WHERE j.attempt_id=a.id) FROM attempts a JOIN media_recovery_routes r ON r.attempt_id=a.id WHERE a.organization_id=$1 AND a.project_id=$2 AND a.dispatched_at IS NOT NULL AND ($3::uuid IS NULL OR a.id>$3) AND (a.execution='may_have_executed' OR (a.execution='confirmed_completed' AND EXISTS(SELECT 1 FROM customer_media_attempt_pricing p WHERE p.attempt_id=a.id) AND NOT EXISTS(SELECT 1 FROM customer_media_charges c WHERE c.attempt_id=a.id))) ORDER BY a.id LIMIT $4")
+        let rows: Vec<(Uuid, bool)> = sqlx::query_as("SELECT a.id,EXISTS(SELECT 1 FROM media_jobs j WHERE j.attempt_id=a.id) FROM attempts a JOIN media_recovery_routes r ON r.attempt_id=a.id WHERE a.organization_id=$1 AND a.project_id=$2 AND a.dispatched_at IS NOT NULL AND ($3::uuid IS NULL OR a.id>$3) AND (a.execution='may_have_executed' OR (a.execution='confirmed_completed' AND EXISTS(SELECT 1 FROM customer_media_attempt_pricing p WHERE p.attempt_id=a.id) AND NOT EXISTS(SELECT 1 FROM customer_media_charges c JOIN customer_activity_charges posted ON posted.attempt_id=c.attempt_id AND posted.organization_id=c.organization_id AND posted.project_id=c.project_id AND posted.currency=c.currency AND posted.amount_nanos=c.amount_nanos WHERE c.attempt_id=a.id))) ORDER BY a.id LIMIT $4")
             .bind(scope.organization_id).bind(scope.project_id).bind(after).bind(i64::from(limit)).fetch_all(&self.pool).await?;
         Ok(rows
             .into_iter()

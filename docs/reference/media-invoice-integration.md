@@ -76,3 +76,12 @@ configuration and encrypted identity were preserved during process replacement.
 This exercises the owner-funded read path only. Positive media settlement, mismatched
 debit diagnosis and recovery scheduling against a nonempty paid-media backlog
 remain unverified; no paid-media records were fabricated for this checkpoint.
+
+The same posted-charge predicate also governs when background polling may stop
+and which completed priced attempts the storage recovery-candidate query returns.
+A recorded but unposted media liability must remain eligible for recovery. The
+candidate method currently has no production caller; this change does not expose
+a new manual-recovery endpoint. The rebuilt native service repeated the retained
+owner-funded video read and authorization checks above, with unchanged financial
+counts. These reads do not exercise the paid recovery branches, which remain
+unverified.
