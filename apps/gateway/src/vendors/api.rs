@@ -125,6 +125,221 @@ pub struct VendorFilter {
     supplier: Option<Uuid>,
 }
 
+/// ```openapi
+/// {
+///   "path": "/admin/v1/vendors",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listVendors",
+///     "parameters": [
+///       {
+///         "name": "supplier",
+///         "in": "query",
+///         "required": false,
+///         "description": "Filter by explicit Supplier business ownership; no name matching or unassociated fallback. Platform administration is required.",
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "summary": "List Supplier API-key configurations without credentials",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Vendor metadata. All management responses use Cache-Control no-store.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "items": {
+///                     "$ref": "#/components/schemas/Vendor"
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "403": {
+///         "description": "Platform administration permission required."
+///       },
+///       "401": {
+///         "description": "Invalid or expired administrative credential."
+///       }
+///     },
+///     "x-niu-implementation": "implemented",
+///     "description": " Requires installation administration or an explicitly granted platform administrator. Each configuration has independent credentials and model bindings. Credentials are write-only and never returned."
+///   },
+///   "schemas": {
+///     "Vendor": {
+///       "type": "object",
+///       "additionalProperties": false,
+///       "required": [
+///         "id",
+///         "name",
+///         "adapter",
+///         "api_base",
+///         "enabled",
+///         "revision",
+///         "has_credential"
+///       ],
+///       "properties": {
+///         "id": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "name": {
+///           "type": "string"
+///         },
+///         "adapter": {
+///           "type": "string",
+///           "enum": [
+///             "openrouter",
+///             "openai"
+///           ]
+///         },
+///         "api_base": {
+///           "type": "string",
+///           "format": "uri"
+///         },
+///         "enabled": {
+///           "type": "boolean"
+///         },
+///         "revision": {
+///           "type": "integer",
+///           "minimum": 1
+///         },
+///         "has_credential": {
+///           "type": "boolean"
+///         },
+///         "owner_funded": {
+///           "type": "boolean",
+///           "readOnly": true,
+///           "description": "Configuration-list metadata identifying a private credential owned by one account. Not accepted in configuration writes."
+///         },
+///         "supplier": {
+///           "type": [
+///             "object",
+///             "null"
+///           ],
+///           "description": "Supplier ownership on configuration-list reads; credentials and commercial data are excluded.",
+///           "required": [
+///             "id",
+///             "name"
+///           ],
+///           "additionalProperties": false,
+///           "properties": {
+///             "id": {
+///               "type": "string",
+///               "format": "uuid"
+///             },
+///             "name": {
+///               "type": "string"
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "VendorCreate": {
+///       "type": "object",
+///       "additionalProperties": false,
+///       "required": [
+///         "name",
+///         "adapter",
+///         "api_base",
+///         "api_key"
+///       ],
+///       "properties": {
+///         "name": {
+///           "type": "string",
+///           "minLength": 1,
+///           "maxLength": 100
+///         },
+///         "adapter": {
+///           "type": "string",
+///           "enum": [
+///             "openrouter",
+///             "openai"
+///           ]
+///         },
+///         "api_base": {
+///           "type": "string",
+///           "format": "uri",
+///           "maxLength": 2048,
+///           "description": "HTTPS endpoint or HTTP loopback endpoint without URL credentials or query parameters."
+///         },
+///         "api_key": {
+///           "type": "string",
+///           "writeOnly": true,
+///           "minLength": 1,
+///           "maxLength": 8192
+///         },
+///         "enabled": {
+///           "type": "boolean",
+///           "default": true
+///         },
+///         "supplier_id": {
+///           "type": "string",
+///           "format": "uuid",
+///           "description": "Existing Supplier business to own this API-key configuration. Mutually exclusive with create_supplier=true; ownership and creation commit atomically."
+///         },
+///         "create_supplier": {
+///           "type": "boolean",
+///           "default": false,
+///           "description": "Atomically create a Supplier business with this name and its explicit configuration ownership link. Omission preserves legacy configuration-only creation."
+///         }
+///       }
+///     },
+///     "VendorUpdate": {
+///       "type": "object",
+///       "additionalProperties": false,
+///       "required": [
+///         "name",
+///         "api_base",
+///         "enabled",
+///         "expected_revision"
+///       ],
+///       "properties": {
+///         "name": {
+///           "type": "string",
+///           "minLength": 1,
+///           "maxLength": 100
+///         },
+///         "api_base": {
+///           "type": "string",
+///           "format": "uri",
+///           "maxLength": 2048
+///         },
+///         "api_key": {
+///           "type": "string",
+///           "writeOnly": true,
+///           "minLength": 1,
+///           "maxLength": 8192,
+///           "description": "Omit to retain the current credential."
+///         },
+///         "enabled": {
+///           "type": "boolean"
+///         },
+///         "expected_revision": {
+///           "type": "integer",
+///           "minimum": 1
+///         }
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub async fn list(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -139,6 +354,69 @@ pub async fn list(
     Ok(Json(json!({"data":data})))
 }
 
+/// ```openapi
+/// {
+///   "path": "/admin/v1/vendors",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "createVendor",
+///     "summary": "Create an encrypted Supplier API-key configuration",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "$ref": "#/components/schemas/VendorCreate"
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "201": {
+///         "description": "Created vendor metadata wrapped in data. The credential is never returned.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "$ref": "#/components/schemas/Vendor"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid vendor configuration."
+///       },
+///       "403": {
+///         "description": "Platform administration permission required."
+///       },
+///       "409": {
+///         "description": "Vendor name already exists."
+///       },
+///       "503": {
+///         "description": "Storage or credential encryption unavailable."
+///       },
+///       "401": {
+///         "description": "Invalid or expired administrative credential."
+///       }
+///     },
+///     "parameters": [],
+///     "x-niu-implementation": "implemented",
+///     "description": " Requires installation administration or an explicitly granted platform administrator. Each configuration has independent credentials and model bindings. Credentials are write-only and never returned."
+///   }
+/// }
+/// ```
 pub async fn create(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -189,6 +467,79 @@ pub async fn create(
     Ok((StatusCode::CREATED, Json(json!({"data":vendor}))))
 }
 
+/// ```openapi
+/// {
+///   "path": "/admin/v1/vendors/{id}",
+///   "method": "put",
+///   "operation": {
+///     "operationId": "updateVendor",
+///     "summary": "Update one Supplier API-key configuration or rotate its credential",
+///     "description": "Adapter is immutable. Changes affect new requests; already dispatched work can finish using its original configuration. Requires installation administration or an explicitly granted platform administrator. Each configuration has independent credentials and model bindings. Credentials are write-only and never returned.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "$ref": "#/components/schemas/VendorUpdate"
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "200": {
+///         "description": "Updated vendor metadata wrapped in data.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "$ref": "#/components/schemas/Vendor"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid configuration or credential."
+///       },
+///       "403": {
+///         "description": "Platform administration permission required."
+///       },
+///       "404": {
+///         "description": "Vendor does not exist."
+///       },
+///       "409": {
+///         "description": "Stale revision or conflicting name."
+///       },
+///       "401": {
+///         "description": "Invalid or expired administrative credential."
+///       }
+///     },
+///     "parameters": [
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
 pub async fn update(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,

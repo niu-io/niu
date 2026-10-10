@@ -5349,6 +5349,201 @@ HTTP 403: Platform management permission required
 
 HTTP 503: Configuration storage unavailable
 
+## List Supplier API-key configurations without credentials
+
+`GET /admin/v1/vendors`
+
+ Requires installation administration or an explicitly granted platform administrator. Each configuration has independent credentials and model bindings. Credentials are write-only and never returned.
+
+Implementation: `implemented`. Operation: `listVendors`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`supplier` (query, optional)
+
+Filter by explicit Supplier business ownership; no name matching or unassociated fallback. Platform administration is required.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Vendor metadata. All management responses use Cache-Control no-store.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "$ref": "#/components/schemas/Vendor"
+      }
+    }
+  }
+}
+```
+
+HTTP 403: Platform administration permission required.
+
+HTTP 401: Invalid or expired administrative credential.
+
+## Create an encrypted Supplier API-key configuration
+
+`POST /admin/v1/vendors`
+
+ Requires installation administration or an explicitly granted platform administrator. Each configuration has independent credentials and model bindings. Credentials are write-only and never returned.
+
+Implementation: `implemented`. Operation: `createVendor`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/VendorCreate"
+}
+```
+
+### Responses
+
+HTTP 201: Created vendor metadata wrapped in data. The credential is never returned.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/Vendor"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid vendor configuration.
+
+HTTP 403: Platform administration permission required.
+
+HTTP 409: Vendor name already exists.
+
+HTTP 503: Storage or credential encryption unavailable.
+
+HTTP 401: Invalid or expired administrative credential.
+
+## Update one Supplier API-key configuration or rotate its credential
+
+`PUT /admin/v1/vendors/{id}`
+
+Adapter is immutable. Changes affect new requests; already dispatched work can finish using its original configuration. Requires installation administration or an explicitly granted platform administrator. Each configuration has independent credentials and model bindings. Credentials are write-only and never returned.
+
+Implementation: `implemented`. Operation: `updateVendor`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/VendorUpdate"
+}
+```
+
+### Responses
+
+HTTP 200: Updated vendor metadata wrapped in data.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/Vendor"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid configuration or credential.
+
+HTTP 403: Platform administration permission required.
+
+HTTP 404: Vendor does not exist.
+
+HTTP 409: Stale revision or conflicting name.
+
+HTTP 401: Invalid or expired administrative credential.
+
 ## Create an OpenAI-compatible chat completion
 
 `POST /v1/chat/completions`
@@ -6940,6 +7135,176 @@ Local `#/components/schemas/…` references resolve to these definitions.
   "minimum": 0,
   "maximum": 1000000000000,
   "description": "Token budget includes unresolved reservations plus provider-reported usage completed in the last 60 seconds. Null is unlimited; zero denies dispatch."
+}
+```
+
+### Vendor
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "adapter",
+    "api_base",
+    "enabled",
+    "revision",
+    "has_credential"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "name": {
+      "type": "string"
+    },
+    "adapter": {
+      "type": "string",
+      "enum": [
+        "openrouter",
+        "openai"
+      ]
+    },
+    "api_base": {
+      "type": "string",
+      "format": "uri"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "has_credential": {
+      "type": "boolean"
+    },
+    "owner_funded": {
+      "type": "boolean",
+      "readOnly": true,
+      "description": "Configuration-list metadata identifying a private credential owned by one account. Not accepted in configuration writes."
+    },
+    "supplier": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "description": "Supplier ownership on configuration-list reads; credentials and commercial data are excluded.",
+      "required": [
+        "id",
+        "name"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
+```
+
+### VendorCreate
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "adapter",
+    "api_base",
+    "api_key"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "adapter": {
+      "type": "string",
+      "enum": [
+        "openrouter",
+        "openai"
+      ]
+    },
+    "api_base": {
+      "type": "string",
+      "format": "uri",
+      "maxLength": 2048,
+      "description": "HTTPS endpoint or HTTP loopback endpoint without URL credentials or query parameters."
+    },
+    "api_key": {
+      "type": "string",
+      "writeOnly": true,
+      "minLength": 1,
+      "maxLength": 8192
+    },
+    "enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "supplier_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Existing Supplier business to own this API-key configuration. Mutually exclusive with create_supplier=true; ownership and creation commit atomically."
+    },
+    "create_supplier": {
+      "type": "boolean",
+      "default": false,
+      "description": "Atomically create a Supplier business with this name and its explicit configuration ownership link. Omission preserves legacy configuration-only creation."
+    }
+  }
+}
+```
+
+### VendorUpdate
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "api_base",
+    "enabled",
+    "expected_revision"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "api_base": {
+      "type": "string",
+      "format": "uri",
+      "maxLength": 2048
+    },
+    "api_key": {
+      "type": "string",
+      "writeOnly": true,
+      "minLength": 1,
+      "maxLength": 8192,
+      "description": "Omit to retain the current credential."
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "expected_revision": {
+      "type": "integer",
+      "minimum": 1
+    }
+  }
 }
 ```
 

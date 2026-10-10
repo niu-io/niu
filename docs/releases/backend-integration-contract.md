@@ -390,3 +390,14 @@ fields against the generated contracts. After concurrent partial refunds,
 idempotent replay, the remainder refund and restart, transaction counts, kinds
 and signed amounts matched independent ledger reads. This did not exercise a
 multi-page ledger or externally settled funding reversals.
+
+Supplier API-key configuration list/create/update operations now share generated
+handler schemas, including their successful metadata envelopes, write-only
+credential fields and integer revision preconditions. The handlers authorize
+installation administration or explicitly granted platform administration.
+A current-input two-configuration Supplier run checked actual response types,
+required fields and closed-object fields against those schemas, then verified
+four real model calls and independent ledger records across credential editing,
+disablement and restart. Both configurations used the owner's same authorized
+upstream secret; this does not qualify distinct upstream accounts or commercial
+Supplier supply.

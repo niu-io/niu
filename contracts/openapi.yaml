@@ -1395,64 +1395,9 @@ paths:
         '404':
           description: Selected account is outside the authenticated scope.
   /admin/v1/vendors:
-    get:
-      operationId: listVendors
-      parameters:
-        - name: supplier
-          in: query
-          required: false
-          description: Filter by explicit Supplier business ownership; no name matching or unassociated fallback. Installation administration is still required.
-          schema: { type: string, format: uuid }
-      summary: List installation vendor metadata without credentials
-      security: [{ adminBearerAuth: [] }]
-      responses:
-        '200':
-          description: Vendor metadata. All management responses use Cache-Control no-store.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [data]
-                properties:
-                  data: { type: array, items: { $ref: '#/components/schemas/Vendor' } }
-        '403': { description: Installation administrator required. }
-    post:
-      operationId: createVendor
-      summary: Create an installation vendor with an encrypted credential
-      security: [{ adminBearerAuth: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/VendorCreate' }
-      responses:
-        '201': { description: Created vendor metadata wrapped in data. The credential is never returned. }
-        '400': { description: Invalid vendor configuration. }
-        '403': { description: Installation administrator required. }
-        '409': { description: Vendor name already exists. }
-        '503': { description: Storage or credential encryption unavailable. }
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1vendors'
   /admin/v1/vendors/{id}:
-    parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: string, format: uuid }
-    put:
-      operationId: updateVendor
-      summary: Update metadata or rotate a vendor credential
-      description: Adapter is immutable. Changes affect new requests; already dispatched work can finish using its original configuration.
-      security: [{ adminBearerAuth: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/VendorUpdate' }
-      responses:
-        '200': { description: Updated vendor metadata wrapped in data. }
-        '400': { description: Invalid configuration or credential. }
-        '403': { description: Installation administrator required. }
-        '404': { description: Vendor does not exist. }
-        '409': { description: Stale revision or conflicting name. }
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1vendors~1{id}'
   /admin/v1/vendors/{id}/asset-management:
     parameters:
       - name: id
@@ -3978,54 +3923,11 @@ components:
             - { type: 'null' }
             - { $ref: './request-observability.openapi.yaml#/components/schemas/RequestTiming' }
     Vendor:
-      type: object
-      additionalProperties: false
-      required: [id, name, adapter, api_base, enabled, revision, has_credential]
-      properties:
-        id: { type: string, format: uuid }
-        name: { type: string }
-        adapter: { type: string, enum: [openrouter, openai] }
-        api_base: { type: string, format: uri }
-        enabled: { type: boolean }
-        revision: { type: integer, minimum: 1 }
-        has_credential: { type: boolean }
-        owner_funded: { type: boolean, readOnly: true, description: Configuration-list metadata identifying a private credential owned by one account. Not accepted in configuration writes. }
-        supplier:
-          type: [object, 'null']
-          description: Supplier ownership on configuration-list reads; credentials and commercial data are excluded.
-          required: [id, name]
-          additionalProperties: false
-          properties:
-            id: { type: string, format: uuid }
-            name: { type: string }
+      $ref: './generated/handler-operations.json#/components/schemas/Vendor'
     VendorCreate:
-      type: object
-      additionalProperties: false
-      required: [name, adapter, api_base, api_key]
-      properties:
-        name: { type: string, minLength: 1, maxLength: 100 }
-        adapter: { type: string, enum: [openrouter, openai] }
-        api_base: { type: string, format: uri, maxLength: 2048, description: HTTPS endpoint or HTTP loopback endpoint without URL credentials or query parameters. }
-        api_key: { type: string, writeOnly: true, minLength: 1, maxLength: 8192 }
-        enabled: { type: boolean, default: true }
-        supplier_id:
-          type: string
-          format: uuid
-          description: Existing Supplier business to own this API-key configuration. Mutually exclusive with create_supplier=true; ownership and creation commit atomically.
-        create_supplier:
-          type: boolean
-          default: false
-          description: Atomically create a Supplier business with this name and its explicit configuration ownership link. Omission preserves legacy configuration-only creation.
+      $ref: './generated/handler-operations.json#/components/schemas/VendorCreate'
     VendorUpdate:
-      type: object
-      additionalProperties: false
-      required: [name, api_base, enabled, expected_revision]
-      properties:
-        name: { type: string, minLength: 1, maxLength: 100 }
-        api_base: { type: string, format: uri, maxLength: 2048 }
-        api_key: { type: string, writeOnly: true, minLength: 1, maxLength: 8192, description: Omit to retain the current credential. }
-        enabled: { type: boolean }
-        expected_revision: { type: integer, minimum: 1 }
+      $ref: './generated/handler-operations.json#/components/schemas/VendorUpdate'
     VendorCapabilities:
       type: object
       additionalProperties: false
