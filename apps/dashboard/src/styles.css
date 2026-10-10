@@ -2995,8 +2995,8 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) > [data-slot="sheet-o
 
 @media (max-width: 639px) {
   .supplier-text-offers { min-width: 0; table-layout: fixed; }
-  .supplier-text-offers th:nth-child(n+2):nth-child(-n+5),
-  .supplier-text-offers td:nth-child(n+2):nth-child(-n+5) { display: none; }
+  .supplier-text-offers th:nth-child(n+2):nth-child(-n+6),
+  .supplier-text-offers td:nth-child(n+2):nth-child(-n+6) { display: none; }
   .supplier-text-offers th, .supplier-text-offers td { padding: 12px 16px; white-space: normal; overflow-wrap: anywhere; }
   .supplier-text-offers .supplier-offer-actions { vertical-align: top; background: transparent; }
 }

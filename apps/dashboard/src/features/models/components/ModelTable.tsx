@@ -193,6 +193,7 @@ export default function ModelTable({ models, header }: { models: Model[]; header
       </Collapsible>}
       <dl className="model-route-facts">
         <div><dt>Input price</dt><dd>{selected.customer_pricing != null ? `${money(selected.customer_pricing.prompt_rate, selected.customer_pricing.currency)} /M tokens` : 'Not published'}</dd></div>
+        {selected.customer_pricing?.cached_prompt_rate != null && <div><dt>Cache read price</dt><dd>{money(selected.customer_pricing.cached_prompt_rate, selected.customer_pricing.currency)} /M tokens</dd></div>}
         <div><dt>Output price</dt><dd>{selected.customer_pricing != null ? `${money(selected.customer_pricing.completion_rate, selected.customer_pricing.currency)} /M tokens` : 'Not published'}</dd></div>
         {selected.catalog?.context_length != null && <div><dt>Context length</dt><dd>{selected.catalog.context_length.toLocaleString()} tokens</dd></div>}
         {selected.catalog?.max_completion_tokens != null && <div><dt>Maximum output</dt><dd>{selected.catalog.max_completion_tokens.toLocaleString()} tokens</dd></div>}

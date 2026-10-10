@@ -156,6 +156,7 @@ function Administration({ token }: { token: string }) {
   const [alias, setAlias] = useState("");
   const [currency, setCurrency] = useState("USD");
   const [inputRate, setInputRate] = useState("");
+  const [cachedInputRate, setCachedInputRate] = useState("");
   const [outputRate, setOutputRate] = useState("");
   const [reference, setReference] = useState("");
   const [attempts, setAttempts] = useState<string[]>([]);
@@ -230,6 +231,7 @@ function Administration({ token }: { token: string }) {
       setAlias(offer?.model_alias ?? "");
       setCurrency(offer?.currency ?? "USD");
       setInputRate(offer ? decimal(offer.prompt_rate) : "");
+      setCachedInputRate(offer?.cached_prompt_rate != null ? decimal(offer.cached_prompt_rate) : "");
       setOutputRate(offer ? decimal(offer.completion_rate) : "");
     }
     setValidUntil(defaultReviewExpiry());
@@ -311,6 +313,7 @@ function Administration({ token }: { token: string }) {
           model_alias: alias,
           currency,
           prompt_rate: nanos(inputRate),
+          cached_prompt_rate: cachedInputRate.trim() === "" ? null : nanos(cachedInputRate),
           completion_rate: nanos(outputRate),
           expected_revision:
             data?.offers.find((offer) => offer.model_alias === alias)
@@ -485,6 +488,7 @@ function Administration({ token }: { token: string }) {
                     <TableRow>
                       <TableHead>Model alias</TableHead>
                       <TableHead>Input / 1M tokens</TableHead>
+                      <TableHead>Cache read / 1M tokens</TableHead>
                       <TableHead>Output / 1M tokens</TableHead>
                       <TableHead>Qualification</TableHead>
                       <TableHead>Offer status</TableHead>
@@ -496,11 +500,13 @@ function Administration({ token }: { token: string }) {
                       <TableRow key={offer.id}>
                         <TableCell>{offer.model_alias}<dl className="mt-3 grid gap-2 text-sm sm:hidden">
                           <div><dt className="text-xs text-muted-foreground">Input / 1M tokens</dt><dd>{money(offer.prompt_rate, offer.currency)}</dd></div>
+                          <div><dt className="text-xs text-muted-foreground">Cache read / 1M tokens</dt><dd>{offer.cached_prompt_rate != null ? money(offer.cached_prompt_rate, offer.currency) : "Input rate"}</dd></div>
                           <div><dt className="text-xs text-muted-foreground">Output / 1M tokens</dt><dd>{money(offer.completion_rate, offer.currency)}</dd></div>
                           <div><dt className="text-xs text-muted-foreground">Qualification</dt><dd>{offer.qualified ? "Qualified" : "Review required"}</dd></div>
                           <div><dt className="text-xs text-muted-foreground">Offer status</dt><dd>{offer.active ? offer.route_ready ? "Active" : "Route unavailable" : "Paused"}</dd></div>
                         </dl></TableCell>
                         <TableCell>{money(offer.prompt_rate, offer.currency)}</TableCell>
+                        <TableCell>{offer.cached_prompt_rate != null ? money(offer.cached_prompt_rate, offer.currency) : "Input rate"}</TableCell>
                         <TableCell>{money(offer.completion_rate, offer.currency)}</TableCell>
                         <TableCell><Badge variant={offer.qualified ? "default" : "secondary"}>{offer.qualified ? "Qualified" : "Review required"}</Badge></TableCell>
                         <TableCell>{offer.active ? offer.route_ready ? "Active" : "Route unavailable" : "Paused"}</TableCell>
@@ -628,19 +634,21 @@ function Administration({ token }: { token: string }) {
           )}
           {dialog === "offer" && (
             <>
-              <label>
-                Existing upstream model alias
+              <div className="grid gap-2">
+                <Label htmlFor="supplier-offer-alias">Existing upstream model alias</Label>
                 <Input
+                  id="supplier-offer-alias"
                   required
                   maxLength={200}
                   value={alias}
                   readOnly={Boolean(offerId)}
                   onChange={(event) => setAlias(event.target.value)}
                 />
-              </label>
-              <label>
-                Currency
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="supplier-offer-currency">Currency</Label>
                 <Input
+                  id="supplier-offer-currency"
                   required
                   pattern="[A-Z]{3}"
                   maxLength={3}
@@ -649,25 +657,38 @@ function Administration({ token }: { token: string }) {
                     setCurrency(event.target.value.toUpperCase())
                   }
                 />
-              </label>
-              <label>
-                Input payout per million tokens
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="supplier-input-rate">Input payout per million tokens</Label>
                 <Input
+                  id="supplier-input-rate"
                   required
                   inputMode="decimal"
                   value={inputRate}
                   onChange={(event) => setInputRate(event.target.value)}
                 />
-              </label>
-              <label>
-                Output payout per million tokens
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="supplier-cached-input-rate">Cache read payout per million tokens</Label>
                 <Input
+                  id="supplier-cached-input-rate"
+                  inputMode="decimal"
+                  aria-describedby="supplier-cached-input-help"
+                  value={cachedInputRate}
+                  onChange={(event) => setCachedInputRate(event.target.value)}
+                />
+                <p id="supplier-cached-input-help" className="text-sm text-muted-foreground">Leave blank to use the input rate for cached tokens. Zero is a valid rate.</p>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="supplier-output-rate">Output payout per million tokens</Label>
+                <Input
+                  id="supplier-output-rate"
                   required
                   inputMode="decimal"
                   value={outputRate}
                   onChange={(event) => setOutputRate(event.target.value)}
                 />
-              </label>
+              </div>
               <p>
                 New rates apply to future requests. Existing earnings keep
                 their original rates.

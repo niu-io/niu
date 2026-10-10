@@ -15,7 +15,7 @@ const offerId = "f31c9646-b8df-4090-aa8b-a9794dfe62bd";
 const rateRevision = "7c923678-90fa-4a66-8343-a3e34975859b";
 const sha256 = "a".repeat(64);
 
-function setup(promptRate = "1000000000", failInitialRead = false, media = false, section = "models") {
+function setup(promptRate = "1000000000", failInitialRead = false, media = false, section = "models", cachedRate: string | null = null) {
   fixture.context = {
     token: "installation-token",
     session: { kind: "installation", operator: { name: "Administrator" } },
@@ -59,6 +59,7 @@ function setup(promptRate = "1000000000", failInitialRead = false, media = false
             currency: media ? null : "USD",
             prompt_rate: media ? null : promptRate,
             completion_rate: media ? null : "2000000000",
+            cached_prompt_rate: cachedRate,
             active: false,
             qualified: offerQualified,
             route_ready: false,
@@ -254,7 +255,7 @@ it('edits current agreed rates with exact decimal values and the saved revision'
   await user.click(screen.getByRole('button', { name: 'Save', exact: true }));
   await waitFor(() => expect(requests.find(item => item.method === 'POST' && item.path.endsWith('/offers'))?.body).toEqual({
     model_alias: 'example/model', currency: 'USD', prompt_rate: '1234567891',
-    completion_rate: '2000000001', expected_revision: rateRevision,
+    completion_rate: '2000000001', cached_prompt_rate: null, expected_revision: rateRevision,
   }));
 });
 
@@ -300,4 +301,37 @@ it.each([false, true])('creates atomic Supplier setup and handles discovery fail
     await waitFor(() => expect(reads).toContain(`/admin/v1/providers/${supplierId}/administration?days=90`));
   }
   expect(document.body.textContent).not.toContain('fixture-credential');
+});
+
+
+describe('Supplier cached-input rates', () => {
+  it.each([
+    ['preserve', '0.123456789', '123456789'],
+    ['clear', '', null],
+    ['zero', '0', '0'],
+  ])('%s an existing cached rate explicitly when replacing an offer', async (_action, value, expected) => {
+    const { requests } = setup('1000000000', false, false, 'models', '123456789');
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Actions for example/model' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Edit rates' }));
+    const cached = screen.getByLabelText('Cache read payout per million tokens') as HTMLInputElement;
+    expect(cached.value).toBe('0.123456789');
+    await user.clear(cached);
+    if (value) await user.type(cached, value);
+    await user.click(screen.getByRole('button', { name: 'Save', exact: true }));
+    await waitFor(() => expect(requests.find(item => item.method === 'POST' && item.path.endsWith('/offers'))?.body).toEqual({
+      model_alias: 'example/model', currency: 'USD', prompt_rate: '1000000000',
+      completion_rate: '2000000000', cached_prompt_rate: expected, expected_revision: rateRevision,
+    }));
+  });
+  it('rejects an invalid cache rate before publishing a new revision', async () => {
+    const { requests } = setup();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Actions for example/model' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Edit rates' }));
+    await user.type(screen.getByLabelText('Cache read payout per million tokens'), '0.0000000001');
+    await user.click(screen.getByRole('button', { name: 'Save', exact: true }));
+    expect(await screen.findByText('Rates require a nonnegative amount with at most 9 decimal places.')).toBeTruthy();
+    expect(requests.some(item => item.method === 'POST' && item.path.endsWith('/offers'))).toBe(false);
+  });
 });

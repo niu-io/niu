@@ -153,3 +153,14 @@ it('lets users expand a clipped model description and starts another model colla
     expect((await screen.findByRole('button',{name:'Show more',exact:true})).getAttribute('aria-expanded')).toBe('false');
   } finally {height.mockRestore();style.remove();}
 });
+
+
+it.each([['123456789', 'USD 0.123456789 /M tokens'], ['0', 'USD 0.00 /M tokens'], [null, null]])('displays only the published customer cache-read tariff (%s)', (cachedRate, price) => {
+  const enriched = [{ ...models[0], customer_pricing: {currency:'USD',unit:'nanounits_per_million_tokens' as const,prompt_rate:'1000000000',completion_rate:'2000000000',cached_prompt_rate:cachedRate} }];
+  render(<MemoryRouter initialEntries={['/models/openai/model-0']}><Routes><Route path="/models/*" element={<SidebarProvider><ModelTable models={enriched}/></SidebarProvider>} /></Routes></MemoryRouter>);
+  if (price) {
+    expect(screen.getByText('Cache read price').nextElementSibling?.textContent).toBe(price);
+  } else {
+    expect(screen.queryByText('Cache read price')).toBeNull();
+  }
+});
