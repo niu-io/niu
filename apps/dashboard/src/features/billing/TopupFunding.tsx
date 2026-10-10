@@ -16,6 +16,23 @@ type Availability = { currency: string; payment_gateway: PaymentGateway | null; 
 type Topup = { id: string; currency: string; amount_nanos: string; payment_method: string; status: 'pending' | 'paid' | 'closed' | 'reconciliation_required'; checkout_url: string | null; created_at?: string };
 const names = { pending: 'Awaiting payment', paid: 'Paid', closed: 'Closed', reconciliation_required: 'Checking payment' };
 const methodName = (method: string) => ({ wxpaynative: 'WeChat Pay', alipay: 'Alipay' }[method] ?? method);
+function checkedTopup(value: Topup): Topup {
+  if (!value || typeof value.id !== 'string' || !value.id || typeof value.currency !== 'string' || !/^[A-Z]{3}$/.test(value.currency)
+    || typeof value.amount_nanos !== 'string' || !/^[0-9]{1,19}$/.test(value.amount_nanos)
+    || BigInt(value.amount_nanos) <= 0n || BigInt(value.amount_nanos) > 9_223_372_036_854_775_807n
+    || typeof value.payment_method !== 'string' || !value.payment_method
+    || !Object.hasOwn(names, value.status)
+    || (value.checkout_url !== null && typeof value.checkout_url !== 'string')
+    || (value.created_at !== undefined && (typeof value.created_at !== 'string' || !Number.isFinite(Date.parse(value.created_at))))) {
+    throw new Error('Invalid saved top-up');
+  }
+  return value;
+}
+function checkedHistory(page: { data: Topup[]; next_cursor: string | null }) {
+  if (!Array.isArray(page.data) || (page.next_cursor !== null && (typeof page.next_cursor !== 'string' || !page.next_cursor))) throw new Error('Invalid payment history');
+  page.data.forEach(checkedTopup);
+  return page;
+}
 function checkoutLink(order: Topup) {
   if (order.status !== 'pending' || !order.checkout_url) return null;
   try {
@@ -56,6 +73,7 @@ export default function TopupFunding({ token, organization, canCreate, currencie
       request<{ data: Topup[]; next_cursor: string | null }>(token, `/admin/v1/organizations/${organization}/billing/topups`, 'GET', undefined, controller.signal),
     ]).then(([methods, history]) => {
       if (controller.signal.aborted) return;
+      checkedHistory(history);
       if (!Array.isArray(methods.data?.payment_methods) || typeof methods.data.available !== 'boolean' || !Array.isArray(history.data) || history.next_cursor === undefined) throw new Error('Invalid payment response');
       if (!['CNY', 'USD'].includes(methods.data.currency) || (methods.data.available && !['epay', 'stripe', 'zhifux'].includes(methods.data.payment_gateway ?? ''))) throw new Error('Invalid payment integration');
       if (currency && methods.data.currency !== currency) throw new Error('Mismatched payment currency');
@@ -78,6 +96,7 @@ export default function TopupFunding({ token, organization, canCreate, currencie
     const controller = new AbortController(); mutation.current = controller; setBusy(true);
     try {
       const response = await request<{ data: Topup }>(token, `/admin/v1/organizations/${organization}/billing/topups`, 'POST', intent.current, controller.signal);
+      checkedTopup(response.data);
       if (!controller.signal.aborted) { setResult(response.data); setRevision(value => value + 1); }
     } catch {
       if (!controller.signal.aborted) { setError('Checkout was not confirmed. Check saved top-ups before starting another payment.'); setRevision(value => value + 1); }
@@ -89,6 +108,7 @@ export default function TopupFunding({ token, organization, canCreate, currencie
     try {
       const page = await request<{ data: Topup[]; next_cursor: string | null }>(token, `/admin/v1/organizations/${organization}/billing/topups?before=${encodeURIComponent(next)}`, 'GET', undefined, controller.signal);
       if (controller.signal.aborted) return;
+      checkedHistory(page);
       if (!Array.isArray(page.data) || page.next_cursor === undefined || page.next_cursor === next) throw new Error('Invalid payment history');
       setOrders(current => [...current, ...page.data.filter(order => !current.some(saved => saved.id === order.id))]); setNext(page.next_cursor);
     } catch { if (!controller.signal.aborted) { setLoadFailure('older'); setLoadError('Could not load older top-ups.'); } }
@@ -100,6 +120,8 @@ export default function TopupFunding({ token, organization, canCreate, currencie
     const controller = new AbortController(); mutation.current = controller; setBusy(true); setError('');
     try {
       const response = await request<{ data: Topup }>(token, `/admin/v1/organizations/${organization}/billing/topups/${result.id}`, 'GET', undefined, controller.signal);
+      checkedTopup(response.data);
+      if (response.data.id !== result.id || response.data.currency !== result.currency || response.data.amount_nanos !== result.amount_nanos) throw new Error('Mismatched saved top-up');
       if (!controller.signal.aborted) { setResult(response.data); setRevision(value => value + 1); if (response.data.status === 'paid') onPaid(); }
     } catch { if (!controller.signal.aborted) setError('Could not check payment status. Try again.'); }
     finally { if (!controller.signal.aborted) setBusy(false); }

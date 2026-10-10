@@ -5,6 +5,34 @@ import TopupFunding from '../../../src/features/billing/TopupFunding';
 const id = '12345678-1234-4234-8234-123456789abc';
 const availability = { currency: 'CNY', payment_gateway: 'epay', available: true, payment_methods: ['wxpaynative', 'alipay'], unavailable_reason: null };
 const order = { id, currency: 'CNY', amount_nanos: '1000000000', payment_method: 'wxpaynative', status: 'pending', checkout_url: 'https://checkout.example/pay?order=' + id, created_at: '2026-10-06T00:00:00Z' };
+it.each(['not-money', '-1', '9223372036854775808'])('recovers malformed saved amounts without rendering a broken page: %s', async amount => {
+  let invalid = true;
+  vi.stubGlobal('fetch', vi.fn(async input => String(input).endsWith('/payment-methods')
+    ? Response.json({ data: availability })
+    : Response.json({ data: [{ ...order, amount_nanos: invalid ? amount : order.amount_nanos }], next_cursor: null })));
+  render(<TopupFunding token="test" organization="company" canCreate onPaid={vi.fn()}/>);
+  await screen.findByText('Could not load payment options and saved top-ups.');
+  expect(screen.queryByText('CNY 1.00')).toBeNull();
+  invalid = false;
+  await userEvent.click(screen.getByRole('button', { name: 'Retry top-ups' }));
+  await screen.findByText('CNY 1.00');
+});
+it('does not replace a saved checkout or refresh funds from another order status', async () => {
+  const onPaid = vi.fn();
+  vi.stubGlobal('fetch', vi.fn(async input => {
+    const path = String(input);
+    if (path.endsWith('/payment-methods')) return Response.json({ data: availability });
+    if (path.endsWith('/topups')) return Response.json({ data: [order], next_cursor: null });
+    return Response.json({ data: { ...order, id: 'another-order', status: 'paid', checkout_url: null } });
+  }));
+  render(<TopupFunding token="test" organization="company" canCreate onPaid={onPaid}/>);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'Continue payment' }));
+  await user.click(screen.getByRole('button', { name: 'Check payment status' }));
+  await screen.findByText('Could not check payment status. Try again.');
+  expect(screen.getByRole('link', { name: 'Continue to payment' })).toBeTruthy();
+  expect(onPaid).not.toHaveBeenCalled();
+});
 function setup({ available = availability, saved = [] as typeof order[], failure = false, canCreate = true } = {}) {
   const posts: Record<string, unknown>[] = [];
   const onPaid = vi.fn();

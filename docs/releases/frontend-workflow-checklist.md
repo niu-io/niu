@@ -385,3 +385,20 @@ rendered qualification.
   Ordinary-role scope denial, live video creation/result recovery and paid
   accounting remain separate open gates. The actual demo Video catalog remains
   empty; no entitlement or model availability was fabricated for this review.
+
+### Saved payment response integrity (2026-10-10)
+
+- Top-up creation, history pagination and status reads validate saved amounts,
+  currencies, statuses, dates and response shape before rendering. Invalid amounts
+  cannot crash money formatting. Status reads must match the selected order's
+  immutable identity, currency and amount before replacing its checkout or
+  triggering a balance refresh. Failed reads retain previously loaded records.
+- All 58 Billing and Settings navigation tests across four files and dashboard
+  TypeScript passed. Regressions cover malformed/overflowing saved amounts with
+  successful read retry and rejection of another order's payment status.
+- The running dashboard was inspected at desktop and 390×844. Global Settings
+  Payments loaded the actual unavailable integration and empty history; refresh
+  worked and closing returned to the original Supplier page with its filter.
+  No checkout was created or payment submitted. Malformed-response recovery is
+  test-qualified only; live funded checkout, settlement and reconciliation remain
+  open gates because this account has no available online funding integration.
