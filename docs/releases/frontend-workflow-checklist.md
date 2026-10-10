@@ -460,3 +460,17 @@ rendered qualification.
   check qualifies the exercised interaction at that width only; it does not add
   desktop/390px layout evidence. Server-triggered revocation on real focus,
   session expiry and remaining ordinary-role workflows remain open.
+
+### Session desktop follow-up (2026-10-10)
+
+- A fresh browser tab measured 1280×720. Confirmed logout removed protected
+  navigation in that tab and a second open tab without requiring reload. The
+  password Login surface fit without horizontal overflow. Signing in returned
+  to the original verification-workspace API keys route; full reload restored
+  authenticated navigation. Demo login remains available in the retained tab.
+- A fresh tab initially measured 390×844 on the protected key list, but subsequent
+  browser viewport settings affected the effective tab dimensions inconsistently;
+  the Login captures measured 1280×720. They qualify desktop only. Narrow session
+  transition evidence remains open; a requested viewport is not rendered proof.
+  Temporary tabs were closed and the viewport override reset. No product data,
+  credentials, permissions or payment configuration were changed.
