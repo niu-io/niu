@@ -221,6 +221,8 @@ def main():
         'See the [API overview](/docs/reference/api/) and '
         '[root OpenAPI contract](https://github.com/niu-io/niu/blob/main/contracts/openapi.yaml) '
         'for the broader interface.', '',
+        '[Download the annotated OpenAPI JSON](/docs/openapi/handler-operations.json) '
+        'for API tooling. It contains only the operations documented on this page.', '',
         *descriptions,
     ]).rstrip() + '\n'
     for relative, content in outputs.items():
