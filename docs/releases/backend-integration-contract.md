@@ -198,3 +198,12 @@ successfully; duplicate methods returned 400, a stale revision returned 409,
 and the sanitized saved response survived gateway restart. Independent database
 reads confirmed one accepted configuration event and no balance entries. This
 verifies configuration persistence, not an external checkout or payment.
+
+The EPay secret lifecycle was separately exercised through actual configuration
+HTTP writes on a native isolated database: initial secret save, blank-key update,
+gateway restart, and explicit replacement. Responses contained only `has_key`,
+never the secret. Independent AES-GCM decoding of the persisted authenticated
+envelopes confirmed the original secret survived the blank update and restart,
+and the replacement was saved exactly. Three accepted writes produced three
+audit events and no balance entries. Existing merchant configuration was not
+modified; no external checkout or merchant activation is implied.
