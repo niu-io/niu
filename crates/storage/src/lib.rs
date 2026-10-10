@@ -17,6 +17,7 @@ mod managed_routes;
 pub use branding::BrandingSettings;
 mod accounting;
 mod media_submissions;
+mod priced_admission;
 mod request_failures;
 pub use request_failures::{RequestFailure, RequestFailureKind};
 mod request_finish_reasons;
@@ -522,7 +523,8 @@ impl Store {
     ) -> Result<(Uuid, Uuid), StoreError> {
         let operation_id = Uuid::new_v4();
         let attempt_id = Uuid::new_v4();
-        self.prepare_gateway_attempt_with_ids(
+        Self::insert_gateway_attempt(
+            &self.pool,
             scope,
             operation_id,
             attempt_id,
@@ -534,8 +536,8 @@ impl Store {
         Ok((operation_id, attempt_id))
     }
 
-    async fn prepare_gateway_attempt_with_ids(
-        &self,
+    async fn insert_gateway_attempt<'e>(
+        executor: impl sqlx::Executor<'e, Database = sqlx::Postgres>,
         scope: TenantScope,
         operation_id: Uuid,
         attempt_id: Uuid,
@@ -560,7 +562,7 @@ impl Store {
         .bind(task_id)
         .bind(attempt_id)
         .bind(revision)
-        .fetch_one(&self.pool)
+        .fetch_one(executor)
         .await?;
         Ok(())
     }

@@ -486,51 +486,57 @@ pub(super) async fn begin_attempt(
             .await
             .map_err(ApiError::from_store)?;
         (operation, attempt)
-    } else if model.pricing.is_some() {
-        let (operation, attempt) = state
-            .store
-            .prepare_gateway_attempt(scope, public_model, task_id, &revision)
-            .await
-            .map_err(ApiError::from_store)?;
-        if let Some(route) = managed_route {
-            state
-                .store
-                .bind_managed_route(scope, attempt, route)
-                .await
-                .map_err(ApiError::from_store)?;
-        }
-        state
-            .store
-            .bind_key_token_bound(scope, attempt, token_bound)
-            .await
-            .map_err(ApiError::from_store)?;
-        state
-            .store
-            .bind_inspected_guardrails(scope, attempt, principal.key_id(), &snapshot)
-            .await
-            .map_err(ApiError::from_store)?;
-        state
-            .store
-            .set_attempt_dispatch_provider(scope, attempt, &model.provider)
-            .await
-            .map_err(ApiError::from_store)?;
-        state
-            .store
-            .bind_customer_tariff(scope, attempt, public_model)
-            .await
-            .map_err(ApiError::from_store)?;
-        state
-            .store
-            .bind_provider_offer(
+    } else if let Some(price) = &model.pricing {
+        let price_id = state
+            .publish_price_revision(
                 scope,
-                attempt,
-                managed_route.map_or(public_model, |route| route.model_alias.as_str()),
-                &model.upstream_model,
-                model.api_base.as_deref(),
+                public_model,
+                &revision,
+                niu_storage::PriceInput {
+                    resource_id: public_model,
+                    offer_revision: &revision,
+                    currency: &price.currency,
+                    api_equivalent: niu_storage::TokenRates {
+                        prompt: price.api_prompt_rate,
+                        completion: price.api_completion_rate,
+                    },
+                    cash: niu_storage::TokenRates {
+                        prompt: price.cash_prompt_rate,
+                        completion: price.cash_completion_rate,
+                    },
+                },
             )
             .await
             .map_err(ApiError::from_store)?;
-        (operation, attempt)
+        state
+            .store
+            .admit_priced_gateway(
+                principal,
+                niu_storage::GatewayAdmission {
+                    managed_route: managed_route.cloned(),
+                    token_bound,
+                    inspected_guardrails: Some(snapshot),
+                    operation_id: Uuid::new_v4(),
+                    attempt_id: Uuid::new_v4(),
+                    scope,
+                    key_id: principal.key_id(),
+                    model: public_model.to_owned(),
+                    upstream_model: model.upstream_model.clone(),
+                    dispatch_provider: model.provider.clone(),
+                    api_base: model.api_base.clone(),
+                    task_id: task_id.map(str::to_owned),
+                    revision: revision.clone(),
+                },
+                &niu_storage::GatewayReservation {
+                    price_revision_id: price_id,
+                    resource_id: public_model.to_owned(),
+                    offer_revision: revision.clone(),
+                    prompt_bound: price.max_input_tokens,
+                    completion_bound: completion_bound.unwrap_or(price.max_output_tokens),
+                },
+            )
+            .await
+            .map_err(ApiError::from_store)?
     } else {
         state
             .gateway_writes
@@ -578,49 +584,6 @@ pub(super) async fn begin_attempt(
                 }
             })?
     };
-    if let Some(price) = &model.pricing {
-        let price_id = state
-            .publish_price_revision(
-                scope,
-                public_model,
-                &revision,
-                niu_storage::PriceInput {
-                    resource_id: public_model,
-                    offer_revision: &revision,
-                    currency: &price.currency,
-                    api_equivalent: niu_storage::TokenRates {
-                        prompt: price.api_prompt_rate,
-                        completion: price.api_completion_rate,
-                    },
-                    cash: niu_storage::TokenRates {
-                        prompt: price.cash_prompt_rate,
-                        completion: price.cash_completion_rate,
-                    },
-                },
-            )
-            .await
-            .map_err(ApiError::from_store)?;
-        if let Err(error) = state
-            .store
-            .reserve_and_dispatch_gateway(
-                principal,
-                attempt,
-                &niu_storage::GatewayReservation {
-                    price_revision_id: price_id,
-                    resource_id: public_model.to_owned(),
-                    offer_revision: revision.clone(),
-                    prompt_bound: price.max_input_tokens,
-                    completion_bound: completion_bound.unwrap_or(price.max_output_tokens),
-                },
-            )
-            .await
-        {
-            // A lost commit acknowledgement must not release a dispatched hold.
-            // The storage transition proves not_sent before releasing anything.
-            let _ = state.store.release_unsent_cost(scope, attempt).await;
-            return Err(ApiError::from_store(error));
-        }
-    }
     crate::request_timings::dispatched(attempt);
     Ok(DispatchContext {
         retained_input,

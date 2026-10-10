@@ -172,11 +172,20 @@ impl Store {
         attempt: uuid::Uuid,
         provider: &str,
     ) -> Result<(), StoreError> {
+        Self::set_attempt_dispatch_provider_with(&self.pool, scope, attempt, provider).await
+    }
+
+    pub(crate) async fn set_attempt_dispatch_provider_with<'e>(
+        executor: impl sqlx::Executor<'e, Database = sqlx::Postgres>,
+        scope: TenantScope,
+        attempt: uuid::Uuid,
+        provider: &str,
+    ) -> Result<(), StoreError> {
         if provider.is_empty() || provider.len() > 200 || provider.chars().any(char::is_control) {
             return Err(StoreError::Conflict);
         }
         let changed=sqlx::query("UPDATE attempts SET dispatch_provider=$4 WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND execution='not_sent' AND dispatch_provider IS NULL")
-            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(provider).execute(&self.pool).await?.rows_affected();
+            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(provider).execute(executor).await?.rows_affected();
         if changed != 1 {
             return Err(StoreError::Conflict);
         }

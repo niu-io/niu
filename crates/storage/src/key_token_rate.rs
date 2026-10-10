@@ -9,9 +9,18 @@ impl Store {
         attempt: Uuid,
         bound: Option<i64>,
     ) -> Result<(), StoreError> {
+        Self::bind_key_token_bound_with(&self.pool, scope, attempt, bound).await
+    }
+
+    pub(crate) async fn bind_key_token_bound_with<'e>(
+        executor: impl sqlx::Executor<'e, Database = sqlx::Postgres>,
+        scope: TenantScope,
+        attempt: Uuid,
+        bound: Option<i64>,
+    ) -> Result<(), StoreError> {
         if let Some(bound) = bound {
             sqlx::query("INSERT INTO key_attempt_token_bounds(attempt_id,token_bound,estimator) SELECT id,$4,'serialized-utf8-plus-output-v1' FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND dispatched_at IS NULL")
-                .bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(bound).execute(&self.pool).await?;
+                .bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(bound).execute(executor).await?;
         }
         Ok(())
     }

@@ -998,11 +998,28 @@ impl Store {
         attempt_id: Uuid,
         reservation: &GatewayReservation,
     ) -> Result<(), StoreError> {
-        let scope = principal.scope();
         let mut tx = self.pool.begin().await?;
+        let dispatched =
+            Self::reserve_and_dispatch_gateway_in_tx(&mut tx, principal, attempt_id, reservation)
+                .await?;
+        tx.commit().await?;
+        if dispatched {
+            Ok(())
+        } else {
+            Err(StoreError::Conflict)
+        }
+    }
+
+    pub(crate) async fn reserve_and_dispatch_gateway_in_tx(
+        tx: &mut sqlx::Transaction<'_, Postgres>,
+        principal: &Principal,
+        attempt_id: Uuid,
+        reservation: &GatewayReservation,
+    ) -> Result<bool, StoreError> {
+        let scope = principal.scope();
         sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR SHARE")
             .bind(scope.organization_id)
-            .fetch_optional(&mut *tx)
+            .fetch_optional(&mut **tx)
             .await?
             .ok_or(StoreError::Conflict)?;
         // Account-enabled organizations use customer retail rates, independently
@@ -1011,16 +1028,16 @@ impl Store {
             "SELECT EXISTS(SELECT 1 FROM customer_balance_accounts WHERE organization_id=$1)",
         )
         .bind(scope.organization_id)
-        .fetch_one(&mut *tx)
+        .fetch_one(&mut **tx)
         .await?;
         if prepaid {
             let rates: Option<(i64, i64)> = sqlx::query_as("SELECT GREATEST(r.prompt_rate,COALESCE(r.cached_prompt_rate,r.prompt_rate)),r.completion_rate FROM customer_attempt_tariffs b JOIN customer_tariff_revisions r ON r.id=b.revision_id JOIN customer_attempt_balance_accounts a ON a.attempt_id=b.attempt_id AND a.currency=r.currency WHERE b.attempt_id=$1 AND a.organization_id=$2 AND a.project_id=$3")
-                .bind(attempt_id).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut *tx).await?;
+                .bind(attempt_id).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut **tx).await?;
             let (prompt, completion) = rates.ok_or(StoreError::InvalidPrice)?;
             let maximum = TokenRates { prompt, completion }
                 .charge(reservation.prompt_bound, reservation.completion_bound)?;
             if maximum > 0 {
-                crate::billing::reserve_customer_balance_in_tx(&mut tx, scope, attempt_id, maximum)
+                crate::billing::reserve_customer_balance_in_tx(tx, scope, attempt_id, maximum)
                     .await?;
             }
         }
@@ -1036,20 +1053,15 @@ impl Store {
         .bind(&reservation.offer_revision)
         .bind(reservation.prompt_bound)
         .bind(reservation.completion_bound)
-        .fetch_one(&mut *tx)
+        .fetch_one(&mut **tx)
         .await
         .map_err(map_gateway_admission_error)?;
-        if dispatched {
-            tx.commit().await?;
-            Ok(())
-        } else {
-            // Policy denial is durable evidence. Release only the unsent hold
-            // in the same commit; other admission errors still roll back.
+        if !dispatched {
+            // The denial and the release of its unsent hold commit together.
             sqlx::query("UPDATE customer_balance_reservations SET released_at=now() WHERE attempt_id=$1 AND released_at IS NULL")
-                .bind(attempt_id).execute(&mut *tx).await?;
-            tx.commit().await?;
-            Err(StoreError::Conflict)
+                .bind(attempt_id).execute(&mut **tx).await?;
         }
+        Ok(dispatched)
     }
 
     pub async fn budget(&self, scope: TenantScope) -> Result<Option<BudgetSnapshot>, StoreError> {
