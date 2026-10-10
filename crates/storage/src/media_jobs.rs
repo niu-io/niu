@@ -878,8 +878,18 @@ impl Store {
         attempt: Uuid,
     ) -> Result<(), StoreError> {
         let mut tx = self.pool.begin().await?;
+        Self::confirm_media_job_completion_in_tx(&mut tx, scope, attempt).await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    pub(crate) async fn confirm_media_job_completion_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: TenantScope,
+        attempt: Uuid,
+    ) -> Result<(), StoreError> {
         let execution: Option<String> = sqlx::query_scalar("SELECT execution FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")
-            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_optional(&mut *tx).await?;
+            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_optional(&mut **tx).await?;
         if !matches!(
             execution.as_deref(),
             Some("may_have_executed" | "confirmed_completed")
@@ -887,13 +897,12 @@ impl Store {
             return Err(StoreError::Unresolved);
         }
         let success: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM media_jobs j WHERE j.organization_id=$1 AND j.project_id=$2 AND j.attempt_id=$3 AND EXISTS(SELECT 1 FROM media_job_observations WHERE attempt_id=j.attempt_id AND status='succeeded') AND NOT EXISTS(SELECT 1 FROM media_job_observations WHERE attempt_id=j.attempt_id AND status='failed'))")
-            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_one(&mut *tx).await?;
+            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_one(&mut **tx).await?;
         if !success {
             return Err(StoreError::Unresolved);
         }
         sqlx::query("UPDATE attempts SET execution='confirmed_completed',completed_at=COALESCE(completed_at,now()) WHERE id=$1")
-            .bind(attempt).execute(&mut *tx).await?;
-        tx.commit().await?;
+            .bind(attempt).execute(&mut **tx).await?;
         Ok(())
     }
 

@@ -11,6 +11,7 @@ pub enum FinancialRecoveryFailure {
 
 #[derive(Clone, Copy)]
 pub(crate) enum FinancialStage {
+    MediaCompletion,
     BalanceRelease,
     CustomerCharge,
     CustomerMediaCharge,
@@ -21,6 +22,7 @@ pub(crate) enum FinancialStage {
 impl FinancialStage {
     fn name(self) -> &'static str {
         match self {
+            Self::MediaCompletion => "media_completion",
             Self::BalanceRelease => "balance_release",
             Self::CustomerCharge => "customer_charge",
             Self::CustomerMediaCharge => "customer_media_charge",
@@ -30,6 +32,9 @@ impl FinancialStage {
     }
     fn query(self) -> &'static str {
         match self {
+            Self::MediaCompletion => {
+                "SELECT a.id,a.organization_id,a.project_id FROM attempts a JOIN media_jobs j ON j.attempt_id=a.id WHERE a.execution='may_have_executed' AND EXISTS(SELECT 1 FROM media_job_observations o WHERE o.attempt_id=a.id AND o.status='succeeded') AND NOT EXISTS(SELECT 1 FROM media_job_observations o WHERE o.attempt_id=a.id AND o.status='failed') AND ($1::uuid IS NULL OR a.id>$1) ORDER BY a.id LIMIT 100"
+            }
             Self::BalanceRelease => {
                 "SELECT a.id,a.organization_id,a.project_id FROM customer_balance_reservations r JOIN attempts a ON a.id=r.attempt_id WHERE r.released_at IS NULL AND a.execution IN ('not_sent','confirmed_not_executed') AND ($1::uuid IS NULL OR a.id>$1) ORDER BY a.id LIMIT 100"
             }
@@ -55,6 +60,7 @@ impl Store {
     pub async fn recover_financial_work(&self) -> Vec<FinancialRecoveryFailure> {
         let mut failures = Vec::new();
         for stage in [
+            FinancialStage::MediaCompletion,
             FinancialStage::BalanceRelease,
             FinancialStage::CustomerCharge,
             FinancialStage::CustomerMediaCharge,
@@ -124,6 +130,9 @@ impl Store {
             };
             let mut row_tx = tx.begin().await?;
             let result = match stage {
+                FinancialStage::MediaCompletion => {
+                    Self::confirm_media_job_completion_in_tx(&mut row_tx, scope, attempt).await
+                }
                 FinancialStage::BalanceRelease => {
                     Self::release_nonexecuted_customer_balance_in_tx(&mut row_tx, scope, attempt)
                         .await

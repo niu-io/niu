@@ -124,3 +124,36 @@ foreign/revoked access checks were repeated; financial and transport counts stay
 unchanged. Nonempty paid-media recovery, insufficient-funding retry and populated
 cursor traversal remain unverified. Build and static checks completed separately;
 no fixture results are used as evidence.
+
+## Recovering saved success after interruption
+
+Migration 251 adds a `media_completion` stage before financial settlement stages.
+It restores completion for a bound job still marked `may_have_executed` when
+durable observations contain success and no failure. It reuses the direct query
+path's completion checks within the existing worker transaction. It does not
+create usage, charges, earnings, or new upstream requests. Missing/conflicting
+terminal evidence is left unresolved. This closes the interruption window between
+saving a success observation and committing the attempt's completion state, even
+when the original key is revoked and optional video polling is disabled.
+
+An actual current owner-funded video request exercised this window in an isolated
+PostgreSQL instance: a temporary trigger rejected completion updates while the
+real upstream success observation persisted. The original key was then revoked,
+the Gateway stopped, and the fault removed. With polling disabled and one
+admission connection, restart restored `confirmed_completed` without another
+transport observation. Only one generation submission existed and no customer
+charge was created.
+
+The first result download returned 404: the failed completion update had stopped
+the handler before it saved the encrypted result reference. Explicitly refreshing
+the same job restored that reference, after which the video downloaded and fully
+decoded. Independent reopening of the stopped database and rehashing/decoding the
+file confirmed the final state, one submission, revoked keys, removed fault and
+no financial entries. Another restart preserved completion. This verifies
+automatic state recovery, but **automatic result-reference recovery for this
+interruption remains incomplete**; it currently requires an authorized refresh.
+The run does not qualify paid-media settlement.
+
+The native installation subsequently applied migration 251 after a private
+backup, preserving configuration, encrypted identity and business record counts.
+Existing owner-funded video read/authorization checks were repeated.
