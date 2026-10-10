@@ -30,8 +30,9 @@ pub fn sanitize(value: &mut Value) -> bool {
 }
 
 /// Reapply the current commercial boundary to historical retained responses.
-/// Incomplete or malformed structured content cannot be exposed as raw data.
-pub fn sanitize_retained(content_type: &str, text: &str) -> Option<String> {
+/// A storage-truncated SSE capture may expose only its complete, validated events.
+/// Incomplete JSON and malformed complete events still fail closed.
+pub fn sanitize_retained(content_type: &str, text: &str, truncated: bool) -> Option<String> {
     match content_type
         .split(';')
         .next()?
@@ -51,7 +52,7 @@ pub fn sanitize_retained(content_type: &str, text: &str) -> Option<String> {
             // At EOF a CR is a complete line ending. The live parser holds it
             // for an optional LF; retained bodies have no next chunk to await.
             let terminal;
-            let wire = if text.ends_with('\r') {
+            let wire = if !truncated && text.ends_with('\r') {
                 terminal = format!("{text}\n");
                 terminal.as_str()
             } else {
@@ -60,7 +61,12 @@ pub fn sanitize_retained(content_type: &str, text: &str) -> Option<String> {
             let mut responses = false;
             let mut remaining = wire.as_bytes();
             while !remaining.is_empty() {
-                let end = event_end(remaining)?;
+                let Some(end) = event_end(remaining) else {
+                    if truncated {
+                        break;
+                    }
+                    return None;
+                };
                 if end > MAX_STRUCTURED_RESPONSE_BYTES {
                     return None;
                 }
@@ -81,7 +87,9 @@ pub fn sanitize_retained(content_type: &str, text: &str) -> Option<String> {
                 remaining = &remaining[end..];
             }
             let mut filter = CustomerSse::with_protocol(responses, None);
-            let mut bytes = filter.feed(wire.as_bytes()).ok()?;
+            let mut bytes = filter
+                .feed(&wire.as_bytes()[..wire.len() - remaining.len()])
+                .ok()?;
             bytes.extend(filter.finish_terminal().ok()?);
             String::from_utf8(bytes).ok()
         }
@@ -314,11 +322,12 @@ mod tests {
     #[test]
     fn retained_json_and_sse_apply_current_boundary_and_fail_closed() {
         let original = r#"{"usage":{"details":{"cost":123,"tokens":2}},"choices":[{"message":{"content":"cost is user text"}}]}"#;
-        let cleaned = sanitize_retained("application/json; charset=utf-8", original).unwrap();
+        let cleaned =
+            sanitize_retained("application/json; charset=utf-8", original, false).unwrap();
         assert!(!cleaned.contains("123"));
         assert!(cleaned.contains("cost is user text"));
         let wire = format!("data: {original}\n\ndata: [DONE]\n\n");
-        let cleaned = sanitize_retained("text/event-stream", &wire).unwrap();
+        let cleaned = sanitize_retained("text/event-stream", &wire, false).unwrap();
         assert!(!cleaned.contains("123"));
         assert!(cleaned.ends_with("data: [DONE]\n\n"));
         for (kind, text) in [
@@ -327,27 +336,30 @@ mod tests {
             ("text/event-stream", "data: {\"usage\":{\"cost\":123}"),
             ("application/octet-stream", "opaque"),
         ] {
-            assert_eq!(sanitize_retained(kind, text), None);
+            assert_eq!(sanitize_retained(kind, text, false), None);
         }
         assert_eq!(
-            sanitize_retained("text/plain", "cost is user text"),
+            sanitize_retained("text/plain", "cost is user text", false),
             Some("cost is user text".into())
         );
     }
     #[test]
     fn retained_stream_accepts_terminal_cr_without_accepting_incomplete_events() {
         let wire = "data: {\"usage\":{\"cost\":123,\"completion_tokens\":2}}\r\rdata: [DONE]\r\r";
-        let cleaned = sanitize_retained("Text/Event-Stream; charset=utf-8", wire).unwrap();
+        let cleaned = sanitize_retained("Text/Event-Stream; charset=utf-8", wire, false).unwrap();
         assert!(!cleaned.contains("123"));
         assert!(cleaned.contains("completion_tokens"));
         assert!(cleaned.contains("[DONE]"));
-        assert_eq!(sanitize_retained("text/event-stream", "data: {}\r"), None);
         assert_eq!(
-            sanitize_retained("text/event-stream", "data: {invalid}\r\r"),
+            sanitize_retained("text/event-stream", "data: {}\r", false),
             None
         );
         assert_eq!(
-            sanitize_retained("Application/JSON", "{}"),
+            sanitize_retained("text/event-stream", "data: {invalid}\r\r", false),
+            None
+        );
+        assert_eq!(
+            sanitize_retained("Application/JSON", "{}", false),
             Some("{}".into())
         );
     }

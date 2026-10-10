@@ -337,3 +337,29 @@ memory-capacity qualification. Events above 16 MiB, exact multibyte limit bounda
 and retained-body replay of large Responses remain unverified by current-input
 runs. Paid settlement and the original uncertain request remain outside this
 checkpoint.
+
+### Retained truncated Responses streams (2026-10-10)
+
+Two actual owner-funded Responses captures reached the 1 MiB retention limit,
+ending inside an SSE event. One inference completed and the other retained
+unknown execution/usage. Before this change, current HTTP reads of both saved
+payloads returned 503 because the retained-response sanitizer required complete
+framing through the final byte.
+
+The payload reader now uses the database's truncation flag to permit only the
+complete SSE event prefix. It still validates each complete event and applies
+commercial metadata filtering. Incomplete JSON and malformed complete SSE events
+remain unavailable; it does not append a terminal event or infer usage. The
+stored completion and truncation flags retain their original meanings.
+
+After rebuilding and restarting the gateway, both actual payload reads returned
+200. Each exposed 6,309 complete events (1,048,459 bytes), independently compared
+byte-for-byte with the complete-frame prefix of its stored 1,048,576-byte capture.
+Neither prefix contained a completed/incomplete terminal event. The original
+completion flags remained different and both truncation flags stayed true.
+These reads did not mutate the captures or repair the uncertain attempt.
+
+All-target compilation, Clippy, release compilation, formatting and public-tree
+boundary checks completed. This evidence covers the two retained real captures;
+it does not qualify every truncation boundary, malformed historical payload,
+commercial settlement, or throughput. No fixture outcome supports this checkpoint.

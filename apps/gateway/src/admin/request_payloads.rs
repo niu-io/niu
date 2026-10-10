@@ -41,6 +41,9 @@ pub async fn get(
             payload["response"]
                 .as_str()
                 .ok_or_else(ApiError::unavailable)?,
+            payload["truncated"]
+                .as_bool()
+                .ok_or_else(ApiError::unavailable)?,
         )
         .ok_or_else(ApiError::unavailable)?;
         payload["response"] = json!(response);
