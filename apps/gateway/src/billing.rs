@@ -156,7 +156,7 @@ async fn authorize(
 ///                           "minimum_charge_nanos": {
 ///                             "type": "string",
 ///                             "pattern": "^[0-9]+$",
-///                             "description": "Minimum customer charge in currency nanounits (0 to 9223372036854775807), not a token rate. Defaults to zero for new tariffs. Replacing a nonzero minimum requires an explicit value; zero disables it. Known completed usage is charged the greater of the rounded token amount and this minimum. Unknown usage remains unresolved."
+///                             "description": "Minimum customer charge in currency nanounits (0 to 9223372036854775807), not a token rate. Defaults to zero for new tariffs. Replacing a nonzero minimum requires an explicit value; zero disables it. Known completed usage is charged the greater of the rounded token amount plus request_fee_nanos and this minimum. Unknown usage remains unresolved."
 ///                           },
 ///                           "cached_prompt_rate": {
 ///                             "type": [
@@ -164,6 +164,11 @@ async fn authorize(
 ///                               "null"
 ///                             ],
 ///                             "pattern": "^[0-9]+$"
+///                           },
+///                           "request_fee_nanos": {
+///                             "type": "string",
+///                             "pattern": "^[0-9]+$",
+///                             "description": "Customer-only fixed fee in currency nanounits (0 to 9223372036854775807). Charge = max(rounded token charge + request fee, minimum charge) for known completed usage. Unknown execution/usage and confirmed rejection do not create a fee. Defaults to zero on new tariffs; replacement of a nonzero fee requires an explicit value; zero disables it."
 ///                           }
 ///                         }
 ///                       }
@@ -322,7 +327,7 @@ pub async fn overview(
 ///               "minimum_charge_nanos": {
 ///                 "type": "string",
 ///                 "pattern": "^[0-9]+$",
-///                 "description": "Minimum customer charge in currency nanounits (0 to 9223372036854775807), not a token rate. Defaults to zero for new tariffs. Replacing a nonzero minimum requires an explicit value; zero disables it. Known completed usage is charged the greater of the rounded token amount and this minimum. Unknown usage remains unresolved."
+///                 "description": "Minimum customer charge in currency nanounits (0 to 9223372036854775807), not a token rate. Defaults to zero for new tariffs. Replacing a nonzero minimum requires an explicit value; zero disables it. Known completed usage is charged the greater of the rounded token amount plus request_fee_nanos and this minimum. Unknown usage remains unresolved."
 ///               },
 ///               "cached_prompt_rate": {
 ///                 "type": [
@@ -338,6 +343,11 @@ pub async fn overview(
 ///                   "null"
 ///                 ],
 ///                 "format": "uuid"
+///               },
+///               "request_fee_nanos": {
+///                 "type": "string",
+///                 "pattern": "^[0-9]+$",
+///                 "description": "Customer-only fixed fee in currency nanounits (0 to 9223372036854775807). Charge = max(rounded token charge + request fee, minimum charge) for known completed usage. Unknown execution/usage and confirmed rejection do not create a fee. Defaults to zero on new tariffs; replacement of a nonzero fee requires an explicit value; zero disables it."
 ///               }
 ///             }
 ///           }
@@ -439,7 +449,7 @@ pub async fn tariff(
         .as_ref()
         .map(|rate| rate.as_deref());
     Ok(Json(
-        json!({"data":{"revision":state.store.publish_customer_tariff_with_minimum(scope,&rates,cached,input.minimum_charge_nanos.as_deref()).await.map_err(ApiError::from_store)?}}),
+        json!({"data":{"revision":state.store.publish_customer_tariff_with_fixed(scope,&rates,cached,input.minimum_charge_nanos.as_deref(),input.request_fee_nanos.as_deref()).await.map_err(ApiError::from_store)?}}),
     ))
 }
 
@@ -1819,7 +1829,7 @@ pub struct InvoiceLinesQuery {
 ///                           "minimum_charge_nanos": {
 ///                             "type": "string",
 ///                             "pattern": "^[0-9]+$",
-///                             "description": "Minimum customer charge in currency nanounits (0 to 9223372036854775807), not a token rate. Defaults to zero for new tariffs. Replacing a nonzero minimum requires an explicit value; zero disables it. Known completed usage is charged the greater of the rounded token amount and this minimum. Unknown usage remains unresolved."
+///                             "description": "Minimum customer charge in currency nanounits (0 to 9223372036854775807), not a token rate. Defaults to zero for new tariffs. Replacing a nonzero minimum requires an explicit value; zero disables it. Known completed usage is charged the greater of the rounded token amount plus request_fee_nanos and this minimum. Unknown usage remains unresolved."
 ///                           },
 ///                           "cached_prompt_rate": {
 ///                             "type": [
@@ -1827,6 +1837,11 @@ pub struct InvoiceLinesQuery {
 ///                               "null"
 ///                             ],
 ///                             "pattern": "^[0-9]+$"
+///                           },
+///                           "request_fee_nanos": {
+///                             "type": "string",
+///                             "pattern": "^[0-9]+$",
+///                             "description": "Customer-only fixed fee in currency nanounits (0 to 9223372036854775807). Charge = max(rounded token charge + request fee, minimum charge) for known completed usage. Unknown execution/usage and confirmed rejection do not create a fee. Defaults to zero on new tariffs; replacement of a nonzero fee requires an explicit value; zero disables it."
 ///                           }
 ///                         }
 ///                       },
@@ -1861,7 +1876,7 @@ pub struct InvoiceLinesQuery {
 ///                           "minimum_charge_nanos": {
 ///                             "type": "string",
 ///                             "pattern": "^[0-9]+$",
-///                             "description": "Minimum customer charge in currency nanounits (0 to 9223372036854775807), not a token rate. Defaults to zero for new tariffs. Replacing a nonzero minimum requires an explicit value; zero disables it. Known completed usage is charged the greater of the rounded token amount and this minimum. Unknown usage remains unresolved."
+///                             "description": "Minimum customer charge in currency nanounits (0 to 9223372036854775807), not a token rate. Defaults to zero for new tariffs. Replacing a nonzero minimum requires an explicit value; zero disables it. Known completed usage is charged the greater of the rounded token amount plus request_fee_nanos and this minimum. Unknown usage remains unresolved."
 ///                           },
 ///                           "cached_prompt_rate": {
 ///                             "type": [
@@ -1873,6 +1888,11 @@ pub struct InvoiceLinesQuery {
 ///                           "amount_nanos": {
 ///                             "type": "string",
 ///                             "pattern": "^[0-9]+$"
+///                           },
+///                           "request_fee_nanos": {
+///                             "type": "string",
+///                             "pattern": "^[0-9]+$",
+///                             "description": "Customer-only fixed fee in currency nanounits (0 to 9223372036854775807). Charge = max(rounded token charge + request fee, minimum charge) for known completed usage. Unknown execution/usage and confirmed rejection do not create a fee. Defaults to zero on new tariffs; replacement of a nonzero fee requires an explicit value; zero disables it."
 ///                           }
 ///                         }
 ///                       }

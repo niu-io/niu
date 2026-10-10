@@ -55,7 +55,7 @@ export type SupplierRateInput = {
   cached_prompt_rate?: string | null;
 };
 /** Customer selling rates, independent from Supplier procurement prices. */
-export type CustomerTariffInput = SupplierRateInput & { minimum_charge_nanos?: string };
+export type CustomerTariffInput = SupplierRateInput & { minimum_charge_nanos?: string; request_fee_nanos?: string };
 export type CustomerTariff = Omit<CustomerTariffInput, 'expected_revision'> & { revision: string };
 /** Optional versioned output mapping inside model capabilities.video_schema. Estimates are not liability bounds. */
 export type VideoOutputSchema = {
@@ -823,6 +823,8 @@ export class NiuAdminClient {
   /** Installation-only retail publication. No retry or Supplier-price fallback. */
   publishCustomerTariff(scope: TenantScope, rates: CustomerTariffInput, options?: RequestOptions): Promise<{ data: { revision: string } }> {
     validateRates(rates);
+    const fee = rates.request_fee_nanos;
+    if (fee !== undefined && (typeof fee !== 'string' || !/^\d+$/.test(fee) || BigInt(fee) > 9_223_372_036_854_775_807n)) throw new Error('Request fee must be a nonnegative integer string within signed 64-bit range');
     const minimum = rates.minimum_charge_nanos;
     if (minimum !== undefined && (typeof minimum !== 'string' || !/^\d+$/.test(minimum) || BigInt(minimum) > 9_223_372_036_854_775_807n)) throw new Error('Minimum charge must be a nonnegative integer string within signed 64-bit range');
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/billing/tariffs`, rates, options);

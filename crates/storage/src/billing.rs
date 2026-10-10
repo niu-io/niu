@@ -433,7 +433,7 @@ SELECT jsonb_build_object(
         &self,
         scope: TenantScope,
     ) -> Result<std::collections::BTreeMap<String, Value>, StoreError> {
-        let rows: Vec<(String, Value)> = sqlx::query_as("SELECT t.model_alias,jsonb_build_object('revision',r.id,'currency',r.currency,'unit','nanounits_per_million_tokens','prompt_rate',r.prompt_rate::text,'completion_rate',r.completion_rate::text,'cached_prompt_rate',r.cached_prompt_rate::text,'minimum_charge_nanos',r.minimum_charge_nanos::text) FROM customer_tariffs t JOIN customer_tariff_revisions r ON r.id=t.current_revision WHERE t.organization_id=$1 AND t.project_id=$2 ORDER BY t.model_alias")
+        let rows: Vec<(String, Value)> = sqlx::query_as("SELECT t.model_alias,jsonb_build_object('revision',r.id,'currency',r.currency,'unit','nanounits_per_million_tokens','prompt_rate',r.prompt_rate::text,'completion_rate',r.completion_rate::text,'cached_prompt_rate',r.cached_prompt_rate::text,'minimum_charge_nanos',r.minimum_charge_nanos::text,'request_fee_nanos',r.request_fee_nanos::text) FROM customer_tariffs t JOIN customer_tariff_revisions r ON r.id=t.current_revision WHERE t.organization_id=$1 AND t.project_id=$2 ORDER BY t.model_alias")
             .bind(scope.organization_id).bind(scope.project_id).fetch_all(&self.pool).await?;
         Ok(rows.into_iter().collect())
     }
@@ -466,6 +466,32 @@ SELECT jsonb_build_object(
         cached_prompt_rate: Option<Option<&str>>,
         minimum_charge_nanos: Option<&str>,
     ) -> Result<Uuid, StoreError> {
+        self.publish_customer_tariff_with_fixed(
+            scope,
+            input,
+            cached_prompt_rate,
+            minimum_charge_nanos,
+            None,
+        )
+        .await
+    }
+
+    /// Fixed fees and floors are pinned retail amounts, independent of Supplier rates.
+    pub async fn publish_customer_tariff_with_fixed(
+        &self,
+        scope: TenantScope,
+        input: &ProviderOfferInput,
+        cached_prompt_rate: Option<Option<&str>>,
+        minimum_charge_nanos: Option<&str>,
+        request_fee_nanos: Option<&str>,
+    ) -> Result<Uuid, StoreError> {
+        let request_fee = match request_fee_nanos {
+            Some(value) if !value.is_empty() && value.bytes().all(|b| b.is_ascii_digit()) => {
+                value.parse::<i64>().map_err(|_| StoreError::InvalidPrice)?
+            }
+            Some(_) => return Err(StoreError::InvalidPrice),
+            None => 0,
+        };
         let minimum = match minimum_charge_nanos {
             Some(value) if !value.is_empty() && value.bytes().all(|b| b.is_ascii_digit()) => {
                 value.parse::<i64>().map_err(|_| StoreError::InvalidPrice)?
@@ -493,11 +519,12 @@ SELECT jsonb_build_object(
             .fetch_optional(&mut *tx)
             .await?
             .ok_or(StoreError::Conflict)?;
-        let existing:Option<(Uuid,Uuid,Option<i64>,i64)>=sqlx::query_as("SELECT t.id,t.current_revision,r.cached_prompt_rate,r.minimum_charge_nanos FROM customer_tariffs t JOIN customer_tariff_revisions r ON r.id=t.current_revision WHERE t.organization_id=$1 AND t.project_id=$2 AND t.model_alias=$3 FOR UPDATE OF t").bind(scope.organization_id).bind(scope.project_id).bind(&input.model_alias).fetch_optional(&mut *tx).await?;
+        let existing:Option<(Uuid,Uuid,Option<i64>,i64,i64)>=sqlx::query_as("SELECT t.id,t.current_revision,r.cached_prompt_rate,r.minimum_charge_nanos,r.request_fee_nanos FROM customer_tariffs t JOIN customer_tariff_revisions r ON r.id=t.current_revision WHERE t.organization_id=$1 AND t.project_id=$2 AND t.model_alias=$3 FOR UPDATE OF t").bind(scope.organization_id).bind(scope.project_id).bind(&input.model_alias).fetch_optional(&mut *tx).await?;
         let tariff = match existing {
-            Some((id, revision, prior_cached, prior_minimum)) => {
+            Some((id, revision, prior_cached, prior_minimum, prior_fee)) => {
                 if (prior_cached.is_some() && cached_prompt_rate.is_none())
                     || (prior_minimum != 0 && minimum_charge_nanos.is_none())
+                    || (prior_fee != 0 && request_fee_nanos.is_none())
                     || input.expected_revision != Some(revision)
                 {
                     return Err(StoreError::Conflict);
@@ -514,7 +541,7 @@ SELECT jsonb_build_object(
             }
         };
         let revision = Uuid::new_v4();
-        sqlx::query("INSERT INTO customer_tariff_revisions(id,tariff_id,currency,prompt_rate,completion_rate,cached_prompt_rate,minimum_charge_nanos) VALUES($1,$2,$3,$4,$5,$6,$7)").bind(revision).bind(tariff).bind(&input.currency).bind(prompt).bind(completion).bind(cached).bind(minimum).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO customer_tariff_revisions(id,tariff_id,currency,prompt_rate,completion_rate,cached_prompt_rate,minimum_charge_nanos,request_fee_nanos) VALUES($1,$2,$3,$4,$5,$6,$7,$8)").bind(revision).bind(tariff).bind(&input.currency).bind(prompt).bind(completion).bind(cached).bind(minimum).bind(request_fee).execute(&mut *tx).await?;
         sqlx::query("UPDATE customer_tariffs SET current_revision=$2 WHERE id=$1")
             .bind(tariff)
             .bind(revision)
@@ -564,7 +591,7 @@ SELECT jsonb_build_object(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         attempt: Uuid,
     ) -> Result<(), StoreError> {
-        let row=sqlx::query("SELECT a.organization_id,a.project_id,b.revision_id,r.currency,r.prompt_rate,r.completion_rate,r.cached_prompt_rate,r.minimum_charge_nanos,a.prompt_tokens,a.completion_tokens,d.cached_input_tokens FROM attempts a LEFT JOIN request_token_categories d ON d.attempt_id=a.id JOIN customer_attempt_tariffs b ON b.attempt_id=a.id JOIN customer_tariff_revisions r ON r.id=b.revision_id WHERE a.id=$1 AND a.execution='confirmed_completed' AND a.usage_confidence='provider_reported'").bind(attempt).fetch_optional(&mut **tx).await?;
+        let row=sqlx::query("SELECT a.organization_id,a.project_id,b.revision_id,r.currency,r.prompt_rate,r.completion_rate,r.cached_prompt_rate,r.minimum_charge_nanos,r.request_fee_nanos,a.prompt_tokens,a.completion_tokens,d.cached_input_tokens FROM attempts a LEFT JOIN request_token_categories d ON d.attempt_id=a.id JOIN customer_attempt_tariffs b ON b.attempt_id=a.id JOIN customer_tariff_revisions r ON r.id=b.revision_id WHERE a.id=$1 AND a.execution='confirmed_completed' AND a.usage_confidence='provider_reported'").bind(attempt).fetch_optional(&mut **tx).await?;
         if let Some(row) = row {
             let prompt: i64 = row.get("prompt_tokens");
             let completion: i64 = row.get("completion_tokens");
@@ -584,7 +611,11 @@ SELECT jsonb_build_object(
                 }
                 None => (rates.charge(prompt, completion)?, None),
             };
-            let amount = amount.max(row.get::<i64, _>("minimum_charge_nanos"));
+            let amount = crate::pricing::customer_charge_with_fixed(
+                amount,
+                row.get("request_fee_nanos"),
+                row.get("minimum_charge_nanos"),
+            )?;
             sqlx::query("INSERT INTO customer_charges(attempt_id,organization_id,project_id,revision_id,currency,amount_nanos,prompt_tokens,completion_tokens,cached_prompt_tokens) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(attempt_id) DO NOTHING").bind(attempt).bind(row.get::<Uuid,_>("organization_id")).bind(row.get::<Uuid,_>("project_id")).bind(row.get::<Uuid,_>("revision_id")).bind(row.get::<String,_>("currency")).bind(amount).bind(prompt).bind(completion).bind(cached_tokens).execute(&mut **tx).await?;
         }
         // Serialize with future admission/funding changes on this account. Read
@@ -757,7 +788,7 @@ SELECT jsonb_build_object(
                 .bind(scope.project_id)
                 .fetch_one(&mut *tx)
                 .await?;
-        let tariffs:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('model_alias',t.model_alias,'revision',r.id,'currency',r.currency,'prompt_rate',r.prompt_rate::text,'completion_rate',r.completion_rate::text,'cached_prompt_rate',r.cached_prompt_rate::text,'minimum_charge_nanos',r.minimum_charge_nanos::text) FROM customer_tariffs t JOIN customer_tariff_revisions r ON r.id=t.current_revision WHERE t.organization_id=$1 AND t.project_id=$2 ORDER BY t.model_alias").bind(scope.organization_id).bind(scope.project_id).fetch_all(&mut *tx).await?;
+        let tariffs:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('model_alias',t.model_alias,'revision',r.id,'currency',r.currency,'prompt_rate',r.prompt_rate::text,'completion_rate',r.completion_rate::text,'cached_prompt_rate',r.cached_prompt_rate::text,'minimum_charge_nanos',r.minimum_charge_nanos::text,'request_fee_nanos',r.request_fee_nanos::text) FROM customer_tariffs t JOIN customer_tariff_revisions r ON r.id=t.current_revision WHERE t.organization_id=$1 AND t.project_id=$2 ORDER BY t.model_alias").bind(scope.organization_id).bind(scope.project_id).fetch_all(&mut *tx).await?;
 
         tx.commit().await?;
         Ok(
@@ -791,7 +822,7 @@ SELECT jsonb_build_object(
         scope: TenantScope,
         invoice: Uuid,
     ) -> Result<Vec<Value>, StoreError> {
-        Ok(sqlx::query_scalar("SELECT jsonb_build_object('model_alias',t.model_alias,'revision',r.id,'prompt_rate',r.prompt_rate::text,'completion_rate',r.completion_rate::text,'cached_prompt_rate',r.cached_prompt_rate::text,'minimum_charge_nanos',r.minimum_charge_nanos::text,'currency',c.currency,'requests',COUNT(*)::text,'prompt_tokens',SUM(c.prompt_tokens)::text,'completion_tokens',SUM(c.completion_tokens)::text,'cached_prompt_tokens',SUM(c.cached_prompt_tokens)::text,'amount_nanos',SUM(c.amount_nanos)::text) FROM customer_invoice_entries e JOIN customer_charges c ON c.attempt_id=e.attempt_id JOIN customer_tariff_revisions r ON r.id=c.revision_id JOIN customer_tariffs t ON t.id=r.tariff_id WHERE e.organization_id=$1 AND e.project_id=$2 AND e.invoice_id=$3 GROUP BY t.model_alias,r.id,r.prompt_rate,r.completion_rate,c.currency ORDER BY t.model_alias,r.id").bind(scope.organization_id).bind(scope.project_id).bind(invoice).fetch_all(&self.pool).await?)
+        Ok(sqlx::query_scalar("SELECT jsonb_build_object('model_alias',t.model_alias,'revision',r.id,'prompt_rate',r.prompt_rate::text,'completion_rate',r.completion_rate::text,'cached_prompt_rate',r.cached_prompt_rate::text,'minimum_charge_nanos',r.minimum_charge_nanos::text,'request_fee_nanos',r.request_fee_nanos::text,'currency',c.currency,'requests',COUNT(*)::text,'prompt_tokens',SUM(c.prompt_tokens)::text,'completion_tokens',SUM(c.completion_tokens)::text,'cached_prompt_tokens',SUM(c.cached_prompt_tokens)::text,'amount_nanos',SUM(c.amount_nanos)::text) FROM customer_invoice_entries e JOIN customer_charges c ON c.attempt_id=e.attempt_id JOIN customer_tariff_revisions r ON r.id=c.revision_id JOIN customer_tariffs t ON t.id=r.tariff_id WHERE e.organization_id=$1 AND e.project_id=$2 AND e.invoice_id=$3 GROUP BY t.model_alias,r.id,r.prompt_rate,r.completion_rate,c.currency ORDER BY t.model_alias,r.id").bind(scope.organization_id).bind(scope.project_id).bind(invoice).fetch_all(&self.pool).await?)
     }
 }
 

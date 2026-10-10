@@ -590,3 +590,14 @@ same successful job across restart. Downloaded bytes matched the original
 artifact's SHA-256 and independently decoded as H.264 video. No new generation or
 customer charge was created. This verifies that recovery path, not customer-funded
 video settlement. See the [recorded recovery evidence](https://github.com/niu-io/niu/blob/main/docs/reference/video-jobs.md#existing-result-recovery-after-migration-0228).
+
+
+## Customer text fixed request fees
+
+Customer tariff publication now accepts `request_fee_nanos` as an exact
+nonnegative integer string. A known completed request is charged the greater of
+its rounded token amount plus this fixed fee and `minimum_charge_nanos`. Admission
+reserves using the same formula; rejected or unresolved requests do not invent a
+fee. Historical tariff versions remain pinned. Replacing a nonzero fee requires
+an explicit value, and `"0"` disables it. The SDK uses the same field.
+See the [pricing rule and supported boundary](https://github.com/niu-io/niu/blob/main/docs/reference/text-request-fees.md).

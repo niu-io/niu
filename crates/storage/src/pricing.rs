@@ -95,3 +95,20 @@ mod tests {
         );
     }
 }
+
+/// Apply customer-only fixed pricing after exact token rounding. Admission and
+/// final accrual share this rule; neither an unknown result nor a rejection is
+/// a billable completion. Overflow must never wrap or silently cap liability.
+pub(crate) fn customer_charge_with_fixed(
+    token_charge: i64,
+    request_fee: i64,
+    minimum: i64,
+) -> Result<i64, StoreError> {
+    if token_charge < 0 || request_fee < 0 || minimum < 0 {
+        return Err(StoreError::InvalidPrice);
+    }
+    token_charge
+        .checked_add(request_fee)
+        .map(|amount| amount.max(minimum))
+        .ok_or(StoreError::InvalidPrice)
+}

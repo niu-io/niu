@@ -104,3 +104,7 @@ replacement did not release the unresolved hold. The isolated database retains
 that uncertainty; no completed usage, refund or nonexecution was invented. Its
 processes stopped, and the original encrypted identity was unchanged. This covers
 one actual early client disconnect, not all upstream/transport failure modes.
+
+Fixed customer request fees are separately configured with `request_fee_nanos`.
+The floor applies after adding that fee to the rounded token amount. See
+[request-fee semantics and actual verification](text-request-fees.md).

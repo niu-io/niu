@@ -238,6 +238,7 @@ components:
         completion_rate: { $ref: '#/components/schemas/IntegerString' }
         cached_prompt_rate: { type: [string, 'null'], pattern: '^[0-9]+$' }
         minimum_charge_nanos: { type: string, pattern: '^[0-9]+$', description: Minimum completed-request customer charge in currency nanounits. }
+        request_fee_nanos: { type: string, pattern: '^[0-9]+$', description: Fixed customer fee added to rounded token charge before applying the minimum. }
     Invoice:
       type: object
       required: [id, from_ms, to_ms, currency, amount_nanos, created_at, status, payment_reference]

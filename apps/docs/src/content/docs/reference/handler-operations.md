@@ -3919,7 +3919,7 @@ Content type: `application/json`.
               "minimum_charge_nanos": {
                 "type": "string",
                 "pattern": "^[0-9]+$",
-                "description": "Minimum customer charge in currency nanounits (0 to 9223372036854775807), not a token rate. Defaults to zero for new tariffs. Replacing a nonzero minimum requires an explicit value; zero disables it. Known completed usage is charged the greater of the rounded token amount and this minimum. Unknown usage remains unresolved."
+                "description": "Minimum customer charge in currency nanounits (0 to 9223372036854775807), not a token rate. Defaults to zero for new tariffs. Replacing a nonzero minimum requires an explicit value; zero disables it. Known completed usage is charged the greater of the rounded token amount plus request_fee_nanos and this minimum. Unknown usage remains unresolved."
               },
               "cached_prompt_rate": {
                 "type": [
@@ -3927,6 +3927,11 @@ Content type: `application/json`.
                   "null"
                 ],
                 "pattern": "^[0-9]+$"
+              },
+              "request_fee_nanos": {
+                "type": "string",
+                "pattern": "^[0-9]+$",
+                "description": "Customer-only fixed fee in currency nanounits (0 to 9223372036854775807). Charge = max(rounded token charge + request fee, minimum charge) for known completed usage. Unknown execution/usage and confirmed rejection do not create a fee. Defaults to zero on new tariffs; replacement of a nonzero fee requires an explicit value; zero disables it."
               }
             }
           }
@@ -4072,7 +4077,7 @@ Content type: `application/json`.
     "minimum_charge_nanos": {
       "type": "string",
       "pattern": "^[0-9]+$",
-      "description": "Minimum customer charge in currency nanounits (0 to 9223372036854775807), not a token rate. Defaults to zero for new tariffs. Replacing a nonzero minimum requires an explicit value; zero disables it. Known completed usage is charged the greater of the rounded token amount and this minimum. Unknown usage remains unresolved."
+      "description": "Minimum customer charge in currency nanounits (0 to 9223372036854775807), not a token rate. Defaults to zero for new tariffs. Replacing a nonzero minimum requires an explicit value; zero disables it. Known completed usage is charged the greater of the rounded token amount plus request_fee_nanos and this minimum. Unknown usage remains unresolved."
     },
     "cached_prompt_rate": {
       "type": [
@@ -4088,6 +4093,11 @@ Content type: `application/json`.
         "null"
       ],
       "format": "uuid"
+    },
+    "request_fee_nanos": {
+      "type": "string",
+      "pattern": "^[0-9]+$",
+      "description": "Customer-only fixed fee in currency nanounits (0 to 9223372036854775807). Charge = max(rounded token charge + request fee, minimum charge) for known completed usage. Unknown execution/usage and confirmed rejection do not create a fee. Defaults to zero on new tariffs; replacement of a nonzero fee requires an explicit value; zero disables it."
     }
   }
 }
@@ -4927,7 +4937,7 @@ Content type: `application/json`.
               "minimum_charge_nanos": {
                 "type": "string",
                 "pattern": "^[0-9]+$",
-                "description": "Minimum customer charge in currency nanounits (0 to 9223372036854775807), not a token rate. Defaults to zero for new tariffs. Replacing a nonzero minimum requires an explicit value; zero disables it. Known completed usage is charged the greater of the rounded token amount and this minimum. Unknown usage remains unresolved."
+                "description": "Minimum customer charge in currency nanounits (0 to 9223372036854775807), not a token rate. Defaults to zero for new tariffs. Replacing a nonzero minimum requires an explicit value; zero disables it. Known completed usage is charged the greater of the rounded token amount plus request_fee_nanos and this minimum. Unknown usage remains unresolved."
               },
               "cached_prompt_rate": {
                 "type": [
@@ -4935,6 +4945,11 @@ Content type: `application/json`.
                   "null"
                 ],
                 "pattern": "^[0-9]+$"
+              },
+              "request_fee_nanos": {
+                "type": "string",
+                "pattern": "^[0-9]+$",
+                "description": "Customer-only fixed fee in currency nanounits (0 to 9223372036854775807). Charge = max(rounded token charge + request fee, minimum charge) for known completed usage. Unknown execution/usage and confirmed rejection do not create a fee. Defaults to zero on new tariffs; replacement of a nonzero fee requires an explicit value; zero disables it."
               }
             }
           },
@@ -4969,7 +4984,7 @@ Content type: `application/json`.
               "minimum_charge_nanos": {
                 "type": "string",
                 "pattern": "^[0-9]+$",
-                "description": "Minimum customer charge in currency nanounits (0 to 9223372036854775807), not a token rate. Defaults to zero for new tariffs. Replacing a nonzero minimum requires an explicit value; zero disables it. Known completed usage is charged the greater of the rounded token amount and this minimum. Unknown usage remains unresolved."
+                "description": "Minimum customer charge in currency nanounits (0 to 9223372036854775807), not a token rate. Defaults to zero for new tariffs. Replacing a nonzero minimum requires an explicit value; zero disables it. Known completed usage is charged the greater of the rounded token amount plus request_fee_nanos and this minimum. Unknown usage remains unresolved."
               },
               "cached_prompt_rate": {
                 "type": [
@@ -4981,6 +4996,11 @@ Content type: `application/json`.
               "amount_nanos": {
                 "type": "string",
                 "pattern": "^[0-9]+$"
+              },
+              "request_fee_nanos": {
+                "type": "string",
+                "pattern": "^[0-9]+$",
+                "description": "Customer-only fixed fee in currency nanounits (0 to 9223372036854775807). Charge = max(rounded token charge + request fee, minimum charge) for known completed usage. Unknown execution/usage and confirmed rejection do not create a fee. Defaults to zero on new tariffs; replacement of a nonzero fee requires an explicit value; zero disables it."
               }
             }
           }

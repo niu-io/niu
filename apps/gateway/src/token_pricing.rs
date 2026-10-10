@@ -32,6 +32,8 @@ pub struct CustomerTariffInput {
     pub cached_prompt_rate: Option<Option<String>>,
     #[serde(default, deserialize_with = "minimum_field")]
     pub minimum_charge_nanos: Option<String>,
+    #[serde(default, deserialize_with = "minimum_field")]
+    pub request_fee_nanos: Option<String>,
 }
 
 fn minimum_field<'de, D: serde::Deserializer<'de>>(
