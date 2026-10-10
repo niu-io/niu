@@ -71,6 +71,8 @@ def operation_documentation(path, method, operation):
              operation['description'], '',
              f'Implementation: `{operation["x-niu-implementation"]}`. '
              f'Operation: `{operation["operationId"]}`.', '']
+    if operation.get('x-niu-status'):
+        lines.extend(['### Supported scope', '', operation['x-niu-status'], ''])
     lines.extend(['### Authentication', ''])
     security = operation.get('security')
     if security is None:

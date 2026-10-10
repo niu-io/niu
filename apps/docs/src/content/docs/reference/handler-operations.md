@@ -4062,6 +4062,10 @@ Requires workspace write authority and an active selected key in that workspace.
 
 Implementation: `implemented`. Operation: `createDashboardChatCompletion`.
 
+### Supported scope
+
+Basic chat is implemented for configured native provider routes. Function tools, streaming tool deltas, and structured JSON are opt-in on OpenAI-compatible routes only. Niu validates tool-call shape and structured JSON against a valid self-contained schema; json_object output must be an object. Schema compilation is offline and limited to 64 KiB, 4096 JSON nodes and depth 32, with bounded regular expressions. Niu does not execute tools. Structured JSON streaming remains unsupported. Token-priced routes support function calls and text-only tool-result conversations under the same input/output rates. Serialized messages, tool definitions, tool choices and response-format instructions count toward the configured input byte guard. Hosted tools and additional billable modalities remain unsupported.
+
 ### Authentication
 
 Each array entry is an alternative; schemes within one entry are required together.
@@ -4426,6 +4430,10 @@ The configured route must use an OpenAI-compatible protocol and explicitly decla
 
 Implementation: `implemented`. Operation: `createEmbedding`.
 
+### Supported scope
+
+OpenAI-compatible text inputs and float/base64 response vectors; no token-ID arrays, multimodal inputs, or streaming.
+
 ### Authentication
 
 Each array entry is an alternative; schemes within one entry are required together.
@@ -4633,6 +4641,10 @@ HTTP 503: Durable storage or configured route unavailable.
 The route must be an OpenAI-compatible provider route with supports_responses enabled. This public subset accepts a single text input and optional text instructions, output limit, sampling values, metadata and user identifier. Text streaming returns Responses SSE events and preserves terminal reported usage. Each Responses event is bounded to 16 MiB of UTF-8 bytes because terminal events repeat the full output; Chat events retain their separate 64 KiB bound. Oversized or malformed events fail the stream without inventing usage. Multimodal input, tools, prior-response state and other fields are rejected. HTTP 200 at stream start does not establish completion; inspect the terminal response event. Workspace model grants, source policy, rate/concurrency/token limits and configured billing apply.
 
 Implementation: `implemented`. Operation: `createResponse`.
+
+### Supported scope
+
+Text-only subset on explicitly configured OpenAI-compatible routes. Streaming requires a completed or incomplete response terminal event; disconnects retain uncertainty. Tool, multimodal and stateful conversation semantics are not implemented.
 
 ### Authentication
 
