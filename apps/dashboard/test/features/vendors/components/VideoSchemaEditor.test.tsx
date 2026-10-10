@@ -177,3 +177,20 @@ it('rejects missing output controls and empty mappings, and can remove estimatio
   expect(onApply.mock.calls[0][0].controls).toEqual(schema.controls);
   expect(onApply.mock.calls[0][0].output).toBeUndefined();
 });
+
+it('accepts seconds estimates without a frame-rate control but keeps pixel estimates strict', async () => {
+  const onApply = vi.fn();
+  const configured: VideoSchema = {...schema, controls:{...schema.controls, ratio:{kind:'choice', values:['16:9'], default:'16:9'}}, output:{specifications:[{resolution:'720p',ratio:'16:9',width:1280,height:720}], estimator:'OutputSecondsV1', estimator_revision:'seconds-formula'}};
+  render(<VideoSchemaEditor modelAlias={schema.model_alias} upstreamModel={schema.upstream_model} schema={configured} onClose={vi.fn()} onApply={onApply}/>);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', {name:'Apply configuration'}));
+  expect(onApply).toHaveBeenCalledTimes(1);
+  expect(onApply.mock.calls[0][0].controls.frames_per_second).toBeUndefined();
+  expect(onApply.mock.calls[0][0].output).toEqual(configured.output);
+  await user.click(screen.getByRole('tab', {name:'Output',exact:true}));
+  await user.click(screen.getByLabelText('Estimation meter'));
+  await user.click(screen.getByRole('menuitemradio', {name:'Video tokens · Seedance pixels',exact:true}));
+  await user.click(screen.getByRole('button', {name:'Apply configuration'}));
+  expect(onApply).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole('alert').textContent).toContain('frame rate controls');
+});

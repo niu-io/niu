@@ -23,7 +23,7 @@ export default function VideoBilling({billing}:{billing:VideoJobBilling}) {
  {billing.reserved_nanos != null && billing.currency && billing.reserved_nanos !== '0' && <><dt>Reserved</dt><dd>{money(billing.reserved_nanos,billing.currency)}</dd></>}
  {billing.estimate?.amount_nanos != null && billing.estimate.currency && <><dt>Original estimate</dt><dd>{money(billing.estimate.amount_nanos,billing.estimate.currency)}</dd></>}
  {usage && <><dt>{billing.settled_usage ? 'Settled usage':'Reported usage'}</dt><dd>{quantity(usage.quantity)} {meter(usage.meter)}</dd></>}
- {billing.effective_output && <><dt>Output</dt><dd>{billing.effective_output.specification.resolution} · {billing.effective_output.duration_seconds}s · {billing.effective_output.frames_per_second} FPS</dd></>}
+ {billing.effective_output && <><dt>Output</dt><dd>{billing.effective_output.specification.resolution} · {billing.effective_output.duration_seconds}s{billing.effective_output.frames_per_second != null && ` · ${billing.effective_output.frames_per_second} FPS`}</dd></>}
  </dl>
  {billing.price && billing.currency && <Collapsible open={open} onOpenChange={setOpen}><CollapsibleTrigger asChild><Button variant="ghost" className="video-calculation-trigger">Charge calculation<ChevronDown size={14} className={open ? "rotate-180":""}/></Button></CollapsibleTrigger><CollapsibleContent><dl className="video-billing video-calculation">
  <dt>Original customer rate</dt><dd>{rate(billing.price.amount_units,billing.price.decimal_places,billing.currency)} / {quantity(billing.price.per_quantity)} {meter(billing.price.meter)}</dd>

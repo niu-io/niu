@@ -96,7 +96,8 @@ export default function VideoSchemaEditor({ modelAlias, upstreamModel, schema, o
       if (outputEnabled) {
         for (const name of ['resolution','ratio','duration','frames_per_second'] as const) {
           const rule = result.controls[name];
-          if (!rule || !('default' in rule) || (rule.default === null && !result.required_controls.includes(name))) throw new Error('Output estimates require resolution, aspect ratio, duration and frame rate controls, each with a default or required value.');
+          if (name === 'frames_per_second' && estimator === 'OutputSecondsV1' && !rule) continue;
+          if (!rule || !('default' in rule) || (rule.default === null && !result.required_controls.includes(name))) throw new Error(estimator === 'OutputSecondsV1' ? 'Output estimates require resolution, aspect ratio and duration controls, each with a default or required value. Any frame rate control also needs a default or required value.' : 'Output estimates require resolution, aspect ratio, duration and frame rate controls, each with a default or required value.');
           if ((name === 'duration' || name === 'frames_per_second') && (rule.kind !== 'integer' || rule.minimum <= 0 || (name === 'frames_per_second' && rule.maximum > 4_294_967_295))) throw new Error('Output duration and frame rate need positive integer limits.');
         }
         const resolution = result.controls.resolution; const ratio = result.controls.ratio;
