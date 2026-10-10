@@ -1157,3 +1157,27 @@ the public repository. No inference or billing write was performed.
 Successful export has current rendered/download evidence. Deliberately induced
 non-CSV responses have regression evidence only; ordinary-role denial, other
 protocol exports and live export-failure qualification remain open.
+
+## Current Guardrail input policy and preview — 2026-10-11
+
+The live Guardrail verification workspace had no configured input patterns on
+inspection. Historical refusal evidence therefore did not prove its current
+policy. Through the normal product editor, one local synthetic marker pattern
+was added with Block action; no external processing was enabled. Chat preview
+blocked the marker, Save reported success, and reload restored the exact pattern
+and action. Current history showed active version 8 created by Demo.
+
+Actual local Responses and Embeddings previews also blocked the marker. A
+nonmatching harmless Embeddings control was allowed without redaction. A fresh
+390 × 844 tab restored the same saved rule; Chat preview and the named version
+history were inspected at that measured viewport. The initial attempt to resize
+another background tab left it at 1280 × 720; it was not counted as narrow proof.
+Screenshots were retained outside the public repository.
+
+The Generations key dialog exposed only the Default workspace's saved Demo key,
+not a usable secret for the verification workspace key. No new credential was
+created or copied and no inference was submitted. Consequently this checkpoint
+qualifies current policy save/read restoration, previews and history, not the
+new `guardrail_denied` generation message, post-dispatch output withholding,
+ordinary-role isolation or all protocol enforcement. The synthetic block remains
+only in the named local verification workspace for subsequent acceptance work.
