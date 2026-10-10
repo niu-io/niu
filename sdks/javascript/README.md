@@ -697,3 +697,20 @@ const job = await admin.createDashboardVideoJob(scope, workspaceKeyId, request, 
 The identity is shared with public video creation in the same workspace. Keep
 both the saved request and identity when resuming through either API. Current
 workspace authorization and the selected key's model grants still apply.
+
+### Balance refunds and funding reversals
+
+Installation administration can call
+`reverseCustomerBalanceEntry(organizationId, entryId, { amount_nanos, idempotency_key })`.
+Use an exact positive signed-64-bit nanounit string and a stable UUID idempotency
+key. The entry must be an original charge or funding entry from that company.
+A charge reversal refunds account balance; a funding reversal removes previously
+posted funding and may create debt. Neither operation executes an external
+payment or bank refund. Original entries remain immutable.
+
+The SDK returns `{ data: { recorded: true } }` for a recorded reversal or identical
+replay. It never retries the write automatically. After an uncertain response,
+explicitly replay the same amount, entry and idempotency key. Conflicting reuse
+and cumulative reversals exceeding the original amount return HTTP 409. Read
+`getCustomerBalanceTransactions` to inspect the resulting ledger entries; keep
+routing identifiers out of customer-facing labels.

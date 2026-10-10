@@ -157,6 +157,9 @@ export type CustomerTopup = {
   id: string; currency: string; amount_nanos: string; payment_method: string;
   status: 'reconciliation_required' | 'pending' | 'paid' | 'closed'; checkout_url: string | null;
 };
+/** Exact positive nanounits; retain the same identity when replaying an uncertain write. */
+export type CustomerBalanceReversalInput = { amount_nanos: string; idempotency_key: string };
+
 /** Append-only company ledger entry; signed currency nanounits remain exact strings. */
 export type CustomerBalanceTransaction = {
   id: string; kind: 'funding' | 'charge' | 'refund' | 'funding_reversal' | 'adjustment';
@@ -850,6 +853,15 @@ export class NiuAdminClient {
     const { before, ...transport } = options ?? {};
     const query = before === undefined ? '' : `?before=${uuid(before)}`;
     return this.request(`/organizations/${uuid(organizationId)}/billing/topups${query}`, undefined, transport);
+  }
+
+  /** Installation-only ledger refund/reversal. Never initiates an external payment or automatically retries. */
+  reverseCustomerBalanceEntry(organizationId: string, entryId: string, input: CustomerBalanceReversalInput, options?: RequestOptions): Promise<{ data: { recorded: true } }> {
+    if (typeof input.amount_nanos !== 'string' || !/^\d{1,19}$/.test(input.amount_nanos)
+      || BigInt(input.amount_nanos) <= 0n || BigInt(input.amount_nanos) > 9223372036854775807n) throw new TypeError('Use exact positive signed-64-bit nanounits');
+    return this.request(`/organizations/${uuid(organizationId)}/billing/entries/${uuid(entryId)}/reversal`, {
+      amount_nanos: input.amount_nanos, idempotency_key: uuid(input.idempotency_key),
+    }, options);
   }
 
   /** Company ledger pages of up to 100 entries. Pass next_cursor as before. */

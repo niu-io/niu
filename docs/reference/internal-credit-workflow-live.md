@@ -487,3 +487,12 @@ equaled the second charge, with no held reservations, funding receipts or
 external invoice payments. All isolated processes then stopped. This verifies
 one exercised cross-process partial-refund race and replay, not sustained refund
 contention, received-money settlement or payment-provider refund execution.
+
+A subsequent fresh run exercised every reversal in this workflow through the
+JavaScript SDK's `reverseCustomerBalanceEntry`, including the two-process race,
+winning replay, remainder and over-refund rejection. SDK calls used the actual
+native HTTP endpoints, with no substituted transport or upstream response.
+Independent database reopening again reconciled the two actual usages and
+charges, exactly two refunds totaling the first charge, the second charge's net
+debt and no remaining customer holds. This qualifies the exercised SDK refund
+path; funding reversals and external refunds remain outside this run.
