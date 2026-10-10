@@ -494,3 +494,20 @@ prompt tokens matched independent PostgreSQL reads. Responses used no-store,
 retained owner-funded/null-charge semantics and contained no procurement or
 credential fields. This observation does not qualify every filter, timing state
 or error category; no new inference was dispatched for the log read.
+
+### Low-balance warning contract and current-input authorization
+
+`setCustomerBalanceWarning` is now generated from the implemented Rust handler,
+including company/currency path parameters, exact decimal-string amounts,
+revision checking, nullable/omitted disable semantics and response requirements.
+The billing OpenAPI entrypoint references that generated operation; the JavaScript
+SDK already exposes the corresponding method. This is a warning preference,
+not a notification delivery configuration or a credit-policy editor.
+
+A fresh isolated native HTTP run verified company-owner update and disable,
+stale-revision conflict, company-viewer and workspace-only-owner denial,
+rejection of a supplied credit-limit field, and denial of the installation-only
+credit-policy operation to the company owner. Restart retained the disabled
+warning, unchanged approved credit and zero balance. Independent database reads
+found no balance entries or inference attempts. No funding receipt or external
+payment was created; original development data and credentials were preserved.

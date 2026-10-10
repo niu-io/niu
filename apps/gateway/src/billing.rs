@@ -1477,6 +1477,119 @@ pub struct BalanceWarningInput {
     expected_revision: String,
 }
 
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/billing/accounts/{currency}/warning-threshold",
+///   "method": "put",
+///   "operation": {
+///     "operationId": "setCustomerBalanceWarning",
+///     "summary": "Set company low-balance warning threshold",
+///     "description": "Organization-wide owner/admin with write access or installation administrator only. Updates an existing account warning preference with revision checking; never changes funds or approved credit. Null or omitted threshold disables the warning. This does not configure external notifications.",
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "expected_revision"
+///             ],
+///             "properties": {
+///               "warning_threshold_nanos": {
+///                 "type": [
+///                   "string",
+///                   "null"
+///                 ],
+///                 "pattern": "^[0-9]+$",
+///                 "description": "Exact nonnegative nanounits up to 9223372036854775807; null disables the warning."
+///               },
+///               "expected_revision": {
+///                 "type": "string",
+///                 "pattern": "^[0-9]+$",
+///                 "description": "Exact current policy revision from zero through 9223372036854775806."
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "200": {
+///         "description": "Updated preference revision",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "properties": {
+///                     "revision": {
+///                       "type": "string",
+///                       "pattern": "^[0-9]+$"
+///                     }
+///                   },
+///                   "required": [
+///                     "revision"
+///                   ]
+///                 }
+///               },
+///               "required": [
+///                 "data"
+///               ]
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid amount or revision"
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Write permission required"
+///       },
+///       "404": {
+///         "description": "Company billing access not granted"
+///       },
+///       "409": {
+///         "description": "Missing account or stale revision"
+///       },
+///       "422": {
+///         "description": "Invalid body schema or unexpected field"
+///       }
+///     },
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "currency",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "pattern": "^[A-Z]{3}$"
+///         }
+///       }
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
 pub async fn balance_warning(
     State(state): State<AppState>,
     headers: HeaderMap,
