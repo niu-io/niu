@@ -742,10 +742,31 @@ export class NiuAdminClient {
     return this.request(`${this.dashboardVideoPath(scope,keyId)}/jobs/${uuid(jobId)}/results`,undefined,options,'DELETE');
   }
 
-  /** Platform-administrator current agreed rates; excludes earnings and settlement records. */
+  /** Current own-Supplier rates, with explicit alias continuation; no customer identities. */
+  listSupplierOffersPage(supplierId: string, page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: SupplierOffer[]; next_after: string | null }> {
+    const query = new URLSearchParams();
+    if (page.limit !== undefined) {
+      if (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100) throw new TypeError('Offer page limit must be 1–100');
+      query.set('limit', String(page.limit));
+    }
+    if (page.after !== undefined) {
+      if (!page.after.length || [...page.after].length > 200) throw new TypeError('Invalid offer alias cursor');
+      query.set('after', page.after);
+    }
+    return this.request(`/providers/${uuid(supplierId)}/offers?${query}`, undefined, options);
+  }
+
+  /** Traverse current offers; pages are not a frozen multi-request snapshot. */
   async listSupplierOffers(supplierId: string, options?: RequestOptions): Promise<SupplierOffer[]> {
-    const response = await this.request<{ data: { offers: SupplierOffer[] } }>(`/providers/${uuid(supplierId)}/administration`, undefined, options);
-    return response.data.offers;
+    const offers: SupplierOffer[] = [];
+    let after: string | undefined;
+    do {
+      const page = await this.listSupplierOffersPage(supplierId, { after }, options);
+      offers.push(...page.data);
+      if (page.next_after === null) return offers;
+      if (page.next_after === after) throw new Error('Supplier offer cursor did not advance');
+      after = page.next_after;
+    } while (true);
   }
 
   /** Platform-administrator publication of a new immutable rate revision and clears prior qualification. */
@@ -964,7 +985,7 @@ export class NiuAdminClient {
   listPlatformCustomerTariffs(scope: TenantScope, page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: (CustomerTariff & { created_at: string })[]; next_after: string | null }> {
     const query = new URLSearchParams();
     if (page.after !== undefined) {
-      if (!page.after || new TextEncoder().encode(page.after).length > 200) throw new TypeError('Invalid tariff cursor');
+      if (!page.after || [...page.after].length > 200) throw new TypeError('Invalid tariff cursor');
       query.set('after', page.after);
     }
     if (page.limit !== undefined) {

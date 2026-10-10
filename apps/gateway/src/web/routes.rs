@@ -127,7 +127,7 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/admin/v1/providers/{provider}/members/{operator}", axum::routing::put(crate::providers::set_member))
         .route("/admin/v1/providers/{provider}/qualification", axum::routing::put(crate::providers::qualify_business))
         .route("/admin/v1/providers/{provider}/qualification/revoke", axum::routing::post(crate::providers::revoke_business_qualification))
-        .route("/admin/v1/providers/{provider}/offers", axum::routing::post(crate::providers::publish_offer))
+        .route("/admin/v1/providers/{provider}/offers", get(crate::providers::offers).post(crate::providers::publish_offer))
         .route("/admin/v1/providers/{provider}/earnings", get(crate::providers::earning_history))
         .route("/admin/v1/providers/{provider}/settlements", get(crate::providers::settlement_history).post(crate::providers::record_settlement))
         .route("/admin/v1/providers/{provider}/administration", get(crate::providers::administration_dashboard))

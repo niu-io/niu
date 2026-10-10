@@ -9385,6 +9385,179 @@ HTTP 409: Cursor not in this Supplier and filter scope.
 
 HTTP 503: Storage unavailable.
 
+## Page current Supplier offers and rate revisions
+
+`GET /admin/v1/providers/{provider}/offers`
+
+Platform administration or active membership of this Supplier required. Canonical model-alias keyset order, 1–100 entries per page. Includes paused and unqualified drafts; does not activate an offer or establish commercial qualification. after must identify an existing offer of this Supplier or returns 409. Follow next_after until null. Each page has one statement snapshot; multiple pages are not a frozen snapshot. No customer identities, requests, credentials or endpoint data. Dashboard offers remain a 1000-row preview with offers_has_more.
+
+Implementation: `implemented`. Operation: `listSupplierOffersPage`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
+  }
+]
+```
+
+### Parameters
+
+`provider` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`after` (query, optional)
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 200
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 100
+}
+```
+
+### Responses
+
+HTTP 200: Current scoped offers and continuation.
+
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data",
+    "next_after"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "model_alias",
+          "active",
+          "qualified",
+          "revision",
+          "rate_kind",
+          "currency",
+          "prompt_rate",
+          "completion_rate",
+          "cached_prompt_rate",
+          "route_ready"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "model_alias": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "qualified": {
+            "type": "boolean"
+          },
+          "revision": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rate_kind": {
+            "type": "string",
+            "enum": [
+              "text",
+              "media"
+            ]
+          },
+          "currency": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "prompt_rate": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "completion_rate": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cached_prompt_rate": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "route_ready": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "next_after": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}
+```
+
+HTTP 400: Invalid pagination query.
+
+HTTP 401: Invalid session.
+
+HTTP 404: Supplier missing or unauthorized.
+
+HTTP 409: Missing or foreign continuation alias.
+
+HTTP 503: Storage unavailable.
+
 ## List Supplier API-key configurations without credentials
 
 `GET /admin/v1/vendors`

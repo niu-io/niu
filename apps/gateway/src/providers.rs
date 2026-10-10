@@ -1893,3 +1893,201 @@ pub async fn earning_history(
         .map(Json)
         .ok_or_else(ApiError::not_found)
 }
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CurrentOfferPage {
+    after: Option<String>,
+    limit: Option<i64>,
+}
+
+/// ```openapi
+/// {
+///   "path": "/admin/v1/providers/{provider}/offers",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listSupplierOffersPage",
+///     "summary": "Page current Supplier offers and rate revisions",
+///     "description": "Platform administration or active membership of this Supplier required. Canonical model-alias keyset order, 1\u2013100 entries per page. Includes paused and unqualified drafts; does not activate an offer or establish commercial qualification. after must identify an existing offer of this Supplier or returns 409. Follow next_after until null. Each page has one statement snapshot; multiple pages are not a frozen snapshot. No customer identities, requests, credentials or endpoint data. Dashboard offers remain a 1000-row preview with offers_has_more.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "provider",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "after",
+///         "in": "query",
+///         "schema": {
+///           "type": "string",
+///           "minLength": 1,
+///           "maxLength": 200
+///         }
+///       },
+///       {
+///         "name": "limit",
+///         "in": "query",
+///         "schema": {
+///           "type": "integer",
+///           "minimum": 1,
+///           "maximum": 100,
+///           "default": 100
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Current scoped offers and continuation.",
+///         "headers": {
+///           "Cache-Control": {
+///             "schema": {
+///               "type": "string",
+///               "const": "no-store"
+///             }
+///           }
+///         },
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "additionalProperties": false,
+///               "required": [
+///                 "data",
+///                 "next_after"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "maxItems": 100,
+///                   "items": {
+///                     "type": "object",
+///                     "additionalProperties": false,
+///                     "required": [
+///                       "id",
+///                       "model_alias",
+///                       "active",
+///                       "qualified",
+///                       "revision",
+///                       "rate_kind",
+///                       "currency",
+///                       "prompt_rate",
+///                       "completion_rate",
+///                       "cached_prompt_rate",
+///                       "route_ready"
+///                     ],
+///                     "properties": {
+///                       "id": {
+///                         "type": "string",
+///                         "format": "uuid"
+///                       },
+///                       "model_alias": {
+///                         "type": "string"
+///                       },
+///                       "active": {
+///                         "type": "boolean"
+///                       },
+///                       "qualified": {
+///                         "type": "boolean"
+///                       },
+///                       "revision": {
+///                         "type": "string",
+///                         "format": "uuid"
+///                       },
+///                       "rate_kind": {
+///                         "type": "string",
+///                         "enum": [
+///                           "text",
+///                           "media"
+///                         ]
+///                       },
+///                       "currency": {
+///                         "type": [
+///                           "string",
+///                           "null"
+///                         ]
+///                       },
+///                       "prompt_rate": {
+///                         "type": [
+///                           "string",
+///                           "null"
+///                         ]
+///                       },
+///                       "completion_rate": {
+///                         "type": [
+///                           "string",
+///                           "null"
+///                         ]
+///                       },
+///                       "cached_prompt_rate": {
+///                         "type": [
+///                           "string",
+///                           "null"
+///                         ]
+///                       },
+///                       "route_ready": {
+///                         "type": "boolean"
+///                       }
+///                     }
+///                   }
+///                 },
+///                 "next_after": {
+///                   "type": [
+///                     "string",
+///                     "null"
+///                   ]
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid pagination query."
+///       },
+///       "401": {
+///         "description": "Invalid session."
+///       },
+///       "404": {
+///         "description": "Supplier missing or unauthorized."
+///       },
+///       "409": {
+///         "description": "Missing or foreign continuation alias."
+///       },
+///       "503": {
+///         "description": "Storage unavailable."
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+pub async fn offers(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(provider): Path<Uuid>,
+    Query(page): Query<CurrentOfferPage>,
+) -> Result<Json<Value>, ApiError> {
+    let authorization = auth(&state, &headers).await?;
+    if !authorization.can_manage_platform() {
+        member(&state, &headers, provider, false).await?;
+    }
+    state
+        .store
+        .provider_offer_page(provider, page.after.as_deref(), page.limit.unwrap_or(100))
+        .await
+        .map_err(ApiError::from_store)?
+        .map(Json)
+        .ok_or_else(ApiError::not_found)
+}

@@ -771,3 +771,13 @@ compatibility directory is not capped at 100 records and has no cursor. Installa
 sessions return an empty array; platform Supplier administration is separate.
 Company membership alone does not grant Supplier access. Re-read after grant or
 revocation changes, and use names rather than routing IDs in product UI.
+
+### Current Supplier offers
+
+`listSupplierOffersPage(supplierId, { after, limit })` returns one bounded page and
+`next_after`. Follow that cursor until null. `listSupplierOffers(supplierId)` now
+traverses these pages automatically, retaining its array result and avoiding the
+management dashboard's 1000-row preview. Both accept cancellation options. An
+active member can read its own Supplier; company membership alone is insufficient.
+The dashboard exposes `offers_has_more`; do not treat a truncated preview as a
+complete offer directory. Separate pages are not a frozen snapshot.
