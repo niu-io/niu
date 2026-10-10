@@ -123,3 +123,31 @@ admissions, and confirmed one exact customer debit, no open holds and no funding
 receipts. This checks the exercised personal/shared configuration within one
 company, not cross-company personal routing or retry-successor admission. It does
 not assert independent upstream quota for two records containing the same secret.
+
+### Cross-company and retry-successor checkpoints
+
+A fresh two-gateway run created two companies with independent workspaces,
+procurement budgets and approved internal credit. After the first company's
+personal credential exhausted its one-request window, the second company's
+shared route still completed using its own key. Both actual shared completions
+had independently verified 1,000,000-nanounit debits attributed to their respective
+companies. The personal completion had no customer debit. Reopening the stopped
+database confirmed all three responses' reported usage and credential admission
+identities. No funding receipt or commercial qualification was created.
+
+Another fresh native run exercised the implemented personal Chat retry policy.
+An actual upstream 401 on the first credential followed by a completed successor
+consumed one slot on each credential and two customer-key RPM slots. With the
+first credential subsequently unlimited and the successor credential capped at
+zero, another actual 401 was followed by local
+`upstream_request_rate_exceeded`. Only the predecessor consumed an additional
+slot; the prepared successor stayed `not_sent`. No third submission occurred.
+
+After restart, independent reopened PostgreSQL inspection found two operations,
+three dispatched attempts, one undispatched successor, credential slot counts of
+two and one, and three customer-key slots. The sole completed response's reported
+usage matched its persisted attempt. Customer/procurement charge, balance and
+reservation tables remained empty because these were personal requests. The
+initial verifier incorrectly expected one funding-source row after creating two
+operations; a corrected complete run and independent inspection established the
+results above. This does not qualify other retry policies or paid video retries.
