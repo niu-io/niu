@@ -525,8 +525,9 @@ async function* parseChatStream(body: ReadableStream<Uint8Array>, signal?: Abort
       const text = decoder.decode(result.value, { stream: true });
       for (const char of text) {
         if (skipLF) { skipLF = false; if (char === '\n') continue; }
-        eventSize += char.length;
-        if (eventSize > 65_536) throw new Error('SSE event exceeds client buffer limit');
+        const point = char.codePointAt(0)!;
+        eventSize += point < 0x80 ? 1 : point < 0x800 ? 2 : point < 0x10000 ? 3 : 4;
+        if (eventSize > (responses ? 16 * 1024 * 1024 : 65_536)) throw new Error('SSE event exceeds client buffer limit');
         if (char !== '\r' && char !== '\n') { line += char; continue; }
         skipLF = char === '\r';
         if (line === '') {

@@ -1,6 +1,17 @@
 //! Remove upstream commercial metadata before returning inference responses.
 use serde_json::Value;
 
+pub(crate) const MAX_STRUCTURED_RESPONSE_BYTES: usize = 16 * 1024 * 1024;
+
+/// Responses terminal events repeat the complete response, unlike Chat deltas.
+pub(crate) fn sse_event_limit(responses: bool) -> usize {
+    if responses {
+        MAX_STRUCTURED_RESPONSE_BYTES
+    } else {
+        65_536
+    }
+}
+
 /// Token counts remain provider evidence. Supplier prices are never customer charges.
 pub fn sanitize(value: &mut Value) -> bool {
     let mut changed = false;
@@ -46,10 +57,11 @@ pub fn sanitize_retained(content_type: &str, text: &str) -> Option<String> {
             } else {
                 text
             };
+            let mut responses = false;
             let mut remaining = wire.as_bytes();
             while !remaining.is_empty() {
                 let end = event_end(remaining)?;
-                if end > 65_536 {
+                if end > MAX_STRUCTURED_RESPONSE_BYTES {
                     return None;
                 }
                 let frame = std::str::from_utf8(&remaining[..end]).ok()?;
@@ -60,11 +72,15 @@ pub fn sanitize_retained(content_type: &str, text: &str) -> Option<String> {
                     .collect::<Vec<_>>()
                     .join("\n");
                 if !data.is_empty() && data != "[DONE]" {
-                    serde_json::from_str::<Value>(&data).ok()?;
+                    let value = serde_json::from_str::<Value>(&data).ok()?;
+                    responses |= value
+                        .get("type")
+                        .and_then(Value::as_str)
+                        .is_some_and(|kind| kind.starts_with("response."));
                 }
                 remaining = &remaining[end..];
             }
-            let mut filter = CustomerSse::default();
+            let mut filter = CustomerSse::with_protocol(responses, None);
             let mut bytes = filter.feed(wire.as_bytes()).ok()?;
             bytes.extend(filter.finish_terminal().ok()?);
             String::from_utf8(bytes).ok()
@@ -99,14 +115,17 @@ fn sanitize_usage(value: &mut Value) -> bool {
 
 #[derive(Default)]
 pub struct CustomerSse {
+    responses: bool,
     public_model: Option<String>,
     pending: Vec<u8>,
+    boundary: EventBoundary,
     started: bool,
     done: bool,
 }
 impl CustomerSse {
-    pub fn with_public_model(public_model: Option<String>) -> Self {
+    pub fn with_protocol(responses: bool, public_model: Option<String>) -> Self {
         Self {
+            responses,
             public_model,
             ..Default::default()
         }
@@ -117,11 +136,12 @@ impl CustomerSse {
         }
         self.pending.extend_from_slice(bytes);
         let mut output = Vec::new();
-        while let Some(end) = event_end(&self.pending) {
-            if end > 65_536 {
+        while let Some(end) = self.boundary.find(&self.pending) {
+            if end > sse_event_limit(self.responses) {
                 return Err("upstream SSE event exceeds inspection limit");
             }
             let frame: Vec<u8> = self.pending.drain(..end).collect();
+            self.boundary = EventBoundary::default();
             let text = std::str::from_utf8(&frame).map_err(|_| "invalid upstream SSE UTF-8")?;
             let text = if self.started {
                 text
@@ -187,7 +207,7 @@ impl CustomerSse {
                 break;
             }
         }
-        if self.pending.len() > 65_536 {
+        if self.pending.len() > sse_event_limit(self.responses) {
             return Err("upstream SSE event exceeds inspection limit");
         }
         Ok(output)
@@ -206,30 +226,44 @@ impl CustomerSse {
 // SSE permits LF, CR and CRLF independently on each line. A trailing CR is
 // held until its optional LF arrives, preserving safe frames byte-for-byte.
 fn event_end(bytes: &[u8]) -> Option<usize> {
-    let mut start = 0;
-    let mut cursor = 0;
-    while cursor < bytes.len() {
-        match bytes[cursor] {
-            b'\r' | b'\n' => {
-                if bytes[cursor] == b'\r' && cursor + 1 == bytes.len() {
-                    return None;
+    EventBoundary::default().find(bytes)
+}
+
+/// Resume at the previous chunk boundary instead of rescanning a large Responses
+/// snapshot from its beginning for every transport chunk.
+#[derive(Default)]
+struct EventBoundary {
+    line_start: usize,
+    cursor: usize,
+}
+
+impl EventBoundary {
+    fn find(&mut self, bytes: &[u8]) -> Option<usize> {
+        while self.cursor < bytes.len() {
+            match bytes[self.cursor] {
+                b'\r' | b'\n' => {
+                    if bytes[self.cursor] == b'\r' && self.cursor + 1 == bytes.len() {
+                        return None;
+                    }
+                    let next = self.cursor
+                        + if bytes[self.cursor] == b'\r'
+                            && bytes.get(self.cursor + 1) == Some(&b'\n')
+                        {
+                            2
+                        } else {
+                            1
+                        };
+                    if self.cursor == self.line_start {
+                        return Some(next);
+                    }
+                    self.line_start = next;
+                    self.cursor = next;
                 }
-                let next = cursor
-                    + if bytes[cursor] == b'\r' && bytes.get(cursor + 1) == Some(&b'\n') {
-                        2
-                    } else {
-                        1
-                    };
-                if cursor == start {
-                    return Some(next);
-                }
-                start = next;
-                cursor = next;
+                _ => self.cursor += 1,
             }
-            _ => cursor += 1,
         }
+        None
     }
-    None
 }
 
 #[cfg(test)]

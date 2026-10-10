@@ -165,7 +165,7 @@ records, with no customer ledger mutation and all temporary access disabled.
 ### Responses streaming implementation and current-input evidence
 
 Text-only Responses requests now accept `stream: true`. The gateway validates the
-upstream SSE content type, bounds each event to 64 KiB, rejects error events and
+upstream SSE content type, bounds each Responses event to 16 MiB, rejects error events and
 requires `response.completed` or `response.incomplete` with a matching response
 status and identity. `[DONE]` alone and EOF are not completion evidence. Terminal
 reported input/output counts and token categories enter the existing durable
@@ -296,3 +296,44 @@ HTTP token totals/categories matched PostgreSQL; the output-limit request retain
 Temporary access was revoked/disabled and customer ledgers were unchanged. These
 owner-funded runs do not qualify the priced settlement branch. All-target Clippy
 and release compilation completed; fixture outcomes were not used as evidence.
+
+
+### Large Responses terminal events
+
+Responses terminal events include the complete output. The earlier shared Chat
+64 KiB bound could abort after delivering a long answer but before recording its
+terminal usage. Responses now uses the same 16 MiB byte limit as full upstream
+JSON responses in evidence inspection, customer-output filtering and the
+JavaScript SDK. Chat retains 64 KiB. SDK counting uses UTF-8 bytes, including
+multibyte characters. Historical retained Responses SSE uses the larger bounded
+filter as well; this does not enable retention or reconstruct missing evidence.
+
+The customer-output boundary scanner resumes where the previous transport chunk
+ended, avoiding a fresh scan from the beginning of a large pending event. Limits,
+malformed JSON rejection and commercial-metadata filtering remain in force.
+
+A real owner-funded long-output request against the prior gateway delivered
+107,097 bytes of text before ending without a Responses terminal event. The SDK
+reported a terminated connection; PostgreSQL retained possible execution, unknown
+usage and an upstream-invalid-response diagnostic. No customer charge was
+created. That uncertain historical attempt is not rewritten using a later call.
+
+
+Against the rebuilt gateway and SDK, a new actual long-output call delivered
+107,097 text bytes and accepted a 108,911-byte event. It ended with
+`response.completed`. The SHA-256 of all text deltas matched the terminal output;
+independent PostgreSQL inspection matched 94 input tokens and 17,500 output tokens
+with provider-reported confidence and no request failure. Terminal usage did not
+expose the checked upstream commercial fields. This new request had one dispatch,
+no customer ledger mutation and preserved the original credential identity.
+Temporary keys, model mappings and credentials were revoked or disabled.
+
+The changed common parser also handled a real Chat stream, and the SDK handled a
+real Responses stream containing Chinese text; their persisted token totals and
+categories matched the responses. Compilation, gateway all-target Clippy, SDK
+build, formatting and OpenAPI parsing completed. Fixture outcomes were not used.
+This is a concrete long-response compatibility checkpoint, not a throughput or
+memory-capacity qualification. Events above 16 MiB, exact multibyte limit boundaries
+and retained-body replay of large Responses remain unverified by current-input
+runs. Paid settlement and the original uncertain request remain outside this
+checkpoint.

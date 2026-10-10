@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::{error::ApiError, state::AppState};
 
-const MAX_PROVIDER_JSON_BYTES: usize = 16 * 1024 * 1024;
+const MAX_PROVIDER_JSON_BYTES: usize = crate::customer_response::MAX_STRUCTURED_RESPONSE_BYTES;
 
 /// Read only a bounded error envelope and classify a known regional refusal.
 /// Never expose the upstream message, metadata, URLs or credentials.

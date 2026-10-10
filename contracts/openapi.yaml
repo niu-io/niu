@@ -1439,7 +1439,7 @@ paths:
     post:
       operationId: createResponse
       summary: Create a text response
-      description: The route must be an OpenAI-compatible provider route with supports_responses enabled. This public subset accepts a single text input and optional text instructions, output limit, sampling values, metadata and user identifier. Text streaming returns Responses SSE events and preserves terminal reported usage. Multimodal input, tools, prior-response state and other fields are rejected.
+      description: The route must be an OpenAI-compatible provider route with supports_responses enabled. This public subset accepts a single text input and optional text instructions, output limit, sampling values, metadata and user identifier. Text streaming returns Responses SSE events and preserves terminal reported usage. Each Responses event is bounded to 16 MiB of UTF-8 bytes because terminal events repeat the full output; Chat events retain their separate 64 KiB bound. Oversized or malformed events fail the stream without inventing usage. Multimodal input, tools, prior-response state and other fields are rejected.
       security:
         - bearerAuth: []
         - niuApiKeyAuth: []

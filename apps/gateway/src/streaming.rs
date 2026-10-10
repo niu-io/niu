@@ -14,8 +14,6 @@ use std::{
 };
 use uuid::Uuid;
 
-const MAX_EVENT_BYTES: usize = 65_536;
-
 #[derive(Default)]
 pub struct ChatEvidence {
     responses: bool,
@@ -217,7 +215,7 @@ impl ChatEvidence {
                 self.first_line = true;
             }
             self.event_bytes += 1;
-            if self.event_bytes > MAX_EVENT_BYTES {
+            if self.event_bytes > crate::customer_response::sse_event_limit(self.responses) {
                 return Err("upstream SSE event exceeds inspection limit");
             }
             if byte == b'\r' || byte == b'\n' {
@@ -453,7 +451,7 @@ where
             responses,
             ..Default::default()
         },
-        crate::customer_response::CustomerSse::with_public_model(public_model),
+        crate::customer_response::CustomerSse::with_protocol(responses, public_model),
         Some(attempt),
         false,
     );
@@ -833,7 +831,10 @@ mod tests {
         assert!(ChatEvidence::default().feed(b"data: {broken}\n\n").is_err());
         assert!(
             ChatEvidence::default()
-                .feed(&vec![b'x'; MAX_EVENT_BYTES + 1])
+                .feed(&vec![
+                    b'x';
+                    crate::customer_response::sse_event_limit(false) + 1
+                ])
                 .is_err()
         );
     }
