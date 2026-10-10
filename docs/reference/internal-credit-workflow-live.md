@@ -191,3 +191,23 @@ database or encrypted credential identity.
 This verifies completed text-request history after key revocation. It does not
 establish mid-stream revocation behavior, ordinary-role history access, or media
 retrieval with a revoked key.
+
+## Balance transaction pagination
+
+On 2026-10-10, a fresh isolated native run created two actual upstream completions
+and independently verified their charges. Normal refund API calls against those
+charges then produced a nonempty multi-page ledger without creating funding
+receipts or modifying charge records.
+
+The first 109 entries were returned as 100 and 9 entries, in exactly the order
+read independently from PostgreSQL. An additional one-nanounit refund inserted
+between page reads appeared on a refreshed first page; the older page still
+matched the original remaining nine entries. Unknown and other-company cursors
+returned HTTP 409. Reading after the oldest entry returned an empty page and a
+null cursor. After gateway restart, a complete traversal matched all 110 database
+entries by order and identity, with no duplicates and the same signed amount sum.
+
+This verifies the documented live-view pagination behavior for actual charge and
+refund entries. It does not establish snapshot export semantics, large-ledger
+performance or externally settled funding reversals. The original development
+database and encrypted credential identity were unchanged.
