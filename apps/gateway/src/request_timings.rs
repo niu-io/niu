@@ -9,7 +9,10 @@ use std::{
 use uuid::Uuid;
 
 #[derive(Clone)]
-pub struct Timing(Arc<Mutex<Measurements>>);
+pub struct Timing {
+    measurements: Arc<Mutex<Measurements>>,
+    writes: tokio_util::task::TaskTracker,
+}
 struct Measurements {
     start: Instant,
     dispatch: Option<i64>,
@@ -25,7 +28,7 @@ pub fn current() -> Option<Timing> {
 }
 pub fn dispatched(store: &niu_storage::Store, attempt: Uuid) {
     if let Some(timing) = current() {
-        let mut m = timing.0.lock().unwrap();
+        let mut m = timing.measurements.lock().unwrap();
         let elapsed = millis(m.start);
         if let Some(previous) = m.attempt.filter(|previous| *previous != attempt) {
             // The previous rejection was not delivered to the client. Preserve
@@ -40,7 +43,7 @@ pub fn dispatched(store: &niu_storage::Store, attempt: Uuid) {
                 http_status: None,
             };
             let store = store.clone();
-            tokio::spawn(async move {
+            timing.writes.spawn(async move {
                 if store.save_request_timing(record).await.is_err() {
                     tracing::warn!("Superseded attempt timing persistence failed");
                 }
@@ -54,7 +57,7 @@ pub fn dispatched(store: &niu_storage::Store, attempt: Uuid) {
 
 impl Timing {
     pub fn output(&self) {
-        let mut m = self.0.lock().unwrap();
+        let mut m = self.measurements.lock().unwrap();
         if m.first_output.is_none() {
             m.first_output = Some(millis(m.start));
         }
@@ -70,7 +73,7 @@ struct Finish {
 }
 impl Drop for Finish {
     fn drop(&mut self) {
-        let m = self.timing.0.lock().unwrap();
+        let m = self.timing.measurements.lock().unwrap();
         let Some(attempt) = m.attempt else {
             return;
         };
@@ -82,7 +85,7 @@ impl Drop for Finish {
             self.status,
             self.complete,
         );
-        tokio::spawn(async move {
+        self.timing.writes.spawn(async move {
             if store
                 .save_request_timing(niu_storage::RequestTimingRecord {
                     attempt,
@@ -115,12 +118,15 @@ pub async fn collect(
     if !inference || request.method() != axum::http::Method::POST {
         return next.run(request).await;
     }
-    let timing = Timing(Arc::new(Mutex::new(Measurements {
-        start: Instant::now(),
-        dispatch: None,
-        attempt: None,
-        first_output: None,
-    })));
+    let timing = Timing {
+        measurements: Arc::new(Mutex::new(Measurements {
+            start: Instant::now(),
+            dispatch: None,
+            attempt: None,
+            first_output: None,
+        })),
+        writes: state.diagnostic_writes.clone(),
+    };
     let mut finish = Finish {
         headers: None,
         status: None,
@@ -131,7 +137,7 @@ pub async fn collect(
     };
     let response = CURRENT.scope(timing.clone(), next.run(request)).await;
     {
-        let mut m = timing.0.lock().unwrap();
+        let mut m = timing.measurements.lock().unwrap();
         if m.attempt.is_none() {
             m.attempt = response
                 .headers()

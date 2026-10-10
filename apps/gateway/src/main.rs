@@ -60,6 +60,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let listener = TcpListener::bind(address).await?;
     let gateway_writes = state.gateway_writes.clone();
+    let diagnostic_writes = state.diagnostic_writes.clone();
     let recovery = background_recovery::spawn(state.store.clone());
     let payment_recovery = state.payments.clone().map(|payments| {
         let payment_state = state.clone();
@@ -93,6 +94,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .with_graceful_shutdown(shutdown_signal())
     .await?;
     gateway_writes.shutdown().await;
+    // HTTP bodies have drained, so their drop handlers have registered timing
+    // and payload writes. Give those tasks a bounded opportunity to commit.
+    diagnostic_writes.close();
+    if tokio::time::timeout(std::time::Duration::from_secs(10), diagnostic_writes.wait())
+        .await
+        .is_err()
+    {
+        tracing::warn!(
+            reason = "request_diagnostics_shutdown_timeout",
+            pending = diagnostic_writes.len(),
+            "Request diagnostic writes exceeded the shutdown deadline"
+        );
+    }
     for task in recovery {
         task.abort();
     }

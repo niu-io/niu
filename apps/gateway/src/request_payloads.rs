@@ -18,6 +18,7 @@ const LIMIT: usize = 1_048_576;
 pub(crate) struct InspectedRequestPayload(pub Value);
 
 struct Capture {
+    writes: tokio_util::task::TaskTracker,
     store: niu_storage::Store,
     attempt: Uuid,
     request: Value,
@@ -40,7 +41,7 @@ impl Drop for Capture {
         let content_type = self.content_type.clone();
         let complete = self.complete;
         let truncated = self.truncated;
-        tokio::spawn(async move {
+        self.writes.spawn(async move {
             if store
                 .save_request_payload(
                     attempt,
@@ -192,6 +193,7 @@ pub async fn capture(
         .to_owned();
     let (parts, body) = response.into_parts();
     let capture = Capture {
+        writes: state.diagnostic_writes.clone(),
         store: state.store.clone(),
         attempt,
         request: input,

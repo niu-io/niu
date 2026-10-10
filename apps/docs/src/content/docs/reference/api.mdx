@@ -789,3 +789,13 @@ provides `listSupplierSettlements`, with `fromMs` and `toMs` query properties.
 Amounts are exact decimal strings. Rows contain payment-record metadata and
 exclude customer and request details. Reads do not record payments or transfer
 funds. See the [contract and verification boundary](https://github.com/niu-io/niu/blob/main/docs/reference/supplier-settlement-history.md).
+
+
+## Request diagnostics at shutdown
+
+Graceful shutdown now waits up to ten additional seconds for registered request
+timing and content writes after HTTP and financial writers drain. A database
+stall beyond that window emits `request_diagnostics_shutdown_timeout`; forced
+termination or storage failure can still leave missing diagnostics. Missing
+content is not permission to retry an uncertain upstream operation. See the
+[actual shutdown verification and limits](https://github.com/niu-io/niu/blob/main/docs/reference/graceful-request-diagnostics.md).
