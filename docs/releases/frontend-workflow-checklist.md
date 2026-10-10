@@ -131,8 +131,8 @@ operations and the root entrypoint check reports 65 registered paths.
 ## API key policy integration inventory
 
 Current `KeyDetailView` supports metadata, model access, expiry display,
-revocation, Guardrails and request activity. RPM, concurrency and TPM now have read/edit controls; their history remains
-open. The other policies below remain to be integrated. Backend verification
+revocation, Guardrails and request activity. RPM, concurrency and TPM now have read/edit and history controls; ordinary-role
+browser qualification remains open. The other policies below remain to be integrated. Backend verification
 does not close these frontend flows.
 
 | Contract | Frontend integration requirement |
@@ -178,3 +178,29 @@ rendered qualification.
   conflict reload, failed read retry, failed-write draft retention, invalid bounds,
   viewer controls and unknown usage. Live viewer authorization, histories, IP
   policy, spending limits and token usage-window integration remain open.
+
+## Limit history and remaining throughput writes — 2026-10-10
+
+- Added read-only history for all three throughput policies, available independently
+  of editing permission and key lifecycle. The existing rounded Guardrail history
+  dialog and the inspected LiteLLM audit-table pattern informed the composition;
+  Stitch reviewed it in the existing NIU.IO project. Only limit, actor name and
+  recorded date are shown. Revisions remain exact private pagination cursors.
+- A full 20-row page offers Load older changes without an invented total count.
+  Append failures retain existing rows and retry the same cursor. Closing aborts
+  pending history reads; malformed/non-descending pages are rejected.
+- Native browser verification observed the real RPM save/restoration records.
+  Concurrent limit 10,000 and TPM 1,000,000,000,000 were separately saved,
+  reloaded into their respective editors, explicitly restored to Unlimited and
+  read again. Each history showed both actual changes attributed to Demo.
+  No inference, payment, credential or model-access change occurred. These checks
+  qualify configuration persistence, not gateway enforcement under load.
+- Desktop and measured 390×844 history dialogs were reviewed. Corrected a mobile
+  width constraint and shared table-style interference so the largest supported
+  TPM value remains readable in full, actor/date cells fit, and the dialog has
+  16-pixel screen gutters with no page overflow. Temporary viewport was reset.
+- All 38 API-key tests and TypeScript checking passed, including exact cursor
+  values beyond JavaScript's safe-integer range, older-page failure/retry, genuine
+  empty history, non-descending response rejection and close-time cancellation.
+  Actual multi-page histories, ordinary-role browser qualification, IP policy,
+  spending limits and token usage-window integration remain open.
