@@ -8656,6 +8656,187 @@ HTTP 401: Invalid, expired or revoked credential
 
 HTTP 404: Missing job, workspace mismatch or model access denied
 
+## Submit a schema-validated video job
+
+`POST /v1/video/jobs`
+
+Personal routes support configured ark-direct-v1 or openrouter-video-v1 channels. Customer-funded video currently requires a qualified ark-direct-v1 route and video_tokens pricing; OpenRouter remains personal-only. Shared routes with a legacy procurement budget are unsupported, while personal routes retain ordinary authorization and key limits. Exactly one upstream submission follows durable dispatch intent. HTTP or transport errors retain submission_unknown and any unresolved liability. Observed non-success HTTP statuses are saved as upstream_http_error in scoped request diagnostics, without upstream bodies or credentials; they do not prove nonexecution or authorize a retry. Optional workspace-scoped Idempotency-Key supports text-only creation: identical replay returns the original reference and current saved status, including after restart. Changed input conflicts. Unkeyed requests are not idempotent. Configured controls, reference inputs and required inspection remain subject to the selected schema and supported channel.
+
+Implementation: `implemented`. Operation: `createOwnerFundedVideoJob`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
+  }
+]
+```
+
+### Parameters
+
+`Idempotency-Key` (header, optional)
+
+Reuse only with the same JSON document in the same workspace; object field order is ignored.
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 128
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "model",
+    "content"
+  ],
+  "properties": {
+    "model": {
+      "type": "string",
+      "minLength": 1
+    },
+    "content": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "text"
+            ],
+            "properties": {
+              "type": {
+                "const": "text"
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1
+              },
+              "role": {
+                "type": "string",
+                "description": "Only roles explicitly supported by the selected schema are accepted."
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "image_url"
+            ],
+            "properties": {
+              "type": {
+                "const": "image_url"
+              },
+              "image_url": {
+                "type": "object",
+                "required": [
+                  "url"
+                ],
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "pattern": "^data:image/(png|jpeg|webp);base64,"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "role": {
+                "type": "string",
+                "description": "Only roles explicitly supported by the selected schema are accepted."
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "description": "Ordered input blocks matching the configured video schema. Text input is supported; inline image inputs additionally require a qualified channel and current inspection consent. Idempotent submission supports text only."
+    }
+  },
+  "additionalProperties": true
+}
+```
+
+### Responses
+
+HTTP 202: Durable Niu reference; acceptance alone does not establish upstream execution or billing.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "id",
+    "object",
+    "model",
+    "status"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "object": {
+      "const": "video.job"
+    },
+    "model": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "unknown",
+        "submission_unknown",
+        "queued",
+        "running",
+        "succeeded",
+        "failed",
+        "reconciliation_required"
+      ]
+    }
+  }
+}
+```
+
+HTTP 400: Invalid request/schema or idempotency header.
+
+HTTP 401: Invalid, expired or revoked key.
+
+HTTP 402: Customer capacity or spending limit denied before submission.
+
+HTTP 403: Current workspace/model policy cannot be satisfied.
+
+HTTP 404: Model or original job is unavailable to this scope.
+
+HTTP 409: Changed idempotent input or conflicting route/key/policy/offer revision.
+
+HTTP 429: Current key request/concurrency limit exceeded.
+
+HTTP 501: Unsupported channel, billing, reference-input or callback contract.
+
+HTTP 503: Qualified offer, original route or storage unavailable.
+
 ## Save an immutable text-video submission intent
 
 `PUT /admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}`

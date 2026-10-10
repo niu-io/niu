@@ -123,7 +123,7 @@ Publication appends immutable customer configuration. Identical current-route re
 
 `POST /v1/video/jobs` accepts `model`, ordered text `content` blocks and controls allowed by the configured video schema. The initial adapter requires channel `ark-direct-v1`; the configured API base is followed by `/contents/generations/tasks`. This configuration is not evidence of live model entitlement or Provider qualification. Owner-funded personal routes remain separate from customer-funded routes. A customer-funded route requires an effective selling card, a current qualified Supplier offer, the exact configured route/schema and a supported `video_tokens` meter. Billing resolution comes from validated effective controls, including schema defaults; a missing resolution or selling schedule rejects submission. Configured inline PNG/JPEG/WebP image-plus-prompt references additionally require current image-processing consent and a matching required detector configuration. Remote image URLs, image-only requests, audio/video references and callbacks remain unavailable.
 
-Authorization, model/schema validation, Guardrail access, original-route binding and durable dispatch intent precede the single upstream POST. Local text input rules run before credential retrieval, reservation and dispatch. Blocking prevents upstream submission; redaction preserves controls and is revalidated against the pinned schema. The durable inspection result binds the policy revisions checked at dispatch. External text input detectors and output inspection remain unsupported for video and fail closed. Inline image inspection is separately supported through consented image detectors, immutable exact-content receipts and the final dispatch recheck. Inspection failure prevents attempt creation and reservation; it does not become an unchecked text-only dispatch. Successful receipt binding returns 202 with status `unknown`; the job has not yet been polled. Timeout, HTTP error, malformed response or failed receipt persistence returns the same Niu reference with `submission_unknown`. Durable dispatch intent supports recovery even if an uncertainty marker cannot be saved. No automatic create retry or paid fallback occurs. Personal routes incur no Niu customer charge. Customer-funded routes reserve the qualified maximum quantity before dispatch; an uncertain submission retains that reservation. Saved verified success and agreed reported usage settle the pinned customer price once and release the unused reservation, through explicit refresh or automatic recovery. A pre-dispatch failure can release its hold only when storage confirms nonexecution. The legacy workspace procurement budget (`/budget`) rejects video estimates and submissions before attempt preparation or customer reservation; the locked dispatch check also rejects one created after preflight. This is distinct from customer workspace and API key spending limits. Customer-funded video uses the shared customer reservation transaction: after company-capacity admission, it checks both workspace and key commitments against the selected maximum customer charge before inserting the hold. Existing media commitments include known unsettled overruns. These are implemented checks, not a claim that the complete customer-funded video flow has been verified with actual upstream quantity evidence.
+Authorization, model/schema validation, Guardrail access, original-route binding and durable dispatch intent precede the single upstream POST. Local text input rules run before credential retrieval, reservation and dispatch. Blocking prevents upstream submission; redaction preserves controls and is revalidated against the pinned schema. The durable inspection result binds the policy revisions checked at dispatch. External text input detectors and output inspection remain unsupported for video and fail closed. Inline image inspection is separately supported through consented image detectors, immutable exact-content receipts and the final dispatch recheck. Inspection failure prevents attempt creation and reservation; it does not become an unchecked text-only dispatch. Successful receipt binding returns 202 with status `unknown`; the job has not yet been polled. Timeout, HTTP error, malformed response or failed receipt persistence returns the same Niu reference with `submission_unknown`. Durable dispatch intent supports recovery even if an uncertainty marker cannot be saved. No automatic create retry or paid fallback occurs. Personal routes incur no Niu customer charge. Customer-funded routes reserve the qualified maximum quantity before dispatch; an uncertain submission retains that reservation. Saved verified success and agreed reported usage settle the pinned customer price once and release the unused reservation, through explicit refresh or automatic recovery. A pre-dispatch failure can release its hold only when storage confirms nonexecution. For shared routes, the legacy workspace procurement budget (`/budget`) rejects video estimates and submissions before attempt preparation or customer reservation; the locked dispatch check also rejects one created after preflight. Personal routes are excluded from procurement accounting and retain key/policy controls. This is distinct from customer workspace and API key spending limits. Customer-funded video uses the shared customer reservation transaction: after company-capacity admission, it checks both workspace and key commitments against the selected maximum customer charge before inserting the hold. Existing media commitments include known unsettled overruns. These are implemented checks, not a claim that the complete customer-funded video flow has been verified with actual upstream quantity evidence.
 
 For text-only submissions, supply `Idempotency-Key` (one to 128 visible ASCII
 characters), or call `client.video.jobs.create(request, { signal,
@@ -249,7 +249,7 @@ Before dispatch, Niu pins the selected purchase snapshot independently from the 
 
 The existing confirmed external-payment settlement ledger can settle media earnings with exact replay and Supplier/currency isolation. Recording a settlement does not transfer funds. Supplier dashboards group their own media consumption and agreed purchase prices separately from text tokens; customer job billing, Logs and Usage never receive procurement snapshots, earnings or margins. Recovery uses original saved terms and usage even after credential revocation; it never resubmits generation to recover an earning.
 
-This path has local fixture qualification only. Live commercial agreements and rates, complete purchase-rate lifecycle/admin UI, qualified failure/refund rules and full release acceptance remain pending.
+Complete customer-funded upstream and settlement qualification remains unverified. Commercial agreements/rates, qualified failure/refund rules and full release acceptance remain pending. Fixture outcomes do not qualify this path.
 
 
 ## Supplier purchase schedule history and replacement
@@ -1247,3 +1247,43 @@ identity was unchanged and isolated processes were stopped. These observations
 verify that excluding personal video from platform procurement does not bypass
 the exercised key controls; they do not establish finite-token video support,
 nonzero-limit contention or customer-funded settlement.
+
+
+## Safe submission HTTP diagnostics
+
+A non-success response to the single video submission POST now preserves its HTTP
+status as `upstream_http_error` in the workspace request list/detail `failure`
+field. Upstream bodies, URLs, credentials and procurement information are not
+included. Submission still returns HTTP 202 with the original Niu reference and
+`submission_unknown`. A saved media recovery route excludes this observation
+from text authentication-rejection nonexecution/failover handling. Unknown usage,
+execution and any customer liability remain unresolved; the HTTP code alone
+neither authorizes another generation nor proves a refund or release is due.
+
+The create handler now owns its OpenAPI annotation, including idempotency,
+key-limit and safe diagnostic behavior; the root specification references that
+generated operation instead of maintaining a second handwritten definition.
+
+OpenRouter remains personal-only. Its published
+[video polling example](https://openrouter.ai/docs/guides/overview/multimodal/video-generation)
+contains `usage.cost`; that amount is not the `video_tokens` quantity required by
+the currently supported customer video meter. This example does not establish a
+reported-quantity contract, and Niu does not substitute requested duration or an
+estimate for actual usage. This is an integration boundary, not a requirement to
+activate every external Supplier before Niu's internal capability can be assessed.
+
+### Current-input failure verification
+
+An actual invalid-credential OpenRouter submission was exercised before and after
+this change in isolated databases. Both returned the same safe HTTP 202 unknown
+submission behavior; the earlier binary had no saved failure classification. The
+updated binary persisted `upstream_http_error` with HTTP 401, independently read
+from SQL and the request-detail API. A different workspace received HTTP 404 for
+that detail. The diagnostic did not contain either the submitted invalid token or
+the saved personal credential.
+
+Idempotent replay before and after a gateway restart retained the same job and
+exactly one attempt and one transport record. SQL independently confirmed unknown
+execution/usage, no customer charge, balance entry, procurement cost or Chat retry
+chain. The original encrypted identity was unchanged. This qualifies this failure
+path and its persistent diagnostics, not customer-funded video settlement.

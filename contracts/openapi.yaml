@@ -789,43 +789,7 @@ paths:
     get:
       $ref: './generated/handler-operations.json#/paths/~1v1~1video~1jobs/get'
     post:
-      operationId: createOwnerFundedVideoJob
-      summary: Submit a direct-channel text video job
-      description: Initial ark-direct-v1 adapter with configured video schema. Personal routes are owner-funded. Customer-funded routes require an effective customer selling card, current qualified Supplier offer, exact route/schema, effective resolution and supported video_tokens meter; reserve qualified maximum liability before dispatch. Active workspace budgets fail closed until video budget reservation is supported. Media references, callbacks and required content inspection remain unavailable. Commits authorization and dispatch intent before one POST; no automatic retry. Uncertainty returns the Niu reference and retains customer liability. Successful explicit queries settle reported customer usage once. Client abort is not cancellation/refund. Text-only creation supports an optional workspace-scoped Idempotency-Key. Same key and JSON document return the original reference and saved status; changed input conflicts. Object field order is ignored. Concurrent and restarted retries never submit again; interrupted preparation can remain submission_unknown. Unkeyed creation is not idempotent. Live channel, result and complete recovery qualification remain pending.
-      security: [{ bearerAuth: [] }, { niuApiKeyAuth: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [model, content]
-              properties:
-                model: { type: string }
-                content:
-                  type: array
-                  minItems: 1
-                  maxItems: 32
-                  items:
-                    type: object
-                    additionalProperties: false
-                    required: [type, text]
-                    properties:
-                      type: { const: text }
-                      text: { type: string, minLength: 1 }
-              additionalProperties: true
-      parameters:
-        - { name: Idempotency-Key, in: header, required: false, schema: { type: string, minLength: 1, maxLength: 128 }, description: Workspace-scoped text-video submission identity. Reuse only with the same JSON document. }
-      responses:
-        '202': { description: "Durable Niu reference; new submissions are unknown or submission_unknown, replays return the current saved status" }
-        '400': { description: Request violates the configured schema or idempotency header format }
-        '401': { description: Invalid credential }
-        '403': { description: Policy cannot be satisfied }
-        '404': { description: Model access denied }
-        '402': { description: Insufficient balance or missing required budget reservation; no upstream submission }
-        '409': { description: "Idempotency key reused with different input; or route, key, policy or offer changed before dispatch" }
-        '501': { description: "Unsupported channel, billing, media or callback contract; idempotent reference-image submission is not supported" }
-        '503': { description: Qualified offer or original route unavailable }
+      $ref: './generated/handler-operations.json#/paths/~1v1~1video~1jobs/post'
   /v1/video/jobs/{id}/results/{kind}:
     get:
       operationId: retrieveVideoResult

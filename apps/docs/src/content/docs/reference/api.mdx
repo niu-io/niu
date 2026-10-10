@@ -536,6 +536,12 @@ and current verification limits. Images/references and customer-funded video
 qualification remain outside this verified subset. Browser restoration still
 requires frontend integration and verification.
 
+Video submission HTTP errors now retain a safe `upstream_http_error` classification
+and status code in workspace request diagnostics. The create response remains
+`202` with `submission_unknown`; this does not prove nonexecution, release a held
+customer liability or authorize another submission. Idempotent replay restores
+the same job reference. See the [generated create contract](/docs/reference/handler-operations/).
+
 ## Operation-scoped request diagnostics
 
 `GET /admin/v1/organizations/{organization}/projects/{project}/requests` and

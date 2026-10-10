@@ -973,6 +973,190 @@ pub(super) async fn estimate_as(
     ))
 }
 
+/// ```openapi
+/// {
+///   "path": "/v1/video/jobs",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "createOwnerFundedVideoJob",
+///     "summary": "Submit a schema-validated video job",
+///     "description": "Personal routes support configured ark-direct-v1 or openrouter-video-v1 channels. Customer-funded video currently requires a qualified ark-direct-v1 route and video_tokens pricing; OpenRouter remains personal-only. Shared routes with a legacy procurement budget are unsupported, while personal routes retain ordinary authorization and key limits. Exactly one upstream submission follows durable dispatch intent. HTTP or transport errors retain submission_unknown and any unresolved liability. Observed non-success HTTP statuses are saved as upstream_http_error in scoped request diagnostics, without upstream bodies or credentials; they do not prove nonexecution or authorize a retry. Optional workspace-scoped Idempotency-Key supports text-only creation: identical replay returns the original reference and current saved status, including after restart. Changed input conflicts. Unkeyed requests are not idempotent. Configured controls, reference inputs and required inspection remain subject to the selected schema and supported channel.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "Idempotency-Key",
+///         "in": "header",
+///         "required": false,
+///         "schema": {
+///           "type": "string",
+///           "minLength": 1,
+///           "maxLength": 128
+///         },
+///         "description": "Reuse only with the same JSON document in the same workspace; object field order is ignored."
+///       }
+///     ],
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "required": [
+///               "model",
+///               "content"
+///             ],
+///             "properties": {
+///               "model": {
+///                 "type": "string",
+///                 "minLength": 1
+///               },
+///               "content": {
+///                 "type": "array",
+///                 "minItems": 1,
+///                 "maxItems": 32,
+///                 "items": {
+///                   "oneOf": [
+///                     {
+///                       "type": "object",
+///                       "required": [
+///                         "type",
+///                         "text"
+///                       ],
+///                       "properties": {
+///                         "type": {
+///                           "const": "text"
+///                         },
+///                         "text": {
+///                           "type": "string",
+///                           "minLength": 1
+///                         },
+///                         "role": {
+///                           "type": "string",
+///                           "description": "Only roles explicitly supported by the selected schema are accepted."
+///                         }
+///                       },
+///                       "additionalProperties": false
+///                     },
+///                     {
+///                       "type": "object",
+///                       "required": [
+///                         "type",
+///                         "image_url"
+///                       ],
+///                       "properties": {
+///                         "type": {
+///                           "const": "image_url"
+///                         },
+///                         "image_url": {
+///                           "type": "object",
+///                           "required": [
+///                             "url"
+///                           ],
+///                           "properties": {
+///                             "url": {
+///                               "type": "string",
+///                               "pattern": "^data:image/(png|jpeg|webp);base64,"
+///                             }
+///                           },
+///                           "additionalProperties": false
+///                         },
+///                         "role": {
+///                           "type": "string",
+///                           "description": "Only roles explicitly supported by the selected schema are accepted."
+///                         }
+///                       },
+///                       "additionalProperties": false
+///                     }
+///                   ]
+///                 },
+///                 "description": "Ordered input blocks matching the configured video schema. Text input is supported; inline image inputs additionally require a qualified channel and current inspection consent. Idempotent submission supports text only."
+///               }
+///             },
+///             "additionalProperties": true
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "202": {
+///         "description": "Durable Niu reference; acceptance alone does not establish upstream execution or billing.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "id",
+///                 "object",
+///                 "model",
+///                 "status"
+///               ],
+///               "properties": {
+///                 "id": {
+///                   "type": "string",
+///                   "format": "uuid"
+///                 },
+///                 "object": {
+///                   "const": "video.job"
+///                 },
+///                 "model": {
+///                   "type": "string"
+///                 },
+///                 "status": {
+///                   "type": "string",
+///                   "enum": [
+///                     "unknown",
+///                     "submission_unknown",
+///                     "queued",
+///                     "running",
+///                     "succeeded",
+///                     "failed",
+///                     "reconciliation_required"
+///                   ]
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid request/schema or idempotency header."
+///       },
+///       "401": {
+///         "description": "Invalid, expired or revoked key."
+///       },
+///       "402": {
+///         "description": "Customer capacity or spending limit denied before submission."
+///       },
+///       "403": {
+///         "description": "Current workspace/model policy cannot be satisfied."
+///       },
+///       "404": {
+///         "description": "Model or original job is unavailable to this scope."
+///       },
+///       "409": {
+///         "description": "Changed idempotent input or conflicting route/key/policy/offer revision."
+///       },
+///       "429": {
+///         "description": "Current key request/concurrency limit exceeded."
+///       },
+///       "501": {
+///         "description": "Unsupported channel, billing, reference-input or callback contract."
+///       },
+///       "503": {
+///         "description": "Qualified offer, original route or storage unavailable."
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
 pub(in crate::web) async fn create(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -1307,7 +1491,26 @@ pub(super) async fn create_as(
             )
             .await
             .is_ok(),
-        Err(_) => false,
+        Err(error) => {
+            if let niu_media::submission::SubmissionError::UncertainHttpStatus(status) = error {
+                // Persist only a bounded status/classification, never the
+                // upstream body, URL or credential. The pinned media route
+                // excludes text nonexecution/retry classification in storage.
+                let failure = niu_storage::RequestFailure {
+                    kind: niu_storage::RequestFailureKind::UpstreamHttpError,
+                    upstream_http_status: Some(status),
+                };
+                if state
+                    .store
+                    .save_request_failure(scope, attempt, failure)
+                    .await
+                    .is_err()
+                {
+                    tracing::error!(attempt_id = %attempt, "video submission failure classification persistence failed");
+                }
+            }
+            false
+        }
     };
     if !bound {
         // Dispatch intent already committed. Preserve the client recovery

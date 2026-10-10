@@ -8,6 +8,9 @@ pub enum SubmissionError {
     EndpointRejected,
     /// A paid operation may exist. Retain liability; never automatically resubmit.
     Uncertain,
+    /// A non-success HTTP response is diagnostic evidence only. It does not
+    /// prove that an asynchronous job was never created or billed.
+    UncertainHttpStatus(u16),
 }
 
 /// Upstream reference is internal recovery data, not a customer display label.
@@ -70,10 +73,14 @@ pub async fn submit_job(
             .send()
             .await
             .map_err(|_| SubmissionError::Uncertain)?;
-        if !response.status().is_success()
-            || response
-                .content_length()
-                .is_some_and(|n| n > maximum_response_bytes as u64)
+        if !response.status().is_success() {
+            return Err(SubmissionError::UncertainHttpStatus(
+                response.status().as_u16(),
+            ));
+        }
+        if response
+            .content_length()
+            .is_some_and(|n| n > maximum_response_bytes as u64)
         {
             return Err(SubmissionError::Uncertain);
         }
