@@ -5,6 +5,8 @@ use uuid::Uuid;
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TokenRateInput {
+    #[serde(default, deserialize_with = "context_tiers_field")]
+    pub context_tiers: Option<Vec<niu_storage::ContextPriceTier>>,
     pub model_alias: String,
     pub currency: String,
     pub prompt_rate: String,

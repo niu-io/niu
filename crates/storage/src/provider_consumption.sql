@@ -1,0 +1,10 @@
+SELECT jsonb_build_object('model_alias',o.model_alias,'revision',r.id,'context_minimum_input_tokens',e.context_minimum_input_tokens::text,'currency',e.currency,'prompt_rate',CASE WHEN e.context_minimum_input_tokens IS NULL THEN r.prompt_rate::text ELSE tier.value->>'prompt_rate' END,'completion_rate',CASE WHEN e.context_minimum_input_tokens IS NULL THEN r.completion_rate::text ELSE tier.value->>'completion_rate' END,'cached_prompt_rate',CASE WHEN e.context_minimum_input_tokens IS NULL THEN r.cached_prompt_rate::text ELSE tier.value->>'cached_prompt_rate' END,'reasoning_completion_rate',CASE WHEN e.context_minimum_input_tokens IS NULL THEN r.reasoning_completion_rate::text ELSE tier.value->>'reasoning_completion_rate' END,'cache_write_prompt_rate',CASE WHEN e.context_minimum_input_tokens IS NULL THEN r.cache_write_prompt_rate::text ELSE tier.value->>'cache_write_prompt_rate' END,'requests',COUNT(*)::text,'prompt_tokens',SUM(e.prompt_tokens)::text,'completion_tokens',SUM(e.completion_tokens)::text,'cached_prompt_tokens',SUM(e.cached_prompt_tokens)::text,'reasoning_completion_tokens',SUM(e.reasoning_completion_tokens)::text,'cache_write_prompt_tokens',SUM(e.cache_write_prompt_tokens)::text,'amount_nanos',SUM(e.amount_nanos)::text,'unpaid_nanos',SUM(CASE WHEN s.attempt_id IS NULL THEN e.amount_nanos ELSE 0 END)::text)
+FROM provider_earnings e
+JOIN provider_attempt_offers b ON b.attempt_id=e.attempt_id
+JOIN provider_offers o ON o.id=b.offer_id
+JOIN provider_offer_revisions r ON r.id=e.revision_id
+LEFT JOIN LATERAL (SELECT value FROM jsonb_array_elements(r.context_tiers) WHERE (value->>'minimum_input_tokens')::bigint=e.context_minimum_input_tokens) tier ON TRUE
+LEFT JOIN provider_settlement_entries s ON s.attempt_id=e.attempt_id
+WHERE e.provider_id=$1 AND e.billing_meter='text_tokens' AND e.created_at>=now()-make_interval(days=>$2)
+GROUP BY o.model_alias,r.id,e.currency,e.context_minimum_input_tokens,tier.value
+ORDER BY o.model_alias,r.id,e.context_minimum_input_tokens NULLS FIRST

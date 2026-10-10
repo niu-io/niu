@@ -1,7 +1,9 @@
 # Context-tier pricing
 
 Status: customer tier publication, admission, charging and invoice grouping are
-implemented, with current-input boundaries below. Supplier tiers remain unimplemented. This design extends their immutable schedules and
+implemented, with current-input boundaries below. Supplier tier publication and
+accrual are implemented, with draft management evidence only. This design extends
+their immutable schedules and
 existing admission/ledger transaction boundaries rather than creating another
 billing engine.
 
@@ -190,3 +192,31 @@ category returned null, zero observations and one unknown; its CSV cell stayed
 empty before and after restart. Independent reopening again confirmed no invented
 charge and a retained unresolved reservation. These reporting checks reused actual
 response artifacts; they did not send another upstream inference request.
+
+
+## Supplier implementation and verification boundary
+
+Supplier tier schedules use the same normalization, whole-request selection and
+exact category arithmetic as customer tiers, but remain in separate immutable
+procurement revisions. Publication requires explicit replacement of existing tiers;
+empty arrays clear them and null is rejected. A new revision continues to pause
+activation and invalidate the current qualification review. Legacy publication
+entry points remain available but cannot silently erase an existing schedule.
+
+Earning accrual selects from the attempt-pinned Supplier revision and records the
+selected threshold with the immutable earning. Consumption groups by revision and
+threshold and reads the selected rates, preserving nullable category semantics.
+Settlement continues to consume existing earned entries; there is no new balance
+or settlement engine. Supplier prices never substitute for customer charges.
+
+An actual SDK/HTTP management run created a disabled, unqualified draft with a
+threshold-1,000 schedule. Its Supplier viewer could read the schedule, could not
+publish, and an operator without membership could not read it. Omitted existing
+tiers returned 409, explicit null returned 422, duplicate/zero thresholds returned
+400. Restart retained the schedule; explicit empty-array publication produced a
+new revision while preserving the original. Revoking membership denied subsequent
+reads. The empty consumption endpoint executed successfully. Independent reopening
+confirmed both immutable schedules and no attempts, qualification reviews or
+earnings. This does not verify nonempty earning selection, recovery, consumption
+grouping or settlement. Those require actual qualified business-flow evidence;
+no supply rights, commercial agreement or payment record was fabricated.

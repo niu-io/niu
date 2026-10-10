@@ -53,6 +53,7 @@ export type WorkspaceSpendingAccount = { currency: string; limit_nanos: string |
 export type WorkspaceSpendingLimitRevision = { currency: string; limit_nanos: string; revision: string; recorded_at: string | null; source: 'configuration' | 'migration_baseline'; actor_kind: 'unknown' | 'installation' | 'member'; actor_name: string | null };
 /** Agreed Supplier rates in currency nanounits per million tokens. */
 export type SupplierRateInput = {
+  context_tiers?: ContextPriceTier[];
   model_alias: string; currency: string; prompt_rate: string; completion_rate: string;
   expected_revision: string | null;
   cached_prompt_rate?: string | null;
@@ -64,7 +65,7 @@ export type ContextPriceTier = {
   minimum_input_tokens: string; prompt_rate: string; completion_rate: string;
   cached_prompt_rate?: string | null; cache_write_prompt_rate?: string | null; reasoning_completion_rate?: string | null;
 };
-export type CustomerTariffInput = SupplierRateInput & { context_tiers?: ContextPriceTier[]; minimum_charge_nanos?: string; request_fee_nanos?: string };
+export type CustomerTariffInput = SupplierRateInput & { minimum_charge_nanos?: string; request_fee_nanos?: string };
 export type CustomerTariff = Omit<CustomerTariffInput, 'expected_revision'> & { revision: string };
 export type CustomerTariffHistoryEntry = CustomerTariff & { created_at: string; is_current: boolean };
 export type CustomerTariffHistory = { current_revision: string | null; data: CustomerTariffHistoryEntry[]; has_more: boolean; next_before: string | null };
@@ -192,6 +193,7 @@ export type CustomerBilling = {
   invoices: Array<{ id: string; from_ms: number; to_ms: number; currency: string; amount_nanos: string; created_at: string; status: 'issued' | 'paid'; payment_reference: string | null }>;
 };
 export type SupplierOffer = {
+  context_tiers?: ContextPriceTier[];
   id: string; model_alias: string; revision: string; active: boolean; qualified: boolean; route_ready: boolean;
   cached_prompt_rate?: string | null;
   reasoning_completion_rate?: string | null;
@@ -201,7 +203,7 @@ export type SupplierOffer = {
 /** Immutable procurement quote; media prices are in the separate media rate card. */
 export type SupplierOfferRevision = {
   revision: string; model_alias: string; created_at: string;
-} & ({ rate_kind: 'text'; currency: string; prompt_rate: string; completion_rate: string; cached_prompt_rate: string | null; reasoning_completion_rate: string | null; cache_write_prompt_rate: string | null }
+} & ({ rate_kind: 'text'; currency: string; prompt_rate: string; completion_rate: string; cached_prompt_rate: string | null; reasoning_completion_rate: string | null; cache_write_prompt_rate: string | null; context_tiers: ContextPriceTier[] }
   | { rate_kind: 'media'; currency: null; prompt_rate: null; completion_rate: null; cached_prompt_rate: null; reasoning_completion_rate: null; cache_write_prompt_rate: null });
 /** Payment-record metadata only; never contains customer or request identities. */
 export type SupplierSettlement = { id: string; currency: string; amount_nanos: string; payment_reference: string; created_at: string };

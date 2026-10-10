@@ -45,6 +45,15 @@ fn valid_profile_url(value: &str) -> bool {
             }))
 }
 
+/// Optional edits distinguish omission from explicit category clearing.
+#[derive(Default)]
+pub struct ProviderOfferSchedule<'a> {
+    pub cached_prompt_rate: Option<Option<&'a str>>,
+    pub reasoning_completion_rate: Option<Option<&'a str>>,
+    pub cache_write_prompt_rate: Option<Option<&'a str>>,
+    pub context_tiers: Option<&'a [crate::ContextPriceTier]>,
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ProviderOfferInput {
@@ -613,6 +622,35 @@ impl Store {
         reasoning_completion_rate: Option<Option<&str>>,
         cache_write_prompt_rate: Option<Option<&str>>,
     ) -> Result<Uuid, StoreError> {
+        self.publish_provider_offer_schedule(
+            provider,
+            input,
+            ProviderOfferSchedule {
+                cached_prompt_rate,
+                reasoning_completion_rate,
+                cache_write_prompt_rate,
+                context_tiers: None,
+            },
+        )
+        .await
+    }
+
+    /// Publish one complete immutable Supplier schedule. Existing tiers require
+    /// an explicit replacement (or empty array), just like category rates.
+    pub async fn publish_provider_offer_schedule(
+        &self,
+        provider: Uuid,
+        input: &ProviderOfferInput,
+        schedule: ProviderOfferSchedule<'_>,
+    ) -> Result<Uuid, StoreError> {
+        let ProviderOfferSchedule {
+            cached_prompt_rate,
+            reasoning_completion_rate,
+            cache_write_prompt_rate,
+            context_tiers,
+        } = schedule;
+        let mut tiers = context_tiers.unwrap_or_default().to_vec();
+        crate::normalize_context_tiers(&mut tiers)?;
         let written = cache_write_prompt_rate
             .flatten()
             .map(crate::pricing::parse_token_rate)
@@ -667,8 +705,9 @@ impl Store {
             cached_prompt_rate: Option<i64>,
             reasoning_completion_rate: Option<i64>,
             cache_write_prompt_rate: Option<i64>,
+            context_tiers: Value,
         }
-        let existing: Option<CurrentOffer> = sqlx::query_as("SELECT o.id,o.provider_id,o.current_revision,o.vendor_id,r.cached_prompt_rate,r.reasoning_completion_rate,r.cache_write_prompt_rate FROM provider_offers o JOIN provider_offer_revisions r ON r.id=o.current_revision WHERE o.model_alias=$1 FOR UPDATE OF o").bind(&input.model_alias).fetch_optional(&mut *tx).await?;
+        let existing: Option<CurrentOffer> = sqlx::query_as("SELECT o.id,o.provider_id,o.current_revision,o.vendor_id,r.cached_prompt_rate,r.reasoning_completion_rate,r.cache_write_prompt_rate,r.context_tiers FROM provider_offers o JOIN provider_offer_revisions r ON r.id=o.current_revision WHERE o.model_alias=$1 FOR UPDATE OF o").bind(&input.model_alias).fetch_optional(&mut *tx).await?;
         let offer = match existing {
             Some(CurrentOffer {
                 id,
@@ -678,8 +717,13 @@ impl Store {
                 cached_prompt_rate: prior_cached,
                 reasoning_completion_rate: prior_reasoning,
                 cache_write_prompt_rate: prior_written,
+                context_tiers: prior_tiers,
             }) => {
-                if (prior_written.is_some() && cache_write_prompt_rate.is_none())
+                if (context_tiers.is_none()
+                    && prior_tiers
+                        .as_array()
+                        .is_some_and(|tiers| !tiers.is_empty()))
+                    || (prior_written.is_some() && cache_write_prompt_rate.is_none())
                     || (prior_reasoning.is_some() && reasoning_completion_rate.is_none())
                     || (prior_cached.is_some() && cached_prompt_rate.is_none())
                     || owner != provider
@@ -700,7 +744,7 @@ impl Store {
             }
         };
         let revision = Uuid::new_v4();
-        sqlx::query("INSERT INTO provider_offer_revisions(id,offer_id,currency,prompt_rate,completion_rate,cached_prompt_rate,reasoning_completion_rate,cache_write_prompt_rate) VALUES($1,$2,$3,$4,$5,$6,$7,$8)").bind(revision).bind(offer).bind(&input.currency).bind(prompt).bind(completion).bind(cached).bind(reasoning).bind(written).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO provider_offer_revisions(id,offer_id,currency,prompt_rate,completion_rate,cached_prompt_rate,reasoning_completion_rate,cache_write_prompt_rate,context_tiers) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)").bind(revision).bind(offer).bind(&input.currency).bind(prompt).bind(completion).bind(cached).bind(reasoning).bind(written).bind(sqlx::types::Json(&tiers)).execute(&mut *tx).await?;
         sqlx::query("UPDATE provider_offers SET current_revision=$2,active=FALSE,current_qualification_review=NULL WHERE id=$1")
             .bind(offer)
             .bind(revision)
@@ -761,7 +805,7 @@ impl Store {
                 'revision',r.id,'model_alias',o.model_alias,'rate_kind',r.rate_kind,
                 'currency',r.currency,'prompt_rate',r.prompt_rate::text,
                 'completion_rate',r.completion_rate::text,
-                'cached_prompt_rate',r.cached_prompt_rate::text,'reasoning_completion_rate',r.reasoning_completion_rate::text,'cache_write_prompt_rate',r.cache_write_prompt_rate::text,'created_at',r.created_at)
+                'cached_prompt_rate',r.cached_prompt_rate::text,'reasoning_completion_rate',r.reasoning_completion_rate::text,'cache_write_prompt_rate',r.cache_write_prompt_rate::text,'context_tiers',r.context_tiers,'created_at',r.created_at)
              FROM provider_offer_revisions r
              JOIN provider_offers o ON o.id=r.offer_id
              WHERE o.provider_id=$1 AND o.id=$2 AND r.id=$3",
@@ -836,16 +880,27 @@ impl Store {
         if media {
             return Self::accrue_supplier_media_earning_in_tx(tx, attempt).await;
         }
-        let row=sqlx::query("SELECT b.provider_id,b.revision_id,r.currency,r.prompt_rate,r.completion_rate,r.cached_prompt_rate,r.reasoning_completion_rate,r.cache_write_prompt_rate,a.prompt_tokens,a.completion_tokens,d.cached_input_tokens,d.reasoning_output_tokens,d.cache_write_input_tokens FROM provider_attempt_offers b JOIN attempts a ON a.id=b.attempt_id LEFT JOIN request_token_categories d ON d.attempt_id=a.id JOIN provider_offer_revisions r ON r.id=b.revision_id WHERE a.id=$1 AND r.rate_kind='text' AND a.execution='confirmed_completed' AND a.usage_confidence='provider_reported'")
+        let row=sqlx::query("SELECT b.provider_id,b.revision_id,r.currency,r.prompt_rate,r.completion_rate,r.cached_prompt_rate,r.reasoning_completion_rate,r.cache_write_prompt_rate,r.context_tiers,a.prompt_tokens,a.completion_tokens,d.cached_input_tokens,d.reasoning_output_tokens,d.cache_write_input_tokens FROM provider_attempt_offers b JOIN attempts a ON a.id=b.attempt_id LEFT JOIN request_token_categories d ON d.attempt_id=a.id JOIN provider_offer_revisions r ON r.id=b.revision_id WHERE a.id=$1 AND r.rate_kind='text' AND a.execution='confirmed_completed' AND a.usage_confidence='provider_reported'")
             .bind(attempt).fetch_optional(&mut **tx).await?;
         if let Some(row) = row {
             let prompt: i64 = row.get("prompt_tokens");
             let completion: i64 = row.get("completion_tokens");
-            let rates = TokenRates {
-                prompt: row.get("prompt_rate"),
-                completion: row.get("completion_rate"),
-            };
-            let cached = match row.get::<Option<i64>, _>("cached_prompt_rate") {
+            let tiers: Vec<crate::ContextPriceTier> =
+                serde_json::from_value(row.get("context_tiers"))
+                    .map_err(|_| StoreError::InvalidPrice)?;
+            let selected = crate::select_context_tier(&tiers, prompt)?;
+            let selected_threshold = selected.map(|tier| tier.minimum_input_tokens);
+            let rates = selected.map_or(
+                TokenRates {
+                    prompt: row.get("prompt_rate"),
+                    completion: row.get("completion_rate"),
+                },
+                |tier| tier.ordinary,
+            );
+            let cached = match selected.map_or_else(
+                || row.get::<Option<i64>, _>("cached_prompt_rate"),
+                |tier| tier.cached_prompt,
+            ) {
                 Some(rate) => Some((
                     row.get::<Option<i64>, _>("cached_input_tokens")
                         .ok_or(StoreError::Unresolved)?,
@@ -853,7 +908,10 @@ impl Store {
                 )),
                 None => None,
             };
-            let reasoning = match row.get::<Option<i64>, _>("reasoning_completion_rate") {
+            let reasoning = match selected.map_or_else(
+                || row.get::<Option<i64>, _>("reasoning_completion_rate"),
+                |tier| tier.reasoning_completion,
+            ) {
                 Some(rate) => Some((
                     row.get::<Option<i64>, _>("reasoning_output_tokens")
                         .ok_or(StoreError::Unresolved)?,
@@ -861,7 +919,10 @@ impl Store {
                 )),
                 None => None,
             };
-            let written = match row.get::<Option<i64>, _>("cache_write_prompt_rate") {
+            let written = match selected.map_or_else(
+                || row.get::<Option<i64>, _>("cache_write_prompt_rate"),
+                |tier| tier.cache_write_prompt,
+            ) {
                 Some(rate) => Some((
                     row.get::<Option<i64>, _>("cache_write_input_tokens")
                         .ok_or(StoreError::Unresolved)?,
@@ -874,8 +935,8 @@ impl Store {
             let written_tokens = written.map(|(quantity, _)| quantity);
             let cached_tokens = cached.map(|(quantity, _)| quantity);
             let reasoning_tokens = reasoning.map(|(quantity, _)| quantity);
-            sqlx::query("INSERT INTO provider_earnings(attempt_id,provider_id,revision_id,currency,amount_nanos,prompt_tokens,completion_tokens,cached_prompt_tokens,reasoning_completion_tokens,cache_write_prompt_tokens) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(attempt_id) DO NOTHING")
-                .bind(attempt).bind(row.get::<Uuid,_>("provider_id")).bind(row.get::<Uuid,_>("revision_id")).bind(row.get::<String,_>("currency")).bind(amount).bind(prompt).bind(completion).bind(cached_tokens).bind(reasoning_tokens).bind(written_tokens).execute(&mut **tx).await?;
+            sqlx::query("INSERT INTO provider_earnings(attempt_id,provider_id,revision_id,currency,amount_nanos,prompt_tokens,completion_tokens,cached_prompt_tokens,reasoning_completion_tokens,cache_write_prompt_tokens,context_minimum_input_tokens) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT(attempt_id) DO NOTHING")
+                .bind(attempt).bind(row.get::<Uuid,_>("provider_id")).bind(row.get::<Uuid,_>("revision_id")).bind(row.get::<String,_>("currency")).bind(amount).bind(prompt).bind(completion).bind(cached_tokens).bind(reasoning_tokens).bind(written_tokens).bind(selected_threshold).execute(&mut **tx).await?;
         }
         Ok(())
     }
@@ -979,7 +1040,11 @@ impl Store {
         let offers_has_more = !offer_page["next_after"].is_null();
         let earnings:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('id',e.attempt_id,'model_alias',o.model_alias,'currency',e.currency,'amount_nanos',e.amount_nanos::text,'prompt_tokens',e.prompt_tokens::text,'completion_tokens',e.completion_tokens::text,'billing_meter',e.billing_meter,'meter_quantity',e.meter_quantity,'created_at',e.created_at,'status',CASE WHEN s.attempt_id IS NULL THEN 'accrued' ELSE 'paid' END) FROM provider_earnings e JOIN provider_attempt_offers b ON b.attempt_id=e.attempt_id JOIN provider_offers o ON o.id=b.offer_id LEFT JOIN provider_settlement_entries s ON s.attempt_id=e.attempt_id WHERE e.provider_id=$1 AND e.created_at>=now()-make_interval(days=>$2) ORDER BY e.created_at DESC,e.attempt_id LIMIT 100").bind(provider).bind(days).fetch_all(&mut *tx).await?;
         let settlements:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('id',id,'currency',currency,'amount_nanos',amount_nanos::text,'payment_reference',payment_reference,'created_at',created_at) FROM provider_settlements WHERE provider_id=$1 ORDER BY created_at DESC,id LIMIT 100").bind(provider).fetch_all(&mut *tx).await?;
-        let consumption:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('model_alias',o.model_alias,'revision',r.id,'currency',e.currency,'prompt_rate',r.prompt_rate::text,'completion_rate',r.completion_rate::text,'cached_prompt_rate',r.cached_prompt_rate::text,'reasoning_completion_rate',r.reasoning_completion_rate::text,'cache_write_prompt_rate',r.cache_write_prompt_rate::text,'requests',COUNT(*)::text,'prompt_tokens',SUM(e.prompt_tokens)::text,'completion_tokens',SUM(e.completion_tokens)::text,'cached_prompt_tokens',SUM(e.cached_prompt_tokens)::text,'reasoning_completion_tokens',SUM(e.reasoning_completion_tokens)::text,'cache_write_prompt_tokens',SUM(e.cache_write_prompt_tokens)::text,'amount_nanos',SUM(e.amount_nanos)::text,'unpaid_nanos',SUM(CASE WHEN s.attempt_id IS NULL THEN e.amount_nanos ELSE 0 END)::text) FROM provider_earnings e JOIN provider_attempt_offers b ON b.attempt_id=e.attempt_id JOIN provider_offers o ON o.id=b.offer_id JOIN provider_offer_revisions r ON r.id=e.revision_id LEFT JOIN provider_settlement_entries s ON s.attempt_id=e.attempt_id WHERE e.provider_id=$1 AND e.billing_meter='text_tokens' AND e.created_at>=now()-make_interval(days=>$2) GROUP BY o.model_alias,r.id,r.prompt_rate,r.completion_rate,e.currency ORDER BY o.model_alias,r.id").bind(provider).bind(days).fetch_all(&mut *tx).await?;
+        let consumption: Vec<Value> = sqlx::query_scalar(include_str!("provider_consumption.sql"))
+            .bind(provider)
+            .bind(days)
+            .fetch_all(&mut *tx)
+            .await?;
         let media_consumption:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('model_alias',o.model_alias,'meter',e.billing_meter,'currency',e.currency,'rate_revision',p.rate_revision,'resolution',p.snapshot->'tariff'->'dimensions'->>'resolution','reference_video',p.snapshot->'tariff'->'dimensions'->'reference_video','amount_units',p.snapshot->'tariff'->>'amount_units','decimal_places',p.snapshot->'tariff'->'decimal_places','per_quantity',p.snapshot->'tariff'->'per_quantity','requests',COUNT(*)::text,'quantity',SUM((e.meter_quantity->>'numerator')::numeric)::text,'amount_nanos',SUM(e.amount_nanos)::text,'unpaid_nanos',SUM(CASE WHEN s.attempt_id IS NULL THEN e.amount_nanos ELSE 0 END)::text) FROM provider_earnings e JOIN supplier_media_attempt_pricing p ON p.attempt_id=e.attempt_id JOIN provider_attempt_offers b ON b.attempt_id=e.attempt_id JOIN provider_offers o ON o.id=b.offer_id LEFT JOIN provider_settlement_entries s ON s.attempt_id=e.attempt_id WHERE e.provider_id=$1 AND e.billing_meter<>'text_tokens' AND e.created_at>=now()-make_interval(days=>$2) GROUP BY o.model_alias,e.billing_meter,e.currency,p.rate_revision,p.snapshot ORDER BY o.model_alias,p.rate_revision").bind(provider).bind(days).fetch_all(&mut *tx).await?;
         tx.commit().await?;
         Ok(

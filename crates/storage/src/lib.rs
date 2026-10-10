@@ -161,7 +161,7 @@ pub use codex_report::{
 pub use keys::{IssuedKey, KeyView, Principal};
 pub use pricing::{PriceInput, TokenRates};
 pub use providers::{
-    ProviderMembership, ProviderOfferInput, ProviderOfferQualificationInput,
+    ProviderMembership, ProviderOfferInput, ProviderOfferQualificationInput, ProviderOfferSchedule,
     ProviderQualificationInput, ProviderQualificationRevocationInput, SupplierProfile,
     SupplierProfileUpdate,
 };

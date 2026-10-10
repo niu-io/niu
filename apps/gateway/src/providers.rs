@@ -525,18 +525,21 @@ pub async fn publish_offer(
     };
     let revision = state
         .store
-        .publish_provider_offer_with_cache_write(
+        .publish_provider_offer_schedule(
             provider,
             &rates,
-            cached,
-            input
-                .reasoning_completion_rate
-                .as_ref()
-                .map(|rate| rate.as_deref()),
-            input
-                .cache_write_prompt_rate
-                .as_ref()
-                .map(|rate| rate.as_deref()),
+            niu_storage::ProviderOfferSchedule {
+                cached_prompt_rate: cached,
+                reasoning_completion_rate: input
+                    .reasoning_completion_rate
+                    .as_ref()
+                    .map(|rate| rate.as_deref()),
+                cache_write_prompt_rate: input
+                    .cache_write_prompt_rate
+                    .as_ref()
+                    .map(|rate| rate.as_deref()),
+                context_tiers: input.context_tiers.as_deref(),
+            },
         )
         .await
         .map_err(ApiError::from_store)?;
@@ -688,6 +691,61 @@ pub async fn publish_offer(
 ///               ],
 ///               "pattern": "^[0-9]+$",
 ///               "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured Supplier rate prices it separately; missing quantity remains unresolved."
+///             },
+///             "context_tiers": {
+///               "type": "array",
+///               "maxItems": 32,
+///               "items": {
+///                 "type": "object",
+///                 "additionalProperties": false,
+///                 "required": [
+///                   "minimum_input_tokens",
+///                   "prompt_rate",
+///                   "completion_rate"
+///                 ],
+///                 "properties": {
+///                   "minimum_input_tokens": {
+///                     "type": "string",
+///                     "pattern": "^[0-9]+$",
+///                     "description": "Positive inclusive aggregate input threshold, at most 9223372036854775807."
+///                   },
+///                   "prompt_rate": {
+///                     "type": "string",
+///                     "pattern": "^[0-9]+$",
+///                     "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                   },
+///                   "completion_rate": {
+///                     "type": "string",
+///                     "pattern": "^[0-9]+$",
+///                     "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                   },
+///                   "cached_prompt_rate": {
+///                     "type": [
+///                       "string",
+///                       "null"
+///                     ],
+///                     "pattern": "^[0-9]+$",
+///                     "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                   },
+///                   "cache_write_prompt_rate": {
+///                     "type": [
+///                       "string",
+///                       "null"
+///                     ],
+///                     "pattern": "^[0-9]+$",
+///                     "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                   },
+///                   "reasoning_completion_rate": {
+///                     "type": [
+///                       "string",
+///                       "null"
+///                     ],
+///                     "pattern": "^[0-9]+$",
+///                     "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                   }
+///                 }
+///               },
+///               "description": "Complete whole-request schedules; highest inclusive input threshold wins. Null category rates do not inherit the base schedule. Empty array clears tiers; omitting existing tiers conflicts."
 ///             }
 ///           }
 ///         },
@@ -1500,6 +1558,61 @@ pub struct OfferHistoryQuery {
 ///               ],
 ///               "pattern": "^[0-9]+$",
 ///               "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured Supplier rate prices it separately; missing quantity remains unresolved."
+///             },
+///             "context_tiers": {
+///               "type": "array",
+///               "maxItems": 32,
+///               "items": {
+///                 "type": "object",
+///                 "additionalProperties": false,
+///                 "required": [
+///                   "minimum_input_tokens",
+///                   "prompt_rate",
+///                   "completion_rate"
+///                 ],
+///                 "properties": {
+///                   "minimum_input_tokens": {
+///                     "type": "string",
+///                     "pattern": "^[0-9]+$",
+///                     "description": "Positive inclusive aggregate input threshold, at most 9223372036854775807."
+///                   },
+///                   "prompt_rate": {
+///                     "type": "string",
+///                     "pattern": "^[0-9]+$",
+///                     "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                   },
+///                   "completion_rate": {
+///                     "type": "string",
+///                     "pattern": "^[0-9]+$",
+///                     "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                   },
+///                   "cached_prompt_rate": {
+///                     "type": [
+///                       "string",
+///                       "null"
+///                     ],
+///                     "pattern": "^[0-9]+$",
+///                     "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                   },
+///                   "cache_write_prompt_rate": {
+///                     "type": [
+///                       "string",
+///                       "null"
+///                     ],
+///                     "pattern": "^[0-9]+$",
+///                     "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                   },
+///                   "reasoning_completion_rate": {
+///                     "type": [
+///                       "string",
+///                       "null"
+///                     ],
+///                     "pattern": "^[0-9]+$",
+///                     "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                   }
+///                 }
+///               },
+///               "description": "Complete whole-request schedules; highest inclusive input threshold wins. Null category rates do not inherit the base schedule. Empty array clears tiers; omitting existing tiers conflicts."
 ///             }
 ///           }
 ///         },
@@ -1590,7 +1703,7 @@ pub async fn offer_history(
 ///   "operation": {
 ///     "operationId": "listSupplierSettlements",
 ///     "summary": "Page Supplier settlement history",
-///     "description": "Platform administration or active membership of this Supplier required. Lists immutable records of externally confirmed payments; does not initiate payment or claim a bank balance. Ordered by created_at then id descending, with 1\u2013100 rows per page. All amounts are exact currency nanounit strings. No customer, workspace, request, attempt, credential, or procurement detail is included. Time range is from_ms-inclusive and to_ms-exclusive (Unix milliseconds). Keep filters fixed while following next_cursor; a cursor outside this Supplier or the filters returns 409. Inserts newer than the cursor do not shift later pages; pages do not constitute a frozen multi-request snapshot. All responses are no-store. Existing POST recording semantics are unchanged.",
+///     "description": "Platform administration or active membership of this Supplier required. Lists immutable records of externally confirmed payments; does not initiate payment or claim a bank balance. Ordered by created_at then id descending, with 1–100 rows per page. All amounts are exact currency nanounit strings. No customer, workspace, request, attempt, credential, or procurement detail is included. Time range is from_ms-inclusive and to_ms-exclusive (Unix milliseconds). Keep filters fixed while following next_cursor; a cursor outside this Supplier or the filters returns 409. Inserts newer than the cursor do not shift later pages; pages do not constitute a frozen multi-request snapshot. All responses are no-store. Existing POST recording semantics are unchanged.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1976,7 +2089,7 @@ pub struct CurrentOfferPage {
 ///   "operation": {
 ///     "operationId": "listSupplierOffersPage",
 ///     "summary": "Page current Supplier offers and rate revisions",
-///     "description": "Platform administration or active membership of this Supplier required. Canonical model-alias keyset order, 1\u2013100 entries per page. Includes paused and unqualified drafts; does not activate an offer or establish commercial qualification. after must identify an existing offer of this Supplier or returns 409. Follow next_after until null. Each page has one statement snapshot; multiple pages are not a frozen snapshot. No customer identities, requests, credentials or endpoint data. Dashboard offers remain a 1000-row preview with offers_has_more.",
+///     "description": "Platform administration or active membership of this Supplier required. Canonical model-alias keyset order, 1–100 entries per page. Includes paused and unqualified drafts; does not activate an offer or establish commercial qualification. after must identify an existing offer of this Supplier or returns 409. Follow next_after until null. Each page has one statement snapshot; multiple pages are not a frozen snapshot. No customer identities, requests, credentials or endpoint data. Dashboard offers remain a 1000-row preview with offers_has_more.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -2122,6 +2235,61 @@ pub struct CurrentOfferPage {
 ///                           "null"
 ///                         ],
 ///                         "description": "Reported cache-write input is a disjoint subset of aggregate input. A configured Supplier rate prices it separately; missing quantity remains unresolved."
+///                       },
+///                       "context_tiers": {
+///                         "type": "array",
+///                         "maxItems": 32,
+///                         "items": {
+///                           "type": "object",
+///                           "additionalProperties": false,
+///                           "required": [
+///                             "minimum_input_tokens",
+///                             "prompt_rate",
+///                             "completion_rate"
+///                           ],
+///                           "properties": {
+///                             "minimum_input_tokens": {
+///                               "type": "string",
+///                               "pattern": "^[0-9]+$",
+///                               "description": "Positive inclusive aggregate input threshold, at most 9223372036854775807."
+///                             },
+///                             "prompt_rate": {
+///                               "type": "string",
+///                               "pattern": "^[0-9]+$",
+///                               "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                             },
+///                             "completion_rate": {
+///                               "type": "string",
+///                               "pattern": "^[0-9]+$",
+///                               "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                             },
+///                             "cached_prompt_rate": {
+///                               "type": [
+///                                 "string",
+///                                 "null"
+///                               ],
+///                               "pattern": "^[0-9]+$",
+///                               "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                             },
+///                             "cache_write_prompt_rate": {
+///                               "type": [
+///                                 "string",
+///                                 "null"
+///                               ],
+///                               "pattern": "^[0-9]+$",
+///                               "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                             },
+///                             "reasoning_completion_rate": {
+///                               "type": [
+///                                 "string",
+///                                 "null"
+///                               ],
+///                               "pattern": "^[0-9]+$",
+///                               "description": "Integer currency nanounits per million tokens, at most 1000000000000000."
+///                             }
+///                           }
+///                         },
+///                         "description": "Complete whole-request schedules; highest inclusive input threshold wins. Null category rates do not inherit the base schedule. Empty array clears tiers; omitting existing tiers conflicts."
 ///                       }
 ///                     }
 ///                   }
