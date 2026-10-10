@@ -528,3 +528,21 @@ of 1,000,000,000, zero and 1,000,000,000 nanounits, plus exactly the two complet
 attempts and reconciled charges/refunds. This covers debt-preserving reductions
 without in-flight holds; reductions concurrent with active reservations remain a
 separate verification requirement. No received-money funding was synthesized.
+
+### Credit reduction while a real request holds funds
+
+A separate fresh native run started an actual structured OpenRouter request in
+the background. Direct database observation found its attempt in
+`may_have_executed` with an unreleased customer reservation before the
+administrative request. Reducing approved credit from 1,000,000,000 nanounits to
+zero returned HTTP 409. Immediately afterward the reservation was still held,
+and both the original credit and policy revision were unchanged. The policy
+write was made through the actual HTTP endpoint, not a substituted storage call.
+
+The upstream request subsequently completed and charged normally. A streamed
+request after restart and the existing refund workflow also completed.
+Independent reopening confirmed exactly one policy revision, both reported
+usages and exact charges/debits, correct refund totals and no held reservations.
+Together with the preceding no-hold reduction, these runs exercise the distinct
+accepted and rejected cases without synthesizing an upstream response. They do
+not establish every ordering of simultaneous admissions and credit changes.
