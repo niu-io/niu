@@ -13,7 +13,7 @@ links existing evidence and the pinned New API reference.
 | Workspace ownership and model allowlist | Implemented; scoped actual calls recorded | A key cannot use another workspace's private route or an ungranted model; dispatch rechecks current permissions |
 | Expiration and revocation | Implemented; actual rejection recorded | Expired/revoked keys cannot dispatch; historical records remain available through authorized management |
 | Rotation | Implemented; actual calls recorded | Old secret stops working, replacement retains intended grants, unrelated keys remain usable |
-| Independent currency spending cap | Implemented; paid admission/settlement verification open | Key-level committed charges plus outstanding customer-price reservations cannot admit work beyond the cap; company/workspace limits also apply |
+| Independent currency spending cap | Implemented; actual credit-backed Chat/Responses/embedding spending refusal and settlement verified; funded-prepaid path open | Key-level committed charges plus outstanding customer-price reservations cannot admit work beyond the cap; company/workspace limits also apply |
 | Remaining key allowance | Implemented; exact empty-commitment reads and rotation verified | Return exact remaining nanounits, zero when exhausted and null for unlimited; distinguish key allowance from shared company funds and overall admission capacity |
 | Cap lifecycle and history | Implemented; actual configuration/concurrency verified | Exact integer amounts, explicit unlimited state, optimistic revisions, owner authorization, immutable actor history; lowering cannot invalidate liabilities |
 | Cap during rotation | Implemented; actual shared-policy/history verified | Specify whether the replacement shares the original budget identity; rotating a secret must not silently reset or bypass its spending allowance |
@@ -68,16 +68,16 @@ qualifies its explicitly documented authorization and policy subsets only.
 | Capability | Implementation boundary | Required independent acceptance evidence |
 | --- | --- | --- |
 | Supported payment list | Payment adapters expose availability and supported methods; external refunds are not supported | Inventory matches configured adapters and disabled/unavailable states; each advertised callback contract is checked separately from merchant activation |
-| Checkout identity and recovery | Saved orders, idempotency keys, creation claims, provider bindings and reconciliation exist in `payments.rs` | Retried and concurrent checkout creates one order; restart recovers the same pending order without a second charge |
+| Checkout identity and recovery | Implemented; actual EPay concurrent creation, signed checkout artifact, restart/replay and company-role isolation verified; merchant settlement separate | Retried and concurrent checkout creates one order; restart recovers the same pending order without a second charge |
 | Settled funding | Installation-only receipt recording and verified adapter settlement exist | Real settlement evidence corresponds to exactly one receipt and ledger credit; repeated receipt is idempotent; changed amount/currency/company is rejected |
-| Credit versus cash | Revisioned approved credit is separate from posted funding; empty-account configuration has actual evidence | Admission respects credit plus posted funds minus holds; a credit change never creates a payment or funding receipt |
+| Credit versus cash | Revisioned approved credit is separate from funding; actual zero-credit refusal, credit-backed calls and negative balance within credit verified | Admission respects credit plus posted funds minus holds; a credit change never creates a payment or funding receipt |
 | Customer price history | Immutable text tariffs and media selling schedules are separate from Supplier rates | A completed request reproduces its customer charge from the pinned effective tariff after subsequent price changes |
 | Pre-dispatch reservation | Balance reservation and workspace/key spending checks exist | Concurrent real requests cannot spend the same capacity; denial occurs before upstream dispatch and records no customer charge |
 | Shared-company balance | Accounts belong to the company; workspace and key caps constrain their own usage | Competing workspaces share funds without sharing their limits; currency accounts never implicitly convert or net balances |
-| Final debit | Text and media charge accrual have separate implementations | Reported usage, historical tariff, exact charge, ledger debit and released hold agree; replay and restart do not duplicate debit |
+| Final debit | Actual Chat/Responses/embedding token charges, debits and hold release verified with internal rates/credit; exact media debit remains open | Reported usage, historical tariff, exact charge, ledger debit and released hold agree; replay and restart do not duplicate debit |
 | Uncertain execution | Unresolved liabilities are retained; nonexecution release recovery exists | Disconnect, timeout and restart preserve uncertain holds; only evidenced nonexecution or completed settlement releases the appropriate amount |
 | Usage beyond reservation | Text accrual and durable media liability exist; migration 0214 includes known unsettled media overruns in key/workspace commitments; migration 0215 shares the outstanding-liability calculation across company admission, media debit and reporting; paid verification remains open | Actual overrun remains visible in charge and cap accounting; it cannot be silently discarded or reported as free consumption |
-| Internal charge refund | Installation-only balance reversal links to the original charge; this does not execute an external refund | Partial/full concurrent refunds cannot exceed the original debit; idempotent replay is exact and key/workspace commitment is reduced once |
+| Internal charge refund | Installation-only balance reversal; actual charge refund and identical replay verified; concurrent partial/full boundary qualification remains open; no external refund execution | Partial/full concurrent refunds cannot exceed the original debit; idempotent replay is exact and key/workspace commitment is reduced once |
 | Funding reversal | Original funding entries support bounded linked reversals | Reversal cannot exceed received funds; resulting debt and remaining capacity are explicit; existing liabilities remain recorded |
 | Statements and invoices | Ledger keyset pagination, charge reporting, invoice issuance and invoice payment records exist | All pages reconcile to independent ledger sums; invoices and invoice-payment records do not double-fund prepaid balance or replace its ledger |
 | Financial authorization | Installation financial writes and scoped reads have partial actual evidence | Foreign scopes cannot read or mutate funds; customer responses/exports never disclose Supplier expenses, purchase rates or margins |
@@ -86,12 +86,17 @@ qualifies its explicitly documented authorization and policy subsets only.
 The principal implementation sources are `apps/gateway/src/billing.rs`,
 `apps/gateway/src/payments.rs`, `crates/storage/src/billing.rs`,
 `crates/storage/src/key_spending.rs` and `crates/storage/src/media_pricing.rs`.
-Successful paid admission, debit, refund and reconciliation remain unverified in
-this current-input workstream. Owner-funded personal inference does not exercise
-these branches. Neither an approved credit configuration nor a fabricated settled
-receipt closes those gaps. External merchant activation is not an internal
-readiness prerequisite; truthful settlement evidence is still required to claim
-an actual payment or funded end-to-end result.
+Actual requests backed by explicitly approved internal credit have now exercised
+customer-price admission, exact debits, key spending refusal, charge refunds,
+reconciliation and restart preservation across Chat, Responses and embeddings.
+The [backend integration evidence](../releases/backend-integration-contract.md)
+records those scoped runs, including mixed-protocol concurrency. This is stronger
+than configuration-only evidence, but is not a received-cash top-up workflow.
+Personal routes without customer pricing still do not exercise customer funds.
+Actual settled funding, funding reversal and complete media billing remain open;
+no receipt or commercial qualification was fabricated. External merchant activation
+is not an internal readiness prerequisite. Truthful settlement evidence is required
+to claim an actual payment, not to list an implemented payment integration.
 
 ## Text pricing capability boundaries
 
@@ -103,7 +108,7 @@ an independent optional cache-read rate. Route procurement budget rates remain f
 
 | Capability | Current implementation boundary | Required acceptance behavior |
 | --- | --- | --- |
-| Flat input/output tariff | Implemented in `TokenRates` and immutable customer tariff revisions; paid current-input verification open | Reproduce the exact charge from aggregate counts and the pinned rates, including one combined rounding step |
+| Flat input/output tariff | Implemented; actual Chat/Responses/embedding usage and exact combined rounding verified with internal rates/credit | Reproduce the exact charge from aggregate counts and the pinned rates, including one combined rounding step |
 | Separate cache-read price | Customer configuration, bounds and accrual plus Supplier cached-rate configuration/accrual implemented; actual configuration verified; paid settlement and procurement-bound integration open | Pin a distinct rate and non-overlapping counted quantities; unknown cache usage must not become an invented zero |
 | Separate cache-write price | Not implemented by the generic two-rate text tariff | Distinguish declared write categories and applicable durations without charging included input twice |
 | Separate reasoning-output price | Not implemented by the generic two-rate text tariff | Specify whether reasoning is already included in reported output; apply the agreed schedule without double counting |
