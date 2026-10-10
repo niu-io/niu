@@ -4,6 +4,16 @@ const target = {organization_id:'company',organization_name:'Company',workspace_
 const price = {model_alias:'example/model',revision:'revision',currency:'USD',prompt_rate:'0',completion_rate:'1600000000',cached_prompt_rate:null,request_fee_nanos:'1',minimum_charge_nanos:'0',created_at:'2026-10-11T00:00:00Z'};
 afterEach(() => vi.unstubAllGlobals());
 describe('customer selling configuration transport', () => {
+  it.each(['wrong-model','wrong-current','duplicate','missing-current'])('rejects inconsistent %s history before conflict recovery can use it', async kind => {
+    const current={...price,is_current:true};
+    const data=kind==='duplicate'?[current,current]:kind==='missing-current'?[{...current,revision:'older',is_current:false}]:[{...current,...(kind==='wrong-model'?{model_alias:'different/model'}:{is_current:false})}];
+    vi.stubGlobal('fetch',vi.fn(async()=>Response.json({data,current_revision:price.revision,has_more:false,next_before:null})));
+    await expect(readPriceHistory('test',target,price.model_alias)).rejects.toThrow();
+  });
+  it('allows older history pages to omit the current revision',async()=>{
+    vi.stubGlobal('fetch',vi.fn(async()=>Response.json({data:[{...price,revision:'older',is_current:false}],current_revision:price.revision,has_more:false,next_before:null})));
+    expect((await readPriceHistory('test',target,price.model_alias,'boundary')).data).toHaveLength(1);
+  });
   it('treats server failure as an unconfirmed write and retains explicit conflict status', async () => {
     vi.stubGlobal('fetch',vi.fn(async()=>Response.json({error:{message:'Server failure'}},{status:503})));
     await expect(publishCustomerPrice('test',target,{...price,expected_revision:price.revision})).rejects.toThrow('Publication could not be confirmed');

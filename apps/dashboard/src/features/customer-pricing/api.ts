@@ -72,10 +72,20 @@ export async function listCustomerPrices(token: string, target: PricingTarget, a
 export async function readPriceHistory(token: string, target: PricingTarget, model: string, before?: string, signal?: AbortSignal) {
   const page = await request<CustomerTariffHistory>(token, `${pricingBase(target)}/${encodeURIComponent(model)}/history?limit=50${before ? `&before=${encodeURIComponent(before)}` : ''}`, 'GET', undefined, signal);
   if (!page || !Array.isArray(page.data) || typeof page.has_more !== 'boolean' ||
+    !(page.current_revision === null || typeof page.current_revision === 'string' && !!page.current_revision.trim()) ||
     !(page.next_before === null || typeof page.next_before === 'string' && !!page.next_before) ||
     page.has_more !== (page.next_before !== null) || before !== undefined && page.next_before === before)
     throw new Error('Price revisions could not be read.');
-  page.data.forEach(row => { checkedTariff(row); if (typeof row.is_current !== 'boolean') throw new Error('Price revisions could not be read.'); });
+  const revisions = new Set<string>();
+  page.data.forEach(row => {
+    checkedTariff(row);
+    if (row.model_alias !== model || typeof row.is_current !== 'boolean' ||
+      row.is_current !== (row.revision === page.current_revision) || revisions.has(row.revision))
+      throw new Error('Price revisions could not be read.');
+    revisions.add(row.revision);
+  });
+  if (!before && page.current_revision !== null && !page.data.some(row => row.is_current))
+    throw new Error('The current price revision is missing. Refresh and try again.');
   return page;
 }
 export async function publishCustomerPrice(token: string, target: PricingTarget, input: CustomerTariffInput, signal?: AbortSignal) {
