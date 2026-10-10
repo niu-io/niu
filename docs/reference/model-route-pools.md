@@ -350,3 +350,32 @@ Supplier access while own-workspace key reads still worked. Independent database
 checks found two grant events, zero inference attempts and zero financial entries.
 This verifies the exercised API authorization boundary, not browser grant
 management or every payment/media-pricing business workflow.
+
+## Candidate change during an actual priced stream — 2026-10-10
+
+A fresh native gateway/database used two configured supply mappings to the saved
+personal upstream account, a separate customer pool alias, explicit internal
+retail/procurement tariffs and approved company credit. No commercial Supplier
+qualification or received-money funding was asserted.
+
+A real structured stream on the higher-priority candidate began returning content.
+Independent database reads immediately before and after the pool update still
+showed its execution as `may_have_executed`. The update disabled that candidate
+in pool revision 2. The already-dispatched stream completed its exact requested
+marker and all integers from 1 through 400 using its original candidate/revision 1.
+A new concurrent request completed its requested marker using the other candidate
+and pool revision 2. These are separate customer requests, not a fallback retry.
+
+Both retained responses were parsed for complete content and provider-reported
+usage. Independent SQL matched each attempt's selected mapping, pool revision,
+unchanged customer alias, prompt/completion counts, exact customer charge and
+matching balance debit. Configured procurement arithmetic was checked separately.
+Restart retained exactly two attempts and two charges; no open reservation
+remained and original-charge reconciliation matched without discrepancies.
+Temporary access was revoked, isolated processes stopped and the original saved
+credential identity remained unchanged.
+
+This qualifies the exercised in-flight pool-membership change and pinned
+settlement. Disabling a candidate prevents its selection for new work; it does
+not cancel already-dispatched work. The run does not qualify credential revocation
+races, in-flight tariff changes, automatic failover or sustained routing capacity.

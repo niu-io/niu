@@ -19,12 +19,13 @@ it guarantee that an upstream service itself never retries internally.
 
 ## Routing gap
 
-Source inspection of generic model resolution found one selected stored route
-per alias, or the applicable static configuration; personal routes are scoped
-to their owner before shared resolution. This is not a complete candidate pool,
-weighted selection, circuit breaker or failover implementation. The generic
-Chat handler makes its selected call without a business-level fallback loop.
-Specialized adapter paths require separate review.
+Generic resolution now supports revisioned text candidate pools above existing
+supply aliases, including enabled membership, priority and weighted selection.
+The [pool checkpoints](model-route-pools.md) record actual selection, customer-price
+separation and a candidate change during a priced stream. The generic Chat handler
+still makes its selected call without a business-level fallback loop. Selection
+for a new request is distinct from retrying an existing request. Circuit breakers
+and specialized adapter retry behavior require separate qualification.
 
 Complete failover needs explicit eligibility, bounded retry policy, preserved
 customer pricing and grants, distinct durable attempts, and a rule preventing

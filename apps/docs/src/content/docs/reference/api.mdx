@@ -96,6 +96,19 @@ requests before and after restart. This is a scoped text-accounting observation,
 not qualification of media overruns or every provider. See the
 [verification details](https://github.com/niu-io/niu/blob/main/docs/reference/api-key-spending-limits.md#actual-text-overrun-rotation-and-restart--2026-10-10).
 
+## Route pool updates during generation
+
+A revisioned pool update applies to selection for new requests. Disabling a
+candidate does not cancel a generation already dispatched through it. That request
+retains its original mapping and pool revision for diagnosis and accounting;
+subsequent requests can select another eligible candidate under the new revision.
+Customer model aliases and customer tariffs remain separate from Supplier mappings.
+
+This behavior has been exercised with actual concurrent priced requests and
+independent charge/revision checks. It does not imply automatic failover or retries
+of uncertain executions. See the
+[route pool contract and evidence](https://github.com/niu-io/niu/blob/main/docs/reference/model-route-pools.md).
+
 ## Public model catalog
 
 `GET /catalog/v1/models` and the `/models/` page list aliases an operator explicitly marks with `public_catalog = true`. The response contains the alias, declared capabilities, and optional descriptive catalog metadata such as name, context limits and modalities; it omits provider names, upstream identifiers, endpoints, credentials and Provider prices. Catalog visibility does not authorize inference. Applications still use scoped keys with `/v1/models` and the inference endpoints.
