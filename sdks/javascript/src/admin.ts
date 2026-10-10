@@ -883,7 +883,7 @@ export class NiuAdminClient {
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/billing/tariffs/${encodeURIComponent(model)}/history${query.size ? `?${query}` : ''}`, undefined, options);
   }
 
-  /** Installation-only retail publication. No retry or Supplier-price fallback. */
+  /** Explicit platform-administrator retail publication. No retry or Supplier-price fallback. */
   publishCustomerTariff(scope: TenantScope, rates: CustomerTariffInput, options?: RequestOptions): Promise<{ data: { revision: string } }> {
     validateRates(rates);
     const fee = rates.request_fee_nanos;
