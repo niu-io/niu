@@ -66,6 +66,20 @@ Tariff publication, invoice creation and confirmed external-payment recording re
 
 The JavaScript SDK provides `getCustomerBilling`, `publishCustomerTariff`, `issueCustomerInvoice`, `getCustomerInvoiceLines`, and `recordCustomerInvoicePayment`. Its packaged `inspect-billing.mjs` example reads the latest 100 invoices and reconciles line totals using exact integer arithmetic. Invoice creation does not send an invoice or collect money, and payment recording only records an already confirmed external payment. Keep administration credentials server-side and internal invoice/rate identifiers out of product displays.
 
+### Company credit exhaustion and recovery
+
+Already incurred text charges retain their full reported amount even if they
+exceed the original reservation or approved company credit. Balance and available
+capacity can therefore be negative. New paid requests require sufficient available
+capacity and can return HTTP 402 `budget_exceeded`; billing reads remain available.
+A balance refund is a separate ledger entry and does not erase the original charge.
+Preserve the refund idempotency key when replaying the same administrative action.
+
+An actual credit-backed run verified overrun settlement, refusal across restart,
+an idempotent internal refund and a subsequent real model completion. This does
+not establish bank refund or customer-funded video behavior. See the
+[actual company-credit evidence](https://github.com/niu-io/niu/blob/main/docs/reference/internal-credit-workflow-live.md#actual-company-credit-overrun-and-refund-recovery--2026-10-10).
+
 ## API key spending allowance
 
 Key spending limits apply to new customer-liability reservations. Read

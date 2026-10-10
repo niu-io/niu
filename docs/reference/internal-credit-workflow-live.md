@@ -281,3 +281,44 @@ actual `json_schema` and `json_object` streams with credit-backed accounting,
 plus an actual incomplete JSON stream whose delivery failure retained one exact
 charge and durable diagnostic across restart. Partial output is provisional;
 terminal schema validation and accounting are separate decisions.
+
+## Actual company-credit overrun and refund recovery — 2026-10-10
+
+A fresh native gateway/database used the saved personal OpenRouter credential,
+explicit internal customer tariffs and only 1,000 USD nanos of approved company
+credit. Input was priced at zero and output at 1,000 nanos per reported token.
+No received-money funding, commercial Supplier agreement or external refund was
+asserted. This run had no API-key spending cap, isolating company admission.
+
+A real strict-schema stream requested one output token but completed with the
+requested marker and 11 reported output tokens. The original 1,000-nano hold was
+released; independent SQL confirmed an immutable 11,000-nano customer charge and
+matching debit. Before and after restart, actual balance responses reported
+`balance_nanos: "-11000"`, `available_nanos: "-10000"`, credit `"1000"`, and zero
+open reserved/outstanding liability. Further inference returned HTTP 402
+`budget_exceeded`, leaving the original attempt count unchanged.
+
+An administrator refunded the original charge through the normal balance reversal
+API. Replaying the same refund identity produced only one 11,000-nano refund.
+The account then reported balance zero and available capacity 1,000. A new real
+request was admitted and returned `OK`; its response reported two output tokens,
+so its customer charge and debit were both 2,000 nanos. The requested output bound
+was again one token; the short visible response was not substituted for measured
+usage. The raw response was retained and independently parsed.
+
+After another restart, SQL retained exactly two attempts, two immutable charges
+and one refund. Net balance was -2,000 nanos. Reconciliation matched the full
+13,000 nanos of original charges to original debits without subtracting the
+separate refund, and showed no missing/duplicate/mismatched charges or settled
+open holds. No funding receipt existed. Temporary access was revoked and the
+isolated processes stopped; original development data and encrypted identity
+were preserved.
+
+An earlier run's verifier incorrectly assumed that `OK` must be billed as one
+output token and stopped. Its state was retained; it is not the evidence for the
+completed run above. The completed run retained actual response/usage artifacts
+and calculated both charges from reported quantities.
+
+This verifies the exercised text overrun, company refusal, idempotent internal
+refund and restored admission. It does not qualify bank refunds, received-cash
+funding, customer-funded media overruns or simultaneous overrun settlement.
