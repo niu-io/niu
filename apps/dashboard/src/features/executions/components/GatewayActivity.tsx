@@ -431,11 +431,14 @@ export default function GatewayActivity({ token, models, initialScope, compact =
     setExportError('');
     try {
       const response = await fetch(`/admin/v1/organizations/${organization}/projects/${project}/requests/export${activityFilterQuery ? `?${activityFilterQuery}` : ''}`, {
-        signal: controller.signal, headers: { authorization: `Bearer ${token}` },
+        signal: controller.signal, headers: { authorization: `Bearer ${token}`, accept: 'text/csv' },
       });
       if (!response.ok) throw new Error(response.status === 413
         ? 'Too many requests to export. Narrow the date range, model or API key filter to 10,000 requests or fewer.'
         : `Could not export requests (${response.status}). Try again.`);
+      if (response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() !== 'text/csv') {
+        throw new Error('The export response was not CSV. Refresh Logs and try again.');
+      }
       const content = await response.blob();
       if (controller.signal.aborted) return;
       const url = URL.createObjectURL(content);
