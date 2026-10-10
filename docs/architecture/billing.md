@@ -1,13 +1,15 @@
-# Open-source usage billing
+# Usage billing
 
-Niu owns usage calculation and accounting in its public runtime. Community installations can calculate customer bills and supplier payables without a private service. Payment collection and transfers are separate integrations; the current runtime records confirmed external payments but does not move money.
+Status: current ledger behavior. [Architecture](../../ARCHITECTURE.md) is the runtime overview. This document is the billing contract.
+
+Niu calculates customer charges and Supplier earnings in the public gateway. Prepaid company balance admits paid requests. Customer top-ups can arrive through a configured Stripe, EPay, or Zhifux checkout and credit that balance after verification. Supplier settlement records an external payment; it does not send one.
 
 ## Three independent amounts
 
 | Ledger | Price source | Meaning |
 | --- | --- | --- |
 | Upstream costs (`cost_entries`) | Existing model cost schedule | Platform expenditure and existing cost-budget accounting |
-| Customer charges (`customer_charges`) | Workspace/model selling tariff | Amount the consuming customer owes |
+| Customer charges (`customer_charges`, `customer_media_charges`) | Workspace/model text tariff or media selling schedule | Customer-facing charge for the attempt |
 | Provider earnings (`provider_earnings`) | Supplier/model payout offer | Amount the platform owes the supplying business |
 
 No ledger is inferred from another. A provider can earn a different amount from the customer's charge. There is no default platform fee, revenue share or foreign-exchange conversion. Existing cost budgets remain upstream-cost limits, not prepaid customer credit limits. Upstream costs and these budgets are installation-only accounting APIs, with no consumer navigation; customer Usage shows operational metrics and Billing shows retail charges.
@@ -18,13 +20,13 @@ Installation administrators publish explicit rates per model alias: customer sel
 
 Rates are decimal strings of integer currency nanounits per million input/output text tokens. One currency unit is 1,000,000,000 nanounits. Currency codes contain three uppercase letters; installations must choose the currencies they actually support. The runtime does not certify legal currency codes or convert currencies.
 
-Each admitted attempt snapshots the applicable revisions before dispatch. Confirmed provider-reported usage accrues independently in each ledger:
+Each admitted attempt snapshots the applicable revisions before dispatch. Confirmed provider-reported usage accrues independently in each ledger. Text charges round up once, in nanounits:
 
-```
-amount_nanos = ceil((input_tokens * input_rate + output_tokens * output_rate) / 1_000_000)
+```text
+ceil((uncached_input * input_rate + cached_input * cached_rate + output * output_rate) / 1_000_000)
 ```
 
-The combined charge is rounded up once per attempt to one nanounit using wide integer arithmetic. Invoice and settlement totals sum the persisted amounts, so statement totals reconcile exactly with the ledger. Public JSON uses strings for amounts and aggregate token counts to avoid JavaScript precision loss.
+`uncached_input` is input minus cached input. Without a cached rate, all input uses `input_rate`. A cached rate requires a known cached quantity no larger than the input; missing cached usage stays unresolved. Rates are nanounits per million tokens. Invoice and settlement totals sum the persisted amounts. Public JSON uses strings for amounts and aggregate token counts.
 
 A missing selling tariff means the request is excluded from retail billing, not that a zero rate was agreed. The billing overview reports these unpriced requests. Adding a rate never retroactively bills them. A missing supplier offer likewise creates no supplier payable. Publish both price schedules before routing commercial traffic. An explicit zero rate is supported.
 
@@ -34,9 +36,15 @@ Only confirmed completed attempts with provider-reported usage produce charges a
 
 Retries are separate upstream attempts and, if each reports completed usage, each accrues. This version has no automatic retry-credit policy. Known usage must be recorded before issuing bills; there is no implemented manual reconciliation or credit-note API for unresolved usage. Operators must resolve source-of-truth discrepancies before closing affected periods.
 
+## Prepaid balance
+
+A company balance account is one row per organization and currency. Available capacity is the balance plus the approved credit limit, minus outstanding customer liability. Open reservations count the greater of their reserved amount and any known unposted media charge; a posted debit is not counted again. Workspace and key caps constrain usage of that shared balance. Enabling the account makes paid admission use the customer tariff. An unpriced shared model is rejected for that company. Personal routes reject commercial route pricing and bypass commercial tariff binding.
+
+Settlement of a confirmed, provider-reported attempt inserts `customer_charges` and, when the attempt was reserved against a balance, a negative balance entry. The reservation is released in that same transaction. A charge already debited from the balance can still appear on an invoice. Recording the invoice payment does not credit the balance.
+
 ## Customer invoices
 
-The workspace Billing page shows customer selling rates, unbilled charges, issued unpaid invoices and confirmed payment records separately by currency. Workspace read permissions allow viewing; only installation administrators can change rates, issue invoices or record payments. Cross-project reads are rejected by the API.
+Invoices summarize charges and do not grant spending capacity. The current `due_nanos` calculation checks invoice-payment records but not prepaid balance debits. An already debited charge can therefore still appear unpaid; this is an open read-model defect, not a second obligation to pay. The workspace Billing page can show selling rates, unbilled charges, issued invoices, and confirmed invoice payments by currency. Workspace read permissions allow viewing; only installation administrators can change rates, issue invoices, or record invoice payments. Cross-project reads are rejected by the API.
 
 An invoice uses a closed UTC dispatch interval `[from_ms, to_ms)`, at most 366 days, and one currency. Issuance rejects future periods, overlapping invoices in the same workspace/currency, empty periods and any priced dispatched request awaiting reconciliation. A project lock serializes admission with closure. The immutable invoice links every included charge once; line items group by model and pinned rate revision. Exact retries with the same idempotency key return the original invoice; changed payloads conflict.
 
@@ -50,10 +58,12 @@ See [provider workspace](provider-workspace.md) for supplier access and offer ma
 
 Customer endpoints live under `/admin/v1/organizations/{organization}/projects/{project}/billing`; supplier endpoints under `/admin/v1/providers`. See the [API contract](../../contracts/openapi.yaml). All responses use `Cache-Control: no-store`. Financial revisions, ledger entries, invoices, settlement allocations and audit events are append-only, protected against update/delete in PostgreSQL. Write operations and their audit entries commit together.
 
-Migrations `0017_provider_business.sql` and `0018_customer_billing.sql` add these tables without relabeling or backfilling upstream costs. Existing installations require explicit commercial configuration before usage accrues. Administrative financial audit records identify installation authority; this release does not distinguish individual bootstrap tokens.
+Migrations `0017_provider_business.sql` and `0018_customer_billing.sql` added these tables without relabeling or backfilling upstream costs. Later migrations add prepaid balances and cached input rates. Media customer charges use `customer_media_charges`; Supplier media earnings use the shared earnings table with their own meter and quantity evidence. Existing installations require explicit commercial configuration before usage accrues. Administrative financial audit records identify installation authority; bootstrap-token actions are not attributed to a named member.
 
 ## Current scope
 
-This version covers input/output text-token charges. Cache discounts, image/audio pricing, fixed request fees, volume tiers, subscriptions, credits/refunds, taxation, legal invoicing, prepaid wallet enforcement, payment processors, automatic payout execution and currency conversion are not implemented. Do not configure a model under this schedule if its usage requires unsupported billing dimensions. There are no fabricated live balances or automatic production rates.
+Text input, cached input, and output tokens use the integer schedule above. Video estimates use the separate integer media calculator. Prepaid balance, credit limits, reservations, and verified top-ups are enforced in PostgreSQL. Stripe, EPay, and Zhifux are checkout adapters for those top-ups.
 
-Read views currently cap invoice/settlement history at 100 records and configured offers/tariffs at 1,000; balances always include the full ledger. Export and paginated accounting history remain future work. PostgreSQL integration tests cover pinned rates, independent ledgers, unresolved usage, tenant isolation, replay, concurrent payment recording and immutability.
+Currency conversion, automatic Supplier bank payout, volume tiers, and a credit-note API for unresolved usage are not implemented. A model whose usage needs an unsupported dimension must not be given a text-only tariff and treated as fully priced.
+
+Read views cap invoice and settlement history at 100 records and configured offers or tariffs at 1,000. Balance totals include the full ledger. Priced admission now commits attempt bindings, reservation and dispatch intent together, after any price-cache publication. Financial recovery uses one claimed connection from the shared pool, per-row savepoints and durable stage cursors. Content maintenance is independently scheduled and uses a separate claim; neither reserves capacity for foreground admission. See [architecture](../../ARCHITECTURE.md), [admission evidence](../reference/priced-admission-atomicity.md), and [recovery evidence](../reference/financial-recovery-coordination.md). Successful paid debit, nonempty recovery and performance remain unqualified in the current-input workstream.
