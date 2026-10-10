@@ -76,3 +76,18 @@ or customer ledger entries; these management checks made no upstream calls.
 The original development credential identity was unchanged. This verifies the
 exercised save/rejection behavior, not all possible price bounds or commercial
 Supplier qualification.
+
+## Exact price preservation through a JavaScript capability edit
+
+An isolated current-input run on 2026-10-10 saved the integer route rate
+9007199254740993 through HTTP, with valid small token bounds. A native JavaScript
+client read that mapping, confirmed its numeric price was outside JavaScript's
+safe-integer range, and changed a capability while omitting `pricing` entirely
+from the update body. The gateway accepted the revisioned update.
+
+Independent PostgreSQL reads retained the exact original decimal value and the
+new revision. After gateway restart, an exact-integer JSON reader observed the
+same complete price and updated capability. No inference or ledger entry was
+created. This verifies that an omitted-price edit does not overwrite the stored
+value with JavaScript's rounded representation. It does not make an unsafe JSON
+number safe to edit or resubmit, and does not qualify the browser form itself.
