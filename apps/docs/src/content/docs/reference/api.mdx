@@ -871,7 +871,7 @@ diagnostics for a saved outcome; do not automatically retry the operation.
 ## Native Gemini text
 
 `POST /v1beta/models/{alias}:generateContent` is available for explicitly opted-in
-static `gemini` routes. URL-encode the alias, including any slash, and authenticate
+static or managed `gemini` routes. URL-encode the alias, including any slash, and authenticate
 with a Niu workspace key. Supply textual `contents` and a bounded
 `generationConfig.maxOutputTokens`. Native tools, media, cached resources, thinking
 configuration and streaming are unsupported and rejected before dispatch. Existing
@@ -881,5 +881,6 @@ The SDK exposes `client.generateContent(alias, body)` using a base URL ending in
 `/v1`. [Generated contracts](/docs/reference/handler-operations/#generate-native-buffered-gemini-text)
 list the exact supported fields. Actual negative paths, input redaction, retained
 upstream rejection and restart were verified; successful Google generation,
-output processing and settled billing remain unverified. Managed Gemini credentials
-are not yet implemented. See the [implementation and verification boundary](https://github.com/niu-io/niu/blob/main/docs/architecture/native-inference-protocols.md#static-gemini-generatecontent-text).
+output processing and settled billing remain unverified. Supplier credentials accept `adapter: "gemini"`; model mappings require
+`capabilities.supports_generate_content: true`. Discovery and checks use native
+Google authentication and bounded catalog reads. See the [implementation and verification boundary](https://github.com/niu-io/niu/blob/main/docs/architecture/native-inference-protocols.md#gemini-generatecontent-text).

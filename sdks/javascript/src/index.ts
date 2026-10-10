@@ -1,5 +1,5 @@
 import type { ContextPriceTier } from './admin.js';
-/** Buffered native Gemini text. Requires an explicitly declared static gemini route. */
+/** Buffered native Gemini text. Requires an explicitly declared static or managed gemini route. */
 export type GenerateContentRequest = {
   contents: Array<{ role?: 'user' | 'model'; parts: Array<{ text: string }> }>;
   systemInstruction?: { role?: 'user' | 'model' | 'system'; parts: Array<{ text: string }> };

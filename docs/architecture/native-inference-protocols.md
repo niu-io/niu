@@ -2,8 +2,8 @@
 
 Status: partial. `POST /v1/messages` implements native nonstreaming text on
 explicitly opted-in OpenRouter and Anthropic routes. Buffered GenerateContent
-text is implemented for static Gemini routes, with actual refusal-path verification.
-Managed Gemini credentials, native streaming, tools and media remain unimplemented. Existing Anthropic/Bedrock
+text is implemented for static and managed Gemini routes. Native streaming, tools
+and media remain unimplemented. Existing Anthropic/Bedrock
 conversion behind Chat is separate from this native public operation.
 
 ## Integration boundary
@@ -301,7 +301,7 @@ The original development database and credentials were unchanged. No fixture
 outcome was used.
 
 
-## Static Gemini GenerateContent text
+## Gemini GenerateContent text
 
 `POST /v1beta/models/{model_action}` accepts a URL-encoded public alias followed
 by `:generateContent`. Encode slashes within an alias; for example,
@@ -313,7 +313,18 @@ The static route must explicitly set `provider = "gemini"`,
 The default API base is `https://generativelanguage.googleapis.com/v1beta`.
 The existing prepaid admission requires configured conservative route prices
 and a customer tariff; an unpriced static route cannot bypass that requirement.
-Managed Gemini credential creation remains unimplemented.
+Managed credentials use `adapter = "gemini"`, the same native API base and the
+encrypted Supplier credential lifecycle. Set `capabilities.supports_generate_content`
+to true on each model mapping. Personal ownership remains isolated to its account;
+shared procurement and customer tariffs retain their existing requirements.
+
+Model diagnostics use server-side `x-goog-api-key` authentication and a bounded
+1000-model page. Native `models/{id}` resource names are normalized to `{id}` for
+mapping, with display names and token limits projected as descriptive metadata.
+An incomplete catalog is rejected by discovery; an absent model in an incomplete
+check remains unknown. Catalog metadata never automatically enables a native
+capability or configures a price. The native envelope follows the
+[Google Models API](https://ai.google.dev/api/models).
 
 The implemented document contains `contents` with textual `parts`, optional
 `systemInstruction`, and `generationConfig` with required positive
@@ -381,3 +392,31 @@ used an unpriced route under prepaid admission and correctly received 400; it wa
 changed to use explicit internal route/customer prices, without weakening admission.
 No fixture outcome was used as evidence. This is not closure of the complete
 native-protocol issue or full backend acceptance.
+
+### Managed Gemini configuration and upgrade verification
+
+A separate current-input run created a Supplier-linked Gemini credential and
+personal model mapping through management APIs, using a deliberately invalid
+Google key. A foreign account could not call the alias; incompatible Messages
+capability was rejected at model creation. Actual native catalog/check and
+GenerateContent requests reached Google and retained sanitized refusal states.
+The single inference attempt remained linked to the correct encrypted credential.
+Restart preserved adapter, model capability and credential revision/ciphertext.
+Independent reopening confirmed migration 0253, Supplier ownership, the failure
+artifact and zero customer/procurement financial or commercial qualification rows.
+Positive Google catalog normalization and successful native output remain unverified.
+
+An offline copy of an existing database with actual inference and charge records
+was upgraded from migration 0252 to 0253. Prior migration checksums, encrypted
+identities, model/pool counts, attempts, charges, balance entries and their sum
+were preserved. A new disabled Gemini credential persisted after restart; an
+independent reopening checked the final database against the pre-upgrade inventory.
+The first verification inputs encountered an already-used credential name and
+an invalid foreign-account model grant. Inputs were corrected without changing
+product validation. No fixture outcome was used for these conclusions.
+
+The shared catalog path was also exercised again with real OpenRouter discovery,
+model checking and a fresh native Messages completion alongside a separate invalid
+Anthropic credential. Independent artifacts preserved the selected credential,
+Supplier associations and restart isolation. Missing cache categories remained
+unknown; no customer charge or commercial supply claim was inferred.

@@ -30,8 +30,44 @@ fn model_catalog_request(
             .header("x-api-key", api_key)
             .header("anthropic-version", "2023-06-01")
             .query(&[("limit", "1000")])
+    } else if adapter == "gemini" {
+        request
+            .header("x-goog-api-key", api_key)
+            .query(&[("pageSize", "1000")])
     } else {
         request.bearer_auth(api_key)
+    }
+}
+
+/// Normalize only the documented catalog envelope and descriptive fields.
+/// Native resource names become model IDs accepted by GenerateContent; no
+/// upstream capability or price automatically enables an inference capability.
+fn catalog_models(catalog: &Value, adapter: &str) -> Option<Vec<Value>> {
+    let field = if adapter == "gemini" {
+        "models"
+    } else {
+        "data"
+    };
+    let models = catalog.get(field)?.as_array()?;
+    Some(models.iter().map(|model| {
+        if adapter != "gemini" { return model.clone(); }
+        json!({
+            "id": model.get("name").and_then(Value::as_str).and_then(|name| name.strip_prefix("models/")),
+            "name": model.get("displayName"),
+            "description": model.get("description"),
+            "context_length": model.get("inputTokenLimit"),
+            "top_provider": { "max_completion_tokens": model.get("outputTokenLimit") }
+        })
+    }).collect())
+}
+
+fn catalog_complete(catalog: &Value, adapter: &str) -> bool {
+    match adapter {
+        "anthropic" => catalog.get("has_more").and_then(Value::as_bool) == Some(false),
+        "gemini" => catalog
+            .get("nextPageToken")
+            .is_none_or(|token| token.as_str() == Some("")),
+        _ => true,
     }
 }
 
@@ -225,7 +261,8 @@ pub struct VendorFilter {
 ///           "enum": [
 ///             "openrouter",
 ///             "openai",
-///             "anthropic"
+///             "anthropic",
+///             "gemini"
 ///           ]
 ///         },
 ///         "api_base": {
@@ -290,7 +327,8 @@ pub struct VendorFilter {
 ///           "enum": [
 ///             "openrouter",
 ///             "openai",
-///             "anthropic"
+///             "anthropic",
+///             "gemini"
 ///           ]
 ///         },
 ///         "api_base": {
@@ -775,7 +813,7 @@ pub async fn update(
 ///         "supports_generate_content": {
 ///           "type": "boolean",
 ///           "default": false,
-///           "description": "Native GenerateContent opt-in; currently requires a static gemini route."
+///           "description": "Native GenerateContent opt-in for static or managed gemini routes; does not imply streaming, tools or media support."
 ///         },
 ///         "supports_messages": {
 ///           "type": "boolean",
@@ -1362,7 +1400,7 @@ pub async fn list_models(
 ///   "operation": {
 ///     "operationId": "listProviderModelCatalog",
 ///     "summary": "Discover upstream models for a Supplier API-key configuration",
-///     "description": "Makes a bounded GET to the configured provider /models endpoint using the encrypted server-side credential. Anthropic uses x-api-key and anthropic-version 2023-06-01, requests at most 1000 models and rejects an incomplete catalog rather than returning a truncated inventory. No inference request is sent. Redirects are blocked, the response body is capped at 2 MiB, and only allowlisted model IDs and catalog metadata (display name, description, context and output limits, modalities, and advertised USD token prices) are returned. Provider credentials and raw response data are never returned. Requires installation administration or an explicitly granted platform administrator.",
+///     "description": "Makes a bounded GET to the configured provider /models endpoint using the encrypted server-side credential. Anthropic uses x-api-key and anthropic-version 2023-06-01; Gemini uses x-goog-api-key and normalizes native model resource names. Both request at most 1000 models and reject an incomplete catalog rather than returning a truncated inventory. No inference request is sent. Redirects are blocked, the response body is capped at 2 MiB, and only allowlisted model IDs and catalog metadata (display name, description, context and output limits, modalities, and advertised USD token prices) are returned. Provider credentials and raw response data are never returned. Requires installation administration or an explicitly granted platform administrator.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1550,19 +1588,14 @@ pub async fn catalog(
     let catalog: Value = serde_json::from_slice(&body).map_err(|_| {
         ApiError::upstream_message("The provider returned an invalid model catalog.")
     })?;
-    if vendor.adapter == "anthropic"
-        && catalog.get("has_more").and_then(Value::as_bool) != Some(false)
-    {
+    if !catalog_complete(&catalog, &vendor.adapter) {
         return Err(ApiError::upstream_message(
-            "The Anthropic catalog is incomplete or invalid; Niu cannot report it as a complete inventory.",
+            "The provider catalog is incomplete or invalid; Niu cannot report it as a complete inventory.",
         ));
     }
-    let models = catalog
-        .get("data")
-        .and_then(Value::as_array)
-        .ok_or_else(|| {
-            ApiError::upstream_message("The provider returned an invalid model catalog.")
-        })?;
+    let models = catalog_models(&catalog, &vendor.adapter).ok_or_else(|| {
+        ApiError::upstream_message("The provider returned an invalid model catalog.")
+    })?;
     let data = models
         .iter()
         .take(MAX_DISCOVERED_MODELS)
@@ -1603,7 +1636,7 @@ pub struct CheckModelInput {
 ///   "operation": {
 ///     "operationId": "checkVendorModel",
 ///     "summary": "Check provider reachability and whether a mapped model is listed",
-///     "description": "Performs a bounded GET to the provider's /models endpoint. Anthropic uses native authentication/version headers and a 1000-model page; absence from an incomplete page remains unknown. It does not send an inference request. Redirects are blocked, response bodies are capped at 2 MiB, and provider response content and credentials are never returned. A listed model does not prove inference entitlement or quota. Requires installation administration or an explicitly granted platform administrator.",
+///     "description": "Performs a bounded GET to the provider's /models endpoint. Anthropic and Gemini use native authentication headers and a 1000-model page; absence from an incomplete page remains unknown. It does not send an inference request. Redirects are blocked, response bodies are capped at 2 MiB, and provider response content and credentials are never returned. A listed model does not prove inference entitlement or quota. Requires installation administration or an explicitly granted platform administrator.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1866,7 +1899,7 @@ pub async fn check_model(
             started,
         ));
     };
-    let Some(models) = catalog.get("data").and_then(Value::as_array) else {
+    let Some(models) = catalog_models(&catalog, &route.vendor.adapter) else {
         return Ok(check_response(
             "invalid_model_catalog",
             "unknown",
@@ -1881,9 +1914,7 @@ pub async fn check_model(
         "connected",
         if listed {
             "listed"
-        } else if route.vendor.adapter == "anthropic"
-            && catalog.get("has_more").and_then(Value::as_bool) != Some(false)
-        {
+        } else if !catalog_complete(&catalog, &route.vendor.adapter) {
             "unknown"
         } else {
             "not_listed"

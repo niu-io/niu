@@ -10484,7 +10484,7 @@ HTTP 401: Invalid or expired administrative credential.
 
 `GET /admin/v1/vendors/{id}/catalog`
 
-Makes a bounded GET to the configured provider /models endpoint using the encrypted server-side credential. Anthropic uses x-api-key and anthropic-version 2023-06-01, requests at most 1000 models and rejects an incomplete catalog rather than returning a truncated inventory. No inference request is sent. Redirects are blocked, the response body is capped at 2 MiB, and only allowlisted model IDs and catalog metadata (display name, description, context and output limits, modalities, and advertised USD token prices) are returned. Provider credentials and raw response data are never returned. Requires installation administration or an explicitly granted platform administrator.
+Makes a bounded GET to the configured provider /models endpoint using the encrypted server-side credential. Anthropic uses x-api-key and anthropic-version 2023-06-01; Gemini uses x-goog-api-key and normalizes native model resource names. Both request at most 1000 models and reject an incomplete catalog rather than returning a truncated inventory. No inference request is sent. Redirects are blocked, the response body is capped at 2 MiB, and only allowlisted model IDs and catalog metadata (display name, description, context and output limits, modalities, and advertised USD token prices) are returned. Provider credentials and raw response data are never returned. Requires installation administration or an explicitly granted platform administrator.
 
 Implementation: `implemented`. Operation: `listProviderModelCatalog`.
 
@@ -10547,7 +10547,7 @@ HTTP 401: Invalid or expired administrative credential.
 
 `POST /admin/v1/vendors/{id}/check`
 
-Performs a bounded GET to the provider's /models endpoint. Anthropic uses native authentication/version headers and a 1000-model page; absence from an incomplete page remains unknown. It does not send an inference request. Redirects are blocked, response bodies are capped at 2 MiB, and provider response content and credentials are never returned. A listed model does not prove inference entitlement or quota. Requires installation administration or an explicitly granted platform administrator.
+Performs a bounded GET to the provider's /models endpoint. Anthropic and Gemini use native authentication headers and a 1000-model page; absence from an incomplete page remains unknown. It does not send an inference request. Redirects are blocked, response bodies are capped at 2 MiB, and provider response content and credentials are never returned. A listed model does not prove inference entitlement or quota. Requires installation administration or an explicitly granted platform administrator.
 
 Implementation: `implemented`. Operation: `checkVendorModel`.
 
@@ -11818,13 +11818,13 @@ HTTP 503: Durable storage or configured route unavailable.
 
 `POST /v1beta/models/{model_action}`
 
-Set provider gemini and supports_generate_content true on a static route. model_action is the URL-encoded public alias followed by :generateContent; encode slashes inside aliases. Niu bearer or x-niu-api-key authentication is required. Only bounded nonstreaming text with generationConfig.maxOutputTokens is supported; tools, media, cachedContent, thinking configuration and other actions are rejected before dispatch. Uses shared grants, key limits, prepaid reservations, guardrails, diagnostics and settlement; no Chat translation or automatic retry. Total output is totalTokenCount minus promptTokenCount, which includes reported thoughts under the native contract. Missing category counts remain unknown; cache-write rates are unsupported and rejected before dispatch. Unknown aggregate usage retains priced liabilities. Client response fields are projected; modelVersion uses the public alias and thought signatures are not exposed. Managed Gemini credentials, native SDK compatibility and successful end-to-end billing remain unverified/unimplemented as documented.
+Set provider gemini and supports_generate_content true on a static route, or create a managed gemini credential and opt its model mapping into supports_generate_content. model_action is the URL-encoded public alias followed by :generateContent; encode slashes inside aliases. Niu bearer or x-niu-api-key authentication is required. Only bounded nonstreaming text with generationConfig.maxOutputTokens is supported; tools, media, cachedContent, thinking configuration and other actions are rejected before dispatch. Uses shared grants, key limits, prepaid reservations, guardrails, diagnostics and settlement; no Chat translation or automatic retry. Total output is totalTokenCount minus promptTokenCount, which includes reported thoughts under the native contract. Missing category counts remain unknown; cache-write rates are unsupported and rejected before dispatch. Unknown aggregate usage retains priced liabilities. Client response fields are projected; modelVersion uses the public alias and thought signatures are not exposed. Native SDK compatibility and successful end-to-end billing remain unverified as documented.
 
 Implementation: `implemented`. Operation: `generateContent`.
 
 ### Supported scope
 
-Static gemini routes only; successful native upstream completion remains unverified.
+Static or managed gemini routes only; successful native upstream completion remains unverified.
 
 ### Authentication
 
@@ -17060,7 +17060,8 @@ Local `#/components/schemas/…` references resolve to these definitions.
       "enum": [
         "openrouter",
         "openai",
-        "anthropic"
+        "anthropic",
+        "gemini"
       ]
     },
     "api_base": {
@@ -17147,7 +17148,7 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "supports_generate_content": {
       "type": "boolean",
       "default": false,
-      "description": "Native GenerateContent opt-in; currently requires a static gemini route."
+      "description": "Native GenerateContent opt-in for static or managed gemini routes; does not imply streaming, tools or media support."
     },
     "supports_messages": {
       "type": "boolean",
@@ -17185,7 +17186,8 @@ Local `#/components/schemas/…` references resolve to these definitions.
       "enum": [
         "openrouter",
         "openai",
-        "anthropic"
+        "anthropic",
+        "gemini"
       ]
     },
     "api_base": {
