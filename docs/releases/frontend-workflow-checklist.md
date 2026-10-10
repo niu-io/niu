@@ -885,3 +885,9 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
 
 - The history label derived from retained prompt content while the page header used only the model name. Reused one title function for both existing surfaces: the first nonempty saved prompt line (bounded to 120 characters), with the meaningful model/session fallback when retained content is unavailable. No layout, unsupported rename capability or browser-only title persistence was added.
 - The real saved orange-ball intent now shows the same meaningful title in history and the page header, while retaining Succeeded, its saved prompt and result controls. Desktop HMR verification and all 20 VideoView checks plus TypeScript checking passed. Narrow-width title qualification remains open.
+
+## Upstream credential request-cap contract intake
+
+- Pulled the backend credential request-limit increment and inspected its configuration/dispatch contract. The current local service exposes the normal administrator policy read for the saved OpenRouter credential: revision 0, unlimited. This is an actual API read, not proof of enforcement or a configured management interface. No policy or credential was changed.
+- Added a Chat integration regression for HTTP 429 upstream_request_rate_exceeded with Retry-After 60. It preserves the actionable server message and Failed state, issues one request, and does not automatically retry or substitute another model. All 51 PlaygroundView integration checks passed. This automated case does not qualify a real rendered refusal.
+- Add the credential-scoped policy read/edit/history lifecycle to the Admin Supplier work plan, using the existing key-limit dialog pattern and Stitch iteration. Preserve exact revision strings, explicit null versus zero, stale-write recovery and private administration boundaries. Runtime enforcement/performance remains owned by the backend workstream.

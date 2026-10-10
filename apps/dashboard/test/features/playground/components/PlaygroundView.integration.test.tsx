@@ -795,6 +795,26 @@ describe('Global Chat', () => {
     expect(requests.filter(request => request.url === '/v1/chat/completions').every(request => request.signal?.aborted)).toBe(true);
   });
 
+  it('retains an upstream credential rate refusal without retrying or substituting a model', async () => {
+    let dispatches=0;
+    const message='The selected upstream route has reached its rolling 60-second request limit; retry after 60 seconds';
+    stubFetch(vi.fn(async (input: RequestInfo | URL) => {
+      const url=String(input);
+      if(url.endsWith('/keys'))return jsonResponse({data:[{id:'key-a',name:'Default',allowed_models:['fast'],revoked:false,expired:false}]});
+      if(url.endsWith('/chat/completions')){dispatches++;return new Response(JSON.stringify({error:{type:'upstream_request_rate_exceeded',message}}),{status:429,headers:{'content-type':'application/json','retry-after':'60'}});}
+      return jsonResponse({data:[]});
+    }));
+    const user=userEvent.setup();renderPlayground(['fast']);
+    await screen.findByRole('button',{name:'API key: Default'});
+    await waitFor(()=>expect((screen.getByLabelText('Prompt for all selected models') as HTMLTextAreaElement).disabled).toBe(false));
+    await user.type(screen.getByLabelText('Prompt for all selected models'),'Rate refusal verification');
+    await user.click(screen.getByRole('button',{name:'Send to 1 model'}));
+    expect(await screen.findByText(message)).toBeTruthy();
+    expect(screen.getByText('Failed')).toBeTruthy();
+    expect(screen.queryByText('Complete')).toBeNull();
+    expect(dispatches).toBe(1);
+  });
+
   it('keeps per-model failures independent across follow-up turns', async () => {
     let strongCalls = 0;
     stubFetch(vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
