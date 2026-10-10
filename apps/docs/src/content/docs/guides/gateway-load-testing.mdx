@@ -24,17 +24,22 @@ python3 scripts/gateway-benchmark.py \
 To use a fixed arrival rate, pass `--mode rate --rate 500 --workers 64` instead.
 Rate runs count starts that exceed `--max-start-lag-ms` as dropped and return a
 nonzero exit status for drops or failed responses. Repeat each configuration at
-least five times, use the same machine and provider fixture, rotate test order,
+least five times, use the same machine and actual configured upstream, rotate run order,
 and retain every JSON report. Measure CPU and resident memory separately for the
 gateway and PostgreSQL; record the database version, pool size, schema revision,
-gateway commit, container image, host resources, and provider fixture. After a
+gateway commit, deployment mode, host resources, and upstream model/adapter. After a
 run, reconcile accepted requests, attempts, usage, reservations, and settlements
-from the gateway's persisted records.
+from the gateway's persisted records. HTTP 200 alone does not establish valid
+model output or complete streaming delivery. Independently inspect current-input
+outputs, terminal events and usage, then compute expected charges from the pinned
+customer tariff and compare each charge, debit and released reservation. Preserve
+all failed or uncertain attempts; never silently retry them out of a report.
 
 The client measures end-to-end HTTP time, including upstream and response-body
 time. Warm-up calls are excluded from the report but still execute and may be
-billable against a live provider. Use a deterministic local provider to avoid
-provider variability and spend. The client does not report isolated proxy
+billable against a live provider. Set an explicit request/spend bound before
+using an authorized upstream. Fixture results provide no evidence of correctness,
+performance qualification, or readiness. The client does not report isolated proxy
 overhead, time to first token, PostgreSQL resource use, or model quality. Keep
 unpriced traffic separate from priced
 admission and settlement runs, since those paths exercise different storage
@@ -47,8 +52,19 @@ single-client run against a deterministic mock upstream. Bifrost's open
 [benchmark tooling](https://github.com/maximhq/bifrost-benchmarking) provides
 Vegeta-based fixed-rate and fixed-user runs, a mock provider, latency and
 throughput reports, and optional gateway RSS sampling. Pin the releases and
-match the protocol, payload, routing and authentication work, fixture, load
+match the protocol, payload, routing and authentication work, upstream conditions, load
 profile, hardware, and measurement definitions before comparing results. Keep
 measured gateway-added latency separate from end-to-end request latency.
 References: [LiteLLM's published benchmark](https://www.litellm.ai/ai-gateway)
 and [Bifrost's benchmark repository](https://github.com/maximhq/bifrost-benchmarking).
+
+## Current native structured-stream checkpoint
+
+A 60-second admission window with four workers produced 71 independently
+verified structured streams in 63.630 seconds including drain. Each returned its
+fresh marker and complete requested integer sequence. Independent usage-based
+arithmetic matched every customer charge and debit, no balance hold remained,
+and restart preserved the same records. Completion P50/P95 was 3.262/4.947 seconds,
+including real upstream generation. This single run does not establish production
+capacity. The [detailed workload and boundaries](https://github.com/niu-io/niu/blob/main/docs/reference/structured-output-streaming.md#one-minute-structured-stream-load-checkpoint)
+include rates, process samples and accounting checks.

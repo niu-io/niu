@@ -90,3 +90,45 @@ then made an actual structured stream through the existing personal route: its
 fresh marker, terminal usage and saved attempt agreed, and no customer charge was
 created. The temporary key was revoked. This is a native backend checkpoint;
 frontend and packaged deployment qualification remain separate.
+
+## One-minute structured-stream load checkpoint
+
+On 2026-10-10, the backend built from `9fa9ea8` ran four sequential-request
+workers against an isolated native PostgreSQL instance with an eight-connection
+pool. Workers admitted new requests for 60 seconds and then drained in-flight
+responses, with an independent ceiling of 30 requests per worker. No retries or
+warm-up calls were included. This used the saved personal OpenRouter credential,
+`openai/gpt-4.1-mini`, private verification rates and administrator-approved
+credit, without merchant funding, public supply or a commercial offer.
+
+Every request required a new marker and exactly the integers 1 through 200 in
+ascending order, with a 1,024-token requested output limit. All 71 actual responses
+contained the expected complete JSON document, reported usage and `[DONE]`.
+Reported input usage ranged from 74 to 85 tokens and output from 411 to 416.
+
+| Measurement | Observation |
+| --- | ---: |
+| Workers / completed requests | 4 / 71 |
+| Total time including drain | 63.630 seconds |
+| Completed requests per second | 1.116 |
+| Completion P50 / P95 / maximum | 3.262 / 4.947 / 9.753 seconds |
+| First content P50 / P95 | 0.751 / 1.336 seconds |
+| Gateway RSS across 63 one-second samples | 22,448–26,928 KiB |
+| Maximum sampled process CPU | 8.2% |
+
+Independent integer arithmetic used each response's reported input/output usage
+and the pinned customer rates of 123,456,789 / 987,654,321 USD nanounits per million
+tokens, rounding the combined charge upward once. Each of the 71 customer charges
+and corresponding balance debits matched. Their total was 29,619,043 internal
+USD nanounits; this is not an upstream invoice or claimed market price. No active
+reservation remained, reconciliation had no missing/mismatched/duplicate source,
+and all 71 saved timing records were complete. No request failure or database
+deadlock diagnostic was recorded. Gateway restart preserved the same 71 charges
+and debits. Temporary credentials were revoked and isolated processes stopped;
+the original development database and encrypted credential identity were retained.
+
+The private artifacts retain each response digest, actual usage, latency,
+financial comparison, process sample and binary hash. This extends the measured
+workload beyond the earlier eight-request burst. It remains a single short run,
+not a production concurrency limit, long soak, gateway-only overhead measurement,
+or qualification of overload, slow readers, large inputs or multiple instances.
