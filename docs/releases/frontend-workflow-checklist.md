@@ -906,3 +906,9 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
 
 - After syncing main through b5a5cd97, all 21 VideoView tests passed, including a new credential-limit 429 case. It displays the server reason, performs one submission, reads the saved intent for recovery, and neither invents a queued/succeeded result nor requests an unrelated job. No real generation or limit mutation was performed.
 - Browser control recovered sufficiently to read the current API-key page, but creating the OpenRouter reference tab timed out again. Credential-limit configuration UI still requires actual reference inspection, Stitch iteration and rendered qualification; the automated refusal check does not close that requirement.
+
+## Supplier credential-limit design checkpoint
+
+- Inspected the actual OpenRouter API Keys page: named keys, expiration, last-used, usage, monetary limit and row actions. Opening New Key timed out in browser control, so its dialog interaction is not qualified.
+- Existing NIU.IO Stitch project produced screen 1172e5599c6343b2a2242869f57360c0, “Admin — Supplier Credential RPM Policy & Edit Dialog”. Reviewed the generated screenshot. Use its compact policy row and rounded edit-dialog treatment within the existing credential panel, with direct installed shadcn primitives.
+- Reject generated usage counters, invented navigation/Sync routes controls, persistent stale-version callouts and claims of immediate propagation to every node. Implement only actual policy read/edit/history, blank versus zero, exact initial revision "0", 409 reload recovery, and scoped asynchronous state. Configuration implementation and current rendered verification remain open.
