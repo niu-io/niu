@@ -97,6 +97,7 @@ export default function TopupFunding({ token, organization, canCreate, currencie
     try {
       const response = await request<{ data: Topup }>(token, `/admin/v1/organizations/${organization}/billing/topups`, 'POST', intent.current, controller.signal);
       checkedTopup(response.data);
+      if (response.data.currency !== intent.current.currency || response.data.amount_nanos !== intent.current.amount_nanos || response.data.payment_method !== intent.current.payment_method) throw new Error('Mismatched checkout intent');
       if (!controller.signal.aborted) { setResult(response.data); setRevision(value => value + 1); }
     } catch {
       if (!controller.signal.aborted) { setError('Checkout was not confirmed. Check saved top-ups before starting another payment.'); setRevision(value => value + 1); }
