@@ -435,3 +435,23 @@ immediately restored 403. Independent SQL found no inference attempts or balance
 entries. The original database and encrypted credential identity were unchanged.
 This verifies the exercised management/SDK traversal, not inference availability,
 large-dataset performance or a cross-page snapshot during concurrent updates.
+
+## Complete inference discovery beyond 1,000 pools
+
+The management index and inference discovery are separate callers. The old
+inference path selected only the first 1,000 stored pools before applying enabled
+state and tenant rules. An actual isolated database with 1,003 API-created pools
+reproduced a missing eligible alias beyond that prefix in `/v1/models`.
+
+Inference discovery now traverses the shared keyset reader in bounded database
+pages instead of returning an arbitrary prefix. A new current-input run with
+1,003 saved pools exposed the final eligible alias, retained the other enabled
+pool and excluded all 1,001 disabled aliases. Independent SQL confirmed the saved
+pool count and the final alias's position; the HTTP model response was retained.
+Gateway restart preserved the same discovered alias set. No inference attempts
+or balance entries were created; original data and encrypted identity were unchanged.
+
+This fixes discovery completeness for the exercised pool population. It does not
+qualify model execution or capacity with thousands of active routes. Database
+fetches are bounded, while the compatibility model list still assembles its full
+response in memory; live traversal is not a cross-page snapshot.

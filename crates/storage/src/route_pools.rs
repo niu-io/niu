@@ -37,16 +37,21 @@ impl Store {
             .map_err(|_| StoreError::Conflict)
     }
 
+    /// Compatibility model discovery returns every pool, not an arbitrary prefix.
+    /// Bound each database fetch while retaining the complete response inventory.
     pub async fn model_route_pools(&self) -> Result<Vec<ModelRoutePool>, StoreError> {
-        let values: Vec<serde_json::Value> = sqlx::query_scalar(
-            "SELECT to_jsonb(p) FROM model_route_pools p ORDER BY alias LIMIT 1000",
-        )
-        .fetch_all(&self.pool)
-        .await?;
-        values
-            .into_iter()
-            .map(|v| serde_json::from_value(v).map_err(|_| StoreError::Conflict))
-            .collect()
+        let mut pools = Vec::new();
+        let mut after = None;
+        loop {
+            let mut page = self.model_route_pool_page(after.as_deref(), 100).await?;
+            let has_more = page.len() > 100;
+            page.truncate(100);
+            after = page.last().map(|pool| pool.alias.clone());
+            pools.extend(page);
+            if !has_more {
+                return Ok(pools);
+            }
+        }
     }
 
     /// Bounded keyset page; the extra row tells the caller whether another page exists.

@@ -106,6 +106,11 @@ alias-based traversal is not a snapshot; refresh from the first page to see
 new aliases inserted before the current cursor. Existing alias lookup and
 revision-history endpoints retain their response formats.
 
+Inference model discovery traverses all saved route-pool pages rather than silently
+limiting discovery to the first 1,000 pools. Disabled and unauthorized pools remain
+excluded. The compatibility `/v1/models` response remains a complete list; bounded
+database fetches do not imply a fixed-size response or a cross-page snapshot.
+
 A revisioned pool update applies to selection for new requests. Disabling a
 candidate does not cancel a generation already dispatched through it. That request
 retains its original mapping and pool revision for diagnosis and accounting;
