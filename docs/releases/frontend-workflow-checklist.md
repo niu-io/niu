@@ -17,7 +17,7 @@ Status: in progress. Updated 2026-10-10. This checklist supplements, rather than
 | Models → generation | Global catalog, first-row filter, sort/menu alignment, model details and supported capabilities, selected model preserved when starting a generation | Partial; filter, sort menu and selected-model handoff verified; reference comparison and remaining interaction states open |
 | Workspace API keys | Create with essential values, copy/setup example, grants and limits, rotation/revocation, authorized details and useful failure recovery | Partial; real key list/details, creation dialog/expiration menu/cancel and Generations link verified; name write/reload and narrow model-access menu verified; creation and single-model save/reload/discovery plus revoked-credential 401 verified; rotation with preserved expiry/grants/rate policy and old-secret 401 verified; ordinary-role grants open |
 | Chat | Key-based scope, saved-session title/history, streaming/cancellation, actionable upstream failure, backend restoration and matching Logs | Partial; existing successful history, title, reload restoration and mobile session navigation verified; fresh successful request and restoration verified; connection-stage and live mid-stream cancellation/restoration verified; live partial output and matching interrupted Logs verified; actionable upstream failures and remaining draft conflict states open |
-| Video | Task category → supported inputs → submission → durable status → preview/download; unavailable, failed, unknown and expired states; matching Logs and customer charges | Open; depends on qualified backend capabilities |
+| Video | Task category → supported inputs → submission → durable status → preview/download; unavailable, failed, unknown and expired states; matching Logs and customer charges | Partial; desktop category entry, no-supported-route state, key menu and cross-type Chat restoration verified; actual video submission and result lifecycle remain open |
 | Logs | Request filters → payload and response → measured timing waterfall → failure diagnosis; exports, unknown values and customer-only costs | Partial; key drilldown, real retained request/error and timing verified; date restoration and mobile detail verified; real model/date CSV exports verified; classified failures, export error browser states and remaining mobile states open |
 | Activity | Authorized scope, full-range aggregates → matching Logs; consistent token categories, customer charges and unknown values | Partial; real all-workspace/workspace totals and one model-to-Logs count/filter match verified; Today drilldown and narrow totals verified; other date boundaries and ordinary-role authorization open |
 | Guardrails | Supported input/output controls, preview, safe decision diagnosis and clear coverage; ordinary-role access and denied requests | Partial; input redaction/block previews and narrow action menu verified; saved input policy, live input block, versioned history and narrow denial records verified; HTTP failure classification, live output enforcement and ordinary-role access open |
@@ -663,3 +663,19 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
 - This verifies the exercised desktop happy path against the current backend,
   not paid customer billing, video generation or failure/revocation states.
   Responsive polish remains deferred.
+
+### Video entry and cross-type history checkpoint
+
+- On the current desktop runtime, choosing Video from New generation opened the
+  Video input surface with Demo API key. Its actual model read yielded no
+  supported route. The UI showed No video model available, retained the key menu
+  and offered the authorized administrator a Manage Suppliers link. No estimate,
+  intent save or submission was attempted, and no mock route was introduced.
+- The key menu contained only Demo API key. Its Escape dismissal returned to the
+  input surface. Unified history contained six real Chat sessions; opening the
+  latest restored WORKFLOW_OK, its title, Complete state, 18 tokens, owner-funded
+  attribution and original Logs link on the Chat surface.
+- Actual Video save/submit/recovery/preview qualification requires an accessible
+  configured video route and its appropriate billing authorization. Backend test
+  evidence is not substituted for rendered local qualification. Other frontend
+  workflows can continue while this dependency is unresolved.
