@@ -80,6 +80,9 @@ async fn validate_admission(
     ApiError,
 > {
     let scope = principal.scope();
+    // This legacy budget measures procurement. Customer workspace/key retail
+    // caps are separate and enforced by reserve_customer_media_balance through
+    // the shared customer balance reservation transaction before dispatch.
     if state
         .store
         .budget(scope)
