@@ -128,8 +128,8 @@ Run `python3 scripts/extract-handler-openapi.py` to generate the annotated
 [API reference](../reference/generated-api-operations.md). Existing focused
 contracts reference generated operations, and the root contract must reference
 the focused path. `--check` detects stale generated files in CI. The generator
-checks path registration and duplicate operations; it does not prove matching
-HTTP methods, schemas or runtime behavior. Verify those against real HTTP and
+checks literal Axum path/method registration, duplicate operations and local schema
+references; it does not prove response schemas or runtime behavior. Verify those against real HTTP and
 independent artifacts before qualifying the operation.
 
 Migrated operations include `listPaymentIntegrations` and workspace spending

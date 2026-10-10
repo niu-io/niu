@@ -9,6 +9,48 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def registered_methods(source):
+    """Read literal Axum route builders; skip quoted strings and comments."""
+    result = {}
+    tokens = re.compile(r'"(?:\\.|[^"\\])*"|//[^\n]*|/\*.*?\*/|[()]', re.S)
+    for route in re.finditer(r'\.route\(\s*"([^"\n]+)"', source):
+        depth, end = 1, None
+        for token in tokens.finditer(source, route.end()):
+            if token.group() == '(':
+                depth += 1
+            elif token.group() == ')':
+                depth -= 1
+                if depth == 0:
+                    end = token.start()
+                    break
+        if end is None:
+            raise SystemExit(f'Unclosed route registration: {route[1]}')
+        body = source[route.end():end]
+        body = re.sub(r'"(?:\\.|[^"\\])*"|//[^\n]*|/\*.*?\*/', '', body, flags=re.S)
+        methods = re.findall(r'\b(get|post|put|patch|delete|head|options)\s*\(', body)
+        result.setdefault(route[1], set()).update(methods)
+    return result
+
+
+def validate_local_references(value, document):
+    if isinstance(value, dict):
+        reference = value.get('$ref')
+        if reference is not None:
+            if not reference.startswith('#/'):
+                raise SystemExit(f'Handler annotations require local references: {reference}')
+            target = document
+            for part in reference[2:].split('/'):
+                part = part.replace('~1', '/').replace('~0', '~')
+                if not isinstance(target, dict) or part not in target:
+                    raise SystemExit(f'Unresolved OpenAPI reference: {reference}')
+                target = target[part]
+        for child in value.values():
+            validate_local_references(child, document)
+    elif isinstance(value, list):
+        for child in value:
+            validate_local_references(child, document)
+
+
 def schema_block(schema):
     return ['```json', json.dumps(schema, indent=2), '```', '']
 
@@ -47,7 +89,7 @@ def main():
     parser.add_argument('--check', action='store_true')
     args = parser.parse_args()
     paths, names, descriptions, schemas = {}, set(), [], {}
-    routes = (ROOT / 'apps/gateway/src/web/routes.rs').read_text()
+    routes = registered_methods((ROOT / 'apps/gateway/src/web/routes.rs').read_text())
     for source in sorted((ROOT / 'apps/gateway/src').rglob('*.rs')):
         for block in re.findall(r'(?m)^/// ```openapi\n(.*?)^/// ```\s*$', source.read_text(), re.S):
             lines = block.splitlines()
@@ -62,8 +104,8 @@ def main():
             name = operation['operationId']
             if method not in {'get', 'post', 'put', 'patch', 'delete', 'head', 'options'}:
                 raise SystemExit(f'Invalid HTTP method: {method}')
-            if f'"{path}"' not in routes:
-                raise SystemExit(f'Annotated path is not registered: {path}')
+            if method not in routes.get(path, set()):
+                raise SystemExit(f'Annotated operation is not registered: {method.upper()} {path}')
             if name in names or method in paths.get(path, {}):
                 raise SystemExit(f'Duplicate operation: {name}')
             if operation.get('x-niu-implementation') not in {'implemented', 'stub'}:
@@ -82,6 +124,7 @@ def main():
             descriptions.extend([f'### {name}', '', *schema_block(schema)])
     spec = {'openapi': '3.1.0', 'info': {'title': 'Niu annotated handler operations', 'version': '0.1.0'},
             'paths': paths, 'components': {'schemas': schemas, 'securitySchemes': {'bearerAuth': {'type': 'http', 'scheme': 'bearer'}}}}
+    validate_local_references(spec, spec)
     outputs = {
         'contracts/generated/handler-operations.json': json.dumps(spec, indent=2) + '\n',
         'docs/reference/generated-api-operations.md': '\n'.join([
