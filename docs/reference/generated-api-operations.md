@@ -10087,6 +10087,107 @@ HTTP 401: Authentication required.
 
 HTTP 403: Platform administration required.
 
+## Inspect and temporarily retain one exact inline image
+
+`POST /v1/media/image-sources`
+
+Active workspace inference key required. Every required image detector must have current workspace processing consent. Detector approval is obtained server-side; client verdicts, hashes and remote URLs are rejected. Saves encrypted approved bytes, never publishes a fetch token or dispatches an asset. Four preparations may run concurrently. Retention is 1 to 900 seconds, with separate workspace and installation storage ceilings. Maximum JSON body is 12 MiB plus 1024 bytes. No request-payload logging on this endpoint. The source ID is an internal API reference, not a display label. Missing inspection prerequisites fail before detector disclosure.
+
+Implementation: `implemented`. Operation: `prepareInspectedImageSource`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
+  }
+]
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "image",
+    "valid_for_seconds"
+  ],
+  "properties": {
+    "image": {
+      "type": "string",
+      "maxLength": 12582912,
+      "description": "Inline PNG, JPEG or WebP base64 data URL subject to configured detector decode limits."
+    },
+    "valid_for_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 900
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 201: Approved encrypted source retained; no image bytes or fetch capability returned
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "source_id",
+        "retained",
+        "retention_seconds"
+      ],
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "retained": {
+          "const": true
+        },
+        "retention_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 900
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid or unsupported input, including a JSON body exceeding the endpoint limit
+
+HTTP 401: Active inference key required
+
+HTTP 403: Current inspection consent or detector approval unavailable. Missing authorized inspection prerequisites use error.type image_inspection_required; other policy refusals retain their existing error type.
+
+HTTP 409: Workspace policy changed during preparation
+
+HTTP 503: Encryption, preparation capacity, storage capacity or durable storage unavailable
+
 ## Create an OpenAI-compatible chat completion
 
 `POST /v1/chat/completions`

@@ -9678,6 +9678,103 @@
         }
       }
     },
+    "/v1/media/image-sources": {
+      "post": {
+        "operationId": "prepareInspectedImageSource",
+        "summary": "Inspect and temporarily retain one exact inline image",
+        "description": "Active workspace inference key required. Every required image detector must have current workspace processing consent. Detector approval is obtained server-side; client verdicts, hashes and remote URLs are rejected. Saves encrypted approved bytes, never publishes a fetch token or dispatches an asset. Four preparations may run concurrently. Retention is 1 to 900 seconds, with separate workspace and installation storage ceilings. Maximum JSON body is 12 MiB plus 1024 bytes. No request-payload logging on this endpoint. The source ID is an internal API reference, not a display label. Missing inspection prerequisites fail before detector disclosure.",
+        "x-niu-implementation": "implemented",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "niuApiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "image",
+                  "valid_for_seconds"
+                ],
+                "properties": {
+                  "image": {
+                    "type": "string",
+                    "maxLength": 12582912,
+                    "description": "Inline PNG, JPEG or WebP base64 data URL subject to configured detector decode limits."
+                  },
+                  "valid_for_seconds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 900
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Approved encrypted source retained; no image bytes or fetch capability returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "source_id",
+                        "retained",
+                        "retention_seconds"
+                      ],
+                      "properties": {
+                        "source_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "retained": {
+                          "const": true
+                        },
+                        "retention_seconds": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 900
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or unsupported input, including a JSON body exceeding the endpoint limit"
+          },
+          "401": {
+            "description": "Active inference key required"
+          },
+          "403": {
+            "description": "Current inspection consent or detector approval unavailable. Missing authorized inspection prerequisites use error.type image_inspection_required; other policy refusals retain their existing error type."
+          },
+          "409": {
+            "description": "Workspace policy changed during preparation"
+          },
+          "503": {
+            "description": "Encryption, preparation capacity, storage capacity or durable storage unavailable"
+          }
+        }
+      }
+    },
     "/v1/chat/completions": {
       "post": {
         "operationId": "createChatCompletion",

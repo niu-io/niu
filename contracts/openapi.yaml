@@ -156,29 +156,7 @@ paths:
         '401': { description: Active original API key required }
         '404': { description: Observation unavailable under this key and ingestion }
   /v1/media/image-sources:
-    post:
-      operationId: prepareInspectedImageSource
-      security: [{ bearerAuth: [] }]
-      summary: Inspect and temporarily retain one exact inline image
-      description: Every required detector must have current workspace processing consent. Detector approval is obtained server-side; client verdicts, hashes and remote URLs are rejected. Saves authenticated encrypted approved bytes, never publishes a fetch token or dispatches an asset. Four preparations may run concurrently. Retention is capped at fifteen minutes, with separate per-workspace and installation storage ceilings. Payload logging is not supported on this endpoint.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              required: [image, valid_for_seconds]
-              properties:
-                image: { type: string, maxLength: 12582912, description: "Inline PNG, JPEG or WebP base64 data URL subject to configured detector decode limits" }
-                valid_for_seconds: { type: integer, minimum: 1, maximum: 900 }
-      responses:
-        '201': { description: "Saved source reference and retention_seconds ceiling; no plaintext, hash, credentials or public source URL" }
-        '400': { description: "Invalid, oversized or unsupported input" }
-        '401': { description: Active API key required }
-        '403': { description: "Current inspection consent or detector approval unavailable. Missing authorized inspection prerequisites use error.type image_inspection_required before detector disclosure; this is not an administrator-role error." }
-        '409': { description: Workspace policy changed during preparation }
-        '503': { description: "Encryption, preparation capacity or storage capacity unavailable" }
+    $ref: './generated/handler-operations.json#/paths/~1v1~1media~1image-sources'
   /v1/media/image-sources/{id}:
     delete:
       operationId: eraseInspectedImageSource
