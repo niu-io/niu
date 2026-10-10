@@ -773,3 +773,9 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
 - Restored the original input rate of USD 0.4 per million tokens, then reloaded: cache read remained USD 0.1 and output USD 1.6. The offer stayed paused and review-required throughout. This created normal rate revisions; it did not activate supply, settle funds or submit inference.
 - The customer model detail still displayed “Not published” for input/output prices, without substituting these purchase rates. This rendered check supplements existing backend/serialization boundary tests; it is not customer-funded billing acceptance.
 - Desktop action menu, validation, saved table and reopened editor were inspected. Multi-key routes, offer qualification and activation, customer tariffs and settlements remain separate acceptance work.
+
+## Supplier credential-preserving metadata writes
+
+- Edited only the existing OpenRouter API key's display name, leaving its optional replacement-secret field blank. The saved name survived full reload; restored OpenRouter and reloaded again. The Supplier identity, endpoint, enabled state and all 25 mappings remained intact.
+- A fresh GPT-4.1 Mini catalog check through that stored credential completed with “Reachable · model listed. Try Chat to verify access.” This proves the exercised metadata write did not clear the credential; it does not prove new inference, credential rotation or multi-key route isolation. No credential was exposed or replaced.
+- Follow-up frontend defect: the Supplier detail's Model catalog link uses bare `/models`, whereas the current authenticated rail preserves its workspace query to enter the dashboard catalog. Align this navigation with the existing authenticated entry without moving model ownership into workspaces or changing public route ownership.
