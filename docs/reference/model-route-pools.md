@@ -13,7 +13,9 @@ reserved `codex/` aliases are excluded from this generic text mechanism.
 ## Administration
 
 The [OpenAPI contract](../../contracts/model-route-pools.openapi.yaml) exposes
-installation-only operations:
+handler-generated platform administration operations (installation credentials or
+an explicitly authorized platform administrator; ordinary company/workspace
+ownership does not grant access):
 
 - `GET /admin/v1/model-route-pools?alias=...` reads a pool.
 - `PUT /admin/v1/model-route-pools` creates or updates a pool with `alias`,
@@ -316,3 +318,15 @@ disabled and the API key revoked before stopping the isolated processes. Origina
 development data and encrypted identity were unchanged. This extends configured
 price/binding evidence, not automatic failover, concurrent configuration changes
 during dispatch, or commercial Supplier qualification.
+
+
+## Management contract checkpoint
+
+Read, write and revision history now derive their OpenAPI descriptions from the
+Rust handlers. A current isolated HTTP run verified installation-authorized reads,
+revisioned disable and history pagination, while ordinary company-owner and
+workspace-key credentials were denied. Invalid cursor zero, unknown input fields
+and stale writes were rejected. Restart retained the disabled pool and both
+immutable revisions; independent database reads found no inference attempts or
+financial entries. This run did not exercise an explicitly granted platform-member
+session; that supported authorization branch still requires its own live check.

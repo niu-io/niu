@@ -1058,7 +1058,7 @@ export class NiuAdminClient {
   }
 
 
-  /** Installation-only candidate pool; customer permissions remain attached to its alias. */
+  /** Platform-administrator candidate pool; customer permissions remain attached to its alias. */
   getModelRoutePool(alias: string, options?: RequestOptions): Promise<{ data: ModelRoutePool }> {
     return this.request(`/model-route-pools?${new URLSearchParams({ alias })}`, undefined, options);
   }

@@ -7161,6 +7161,291 @@ HTTP 502: Provider catalog unavailable or invalid.
 
 HTTP 401: Invalid or expired administrative credential.
 
+## Read an installation-managed model candidate pool
+
+`GET /admin/v1/model-route-pools`
+
+Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access. 
+
+Implementation: `implemented`. Operation: `getModelRoutePool`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`alias` (query, required)
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 200
+}
+```
+
+### Responses
+
+HTTP 200: Current pool configuration
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/ModelRoutePool"
+    }
+  }
+}
+```
+
+HTTP 403: Platform administration required
+
+HTTP 404: Pool not found
+
+HTTP 401: Authentication required
+
+HTTP 400: Invalid query or revision cursor; framework query errors may use plain text.
+
+## Create or revise a model candidate pool
+
+`PUT /admin/v1/model-route-pools`
+
+Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access. Revisions start at zero for creation. Ownership is immutable. Candidate aliases identify existing credential/model mappings, not nested pools. Personal pools require all candidates owned by that organization; shared pools require nonpersonal priced mappings. Video mappings are rejected. Highest eligible priority wins, with weighted selection within that tier. No post-dispatch retries are performed.
+
+Implementation: `implemented`. Operation: `setModelRoutePool`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "alias",
+    "organization_id",
+    "enabled",
+    "expected_revision",
+    "candidates"
+  ],
+  "properties": {
+    "alias": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "^[!-~]+$"
+    },
+    "organization_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "expected_revision": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740990
+    },
+    "candidates": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "alias",
+          "priority",
+          "weight",
+          "enabled"
+        ],
+        "properties": {
+          "alias": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": -1000,
+            "maximum": 1000
+          },
+          "weight": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Saved revision; changes apply to later admission and stale snapshots reject before dispatch
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "revision"
+      ],
+      "properties": {
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid candidates, bounds, ownership, reserved alias or unsupported mapping
+
+HTTP 403: Platform administration required
+
+HTTP 409: Stale revision or attempted ownership change
+
+HTTP 401: Authentication required
+
+HTTP 422: Malformed body schema or unknown fields; framework rejection may use plain text.
+
+## Read immutable model candidate pool revisions
+
+`GET /admin/v1/model-route-pools/history`
+
+Platform administration required: installation credentials or an explicitly authorized platform administrator. Ordinary company/workspace ownership does not grant this access. 
+
+Implementation: `implemented`. Operation: `listModelRoutePoolHistory`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`alias` (query, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+`before_revision` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1
+}
+```
+
+### Responses
+
+HTTP 200: At most 100 immutable revisions in descending order
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ModelRoutePool"
+          },
+          {
+            "type": "object",
+            "required": [
+              "recorded_at"
+            ],
+            "properties": {
+              "recorded_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+HTTP 403: Platform administration required
+
+HTTP 404: Pool not found
+
+HTTP 401: Authentication required
+
+HTTP 400: Invalid query or revision cursor; framework query errors may use plain text.
+
 ## Create an OpenAI-compatible chat completion
 
 `POST /v1/chat/completions`
@@ -10174,6 +10459,73 @@ Local `#/components/schemas/…` references resolve to these definitions.
   "minimum": 0,
   "maximum": 1000000000000,
   "description": "Token budget includes unresolved reservations plus provider-reported usage completed in the last 60 seconds. Null is unlimited; zero denies dispatch."
+}
+```
+
+### ModelRoutePool
+
+```json
+{
+  "type": "object",
+  "required": [
+    "alias",
+    "organization_id",
+    "enabled",
+    "revision",
+    "candidates"
+  ],
+  "properties": {
+    "alias": {
+      "type": "string"
+    },
+    "organization_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "candidates": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "required": [
+          "alias",
+          "priority",
+          "weight",
+          "enabled"
+        ],
+        "properties": {
+          "alias": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": -1000,
+            "maximum": 1000
+          },
+          "weight": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
 }
 ```
 
