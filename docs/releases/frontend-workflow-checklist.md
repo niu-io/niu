@@ -1025,3 +1025,8 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
 
 - Reviewed the updated preparation/output-withholding contract and the existing Chat HTTP-error path. Added integration cases for the two distinct Guardrail errors and an ordinary permission denial. Each preserves the safe returned diagnosis, marks the response failed, sends exactly one request and does not substitute a model or automatically retry a potentially charged operation.
 - All 56 Chat integration checks passed. No product layout or backend code changed. These checks establish the exercised frontend HTTP branches only; they do not qualify live browser output enforcement, persisted withheld-output recovery, actual charging or every streaming protocol. The previous generic-error backend blocker is now recorded as resolved, with browser acceptance still outstanding.
+
+## Customer text-pricing administration contract audit — 2026-10-11
+
+- Source review confirms the publication POST now uses platform authority while existing billing and tariff-history GETs retain independent workspace read scope. The SDK publication comment now matches the implemented grant. The demo's combined roles cannot qualify platform-only global price administration.
+- Recorded the missing pricing-only discovery/current/history read contract in [the frontend contract request](../reference/platform-customer-pricing-frontend-request.md). Keep customer billing reads scoped and avoid granting access to customer content merely to edit selling prices. A global Admin editor remains unfinished; no placeholder page, invented endpoint or installation-token workaround was added.
