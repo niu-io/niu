@@ -212,3 +212,31 @@ This closes the exercised text settlement-overrun and remaining-allowance branch
 It does not qualify customer-funded media overruns, company credit exhaustion,
 all token estimators or concurrent overrun settlement. An admission cap bounds
 new reservations; it cannot retroactively cancel upstream consumption.
+
+## Cancelled text stream liability — 2026-10-11
+
+A fresh isolated native gateway sent a real self-funded OpenRouter Chat request
+with internal customer rates and approved verification credit. The client closed
+after receiving actual content. The attempt retained unknown usage, a positive
+customer reservation and `response_stream_cancelled`; no charge was invented.
+
+The management API set the key cap to exactly that outstanding reservation.
+Reads reported committed spending equal to the cap and remaining allowance `0`.
+After secret rotation, the replacement key retained those exact amounts. A new
+request returned HTTP 402 `key_spending_limit_exceeded`, both before and after
+gateway restart. No concurrency cap was configured for this run, so these were
+spending rejections rather than concurrent-request denials.
+
+An attempted policy decrease below the outstanding liability returned HTTP 402.
+The verification script initially expected 409 and stopped at that assertion.
+Independent verification reopened this retained database without submitting
+another generation: it found exactly one cancelled unknown attempt, both customer
+and procurement holds, no charge or ledger entry, and two rotated keys sharing
+one spending identity. The cap still equaled the hold at revision 1, with exactly
+one policy-history row; the rejected decrease did not mutate the policy. The
+isolated gateway/database were stopped. No fixture result was used as evidence.
+
+This checks cancellation liability, rotation and restart for the exercised Chat
+path. It does not establish recovery of missing upstream usage or authorize
+release of uncertain liabilities. Merchant funding and commercial supply were
+not part of this run.
