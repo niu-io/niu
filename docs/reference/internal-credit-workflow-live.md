@@ -387,3 +387,20 @@ policy-history counts were unchanged and both original currency/workspace charge
 debit and invoice relationships still matched reported usage. No new inference,
 funding, debit or invoice was created. This qualifies the exercised role matrix,
 not every administrative permission or concurrent revocation race.
+# Eight-key concurrent accounting — 2026-10-11
+
+A fresh isolated native run created eight separate workspace API keys and sent
+one simultaneous actual personal OpenRouter Chat request per key. Each returned
+its own requested unique marker and reported usage. After gateway restart, all
+eight attempts remained; the temporary keys were revoked.
+
+Independent database reopening verified each attempt's API-key attribution,
+completed execution and response-matching token usage. Each customer charge
+matched an independent calculation from the pinned tariff. Exactly eight balance
+entries reconciled to their total, and no customer reservation remained held.
+The run used approved internal credit and explicit verification rates, not a
+received-cash payment or commercial Supplier agreement. It covers concurrent
+mixed-key attribution within one workspace and gateway; it does not establish
+which writes coalesced into a batch, cross-workspace batching, limiter contention
+or sustained capacity. No fixture outcome was used as evidence.
+
