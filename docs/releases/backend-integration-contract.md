@@ -424,3 +424,11 @@ zero limits denied the replacement before dispatch, and repeated revocation
 remained idempotent. Metadata returned no token or token hash. Independent reads
 confirmed one spending root and no attempts for the temporary keys, which were
 revoked after the run. This does not qualify all key-policy combinations.
+
+Key management operations document the shared application error envelope:
+`error.type`, safe `message`, null `param` and numeric HTTP `code`. Current-input
+HTTP calls verified authentication denial, invalid grants and revoked-key rotation
+against that schema without dispatching a model request. A malformed UUID path
+returned plain text with HTTP 400; that alternate content type is documented.
+Clients must inspect HTTP status and content type before decoding an error body;
+the shared schema does not promise that framework or intermediary errors are JSON.

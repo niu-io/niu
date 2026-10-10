@@ -599,16 +599,50 @@ pub async fn project(
 ///         }
 ///       },
 ///       "401": {
-///         "description": "Invalid or expired administrative credential."
+///         "description": "Invalid or expired administrative credential.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
 ///       },
 ///       "404": {
-///         "description": "Workspace outside authorized scope."
+///         "description": "Workspace outside authorized scope.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
 ///       },
 ///       "403": {
-///         "description": "Workspace write permission required."
+///         "description": "Workspace write permission required.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
 ///       },
 ///       "400": {
-///         "description": "Invalid fields, model grants, name or lifetime."
+///         "description": "Invalid fields, model grants, name or lifetime.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           },
+///           "text/plain": {
+///             "schema": {
+///               "type": "string",
+///               "description": "Framework path or JSON syntax rejection may use a plain-text body instead of the application error envelope."
+///             }
+///           }
+///         }
 ///       }
 ///     },
 ///     "x-niu-implementation": "implemented",
@@ -718,16 +752,44 @@ pub async fn issue_key(
 ///         "description": "Key revoked, including an already revoked key."
 ///       },
 ///       "401": {
-///         "description": "Invalid or expired administrative credential."
+///         "description": "Invalid or expired administrative credential.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
 ///       },
 ///       "409": {
-///         "description": "Key does not exist in this project."
+///         "description": "Key does not exist in this project.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
 ///       },
 ///       "404": {
-///         "description": "Workspace outside authorized scope."
+///         "description": "Workspace outside authorized scope.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
 ///       },
 ///       "403": {
-///         "description": "Workspace write permission required."
+///         "description": "Workspace write permission required.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
 ///       }
 ///     },
 ///     "x-niu-implementation": "implemented",
@@ -862,25 +924,73 @@ pub async fn revoke_key(
 ///         }
 ///       },
 ///       "400": {
-///         "description": "Invalid name, model grants or revision"
+///         "description": "Invalid name, model grants or revision",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           },
+///           "text/plain": {
+///             "schema": {
+///               "type": "string",
+///               "description": "Framework path or JSON syntax rejection may use a plain-text body instead of the application error envelope."
+///             }
+///           }
+///         }
 ///       },
 ///       "401": {
-///         "description": "Authentication required"
+///         "description": "Authentication required",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
 ///       },
 ///       "403": {
-///         "description": "Write permission required"
+///         "description": "Write permission required",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
 ///       },
 ///       "404": {
-///         "description": "Workspace access not granted"
+///         "description": "Workspace access not granted",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
 ///       },
 ///       "409": {
-///         "description": "Stale revision, missing key, revoked key or expired key"
+///         "description": "Stale revision, missing key, revoked key or expired key",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
 ///       },
 ///       "422": {
 ///         "description": "Invalid JSON shape, missing or unknown fields"
 ///       },
 ///       "503": {
-///         "description": "Durable storage unavailable"
+///         "description": "Durable storage unavailable",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
 ///       }
 ///     }
 ///   }
@@ -1337,10 +1447,24 @@ pub async fn projects(
 ///         }
 ///       },
 ///       "401": {
-///         "description": "Invalid or expired administrative credential."
+///         "description": "Invalid or expired administrative credential.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
 ///       },
 ///       "404": {
-///         "description": "Workspace outside authorized scope."
+///         "description": "Workspace outside authorized scope.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
 ///       }
 ///     },
 ///     "x-niu-implementation": "implemented",
@@ -1447,6 +1571,43 @@ pub async fn projects(
 ///           "description": "One-time workspace API key secret; store securely. Never present in key metadata reads."
 ///         }
 ///       }
+///     },
+///     "ApiErrorResponse": {
+///       "type": "object",
+///       "required": [
+///         "error"
+///       ],
+///       "description": "Gateway application error envelope. This does not describe framework body/path parsing failures or a proxy-generated response. Branch on error.type and HTTP status rather than matching message text.",
+///       "properties": {
+///         "error": {
+///           "type": "object",
+///           "required": [
+///             "message",
+///             "type",
+///             "param",
+///             "code"
+///           ],
+///           "properties": {
+///             "message": {
+///               "type": "string",
+///               "description": "Safe human-readable explanation; not a stable programmatic identifier."
+///             },
+///             "type": {
+///               "type": "string",
+///               "description": "Machine-readable failure category; new categories may be added."
+///             },
+///             "param": {
+///               "type": "null"
+///             },
+///             "code": {
+///               "type": "integer",
+///               "minimum": 400,
+///               "maximum": 599,
+///               "description": "HTTP status code, not a separate application error number."
+///             }
+///           }
+///         }
+///       }
 ///     }
 ///   }
 /// }
@@ -1531,16 +1692,44 @@ pub async fn keys(
 ///         }
 ///       },
 ///       "401": {
-///         "description": "Invalid or expired administrative credential."
+///         "description": "Invalid or expired administrative credential.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
 ///       },
 ///       "409": {
-///         "description": "Key is absent, revoked, expired or concurrently rotated."
+///         "description": "Key is absent, revoked, expired or concurrently rotated.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
 ///       },
 ///       "404": {
-///         "description": "Workspace outside authorized scope."
+///         "description": "Workspace outside authorized scope.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
 ///       },
 ///       "403": {
-///         "description": "Workspace write permission required."
+///         "description": "Workspace write permission required.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "$ref": "#/components/schemas/ApiErrorResponse"
+///             }
+///           }
+///         }
 ///       }
 ///     },
 ///     "x-niu-implementation": "implemented",

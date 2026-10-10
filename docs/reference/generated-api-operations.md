@@ -2442,11 +2442,52 @@ Content type: `application/json`.
 
 HTTP 401: Invalid or expired administrative credential.
 
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
 HTTP 404: Workspace outside authorized scope.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
 
 HTTP 403: Workspace write permission required.
 
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
 HTTP 400: Invalid fields, model grants, name or lifetime.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
+Content type: `text/plain`.
+
+```json
+{
+  "type": "string",
+  "description": "Framework path or JSON syntax rejection may use a plain-text body instead of the application error envelope."
+}
+```
 
 ## Revoke a workspace API key
 
@@ -2503,11 +2544,43 @@ HTTP 204: Key revoked, including an already revoked key.
 
 HTTP 401: Invalid or expired administrative credential.
 
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
 HTTP 409: Key does not exist in this project.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
 
 HTTP 404: Workspace outside authorized scope.
 
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
 HTTP 403: Workspace write permission required.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
 
 ## Update workspace API key name and model grants
 
@@ -2619,17 +2692,74 @@ Content type: `application/json`.
 
 HTTP 400: Invalid name, model grants or revision
 
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
+Content type: `text/plain`.
+
+```json
+{
+  "type": "string",
+  "description": "Framework path or JSON syntax rejection may use a plain-text body instead of the application error envelope."
+}
+```
+
 HTTP 401: Authentication required
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
 
 HTTP 403: Write permission required
 
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
 HTTP 404: Workspace access not granted
 
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
 HTTP 409: Stale revision, missing key, revoked key or expired key
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
 
 HTTP 422: Invalid JSON shape, missing or unknown fields
 
 HTTP 503: Durable storage unavailable
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
 
 ## List workspace API-key metadata (up to 1000 records)
 
@@ -2697,7 +2827,23 @@ Content type: `application/json`.
 
 HTTP 401: Invalid or expired administrative credential.
 
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
 HTTP 404: Workspace outside authorized scope.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
 
 ## Atomically replace a key while preserving its grants and expiry
 
@@ -2773,11 +2919,43 @@ Content type: `application/json`.
 
 HTTP 401: Invalid or expired administrative credential.
 
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
 HTTP 409: Key is absent, revoked, expired or concurrently rotated.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
 
 HTTP 404: Workspace outside authorized scope.
 
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
+
 HTTP 403: Workspace write permission required.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/ApiErrorResponse"
+}
+```
 
 ## Read a recorded gateway request
 
@@ -6738,6 +6916,48 @@ HTTP 503: Durable storage or configured route unavailable.
 ## Shared schemas
 
 Local `#/components/schemas/…` references resolve to these definitions.
+
+### ApiErrorResponse
+
+```json
+{
+  "type": "object",
+  "required": [
+    "error"
+  ],
+  "description": "Gateway application error envelope. This does not describe framework body/path parsing failures or a proxy-generated response. Branch on error.type and HTTP status rather than matching message text.",
+  "properties": {
+    "error": {
+      "type": "object",
+      "required": [
+        "message",
+        "type",
+        "param",
+        "code"
+      ],
+      "properties": {
+        "message": {
+          "type": "string",
+          "description": "Safe human-readable explanation; not a stable programmatic identifier."
+        },
+        "type": {
+          "type": "string",
+          "description": "Machine-readable failure category; new categories may be added."
+        },
+        "param": {
+          "type": "null"
+        },
+        "code": {
+          "type": "integer",
+          "minimum": 400,
+          "maximum": 599,
+          "description": "HTTP status code, not a separate application error number."
+        }
+      }
+    }
+  }
+}
+```
 
 ### CatalogMetadata
 
