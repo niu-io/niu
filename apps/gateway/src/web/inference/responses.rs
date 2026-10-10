@@ -318,7 +318,7 @@ pub(in crate::web) struct ResponsesRequestBounds {
 ///         "description": "Request body exceeds 1 MiB; rejected before inference whether payload capture is enabled or disabled. Framework responses may use a plain-text body."
 ///       },
 ///       "422": {
-///         "description": "Request body is not valid JSON."
+///         "description": "Invalid JSON or unsupported token admission/pricing requirements. Responses does not currently report cache-write quantities. Separate rates for unavailable categories in a bound base or reachable tier schedule return unsupported_token_pricing before dispatch or reservation commits."
 ///       },
 ///       "429": {
 ///         "description": "API key request, concurrency or token rate limit exceeded."

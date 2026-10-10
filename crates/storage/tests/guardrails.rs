@@ -593,7 +593,11 @@ async fn priced_policy_rejection_commits_audit_without_reservation_or_budget_eff
         offer_revision: "v1".into(),
         prompt_bound: 10,
         completion_bound: 10,
-        can_report_reasoning_tokens: true,
+        token_usage: niu_storage::GatewayTokenUsageCapabilities {
+            cached_input: true,
+            cache_write_input: true,
+            reasoning_output: true,
+        },
     };
     assert!(matches!(
         store

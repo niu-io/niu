@@ -538,10 +538,21 @@ pub(super) async fn begin_retry_attempt(
                     offer_revision: revision.clone(),
                     prompt_bound: price.max_input_tokens,
                     completion_bound: completion_bound.unwrap_or(price.max_output_tokens),
-                    can_report_reasoning_tokens: !matches!(
-                        protocol,
-                        crate::guardrails::input::Protocol::Messages
-                    ),
+                    token_usage: niu_storage::GatewayTokenUsageCapabilities {
+                        cached_input: !matches!(
+                            protocol,
+                            crate::guardrails::input::Protocol::Embeddings
+                        ),
+                        cache_write_input: matches!(
+                            protocol,
+                            crate::guardrails::input::Protocol::Messages
+                        ),
+                        reasoning_output: matches!(
+                            protocol,
+                            crate::guardrails::input::Protocol::Chat
+                                | crate::guardrails::input::Protocol::Responses
+                        ),
+                    },
                 },
                 retry.map(|(_, policy)| policy),
             )

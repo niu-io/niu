@@ -153,6 +153,7 @@ pub use accounting::{
     GatewayActivityExportEntry, GatewayActivityFilter, GatewayActivityKeySummary,
     GatewayActivityModelSummary, GatewayActivitySort, GatewayActivitySummary,
     GatewayDeliveryFilter, GatewayDeliverySummary, GatewayReservation,
+    GatewayTokenUsageCapabilities,
 };
 pub use codex_report::{
     CodexRateOverride, CodexRateSnapshot, CodexUsageImportFinish, CodexUsageImportStart,

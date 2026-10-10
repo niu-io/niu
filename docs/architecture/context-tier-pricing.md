@@ -332,3 +332,40 @@ original bound revision, new current reasoning rate, one total attempt, no
 funding and no open reservation. This verifies the admission-first publication
 ordering; it does not establish Supplier-offer concurrency or arbitrary protocol
 metering support.
+
+### Shared adapter usage capabilities
+
+Priced admission now consumes an explicit capability record for cache-read,
+cache-write and reasoning quantities, rather than a Messages-only reasoning
+flag. The current response parsers support these categories:
+
+| Protocol | Cache read | Cache write | Reasoning output |
+| --- | --- | --- | --- |
+| Chat | Yes | No | Yes |
+| Responses | Yes | No | Yes |
+| Messages | Yes | Yes | No |
+| Embeddings | No | No | No |
+
+Capability means the adapter can read a category, not that an upstream response
+will supply it. Missing quantities remain unknown. For bound customer and text
+Supplier prices, any separately priced unsupported category in the base schedule
+or a reachable context tier returns `unsupported_token_pricing` before admission
+commits. Explicit zero prices still require quantities. Flat pricing remains
+available, and an unsupported category exclusively above the configured input
+bound does not block admission. The capability check reads both bound revisions
+in the existing transaction and creates no extra database connection.
+
+Current-input isolated API verification rejected six Embeddings configurations:
+each unsupported category at an explicit zero base price and in a reachable
+context tier. No attempts or reservations were created. After clearing category
+prices, two real OpenRouter embedding batches across restart returned finite
+1536-dimensional vectors and produced exact customer charges and matching debits.
+Independent verification reopened the stopped database, checked saved response
+hashes/vectors and reported token counts, and confirmed two total attempts, no
+open reservations and no funding. Separate actual Chat and Responses API requests
+with a zero cache-write price were rejected before dispatch; independent database
+inspection confirmed zero attempts, holds and financial entries after restart.
+These checks use internal verification credit/rates and personal upstream access,
+not commercial Supplier qualification. Nonempty Supplier binding remains
+unverified. The adapter limitations in this table remain implementation gaps;
+refusal is not support for combined cache-write and reasoning metering.

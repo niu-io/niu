@@ -133,6 +133,9 @@ struct StreamExecution<'a> {
 ///       "403": {
 ///         "description": "Source IP or enforced policy denies the request. Recorded preparation-policy refusals use error.type guardrail_denied before model dispatch; post-dispatch output withholding uses guardrail_output_withheld and generation charges may apply. Do not classify every 403 as a Guardrail refusal."
 ///       },
+///       "422": {
+///         "description": "Configured pricing requires an unavailable token category (unsupported_token_pricing), or a token admission bound is unavailable. Chat does not currently report cache-write quantities; separate cache-write rates in bound base or reachable tier schedules are rejected before dispatch."
+///       },
 ///       "429": {
 ///         "description": "API key request, concurrency or token rate limit exceeded."
 ///       },

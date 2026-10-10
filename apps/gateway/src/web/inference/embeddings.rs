@@ -206,7 +206,7 @@ use super::common::*;
 ///         "description": "Provider request failed or returned an invalid embedding response."
 ///       },
 ///       "422": {
-///         "description": "Request body is not valid JSON."
+///         "description": "Invalid JSON or unsupported token admission/pricing requirements. Embeddings does not report cache-read, cache-write or reasoning subsets. Separate rates for unavailable categories in a bound base or reachable tier schedule return unsupported_token_pricing before dispatch or reservation commits."
 ///       },
 ///       "402": {
 ///         "description": "Insufficient balance or configured spending limit exceeded."

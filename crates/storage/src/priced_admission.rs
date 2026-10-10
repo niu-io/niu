@@ -72,32 +72,41 @@ impl Store {
         // Inspect the exact immutable revisions just bound in this transaction,
         // including operation-pinned retry pricing. A preflight read of current
         // prices would race with publication and could strand a dispatched hold.
-        if !reservation.can_report_reasoning_tokens {
-            let requires_reasoning: bool = sqlx::query_scalar(
+        let usage = reservation.token_usage;
+        if !usage.cached_input || !usage.cache_write_input || !usage.reasoning_output {
+            let unsupported: bool = sqlx::query_scalar(
                 "SELECT EXISTS (
                     SELECT 1 FROM (
-                        SELECT r.reasoning_completion_rate,r.context_tiers
+                        SELECT r.reasoning_completion_rate,r.cached_prompt_rate,r.cache_write_prompt_rate,r.context_tiers
                         FROM customer_attempt_tariffs b
                         JOIN customer_tariff_revisions r ON r.id=b.revision_id
                         WHERE b.attempt_id=$1
                         UNION ALL
-                        SELECT r.reasoning_completion_rate,r.context_tiers
+                        SELECT r.reasoning_completion_rate,r.cached_prompt_rate,r.cache_write_prompt_rate,r.context_tiers
                         FROM provider_attempt_offers b
                         JOIN provider_offer_revisions r ON r.id=b.revision_id
                         WHERE b.attempt_id=$1 AND r.rate_kind='text'
                     ) rates
-                    WHERE reasoning_completion_rate IS NOT NULL OR EXISTS (
+                    WHERE (NOT $3 AND reasoning_completion_rate IS NOT NULL)
+                        OR (NOT $4 AND cached_prompt_rate IS NOT NULL)
+                        OR (NOT $5 AND cache_write_prompt_rate IS NOT NULL)
+                        OR EXISTS (
                         SELECT 1 FROM jsonb_array_elements(context_tiers) tier
                         WHERE (tier->>'minimum_input_tokens')::bigint <= $2
-                        AND tier->>'reasoning_completion_rate' IS NOT NULL
+                        AND ((NOT $3 AND tier->>'reasoning_completion_rate' IS NOT NULL)
+                            OR (NOT $4 AND tier->>'cached_prompt_rate' IS NOT NULL)
+                            OR (NOT $5 AND tier->>'cache_write_prompt_rate' IS NOT NULL))
                     )
                 )",
             )
             .bind(attempt)
             .bind(reservation.prompt_bound)
+            .bind(usage.reasoning_output)
+            .bind(usage.cached_input)
+            .bind(usage.cache_write_input)
             .fetch_one(&mut *tx)
             .await?;
-            if requires_reasoning {
+            if unsupported {
                 return Err(StoreError::UnsupportedTokenPricing);
             }
         }

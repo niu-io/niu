@@ -142,6 +142,15 @@ pub struct GatewayActivityExportEntry {
     pub failure: Option<sqlx::types::Json<crate::RequestFailure>>,
 }
 
+/// Categories the response adapter can observe, not a promise that an upstream
+/// response will supply them. Missing reported quantities always remain unknown.
+#[derive(Clone, Copy, Debug)]
+pub struct GatewayTokenUsageCapabilities {
+    pub cached_input: bool,
+    pub cache_write_input: bool,
+    pub reasoning_output: bool,
+}
+
 /// Fixed price revision and worst-case token bounds for a priced gateway dispatch.
 pub struct GatewayReservation {
     pub price_revision_id: Uuid,
@@ -149,9 +158,7 @@ pub struct GatewayReservation {
     pub offer_revision: String,
     pub prompt_bound: i64,
     pub completion_bound: i64,
-    /// Whether this response adapter can report a reasoning output subset.
-    /// This is capability, not a promise that any given response supplies usage.
-    pub can_report_reasoning_tokens: bool,
+    pub token_usage: GatewayTokenUsageCapabilities,
 }
 
 #[derive(Debug, sqlx::FromRow)]

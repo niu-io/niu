@@ -10928,6 +10928,9 @@
           "403": {
             "description": "Source IP or enforced policy denies the request. Recorded preparation-policy refusals use error.type guardrail_denied before model dispatch; post-dispatch output withholding uses guardrail_output_withheld and generation charges may apply. Do not classify every 403 as a Guardrail refusal."
           },
+          "422": {
+            "description": "Configured pricing requires an unavailable token category (unsupported_token_pricing), or a token admission bound is unavailable. Chat does not currently report cache-write quantities; separate cache-write rates in bound base or reachable tier schedules are rejected before dispatch."
+          },
           "429": {
             "description": "API key request, concurrency or token rate limit exceeded."
           },
@@ -11336,7 +11339,7 @@
             "description": "Provider request failed or returned an invalid embedding response."
           },
           "422": {
-            "description": "Request body is not valid JSON."
+            "description": "Invalid JSON or unsupported token admission/pricing requirements. Embeddings does not report cache-read, cache-write or reasoning subsets. Separate rates for unavailable categories in a bound base or reachable tier schedule return unsupported_token_pricing before dispatch or reservation commits."
           },
           "402": {
             "description": "Insufficient balance or configured spending limit exceeded."
@@ -12095,7 +12098,7 @@
             "description": "Request body exceeds 1 MiB; rejected before inference whether payload capture is enabled or disabled. Framework responses may use a plain-text body."
           },
           "422": {
-            "description": "Request body is not valid JSON."
+            "description": "Invalid JSON or unsupported token admission/pricing requirements. Responses does not currently report cache-write quantities. Separate rates for unavailable categories in a bound base or reachable tier schedule return unsupported_token_pricing before dispatch or reservation commits."
           },
           "429": {
             "description": "API key request, concurrency or token rate limit exceeded."
