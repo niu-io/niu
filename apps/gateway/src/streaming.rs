@@ -817,6 +817,7 @@ mod tests {
             assert_eq!(
                 evidence.token_categories(),
                 Some(niu_storage::RequestTokenCategories {
+                    cache_write_input_tokens: None,
                     cached_input_tokens: Some(1),
                     reasoning_output_tokens: Some(0)
                 })

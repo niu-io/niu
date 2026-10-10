@@ -26,6 +26,7 @@ async fn category_aggregates_remain_exact_beyond_integer_ranges(pool: PgPool) {
                 usage: Some((i64::MAX as u64, 1)),
                 provider_model: None,
                 token_categories: Some(RequestTokenCategories {
+                    cache_write_input_tokens: None,
                     cached_input_tokens: Some(i64::MAX),
                     reasoning_output_tokens: Some(0),
                 }),
@@ -74,6 +75,7 @@ async fn categories_are_scoped_bounded_immutable_and_preserve_unknowns(pool: PgP
         .await
         .unwrap();
     let categories = RequestTokenCategories {
+        cache_write_input_tokens: None,
         cached_input_tokens: Some(0),
         reasoning_output_tokens: None,
     };
@@ -96,18 +98,22 @@ async fn categories_are_scoped_bounded_immutable_and_preserve_unknowns(pool: PgP
     );
     for invalid in [
         RequestTokenCategories {
+            cache_write_input_tokens: None,
             cached_input_tokens: None,
             reasoning_output_tokens: None,
         },
         RequestTokenCategories {
+            cache_write_input_tokens: None,
             cached_input_tokens: Some(-1),
             reasoning_output_tokens: None,
         },
         RequestTokenCategories {
+            cache_write_input_tokens: None,
             cached_input_tokens: Some(11),
             reasoning_output_tokens: None,
         },
         RequestTokenCategories {
+            cache_write_input_tokens: None,
             cached_input_tokens: None,
             reasoning_output_tokens: Some(6),
         },
@@ -133,6 +139,7 @@ async fn categories_are_scoped_bounded_immutable_and_preserve_unknowns(pool: PgP
                 scope,
                 attempt,
                 RequestTokenCategories {
+                    cache_write_input_tokens: None,
                     cached_input_tokens: Some(1),
                     reasoning_output_tokens: None
                 }
@@ -158,6 +165,7 @@ async fn categories_are_scoped_bounded_immutable_and_preserve_unknowns(pool: PgP
         usage: Some((10, 5)),
         provider_model: Some("fixture".into()),
         token_categories: Some(RequestTokenCategories {
+            cache_write_input_tokens: None,
             cached_input_tokens: Some(11),
             reasoning_output_tokens: Some(2),
         }),

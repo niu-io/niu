@@ -171,6 +171,7 @@ async fn request_export_is_scoped_exact_filtered_and_never_silently_truncated(po
         .store
         .complete_gateway_batch(vec![niu_storage::GatewayCompletion {
             token_categories: Some(niu_storage::RequestTokenCategories {
+                cache_write_input_tokens: None,
                 cached_input_tokens: Some(9_007_199_254_740_991),
                 reasoning_output_tokens: Some(0),
             }),

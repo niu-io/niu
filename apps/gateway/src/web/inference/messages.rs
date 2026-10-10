@@ -718,6 +718,8 @@ fn normalize(value: Value, public_model: &str) -> Result<ProviderResponse, ApiEr
         .and_then(|_| token("cache_read_input_tokens"))
         .and_then(|n| i64::try_from(n).ok())
         .map(|n| niu_storage::RequestTokenCategories {
+            cache_write_input_tokens: token("cache_creation_input_tokens")
+                .and_then(|value| i64::try_from(value).ok()),
             cached_input_tokens: Some(n),
             reasoning_output_tokens: None,
         });
