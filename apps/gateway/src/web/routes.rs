@@ -407,6 +407,148 @@ async fn enterprise_ready(
     }
 }
 
+/// ```openapi
+/// {
+///   "path": "/v1/models",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listModels",
+///     "summary": "List key-accessible model aliases and workspace customer prices",
+///     "description": "Requires a current workspace API key and filters aliases by its model grants and organization access. customer_pricing is the current workspace selling tariff or null; personal credential routes omit customer prices. Token rates use currency nanounits per million tokens. request_fee_nanos and minimum_charge_nanos use currency nanounits per known completed request. Amounts and revisions are exact strings. Listing a model or tariff does not qualify generation or guarantee admission, balance or upstream availability. No Supplier procurement rates, upstream credentials, endpoints or private model mappings are exposed.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Current key-visible aliases and customer-only prices.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "object",
+///                 "data"
+///               ],
+///               "properties": {
+///                 "object": {
+///                   "type": "string",
+///                   "const": "list"
+///                 },
+///                 "data": {
+///                   "type": "array",
+///                   "items": {
+///                     "type": "object",
+///                     "additionalProperties": false,
+///                     "required": [
+///                       "id",
+///                       "object",
+///                       "owned_by",
+///                       "customer_pricing"
+///                     ],
+///                     "properties": {
+///                       "id": {
+///                         "type": "string",
+///                         "description": "Public model alias."
+///                       },
+///                       "object": {
+///                         "type": "string",
+///                         "const": "model"
+///                       },
+///                       "owned_by": {
+///                         "type": "string",
+///                         "const": "niu"
+///                       },
+///                       "customer_pricing": {
+///                         "anyOf": [
+///                           {
+///                             "$ref": "#/components/schemas/WorkspaceCustomerModelPrice"
+///                           },
+///                           {
+///                             "type": "null"
+///                           }
+///                         ]
+///                       }
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Missing, revoked, expired or invalid key."
+///       },
+///       "403": {
+///         "description": "Current credential access policy denies the request."
+///       },
+///       "503": {
+///         "description": "Storage or route configuration unavailable."
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   },
+///   "schemas": {
+///     "WorkspaceCustomerModelPrice": {
+///       "type": "object",
+///       "additionalProperties": false,
+///       "required": [
+///         "revision",
+///         "currency",
+///         "unit",
+///         "prompt_rate",
+///         "completion_rate",
+///         "cached_prompt_rate",
+///         "minimum_charge_nanos",
+///         "request_fee_nanos"
+///       ],
+///       "properties": {
+///         "revision": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "currency": {
+///           "type": "string",
+///           "pattern": "^[A-Z]{3}$"
+///         },
+///         "unit": {
+///           "type": "string",
+///           "const": "nanounits_per_million_tokens",
+///           "description": "Unit for token rate fields only. Minimum and request fee are currency nanounits per known completed request."
+///         },
+///         "prompt_rate": {
+///           "type": "string",
+///           "pattern": "^[0-9]+$"
+///         },
+///         "completion_rate": {
+///           "type": "string",
+///           "pattern": "^[0-9]+$"
+///         },
+///         "minimum_charge_nanos": {
+///           "type": "string",
+///           "pattern": "^[0-9]+$"
+///         },
+///         "request_fee_nanos": {
+///           "type": "string",
+///           "pattern": "^[0-9]+$"
+///         },
+///         "cached_prompt_rate": {
+///           "type": [
+///             "string",
+///             "null"
+///           ],
+///           "pattern": "^[0-9]+$"
+///         }
+///       }
+///     }
+///   }
+/// }
+/// ```
 async fn public_models(
     State(state): State<AppState>,
     headers: HeaderMap,

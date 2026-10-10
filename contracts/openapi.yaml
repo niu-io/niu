@@ -1256,18 +1256,7 @@ paths:
         '503':
           description: At least one required Enterprise module is unavailable or incompatible.
   /v1/models:
-    get:
-      operationId: listModels
-      summary: List models available to the configured API key
-      description: Each model includes customer_pricing from the authenticated workspace's current selling tariff, or null when unpriced. Prices use exact decimal strings of currency nanounits per million input/output tokens and include the immutable revision. Supplier offers and procurement costs are excluded.
-      security:
-        - bearerAuth: []
-        - niuApiKeyAuth: []
-      responses:
-        '200':
-          description: Available public model names.
-        '401':
-          description: Missing or invalid gateway credentials.
+    $ref: './generated/handler-operations.json#/paths/~1v1~1models'
   /catalog/v1/models:
     get:
       operationId: listPublicCatalogModels

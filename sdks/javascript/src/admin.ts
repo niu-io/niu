@@ -112,6 +112,7 @@ export type CustomerInvoiceLine = {
   model_alias: string; revision: string; currency: string; requests: string;
   prompt_tokens: string; completion_tokens: string; prompt_rate: string; completion_rate: string; amount_nanos: string;
   cached_prompt_tokens?: string | null; cached_prompt_rate?: string | null;
+  minimum_charge_nanos?: string; request_fee_nanos?: string;
 };
 /** Customer media receipts, separate from text-token line groups. */
 export type CustomerInvoiceMediaLine = {

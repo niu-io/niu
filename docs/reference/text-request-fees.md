@@ -128,3 +128,19 @@ returned HTTP 402 before and after restart. Independent SQL found no attempts,
 charges, balance entries or customer/procurement reservations from these requests.
 No upstream generation was sent. This verifies admission overflow/refusal only;
 reported usage exceeding a representable bound remains a separate settlement path.
+
+### Model discovery contract and SDK reads
+
+`GET /v1/models` now has a handler-generated response contract. Its
+`customer_pricing.unit` applies only to token rates; minimum and fixed fees are
+per-request currency nanounits. Model-list and invoice-line SDK types expose both
+optional fields for compatibility with earlier gateways. Discovery reports the
+current workspace tariff, not a historical invoice price or an admission guarantee.
+
+An actual retained-database run published a fee of `9007199254740993`, then read
+it through both the model endpoint and the built JavaScript SDK. The complete
+price field set, minimum and fixed-fee strings matched SQL-backed billing reads.
+A separate workspace key could list the same shared alias but received null
+customer pricing, not the first workspace's tariff. Restart preserved the first
+workspace's response. Temporary keys were revoked and the fee was explicitly
+restored to zero without rewriting historical charges. No inference was sent.

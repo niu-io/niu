@@ -622,3 +622,13 @@ nanounits with HTTP 400. A representable amount without sufficient spending
 capacity returns HTTP 402. Actual API requests and independent SQL verified that
 neither case dispatched upstream or left financial reservations; see the
 [admission boundary evidence](https://github.com/niu-io/niu/blob/main/docs/reference/text-request-fees.md#checked-addition-at-admission).
+
+## Workspace model prices
+
+`GET /v1/models` is included in the handler-generated OpenAPI. Model
+`customer_pricing` contains the authenticated workspace's current selling tariff,
+or null. Token rates use nanounits per million tokens; `minimum_charge_nanos` and
+`request_fee_nanos` are per-request currency nanounits. Keep every amount as a
+string. The SDK exposes both fee fields on model prices and invoice lines.
+Model discovery does not guarantee admission or upstream availability. See the
+[actual scoped price-read verification](https://github.com/niu-io/niu/blob/main/docs/reference/text-request-fees.md#model-discovery-contract-and-sdk-reads).

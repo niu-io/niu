@@ -10036,6 +10036,94 @@ HTTP 402: Insufficient funds or spending allowance before dispatch.
 
 HTTP 429: Current rate or concurrency policy denied admission.
 
+## List key-accessible model aliases and workspace customer prices
+
+`GET /v1/models`
+
+Requires a current workspace API key and filters aliases by its model grants and organization access. customer_pricing is the current workspace selling tariff or null; personal credential routes omit customer prices. Token rates use currency nanounits per million tokens. request_fee_nanos and minimum_charge_nanos use currency nanounits per known completed request. Amounts and revisions are exact strings. Listing a model or tariff does not qualify generation or guarantee admission, balance or upstream availability. No Supplier procurement rates, upstream credentials, endpoints or private model mappings are exposed.
+
+Implementation: `implemented`. Operation: `listModels`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
+  }
+]
+```
+
+### Responses
+
+HTTP 200: Current key-visible aliases and customer-only prices.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "object",
+    "data"
+  ],
+  "properties": {
+    "object": {
+      "type": "string",
+      "const": "list"
+    },
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "object",
+          "owned_by",
+          "customer_pricing"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Public model alias."
+          },
+          "object": {
+            "type": "string",
+            "const": "model"
+          },
+          "owned_by": {
+            "type": "string",
+            "const": "niu"
+          },
+          "customer_pricing": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceCustomerModelPrice"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Missing, revoked, expired or invalid key.
+
+HTTP 403: Current credential access policy denies the request.
+
+HTTP 503: Storage or route configuration unavailable.
+
 ## Shared schemas
 
 Local `#/components/schemas/…` references resolve to these definitions.
@@ -13375,6 +13463,63 @@ Local `#/components/schemas/…` references resolve to these definitions.
           "type": "null"
         }
       ]
+    }
+  }
+}
+```
+
+### WorkspaceCustomerModelPrice
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "revision",
+    "currency",
+    "unit",
+    "prompt_rate",
+    "completion_rate",
+    "cached_prompt_rate",
+    "minimum_charge_nanos",
+    "request_fee_nanos"
+  ],
+  "properties": {
+    "revision": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "unit": {
+      "type": "string",
+      "const": "nanounits_per_million_tokens",
+      "description": "Unit for token rate fields only. Minimum and request fee are currency nanounits per known completed request."
+    },
+    "prompt_rate": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "completion_rate": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "minimum_charge_nanos": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "request_fee_nanos": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "cached_prompt_rate": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$"
     }
   }
 }
