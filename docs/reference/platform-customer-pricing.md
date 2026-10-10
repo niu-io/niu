@@ -72,3 +72,13 @@ the unchanged original rate and the winning rate, with the current pointer on
 the winner. There were no inference attempts, charges, balance entries or
 reservations. This checks concurrent optimistic publication on one gateway;
 it does not qualify multi-gateway contention or concurrent inference repricing.
+
+A follow-up fresh native run started two independent gateway processes against
+one isolated PostgreSQL database. Eight simultaneous writes, four directed to
+each gateway, again produced one HTTP 200 and seven HTTP 409 responses. After
+stopping the second gateway and restarting the first, the winning pointer
+remained and the old revision still conflicted. Independent reopening confirmed
+the original rate and exactly one new winning revision, with no inference or
+financial records. Both gateway processes stopped. This extends publication
+conflict verification to two processes; concurrent inference repricing and
+sustained contention performance remain unqualified.
