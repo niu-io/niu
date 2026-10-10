@@ -18,7 +18,7 @@ import SupplierEditor, { type VendorCreate } from './SupplierEditor';
 import ModelMappings from './ModelMappings';
 import CodexSubscriptions from './CodexSubscriptions';
 
-export default function SuppliersView({ token, session, refreshWorkspace, workspaces = [], catalogPath = '/workspaces/default/models' }: {
+export default function SuppliersView({ token, session, refreshWorkspace, workspaces = [], catalogPath = '/models?workspace=default' }: {
   workspaces?: Workspace[];
   catalogPath?: string;
   token: string;

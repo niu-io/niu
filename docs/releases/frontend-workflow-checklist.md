@@ -779,3 +779,8 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
 - Edited only the existing OpenRouter API key's display name, leaving its optional replacement-secret field blank. The saved name survived full reload; restored OpenRouter and reloaded again. The Supplier identity, endpoint, enabled state and all 25 mappings remained intact.
 - A fresh GPT-4.1 Mini catalog check through that stored credential completed with “Reachable · model listed. Try Chat to verify access.” This proves the exercised metadata write did not clear the credential; it does not prove new inference, credential rotation or multi-key route isolation. No credential was exposed or replaced.
 - Follow-up frontend defect: the Supplier detail's Model catalog link uses bare `/models`, whereas the current authenticated rail preserves its workspace query to enter the dashboard catalog. Align this navigation with the existing authenticated entry without moving model ownership into workspaces or changing public route ownership.
+
+## Supplier-to-catalog navigation repair
+
+- Supplier API keys & routes now derives the existing authenticated global Models URL from the current workspace context, using the shared workspace path resolver. The component fallback also uses global `/models` rather than the retired nested workspace model route. This preserves context for dashboard entry; it does not change model ownership or public catalog route ownership.
+- Dashboard TypeScript checking passed. On desktop HMR, clicking the actual Model catalog link entered `/models` with the same workspace query as the rail and rendered 25 real models, model details links and Try in Chat actions. No saved configuration or inference was changed. Responsive refinement remains deferred.
