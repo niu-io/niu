@@ -68,3 +68,10 @@ and restart preserved the same records. Completion P50/P95 was 3.262/4.947 secon
 including real upstream generation. This single run does not establish production
 capacity. The [detailed workload and boundaries](https://github.com/niu-io/niu/blob/main/docs/reference/structured-output-streaming.md#one-minute-structured-stream-load-checkpoint)
 include rates, process samples and accounting checks.
+
+A subsequent run with immutable operation tariff bindings completed 70 verified
+streams in 63.256 seconds, with completion P50/P95 of 3.418/4.319 seconds. All
+70 operation/attempt price bindings agreed; each charge matched reported usage,
+all holds were released and restart preserved the debit count. This includes
+upstream generation and is not an isolated measurement of binding overhead or
+maximum capacity. See the [operation-tariff checkpoint](https://github.com/niu-io/niu/blob/main/docs/reference/structured-output-streaming.md#operation-tariff-concurrency-checkpoint).

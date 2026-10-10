@@ -161,3 +161,31 @@ identity were preserved, and isolated processes were stopped.
 This qualifies the exercised first-content disconnect, cap and restart path.
 It does not prove upstream cancellation, recover missing usage, settle the
 unknown charge, or qualify every disconnect timing and transport buffering mode.
+
+## Operation-tariff concurrency checkpoint
+
+The same bounded four-worker, 60-second workload ran against `3f474d2`, including
+migration 0223's immutable operation tariff binding. It completed 70 actual
+structured streams in 63.256 seconds including drain (1.107 completions/second).
+Every output contained its fresh marker and the complete requested integer
+sequence, with reported usage and terminal completion. No retry was requested.
+
+| Measurement | Observation |
+| --- | ---: |
+| Completion P50 / P95 / maximum | 3.418 / 4.319 / 5.694 seconds |
+| First content P50 / P95 | 0.756 / 1.298 seconds |
+| Gateway RSS across 63 samples | 22,784–28,224 KiB |
+| Maximum sampled process CPU | 6.7% |
+
+Independent database reads found 70 operation tariff bindings, each matching its
+attempt tariff. Exact usage-based arithmetic matched all 70 customer charges and
+debits, totaling 29,228,918 internal USD nanounits. No customer balance hold remained;
+reconciliation had no discrepancy, all saved timings were complete and no request
+failure or database deadlock diagnostic was recorded. Restart preserved the same
+charges and debits. Temporary credentials were revoked and isolated processes
+stopped; original development data and encrypted identity remained unchanged.
+
+This is one short real-upstream observation with the operation binding enabled.
+Differences from the earlier run cannot isolate the cost of that binding: upstream
+and network conditions were not controlled. It does not qualify maximum capacity,
+same-operation successor contention, long soaks, overload or multiple instances.
