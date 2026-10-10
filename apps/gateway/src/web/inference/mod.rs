@@ -3,6 +3,8 @@ mod codex;
 mod common;
 pub(super) mod dashboard_video;
 mod embeddings;
+mod messages;
+pub(super) use messages::messages;
 mod priced_chat;
 mod responses;
 pub(super) mod video;

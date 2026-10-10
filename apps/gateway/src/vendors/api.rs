@@ -748,6 +748,11 @@ pub async fn update(
 ///           "type": "boolean",
 ///           "default": false
 ///         },
+///         "supports_messages": {
+///           "type": "boolean",
+///           "default": false,
+///           "description": "Explicit native Messages nonstreaming text capability for OpenRouter or Anthropic routes. Does not imply streaming, tools or media support."
+///         },
 ///         "supports_responses": {
 ///           "type": "boolean",
 ///           "default": false

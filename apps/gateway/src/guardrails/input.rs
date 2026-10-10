@@ -17,6 +17,7 @@ pub struct TextRule {
 #[serde(rename_all = "snake_case")]
 pub enum Protocol {
     Chat,
+    Messages,
     Responses,
     Embeddings,
     VideoText,
@@ -122,6 +123,7 @@ impl CompiledInputPolicy {
     ) -> Result<serde_json::Value, InspectionError> {
         match protocol {
             Protocol::Chat => inspect_chat(body, &self.rules),
+            Protocol::Messages => inspect_messages(body, &self.rules),
             Protocol::Responses => inspect_responses(body, &self.rules),
             Protocol::Embeddings => inspect_embeddings(body, &self.rules),
             Protocol::VideoText => self.inspect_video_text(body),
@@ -138,6 +140,31 @@ pub enum InspectionError {
 }
 
 /// Textual message subset only. Returns a transformed clone; failures never mutate input.
+/// Use one inspection pass for all original system/message text. The temporary
+/// Chat-shaped document is local inspection input only, never an upstream body.
+pub fn inspect_messages(
+    body: &serde_json::Value,
+    rules: &[TextRule],
+) -> Result<serde_json::Value, InspectionError> {
+    let mut inspected = body.clone();
+    let mut messages = body
+        .get("messages")
+        .and_then(serde_json::Value::as_array)
+        .cloned()
+        .ok_or(InspectionError::UnsupportedContent)?;
+    let has_system = body.get("system").is_some();
+    if let Some(system) = body.get("system") {
+        messages.insert(0, serde_json::json!({"role":"system","content":system}));
+    }
+    let normalized = inspect_chat(&serde_json::json!({"messages":messages}), rules)?;
+    let mut messages = normalized["messages"].as_array().unwrap().clone();
+    if has_system {
+        inspected["system"] = messages.remove(0)["content"].clone();
+    }
+    inspected["messages"] = serde_json::Value::Array(messages);
+    Ok(inspected)
+}
+
 pub fn inspect_chat(
     body: &serde_json::Value,
     rules: &[TextRule],
@@ -933,6 +960,10 @@ pub fn detector_text(
     let mut texts = Vec::new();
     match protocol {
         Protocol::Chat => collect(&validated["messages"], &mut texts),
+        Protocol::Messages => {
+            collect(&validated["system"], &mut texts);
+            collect(&validated["messages"], &mut texts);
+        }
         Protocol::Responses => {
             if let Some(instructions) = validated.get("instructions") {
                 collect(instructions, &mut texts);

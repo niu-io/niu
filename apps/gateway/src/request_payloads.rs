@@ -123,7 +123,7 @@ pub async fn capture(
     let inference = video
         || matches!(
             path,
-            "/v1/chat/completions" | "/v1/responses" | "/v1/embeddings"
+            "/v1/chat/completions" | "/v1/responses" | "/v1/messages" | "/v1/embeddings"
         )
         || path.starts_with("/admin/v1/organizations/") && path.ends_with("/chat/completions");
     if !inference || request.method() != axum::http::Method::POST {

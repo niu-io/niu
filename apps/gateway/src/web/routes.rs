@@ -14,7 +14,7 @@ use serde_json::{Value, json};
 
 use crate::{error::ApiError, state::AppState};
 
-use super::inference::{chat, embeddings, responses};
+use super::inference::{chat, embeddings, messages, responses};
 
 async fn password_response_headers(request: axum::http::Request<Body>, next: Next) -> Response {
     let mut response = next.run(request).await;
@@ -222,6 +222,7 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/v1/video/jobs/{id}/results/{kind}", get(super::inference::video_results::retrieve))
         .route("/v1/video/jobs/{id}/results", get(super::inference::video_results::availability).delete(super::inference::video_results::delete))
         .route("/v1/video/jobs/{id}", get(super::inference::video::status))
+        .route("/v1/messages", post(messages).layer(DefaultBodyLimit::max(64*1024)))
         .route("/v1/chat/completions", axum::routing::post(chat))
         .route("/v1/responses", axum::routing::post(responses))
         .route("/v1/embeddings", axum::routing::post(embeddings))
@@ -603,6 +604,7 @@ async fn catalog_models(State(state): State<AppState>) -> Result<Json<Value>, Ap
                     "chat_completions": true,
                     "streaming": model.protocol().supports_streaming(),
                     "embeddings": model.supports_embeddings,
+                    "messages": model.supports_messages,
                     "responses": model.supports_responses
                 }
             })
@@ -682,6 +684,7 @@ async fn admin_models(
                 "supports_tool_calls": model.supports_tool_calls,
                 "supports_streaming_tool_calls": model.supports_streaming_tool_calls,
                 "supports_structured_output": model.supports_structured_output,
+                "supports_messages": model.supports_messages,
                 "supports_responses": model.supports_responses
             });
             if authorization.is_installation() {
@@ -698,6 +701,7 @@ async fn admin_models(
                     "supports_tool_calls": model.supports_tool_calls,
                     "supports_streaming_tool_calls": model.supports_streaming_tool_calls,
                     "supports_structured_output": model.supports_structured_output,
+                    "supports_messages": model.supports_messages,
                     "supports_responses": model.supports_responses
                 })
             } else {

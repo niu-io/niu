@@ -335,6 +335,7 @@ fn request_token_bound(body: &Value, protocol: &crate::guardrails::input::Protoc
     use crate::guardrails::input::Protocol;
     let output = match protocol {
         Protocol::VideoText => return None,
+        Protocol::Messages => body.get("max_tokens")?.as_i64()?,
         Protocol::Chat => {
             if body.get("n").is_some_and(|n| n.as_u64() != Some(1))
                 || [
@@ -638,6 +639,7 @@ pub(super) fn route_revision(model: &crate::config::ModelConfig) -> String {
                 "supports_tool_calls": model.supports_tool_calls,
                 "supports_streaming_tool_calls": model.supports_streaming_tool_calls,
                 "supports_structured_output": model.supports_structured_output,
+                "supports_messages": model.supports_messages,
                 "supports_responses": model.supports_responses,
                 "pricing": model.pricing
             }))

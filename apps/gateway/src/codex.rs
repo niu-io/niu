@@ -740,6 +740,7 @@ pub(crate) fn model(slug: &str) -> crate::config::ModelConfig {
         supports_streaming_tool_calls: false,
         supports_structured_output: false,
         supports_responses: true,
+        supports_messages: false,
         pricing: None,
     }
 }

@@ -20,6 +20,16 @@ pub fn inspect(
         .as_object()
         .ok_or(InspectionError::UnsupportedContent)?;
     let allowed: &[&str] = match protocol {
+        Protocol::Messages => &[
+            "id",
+            "type",
+            "role",
+            "model",
+            "content",
+            "stop_reason",
+            "stop_sequence",
+            "usage",
+        ],
         Protocol::Chat => &[
             "id",
             "object",
@@ -77,6 +87,28 @@ pub fn inspect(
     }
     let mut paths = Vec::new();
     match protocol {
+        Protocol::Messages => {
+            if body.get("type").and_then(Value::as_str) != Some("message")
+                || body.get("role").and_then(Value::as_str) != Some("assistant")
+            {
+                return Err(InspectionError::UnsupportedContent);
+            }
+            let blocks = body
+                .get("content")
+                .and_then(Value::as_array)
+                .filter(|blocks| !blocks.is_empty() && blocks.len() <= 128)
+                .ok_or(InspectionError::UnsupportedContent)?;
+            for (index, block) in blocks.iter().enumerate() {
+                if !block.as_object().is_some_and(|b| b.len() == 2)
+                    || block.get("type").and_then(Value::as_str) != Some("text")
+                    || !block.get("text").is_some_and(Value::is_string)
+                {
+                    return Err(InspectionError::UnsupportedContent);
+                }
+                paths.push(format!("/content/{index}/text"));
+            }
+            optional_label(body, "/stop_sequence", &mut paths)?;
+        }
         Protocol::Chat => {
             // OpenRouter adds these textual labels to its normalized Chat envelope.
             // Inspect their values too; never admit arbitrary nested metadata here.

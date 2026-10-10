@@ -98,6 +98,8 @@ pub struct ModelConfig {
     #[serde(default)]
     pub supports_responses: bool,
     #[serde(default)]
+    pub supports_messages: bool,
+    #[serde(default)]
     pub api_base: Option<String>,
     #[serde(default)]
     pub pricing: Option<RoutePricing>,
@@ -267,6 +269,13 @@ impl AppConfig {
             {
                 return Err(ConfigError::Invalid(format!(
                     "model route {name} must set provider, upstream_model, and api_key_env"
+                )));
+            }
+            if model.supports_messages
+                && !matches!(model.provider.as_str(), "openrouter" | "anthropic")
+            {
+                return Err(ConfigError::Invalid(format!(
+                    "Messages capability on route {name} requires an openrouter or anthropic adapter"
                 )));
             }
             if model.supports_embeddings && !model.protocol().is_openai_compatible() {

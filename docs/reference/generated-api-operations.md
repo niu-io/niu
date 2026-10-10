@@ -10890,6 +10890,324 @@ HTTP 429: API key request, concurrency or token rate limit exceeded.
 
 HTTP 503: Durable storage or configured route unavailable.
 
+## Create a native nonstreaming text Message
+
+`POST /v1/messages`
+
+Requires supports_messages on an OpenRouter or Anthropic route. Uses Niu bearer or x-niu-api-key credentials, workspace grants, source policy, limits, guardrails and billing. Requests are limited to 64 KiB and conservative configured pricing bounds. No Chat translation. Tools, media, beta headers, unsupported fields and streaming are rejected before dispatch. Only version 2023-06-01 is supported (also used when omitted). Native input_tokens excludes cache reads/writes; total input accounting requires all three input categories plus output_tokens. Missing or null categories leave usage unresolved and reservations retained. Returned usage is not proof of a settled charge. Upstream commercial metadata is never forwarded. Native SDK and Claude Code compatibility are unverified.
+
+Implementation: `implemented`. Operation: `createMessage`.
+
+### Supported scope
+
+Native nonstreaming text only; streaming, tools, media and Gemini remain unsupported.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
+  }
+]
+```
+
+### Parameters
+
+`anthropic-version` (header, optional)
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "2023-06-01"
+  ]
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "model",
+    "max_tokens",
+    "messages"
+  ],
+  "properties": {
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "max_tokens": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000000
+    },
+    "system": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 128,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "text"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "text"
+                ]
+              },
+              "text": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "stream": {
+      "type": "boolean",
+      "enum": [
+        false
+      ]
+    },
+    "temperature": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "top_p": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "stop_sequences": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    },
+    "messages": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1024,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role",
+          "content"
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant"
+            ]
+          },
+          "content": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 128,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "text"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "text"
+                      ]
+                    },
+                    "text": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Native sanitized text Message. Inspect usage and billing diagnostics separately.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "type",
+    "role",
+    "model",
+    "content",
+    "stop_reason",
+    "stop_sequence",
+    "usage"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "message"
+      ]
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "assistant"
+      ]
+    },
+    "model": {
+      "type": "string"
+    },
+    "content": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "text"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "text"
+            ]
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "stop_reason": {
+      "type": "string",
+      "enum": [
+        "end_turn",
+        "max_tokens",
+        "stop_sequence"
+      ]
+    },
+    "stop_sequence": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input_tokens",
+        "output_tokens",
+        "cache_creation_input_tokens",
+        "cache_read_input_tokens"
+      ],
+      "properties": {
+        "input_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "output_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "cache_creation_input_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "cache_read_input_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid or unsupported input.
+
+HTTP 401: Invalid Niu key.
+
+HTTP 403: Input or output policy denial.
+
+HTTP 404: Model unavailable or outside key grants.
+
+HTTP 402: Insufficient spending capacity.
+
+HTTP 429: Key rate, concurrency or token limit.
+
+HTTP 501: Unsupported streaming, version or capability.
+
+HTTP 502: Upstream failure or invalid response; execution may be uncertain.
+
+HTTP 503: Service unavailable.
+
 ## Create a text response
 
 `POST /v1/responses`
@@ -14809,6 +15127,11 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "supports_embedding_base64": {
       "type": "boolean",
       "default": false
+    },
+    "supports_messages": {
+      "type": "boolean",
+      "default": false,
+      "description": "Explicit native Messages nonstreaming text capability for OpenRouter or Anthropic routes. Does not imply streaming, tools or media support."
     },
     "supports_responses": {
       "type": "boolean",

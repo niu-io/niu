@@ -19,6 +19,7 @@ pub(super) struct Capabilities {
     supports_streaming_tool_calls: bool,
     supports_structured_output: bool,
     supports_responses: bool,
+    supports_messages: bool,
 }
 
 pub(crate) struct ResolvedModel {
@@ -154,6 +155,10 @@ async fn resolve_pool(
                 Protocol::Embeddings => {
                     model.protocol().is_openai_compatible() && model.supports_embeddings
                 }
+                Protocol::Messages => {
+                    model.supports_messages
+                        && matches!(model.provider.as_str(), "openrouter" | "anthropic")
+                }
                 Protocol::VideoText => false,
             };
             if !supported || requirements.is_some_and(|required| !required.allows(&model)) {
@@ -242,6 +247,7 @@ pub(super) fn make_model(
         supports_streaming_tool_calls: caps.supports_streaming_tool_calls,
         supports_structured_output: caps.supports_structured_output,
         supports_responses: caps.supports_responses,
+        supports_messages: caps.supports_messages,
     })
 }
 

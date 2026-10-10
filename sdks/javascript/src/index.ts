@@ -1,3 +1,25 @@
+/** Explicit native text subset; no tools, media, beta features or streaming. */
+export type MessagesRequest = {
+  model: string;
+  max_tokens: number;
+  messages: Array<{ role: 'user' | 'assistant'; content: MessagesText }>;
+  system?: MessagesText;
+  stream?: false;
+  temperature?: number;
+  top_p?: number;
+  stop_sequences?: string[];
+};
+export type MessagesText = string | Array<{ type: 'text'; text: string }>;
+export type MessagesResponse = {
+  id: string; type: 'message'; role: 'assistant'; model: string;
+  content: Array<{ type: 'text'; text: string }>;
+  stop_reason: 'end_turn' | 'max_tokens' | 'stop_sequence';
+  stop_sequence: string | null;
+  /** Null categories do not establish zero usage or settled customer charges. */
+  usage: { input_tokens: number | null; output_tokens: number | null;
+    cache_creation_input_tokens: number | null; cache_read_input_tokens: number | null };
+};
+
 export type ChatMessage = {
   role: 'system' | 'developer' | 'user' | 'assistant' | 'tool';
   content: string | Array<Record<string, unknown>> | null;
@@ -305,6 +327,7 @@ export class NiuClient {
   readonly video: { models: { list: (options?: RequestOptions) => Promise<VideoModelList> }; estimate: (request: VideoCreateRequest, options?: RequestOptions) => Promise<VideoEstimate>; jobs: { results: { status: (id: string, options?: RequestOptions) => Promise<VideoResultAvailability>; retrieve: (id: string, kind: 'video' | 'last_frame', options?: RequestOptions) => Promise<Response>; delete: (id: string, options?: RequestOptions) => Promise<{ deleted: true }> }; list: (query?: VideoJobHistoryQuery, options?: RequestOptions) => Promise<VideoJobHistory>; billing: (id: string, options?: RequestOptions) => Promise<VideoJobBilling>; timings: (id: string, options?: RequestOptions) => Promise<VideoTransportTimings>; refresh: (id: string, options?: RequestOptions) => Promise<VideoJobState>; create: (request: VideoCreateRequest, options?: VideoCreateOptions) => Promise<VideoJobState>; retrieve: (id: string, options?: RequestOptions) => Promise<VideoJobState> } };
   readonly models: { list: (options?: RequestOptions) => Promise<ModelList> };
   readonly embeddings: { create: (request: EmbeddingRequest, options?: RequestOptions) => Promise<EmbeddingResponse> };
+  readonly messages: { create: (request: MessagesRequest, options?: RequestOptions) => Promise<MessagesResponse> };
   readonly responses: { create: (request: ResponsesRequest, options?: RequestOptions) => Promise<ResponsesResponse>; stream: (request: ResponsesRequest, options?: RequestOptions) => AsyncGenerator<unknown> };
   readonly chat: {
     completions: (request: ChatCompletionRequest, options?: RequestOptions) => Promise<ChatCompletionResponse>;
@@ -399,6 +422,7 @@ export class NiuClient {
     this.embeddings = {
       create: (request, requestOptions) => this.request('/embeddings', request, requestOptions),
     };
+    this.messages = { create: (request, requestOptions) => this.request('/messages', request, requestOptions) };
     this.responses = {
       create: (request, requestOptions) => {
         if ((request as { stream?: boolean }).stream === true) throw new Error('Use responses.stream() for streaming requests');

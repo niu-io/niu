@@ -51,7 +51,7 @@ replacement has to be stricter than the reference, not a port.
 | Gap | Required Niu behavior | Tracking |
 | --- | --- | --- |
 | Automatic failover | A later eligible mapping only after the previous attempt is proven not executed. No second submission after uncertainty or a committed stream | [#8](https://github.com/niu-io/niu/issues/8) |
-| Claude Messages and Gemini GenerateContent | Public protocol endpoints with declared capability checks. Unsupported fields fail before dispatch | [#16](https://github.com/niu-io/niu/issues/16) |
+| Claude Messages and Gemini GenerateContent | Native nonstreaming Messages text is implemented with explicit capability checks; Gemini, native streaming/tools/media remain open. See [protocol boundary](native-inference-protocols.md) | [#16](https://github.com/niu-io/niu/issues/16) |
 | Tiered and category prices | Cache-write, reasoning output, and long-context tiers as explicit pinned rates. No double count of tokens already in another category | [#17](https://github.com/niu-io/niu/issues/17) |
 
 Priced text admission now saves its attempt, immutable bindings and reservation
