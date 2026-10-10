@@ -805,3 +805,9 @@ missing backend contract is no longer a blocker. See the runtime follow-up below
 - Fifty Playground integration tests and dashboard TypeScript checking passed, including one missing charge among three results and cancellation of pending metadata reads.
 - Desktop verification used one real owner-funded GPT-4.1 Mini request: CHARGE_OK completed with 18 tokens, 2,519 ms and Own API key attribution. Full reload preserved the response, metrics, attribution and Inspect request link. This verifies the exercised owner-funded flow, not commercial charging or settlement.
 - Desktop business workflow qualification remains the priority; responsive refinement is deferred except for controls that block completing a workflow.
+
+## Generation-to-Logs handoff and deep-link restoration
+
+- Followed the saved CHARGE_OK session's actual Inspect request action on desktop. It opened the matching request drawer with the original prompt and response, HTTP 200, Completed and Stopped finish reason. Logs reported 14 input plus 4 output tokens, consistent with Chat's 18 total, and the same owner-funded attribution.
+- The measured server waterfall showed preparation 138 ms, first-output wait 1.99 s, output stream 378 ms and total 2,508 ms. Chat's client interval was 2,519 ms; these are different measurement boundaries, not contradictory timings. The dominant measured interval was waiting for first output.
+- The actual Raw data tab retained the request parameters and streamed response, usage categories and final DONE marker. Full reload of the model-filtered request deep link reopened the same drawer and message content. This qualifies successful Chat-to-Logs diagnosis and deep-link restoration; classified failure and multi-attempt operation qualification remain open. No further inference or configuration mutation occurred.
