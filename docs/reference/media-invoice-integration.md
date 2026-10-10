@@ -208,3 +208,29 @@ expected HTTP 204 from the deletion API; after correcting it to the existing
 200 JSON contract, the complete workflow ran on a fresh copy. This verifies the
 sequential deletion/refresh boundary, not every concurrent deletion race or
 upstream URL expiration behavior.
+
+## Atomic query usage persistence
+
+Validated customer media usage now commits with query evidence, task status and
+encrypted result references, before completion marking or settlement. The query
+path and standalone trusted-usage entry point share the same validation and
+insertion implementation. A process interruption can no longer commit a valid
+query's success observation while leaving its corresponding usage insertion for
+a later, separate transaction. No new schema or public API fields are required.
+
+Usage validation runs in a savepoint. Invalid usage, invalid pricing or a
+conflicting usage record rolls back that savepoint, retains the raw diagnostic
+observation and returns the existing error without settlement. Database failures
+roll back the whole query-observation transaction. Unknown usage stays unknown;
+personal owner-funded requests do not acquire customer pricing or usage entries.
+The nonempty priced-usage success, validation-rejection and storage-failure
+branches require actual paid-media verification and remain unverified.
+
+On the rebuilt native Gateway, a fresh stopped-database copy of the actual
+owner-funded video repeated download, deletion, real upstream refresh and
+process replacement. Both deleted references remained unavailable without
+restoring ciphertext or changing financial counts. Independent reopening and
+HTTP artifact comparison confirmed the same result. This exercises the unpriced
+query branch only. Original native runtime replacement also preserved existing
+configuration, encrypted identity and durable counts; saved video billing reads
+and access checks were repeated. Compilation/static checks completed separately.

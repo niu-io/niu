@@ -1,6 +1,6 @@
 //! Internal asynchronous job binding and monotonic query-status evidence.
 use crate::{Store, StoreError, TenantScope};
-use sqlx::Row;
+use sqlx::{Acquire, Row};
 use uuid::Uuid;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -573,10 +573,13 @@ impl Store {
                     .await?;
             }
         }
-        tx.commit().await?;
-        let priced = self.customer_media_pricing(scope, attempt).await?.is_some();
+        let priced: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM customer_media_attempt_pricing WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3)")
+            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_one(&mut *tx).await?;
+        let mut usage_error = None;
         if priced && let ReportedQuantity::Reported(quantity) = observation.quantity {
-            self.record_customer_media_usage(
+            let mut usage_tx = tx.begin().await?;
+            let recorded = Self::record_customer_media_usage_in_tx(
+                &mut usage_tx,
                 scope,
                 attempt,
                 crate::MediaUsageSource::Query,
@@ -586,7 +589,25 @@ impl Store {
                     provenance: niu_metered_cost::Provenance::Reported,
                 },
             )
-            .await?;
+            .await;
+            match recorded {
+                Ok(()) => usage_tx.commit().await?,
+                Err(
+                    error @ (StoreError::InvalidUsage
+                    | StoreError::InvalidPrice
+                    | StoreError::Conflict),
+                ) => {
+                    // Keep diagnostic evidence for rejected usage, without
+                    // allowing invalid quantities to enter the charge ledger.
+                    usage_tx.rollback().await?;
+                    usage_error = Some(error);
+                }
+                Err(error) => return Err(error),
+            }
+        }
+        tx.commit().await?;
+        if let Some(error) = usage_error {
+            return Err(error);
         }
         if self.media_job_status(scope, attempt).await? != Some(MediaJobStatus::Succeeded) {
             return Ok(None);

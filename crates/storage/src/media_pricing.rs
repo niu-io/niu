@@ -238,6 +238,19 @@ impl Store {
         source: MediaUsageSource,
         usage: &Usage,
     ) -> Result<(), StoreError> {
+        let mut tx = self.pool.begin().await?;
+        Self::record_customer_media_usage_in_tx(&mut tx, scope, attempt, source, usage).await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    pub(crate) async fn record_customer_media_usage_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: TenantScope,
+        attempt: Uuid,
+        source: MediaUsageSource,
+        usage: &Usage,
+    ) -> Result<(), StoreError> {
         let Usage::Known {
             meter,
             quantity,
@@ -250,38 +263,36 @@ impl Store {
         let receipt = serde_json::to_vec(&(source.name(), meter, &quantity))
             .map_err(|_| StoreError::InvalidUsage)?;
         let digest = Sha256::digest(receipt).to_vec();
-        let mut tx = self.pool.begin().await?;
         let execution: String = sqlx::query_scalar("SELECT execution FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt)
-            .fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
+            .fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
         if execution == "not_sent" {
             return Err(StoreError::Conflict);
         }
         let snapshot: serde_json::Value = sqlx::query_scalar("SELECT snapshot FROM customer_media_attempt_pricing WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt)
-            .fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
+            .fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
         let snapshot =
             PricingSnapshot::decode(&snapshot.to_string()).map_err(|_| StoreError::InvalidPrice)?;
         if snapshot.tariff().meter != *meter {
             return Err(StoreError::InvalidUsage);
         }
         let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM customer_media_usage_observations WHERE attempt_id=$1 AND receipt_sha256=$2)")
-            .bind(attempt).bind(&digest).fetch_one(&mut *tx).await?;
+            .bind(attempt).bind(&digest).fetch_one(&mut **tx).await?;
         if !exists {
             let count: i64 = sqlx::query_scalar(
                 "SELECT count(*) FROM customer_media_usage_observations WHERE attempt_id=$1",
             )
             .bind(attempt)
-            .fetch_one(&mut *tx)
+            .fetch_one(&mut **tx)
             .await?;
             if count >= 16 {
                 return Err(StoreError::Conflict);
             }
             sqlx::query("INSERT INTO customer_media_usage_observations(organization_id,project_id,attempt_id,receipt_sha256,source,meter,quantity) VALUES($1,$2,$3,$4,$5,$6,$7)")
                 .bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(digest)
-                .bind(source.name()).bind(meter).bind(quantity).execute(&mut *tx).await?;
+                .bind(source.name()).bind(meter).bind(quantity).execute(&mut **tx).await?;
         }
-        tx.commit().await?;
         Ok(())
     }
 
