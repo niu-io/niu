@@ -90,6 +90,7 @@ impl AppState {
         crate::vendors::seed_from_env(&store, vendor_cipher.as_deref()).await?;
         crate::vendors::validate_saved_credentials(&store, vendor_cipher.as_deref()).await?;
         crate::payments::validate_saved_configuration(&store, vendor_cipher.as_deref()).await?;
+        crate::vendors::validate_retained_content(&store, vendor_cipher.as_deref()).await?;
         let admin_tokens = TokenSet::parse(
             "NIU_ADMIN_TOKENS",
             env::var("NIU_ADMIN_TOKENS").unwrap_or_default(),

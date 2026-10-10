@@ -10,6 +10,8 @@ mod agent_observations;
 pub use agent_observations::*;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use uuid::Uuid;
+mod encrypted_content;
+pub use encrypted_content::{EncryptedContent, EncryptedContentDomain};
 mod branding;
 mod route_pools;
 pub use route_pools::{ModelRoutePool, RoutePoolCandidate};

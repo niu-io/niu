@@ -107,5 +107,37 @@ The completion inventory includes expired but not yet erased ciphertext. Checkin
 only enabled mappings or active operations can miss retained secrets and content.
 Bounded batches must preserve erasure while maintaining the exclusive writer
 coordination above. A complete destination-only scan must cover binary inspected
-image sources as well as UTF-8 credentials and result records. Existing vendor,
-asset-management and payment startup checks do not establish that full scan.
+image sources as well as UTF-8 credentials and result records. Startup now also enumerates retained media, asset-result/patch and inspected-image
+content, as described below. This authenticates current retained data; it does not
+coordinate writers or establish a rotation completion transaction.
+
+## Retained-content startup authentication
+
+Startup now enumerates six private-content domains before opening the listener or
+starting retention workers: media result references, asset listing/lookup results,
+asset group read results/update patches, and inspected image source bytes. Each
+keyset page contains at most eight objects and uses the existing domain-specific
+associated data. The image path authenticates binary bytes without UTF-8 decoding.
+Expired but not yet erased content is included; null/deleted content is not
+resurrected. The scan emits no IDs, payloads, ciphertext or key material on failure.
+It adds startup work proportional to retained content, using the existing database
+pool and no permanent extra connection.
+
+An offline copy of a database containing an actual generated video's retained
+result reproduced the prior gap: its modified authentication tag did not prevent
+readiness. With the new startup check, tag corruption, truncation, encryption
+under a different key, and binding to another job all stopped startup before
+readiness. Each attempt preserved its supplied ciphertext and the existing
+attempt/media/financial inventory. Restoring the original result allowed startup.
+The observation held the existing retention advisory lock so expired content
+remained available for independent inspection; it did not extend retention or
+alter the original development database. Independent reopening and AES-GCM
+authentication verified the restored real result, encrypted vendor identities,
+sanitized failure logs and unchanged accounting records.
+
+Nonempty asset-result and inspected-image startup cases, multi-page coverage and
+large-retention startup latency remain unverified. These checks authenticate
+retained bytes at startup; they do not provide an atomic audit across concurrent
+writers, continuous corruption detection, or a rotation writer fence. The rotation
+command, rewrapping, trigger changes and crash-resume procedure remain unimplemented.
+Issue #9 therefore remains open. No fixture outcome supports these conclusions.

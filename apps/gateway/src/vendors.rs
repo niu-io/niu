@@ -25,4 +25,4 @@ pub(crate) use models::{
     ResolvedModel, effective_models, require_selectable_credential, resolve_scoped_model,
     resolve_scoped_model_excluding, scoped_models,
 };
-pub(crate) use startup::validate_saved_credentials;
+pub(crate) use startup::{validate_retained_content, validate_saved_credentials};
