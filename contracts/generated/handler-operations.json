@@ -2275,7 +2275,201 @@
         }
       }
     },
+    "/admin/v1/organizations/{organization}/projects/{project}/keys": {
+      "post": {
+        "operationId": "issueKey",
+        "summary": "Issue a workspace API key and return its secret once",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KeyInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Issued key identity and one-time secret.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssuedWorkspaceKey"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "description": "Secrets must not be cached.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired administrative credential."
+          },
+          "404": {
+            "description": "Workspace outside authorized scope."
+          },
+          "403": {
+            "description": "Workspace write permission required."
+          },
+          "400": {
+            "description": "Invalid fields, model grants, name or lifetime."
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "description": "Requires workspace write access. Workspace API keys do not authorize these management operations. Grants must be visible model aliases, or the wildcard * as the sole grant. The token is returned only in this response."
+      },
+      "get": {
+        "operationId": "listKeys",
+        "summary": "List workspace API-key metadata (up to 1000 records)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scoped metadata, never token hashes or secrets. Last used is the latest durable dispatch intent, including uncertain attempts; it is not authentication time or proof of upstream completion.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "maxItems": 1000,
+                      "items": {
+                        "$ref": "#/components/schemas/WorkspaceKey"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired administrative credential."
+          },
+          "404": {
+            "description": "Workspace outside authorized scope."
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "description": "Requires workspace read access. Workspace API keys do not authorize these management operations."
+      }
+    },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}": {
+      "delete": {
+        "operationId": "revokeKey",
+        "summary": "Revoke a workspace API key",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Key revoked, including an already revoked key."
+          },
+          "401": {
+            "description": "Invalid or expired administrative credential."
+          },
+          "409": {
+            "description": "Key does not exist in this project."
+          },
+          "404": {
+            "description": "Workspace outside authorized scope."
+          },
+          "403": {
+            "description": "Workspace write permission required."
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "description": "Requires workspace write access. Workspace API keys do not authorize these management operations."
+      },
       "patch": {
         "operationId": "updateKeyMetadata",
         "summary": "Update workspace API key name and model grants",
@@ -2393,6 +2587,81 @@
             "description": "Durable storage unavailable"
           }
         }
+      }
+    },
+    "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/rotate": {
+      "post": {
+        "operationId": "rotateKey",
+        "summary": "Atomically replace a key while preserving its grants and expiry",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Issued key identity and one-time secret.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssuedWorkspaceKey"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "description": "Secrets must not be cached.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired administrative credential."
+          },
+          "409": {
+            "description": "Key is absent, revoked, expired or concurrently rotated."
+          },
+          "404": {
+            "description": "Workspace outside authorized scope."
+          },
+          "403": {
+            "description": "Workspace write permission required."
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "description": "Requires workspace write access. Workspace API keys do not authorize these management operations. Revokes the old secret atomically. The replacement preserves grants, expiry, spending identity and configured key policies; rotation does not reset consumed allowance."
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}": {
@@ -6441,6 +6710,107 @@
               "string",
               "null"
             ]
+          }
+        }
+      },
+      "WorkspaceKey": {
+        "type": "object",
+        "required": [
+          "id",
+          "revision",
+          "name",
+          "allowed_models",
+          "expires_at_ms",
+          "last_used_at_ms",
+          "revoked",
+          "expired"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string"
+          },
+          "allowed_models": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "expires_at_ms": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "last_used_at_ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Latest durable dispatch intent in Unix milliseconds. Null means no attributed dispatch is recorded, not that the credential was never authenticated. Rotation preserves the old key's history; its replacement starts without a dispatch record."
+          },
+          "revoked": {
+            "type": "boolean"
+          },
+          "expired": {
+            "type": "boolean"
+          }
+        }
+      },
+      "KeyInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Unknown fields are rejected. Configure per-key customer spending, IP allowlist, rolling request rate, token budgets and concurrent-request limits through their separate key management APIs. Key creation does not set these policies. Workspace and company financial limits still apply; rotation preserves the key lineage policies.",
+        "required": [
+          "name",
+          "ttl_seconds"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "allowed_models": {
+            "type": "array",
+            "minItems": 1,
+            "default": [
+              "*"
+            ],
+            "description": "Deprecated. Omit to grant every model available to this workspace; explicit aliases are retained for compatibility. The wildcard must be the only entry when used.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ttl_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 31536000
+          }
+        }
+      },
+      "IssuedWorkspaceKey": {
+        "type": "object",
+        "required": [
+          "id",
+          "token"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "token": {
+            "type": "string",
+            "description": "One-time workspace API key secret; store securely. Never present in key metadata reads."
           }
         }
       },

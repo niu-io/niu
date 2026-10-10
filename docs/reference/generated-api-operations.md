@@ -2365,6 +2365,150 @@ HTTP 409: Workspace still has dependent records
 
 HTTP 503: Storage unavailable
 
+## Issue a workspace API key and return its secret once
+
+`POST /admin/v1/organizations/{organization}/projects/{project}/keys`
+
+Requires workspace write access. Workspace API keys do not authorize these management operations. Grants must be visible model aliases, or the wildcard * as the sole grant. The token is returned only in this response.
+
+Implementation: `implemented`. Operation: `issueKey`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/KeyInput"
+}
+```
+
+### Responses
+
+HTTP 201: Issued key identity and one-time secret.
+
+Response header: `Cache-Control`.
+
+Secrets must not be cached.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/IssuedWorkspaceKey"
+}
+```
+
+HTTP 401: Invalid or expired administrative credential.
+
+HTTP 404: Workspace outside authorized scope.
+
+HTTP 403: Workspace write permission required.
+
+HTTP 400: Invalid fields, model grants, name or lifetime.
+
+## Revoke a workspace API key
+
+`DELETE /admin/v1/organizations/{organization}/projects/{project}/keys/{key}`
+
+Requires workspace write access. Workspace API keys do not authorize these management operations.
+
+Implementation: `implemented`. Operation: `revokeKey`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 204: Key revoked, including an already revoked key.
+
+HTTP 401: Invalid or expired administrative credential.
+
+HTTP 409: Key does not exist in this project.
+
+HTTP 404: Workspace outside authorized scope.
+
+HTTP 403: Workspace write permission required.
+
 ## Update workspace API key name and model grants
 
 `PATCH /admin/v1/organizations/{organization}/projects/{project}/keys/{key}`
@@ -2486,6 +2630,154 @@ HTTP 409: Stale revision, missing key, revoked key or expired key
 HTTP 422: Invalid JSON shape, missing or unknown fields
 
 HTTP 503: Durable storage unavailable
+
+## List workspace API-key metadata (up to 1000 records)
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/keys`
+
+Requires workspace read access. Workspace API keys do not authorize these management operations.
+
+Implementation: `implemented`. Operation: `listKeys`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Scoped metadata, never token hashes or secrets. Last used is the latest durable dispatch intent, including uncertain attempts; it is not authentication time or proof of upstream completion.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": {
+        "$ref": "#/components/schemas/WorkspaceKey"
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Invalid or expired administrative credential.
+
+HTTP 404: Workspace outside authorized scope.
+
+## Atomically replace a key while preserving its grants and expiry
+
+`POST /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/rotate`
+
+Requires workspace write access. Workspace API keys do not authorize these management operations. Revokes the old secret atomically. The replacement preserves grants, expiry, spending identity and configured key policies; rotation does not reset consumed allowance.
+
+Implementation: `implemented`. Operation: `rotateKey`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 201: Issued key identity and one-time secret.
+
+Response header: `Cache-Control`.
+
+Secrets must not be cached.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/IssuedWorkspaceKey"
+}
+```
+
+HTTP 401: Invalid or expired administrative credential.
+
+HTTP 409: Key is absent, revoked, expired or concurrently rotated.
+
+HTTP 404: Workspace outside authorized scope.
+
+HTTP 403: Workspace write permission required.
 
 ## Read a recorded gateway request
 
@@ -7188,6 +7480,29 @@ Local `#/components/schemas/…` references resolve to these definitions.
 }
 ```
 
+### IssuedWorkspaceKey
+
+```json
+{
+  "type": "object",
+  "required": [
+    "id",
+    "token"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "token": {
+      "type": "string",
+      "description": "One-time workspace API key secret; store securely. Never present in key metadata reads."
+    }
+  }
+}
+```
+
 ### KeyConcurrencyConcurrencyLimit
 
 ```json
@@ -7227,6 +7542,43 @@ Local `#/components/schemas/…` references resolve to these definitions.
       "type": "integer",
       "minimum": 0,
       "description": "Current unresolved dispatch count shared across rotations; includes work admitted before configuration."
+    }
+  }
+}
+```
+
+### KeyInput
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "description": "Unknown fields are rejected. Configure per-key customer spending, IP allowlist, rolling request rate, token budgets and concurrent-request limits through their separate key management APIs. Key creation does not set these policies. Workspace and company financial limits still apply; rotation preserves the key lineage policies.",
+  "required": [
+    "name",
+    "ttl_seconds"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "allowed_models": {
+      "type": "array",
+      "minItems": 1,
+      "default": [
+        "*"
+      ],
+      "description": "Deprecated. Omit to grant every model available to this workspace; explicit aliases are retained for compatibility. The wildcard must be the only entry when used.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "ttl_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 31536000
     }
   }
 }
@@ -8071,6 +8423,62 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "callbacks_qualified": {
       "type": "boolean",
       "description": "Required for a callback_url declaration; separate adapter/offer qualification and callback authentication still apply."
+    }
+  }
+}
+```
+
+### WorkspaceKey
+
+```json
+{
+  "type": "object",
+  "required": [
+    "id",
+    "revision",
+    "name",
+    "allowed_models",
+    "expires_at_ms",
+    "last_used_at_ms",
+    "revoked",
+    "expired"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "revision": {
+      "type": "integer",
+      "format": "int64",
+      "minimum": 1
+    },
+    "name": {
+      "type": "string"
+    },
+    "allowed_models": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "expires_at_ms": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "last_used_at_ms": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "int64",
+      "description": "Latest durable dispatch intent in Unix milliseconds. Null means no attributed dispatch is recorded, not that the credential was never authenticated. Rotation preserves the old key's history; its replacement starts without a dispatch record."
+    },
+    "revoked": {
+      "type": "boolean"
+    },
+    "expired": {
+      "type": "boolean"
     }
   }
 }

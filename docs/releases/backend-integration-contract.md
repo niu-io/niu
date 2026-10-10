@@ -410,3 +410,14 @@ against the generated schemas. After four real calls, omitting pricing retained
 the prior value, a stale revision returned 409, and explicit null cleared it.
 Independent PostgreSQL reads confirmed the new revision and null price; restart
 preserved the result and the existing customer debits remained unchanged.
+
+Workspace API-key list, issuance, rotation and revocation now use generated
+handler contracts, including the one-time secret envelope and no-store header.
+`last_used_at_ms` explicitly permits null with OpenAPI 3.1 type syntax; a fresh
+key has no dispatch timestamp. Current-input management calls checked response
+field types, required fields and secret-cache headers. Rotation retained shared
+policy history and spending identity; the old secret returned 401, inherited
+zero limits denied the replacement before dispatch, and repeated revocation
+remained idempotent. Metadata returned no token or token hash. Independent reads
+confirmed one spending root and no attempts for the temporary keys, which were
+revoked after the run. This does not qualify all key-policy combinations.

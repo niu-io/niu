@@ -2752,88 +2752,9 @@ paths:
         '401':
           description: Invalid installation administrator token.
   /admin/v1/organizations/{organization}/projects/{project}/keys:
-    get:
-      operationId: listKeys
-      summary: List workspace API-key metadata (up to 1000 records)
-      security:
-        - adminBearerAuth: []
-      parameters:
-        - name: organization
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-        - name: project
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        '200':
-          description: Scoped metadata, never token hashes or secrets. Last used is the latest durable dispatch intent, including uncertain attempts; it is not authentication time or proof of upstream completion.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [data]
-                properties:
-                  data:
-                    type: array
-                    maxItems: 1000
-                    items: { $ref: '#/components/schemas/WorkspaceKey' }
-        '401':
-          description: Invalid administrator token.
-    post:
-      operationId: issueKey
-      summary: Issue a project key and return its secret once
-      security:
-        - adminBearerAuth: []
-      parameters:
-        - name: organization
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-        - name: project
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/KeyInput'
-      responses:
-        '201':
-          description: Created. Key issuance returns id and token with Cache-Control no-store; other resources return id and name.
-        '401':
-          description: Invalid installation administrator token.
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys'
   /admin/v1/organizations/{organization}/projects/{project}/keys/{key}:
-    patch:
-      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}/patch'
-    delete:
-      operationId: revokeKey
-      summary: Revoke a project key
-      security:
-        - adminBearerAuth: []
-      parameters:
-        - name: organization
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-        - name: project
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-        - name: key
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        '204':
-          description: Key revoked, including an already revoked key.
-        '401':
-          description: Invalid installation administrator token.
-        '409':
-          description: Key does not exist in this project.
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}'
   /admin/v1/organizations/{organization}/projects/{project}/accounts:
     get:
       operationId: listAccounts
@@ -3022,31 +2943,7 @@ paths:
         '409':
           description: Account is not available in this project.
   /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/rotate:
-    post:
-      operationId: rotateKey
-      summary: Atomically replace a key while preserving its grants and expiry
-      security:
-        - adminBearerAuth: []
-      parameters:
-        - name: organization
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-        - name: project
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-        - name: key
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        '201':
-          description: Replacement id and one-time token. The old key is revoked. Cache-Control is no-store.
-        '401':
-          description: Invalid administrator token.
-        '409':
-          description: Key is absent, revoked, expired or concurrently rotated.
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1rotate'
   /admin/v1/organizations/{organization}/projects/{project}/budget:
     post:
       operationId: createProjectBudget
@@ -4673,43 +4570,9 @@ components:
               request_count: { type: integer, format: int64, minimum: 0 }
         last_request_at_ms: { type: integer, format: int64, nullable: true, description: Most recent request operation creation time in Unix milliseconds. }
     WorkspaceKey:
-      type: object
-      required: [id, revision, name, allowed_models, expires_at_ms, last_used_at_ms, revoked, expired]
-      properties:
-        id: { type: string, format: uuid }
-        revision: { type: integer, format: int64, minimum: 1 }
-        name: { type: string }
-        allowed_models: { type: array, items: { type: string } }
-        expires_at_ms: { type: integer, format: int64 }
-        last_used_at_ms:
-          type: integer
-          format: int64
-          nullable: true
-          description: Latest durable dispatch intent in Unix milliseconds. Null means no attributed dispatch is recorded, not that the credential was never authenticated. Rotation preserves the old key's history; its replacement starts without a dispatch record.
-        revoked: { type: boolean }
-        expired: { type: boolean }
+      $ref: './generated/handler-operations.json#/components/schemas/WorkspaceKey'
     KeyInput:
-      type: object
-      additionalProperties: false
-      description: Unknown fields are rejected. Configure per-key customer spending, IP allowlist, rolling request rate, token budgets and concurrent-request limits through their separate key management APIs. Key creation does not set these policies. Workspace and company financial limits still apply; rotation preserves the key lineage policies.
-      required: [name, ttl_seconds]
-      properties:
-        name:
-          type: string
-          minLength: 1
-          maxLength: 200
-        allowed_models:
-          type: array
-          minItems: 1
-          default: ['*']
-          description: Deprecated. Omit to grant every model available to this workspace; explicit aliases are retained for compatibility. The wildcard must be the only entry when used.
-          items:
-            type: string
-        ttl_seconds:
-          type: integer
-          minimum: 1
-          maximum: 31536000
-  securitySchemes:
+      $ref: './generated/handler-operations.json#/components/schemas/KeyInput'
     bearerAuth:
       type: http
       scheme: bearer
