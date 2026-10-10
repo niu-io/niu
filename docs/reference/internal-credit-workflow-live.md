@@ -171,3 +171,23 @@ credential revision and encrypted identity were unchanged.
 This verifies sequential tariff publication and historical attribution for these
 two real requests. Concurrent publication during dispatch, cached-token tariff
 changes, media rates and multiple gateway instances are outside this run.
+
+## Revocation preserves financial history
+
+A separate actual run on 2026-10-10 using backend `5a2449d` completed the two-call
+credit workflow, created its paid statement, exercised the key cap and posted an
+idempotent balance refund. It then revoked the inference key through management
+HTTP. Inference with that credential returned 401 both immediately and after a
+gateway restart; the database still contained exactly the two original attempts.
+
+Installation-authorized request listing and individual details continued to
+return both original customer charges. The saved statement retained their full
+original total, while the refund remained a separate ledger event. Independent
+database and reconciliation reads found no missing, mismatched, unexpected or
+duplicate debit and no settled open reservation. No external funding evidence was
+created, and isolated processes were stopped without changing the original
+database or encrypted credential identity.
+
+This verifies completed text-request history after key revocation. It does not
+establish mid-stream revocation behavior, ordinary-role history access, or media
+retrieval with a revoked key.
