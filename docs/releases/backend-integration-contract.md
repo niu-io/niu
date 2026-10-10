@@ -227,3 +227,13 @@ same saved checkout. Reusing the idempotency key with a changed amount returned
 409, as did a merchant configuration change while the order remained unresolved.
 Independent database reads found one order, no settlement and no balance entry.
 This qualifies checkout artifact creation and recovery only, not payment receipt.
+
+Current-input pending-checkout authorization was also exercised with real
+company-owner, foreign-company-owner, company-viewer and workspace-owner tokens.
+The company owner could read its order and history. The other roles could not
+read that company's order/history/method discovery or create a top-up: the viewer
+write returned 403, while the other denied cases returned 404. Looking up the
+order under a different company returned 404 without exposing its checkout URL.
+The database still held only the original pending order and no balance entries;
+all temporary operators were revoked. Company billing requires company-level
+owner/admin scope, not merely workspace ownership.
