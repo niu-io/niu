@@ -40,3 +40,25 @@ reference. Fixture outcomes were not used. This verifies the membership-director
 workflow, not the complete Supplier business lifecycle, frontend navigation or
 large-directory throughput. A future paginated contract must expose continuation
 explicitly rather than silently truncating this compatibility response.
+
+## Installation directory member counts
+
+The installation Supplier directory (`GET /admin/v1/providers`) now counts only
+active memberships whose operator has not been revoked. It uses the same
+effective revocation rule as member detail; historical membership rows are kept.
+No response fields or permission rules change.
+
+An actual isolated native/API run reproduced the previous discrepancy: after
+revoking an operator, member detail returned `active: false, revoked: true` but
+the Supplier directory still counted one member. On the updated binary, normal
+API creation/grant/deactivation/regrant/revocation produced the expected zero/one
+counts, and revocation reduced the directory count to zero. The revoked token
+returned 401; a live Supplier member could not read the platform member list.
+Process replacement preserved the correct count and member history.
+
+Independent reopening of the stopped database confirmed the retained grant,
+revoked operator, zero effective members and absent inference/financial entries.
+The existing native service was replaced with configuration, encrypted identity
+and durable business counts preserved. Build and static checks completed; fixture
+outcomes were not used. This verifies directory/member lifecycle consistency,
+not Supplier commercial qualification or earnings settlement.
