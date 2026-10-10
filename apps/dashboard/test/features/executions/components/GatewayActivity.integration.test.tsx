@@ -448,8 +448,8 @@ describe('gateway activity', () => {
         expect(query.has('to_ms')).toBe(true);
         expect(query.has('limit')).toBe(false);
         expect(query.has('after')).toBe(false);
-        expect(init?.headers).toEqual({ authorization: 'Bearer admin-session' });
-        return { ok: status === 200, status, blob: async () => content } as Response;
+        expect(init?.headers).toEqual({ authorization: 'Bearer admin-session', accept: 'text/csv' });
+        return { ok: status === 200, status, headers: new Headers({'content-type':'text/csv; charset=utf-8'}), blob: async () => content } as Response;
       }
       return { ok: true, json: async () => path.endsWith('/keys') ? { data: [] } : { data: [makeRequest('first', null, 'fast')], summary, next_cursor: 'older-page' } } as Response;
     });
@@ -469,6 +469,37 @@ describe('gateway activity', () => {
       expect(click).not.toHaveBeenCalled();
     }
     expect(fetcher.mock.calls.filter(([input]) => String(input).includes('/requests/export'))).toHaveLength(1);
+  });
+
+  it.each(['text/html', 'application/json', null])('rejects a successful non-CSV export (%s) and waits for explicit retry', async contentType => {
+    const createUrl = vi.fn(() => 'blob:valid-export');
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createUrl });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    let exports = 0;
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async input => {
+      if (String(input).includes('/requests/export')) {
+        exports += 1;
+        return new Response(exports === 1 ? '<html>Sign in</html>' : 'Time (UTC),Model\r\n', {
+          headers: exports > 1 ? {'content-type':'text/csv; charset=utf-8'} : contentType ? {'content-type':contentType} : {},
+        });
+      }
+      return { ok:true, json:async()=>String(input).endsWith('/keys') ? {data:[]} : {data:[makeRequest('first',null,'fast')],summary,next_cursor:null} } as Response;
+    }));
+    render(<MemoryRouter><GatewayActivity token="admin-session" models={['fast']} initialScope={{organizationId:'org-1',projectId:'project-1'}}/></MemoryRouter>);
+    await screen.findByRole('button',{name:'fast'});
+    const user=userEvent.setup();
+    await user.click(screen.getByRole('button',{name:'Request actions'}));
+    await user.click(screen.getByRole('menuitem',{name:'Export CSV'}));
+    expect(await screen.findByText('The export response was not CSV. Refresh Logs and try again.')).toBeTruthy();
+    expect(createUrl).not.toHaveBeenCalled();
+    expect(click).not.toHaveBeenCalled();
+    expect(exports).toBe(1);
+    await user.click(screen.getByRole('button',{name:'Request actions'}));
+    await user.click(screen.getByRole('menuitem',{name:'Export CSV'}));
+    await waitFor(()=>expect(click).toHaveBeenCalledTimes(1));
+    expect(exports).toBe(2);
+    expect(screen.queryByText('The export response was not CSV. Refresh Logs and try again.')).toBeNull();
   });
 
   it('cancels a pending export when the active filters change', async () => {

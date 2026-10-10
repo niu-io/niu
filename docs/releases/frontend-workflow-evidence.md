@@ -1134,3 +1134,26 @@ failure evidence; independent credential onboarding remains unqualified.
 Final full dashboard regression passed: 90 files / 720 checks, 37.09 seconds.
 The earlier broad run encountered an Admin-navigation assertion that passed on
 focused rerun and on the final full run; no navigation source was changed.
+
+## Logs export response integrity — 2026-10-11
+
+The dashboard exported any successful HTTP response as CSV, unlike the SDK,
+which already checks the declared response type. Export now requests `text/csv`
+and rejects a successful HTML/JSON/missing-type response before creating a
+download. The existing error surface explains that the response was not CSV;
+retry remains an explicit export action, with no automatic request.
+
+All 58 Logs integration checks and TypeScript checking passed. New cases cover
+HTML, JSON and absent CSV type followed by an explicit successful retry. They
+verify no Blob URL or anchor download for the rejected response.
+
+Actual browser exports at desktop and 390 × 844 completed download events.
+Independent CSV parsing found 16 rows in each saved file, all matching the
+selected `openai/gpt-4.1-mini` filter, with customer-only diagnostic columns and
+no Supplier/procurement fields. The narrow Request actions menu was visibly
+aligned and Export CSV remained accessible. Local files/screenshots stay outside
+the public repository. No inference or billing write was performed.
+
+Successful export has current rendered/download evidence. Deliberately induced
+non-CSV responses have regression evidence only; ordinary-role denial, other
+protocol exports and live export-failure qualification remain open.
