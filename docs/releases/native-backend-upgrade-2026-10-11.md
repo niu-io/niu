@@ -123,3 +123,31 @@ unchanged. Actual readiness, workspace directory and six-stage financial-recover
 reads returned HTTP 200. No original database was replaced or encryption key
 rotated. These checks establish native upgrade and runtime integration; they do
 not claim a new upstream generation or broader failover qualification.
+
+## Preparation deadline runtime fix
+
+The native service was refreshed to clean committed
+`b2e7a0a89c5a2e702699b2e5f29a71d03f0c1e58`, which prevents price-publication
+and preparation waits from restarting the first attempt's retry window. The
+subsequent `f16ef2b` change only formats the Rust pattern; the complete committed
+tree passed the formatter check.
+
+Before replacement, a fresh schema-274 backup was restored and the six complete
+business-table fingerprints independently checked. The retained binary served
+that data across restart with unchanged workspace directory/route reads and
+successful offline encryption inspection. Reopening confirmed unchanged records,
+schema 274 and no encryption rotation. This refresh requires no schema migration.
+
+The exact clean artifact also handled an actual Responses request whose
+price-publication lock outlasted its one-second deadline. It returned HTTP 504
+`request_deadline_exceeded`. Restart and independent database reopening confirmed
+zero operations, attempts, retry policies, charges, debits or reservations, and
+revocation of the temporary key. This directly verifies the fix in the retained
+artifact, separately from the shared-worktree run.
+
+After verifying the binary hash and gracefully replacing the native process,
+configuration-file hashes, encrypted vendor bytes/revisions and durable
+organization, workspace, video-job and balance-entry counts were unchanged.
+Readiness, workspace directory and six-stage financial-recovery reads returned
+HTTP 200. The existing database, encryption identity and listener were preserved.
+These checks qualify this native refresh, not complete release acceptance.
