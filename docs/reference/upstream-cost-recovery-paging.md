@@ -29,8 +29,10 @@ records, the query hash, saved plans, worker progress and valid partial index.
 The binary included shared working-tree changes. Format, compilation and Clippy
 completed separately; fixture outcomes are not evidence. This verifies the empty
 pending sweep over retained history. The nonempty release case below adds a
-separate boundary; Supplier earnings, more-than-100-row traversal and sustained
-capacity remain unverified. No new commercial qualification, upstream expense or
+separate boundary; Supplier earnings and sustained capacity remain unverified.
+The [101-admission checkpoint](balance-release-recovery-paging.md#actual-1001-pending-reservation-traversal)
+separately verifies exact 100+1 procurement candidate pages and durable cursor wrap
+while preserving unknown liabilities. No new commercial qualification, upstream expense or
 customer charge is inferred.
 
 ## Independent release failures with actual upstream rejection

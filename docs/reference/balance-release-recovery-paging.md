@@ -28,8 +28,9 @@ working-tree changes, and the original development database was not migrated by
 this verification.
 
 This first checkpoint covers retained unknown liability. A positive release case
-is recorded below; more-than-100-row traversal and sustained recovery capacity
-remain unverified. Other stages and customer-funded media settlement retain their
+is recorded below; the subsequent 101-admission checkpoint covers traversal of
+unknown liabilities, while sustained recovery capacity remains unverified.
+Other stages and customer-funded media settlement retain their
 separate qualification boundaries.
 
 ## Actual nonexecution recovered after a release fault
@@ -69,3 +70,26 @@ amount, and no customer charge, cost entry or funding receipt. This exercises
 actual HTTP admission, PostgreSQL commit-loss injection and the current worker;
 no upstream response was simulated. It is not evidence of completed generation.
 The binary hash is retained privately and includes shared working-tree changes.
+
+## Actual 100+1 pending-reservation traversal
+
+A fresh isolated run submitted 101 distinct HTTP inference admissions through two
+Gateways. For each admission, a PostgreSQL protocol proxy withheld the successful
+COMMIT acknowledgement. Every call returned 503, retaining its real committed
+dispatch intent and unknown usage. No upstream completion was fabricated. An
+advisory gate temporarily held recovery ownership while the requests accumulated.
+
+After releasing the gate, database instrumentation recorded both balance-release
+and upstream-cost stages committing a cursor at the 100th sorted attempt and then
+wrapping to null after the remaining candidate. Restart retained all 101 customer
+holds totaling 101,000,000 nanounits and all 101 procurement holds. The exhausted
+key refused another admission with 402; no extra attempt, customer debit, cost
+entry or funding receipt appeared.
+
+Independent reopening matched query page membership exactly to the first 100 and
+remaining one attempt, checked the durable cursor events, unknown execution/usage,
+full held amounts and matching reserved procurement budget. The temporary key was
+revoked and progress instrumentation removed. The shared-working-tree binary hash
+and private artifacts were retained. This verifies traversal of ineligible unknown
+liabilities, not 101 completed generations, eligible-release throughput, media
+pagination or production capacity.
