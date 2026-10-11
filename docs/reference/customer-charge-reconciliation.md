@@ -412,3 +412,15 @@ entry, funding receipt, request failure, open customer/procurement hold or live
 temporary key. This verifies the distinction between an explicitly free request
 and unknown pricing for the stated text path. It does not qualify zero-priced
 media, missing-price admission or commercial supply; no fixture outcome is used.
+
+### Customer CSV text boundary on an actual request
+
+A further clean `b6ec01f` run issued a key named `=1+1,"quoted"` and completed
+one actual zero-tariff OpenRouter request. A workspace viewer's CSV parsed as one
+record with the original comma/quotes contained in the key field and an added
+leading apostrophe, while the stored key name remained unchanged. Reported input
+and output tokens and the known zero customer charge matched the response and
+independently reopened database. The export was byte-identical after restart;
+procurement access returned 403 and revoked-viewer export access returned 401.
+This is actual CSV serialization/access evidence, not a claim about every
+spreadsheet application's import settings or formula execution behavior.
