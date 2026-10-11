@@ -567,7 +567,7 @@ where
                             customer_output.suppress_chat_terminal();
                             let output = customer_output.feed(&bytes).and_then(|mut output| {
                                 output.extend(customer_output.finish_terminal()?);
-                                output.extend_from_slice(b"data: {\"error\":{\"message\":\"Upstream structured output did not satisfy the response format\",\"type\":\"upstream_invalid_response\",\"code\":502}}\n\n");
+                                output.extend_from_slice(b"data: {\"error\":{\"message\":\"Upstream output did not satisfy the requested format or tool constraints\",\"type\":\"upstream_invalid_response\",\"code\":502}}\n\n");
                                 Ok(Bytes::from(output))
                             }).map_err(io::Error::other);
                             return Some((
