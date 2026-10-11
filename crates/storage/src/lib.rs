@@ -115,8 +115,8 @@ pub use context_pricing::{
     select_context_tier,
 };
 mod company_creation;
-mod company_write_authorization;
 mod company_directory;
+mod company_write_authorization;
 mod workspace_creation;
 pub use workspace_creation::WorkspaceCreationKey;
 mod billing;
