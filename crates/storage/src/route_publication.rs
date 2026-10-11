@@ -25,12 +25,22 @@ impl Store {
         self
     }
 
-    pub(crate) async fn begin_route_write(&self) -> Result<Transaction<'_, Postgres>, StoreError> {
+    /// Bound publication contention without leaking settings to other pool users.
+    /// The same limits cover bootstrap, domain writes and the final publication.
+    async fn begin_route_publication(&self) -> Result<Transaction<'_, Postgres>, StoreError> {
         let mut tx = self.pool.begin().await?;
+        sqlx::query("SELECT set_config('lock_timeout','1s',true), set_config('statement_timeout','5s',true)")
+            .execute(&mut *tx)
+            .await?;
         // Must precede every domain row lock to establish one lock ordering.
         sqlx::query("SELECT pg_advisory_xact_lock(716554)")
             .execute(&mut *tx)
             .await?;
+        Ok(tx)
+    }
+
+    pub(crate) async fn begin_route_write(&self) -> Result<Transaction<'_, Postgres>, StoreError> {
+        let mut tx = self.begin_route_publication().await?;
         let active_identity: Option<String> = sqlx::query_scalar(
             "SELECT g.static_identity FROM routing_registry_active a JOIN routing_registry_generations g ON g.generation=a.generation"
         ).fetch_optional(&mut *tx).await?;
@@ -99,10 +109,7 @@ impl Store {
         expected_generation: Option<i64>,
     ) -> Result<(), StoreError> {
         let compiler = self.route_compiler.as_ref().ok_or(StoreError::Conflict)?;
-        let mut tx = self.pool.begin().await?;
-        sqlx::query("SELECT pg_advisory_xact_lock(716554)")
-            .execute(&mut *tx)
-            .await?;
+        let mut tx = self.begin_route_publication().await?;
         let active: Option<(i64, String, Value)> = sqlx::query_as(
             "SELECT a.generation,g.static_identity,g.compiled FROM routing_registry_active a JOIN routing_registry_generations g ON g.generation=a.generation"
         ).fetch_optional(&mut *tx).await?;

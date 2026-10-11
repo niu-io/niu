@@ -15,6 +15,15 @@ writer guards reject older writers after activation, and deferred constraints
 reject changed rows committed without a publication. Ciphertext-only offline
 master-key re-encryption does not change a routing revision.
 
+Publication transactions, including bootstrap, use a one-second database lock
+timeout and a five-second SQL statement timeout. Contention or an overlong
+statement aborts the transaction; management requests receive a safe HTTP 503
+storage error, and startup fails without activating a partial configuration.
+The settings are transaction-local and do not change later work on pooled
+connections. These are database operation limits, not an overall HTTP deadline
+or a bound on connection acquisition and in-process compilation. After the
+contention is resolved, read the current revision before retrying a mutation.
+
 Catalog reads and text selection retain complete immutable definitions. Reloads
 cannot overwrite a newer process-local generation with an older one. Every read
 checks the active database pointer; failed reloads retain the previous cache but
@@ -83,6 +92,22 @@ The isolated native implementation exercised these paths without fixture evidenc
   attempt on idempotent replay. Recovery reached success. The downloaded artifact
   matched its retained digest and independently completed full FFmpeg decoding.
   No customer financial entries were created for this personal upstream job.
+- Holding the publication advisory lock or a vendor row lock caused actual
+  management writes to return HTTP 503 in approximately one second. A delayed
+  generation insert was cancelled in approximately five seconds. Contended
+  startup also failed in approximately one second. Configuration, audit and
+  publication records stayed unchanged in each case. After removing contention,
+  one configuration update and a real personal model request completed; an
+  independently reopened database matched the response usage, selected generation
+  and single successful publication, with no customer charge or remaining hold.
+- A fresh backup of an existing native installation was restored separately and
+  upgraded from migration 276 to 277. Independent reopening preserved complete
+  row fingerprints for organizations, workspaces, encrypted vendors, customer
+  balance entries, video jobs and video transport timings. Restart retained the
+  initial generation. The original installation was then updated with its saved
+  configuration and encryption identity intact; authenticated registry status
+  agreed with its database generation. This is native upgrade evidence, not
+  container, downgrade or every deployment-configuration qualification.
 
 Text accounting used explicit internal verification prices and credit. These
 observations do not claim merchant funding, discounted commercial supply, every
