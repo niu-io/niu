@@ -343,6 +343,8 @@ pub(crate) fn router(state: AppState) -> Router {
         )
         .route("/v1", any(api_not_found))
         .route("/v1/{*path}", any(api_not_found))
+        .route("/v1beta", any(api_not_found))
+        .route("/v1beta/{*path}", any(api_not_found))
         .route("/catalog/v1", any(api_not_found))
         .route("/catalog/v1/{*path}", any(api_not_found))
         .route("/admin/v1", any(api_not_found))
@@ -378,7 +380,9 @@ async fn private_api_cache_control(request: axum::http::Request<Body>, next: Nex
         || path == "/enterprise/api/v1"
         || path.starts_with("/enterprise/api/v1/")
         || path == "/v1"
-        || path.starts_with("/v1/");
+        || path.starts_with("/v1/")
+        || path == "/v1beta"
+        || path.starts_with("/v1beta/");
     let mut response = next.run(request).await;
     if private {
         response
