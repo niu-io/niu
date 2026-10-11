@@ -389,3 +389,26 @@ connection timeouts. Those runs did not establish successful generation. Their i
 records were preserved. Model-list reachability was not used to qualify inference.
 These checks cover the observed text diagnostics, not media usage classification,
 every context/category combination or large-directory performance.
+
+## Explicit zero customer tariff — 2026-10-11
+
+A current-input native run on clean `22d3780` configured explicit zero input/output
+customer rates while retaining separate nonzero internal procurement rates. The
+company had zero balance and zero approved credit; the workspace key had an
+explicit zero USD spending cap. One actual personal self-funded OpenRouter
+`openai/gpt-4.1-mini` request completed and returned its fresh strict-JSON marker.
+These are internal pricing inputs, not a commercial offer or funding receipt.
+
+The request detail reported `customer_charge_status: charged`,
+`customer_charge_nanos: "0"` and currency `USD`. Exactly one known zero charge
+was retained, with no balance debit and no outstanding reservation. Reconciliation
+reported one charge record, zero expected/posted amounts and zero discrepancies,
+including no completed-unaccrued attempt. Account balances and credit stayed zero.
+Restart preserved the complete request detail and did not duplicate the charge.
+
+Independent reopening matched the saved raw-response hash, marker and reported
+tokens to the completed attempt and pinned zero tariff. It confirmed no balance
+entry, funding receipt, request failure, open customer/procurement hold or live
+temporary key. This verifies the distinction between an explicitly free request
+and unknown pricing for the stated text path. It does not qualify zero-priced
+media, missing-price admission or commercial supply; no fixture outcome is used.
