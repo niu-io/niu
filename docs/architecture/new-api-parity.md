@@ -87,7 +87,13 @@ readiness evidence.
 - [Category/tier prices (#17)](https://github.com/niu-io/niu/issues/17):
   cache-read plus reasoning and cache-write plus reasoning have actual combined
   charge evidence for nonstreaming and streaming calls, including restart.
-  Interrupted streams and later upstream usage corrections remain separate gaps. The
+  The [category/tier evidence](context-tier-pricing.md) also records both sides
+  of inclusive tier thresholds, historical charges after all category rates were
+  edited, invoice replay across restart, and scoped customer list/detail/CSV
+  projections independently reconciled against the ledger. These cover specific
+  acceptance cases, not the whole issue: every overlapping-category rejection
+  path and later corrections to unknown usage remain unverified. Interrupted
+  streams retain unresolved liabilities when terminal evidence is absent. The
   [actual tier failover run](../reference/upstream-retry-policy.md#context-tier-pricing-across-an-actual-successor)
   confirms operation-level price pinning across an in-flight tier edit, not
   every category combination or commercial Supplier settlement.

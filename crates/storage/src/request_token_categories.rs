@@ -10,6 +10,29 @@ pub struct RequestTokenCategories {
 }
 
 impl RequestTokenCategories {
+    /// Validate disjoint subsets against authoritative aggregate totals. Both
+    /// completion batching and standalone observations use this same boundary.
+    pub(crate) fn validate_totals(&self, prompt: i64, output: i64) -> Result<(), StoreError> {
+        let valid_subset = |quantity: Option<i64>, total: i64| {
+            quantity.is_none_or(|value| (0..=total).contains(&value))
+        };
+        if prompt < 0
+            || output < 0
+            || (self.cached_input_tokens.is_none()
+                && self.cache_write_input_tokens.is_none()
+                && self.reasoning_output_tokens.is_none())
+            || !valid_subset(self.cached_input_tokens, prompt)
+            || !valid_subset(self.cache_write_input_tokens, prompt)
+            || !valid_subset(self.reasoning_output_tokens, output)
+            || i128::from(self.cached_input_tokens.unwrap_or(0))
+                + i128::from(self.cache_write_input_tokens.unwrap_or(0))
+                > i128::from(prompt)
+        {
+            return Err(StoreError::InvalidUsage);
+        }
+        Ok(())
+    }
+
     /// Read only explicit, valid reported subsets. Never infer missing zeroes.
     pub fn from_openai_usage(usage: &serde_json::Value, totals: (u64, u64)) -> Option<Self> {
         Self::from_reported_usage(
@@ -78,21 +101,9 @@ impl Store {
         attempt: Uuid,
         categories: RequestTokenCategories,
     ) -> Result<(), StoreError> {
-        if categories.cached_input_tokens.is_none()
-            && categories.reasoning_output_tokens.is_none()
-            && categories.cache_write_input_tokens.is_none()
-            || categories
-                .cache_write_input_tokens
-                .is_some_and(|value| value < 0)
-            || categories
-                .cached_input_tokens
-                .is_some_and(|value| value < 0)
-            || categories
-                .reasoning_output_tokens
-                .is_some_and(|value| value < 0)
-        {
-            return Err(StoreError::InvalidUsage);
-        }
+        // Actual totals are checked atomically by the INSERT below. This shared
+        // precheck rejects empty, negative and impossible i64 input partitions.
+        categories.validate_totals(i64::MAX, i64::MAX)?;
         let result = sqlx::query(
             "INSERT INTO request_token_categories (attempt_id,cached_input_tokens,reasoning_output_tokens,cache_write_input_tokens) \
              SELECT a.id,$4,$5,$6 FROM attempts a JOIN operations o ON o.id=a.operation_id \

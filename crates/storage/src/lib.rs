@@ -883,22 +883,7 @@ impl Store {
                 let Some((prompt, output)) = usage else {
                     return Err(StoreError::InvalidUsage);
                 };
-                if details.cache_write_input_tokens.is_some_and(|value| {
-                    value < 0
-                        || i128::from(value) + i128::from(details.cached_input_tokens.unwrap_or(0))
-                            > i128::from(prompt)
-                }) || details.cached_input_tokens.is_none()
-                    && details.reasoning_output_tokens.is_none()
-                    && details.cache_write_input_tokens.is_none()
-                    || details
-                        .cached_input_tokens
-                        .is_some_and(|value| value < 0 || value > prompt)
-                    || details
-                        .reasoning_output_tokens
-                        .is_some_and(|value| value < 0 || value > output)
-                {
-                    return Err(StoreError::InvalidUsage);
-                }
+                details.validate_totals(prompt, output)?;
                 categories.push((completion.attempt_id, details));
             }
             organization_ids.push(completion.scope.organization_id);

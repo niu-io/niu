@@ -489,6 +489,22 @@ streaming. Interrupted streams without terminal usage, subsequent upstream usage
 corrections and nonempty Supplier earnings retain their separate verification
 requirements.
 
+### Shared persisted-category validation
+
+Standalone category observations and batched request completion now share the
+Rust check for nonempty, nonnegative, disjoint subsets. Standalone insertion
+still checks the attempt's authoritative totals inside its SQL statement; the
+precheck cannot replace that atomic condition. The parser retains its separate
+responsibility of preserving unknown or contradictory upstream categories.
+
+After this refactor, a fresh actual streamed Claude Haiku 4.5 run reported 5,269
+cache-write tokens; a second call after restart reported 5,269 cache-read tokens.
+Both included nonzero reasoning. Independent verification reread the saved SSE,
+reopened the stopped database, and recomputed both exact customer charges and
+matching debits from disjoint categories. No customer reservation remained open.
+This verifies the successful combined-category path on the changed code, not
+an overlapping-category rejection or an upstream usage correction.
+
 ### Customer reporting for combined categories
 
 An offline copy of the completed cache-write/reasoning history run was reopened
