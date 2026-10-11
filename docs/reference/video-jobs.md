@@ -1705,3 +1705,45 @@ retrieval of this current actual artifact. It does not qualify every authorizati
 lock, a concurrent deletion during download, natural expiry, customer-funded
 video or result-download capacity. No new video generation or retention/clock
 change was performed to obtain the result.
+
+
+## Deletion before delivery after real retrieval — 2026-10-12
+
+Media transport diagnostic inserts now use the shared bounded recording
+transaction. Failed timing writes retain safe attempt, phase, provider-received
+flag and optional HTTP status in platform logs, without result URLs, credentials
+or upstream response bodies. A provider-received flag does not mean the client
+received the video or that a financial operation succeeded.
+
+An isolated native run downloaded the actual saved video through its real
+upstream. An exclusive timing-table lock paused the request at diagnostic
+persistence, after retrieval and before the final authorization/reference check.
+Previous `d4e64bf` remained pending at the 1.6-second observation of that wait.
+Deleting its result references through the actual API then releasing the lock
+returned 404, with a JSON error rather than a video body.
+
+Clean committed `0b304dc` repeated that interleaving. While diagnostic persistence
+was waiting, result deletion committed and availability became unavailable. The
+recording timeout allowed the pending download to return 404 without releasing
+the timing-table lock. No result timing row was manufactured for the refused
+write; a safe log retained phase `result` and provider-received true. An actual
+provider refresh and Gateway restart kept both result tombstones intact.
+
+Independent reopening checked the error and refresh artifacts, clean executable
+digest, lock-timeout diagnostic and safe phase context, absence of ciphertext
+and continued succeeded owner-funded job state. There were no customer media
+charges, balance entries, invoice payments or funding receipts. The temporary
+key was revoked.
+
+A separate actual download on this same implementation reverified healthy
+recording: reference contention returned 503 in 258.26 ms without upstream result
+contact; after release, 90,729 bytes were returned and independently decoded, with
+exactly one committed result transport observation. References, observations and
+billing remained unchanged after restart. Native replacement preserved original
+configuration and encrypted identity after independently restoring a fresh backup.
+
+This verifies deletion in the post-retrieval, pre-delivery window and bounded
+result-timing refusal, plus healthy result recording and provider-query refresh.
+It does not qualify deletion during upstream byte transfer, natural expiry,
+submission-timing fault coverage, customer-funded video or download capacity.
+No generation was repeated and no clock/retention timestamp was changed.
