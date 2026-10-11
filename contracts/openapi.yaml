@@ -4007,10 +4007,11 @@ components:
           format: uuid
     Workspace:
       type: object
-      required: [id, name, organization_id, organization_name]
+      required: [id, name, route_slug, organization_id, organization_name]
       properties:
         id: { type: string, format: uuid, description: Project ID used to address this workspace. }
         name: { type: string, description: Workspace name (stored as the project name). }
+        route_slug: { type: string, maxLength: 81, pattern: "^[a-z0-9]+(-[a-z0-9]+)*$", description: Immutable globally unique routing reference assigned by the backend. Renaming preserves it. Use only in routes, never as a display label or authorization grant. }
         organization_id: { type: string, format: uuid }
         organization_name: { type: string }
         is_default: { type: boolean }

@@ -1403,3 +1403,22 @@ matched saved response usages, two exact charge/debit pairs and released holds;
 restart preserved the directory. This is internal-credit test evidence, not
 commercial qualification. The backend and SDK are delivered; frontend adoption
 and browser verification remain separate work.
+
+## Backend stable workspace routes — 2026-10-11
+
+`GET /admin/v1/workspaces` and workspace creation now return `route_slug`, a
+persisted, globally unique routing reference. Migration 261 assigns it to existing
+workspaces without changing their IDs. Renaming changes the display name only;
+the database rejects subsequent route changes. Duplicate and non-ASCII names
+receive distinct references. Use the field in URLs, never as a visible label or
+an authorization grant; existing workspace authorization remains mandatory.
+
+An actual upgrade of a stopped database copy containing completed requests and
+customer debits preserved existing workspace identities. HTTP creation, rename,
+foreign-organization access and restart exercised the current implementation.
+Independent reopening matched every returned route to persisted records and
+confirmed the unchanged ledger fingerprint and enabled immutability guard.
+
+Frontend adoption and browser verification remain pending. This additive field
+does not preserve historical name-derived aliases or provide a direct slug lookup;
+the complete bookmark recovery workflow remains open.

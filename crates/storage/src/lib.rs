@@ -202,6 +202,8 @@ pub struct NamedResource {
 #[derive(sqlx::FromRow, serde::Serialize)]
 pub struct WorkspaceResource {
     pub id: Uuid,
+    /// Stable routing reference. Never use as a display name or authorization.
+    pub route_slug: String,
     pub is_default: bool,
     pub name: String,
     pub organization_id: Uuid,
@@ -445,7 +447,7 @@ impl Store {
         project_id: Option<Uuid>,
     ) -> Result<Vec<WorkspaceResource>, StoreError> {
         Ok(sqlx::query_as(
-            "SELECT p.id,p.name,o.id AS organization_id,o.name AS organization_name,(EXTRACT(EPOCH FROM p.created_at)*1000)::bigint AS created_at_ms,(SELECT COUNT(*) FROM api_keys k WHERE k.organization_id=p.organization_id AND k.project_id=p.id AND k.revoked_at IS NULL AND k.expires_at>now()) AS active_key_count,(SELECT COUNT(*) FROM operations r WHERE r.organization_id=p.organization_id AND r.project_id=p.id AND r.created_at>=now()-interval '30 days') AS requests_30d,(SELECT (EXTRACT(EPOCH FROM MAX(r.created_at))*1000)::bigint FROM operations r WHERE r.organization_id=p.organization_id AND r.project_id=p.id) AS last_request_at_ms,(SELECT jsonb_agg(jsonb_build_object('start_ms',(EXTRACT(EPOCH FROM d.day)*1000)::bigint,'request_count',(SELECT COUNT(*) FROM operations r WHERE r.organization_id=p.organization_id AND r.project_id=p.id AND r.created_at>=d.day AND r.created_at<d.day+interval '1 day')) ORDER BY d.day) FROM generate_series(date_trunc('day',now(), 'UTC')-interval '29 days',date_trunc('day',now(), 'UTC'),interval '1 day') d(day)) AS requests_by_day,EXISTS(SELECT 1 FROM default_workspace d WHERE d.organization_id=p.organization_id AND d.project_id=p.id AND d.singleton) AS is_default FROM projects p JOIN organizations o ON o.id=p.organization_id WHERE ($1::uuid IS NULL OR o.id=$1) AND ($2::uuid IS NULL OR p.id=$2) ORDER BY o.created_at,o.id,p.created_at,p.id LIMIT 1000",
+            "SELECT p.id,p.name,p.route_slug,o.id AS organization_id,o.name AS organization_name,(EXTRACT(EPOCH FROM p.created_at)*1000)::bigint AS created_at_ms,(SELECT COUNT(*) FROM api_keys k WHERE k.organization_id=p.organization_id AND k.project_id=p.id AND k.revoked_at IS NULL AND k.expires_at>now()) AS active_key_count,(SELECT COUNT(*) FROM operations r WHERE r.organization_id=p.organization_id AND r.project_id=p.id AND r.created_at>=now()-interval '30 days') AS requests_30d,(SELECT (EXTRACT(EPOCH FROM MAX(r.created_at))*1000)::bigint FROM operations r WHERE r.organization_id=p.organization_id AND r.project_id=p.id) AS last_request_at_ms,(SELECT jsonb_agg(jsonb_build_object('start_ms',(EXTRACT(EPOCH FROM d.day)*1000)::bigint,'request_count',(SELECT COUNT(*) FROM operations r WHERE r.organization_id=p.organization_id AND r.project_id=p.id AND r.created_at>=d.day AND r.created_at<d.day+interval '1 day')) ORDER BY d.day) FROM generate_series(date_trunc('day',now(), 'UTC')-interval '29 days',date_trunc('day',now(), 'UTC'),interval '1 day') d(day)) AS requests_by_day,EXISTS(SELECT 1 FROM default_workspace d WHERE d.organization_id=p.organization_id AND d.project_id=p.id AND d.singleton) AS is_default FROM projects p JOIN organizations o ON o.id=p.organization_id WHERE ($1::uuid IS NULL OR o.id=$1) AND ($2::uuid IS NULL OR p.id=$2) ORDER BY o.created_at,o.id,p.created_at,p.id LIMIT 1000",
         )
         .bind(organization_id)
         .bind(project_id)
