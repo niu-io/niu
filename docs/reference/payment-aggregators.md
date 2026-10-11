@@ -757,3 +757,13 @@ one checkout and no settlement, balance entry or funding receipt. No payment URL
 was followed or external payment initiated. These are local construction and
 persistence observations from the changed development binary, not merchant
 acceptance. Existing saved orders and links are not automatically rewritten.
+
+A follow-up repeated the 2,048-byte boundary, oversized rejection, signature and
+restart replay on clean committed `e3263df`; independent reopening again matched
+the saved checkout with no funding. Before refreshing the native development
+service, a fresh backup restored into isolated PostgreSQL retained six complete
+business-data fingerprints, schema 276 and authenticated encrypted identities
+across startup/restart. The native service then became ready on that clean binary
+with configuration, encrypted credential revisions and durable record counts
+unchanged. This closes the shared-development-binary limitation for this boundary;
+it does not qualify merchant activation or alter existing checkout records.

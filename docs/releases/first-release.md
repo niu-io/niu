@@ -71,10 +71,12 @@ verification; text accounting evidence does not cover them.
   reconciled usage, per-attempt debits and released holds after restart. This
   extends sustained text evidence without qualifying maximum capacity or media.
 
-- [Two-gateway text load](../reference/two-gateway-text-load.md): 152 actual
-  completions, a roughly one-minute paced phase and independently reconciled
-  per-attempt charges after restart. Capacity, overload and broader workloads
-  remain unqualified.
+- [Two-gateway text load](../reference/two-gateway-text-load.md): the latest sustained
+  run completed 1,600 actual calls across eight keys in approximately five minutes,
+  with two admission connections per process and independently reconciled charges
+  after restart. Customer pagination, complete-range summaries and CSV were also
+  reconciled across all 1,600 records. Maximum capacity, overload, streaming/media
+  load and broader workloads remain unqualified.
 
 - [Bounded Chat failover](../reference/upstream-retry-policy.md): actual canonical OpenRouter authentication rejection followed by one distinct-credential successor, pinned price/funding, exact single charge, request-limit/deadline denials, partial-stream nonretry and restart preservation. This narrow policy does not qualify generic provider/status retries or circuit breaking.
 
