@@ -284,3 +284,28 @@ or open customer reservations after restart and independent artifact inspection.
 The linked report separates successful upstream-inclusive latency from refusal
 latency and records the limits of its sampled process observations. It does not
 qualify sustained capacity, variable-token prices or funded payment.
+
+## Refunds after key rotation across two gateways — 2026-10-11
+
+An isolated run used clean `22d3780`, internal approved credit and explicit rates
+with the owner's personal OpenRouter credential. One structured and one streamed
+request completed with the requested marker and independently priced usage. A
+key cap equal to their combined charge rejected further paid admission. The key
+was then rotated, and its original token returned 401.
+
+Two gateways concurrently requested distinct partial refunds against the first
+original debit, each exceeding half of that debit. Exactly one returned 200 and
+one 409. Replaying the winner did not add a refund; refunding the remainder made
+the total exactly equal to the first debit. A further one-nanounit refund returned
+409. Both original and replacement key management reads returned the same
+commitment (the second charge) and restored allowance (the first charge).
+Historical attempts retained their original key attribution and both customer
+charges remained immutable. Restart retained the ledger and paid statement.
+
+Independent reopening parsed the retained structured response and SSE terminal
+usage, matched both completed attempts and exact original debits, and checked the
+two refunds against their source entry. The old/new keys shared the original
+spending identity; both temporary tokens were revoked at the end. No outstanding
+customer hold, funding receipt or external invoice-payment record existed. This
+verifies the stated rotation/refund combination; it is not an external payment
+refund, media settlement or general refund-capacity qualification.
