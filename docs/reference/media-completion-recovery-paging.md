@@ -28,6 +28,31 @@ was created. Format, compilation and Clippy checks completed separately; fixture
 outcomes are not evidence.
 
 The binary included shared working-tree changes. This checkpoint covers traversal
-of actual completed history, not a newly completed paid video, a populated pending
-recovery page, more than 100 actual media jobs or sustained recovery capacity.
-Other financial stages retain their own query and verification boundaries.
+of actual completed history. Other financial stages retain their own query and
+verification boundaries.
+
+## Actual pending video recovered after restart
+
+A subsequent current-input run submitted one real video using the owner's saved
+personal OpenRouter credential. A temporary database trigger blocked only the
+attempt's transition to `confirmed_completed`; the actual upstream success
+observation and result reference were durably retained. The attempt remained
+`may_have_executed` while that fault was installed.
+
+The original workspace key was revoked, the Gateway stopped, and the temporary
+fault removed. With upstream polling disabled and one admission-pool connection,
+the restarted Gateway recovered the pending attempt through the paged completion
+worker. Transport record counts did not increase during recovery. A newly issued
+scoped reader then fetched the real video; a second restart retained completion.
+Both keys were revoked after verification.
+
+An independent process reopened the stopped database and checked one generation
+submission, one attempt, its real success observation, completed state, encrypted
+result reference, revoked keys, removed fault trigger and absence of customer
+charges. It independently matched the downloaded file's SHA-256 receipt and fully
+decoded the video with FFmpeg. Private evidence pins the binary and recovery-query
+hashes; the binary includes shared working-tree changes.
+
+This is one nonempty pending recovery case, not more-than-100-job pagination,
+sustained capacity, a global one-connection limit or customer-funded video
+settlement. Personal upstream spending is separate from the customer ledger.
