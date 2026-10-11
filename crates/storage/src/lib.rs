@@ -315,6 +315,10 @@ pub enum StoreError {
     KeyIpDenied,
     #[error("API key request rate exhausted")]
     KeyRequestRateExceeded,
+    #[error("API key request dispatch is disabled by its rate policy")]
+    KeyRequestRateDisabled,
+    #[error("Upstream credential dispatch is disabled by its rate policy")]
+    VendorRequestRateDisabled,
     #[error("upstream credential request rate exhausted")]
     VendorRequestRateExceeded,
     #[error("API key concurrent request limit reached")]
@@ -735,6 +739,8 @@ impl Store {
                     Some("P0024") => StoreError::ManagedRouteChanged,
                     Some("P0020") => StoreError::KeyRequestRateExceeded,
                     Some("P0025") => StoreError::VendorRequestRateExceeded,
+                    Some("P0026") => StoreError::KeyRequestRateDisabled,
+                    Some("P0027") => StoreError::VendorRequestRateDisabled,
                     Some("P0021") => StoreError::KeyConcurrencyExceeded,
                     Some("P0022") => StoreError::KeyTokenRateExceeded,
                     Some("P0023") => StoreError::KeyTokenBoundRequired,

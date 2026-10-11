@@ -26,9 +26,11 @@ The SDK provides `getKeyRequestRateLimit`, `setKeyRequestRateLimit` and
 
 The database checks the policy at the durable dispatch transition and inserts the
 window entry in that same transaction. A policy-row lock serializes admissions
-across gateway instances. Rejection returns HTTP 429, error type
-`key_request_rate_exceeded`, and conservative `Retry-After: 60`. A zero limit
-requires a configuration change; waiting does not enable it.
+across gateway instances. An exhausted positive limit returns HTTP 429, error
+type `key_request_rate_exceeded`, and conservative `Retry-After: 60`. A zero
+limit returns HTTP 429 with `key_request_rate_disabled` and no `Retry-After`: it
+requires a configuration change; waiting does not enable it. Native protocol
+error envelopes preserve the reason in `x-niu-error-code`.
 
 Accepted dispatches consume one slot even if upstream execution later fails or
 is uncertain. They expire from the rolling window after 60 seconds. This is a
@@ -174,3 +176,24 @@ and per-record isolation behavior. A workspace with a customer balance account
 rejects an unpriced shared route before admission because no qualified customer
 liability bound exists. Do not remove billing protections to make that route
 appear ready. Mixed-key batch fallback remains unverified by current live evidence.
+
+## Zero-limit retry semantics — 2026-10-11
+
+Before migration 0260, actual Chat and Messages calls with a zero key policy
+returned `Retry-After: 60` and a message implying that waiting could restore
+access. The dispatch triggers now distinguish zero policies from exhausted
+positive windows. The distinction is made while holding the policy row lock,
+not by a separate potentially stale configuration read.
+
+A fresh isolated native run exercised zero key and zero upstream-credential
+policies through Chat and Messages: all returned 429 without `Retry-After`, with
+the corresponding `*_request_rate_disabled` reason. One actual personal-upstream
+Chat completion then consumed a slot. Positive key and credential policies each
+rejected a subsequent Messages request with the existing exceeded reason and
+60-second hint. Restart preserved the zero-policy rejection behavior.
+
+An independent verifier reopened the saved database and reconciled the received
+usage against exactly one customer charge and debit at the configured internal
+rates, one attempt, one admission in each policy ledger, and no unreleased
+customer hold. No commercial Supplier or payment activation is asserted. This
+run uses a fresh schema; populated upgrade validation is separate.

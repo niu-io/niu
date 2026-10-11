@@ -36,9 +36,11 @@ references and must not become product labels.
 The PostgreSQL dispatch transaction resolves the credential from immutable
 managed, personal or media attempt bindings, locks its policy and checks the
 current rolling window. A denied transaction does not dispatch upstream or keep
-an admission slot. The gateway returns HTTP 429 with
-`upstream_request_rate_exceeded` and `Retry-After: 60`. This conservative retry
-hint is not a promise of future availability, especially for a zero cap.
+an admission slot. An exhausted positive limit returns HTTP 429 with
+`upstream_request_rate_exceeded` and conservative `Retry-After: 60`. A zero cap
+returns HTTP 429 with `upstream_request_rate_disabled` and no retry timing hint;
+a platform administrator must change the policy. Native envelopes retain this
+reason in `x-niu-error-code`. No retry hint guarantees future availability.
 
 Each committed initial dispatch counts once, including requests that later fail
 or remain uncertain. A retry successor counts against its own selected credential.

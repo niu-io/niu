@@ -39,6 +39,18 @@ impl ApiError {
                 kind: "budget_exceeded",
                 message: "Insufficient available funds for this request",
             },
+            niu_storage::StoreError::KeyRequestRateDisabled => Self {
+                failure: None,
+                status: StatusCode::TOO_MANY_REQUESTS,
+                kind: "key_request_rate_disabled",
+                message: "This API key's request rate is configured as zero; an authorized administrator must change the policy before requests can proceed",
+            },
+            niu_storage::StoreError::VendorRequestRateDisabled => Self {
+                failure: None,
+                status: StatusCode::TOO_MANY_REQUESTS,
+                kind: "upstream_request_rate_disabled",
+                message: "The upstream credential's request rate is configured as zero; a platform administrator must change the policy before requests can proceed",
+            },
             niu_storage::StoreError::KeyTokenRateExceeded => Self {
                 failure: None,
                 status: StatusCode::TOO_MANY_REQUESTS,
