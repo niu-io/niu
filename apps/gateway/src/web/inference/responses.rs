@@ -12,6 +12,17 @@ use crate::{error::ApiError, state::AppState};
 
 use super::common::*;
 
+struct ResponsesExecution<'a> {
+    public_model: &'a str,
+    model: &'a crate::config::ModelConfig,
+    api_key: String,
+    body: Value,
+    timeout: Duration,
+    client: reqwest::Client,
+    dispatch: &'a DispatchContext,
+    managed: bool,
+}
+
 #[derive(Clone, Copy)]
 pub(in crate::web) struct ResponsesRequestBounds {
     pub(in crate::web) input_bytes: usize,
@@ -441,12 +452,16 @@ pub(super) async fn execute_responses_attempt(
     let timeout = deadline.saturating_duration_since(std::time::Instant::now());
     let result = execute_responses(
         state,
-        public_model,
-        model,
-        api_key,
-        body,
-        (timeout, client),
-        &dispatch,
+        ResponsesExecution {
+            public_model,
+            model,
+            api_key,
+            body,
+            timeout,
+            client,
+            dispatch: &dispatch,
+            managed: resolved.managed_route.is_some(),
+        },
     )
     .await;
     Ok((dispatch, result))
@@ -557,14 +572,18 @@ pub(in crate::web) fn validate_responses_request(
 
 async fn execute_responses(
     state: &AppState,
-    public_model: &str,
-    model: &crate::config::ModelConfig,
-    api_key: String,
-    mut body: Value,
-    transport: (Duration, reqwest::Client),
-    dispatch: &DispatchContext,
+    execution: ResponsesExecution<'_>,
 ) -> Result<ProviderResponse, ApiError> {
-    let (timeout, client) = transport;
+    let ResponsesExecution {
+        public_model,
+        model,
+        api_key,
+        mut body,
+        timeout,
+        client,
+        dispatch,
+        managed,
+    } = execution;
     let streaming = body["stream"] == true;
     let base = model.endpoint_base().ok_or_else(ApiError::unavailable)?;
     let endpoint = format!("{}/responses", base.trim_end_matches('/'));
@@ -594,6 +613,15 @@ async fn execute_responses(
             state.failures.fetch_add(1, Ordering::Relaxed);
             ApiError::upstream_transport(&error)
         })?;
+    retain_openrouter_reference(
+        state,
+        dispatch.scope,
+        dispatch.attempt,
+        model,
+        managed,
+        upstream.headers(),
+    )
+    .await;
     if !upstream.status().is_success() {
         state.failures.fetch_add(1, Ordering::Relaxed);
         return Err(provider_rejection(upstream).await);

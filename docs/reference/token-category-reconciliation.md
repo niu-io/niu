@@ -9,7 +9,7 @@ remains available under its original eligibility rules.
 The lookup uses the saved generation reference, original enabled credential
 revision and exact dispatched upstream model. It never accepts client-supplied
 quantities, generation identifiers or costs, and never resubmits inference.
-Managed canonical OpenRouter Chat (buffered and streaming) and Messages responses
+Managed canonical OpenRouter Chat, Responses (buffered and streaming), and Messages responses
 retain the server's `X-Generation-Id` header before consuming the response body.
 The shared save has a 250 ms deadline. A failed save logs a bounded diagnostic
 without converting already dispatched work into a new inference attempt. Static
@@ -140,3 +140,27 @@ and strict model matching was not relaxed. The completed verification runs sent
 the explicit dated model and captured the server header through the fixed path.
 Other protocols, interrupted Chat streams and a provider that never reports the
 missing quantity remain outside this checkpoint.
+
+## Responses reasoning recovery after a persistence fault
+
+The same server-header capture now applies before either buffered or streaming
+Responses bodies are consumed. An actual pre-fix Responses request completed
+with nonzero reasoning usage but had no durable generation reference, so it
+could not enter the existing supplemental lookup. No reference was backfilled
+from a client-supplied ID.
+
+New buffered and streamed requests to `openai/o4-mini-2025-04-16` exercised the
+fixed path with an isolated omission of the persisted reasoning category. The
+upstream responses were unchanged. After removing the persistence fault and
+restarting, each known-total request still held its reservation with no charge.
+A tariff edit preceded a real metadata lookup; the supplied nonzero reasoning
+quantity matched the original response and produced exactly one original-rate
+debit. Repeated reconciliation and restart preserved the same immutable receipt.
+
+Independent reopening matched the raw JSON or terminal `response.completed` SSE,
+response hash, original missing-category snapshot, restored quantities, pinned
+tariff, charge and debit. Each isolated run retained one attempt/reference/receipt
+and one charge, with the temporary key revoked and no unresolved reservation or
+merchant funding. The private generation header was not forwarded to the client.
+These are internal-credit recovery checks, not interrupted-stream qualification,
+commercial Supplier settlement or evidence for an unreported upstream quantity.

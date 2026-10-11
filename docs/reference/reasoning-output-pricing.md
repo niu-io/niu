@@ -147,3 +147,6 @@ usage are not qualified by this run. The separate
 [Chat recovery checkpoint](token-category-reconciliation.md#chat-reasoning-recovery-after-a-persistence-fault)
 covers the latter after an isolated persistence fault, using new buffered and
 streaming responses, real metadata supplementation and independent ledger checks.
+The same sequence is also qualified for buffered and completed-stream
+[Responses requests](token-category-reconciliation.md#responses-reasoning-recovery-after-a-persistence-fault),
+including retained reservations, a later tariff edit, receipt replay and restart.
