@@ -173,3 +173,25 @@ Supplier qualification was created.
 This adds priced admission and settlement evidence for the exercised contention
 scenario. It does not qualify sustained mixed workloads, in-flight policy edits
 or every admission interleaving. Fixture outcomes were not used as evidence.
+
+## Lowering the limit during a priced request
+
+On pinned backend `e655a37`, a fresh isolated database admitted an actual text
+request under a concurrency limit of one, explicit internal customer prices and
+approved credit. While SQL showed dispatched unresolved work, management lowered
+the limit to zero. The HTTP policy read showed revision 2, limit zero and one
+active request. Rotating the secret preserved this policy; a request using the
+replacement secret received `key_concurrency_exceeded` without another attempt.
+
+The already admitted request completed with the requested fresh marker. Its
+reported tokens produced exactly one customer charge and matching debit, and
+active occupancy returned to zero. Gateway restart preserved the zero policy and
+continued rejecting new work. An independent process checked the saved response
+hash and token arithmetic, then reopened the stopped database: one completed
+attempt, two revoked keys sharing one spending identity, policy history from one
+to zero, one debit and no open customer reservation or funding receipt.
+
+This verifies one observed in-flight policy reduction combined with rotation and
+restart. It does not establish every concurrent policy/admission interleaving or
+sustained performance. The upstream credential was used for personal testing;
+no commercial Supplier qualification or external funding was asserted.
