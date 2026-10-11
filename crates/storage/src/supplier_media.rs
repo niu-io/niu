@@ -133,7 +133,7 @@ impl Store {
         supplier: Uuid,
         card: &SupplierMediaRateCard,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         publish_rate(&mut tx, supplier, card).await?;
         tx.commit().await?;
         Ok(())
@@ -148,7 +148,7 @@ impl Store {
         if previous == card.revision {
             return Err(StoreError::InvalidPrice);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         let original: Option<serde_json::Value> = sqlx::query_scalar(
             "SELECT document FROM supplier_media_rate_cards WHERE provider_id=$1 AND revision=$2 FOR UPDATE",
         ).bind(supplier).bind(previous).fetch_optional(&mut *tx).await?;
