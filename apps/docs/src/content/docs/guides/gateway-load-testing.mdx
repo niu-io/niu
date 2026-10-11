@@ -3,48 +3,48 @@ title: Gateway load testing
 description: Run repeatable gateway load tests and interpret their limits.
 ---
 
-## Reproduce a gateway load run
+## Reproduce reporting reads
 
-The repository includes a dependency-free HTTP load client for OpenAI-compatible
-chat completions. It supports fixed concurrency and scheduled request-rate
-profiles, reuses one connection per worker, excludes warm-up calls, and writes
-latency percentiles, HTTP status counts, throughput, scheduled-start lag, and
-transport errors to JSON. An optional bearer key is read from an environment
-variable and is never copied to the report.
+The dependency-free `scripts/verify-reporting-load.py` client sends bounded,
+read-only requests to the workspace Logs API. Supply an authorized workspace
+reader bearer token through `NIU_REPORTING_TOKEN`; an inference API key does not
+authorize this management endpoint. Replace the two route identifiers with the
+company and workspace from your own installation.
 
 ```sh
-python3 scripts/gateway-benchmark.py \
-  http://localhost:2555/v1/chat/completions \
-  --model fast \
-  --bearer-env NIU_BENCHMARK_TOKEN \
-  --mode concurrency --workers 64 --duration 30 \
-  --out gateway-run.json
+python3 scripts/verify-reporting-load.py \
+  'https://niu.example/admin/v1/organizations/<company-id>/projects/<workspace-id>/requests' \
+  --requests 100 --workers 4 --limit 100 \
+  --out reporting-run.json
 ```
 
-To use a fixed arrival rate, pass `--mode rate --rate 500 --workers 64` instead.
-Rate runs count starts that exceed `--max-start-lag-ms` as dropped and return a
-nonzero exit status for drops or failed responses. Repeat each configuration at
-least five times, use the same machine and actual configured upstream, rotate run order,
-and retain every JSON report. Measure CPU and resident memory separately for the
-gateway and PostgreSQL; record the database version, pool size, schema revision,
-gateway commit, deployment mode, host resources, and upstream model/adapter. After a
-run, reconcile accepted requests, attempts, usage, reservations, and settlements
-from the gateway's persisted records. HTTP 200 alone does not establish valid
-model output or complete streaming delivery. Independently inspect current-input
-outputs, terminal events and usage, then compute expected charges from the pinned
-customer tariff and compare each charge, debit and released reservation. Preserve
-all failed or uncertain attempts; never silently retry them out of a report.
+Use HTTPS outside loopback. The client disables environment proxies and redirects
+so it never forwards the bearer token to a redirect destination. It sends no
+inference, creates no business data, and performs no automatic retries. Each read
+uses a new HTTP connection; the measurements are not isolated SQL execution time.
+Defaults are 100 reads, four workers, 100 rows per page and a 15-second socket
+timeout. Bounds are 10,000 reads, 32 workers, 100 rows and 60 seconds. The socket
+timeout is not a whole-run deadline. Use a new output filename for each run.
 
-The client measures end-to-end HTTP time, including upstream and response-body
-time. Warm-up calls are excluded from the report but still execute and may be
-billable against a live provider. Set an explicit request/spend bound before
-using an authorized upstream. Fixture results provide no evidence of correctness,
-performance qualification, or readiness. The client does not report isolated proxy
-overhead, time to first token, PostgreSQL resource use, or model quality. Keep
-unpriced traffic separate from priced
-admission and settlement runs, since those paths exercise different storage
-work. Do not treat a chat-throughput result as an accepted-task economics
-benchmark.
+The JSON report records per-read elapsed time, HTTP status and safe failure class,
+plus aggregate latency and throughput. It contains no endpoint, scope IDs, bearer
+token, response bodies or customer charges and is created with owner-only
+permissions. HTTP failures, transport failures, oversized responses and invalid
+page/summary envelopes produce a nonzero exit status. The envelope check is not
+an independent verification of the report's contents or its financial totals.
+
+Use actual retained request data. Independently inspect the final database and
+reconcile usage, pinned prices, charges, debits and released reservations. Record
+the gateway commit, PostgreSQL version, pool size, dataset size, hardware and
+concurrent work alongside the report. HTTP success and fixture outcomes do not
+establish business correctness, release readiness or production capacity. Repeat
+only where a new workload, code change or unresolved concern justifies it.
+
+The historical text-inference checkpoints below describe their measured workloads;
+this read-only client does not reproduce those paid generation runs. No current
+chat load-runner command is supplied here. A future inference runner must bound
+spend, retain current-input output/usage evidence and reconcile each attempt rather
+than treating HTTP 200 as a successful generation or correct charge.
 
 Vendor benchmark claims are methodology references, not independent evidence
 or an apples-to-apples Niu comparison. LiteLLM's published page describes a
