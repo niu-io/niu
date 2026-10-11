@@ -148,3 +148,30 @@ held reservations or financial differences appeared. Independently recalculating
 stored latency/resource samples reproduced the reported metrics. This is a
 600-row, warmed, local read baseline; it does not qualify large histories,
 concurrent ingestion, multi-instance deployment or comparison with New API.
+
+
+## Current backend integration checkpoint — 2026-10-12
+
+The clean committed `bdf1a6d` binary repeated the actual Supplier configuration
+journey in a fresh isolated PostgreSQL instance on schema 277. One explicit
+Supplier owned two independent Niu credential configurations, both using the
+saved personal OpenRouter secret. Each configuration had its own model binding.
+The first completed an actual structured Chat request, then underwent credential
+rotation and disablement. The second configuration's encrypted credential,
+revision, model and pricing remained unchanged at that checkpoint; it completed
+actual requests both before and after Gateway restart.
+
+The three retained responses reconciled with the Supplier operational report's
+model pages and full-range token/timing totals. Independent reopening parsed
+those response files, matched explicit managed-route ownership, and recomputed
+each customer charge from its original tariff revision and actual usage. Each
+charge had an equal ledger debit; no active customer reservation, Supplier earning
+or funding entry remained. The exercised binary hash matched the retained clean
+committed build. The original installation was not modified.
+
+This is current-input evidence for configuration isolation, real requests,
+revisioned internal retail charging and operational reporting after the recent
+Supplier management fixes. Two Niu configurations sharing one personal secret
+do not establish two externally issued keys or commercially qualified supply.
+The positive offer-to-earning-to-settlement and paid media paths remain separate
+unverified acceptance items. No fixture outcome is evidence.
