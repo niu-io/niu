@@ -1602,3 +1602,12 @@ verified the downloaded bytes and decoded them again, and found one original job
 and submission with no customer financial entries. This is normal-path evidence
 from the shared development tree, not a clean release or evidence for the three
 unobserved upstream failure statuses above.
+
+The same actual saved-result workflow was subsequently rerun with clean committed
+`48681ce` and its retained binary hash. Two authorized downloads again matched and
+fully decoded, timing records survived restart, and revocation denied retrieval.
+An independent process reopened the stopped database, rechecked the saved bytes
+and full decode, and matched result timings, original completion and key lineage.
+One original submission/job and zero customer financial entries remained. This
+qualifies this normal saved-result path on that clean commit; no new generation
+was purchased and the upstream failure-status branches remain unverified.
