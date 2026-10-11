@@ -65,8 +65,8 @@ trigger was absent. No original database or encryption identity was replaced.
 Formatting, gateway Clippy, optimized compilation, SDK checks/build and generated
 contract checks completed separately; no fixture result supports these claims.
 
-Lost commit acknowledgements for this specific endpoint and a native upgrade of
-the original development service to migration 0266 remain unverified.
+A native upgrade of the original development service to migration 0266 remains
+unverified.
 
 
 ## Directory traversal verification — 2026-10-11
@@ -89,3 +89,20 @@ ordering, checked absence of duplicates/omissions, verified the new ordering ind
 and zero-credit accounts, and matched the original customer-ledger fingerprint.
 The original running database was not changed. This verifies directory traversal;
 it does not establish general write throughput or a snapshot-consistent export.
+
+
+## Lost commit acknowledgement verification — 2026-10-11
+
+A PostgreSQL protocol proxy withheld the server's successful COMMIT acknowledgement
+for company creation after the database had committed. The actual endpoint
+returned 503. Eight concurrent retries across two native gateways returned 201
+with the same original company identity, name and CNY currency. Changed-currency
+replay returned 409. Restarting both gateways preserved the original identity.
+
+An independent process reopened the stopped isolated database and checked the
+saved HTTP responses, proxy event, single company creation receipt, independently
+computed key/input hashes, and exactly one added company and balance account.
+The account had zero credit and no funding or ledger entries; the original
+customer-ledger fingerprint was unchanged. This verifies recovery from a lost
+commit acknowledgement for this endpoint, without introducing funds or changing
+the original development database.
