@@ -817,7 +817,25 @@ pub(crate) async fn create_topup(
             .map_err(ApiError::from_store)?
     {
         let created = runtime.client.create_order(&order.id.simple().to_string(), amount, &input.payment_method, &runtime.notify_url).await
-            .map_err(|_| ApiError::upstream_message("Checkout creation is uncertain; recover the saved top-up instead of creating another order"))?;
+            .map_err(|failure| {
+                use niu_payments::zhifux_transport::Error;
+                let (failure_kind, provider_code) = match failure {
+                    Error::Configuration => ("configuration", None),
+                    Error::Transport => ("transport", None),
+                    Error::Response => ("invalid_response", None),
+                    Error::Rejected { code } => ("provider_rejected", Some(code)),
+                    Error::NotPaid => ("not_paid", None),
+                    Error::Protocol(_) => ("protocol", None),
+                };
+                tracing::warn!(
+                    payment_gateway = "zhifux",
+                    order_id = %order.id,
+                    failure_kind,
+                    provider_code,
+                    "Checkout creation remains uncertain; recover the saved intent"
+                );
+                ApiError::upstream_message("Checkout creation is uncertain; recover the saved top-up instead of creating another order")
+            })?;
         state
             .store
             .bind_customer_topup_checkout(
