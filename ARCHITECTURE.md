@@ -115,6 +115,10 @@ Catalog composition now lives in `apps/gateway/src/vendors/catalog_compiler.rs`;
 the outer layer acquires the database inputs once and passes static routes and
 caller scope explicitly. It reuses the existing candidate-selection and model
 conversion helpers, performs no database or upstream calls, and does not decrypt
+credentials. Its dedicated storage projection now omits credential ciphertext
+from both the SELECT output and the compiler input type. Actual inference retains
+its credential-bearing route loader; both paths share metadata decoding and model
+conversion. Endpoints and procurement metadata remain server-only even without
 credentials. This is a compilation boundary, not publication or inference pinning.
 A current-input regression exercised concurrent disablement, 103 pools, personal
 scope isolation, static shadowing, two actual completions and independently

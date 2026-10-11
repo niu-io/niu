@@ -1,7 +1,7 @@
 //! Catalog composition from an already acquired registry input snapshot.
 //! No database reads, credential decryption, or upstream calls occur here.
 //! This projection is not a published inference generation.
-use super::models::{select_candidate, stored_model};
+use super::models::{compile_model, select_candidate};
 use crate::{config::ModelConfig, error::ApiError};
 use std::collections::BTreeMap;
 
@@ -22,13 +22,16 @@ pub(super) fn compile_catalog(
         }
         match route.personal_organization_id {
             Some(owner) if Some(owner) == organization_id => {
-                let mut model = stored_model(route)?;
+                let mut model = compile_model(&route.vendor, &route.model)?;
                 model.pricing = None;
                 model.public_catalog = false;
                 models.insert(route.model.alias.clone(), model);
             }
             None if !inputs.unavailable.contains(&route.model.alias) => {
-                models.insert(route.model.alias.clone(), stored_model(route)?);
+                models.insert(
+                    route.model.alias.clone(),
+                    compile_model(&route.vendor, &route.model)?,
+                );
             }
             _ => {}
         }
@@ -69,7 +72,7 @@ pub(super) fn compile_catalog(
             })
             .collect();
         if let Some(route) = select_candidate(eligible) {
-            let mut model = stored_model(route)?;
+            let mut model = compile_model(&route.vendor, &route.model)?;
             model.public_catalog = false;
             if pool.organization_id.is_some() {
                 model.pricing = None;

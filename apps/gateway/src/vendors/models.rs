@@ -288,14 +288,21 @@ pub(super) fn validate_model(alias: &str, model: ModelConfig) -> Result<(), ApiE
 }
 
 pub(super) fn stored_model(route: &niu_storage::VendorRoute) -> Result<ModelConfig, ApiError> {
+    compile_model(&route.vendor, &route.model)
+}
+
+pub(super) fn compile_model(
+    vendor: &niu_storage::VendorView,
+    mapping: &niu_storage::VendorModelView,
+) -> Result<ModelConfig, ApiError> {
     let mut model = make_model(
-        &route.vendor.adapter,
-        &route.vendor.api_base,
-        &route.model.upstream_model,
-        route.model.capabilities.clone(),
-        route.model.pricing.clone(),
+        &vendor.adapter,
+        &vendor.api_base,
+        &mapping.upstream_model,
+        mapping.capabilities.clone(),
+        mapping.pricing.clone(),
     )?;
-    model.public_catalog = route.model.public_catalog;
+    model.public_catalog = mapping.public_catalog;
     Ok(model)
 }
 

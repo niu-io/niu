@@ -71,17 +71,24 @@ pub struct VendorRoute {
     pub personal_organization_id: Option<Uuid>,
 }
 
-/// Server-only catalog inputs from a single database snapshot. Like VendorRoute,
-/// this must not implement Serialize or Debug: routes contain encrypted secrets.
+/// Server-only route metadata. No encrypted or plaintext credentials are loaded.
+/// Endpoint and procurement fields still require a customer-safe projection.
+pub struct VendorCatalogRoute {
+    pub model: VendorModelView,
+    pub vendor: VendorView,
+    pub personal_organization_id: Option<Uuid>,
+}
+
+/// Server-only catalog inputs from a single database snapshot.
 pub struct VendorCatalogInputs {
-    pub routes: Vec<VendorRoute>,
+    pub routes: Vec<VendorCatalogRoute>,
     pub unavailable: std::collections::BTreeSet<String>,
     pub pools: Vec<crate::ModelRoutePool>,
     pub cooling_down: std::collections::BTreeSet<Uuid>,
 }
 
 #[derive(FromRow)]
-struct VendorRouteRow {
+struct VendorCatalogRow {
     alias: String,
     model_vendor_id: Uuid,
     upstream_model: String,
@@ -97,13 +104,12 @@ struct VendorRouteRow {
     vendor_enabled: bool,
     vendor_revision: i64,
     has_credential: bool,
-    credential_ciphertext: Vec<u8>,
     personal_organization_id: Option<Uuid>,
 }
 
-impl VendorRouteRow {
-    fn into_route(self) -> VendorRoute {
-        VendorRoute {
+impl VendorCatalogRow {
+    fn into_catalog(self) -> VendorCatalogRoute {
+        VendorCatalogRoute {
             model: VendorModelView {
                 alias: self.alias,
                 vendor_id: self.model_vendor_id,
@@ -123,8 +129,26 @@ impl VendorRouteRow {
                 revision: self.vendor_revision,
                 has_credential: self.has_credential,
             },
-            credential_ciphertext: self.credential_ciphertext,
             personal_organization_id: self.personal_organization_id,
+        }
+    }
+}
+
+#[derive(FromRow)]
+struct VendorRouteRow {
+    #[sqlx(flatten)]
+    metadata: VendorCatalogRow,
+    credential_ciphertext: Vec<u8>,
+}
+
+impl VendorRouteRow {
+    fn into_route(self) -> VendorRoute {
+        let metadata = self.metadata.into_catalog();
+        VendorRoute {
+            model: metadata.model,
+            vendor: metadata.vendor,
+            personal_organization_id: metadata.personal_organization_id,
+            credential_ciphertext: self.credential_ciphertext,
         }
     }
 }
@@ -757,11 +781,11 @@ impl Store {
         sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
             .execute(&mut *tx)
             .await?;
-        let routes = sqlx::query_as::<_, VendorRouteRow>(&route_query(""))
+        let routes = sqlx::query_as::<_, VendorCatalogRow>(&catalog_query("", false))
             .fetch_all(&mut *tx)
             .await?
             .into_iter()
-            .map(VendorRouteRow::into_route)
+            .map(VendorCatalogRow::into_catalog)
             .collect();
         let unavailable: Vec<String> = sqlx::query_scalar(
             "SELECT model_alias FROM provider_offers WHERE NOT niu_supplier_model_route_available(model_alias)",
@@ -910,12 +934,21 @@ async fn insert_audit(
 }
 
 fn route_query(filter: &str) -> String {
+    catalog_query(filter, true)
+}
+
+fn catalog_query(filter: &str, include_credential: bool) -> String {
+    let credential = if include_credential {
+        "v.credential_ciphertext,"
+    } else {
+        ""
+    };
     format!(
         "SELECT m.alias,m.vendor_id AS model_vendor_id,m.upstream_model, \
          m.public_catalog,m.enabled AS model_enabled,m.capabilities,m.pricing, \
          m.revision AS model_revision,v.id AS vendor_id,v.name AS vendor_name, \
          v.adapter,v.api_base,v.enabled AS vendor_enabled,v.revision AS vendor_revision, \
-         (v.credential_ciphertext IS NOT NULL) AS has_credential,v.credential_ciphertext, \
+         (v.credential_ciphertext IS NOT NULL) AS has_credential,{credential} \
          personal_owner.organization_id AS personal_organization_id \
          FROM vendor_models m JOIN vendors v ON v.id=m.vendor_id \
          LEFT JOIN personal_vendor_ownership personal_owner ON personal_owner.vendor_id=v.id \
