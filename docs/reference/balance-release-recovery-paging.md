@@ -52,3 +52,20 @@ removed fault trigger and exact retained ledger fingerprint. The binary included
 shared working-tree changes. No response was simulated and no funding receipt or
 commercial qualification was created. This evidence applies to the explicit
 OpenRouter text authentication rejection policy, not arbitrary upstream errors.
+
+## Uncertain admission commit remains reserved
+
+After unifying all financial recovery candidate pages, a fresh two-Gateway run
+withheld PostgreSQL's successful admission COMMIT acknowledgement. The real HTTP
+request returned 503 while the database retained one fully bound
+`may_have_executed` attempt with unknown usage and a 1,000,000-nanounit customer
+reservation. Its single-key allowance remained exhausted. A request through the
+second Gateway and another after restart both returned 402 without adding an
+attempt. Recovery did not release the uncertain liability.
+
+Independent reopening verified the exact customer hold and immutable admission
+bindings, one held procurement reservation, procurement budget equal to its held
+amount, and no customer charge, cost entry or funding receipt. This exercises
+actual HTTP admission, PostgreSQL commit-loss injection and the current worker;
+no upstream response was simulated. It is not evidence of completed generation.
+The binary hash is retained privately and includes shared working-tree changes.
