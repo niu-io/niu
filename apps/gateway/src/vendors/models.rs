@@ -312,6 +312,35 @@ pub(crate) async fn effective_models(
     catalog_models(state, None).await
 }
 
+/// Pricing eligibility and its owner-funded diagnostic must observe the same
+/// registry state. Publication never changes routing eligibility or funding.
+pub(crate) async fn require_customer_tariff_model(
+    state: &AppState,
+    organization_id: uuid::Uuid,
+    alias: &str,
+) -> Result<(), ApiError> {
+    let inputs = state
+        .store
+        .vendor_catalog_inputs()
+        .await
+        .map_err(ApiError::from_store)?;
+    let shared = super::catalog_compiler::compile_catalog(&state.config.models, &inputs, None)?;
+    if shared.contains_key(alias) {
+        return Ok(());
+    }
+    let scoped = super::catalog_compiler::compile_catalog(
+        &state.config.models,
+        &inputs,
+        Some(organization_id),
+    )?;
+    if scoped.contains_key(alias) {
+        return Err(ApiError::invalid_request(
+            "Personal owner-funded models do not accept customer tariffs; choose an available shared billing model",
+        ));
+    }
+    Err(ApiError::invalid_request("Choose an available model alias"))
+}
+
 pub(crate) async fn scoped_models(
     state: &AppState,
     organization_id: uuid::Uuid,

@@ -580,20 +580,8 @@ pub async fn tariff(
         project_id,
     };
     state.authorize_platform_headers(&headers).await?;
-    let models = crate::vendors::effective_models(&state).await?;
-    if !models.contains_key(&input.model_alias) {
-        // An owner-funded alias can be callable within this organization while
-        // deliberately absent from the shared customer-billing catalog.
-        if crate::vendors::scoped_models(&state, organization_id)
-            .await?
-            .contains_key(&input.model_alias)
-        {
-            return Err(ApiError::invalid_request(
-                "Personal owner-funded models do not accept customer tariffs; choose an available shared billing model",
-            ));
-        }
-        return Err(ApiError::invalid_request("Choose an available model alias"));
-    }
+    crate::vendors::require_customer_tariff_model(&state, organization_id, &input.model_alias)
+        .await?;
     let rates = ProviderOfferInput {
         model_alias: input.model_alias,
         currency: input.currency,

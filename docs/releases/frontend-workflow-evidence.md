@@ -1373,3 +1373,12 @@ confirmed no customer tariff, charge, debit or reservation. Customer spending-li
 verification still needs a separately configured customer-billing test route; this
 change neither qualifies Supplier supply nor authorizes changing procurement,
 funding or the existing personal credential's ownership.
+
+The tariff eligibility check now compiles shared and organization-scoped views
+from one repeatable-read catalog input, preventing its diagnostic from comparing
+two different registry reads. Fresh actual verification repeated the personal
+rejection/completion path and separately published customer prices on two internal
+credit test mappings. Both shared calls completed with independently reconciled
+charge/debit pairs; a concurrent model edit returned one success and one conflict
+without changing the sibling credential. No merchant funding or commercial supply
+qualification was created. This does not implement published route generations.
