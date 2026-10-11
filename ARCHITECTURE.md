@@ -104,6 +104,53 @@ This is a gap inventory, not an implementation order. The product focus and rele
 - Re-encrypt stored credentials under a new master key.
 - Publish one compiled configuration snapshot for file routes and database routes.
 
+## Unified route publication: implementation constraints
+
+This remains unimplemented. The existing repeatable-read catalog composition is
+not a published inference generation. Inference currently resolves pool,
+personal and shared/static routes through separate reads in
+`apps/gateway/src/vendors/models.rs`; `ManagedRouteSnapshot` pins selected
+mapping and pool revisions, not a complete registry generation.
+
+The replacement must use one compiler and resolver for database and static
+inputs. Keep every database alias in the compiler's shadow set, including
+disabled and account-owned aliases, so a static alias cannot bypass exclusion.
+Retain personal ownership and protocol/capability filtering before candidate
+priority and weight selection. Video-specific resolution must consume the same
+published generation while retaining its separate submission and recovery flow.
+
+Publish a complete validated generation and its active pointer atomically, using
+an expected active generation to reject overlapping stale publications. Failed
+validation or a lost publication race must leave the active pointer unchanged.
+Static configuration needs an explicit source fingerprint in that generation;
+Gateways with a different static source must not silently serve different routes
+under the same generation identifier. Bootstrap must retain its existing
+import-once behavior rather than republishing deployment defaults over edits.
+
+A published record contains configuration and credential references, not plaintext
+secrets. Preserve the distinction between server-only compiled route data and
+customer catalog projections: endpoints, procurement values and credentials must
+not become public simply because they belong to a generation. Credential rotation
+and revocation must retain their live authorization checks; a cached generation
+cannot authorize use of an old credential after revocation.
+
+Acquire one generation for each attempt and bind its identity in the same durable
+preparation transaction as the selected route and accounting context. The shared
+admission path still rechecks key revocation, workspace grants, ownership,
+credential eligibility, limits and reservations. Do not remove those checks when
+removing repeated route-resolution reads. Already dispatched work continues with
+its pinned route; media recovery and usage reconciliation keep their immutable
+original bindings. A retry successor is a distinct attempt and must retain the
+operation's existing tariff/funding and uncertainty safeguards.
+
+Implement storage publication and compiler validation, then switch discovery and
+all inference resolvers together; do not label a directory-only version counter
+as completion. Actual acceptance must cover concurrent publications, rejected
+invalid publication, disabled database/static shadowing, an in-flight response
+across publication, restart without draft activation, and independent inspection
+of each attempt's generation and exact charges. Current evidence does not yet
+establish these properties for a published registry.
+
 ## Further contracts
 
 | Topic | Document |
