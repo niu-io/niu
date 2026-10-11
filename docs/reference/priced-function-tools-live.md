@@ -126,3 +126,31 @@ tool counts or delta interleavings, cancellation, sustained load or other Provid
 The personal upstream and approved internal credit retain the earlier commercial
 boundaries. No fixture outcome is evidence. Original development configuration,
 database and encrypted identity were unchanged.
+
+## Disconnect during streamed tool arguments (2026-10-12)
+
+A separate actual request on pinned `ef77d30` used a longer strict-schema tool
+argument. The client closed its HTTP stream after the first nonempty argument
+delta, before receiving terminal usage or `[DONE]`. This was real personal
+OpenRouter execution in an isolated copy of the actual streaming database, with
+explicit internal customer pricing and approved credit.
+
+The durable record retained `may_have_executed`, unknown usage confidence, null
+input/output token counts and `response_stream_cancelled` without an upstream HTTP
+failure status. Delivery timing remained incomplete with HTTP 200; no finish row
+was invented. No customer charge or debit was posted, and the original customer
+reservation remained open. Gateway restart preserved that state, and the temporary
+key was revoked.
+
+Separate inspection rehashed and parsed the received SSE fragment and reopened
+the stopped database. It confirmed the partial tool argument, absence of `[DONE]`,
+one attempt for the verification key, no charge/debit for that attempt, the retained
+hold and cancellation diagnostic. The original 240 charges and debits remained
+unchanged; no funding receipt existed.
+
+This qualifies the stated disconnect's preserved uncertainty and restart behavior.
+It does not prove upstream execution stopped, zero upstream expense, a refund or
+settled final usage. Existing captured-reference usage reconciliation requires its
+own actual follow-up; cancellation alone does not authorize releasing unresolved
+liability. Other disconnect timings and sustained cancellation workloads remain
+unverified. No fixture outcome supports this checkpoint.
