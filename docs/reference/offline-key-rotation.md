@@ -47,3 +47,33 @@ unfinished. Keep the source key for as long as retained backups require it; a
 completed live database rotation does not re-encrypt historical backups. A full
 completed-operation rerun can record an additional zero-replacement operation;
 completion history alone is not proof of upstream service health.
+
+## Nonempty asset-management credential revisions
+
+A current-input native run on 2026-10-11 created a disabled direct-Ark
+configuration and saved two successive asset-management credential revisions
+through the administrator HTTP API. The fresh local credential values exercise
+storage and cryptographic lifecycle only; they are not claimed issued or
+validated by an external asset service. Both responses kept dispatch unavailable.
+No upstream inference or asset operation was sent.
+
+With the Gateway stopped, the offline rotation command re-encrypted the vendor
+and both historical asset-management envelopes. Destination-only encryption
+inspection, startup, configuration reads and another restart succeeded. Inspection
+with only the old master key failed. Revision, project and creation metadata
+remained identical; the management API still exposed no credential values.
+Captured Gateway and CLI outputs contained neither supplied credential values
+nor either master secret.
+
+Independent reopening used a separate AES-GCM implementation with the documented
+master-secret derivation and envelope layout. Both revisions decrypted to their
+exact original submitted values under the destination key and original
+vendor/revision/project associated data. The source key, changed vendor identity
+and changed project binding failed authentication. Metadata matched the retained
+pre-rotation record and there were zero inference attempts. The verifier initially
+used raw hexadecimal key bytes rather than Niu's SHA-256 master-secret derivation;
+that verifier error was corrected before assessing the result.
+
+This covers nonempty asset-management credentials, including superseded revisions.
+It does not qualify upstream asset authorization or the separate encrypted asset
+lookup/list/read/update result domains.
