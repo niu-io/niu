@@ -1644,6 +1644,14 @@ pub(in crate::web) fn valid_chat_completion_features(response: &Value, request: 
             Some(Value::Array(calls)) if !calls.is_empty() => Some(calls),
             _ => return false,
         };
+        if calls.is_some()
+            && message
+                .get("refusal")
+                .and_then(Value::as_str)
+                .is_some_and(|value| !value.is_empty())
+        {
+            return false;
+        }
         if choice.get("finish_reason").and_then(Value::as_str) == Some("tool_calls")
             && calls.is_none()
         {
