@@ -97,3 +97,11 @@ match native timing, observed finish reasons, usage and exact customer charges.
 Unknown execution/usage/amounts remain unknown; procurement and payload content
 are excluded. Foreign-scope access and revoked readers are denied. This qualifies
 the stated persisted metadata paths, not browser presentation or all protocols.
+
+
+Ordinary text-mode tool streams now use the same bounded call/selection validator
+as JSON tool streams, while permitting free-text final answers. Current actual
+buffered/streamed text and JSON round trips were independently reconciled with
+native usage and exact debits on `5a8a39c`. Clients must wait for validated
+`[DONE]` before executing streamed calls; malformed upstream cases still require
+separate actual evidence. See the [text-mode validation checkpoint](https://github.com/niu-io/niu/blob/main/docs/reference/chat-tools-structured-output.md#plain-text-streamed-tool-validation--2026-10-12).

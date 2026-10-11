@@ -149,3 +149,58 @@ observed overrun. It does not prove an upstream minimum output limit, explain
 why the limit was exceeded, guarantee arbitrary overruns stay within reservations,
 or qualify malformed-output rejection. Requested generation limits and measured
 usage have different meanings; the requested value is not billing evidence.
+
+
+## Plain-text streamed tool validation — 2026-10-12
+
+Previously, the complete streamed function-call validator was attached only to
+JSON object/schema output. Buffered calls already checked call shape and tool
+selection, while ordinary text-format streams lacked this terminal validation.
+Clean `5a8a39c` attaches the existing collector whenever the streamed conversation
+has tool semantics, including prior tool messages, with JSON parsing disabled
+for final text. No second function-call parser or accounting path is introduced.
+
+The collector checks declared function names, bounded IDs/argument objects,
+unique call IDs per choice, terminal tool turns, refusal conflicts, `tool_choice`
+and `parallel_tool_calls`. Its existing total 1 MiB content/refusal/tool metadata
+and argument bound, 128 choices and 128 tool slots also apply to text tool streams.
+Final assistant text need not be JSON. Clients must treat partial tool deltas as
+provisional and wait for validated `[DONE]` before executing a tool. Invalid
+terminal output uses the existing `upstream_invalid_response` SSE error without
+`[DONE]`; the message refers to format or tool constraints. Independently reported
+terminal usage remains accounting evidence. Function parameter-schema semantics
+remain the client's responsibility.
+
+Current-input verification used fresh isolated PostgreSQL and actual personal
+OpenRouter access with explicit internal credit and customer tariffs. Four client
+round trips covered buffered/streamed calls with omitted `response_format` and
+explicit `{ "type": "text" }`. The first turn used a named function or `required`,
+with parallel calls disabled. The client independently calculated 23 × 47 from
+the actual returned arguments, linked the tool result by call ID, and requested
+`tool_choice: none` for the follow-up. Every final response contained the result
+and its fresh marker as actual non-JSON text. No inference retry was made.
+
+Independent reopening hashed and re-parsed all eight retained responses, checked
+call arguments, linked tool results, finish reasons, native usage, completed
+timing and exactly one original-rate charge/debit per generation. Total customer
+charges were 232,598 USD nanounits. Restart preserved all eight charges; the key
+was revoked, and no customer hold, failure or funding receipt remained.
+
+The same clean executable also completed four fresh buffered/streamed JSON
+object/schema tool round trips, eight actual calls. Independent reopening checked
+all original responses and exact debits totaling 219,016 USD nanounits, with
+restart retained and no customer hold, failure or funding receipt. These totals
+belong to separate histories and must not replace earlier checkpoint totals.
+
+Gateway clippy and handler-annotation consistency checks completed separately;
+no fixture outcome supports the integration conclusions. The verified executable
+was installed into the preserved native runtime after a fresh backup was restored
+and independently compared in isolated PostgreSQL. Configuration, encrypted
+credential identities/revisions and durable business counts remained unchanged.
+
+These observations establish actual compatible text/JSON tool round trips and
+accounting on the stated implementation. They do not exercise an actually
+malformed text-tool upstream stream, every refusal/selection violation,
+interleaved fragments, every Provider or sustained tool-workflow capacity. The
+historical initial 502 is not reconstructed by this code inspection or these
+successful requests. Personal access is not commercial supply qualification.

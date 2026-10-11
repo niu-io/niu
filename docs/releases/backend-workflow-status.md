@@ -1,6 +1,6 @@
 # Backend workflow verification status
 
-Reviewed 2026-10-12 against implementation `a5f2f3b`; native implementation `a5f2f3b`.
+Reviewed 2026-10-12 against implementation `5a8a39c`; native implementation `5a8a39c`.
 This is an index of scoped evidence, not a declaration that the complete release
 or New API comparison is qualified. Linked runs identify their own implementation
 revisions. Fixture outcomes provide no evidence. Current-input runs and
@@ -76,3 +76,14 @@ cover four real buffered/streamed schema/object round trips, independently check
 native usage, exact customer debits and restart. Function selection, bounded
 stream assembly and final-text validation remain distinct. Malformed combined
 upstream output and broader provider combinations still need their own evidence.
+
+
+## Text-mode streamed function validation
+
+Clean `5a8a39c` extends the existing bounded collector to ordinary text-mode tool
+streams, retaining free-text final answers and independent accounting. Four real
+buffered/streamed text round trips and four fresh JSON-format round trips were
+independently parsed and reconciled with their exact original-rate debits and
+restart. The [tool contract](../reference/chat-tools-structured-output.md#plain-text-streamed-tool-validation--2026-10-12)
+records the limits, separate totals and still-unverified malformed upstream cases.
+The native upgrade preserved the original database/configuration/encrypted identity.
