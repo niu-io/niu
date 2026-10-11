@@ -709,3 +709,29 @@ query-recovery boundary and separates successful status retrieval from funding.
 An independent HTTP read of the downloadable annotated OpenAPI found the
 reconciliation operation exactly equal to the committed contract. This verifies
 that operation's documentation delivery, not merchant activation or settlement.
+
+## EPay checkout endpoint normalization — 2026-10-11
+
+EPay configuration accepts either the HTTPS gateway base or its complete
+`submit.php` endpoint. A base such as `https://merchant.example/pay/` produces
+`/pay/submit.php`; a supplied `/pay/submit.php` (including a trailing slash) keeps
+that same endpoint instead of appending another `/submit.php`. Queries, fragments
+and URL credentials remain prohibited by the existing configuration validation.
+Previously, supplying a complete checkout endpoint produced
+`/submit.php/submit.php`. An actual management HTTP checkout reproduced that
+incorrect saved URL. Earlier hostname/signature checks did not verify this path.
+
+After the correction, four isolated native runs created actual pending CNY 12.34
+orders for a root base, subdirectory base, full endpoint and full endpoint with a
+trailing slash. The configured example host was never contacted: classic EPay
+checkout construction is local. Each returned URL had the expected path, exact
+amount and independently calculated signature. Replaying the same intent after
+restart returned the identical saved order; conflicting amounts remained 409.
+Independent stopped-database reopening matched the stored checkout URL to each
+HTTP artifact, with exactly one order and no settlement, balance entry or funding
+receipt per run. Malformed notification requests did not credit funds.
+
+These observations qualify local checkout construction and persistence in the
+changed development binary, not merchant acceptance or received-cash settlement.
+Existing immutable checkout URLs are not rewritten by this change. No fixture
+outcome supports the observations.

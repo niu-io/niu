@@ -125,10 +125,15 @@ impl Merchant {
         ]);
         parameters.insert("sign".into(), self.signature(&parameters));
         parameters.insert("sign_type".into(), "MD5".into());
-        endpoint.set_path(&format!(
-            "{}/submit.php",
-            endpoint.path().trim_end_matches('/')
-        ));
+        // Configuration may contain the gateway base or its checkout endpoint.
+        // Preserve a supplied submit.php instead of appending it a second time.
+        let path = endpoint.path().trim_end_matches('/');
+        let checkout_path = if path.ends_with("/submit.php") {
+            path.to_owned()
+        } else {
+            format!("{path}/submit.php")
+        };
+        endpoint.set_path(&checkout_path);
         endpoint.query_pairs_mut().extend_pairs(parameters);
         Ok(endpoint.into())
     }
