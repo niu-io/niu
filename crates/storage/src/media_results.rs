@@ -69,8 +69,12 @@ impl Store {
         scope: TenantScope,
         attempt: Uuid,
     ) -> Result<(), StoreError> {
+        // A contention failure leaves all references intact; callers must not
+        // mistake an unavailable write for completed deletion.
+        let mut tx = self.begin_bounded_recording().await?;
         sqlx::query("INSERT INTO media_result_references(organization_id,project_id,attempt_id,kind,ciphertext,deleted_at) SELECT r.organization_id,r.project_id,r.attempt_id,k.kind,NULL,clock_timestamp() FROM media_recovery_routes r CROSS JOIN (VALUES ('video'),('last_frame')) k(kind) WHERE r.organization_id=$1 AND r.project_id=$2 AND r.attempt_id=$3 ON CONFLICT(attempt_id,kind) DO UPDATE SET ciphertext=NULL,deleted_at=clock_timestamp() WHERE media_result_references.deleted_at IS NULL")
-            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).execute(&self.pool).await?;
+            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).execute(&mut *tx).await?;
+        tx.commit().await?;
         Ok(())
     }
     pub async fn purge_expired_media_result_references(&self) -> Result<u64, StoreError> {
