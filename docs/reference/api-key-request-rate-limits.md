@@ -290,3 +290,27 @@ This verifies the stated shared RPM boundary and accounting under a finite burst
 and restart. It does not establish TPM/concurrency-cap combinations, fairness,
 long-duration capacity, or every limit-window boundary. Fixture outcomes provide
 no evidence for these observations.
+
+## Natural window expiry after key rotation — 2026-10-11
+
+A current-input run with clean `f749235`, two native gateways and fresh PostgreSQL
+configured one request per rolling minute for a workspace key. One real structured
+Chat completion consumed the allowance. Rotating the key made the old secret
+return 401; the replacement returned 429. Restarting both gateways preserved the
+429 refusal and the single admitted attempt.
+
+The run then waited for the database clock to advance naturally beyond the first
+admission's 60-second window, without editing timestamps or policy. The replacement
+key completed exactly one more real request; the next call again returned 429.
+Independent reopening matched both saved response hashes and fresh markers,
+reported token counts, customer charges and single corresponding debits. The two
+admission times were more than 60 seconds apart. Only the later admission remained
+in the rolling-window table, while both completed attempts and financial records
+remained durable. Both keys shared the same spending identity and unchanged
+one-RPM policy/revision; the temporary replacement key was revoked afterward.
+
+No customer hold or funding entry remained. Explicit internal rates and approved
+verification credit supported this personal upstream run; it establishes no cash
+receipt or commercial Supplier qualification. This covers natural window expiry
+with rotation and restart, not every exact-boundary race, protocol or combined
+RPM/TPM/concurrency policy.
