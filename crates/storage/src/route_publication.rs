@@ -200,6 +200,8 @@ impl Store {
     }
 
     /// Only clock-dependent or revocable exclusions; no route definitions.
+    /// A blocked eligibility read must fail closed rather than occupy a catalog
+    /// connection indefinitely. Transaction-local bounds do not alter the pool.
     pub async fn route_registry_live_eligibility(
         &self,
     ) -> Result<
@@ -209,9 +211,11 @@ impl Store {
         ),
         StoreError,
     > {
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
         let row: (Vec<String>, Vec<uuid::Uuid>) = sqlx::query_as(
             "SELECT ARRAY(SELECT model_alias FROM provider_offers WHERE NOT niu_supplier_model_route_available(model_alias)), ARRAY(SELECT vendor_id FROM vendor_cooldowns WHERE cooldown_until>statement_timestamp())"
-        ).fetch_one(&self.pool).await?;
+        ).fetch_one(&mut *snapshot).await?;
+        snapshot.commit().await?;
         Ok((row.0.into_iter().collect(), row.1.into_iter().collect()))
     }
 
