@@ -39,7 +39,10 @@ exact total for both requests. An independent process reopened the stopped
 PostgreSQL database and checked saved response hashes, category quantities,
 pinned rates, invoice total, and ledger debits.
 
-Combined write/reasoning schedules still require current-input verification.
+[Combined write/reasoning checkpoints](../architecture/context-tier-pricing.md#simultaneous-cache-write-and-reasoning-charging)
+now include actual nonstreaming and completed-stream requests, pinned category
+history and customer reporting. They do not establish later usage correction or
+nonempty Supplier settlement.
 Write-rate-only concurrent admission is verified below. Missing-category retention is verified
 below; later correction/recovery remains unverified. These are
 personal upstream calls with internal prices, not commercial Supplier evidence.

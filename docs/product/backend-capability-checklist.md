@@ -102,17 +102,20 @@ to claim an actual payment, not to list an implemented payment integration.
 
 Persisted token categories and their reports do not imply corresponding rate-card
 or settlement support. Default customer tariffs apply two flat rates to aggregate prompt/completion
-counts, rounding the combined exact amount upward once. Customer tariffs now
-optionally price reported cached input separately; Supplier text offers now support
-an independent optional cache-read rate. Route procurement budget rates remain flat. Neither mode implies reproduction of every upstream category charge.
+counts, rounding the combined exact amount upward once. Customer tariffs and
+independent Supplier offers also implement optional cache-read, cache-write and
+reasoning rates plus whole-request context tiers. These schedules use reported,
+non-overlapping categories and immutable revisions. Route procurement budget
+rates remain flat. None of these mechanisms implies reproduction of every
+upstream category or duration-specific price.
 
 | Capability | Current implementation boundary | Required acceptance behavior |
 | --- | --- | --- |
 | Flat input/output tariff | Implemented; actual Chat/Responses/embedding usage and exact combined rounding verified with internal rates/credit | Reproduce the exact charge from aggregate counts and the pinned rates, including one combined rounding step |
 | Separate cache-read price | Customer and Supplier cached-rate mechanisms implemented; actual nonzero-cache customer charges, above-input cache rate, refund/restart verified with internal credit; missing-category recovery, concurrent liabilities and Supplier settlement open | Pin a distinct rate and non-overlapping counted quantities; unknown cache usage must not become an invented zero |
-| Separate cache-write price | Not implemented by the generic two-rate text tariff | Distinguish declared write categories and applicable durations without charging included input twice |
-| Separate reasoning-output price | Not implemented by the generic two-rate text tariff | Specify whether reasoning is already included in reported output; apply the agreed schedule without double counting |
-| Long-context tiers | Not implemented by the generic two-rate text tariff | Pin threshold, tier selection and effective rates for the actual request, including boundary behavior |
+| Separate cache-write price | [Customer pricing](../reference/customer-cache-write-pricing.md) and [Supplier accrual](../reference/supplier-cache-write-pricing.md) implemented. Recorded customer checkpoints cover nonzero writes, restart, pinned invoices, bounded admission and combined categories. TTL-specific rates are not implemented; missing-category correction and nonempty Supplier settlement remain unverified. | Price disjoint reported input subsets once; retain unknown quantities and distinguish unsupported duration-specific schedules |
+| Separate reasoning-output price | [Customer](../reference/reasoning-output-pricing.md) and [Supplier](../reference/supplier-reasoning-pricing.md) rates implemented. Recorded customer checkpoints cover nonzero reasoning, completed streams, combined cache categories, fees/minimums and bounded concurrent admission. Later correction of missing usage and nonempty Supplier settlement remain unverified. | Treat reasoning as a subset of output; preserve pinned rates and reject or retain unsupported/unknown quantities without inventing zero |
+| Long-context tiers | [Customer and Supplier whole-request tiers](../architecture/context-tier-pricing.md) implemented. Highest inclusive input threshold selects the complete schedule. Recorded customer checkpoints cover boundaries, admission bounds, immutable revisions and reporting; Supplier publication/history has draft management evidence, while nonempty earnings and settlement remain unverified. | Select using actual aggregate input and pinned revisions; reserve conservatively across reachable schedules and preserve exact threshold behavior |
 | Per-request charges and minimums | Customer text charge floor implemented with [scoped actual admission, settlement and history evidence](../reference/text-minimum-charges.md); [additive customer request fees](../reference/text-request-fees.md) implemented; current-input qualification recorded separately | Declare the billable event and minimum/rounding rules independently of token usage |
 | Text promotions and discounts | No generic text discount schedule in this tariff | Pin eligibility, priority, stacking and exact effective amounts; editing a promotion cannot reprice history |
 | Multimodal text-endpoint units | Generic priced Chat restricts the request to supported plain text | Require explicit meter and liability bounds for image/audio or other billable inputs rather than silently using text rates |
@@ -120,8 +123,15 @@ an independent optional cache-read rate. Route procurement budget rates remain f
 Versioned media rate cards are a separate implementation. Their dimension,
 discount and unit mechanisms do not establish generic text tariff coverage.
 Customer tariffs and confidential Supplier procurement schedules need independent
-histories and authorization. These gaps are required follow-up capabilities, not
-reasons to reinterpret a flat tariff as category-specific pricing.
+histories and authorization. Publication and field availability do not establish
+settlement readiness. Remaining unknown-usage correction, Supplier settlement,
+TTL-specific rates, promotions and multimodal boundaries stay explicit.
+
+The category rows were reconciled with current API, SDK, admission and settlement
+source on 2026-10-11. Existing saved customer JSON/CSV and combined-category model
+responses were independently compared again with their reopened databases. This
+confirms those retained checkpoint artifacts; it is not a new full acceptance run
+of every category, model, protocol or financial path.
 
 ## Required workflow checks
 

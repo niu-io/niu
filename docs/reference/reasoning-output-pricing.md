@@ -54,8 +54,10 @@ pricing are verified below. A two-Gateway reasoning-rate-only reservation race i
 this is bounded concurrency evidence, not a sustained capacity result. Missing-category retention is verified below;
 recovering a subsequently supplied category remains unverified. The served
 documentation OpenAPI matches the generated contract, and its reference HTML
-contains the new rate field; visual browser acceptance is not claimed. Supplier earned-liability verification, cache-write pricing, and long-context
-tiers remain separate unfinished work.
+contains the new rate field; visual browser acceptance is not claimed. Supplier earned-liability verification remains unfinished. Customer
+[cache-write pricing](customer-cache-write-pricing.md) and
+[whole-request context tiers](../architecture/context-tier-pricing.md) are
+implemented with their own recorded verification boundaries.
 
 
 ## Missing reasoning quantity
