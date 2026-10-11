@@ -275,3 +275,39 @@ completed history and unchanged Supplier ciphertext/revisions, attempts, custome
 reservations/ledger and procurement reservations. The binary included shared
 working-tree changes. The original database and deployment key were untouched.
 This verifies the guard only; it does not close issue #9 or qualify key rotation.
+
+## Transaction-bound envelope replacement authority
+
+Migration 271 adds append-only authorizations containing an active operation,
+transaction identity, a closed table-name inventory and SHA-256 digests of exact
+before/after records. They contain no plaintext, ciphertext or keys. A narrow SQL
+predicate requires the current transaction, unfinished operation, matching record
+digests, non-null envelopes and equality of every non-ciphertext field. Existing
+asset credential/content immutability triggers admit only that extra path; their
+erasure branches remain intact. Inspected-image updates use the same predicate.
+Supplier qualification invalidation skips only an exact authorized envelope
+replacement; ordinary credential or other business changes retain invalidation.
+No triggers are disabled and no HTTP rotation endpoint is introduced.
+
+This is a trusted maintenance-writer boundary: SQL cannot establish plaintext
+equivalence. The future command must authenticate both envelopes, enforce the
+intended key transition and exclude concurrent writers before issuing authority.
+An authorization record alone is not a receipt that a replacement committed.
+The offline command, transition binding, full-domain rewrapping and completion
+scan remain unavailable; these schema primitives do not close issue #9.
+
+A fresh native management request saved an isolated disabled account and an
+asset-management credential revision. PostgreSQL rejected ordinary replacement,
+metadata-changing replacement, a previously committed transaction's authority,
+and authority for a completed operation. Exact current-transaction authority
+permitted re-encryption under a disposable target key and restoration of the
+original envelope. No upstream call or commercial qualification was performed.
+
+Independent reopening verified the restored ciphertext and complete metadata,
+three distinct transaction authorization records, completed control operation,
+enabled protection triggers and no inference or financial records. Independent
+AES-GCM decoding of the stored original and privately retained replacement
+artifact confirmed identical plaintext under their respective keys and original
+associated data. The binary included shared working-tree changes; the original
+runtime database and deployment key were untouched. Nonempty asset-result/image
+paths and preservation of a populated Supplier qualification remain unverified.
