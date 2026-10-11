@@ -316,3 +316,28 @@ This verifies the recovered prepaid text statement's backend overview and safe
 duplicate-payment refusal. Unsettled invoices, other currencies/workspaces, media
 settlement and frontend Billing presentation need their own evidence. No fixture
 outcome is evidence. Original development data and encrypted identity were unchanged.
+
+## Alias inventory and cancellation boundary — 2026-10-12
+
+A fresh authenticated request to the saved OpenRouter model-list endpoint returned
+HTTP 200. Its `openai/gpt-4.1-mini` entry reported canonical slug
+`openai/gpt-4.1-mini-2025-04-14`; the explicit dated identifier was not a separate
+entry in this response. The raw current response is retained privately. This is
+an inventory observation, not successful inference, a commercial supply claim or
+proof that a current alias binding applied to an earlier dispatch.
+
+The previously captured metadata for the actual tool-stream disconnect reported
+that same dated model, `cancelled=true` and a null finish reason. The existing
+identity-mismatch diagnosis therefore must not be fixed by merely treating the
+alias and dated identifier as interchangeable: even resolved identity would not
+meet the current non-cancelled terminal-evidence requirement. No receipt, completed
+execution, charge or reservation release was manufactured from this observation.
+
+A future alias-resolution implementation must retain trusted identity evidence
+with the original dispatch/configuration revision, rather than consulting today's
+mutable catalog to reinterpret historical requests. It must separately preserve
+the cancellation/terminal checks and the original tariff. Such resolution is not
+implemented or qualified by this inventory read. The earlier actual dated-model
+recovery remains its own explicitly bounded successful checkpoint; it does not
+qualify automatic alias resolution or cancelled-usage settlement. No fixture
+outcome is evidence, and original data/configuration/encryption were unchanged.
