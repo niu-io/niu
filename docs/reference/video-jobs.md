@@ -1,6 +1,6 @@
 # Video job API
 
-Status: owner-funded direct-channel text submission, persisted-state reads and opt-in polling are implemented. Customer media-rate publication is available to platform administrators. Prepaid text-input submission, explicit refresh and opt-in automatic recovery are implemented for configured qualified offers. Scoped result retrieval and deletion are implemented. Configured, consented inline image-plus-prompt submission has local API coverage. Complete reference-input workflows and live video qualification remain pending.
+Status: owner-funded direct-channel text submission, persisted-state reads and opt-in polling are implemented. Customer media-rate publication is available to platform administrators. Prepaid text-input submission, explicit refresh and opt-in automatic recovery are implemented for configured qualified offers. Scoped result retrieval and deletion are implemented. Configured, consented inline image-plus-prompt submission has local API coverage. Actual personal OpenRouter text-to-video generation, recovery and result retrieval have been exercised as described below. Complete reference-input workflows and customer-funded video settlement remain unverified.
 
 ### Personal OpenRouter video
 
@@ -1552,3 +1552,30 @@ do not establish a performance improvement, large-file memory ceiling or actual
 slow-client cancellation behavior. Large allocations are held through body
 consumption by construction; network-stack buffering and slow-client capacity
 still require dedicated measurement.
+
+
+## Current customer reporting boundary — 2026-10-11
+
+A native Gateway built from the shared working tree based on `9f25d7b` served
+an isolated stopped copy of an actual completed personal video job. Fresh HTTP
+requests to workspace request detail, history and CSV export returned
+`owner_funded` with absent customer amounts and currency. Installation admin
+and workspace viewer received the same detail projection. A viewer in a different
+company received 404 for detail and export; the workspace viewer received 403
+for the procurement-cost endpoint. The JSON and CSV projections did not expose
+Supplier prices, credentials or procurement identifiers.
+
+After Gateway restart, the saved detail and CSV remained identical. An
+independent database reopening matched the persisted completed attempt and
+personal-route binding to the captured JSON/CSV, found no customer media charge,
+and confirmed unchanged attempt, transport and balance-entry counts. This
+verifies reads of a real retained job, not a new generation, a clean release
+artifact or a customer-funded settlement.
+
+The currently available saved integration is personal OpenRouter. Its video
+adapter explicitly rejects customer-funded use; the implemented prepaid video
+path requires a qualified direct-channel offer and reported billable quantity.
+Consequently, personal video success must not be presented as prepaid video
+billing verification. External activation is separate from implementation
+readiness, and absent external evidence does not justify inventing supply
+qualification, funding receipts or reported usage.
