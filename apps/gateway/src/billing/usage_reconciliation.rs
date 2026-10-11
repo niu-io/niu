@@ -22,7 +22,7 @@ pub(crate) struct ReconcileInput {}
 ///   "operation": {
 ///     "operationId": "reconcileRequestUsage",
 ///     "summary": "Supplement unknown native request usage from captured OpenRouter evidence",
-///     "description": "Installation write access only. Empty object input; no client-supplied generation identifier, quantities or costs. Uses the stored server response reference and original managed credential only while vendor/model revisions remain current. Exact upstream model match required; aliases are not inferred equivalent. Bounded metadata lookup can return 502 while metadata is unavailable. Only confirmed-completed attempts with unknown aggregate usage are eligible. Atomically retains the original completion and immutable supplemental evidence. Recorded does not mean settled: existing financial recovery applies the request-bound tariffs; missing required categories keep liability unresolved. Never resubmits inference. Identical replay returns the saved receipt without upstream access. Cache-Control no-store.",
+///     "description": "Installation write access only. Empty object input; no client-supplied generation identifier, quantities or costs. Uses the stored server response reference and original managed credential only while vendor/model revisions remain current. Exact upstream model match required; aliases are not inferred equivalent. Bounded metadata lookup can return 502 while metadata is unavailable. Confirmed-completed or uncertain dispatched attempts with unknown aggregate usage are eligible only when canonical metadata confirms not-cancelled execution with stop/length and an exact model/reference match. Cancelled or nonterminal metadata remains unresolved. Atomically retains the original execution/usage and immutable supplemental terminal evidence, then marks execution confirmed-completed. Existing completion timestamps are preserved; absent timestamps record the time confirmation is stored. Original failure and delivery timing remain unchanged. Recorded does not mean settled: existing financial recovery applies the request-bound tariffs; missing required categories keep liability unresolved. Never resubmits inference. Identical replay returns the saved receipt without upstream access. Cache-Control no-store. New v2 receipts retain terminal finish/cancellation evidence. Legacy v1 receipts retain null terminal fields without invented backfill.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -85,7 +85,10 @@ pub(crate) struct ReconcileInput {}
 ///                 "completion_tokens",
 ///                 "cached_input_tokens",
 ///                 "reasoning_output_tokens",
-///                 "cache_write_input_tokens"
+///                 "cache_write_input_tokens",
+///                 "original_execution",
+///                 "upstream_finish_reason",
+///                 "upstream_cancelled"
 ///               ],
 ///               "properties": {
 ///                 "status": {
@@ -97,7 +100,8 @@ pub(crate) struct ReconcileInput {}
 ///                 "source_version": {
 ///                   "type": "string",
 ///                   "enum": [
-///                     "openrouter-native-generation-v1"
+///                     "openrouter-native-generation-v1",
+///                     "openrouter-native-generation-v2"
 ///                   ]
 ///                 },
 ///                 "recorded_at": {
@@ -128,6 +132,36 @@ pub(crate) struct ReconcileInput {}
 ///                 },
 ///                 "cache_write_input_tokens": {
 ///                   "type": "null"
+///                 },
+///                 "original_execution": {
+///                   "type": "string",
+///                   "enum": [
+///                     "confirmed_completed",
+///                     "may_have_executed"
+///                   ]
+///                 },
+///                 "upstream_finish_reason": {
+///                   "type": [
+///                     "string",
+///                     "null"
+///                   ],
+///                   "enum": [
+///                     "stop",
+///                     "length",
+///                     null
+///                   ],
+///                   "description": "Null for legacy v1 receipts; never backfilled."
+///                 },
+///                 "upstream_cancelled": {
+///                   "type": [
+///                     "boolean",
+///                     "null"
+///                   ],
+///                   "enum": [
+///                     false,
+///                     null
+///                   ],
+///                   "description": "Explicit false for v2 terminal evidence; null for legacy v1 receipts."
 ///                 }
 ///               }
 ///             }
@@ -190,11 +224,27 @@ pub(crate) async fn reconcile(
     {
         return Ok(([(header::CACHE_CONTROL, "no-store")], Json(receipt)).into_response());
     }
-    let context = state
+    let context = match state
         .store
         .openrouter_reconciliation_context(scope, attempt)
         .await
-        .map_err(ApiError::from_store)?;
+    {
+        Ok(context) => context,
+        Err(niu_storage::StoreError::Conflict) => {
+            // Another caller can commit between the initial receipt read and
+            // context lookup. Re-read the immutable scoped receipt before refusing.
+            if let Some(receipt) = state
+                .store
+                .openrouter_usage_receipt(scope, attempt)
+                .await
+                .map_err(ApiError::from_store)?
+            {
+                return Ok(([(header::CACHE_CONTROL, "no-store")], Json(receipt)).into_response());
+            }
+            return Err(ApiError::from_store(niu_storage::StoreError::Conflict));
+        }
+        Err(error) => return Err(ApiError::from_store(error)),
+    };
     let key = state
         .vendor_cipher
         .as_ref()
@@ -271,7 +321,7 @@ pub(crate) async fn reconcile(
 ///   "operation": {
 ///     "operationId": "getRequestUsageReconciliation",
 ///     "summary": "Read recorded supplemental request usage",
-///     "description": "Workspace read access required. Returns the same customer-safe immutable receipt as reconciliation, without querying upstream or modifying usage or accounting. Absence, unknown attempt and out-of-scope attempt return 404. Quantities are decimal strings; missing categories remain null. Recorded does not guarantee settlement. No original raw upstream metadata, generation reference, credential, Supplier price or endpoint is exposed. Cache-Control no-store.",
+///     "description": "Workspace read access required. Returns the same customer-safe immutable receipt as reconciliation, without querying upstream or modifying usage or accounting. Absence, unknown attempt and out-of-scope attempt return 404. Quantities are decimal strings; missing categories remain null. Recorded does not guarantee settlement. No original raw upstream metadata, generation reference, credential, Supplier price or endpoint is exposed. Cache-Control no-store. New v2 receipts retain terminal finish/cancellation evidence. Legacy v1 receipts retain null terminal fields without invented backfill.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -322,7 +372,10 @@ pub(crate) async fn reconcile(
 ///                 "completion_tokens",
 ///                 "cached_input_tokens",
 ///                 "reasoning_output_tokens",
-///                 "cache_write_input_tokens"
+///                 "cache_write_input_tokens",
+///                 "original_execution",
+///                 "upstream_finish_reason",
+///                 "upstream_cancelled"
 ///               ],
 ///               "properties": {
 ///                 "status": {
@@ -334,7 +387,8 @@ pub(crate) async fn reconcile(
 ///                 "source_version": {
 ///                   "type": "string",
 ///                   "enum": [
-///                     "openrouter-native-generation-v1"
+///                     "openrouter-native-generation-v1",
+///                     "openrouter-native-generation-v2"
 ///                   ]
 ///                 },
 ///                 "recorded_at": {
@@ -365,6 +419,36 @@ pub(crate) async fn reconcile(
 ///                 },
 ///                 "cache_write_input_tokens": {
 ///                   "type": "null"
+///                 },
+///                 "original_execution": {
+///                   "type": "string",
+///                   "enum": [
+///                     "confirmed_completed",
+///                     "may_have_executed"
+///                   ]
+///                 },
+///                 "upstream_finish_reason": {
+///                   "type": [
+///                     "string",
+///                     "null"
+///                   ],
+///                   "enum": [
+///                     "stop",
+///                     "length",
+///                     null
+///                   ],
+///                   "description": "Null for legacy v1 receipts; never backfilled."
+///                 },
+///                 "upstream_cancelled": {
+///                   "type": [
+///                     "boolean",
+///                     "null"
+///                   ],
+///                   "enum": [
+///                     false,
+///                     null
+///                   ],
+///                   "description": "Explicit false for v2 terminal evidence; null for legacy v1 receipts."
 ///                 }
 ///               }
 ///             }

@@ -479,7 +479,7 @@ An installation administrator can explicitly call
 `POST /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation`
 with `{}`. It fetches metadata using the saved reference and original credential,
 requires unchanged managed route revisions and exact model identity, and records
-one immutable supplemental receipt containing the original unknown completion.
+one immutable supplemental receipt containing the original execution and usage state.
 The attempt's current usage projection then becomes eligible for existing financial
 recovery under its bound tariffs. No inference is retried. Cache-write usage stays
 unknown, and any missing category required by the bound rate prevents settlement.
@@ -623,3 +623,36 @@ This does not qualify direct Anthropic streaming, nonzero native cache pricing,
 malformed upstream event delivery, streaming tools/media/thinking, native SDKs
 other than the Niu SDK, or production capacity. No commercial Supplier agreement,
 funding receipt or fixture outcome was used to establish this checkpoint.
+
+
+### Recovering a lost local completion record
+
+Canonical terminal evidence can also recover an attempt whose execution remains
+`may_have_executed` and whose aggregate usage is unknown. The same original
+credential, unchanged route revisions, exact model and saved generation reference
+are required. Metadata must explicitly report `cancelled: false` and a `stop` or
+`length` finish reason. Cancelled and nonterminal generations remain unresolved.
+
+New receipts use `openrouter-native-generation-v2` and expose
+`original_execution`, `upstream_finish_reason` and `upstream_cancelled`. They
+atomically preserve the original state before confirming execution and usage.
+Existing delivery failures and timing are retained. If local completion time was
+absent, `completed_at` records reconciliation confirmation time, not an invented
+upstream timestamp. Legacy v1 receipts return null terminal fields; migration 0257
+does not invent historical evidence. Existing financial recovery still owns
+settlement against the request's bound prices.
+
+An actual native streaming request returned a fresh marker and terminal event
+while an isolated database fault rejected its completion write. After restart,
+execution remained uncertain with one hold and no charge. Reconciliation under
+the same fault rolled back its receipt and usage update together. After removing
+the fault, eight concurrent reconciliation calls returned one receipt despite key
+revocation and a later tenfold tariff edit. Independent reopening matched the
+saved SSE quantities, original uncertain state, pinned old tariff and exactly one
+charge/debit; the hold was released and replay after restart added nothing.
+
+A populated 0256-to-0257 upgrade preserved the legacy receipt, historical migration
+checksums, encrypted credentials and financial records. Actual cancelled-generation
+metadata was refused, preserving its failure and unresolved hold. Independent
+reopening confirmed those artifacts. Recovery of a client-disconnected generation
+that subsequently completes without upstream cancellation remains unverified.

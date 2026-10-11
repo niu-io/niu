@@ -19,6 +19,7 @@ pub struct OpenRouterUsageObservation {
     cached: Option<i64>,
     reasoning: Option<i64>,
     model: String,
+    finish_reason: String,
 }
 
 impl OpenRouterUsageObservation {
@@ -58,6 +59,10 @@ impl OpenRouterUsageObservation {
             cached: subset("native_tokens_cached", prompt)?,
             reasoning: subset("native_tokens_reasoning", completion)?,
             model: context.upstream_model.clone(),
+            finish_reason: data["finish_reason"]
+                .as_str()
+                .ok_or(StoreError::Conflict)?
+                .to_owned(),
         })
     }
 }
@@ -67,7 +72,7 @@ const CONTEXT: &str = "SELECT v.id, v.credential_ciphertext, g.generation_id, m.
  JOIN openrouter_generation_references g ON g.attempt_id=a.id \
  JOIN vendors v ON v.id=r.vendor_id JOIN vendor_models m ON m.alias=r.model_alias \
  WHERE a.id=$1 AND a.organization_id=$2 AND a.project_id=$3 \
- AND a.execution='confirmed_completed' AND a.usage_confidence='unknown' \
+ AND a.execution IN ('confirmed_completed','may_have_executed') AND a.usage_confidence='unknown' \
  AND a.prompt_tokens IS NULL AND a.completion_tokens IS NULL \
  AND v.adapter='openrouter' AND trim(trailing '/' FROM v.api_base)='https://openrouter.ai/api/v1' \
  AND v.enabled AND m.enabled AND m.vendor_id=v.id \
@@ -86,7 +91,9 @@ impl Store {
             "SELECT jsonb_build_object('status','recorded','prompt_tokens',r.prompt_tokens::text, \
              'completion_tokens',r.completion_tokens::text,'cached_input_tokens',r.cached_input_tokens::text, \
              'reasoning_output_tokens',r.reasoning_output_tokens::text,'cache_write_input_tokens',NULL, \
-             'recorded_at',r.recorded_at,'source_version',r.source_version) \
+             'recorded_at',r.recorded_at,'source_version',r.source_version, \
+             'original_execution',r.original_state->>'execution','upstream_finish_reason',r.upstream_finish_reason, \
+             'upstream_cancelled',r.upstream_cancelled) \
              FROM openrouter_usage_reconciliations r JOIN attempts a ON a.id=r.attempt_id \
              WHERE a.id=$1 AND a.organization_id=$2 AND a.project_id=$3")
             .bind(attempt).bind(scope.organization_id).bind(scope.project_id)
@@ -113,7 +120,7 @@ impl Store {
         })
     }
 
-    /// Atomically retain original unknown completion and supplement its usage projection.
+    /// Atomically retain original uncertain execution/usage and apply terminal provider evidence.
     /// Call only with a response fetched using the supplied private context. This never
     /// dispatches inference, releases a reservation or directly writes a charge.
     pub async fn record_openrouter_usage(
@@ -136,13 +143,14 @@ impl Store {
         if locked.is_none() {
             return Err(StoreError::Conflict);
         }
-        if let Some(row) = sqlx::query("SELECT prompt_tokens,completion_tokens,cached_input_tokens,reasoning_output_tokens,provider_model FROM openrouter_usage_reconciliations WHERE attempt_id=$1")
+        if let Some(row) = sqlx::query("SELECT prompt_tokens,completion_tokens,cached_input_tokens,reasoning_output_tokens,provider_model,upstream_finish_reason FROM openrouter_usage_reconciliations WHERE attempt_id=$1")
             .bind(attempt).fetch_optional(&mut *tx).await? {
             if row.try_get::<i64,_>("prompt_tokens")? != usage.prompt
                 || row.try_get::<i64,_>("completion_tokens")? != usage.completion
                 || row.try_get::<Option<i64>,_>("cached_input_tokens")? != usage.cached
                 || row.try_get::<Option<i64>,_>("reasoning_output_tokens")? != usage.reasoning
-                || row.try_get::<String,_>("provider_model")? != usage.model {
+                || row.try_get::<String,_>("provider_model")? != usage.model
+                || row.try_get::<Option<String>,_>("upstream_finish_reason")?.is_some_and(|reason| reason != usage.finish_reason) {
                 return Err(StoreError::Conflict);
             }
             tx.commit().await?;
@@ -162,11 +170,11 @@ impl Store {
         {
             return Err(StoreError::Conflict);
         }
-        sqlx::query("INSERT INTO openrouter_usage_reconciliations(attempt_id,prompt_tokens,completion_tokens,cached_input_tokens,reasoning_output_tokens,provider_model,original_state) \
+        sqlx::query("INSERT INTO openrouter_usage_reconciliations(attempt_id,prompt_tokens,completion_tokens,cached_input_tokens,reasoning_output_tokens,provider_model,original_state,source_version,upstream_finish_reason,upstream_cancelled) \
             SELECT id,$2,$3,$4,$5,$6,jsonb_build_object('execution',execution,'usage_confidence',usage_confidence, \
-            'prompt_tokens',prompt_tokens,'completion_tokens',completion_tokens,'provider_model',provider_model,'completed_at',completed_at,'settlement',settlement) FROM attempts WHERE id=$1")
-            .bind(attempt).bind(usage.prompt).bind(usage.completion).bind(usage.cached).bind(usage.reasoning).bind(&usage.model).execute(&mut *tx).await?;
-        sqlx::query("UPDATE attempts SET usage_confidence='provider_reported',prompt_tokens=$2,completion_tokens=$3 WHERE id=$1")
+            'prompt_tokens',prompt_tokens,'completion_tokens',completion_tokens,'provider_model',provider_model,'completed_at',completed_at,'settlement',settlement),'openrouter-native-generation-v2',$7,FALSE FROM attempts WHERE id=$1")
+            .bind(attempt).bind(usage.prompt).bind(usage.completion).bind(usage.cached).bind(usage.reasoning).bind(&usage.model).bind(&usage.finish_reason).execute(&mut *tx).await?;
+        sqlx::query("UPDATE attempts SET execution='confirmed_completed',usage_confidence='provider_reported',prompt_tokens=$2,completion_tokens=$3,completed_at=COALESCE(completed_at,statement_timestamp()) WHERE id=$1")
             .bind(attempt).bind(usage.prompt).bind(usage.completion).execute(&mut *tx).await?;
         if usage.cached.is_some() || usage.reasoning.is_some() {
             sqlx::query("INSERT INTO request_token_categories(attempt_id,cached_input_tokens,reasoning_output_tokens) VALUES($1,$2,$3)")

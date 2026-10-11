@@ -145,7 +145,7 @@ export type CustomerBalanceReservation = {
   execution: string; usage_confidence: string; created_at: string; observed_at: string;
   status: 'preparing' | 'in_progress' | 'execution_unknown' | 'usage_unknown' | 'settlement_pending';
 };
-export type RequestUsageReconciliation = { status: 'recorded'; source_version: 'openrouter-native-generation-v1'; recorded_at: string; prompt_tokens: string; completion_tokens: string; cached_input_tokens: string | null; reasoning_output_tokens: string | null; cache_write_input_tokens: null };
+export type RequestUsageReconciliation = { status: 'recorded'; source_version: 'openrouter-native-generation-v1' | 'openrouter-native-generation-v2'; original_execution: 'confirmed_completed' | 'may_have_executed'; upstream_finish_reason: 'stop' | 'length' | null; upstream_cancelled: false | null; recorded_at: string; prompt_tokens: string; completion_tokens: string; cached_input_tokens: string | null; reasoning_output_tokens: string | null; cache_write_input_tokens: null };
 export type CustomerBalanceReservationQuery = { before?: string; currency?: string; limit?: number };
 
 export type CustomerChargeReconciliation = {
