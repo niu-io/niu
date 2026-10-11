@@ -5278,7 +5278,9 @@ Content type: `application/json`.
 }
 ```
 
-HTTP 400: Invalid input or usage quantities.
+HTTP 400: Malformed JSON input.
+
+HTTP 422: Input must be an empty JSON object; unknown fields are rejected.
 
 HTTP 401: Authentication required.
 
@@ -5289,6 +5291,127 @@ HTTP 404: Scope unavailable.
 HTTP 409: Ineligible completion, changed route, conflicting evidence or model/reference mismatch.
 
 HTTP 502: Upstream metadata unavailable, refused, malformed, oversized or timed out.
+
+HTTP 503: Storage or credential decryption unavailable.
+
+## Read recorded supplemental request usage
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation`
+
+Workspace read access required. Returns the same customer-safe immutable receipt as reconciliation, without querying upstream or modifying usage or accounting. Absence, unknown attempt and out-of-scope attempt return 404. Quantities are decimal strings; missing categories remain null. Recorded does not guarantee settlement. No original raw upstream metadata, generation reference, credential, Supplier price or endpoint is exposed. Cache-Control no-store.
+
+Implementation: `implemented`. Operation: `getRequestUsageReconciliation`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`attempt` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Supplemental usage recorded; settlement may remain pending.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status",
+    "source_version",
+    "recorded_at",
+    "prompt_tokens",
+    "completion_tokens",
+    "cached_input_tokens",
+    "reasoning_output_tokens",
+    "cache_write_input_tokens"
+  ],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "recorded"
+      ]
+    },
+    "source_version": {
+      "type": "string",
+      "enum": [
+        "openrouter-native-generation-v1"
+      ]
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "prompt_tokens": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "completion_tokens": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "cached_input_tokens": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$"
+    },
+    "reasoning_output_tokens": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$"
+    },
+    "cache_write_input_tokens": {
+      "type": "null"
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required.
+
+HTTP 404: No recorded receipt in the authorized workspace.
 
 HTTP 503: Storage or credential decryption unavailable.
 

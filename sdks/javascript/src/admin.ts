@@ -883,6 +883,11 @@ export class NiuAdminClient {
     return this.request(`/organizations/${uuid(organizationId)}/billing/balance`, undefined, options);
   }
 
+  /** Workspace read access. Missing receipt returns 404; never queries upstream or changes billing. */
+  getRequestUsageReconciliation(scope: TenantScope, attemptId: string, options?: RequestOptions): Promise<RequestUsageReconciliation> {
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/requests/${uuid(attemptId)}/usage-reconciliation`, undefined, options);
+  }
+
   /** Installation write only. Records supplemental usage; financial recovery settles separately. */
   reconcileRequestUsage(scope: TenantScope, attemptId: string, options?: RequestOptions): Promise<RequestUsageReconciliation> {
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/requests/${uuid(attemptId)}/usage-reconciliation`, {}, options, 'POST');

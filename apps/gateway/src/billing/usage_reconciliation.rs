@@ -135,7 +135,10 @@ pub(crate) struct ReconcileInput {}
 ///         }
 ///       },
 ///       "400": {
-///         "description": "Invalid input or usage quantities."
+///         "description": "Malformed JSON input."
+///       },
+///       "422": {
+///         "description": "Input must be an empty JSON object; unknown fields are rejected."
 ///       },
 ///       "401": {
 ///         "description": "Authentication required."
@@ -238,8 +241,15 @@ pub(crate) async fn reconcile(
     })
     .await
     .map_err(|_| ApiError::upstream_message("Usage metadata lookup timed out"))??;
-    let usage = OpenRouterUsageObservation::from_generation(&body, &context)
-        .map_err(ApiError::from_store)?;
+    let usage =
+        OpenRouterUsageObservation::from_generation(&body, &context).map_err(
+            |error| match error {
+                niu_storage::StoreError::InvalidUsage => {
+                    ApiError::upstream_message("Usage metadata contains invalid native quantities")
+                }
+                other => ApiError::from_store(other),
+            },
+        )?;
     state
         .store
         .record_openrouter_usage(scope, attempt, &context, &usage)
@@ -251,5 +261,145 @@ pub(crate) async fn reconcile(
         .await
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::unavailable)?;
+    Ok(([(header::CACHE_CONTROL, "no-store")], Json(receipt)).into_response())
+}
+
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "getRequestUsageReconciliation",
+///     "summary": "Read recorded supplemental request usage",
+///     "description": "Workspace read access required. Returns the same customer-safe immutable receipt as reconciliation, without querying upstream or modifying usage or accounting. Absence, unknown attempt and out-of-scope attempt return 404. Quantities are decimal strings; missing categories remain null. Recorded does not guarantee settlement. No original raw upstream metadata, generation reference, credential, Supplier price or endpoint is exposed. Cache-Control no-store.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "attempt",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Supplemental usage recorded; settlement may remain pending.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "additionalProperties": false,
+///               "required": [
+///                 "status",
+///                 "source_version",
+///                 "recorded_at",
+///                 "prompt_tokens",
+///                 "completion_tokens",
+///                 "cached_input_tokens",
+///                 "reasoning_output_tokens",
+///                 "cache_write_input_tokens"
+///               ],
+///               "properties": {
+///                 "status": {
+///                   "type": "string",
+///                   "enum": [
+///                     "recorded"
+///                   ]
+///                 },
+///                 "source_version": {
+///                   "type": "string",
+///                   "enum": [
+///                     "openrouter-native-generation-v1"
+///                   ]
+///                 },
+///                 "recorded_at": {
+///                   "type": "string",
+///                   "format": "date-time"
+///                 },
+///                 "prompt_tokens": {
+///                   "type": "string",
+///                   "pattern": "^[0-9]+$"
+///                 },
+///                 "completion_tokens": {
+///                   "type": "string",
+///                   "pattern": "^[0-9]+$"
+///                 },
+///                 "cached_input_tokens": {
+///                   "type": [
+///                     "string",
+///                     "null"
+///                   ],
+///                   "pattern": "^[0-9]+$"
+///                 },
+///                 "reasoning_output_tokens": {
+///                   "type": [
+///                     "string",
+///                     "null"
+///                   ],
+///                   "pattern": "^[0-9]+$"
+///                 },
+///                 "cache_write_input_tokens": {
+///                   "type": "null"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Authentication required."
+///       },
+///       "404": {
+///         "description": "No recorded receipt in the authorized workspace."
+///       },
+///       "503": {
+///         "description": "Storage or credential decryption unavailable."
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+pub(crate) async fn get(
+    State(state): State<AppState>,
+    Path((organization, project, attempt)): Path<(Uuid, Uuid, Uuid)>,
+    headers: HeaderMap,
+) -> Result<Response, ApiError> {
+    let scope = TenantScope {
+        organization_id: organization,
+        project_id: project,
+    };
+    super::authorize(&state, &headers, scope, false).await?;
+    let receipt = state
+        .store
+        .openrouter_usage_receipt(scope, attempt)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
     Ok(([(header::CACHE_CONTROL, "no-store")], Json(receipt)).into_response())
 }

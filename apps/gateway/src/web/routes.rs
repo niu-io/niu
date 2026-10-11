@@ -295,7 +295,7 @@ pub(crate) fn router(state: AppState) -> Router {
         )
         .route(
             "/admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation",
-            post(crate::billing::usage_reconciliation::reconcile),
+            get(crate::billing::usage_reconciliation::get).post(crate::billing::usage_reconciliation::reconcile),
         )
         .route(
             "/admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/payloads",

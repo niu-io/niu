@@ -535,3 +535,27 @@ alias equivalence or replacement inference was invented. A populated offline
 and the existing unknown liability; independent reopening verified those values.
 This checkpoint does not establish streaming, other protocol/model equivalence,
 category-priced settlement with missing quantities, or production capacity.
+
+### Reading supplemental evidence
+
+`GET` on the same usage-reconciliation path returns the recorded customer-safe
+receipt to identities with workspace read access. Missing receipts, unknown
+attempts and attempts outside the authorized workspace return 404. This read does
+not query upstream, change usage or trigger settlement. The SDK exposes
+`getRequestUsageReconciliation`; installation-only `POST` remains the explicit
+supplementation action. A receipt remains readable after the upstream credential
+is rotated or disabled. An unknown completion without a receipt cannot use that
+changed credential to fetch new evidence.
+
+Current-input checks on an isolated copy of the actual completed request exercised
+company owner/admin/viewer and workspace owner/viewer identities: all could read
+the receipt, and all were refused supplementation. Foreign-company, sibling-
+workspace and inference-key access were rejected. The SDK read and installation
+receipt replay survived credential rotation/disablement and restart. Direct
+attempts to update/delete the saved receipt were rejected by its immutable trigger.
+Independent reopening matched the receipt to the original native response and
+confirmed one unchanged charge/debit with no new inference attempt. A separate
+unknown completion refused supplementation after rotation/disablement and retained
+its original unknown usage, reservation and zero financial entries through restart.
+Invalid upstream quantity classification is implemented but an actual malformed
+upstream metadata response has not been observed in these runs.
