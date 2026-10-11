@@ -362,8 +362,10 @@ impl Store {
         {
             return Err(StoreError::Conflict);
         }
+        let mut tx = self.begin_bounded_recording().await?;
         sqlx::query("INSERT INTO media_transport_timings(id,organization_id,project_id,attempt_id,phase,started_unix_ms,elapsed_ms,outcome,upstream_http_status) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)")
-            .bind(timing.id).bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(timing.phase).bind(timing.started_unix_ms).bind(timing.elapsed_ms).bind(if timing.received {"received"} else {"unavailable"}).bind(timing.upstream_http_status).execute(&self.pool).await?;
+            .bind(timing.id).bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(timing.phase).bind(timing.started_unix_ms).bind(timing.elapsed_ms).bind(if timing.received {"received"} else {"unavailable"}).bind(timing.upstream_http_status).execute(&mut *tx).await?;
+        tx.commit().await?;
         Ok(())
     }
 

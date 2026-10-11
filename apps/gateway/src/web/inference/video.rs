@@ -1886,7 +1886,13 @@ impl TransportClock {
             .await
             .is_err()
         {
-            tracing::error!(attempt_id=%id,"video transport timing persistence failed");
+            tracing::error!(
+                attempt_id = %id,
+                phase,
+                received,
+                upstream_http_status = ?upstream_http_status,
+                "video transport timing persistence failed"
+            );
         }
     }
 }
