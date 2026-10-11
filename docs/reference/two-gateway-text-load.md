@@ -1,6 +1,42 @@
 # Two-gateway priced text load checkpoint
 
-## Current sustained stream checkpoint — 2026-10-12
+## Current twelve-request/second checkpoint — 2026-10-12
+
+Digest-verified clean implementation `268c25d` ran 1,600 actual structured
+OpenRouter Chat streams against fresh native PostgreSQL 17, schema 278. Two
+Gateways each configured two admission connections and one dedicated maintenance
+connection. Eight workspace keys each traversed both Gateways: 200 requests per
+key and 800 per process. Thirty-two client workers offered 12 requests/second
+without inference retries, using personal self-funded access and approved
+internal verification credit. No commercial supply or paid top-up was implied.
+
+All streams returned their fresh requested marker, native usage and `[DONE]`.
+Including final response drain, elapsed time was **134.47 seconds** and achieved
+throughput **11.899 requests/second**. End-to-end p50/p95 were
+**1,311.44/1,692.39 ms**, maximum **4,150.05 ms**; first-content p50/p95 were
+**1,127.53/1,449.39 ms**. Maximum scheduled-start lag was **20.93 ms**.
+These client measurements include upstream execution and transport.
+
+Across 514 coarse process samples, maximum RSS was **33,984/33,184 KiB**,
+and maximum sampled `ps` CPU **11.2/10.4 percent**. Sampling excludes PostgreSQL
+and whole-host resources and is not a CPU profile or leak qualification.
+
+After restart, independent database reopening hashed and parsed every raw stream,
+checked all request/key associations and complete timing records, and recomputed
+the exact original-rate customer charges and matching debits: **26,759,399 USD
+nanounits**. There were no request-failure records or customer/procurement holds,
+no funding receipt, and all temporary keys were revoked. Streams contained no
+procurement-cost or encrypted-credential fields.
+
+This extends the observed workload to offered 12 requests/second. The earlier
+eight-request run used another implementation revision and upstream observations;
+the pair does not isolate the cause of timing differences. Neither establishes
+maximum capacity, production SLOs, overload behavior, media capacity or a matched
+New API baseline. Customer export verification below belongs to the earlier
+eight-request dataset and is not asserted for this new dataset.
+
+
+## Eight-request/second sustained checkpoint — 2026-10-12
 
 Digest-verified clean implementation `28bd9d04014ad817bda2f62a8aa0071071a418b1`
 ran two Gateway processes against fresh native PostgreSQL 17 on schema 278. Each
