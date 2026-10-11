@@ -198,3 +198,20 @@ It establishes the exercised streaming configuration/calling/accounting path,
 not the absence of every upstream fault or a newly proven cause of the historical
 502. The two Niu configurations reused personal OpenRouter access; no commercial
 Supplier qualification, earning or external funding was asserted.
+
+## Shared transaction initialization checkpoint
+
+Implementation `0eef425` reuses the bounded financial snapshot initializer for
+configuration usage: the transaction is read-only and repeatable-read, with the
+existing 250 ms lock and 2 s statement limits. Pool admission and network waits
+remain separate. This replaces duplicated setup without changing the API.
+
+A fresh current-input run with the immutable implementation binary completed three
+actual personal OpenRouter streams through two independent Niu configurations.
+Raw responses, paginated configuration aggregates, exact customer debits and
+restart persistence agreed. Independent reopening of PostgreSQL checked the
+responses against token totals, model attribution and complete HTTP timings.
+The reused verifier's historical schema and commit assertions were updated to
+schema 278 and this implementation before repeating verification. No Supplier
+earnings, commercial qualification or external funding was created. The original
+installation's encrypted identity and database were not modified by this run.

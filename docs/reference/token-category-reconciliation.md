@@ -341,3 +341,19 @@ implemented or qualified by this inventory read. The earlier actual dated-model
 recovery remains its own explicitly bounded successful checkpoint; it does not
 qualify automatic alias resolution or cancelled-usage settlement. No fixture
 outcome is evidence, and original data/configuration/encryption were unchanged.
+
+## Shared recording initializer checkpoint
+
+Implementation `0eef425` replaces duplicated reconciliation transaction setup
+with the existing bounded recording initializer. The 250 ms lock and 2 s
+statement limits are unchanged; this is not a newly discovered timeout defect.
+
+A fresh actual dated-model Messages completion naturally lacked complete
+aggregate usage. Canonical upstream metadata subsequently supported recovery.
+After a tariff change, reconciliation used the original request tariff and
+recorded exactly one customer charge and debit. Concurrent replay, key revocation
+and process restart retained the same receipt and released reservation. An
+independent reopening of PostgreSQL checked the original native response,
+immutable unknown completion, recovered quantities, receipt, exact debit and
+encrypted credential. This does not qualify cancelled-request settlement,
+commercial supply or automatic alias resolution. No fixture outcome was used.
