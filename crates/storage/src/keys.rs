@@ -69,7 +69,9 @@ impl Store {
         // separate from the secret and is safe to expose for administration.
         let token = format!("niu_{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
         let hash = Sha256::digest(token.as_bytes()).to_vec();
-        let mut tx = self.pool.begin().await?;
+        // Issuance and its audit record commit together; bound contention on
+        // either write so a failed request never leaves an undisclosed key.
+        let mut tx = self.begin_bounded_recording().await?;
         sqlx::query("INSERT INTO api_keys (id, organization_id, project_id, name, token_hash, allowed_models, expires_at) VALUES ($1,$2,$3,$4,$5,$6,clock_timestamp() + $7 * interval '1 second')")
             .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(name).bind(hash).bind(models).bind(ttl_seconds as f64)
             .execute(&mut *tx).await?;
