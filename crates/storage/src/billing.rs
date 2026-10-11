@@ -297,7 +297,7 @@ SELECT jsonb_build_object(
         {
             return Err(StoreError::InvalidPrice);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_financial_recording().await?;
         sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR UPDATE")
             .bind(organization)
             .fetch_optional(&mut *tx)
