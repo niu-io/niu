@@ -436,3 +436,30 @@ fingerprints before graceful native replacement. Exact replacement and retained
 previous binaries were checked; the original configuration, credential ciphertexts
 and revisions and durable counts remained unchanged on schema 278. Authenticated
 routing configuration still matched. No fixture outcome is evidence.
+
+### Bounded key issuance
+
+Implementation `28bd9d0` extends the shared bounded recording initializer to
+workspace key creation. The key and its `issued` audit commit atomically; failure
+returns no usable secret. Existing expiry, grants and storage contracts are
+unchanged. The limits apply to individual database statements, not the entire
+HTTP request or connection-pool admission.
+
+Actual HTTP diagnosis against the preceding immutable binary observed creation
+still waiting after 1.6 seconds with either the key table or audit table locked.
+The updated binary returned 503 after approximately 260 ms and 256 ms,
+respectively, while each lock remained held. After release,
+key counts, audit counts and key fingerprints showed complete rollback. Normal
+retry created exactly one key and one issuance audit per case; authentication
+survived restart and revocation returned 401. These model-list checks establish
+authorization transitions, not new inference.
+
+Independent reopening checked the final issued/revoked keys, exact audits and
+original actual-response invoice, tariff, charge, debit and account fingerprint.
+No extra inference, funding, payment or open reservation was created. No fixture
+outcome supports this checkpoint.
+
+A fresh native backup restored with matching durable-data fingerprints before
+replacement with the verified binary. Original configuration and encrypted
+identities were preserved; readiness and persisted routing agreement were
+confirmed on schema 278.
