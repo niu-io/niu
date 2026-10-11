@@ -1,3 +1,6 @@
+/** Authorized identity for a canonical route; never display the routing reference as a name. */
+export type WorkspaceRoute = { id: string; organization_id: string; name: string; route_slug: string };
+
 export type VendorCooldown = { policy_revision: 'openrouter-auth-cooldown-v1'; failure_threshold: 3; window_seconds: 60; cooldown_seconds: 60; active: boolean; cooldown_until: string | null; qualifying_failures: number };
 export type VendorRequestRateLimit = { requests_per_minute: number | null; revision: string };
 export type VendorRequestRateLimitRevision = VendorRequestRateLimit & { recorded_at: string; actor_kind: 'installation' | 'member'; actor_name: string };
@@ -659,6 +662,11 @@ export class NiuAdminClient {
   private readonly token: string;
   private readonly base: string;
   private readonly requestFetch: typeof globalThis.fetch;
+
+  /** Exact persisted route lookup; missing and out-of-scope workspaces both return 404. */
+  resolveWorkspaceRoute(routeSlug: string, options?: RequestOptions): Promise<WorkspaceRoute> {
+    return this.request(`/workspaces/by-route/${encodeURIComponent(routeSlug)}`, undefined, options);
+  }
 
   /** Complete active Supplier grants for the signed-in operator; installation sessions return an empty list. */
   listSupplierMemberships(options?: RequestOptions): Promise<{ data: SupplierMembership[] }> {

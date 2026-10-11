@@ -689,3 +689,5 @@ export type { ModelRoutePool, ModelRoutePoolCandidate, ModelRoutePoolInput, Mode
 export type { VideoIntentRequest, VideoIntentIndexEntry, VideoSubmissionIntent, VideoIntentIndex, VideoIntentDeletion } from './admin.js';
 
 export type { SupplierMembership } from './admin.js';
+
+export type { WorkspaceRoute } from './admin.js';
