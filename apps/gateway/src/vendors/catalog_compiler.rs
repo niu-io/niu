@@ -1,7 +1,7 @@
 //! Catalog composition from an already acquired registry input snapshot.
 //! No database reads, credential decryption, or upstream calls occur here.
 //! This projection is not a published inference generation.
-use super::models::{compile_model, select_candidate};
+use super::models::compile_model;
 use crate::{config::ModelConfig, error::ApiError};
 use std::collections::BTreeMap;
 
@@ -54,7 +54,7 @@ pub(super) fn compile_catalog(
         if pool.candidates.len() > 64 {
             return Err(ApiError::unavailable());
         }
-        let eligible = pool
+        let representative = pool
             .candidates
             .iter()
             .filter_map(|candidate| {
@@ -70,8 +70,15 @@ pub(super) fn compile_catalog(
                             && !inputs.unavailable.contains(&route.model.alias))))
                 .then_some((candidate, route))
             })
-            .collect();
-        if let Some(route) = select_candidate(eligible) {
+            // A directory read must not perform request load balancing. Choose
+            // the highest-priority candidate, then the smallest alias so neither
+            // randomness nor candidate insertion order changes its metadata.
+            .max_by(|(a, _), (b, _)| {
+                a.priority
+                    .cmp(&b.priority)
+                    .then_with(|| b.alias.cmp(&a.alias))
+            });
+        if let Some((_, route)) = representative {
             let mut model = compile_model(&route.vendor, &route.model)?;
             model.public_catalog = false;
             if pool.organization_id.is_some() {

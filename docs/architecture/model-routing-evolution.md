@@ -325,3 +325,22 @@ Do not ship an unused snapshot table, a cache keyed only by alias, or a selected
 route hash as completion of this plan. Integration is complete only when the
 single compiled registry replaces competing selection reads and the full current-
 input publication/dispatch cases above have independent artifact evidence.
+
+### Deterministic pool directory projection — 2026-10-11
+
+The catalog compiler now selects a representative from eligible pool candidates
+by highest priority and then ascending alias. Candidate order and routing weights
+do not randomize directory metadata. Actual inference retains weighted selection
+among its eligible highest-priority routes. The directory represents one candidate;
+it does not assert that every candidate supports the displayed capabilities.
+
+An actual native HTTP run reproduced changing names across repeated
+`GET /admin/v1/models?organization_id=…` calls with unchanged pool configuration,
+both before and after restart. With the change, 64 directory reads in each of five
+phases retained the expected representative: initial configuration, restart,
+candidate reorder, higher priority for the other candidate, and disabling that
+candidate. A separate process reopened the stopped PostgreSQL database and matched
+the retained responses to model metadata and the final pool revision. The run
+created no inference attempts or financial entries and establishes directory
+behavior only. Release compilation and formatting checks completed separately.
+This does not implement or qualify unified registry publication.

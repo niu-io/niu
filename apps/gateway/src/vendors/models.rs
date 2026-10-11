@@ -199,7 +199,7 @@ async fn resolve_pool(
     })
 }
 
-/// Shared priority/weight selection for inference and catalog composition.
+/// Weighted selection among the highest-priority eligible inference routes.
 pub(super) fn select_candidate<T>(
     eligible: Vec<(&niu_storage::RoutePoolCandidate, T)>,
 ) -> Option<T> {
