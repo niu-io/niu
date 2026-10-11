@@ -53,6 +53,16 @@ export type SupplierModelCheck = {
   model: 'listed' | 'not_listed' | 'unknown'; http_status: number | null;
   duration_ms: number; checked_at_ms: number;
 };
+/** Platform catalog metadata. Advertised USD/token prices never configure Niu billing. */
+export type SupplierCatalogMetadata = {
+  name: string | null; description: string | null;
+  context_length: number | null; max_completion_tokens: number | null;
+  input_modalities: string[]; output_modalities: string[];
+  input_price: string | null; output_price: string | null;
+};
+export type SupplierCatalogModel = {
+  id: string; name: string; context_length: number | null; catalog: SupplierCatalogMetadata;
+};
 export type VendorCooldown = { policy_revision: 'openrouter-auth-cooldown-v1'; failure_threshold: 3; window_seconds: 60; cooldown_seconds: 60; active: boolean; cooldown_until: string | null; qualifying_failures: number };
 export type VendorRequestRateLimit = { requests_per_minute: number | null; revision: string };
 export type VendorRequestRateLimitRevision = VendorRequestRateLimit & { recorded_at: string; actor_kind: 'installation' | 'member'; actor_name: string };
@@ -1421,6 +1431,16 @@ export class NiuAdminClient {
   checkSupplierModel(credentialId: string, alias: string, options?: RequestOptions): Promise<{ data: SupplierModelCheck }> {
     if (!alias.trim() || alias.length > 200) throw new Error('Provide a model alias');
     return this.request(`/vendors/${uuid(credentialId)}/check`, { alias }, options);
+  }
+
+  /** Read the bounded upstream inventory; does not create aliases or configure billing. */
+  discoverSupplierModels(credentialId: string, options?: RequestOptions): Promise<{ data: SupplierCatalogModel[] }> {
+    return this.request(`/vendors/${uuid(credentialId)}/catalog`, undefined, options);
+  }
+
+  /** Refresh matching metadata only. Concurrent configuration changes return 409; no automatic retry. */
+  refreshSupplierCatalog(credentialId: string, options?: RequestOptions): Promise<{ updated: number }> {
+    return this.request(`/vendors/${uuid(credentialId)}/catalog`, {}, options);
   }
 
   /** Platform-only safe-failure state; reading does not probe or reset the credential. */

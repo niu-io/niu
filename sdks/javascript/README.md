@@ -848,3 +848,22 @@ HTTP 200 with `connected`/`listed` for its configured GPT-4.1 mini mapping. The
 response contained only the declared diagnostic fields, and direct database reads
 confirmed the encrypted configuration fingerprint was unchanged. Actual inference
 and settlement evidence remain separate from this catalog-only check.
+
+`discoverSupplierModels(credentialId)` reads the saved credential's bounded
+upstream inventory and returns typed `SupplierCatalogModel` entries. It does not
+create model aliases. `SupplierCatalogMetadata.input_price` and `output_price`
+are advertised USD-per-token strings, not customer tariffs or Supplier settlement
+rates; missing values remain null.
+
+`refreshSupplierCatalog(credentialId)` returns `{ updated: number }` after updating
+descriptive metadata on matching saved mappings. It preserves routing, configured
+capabilities and billing prices, and retains mappings absent from the upstream
+catalog. A configuration edit during retrieval returns 409 without metadata
+writes. The SDK surfaces that status and does not automatically retry.
+
+Actual SDK calls against a native Gateway and saved personal OpenRouter access
+verified discovery, one matching metadata update, a no-change repeat and restart.
+A separate concurrent-edit run returned 409 and retained both model records.
+Independent reopening matched the saved responses to model revisions, pricing
+and encrypted credential fingerprints. These catalog operations do not establish
+inference, commercial supply or customer-funded settlement readiness.
