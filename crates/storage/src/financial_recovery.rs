@@ -48,7 +48,7 @@ impl FinancialStage {
                 include_str!("supplier_earning_recovery.sql")
             }
             Self::UpstreamCost => {
-                "SELECT a.id, a.organization_id, a.project_id FROM attempts a JOIN cost_reservations r ON r.attempt_id=a.id WHERE (a.execution='confirmed_not_executed' OR (a.execution='confirmed_completed' AND a.usage_confidence='provider_reported')) AND r.state='held' AND ($1::uuid IS NULL OR a.id > $1) ORDER BY a.id LIMIT 100"
+                include_str!("upstream_cost_recovery.sql")
             }
         }
     }
@@ -113,25 +113,10 @@ impl Store {
                 .await?
             }
         };
-        let rows: Vec<(Uuid, Uuid, Uuid, bool)> = match stage {
-            FinancialStage::MediaCompletion
-            | FinancialStage::BalanceRelease
-            | FinancialStage::CustomerCharge
-            | FinancialStage::CustomerMediaCharge
-            | FinancialStage::SupplierEarning => {
-                sqlx::query_as(stage.query())
-                    .bind(after)
-                    .fetch_all(&mut **tx)
-                    .await?
-            }
-            _ => sqlx::query_as::<_, (Uuid, Uuid, Uuid)>(stage.query())
-                .bind(after)
-                .fetch_all(&mut **tx)
-                .await?
-                .into_iter()
-                .map(|(attempt, organization, project)| (attempt, organization, project, true))
-                .collect(),
-        };
+        let rows: Vec<(Uuid, Uuid, Uuid, bool)> = sqlx::query_as(stage.query())
+            .bind(after)
+            .fetch_all(&mut **tx)
+            .await?;
         let next = if rows.len() == 100 {
             rows.last().map(|row| row.0)
         } else {
