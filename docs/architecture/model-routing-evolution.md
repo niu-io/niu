@@ -266,3 +266,62 @@ binding to the database credential, candidate alias and pool revision two. The
 credential ciphertext fingerprint stayed unchanged and no customer hold remained.
 This demonstrates dispatch through the database pool, not merely startup success;
 these internal verification rates are not a commercial Supplier agreement.
+
+## Unified publication implementation plan — 2026-10-11
+
+Status: design for remaining work, not an implemented snapshot or acceptance
+claim. This is advisory architecture work under public issue #10; it does not
+replace the owner's Supplier, workspace-key, accounting, diagnostics and video
+priorities. Current resolution still reads pool, personal and shared registry
+inputs separately before falling back to static configuration. The existing
+per-attempt managed-route binding is not a published registry generation.
+
+### Required compatibility decisions
+
+- Keep current management edits immediately effective. Do not introduce a hidden
+  manual-publish prerequisite for existing Supplier/model controls. A successful
+  route-changing mutation must commit its validated complete generation together
+  with its registry changes; a failed compilation must leave both unchanged.
+- Compile static models, database mappings, personal ownership and pool policies
+  as one immutable registry. Preserve database alias tombstones/shadowing even
+  when disabled. Preserve company boundaries and existing pool candidate policy;
+  a static route must not become a second chance after a managed denial.
+- Keep live revocation, source-IP policy, quotas, balances, Guardrails and current
+  credential authorization in admission. A compiled route is not authority to
+  bypass those checks. Already dispatched work retains its pinned request route.
+- Never serialize raw credentials into a publication. Keep credential identities
+  and revisions in server-side compiled records; obtain authorized secret material
+  through the existing credential boundary. Do not duplicate encrypted secret
+  stores that would add another master-key-rotation domain. Publication diagnostics
+  expose only safe metadata, not endpoints or private procurement terms.
+
+### Delivery sequence
+
+1. Inventory every route-changing transaction, including configuration, mapping,
+   ownership, offer availability and pool changes. Define one versioned registry
+   input/compiled representation and a stable static-configuration identity. Resolve
+   differing static inputs across gateways explicitly; do not let the last process
+   silently replace another process's static routes.
+2. Add durable immutable generations and an atomic active-generation pointer.
+   Serialize overlapping publications using the existing database transaction
+   authority. Compiler failure must roll back the proposing mutation/publication.
+   Bootstrap remains import-once and must not repopulate disabled mappings.
+3. Load and atomically exchange complete in-memory generations. Notifications may
+   accelerate reload but cannot be the correctness mechanism: reconnect and restart
+   must discover the durable active generation. Reject older reload completion
+   overwriting a newer generation. Retain the last valid complete snapshot on a
+   failed load, with a diagnosable failure and live revocation still enforced.
+4. Integrate every supported inference path and model directory with that single
+   selection input. Persist the chosen generation in the same admission transaction
+   as each new attempt and its existing immutable bindings. Historical attempts
+   remain explicitly unattributed; do not manufacture generations for them. Audit
+   mixed-version writers before enforcing a non-null requirement for new attempts.
+5. Verify actual mutation/publish failure, overlapping publication, cross-gateway
+   observation, disabled static shadowing, live revocation and restart. Include a
+   real request dispatched before a publish that completes on its original route,
+   and independently match response, generation, binding and charge afterward.
+
+Do not ship an unused snapshot table, a cache keyed only by alias, or a selected
+route hash as completion of this plan. Integration is complete only when the
+single compiled registry replaces competing selection reads and the full current-
+input publication/dispatch cases above have independent artifact evidence.
