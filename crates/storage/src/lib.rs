@@ -1063,6 +1063,9 @@ impl Store {
                 return Err(StoreError::Conflict);
             }
         }
+        // Concurrent retries may carry the same completed attempts in different
+        // batch orders. Acquire category-row locks in one stable order.
+        categories.sort_unstable_by_key(|(attempt, _)| *attempt);
         for (attempt, details) in categories {
             let saved = sqlx::query("INSERT INTO request_token_categories (attempt_id,cached_input_tokens,reasoning_output_tokens,cache_write_input_tokens) VALUES ($1,$2,$3,$4) ON CONFLICT(attempt_id) DO UPDATE SET attempt_id=EXCLUDED.attempt_id WHERE request_token_categories.cached_input_tokens IS NOT DISTINCT FROM EXCLUDED.cached_input_tokens AND request_token_categories.reasoning_output_tokens IS NOT DISTINCT FROM EXCLUDED.reasoning_output_tokens AND request_token_categories.cache_write_input_tokens IS NOT DISTINCT FROM EXCLUDED.cache_write_input_tokens")
                 .bind(attempt).bind(details.cached_input_tokens).bind(details.reasoning_output_tokens).bind(details.cache_write_input_tokens)

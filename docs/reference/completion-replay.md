@@ -64,3 +64,25 @@ The caller source, executable digest, output and database artifacts were retaine
 privately. This is current replay of retained real completions, not a new upstream
 request qualification, Supplier earning acceptance or complete mixed-batch
 failure-recovery qualification. No fixture outcome supports it.
+
+## Opposite-order category replay deadlock — 2026-10-11
+
+A follow-up supplied the retained categories for **both** real requests in each
+opposite-order batch. The earlier two-record replay supplied categories for only
+one member and therefore did not exercise competing category-row lock order.
+In an isolated database, a temporary trigger delayed each category update by
+300 ms to overlap the two actual storage calls. Before the fix, PostgreSQL
+reported a deadlock and one caller failed. Durable business records were unchanged.
+
+Completion batching now sorts category writes by attempt ID before taking those
+row locks. With the same delay and actual retained paid completions, both
+opposite-order concurrent calls succeeded. Conflicting usage/model/categories
+remained rejected. The delay trigger was removed before restart. Independent
+reopening verified unchanged full-table fingerprints for all six business tables,
+114 exact scoped charge/debit pairs, no duplicate debit and no open customer hold.
+Formatting and gateway Clippy completed separately as structural checks.
+
+This is an induced scheduling fault over real completed records, not simulated
+upstream usage. It verifies the category-lock correction through the current
+storage caller. It does not qualify concurrent first-completion lock ordering,
+all possible storage deadlocks or deployment to the original running gateway.
