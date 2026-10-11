@@ -67,3 +67,15 @@ committed empty stages, and no attempts, customer charges, balance entries,
 procurement cost entries or funding receipts. Saved HTTP artifacts independently
 preserve the before/after response shapes. This establishes response semantics for
 an unexecuted worker, not an outage detector or a populated settlement result.
+
+## Failure response verification
+
+A new actual OpenRouter authentication rejection with a database release fault
+produced an HTTP diagnostic row with one candidate and one failure. Temporarily
+renaming the diagnostic table in the isolated database made authenticated reads
+return 503 without SQL, table names or database messages. Invalid authentication
+still returned 401 during this storage fault. Restoring the table restored HTTP
+200. Removing the separate release fault allowed the retained reservation to be
+released. Independent reopening verified the recorded failure, exact release,
+revoked key and unchanged customer ledger. This is a targeted missing-relation
+failure check, not a qualification of every database outage mode.
