@@ -53,7 +53,7 @@ commercial activation is distinct from an unfinished integration capability.
 | --- | --- | --- |
 | Automatic failover | A later eligible mapping only after the previous attempt is proven not executed. No second submission after uncertainty or a committed stream | [#8](https://github.com/niu-io/niu/issues/8) |
 | Claude Messages and Gemini GenerateContent | Native Messages buffered text, opted-in buffered client tools and text/tool streaming plus static/managed Gemini GenerateContent text are implemented. Actual OpenRouter text SSE/cancellation and two-turn buffered/streamed tool/SDK billing and partial tool-stream cancellation are verified. Direct Anthropic tools/streaming, Gemini success/settlement, tool-content inspection, interleaved tool streams, Gemini tools/media and Gemini streaming remain open. See [protocol boundary](native-inference-protocols.md) | [#16](https://github.com/niu-io/niu/issues/16) |
-| Tiered and category prices | Customer and Supplier [whole-request context tiers](context-tier-pricing.md), [reasoning rates](../reference/reasoning-output-pricing.md) and [cache-write rates](../reference/customer-cache-write-pricing.md) are implemented. Customer current-input evidence covers tier boundaries, cache categories, pinned revisions, bounded admission and exports. Actual nonstreaming and streaming customer calls now cover simultaneous nonzero cache-write/reasoning charging and restart. Correction of previously missing category usage remains unverified. Supplier publication/history is exercised; nonempty category/tier earnings, recovery and settlement remain unverified. | [#17](https://github.com/niu-io/niu/issues/17) |
+| Tiered and category prices | Customer and Supplier [whole-request context tiers](context-tier-pricing.md), [reasoning rates](../reference/reasoning-output-pricing.md) and [cache-write rates](../reference/customer-cache-write-pricing.md) are implemented. Customer current-input evidence covers tier boundaries, cache categories, pinned revisions, bounded admission and exports. Actual nonstreaming and streaming customer calls now cover simultaneous nonzero cache-write/reasoning charging and restart. [Supplemental usage reconciliation](../reference/token-category-reconciliation.md) has actual personal category-only supplementation and credit-backed unknown-aggregate recovery evidence; category-only customer settlement remains unverified. Supplier publication/history is exercised; nonempty category/tier earnings, recovery and settlement remain unverified. | [#17](https://github.com/niu-io/niu/issues/17) |
 
 Priced text admission now saves its attempt, immutable bindings and reservation
 in one transaction; [atomic admission](../reference/priced-admission-atomicity.md)
@@ -92,7 +92,12 @@ readiness evidence.
   edited, invoice replay across restart, and scoped customer list/detail/CSV
   projections independently reconciled against the ledger. These cover specific
   acceptance cases, not the whole issue: every overlapping-category rejection
-  path and later corrections to unknown usage remain unverified. Interrupted
+  path and category-only customer settlement remain unverified. The
+  [supplemental reconciliation checkpoint](../reference/token-category-reconciliation.md)
+  separately records actual personal missing-reasoning supplementation, exact-model
+  mismatch rejection, bounded record contention and immutable concurrent replay.
+  Its credit-backed unknown-aggregate recovery retained the original tariff and
+  one debit; those results do not establish all category-correction paths. Interrupted
   streams retain unresolved liabilities when terminal evidence is absent. The
   [actual tier failover run](../reference/upstream-retry-policy.md#context-tier-pricing-across-an-actual-successor)
   confirms operation-level price pinning across an in-flight tier edit, not
