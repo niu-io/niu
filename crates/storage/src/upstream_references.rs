@@ -3,7 +3,9 @@ use crate::{Store, StoreError, TenantScope};
 use uuid::Uuid;
 
 impl Store {
-    /// Caller must obtain this header from the canonical OpenRouter response.
+    /// Caller must obtain this header from the canonical OpenRouter response
+    /// and the model from the resolved route actually dispatched, never a later
+    /// registry read or an untrusted response body.
     /// Pin only a dispatched managed attempt. Identical retries are accepted;
     /// neither a conflicting reference nor another attempt can take ownership.
     pub async fn save_openrouter_generation_reference(
@@ -11,8 +13,10 @@ impl Store {
         scope: TenantScope,
         attempt: Uuid,
         generation: &str,
+        upstream_model: &str,
     ) -> Result<(), StoreError> {
-        if !(5..=200).contains(&generation.len())
+        if !(1..=200).contains(&upstream_model.chars().count())
+            || !(5..=200).contains(&generation.len())
             || !generation.starts_with("gen-")
             || !generation
                 .bytes()
@@ -29,10 +33,10 @@ impl Store {
         if eligible.is_none() {
             return Err(StoreError::Conflict);
         }
-        sqlx::query("INSERT INTO openrouter_generation_references(attempt_id,generation_id) VALUES($1,$2) ON CONFLICT DO NOTHING")
-            .bind(attempt).bind(generation).execute(&mut *tx).await?;
-        let matches: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM openrouter_generation_references WHERE attempt_id=$1 AND generation_id=$2)")
-            .bind(attempt).bind(generation).fetch_one(&mut *tx).await?;
+        sqlx::query("INSERT INTO openrouter_generation_references(attempt_id,generation_id,upstream_model) VALUES($1,$2,$3) ON CONFLICT DO NOTHING")
+            .bind(attempt).bind(generation).bind(upstream_model).execute(&mut *tx).await?;
+        let matches: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM openrouter_generation_references WHERE attempt_id=$1 AND generation_id=$2 AND upstream_model=$3)")
+            .bind(attempt).bind(generation).bind(upstream_model).fetch_one(&mut *tx).await?;
         if !matches {
             return Err(StoreError::Conflict);
         }

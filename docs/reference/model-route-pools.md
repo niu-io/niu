@@ -776,3 +776,10 @@ corrected against the same retained final artifacts, without another generation.
 No fixture result supports this checkpoint. This verifies the native Messages
 in-flight binding boundary, not the still-unimplemented complete published catalog
 generation or generalized reconciliation across configuration changes.
+
+
+For newly captured native OpenRouter generations, the later
+[dispatched-model binding](../architecture/native-inference-protocols.md#historical-usage-after-model-mapping-edits)
+removes the mapping-edit reconciliation restriction above while retaining the
+original credential revision check. Legacy references without that binding remain
+subject to the restriction; they are not backfilled from current configuration.

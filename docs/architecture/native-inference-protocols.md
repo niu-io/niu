@@ -478,7 +478,7 @@ explicit auditable transaction with exact idempotency and pinned prices.
 An installation administrator can explicitly call
 `POST /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation`
 with `{}`. It fetches metadata using the saved reference and original credential,
-requires unchanged managed route revisions and exact model identity, and records
+requires the original enabled credential revision and exact dispatched model identity, and records
 one immutable supplemental receipt containing the original execution and usage state.
 The attempt's current usage projection then becomes eligible for existing financial
 recovery under its bound tariffs. No inference is retried. Cache-write usage stays
@@ -489,7 +489,9 @@ reference or commercial metadata is returned. The SDK exposes `reconcileRequestU
 
 The metadata fetch has a ten-second total deadline and a 256 KiB body limit. Missing
 or refused metadata returns a sanitized 502 without changing accounting. Mismatched
-model/reference, changed configuration and ineligible completion return 409.
+model/reference, changed credential configuration and ineligible completion return 409.
+New references retain their dispatched model independently of editable mappings;
+legacy references still require the unchanged enabled mapping revision.
 Normalized token counts, upstream costs and inferred alias equivalence are never
 billing inputs. Periodic automatic lookup and other protocol correlation remain outside this
 implementation. Opted-in Messages streaming now retains the same private header.
@@ -629,7 +631,7 @@ funding receipt or fixture outcome was used to establish this checkpoint.
 
 Canonical terminal evidence can also recover an attempt whose execution remains
 `may_have_executed` and whose aggregate usage is unknown. The same original
-credential, unchanged route revisions, exact model and saved generation reference
+credential revision, exact dispatched model and saved generation reference
 are required. Metadata must explicitly report `cancelled: false` and a `stop` or
 `length` finish reason. Cancelled and nonterminal generations remain unresolved.
 
@@ -656,3 +658,38 @@ checksums, encrypted credentials and financial records. Actual cancelled-generat
 metadata was refused, preserving its failure and unresolved hold. Independent
 reopening confirmed those artifacts. Recovery of a client-disconnected generation
 that subsequently completes without upstream cancellation remains unverified.
+
+
+### Historical usage after model mapping edits
+
+Migration 0258 adds the dispatched upstream model to newly captured immutable
+OpenRouter generation references. The value comes from the server-side resolved
+route actually sent upstream, not the current registry or a client-supplied field.
+Supplemental usage compares canonical metadata against this retained identity.
+Later mapping edits, including capability revocation or a different upstream model,
+do not replace that evidence or the attempt's bound prices. The original Supplier
+credential must still be enabled at its dispatched revision; credential rotation
+or endpoint changes remain unresolved. This does not retain old plaintext secrets
+or authorize sending inference again.
+
+Older references keep a null model binding. They still require the unchanged,
+enabled model mapping and original credential revision. Migration does not infer
+historical identity from today's registry. The retained model and generation
+reference are server-only and absent from customer receipt responses.
+
+A fresh actual native stream returned its unique marker while management changed
+the selected mapping to a different upstream model and disabled streaming.
+Independent persisted timestamps placed the edit between dispatch and completion.
+Subsequent stream requests were rejected before dispatch across restart. The
+historical request reconciled against its saved original model, then posted exactly
+one charge/debit and released its hold. Replay after restart added nothing.
+Independent reopening matched the raw SSE quantities, original unknown usage,
+immutable model binding, original price calculation and final ledger entries.
+
+A populated 0257-to-0258 upgrade separately preserved an older real generation
+reference with a null model binding, original migration checksums, encrypted
+credential and unresolved hold. Its edited mapping still produced 409 after
+restart. Independent reopening confirmed no invented receipt or charge. These
+are personal upstream calls with internal verification credit/prices, not evidence
+of merchant funding or commercial supply. Cross-credential recovery and automatic
+periodic metadata lookup remain outside this implementation.

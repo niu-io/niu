@@ -645,7 +645,7 @@ async fn execute(
                 matches!(tokio::time::timeout(
                     Duration::from_millis(250),
                     state.store.save_openrouter_generation_reference(
-                        dispatch.scope, dispatch.attempt, reference,
+                        dispatch.scope, dispatch.attempt, reference, &model.upstream_model,
                     ),
                 ).await, Ok(Ok(())))
             } else { false };

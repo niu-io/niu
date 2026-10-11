@@ -67,16 +67,16 @@ impl OpenRouterUsageObservation {
     }
 }
 
-const CONTEXT: &str = "SELECT v.id, v.credential_ciphertext, g.generation_id, m.upstream_model \
+const CONTEXT: &str = "SELECT v.id, v.credential_ciphertext, g.generation_id, COALESCE(g.upstream_model,m.upstream_model) AS upstream_model \
  FROM attempts a JOIN managed_attempt_routes r ON r.attempt_id=a.id \
  JOIN openrouter_generation_references g ON g.attempt_id=a.id \
- JOIN vendors v ON v.id=r.vendor_id JOIN vendor_models m ON m.alias=r.model_alias \
+ JOIN vendors v ON v.id=r.vendor_id LEFT JOIN vendor_models m ON m.alias=r.model_alias \
  WHERE a.id=$1 AND a.organization_id=$2 AND a.project_id=$3 \
  AND a.execution IN ('confirmed_completed','may_have_executed') AND a.usage_confidence='unknown' \
  AND a.prompt_tokens IS NULL AND a.completion_tokens IS NULL \
  AND v.adapter='openrouter' AND trim(trailing '/' FROM v.api_base)='https://openrouter.ai/api/v1' \
- AND v.enabled AND m.enabled AND m.vendor_id=v.id \
- AND v.revision=r.vendor_revision AND m.revision=r.model_revision \
+ AND v.enabled AND v.revision=r.vendor_revision \
+ AND (g.upstream_model IS NOT NULL OR (m.enabled AND m.vendor_id=v.id AND m.revision=r.model_revision)) \
  AND NOT EXISTS(SELECT 1 FROM personal_vendor_ownership o WHERE o.vendor_id=v.id AND o.organization_id<>a.organization_id) \
  AND NOT EXISTS(SELECT 1 FROM request_token_categories c WHERE c.attempt_id=a.id)";
 
