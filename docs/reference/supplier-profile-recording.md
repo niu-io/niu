@@ -176,3 +176,34 @@ fingerprint comparison. Configuration, encrypted vendor identities and durable
 business counts remained unchanged on schema 277. Readiness and authenticated
 published-routing status were accessible after refresh. This pin also includes
 the previously verified atomic Supplier membership change.
+
+
+## Atomic Supplier deletion under contention
+
+Reviewed 2026-10-12 on clean committed `bdf1a6d`. Deletion now uses the same
+bounded recording helper as creation, profile updates and member changes.
+The existing dependency guard, soft deletion and immutable audit remain in one
+transaction. This does not change permission, route or response shape.
+
+In an isolated current-input API run, a Supplier row lock kept an unconfigured
+identity's deletion pending until release after 1.6 seconds. The changed binary
+returned HTTP 503 in approximately 258 ms while that lock remained held, leaving
+its profile and audit unchanged. Release and retry deleted it once; profile reads
+returned 404 and repeat deletion returned 409. A delayed deletion-audit insert
+then triggered the statement timeout after a second soft-delete update. Both the
+deleted state and audit rolled back; removing the fault and retrying succeeded.
+Restart retained the final directory.
+
+A separate configured Supplier acquired an encrypted, disabled personal
+credential. Its deletion returned HTTP 409 both before and after restart,
+retaining the identity and configuration. Independent reopening verified exactly
+one deletion audit for each of the two successfully deleted identities, no
+deletion audit for the configured identity, retained encrypted ownership, both
+timeout diagnostics and removal of the temporary fault. Existing customer
+charges remained present; no earning, qualification or funding was fabricated.
+
+The helper bounds individual lock waits to 250 ms and statements to 2 seconds,
+not pool acquisition or whole HTTP duration. These observations cover the
+exercised contention, rollback/retry and configuration-dependency paths, not
+every concurrent deletion/configuration race or uncertain commit outcome.
+No fixture outcome is evidence.
