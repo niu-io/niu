@@ -132,3 +132,43 @@ A new receipt version and state-transition rules are required: current v2 receip
 explicitly require non-cancelled terminal completion. Partial category evidence
 must keep affected liabilities unresolved. This is an implementation boundary,
 not an available recovery feature or justification for releasing existing holds.
+
+
+## Bounded failure recording under an actual upstream refusal — 2026-10-12
+
+Failure recording now uses the shared bounded recording transaction. The shared
+inference response path logs the fixed failure category, optional HTTP status
+and internal attempt correlation when persistence or reservation release fails.
+It never logs provider response bodies, endpoints or credentials. Failure to
+record an observation does not authorize a nonexecution transition or release.
+
+An isolated native PostgreSQL run used a deliberately invalid credential against
+the real canonical OpenRouter endpoint and requested Chat streaming. With an
+exclusive lock on `request_failures`, previous `268c25d` remained pending for
+1.6 seconds after the actual upstream refusal was observed; only releasing the
+lock allowed its response. Clean committed `ca4e5a9` returned sanitized HTTP 401
+while the lock remained held, in 880.50 ms including the upstream round trip.
+This measures the full observed request, not a constant response-time guarantee.
+
+The refused recording transaction left no failure row or nonexecution evidence
+for the first attempt. Its execution and usage remained uncertain, with customer
+and procurement reservations held. Safe logs retained `upstream_http_error`,
+401 and that attempt's correlation. After releasing the lock, another actual
+upstream 401 recorded the immutable failure and qualified nonexecution under
+the existing pinned canonical OpenRouter text policy; only that second attempt's
+reservations were released. Restart preserved the first attempt's uncertainty.
+
+Independent reopening checked both saved error responses, the lock diagnostic
+and clean executable digest, two HTTP 401 timing records, safe log context,
+atomic failure/nonexecution state and the separate retained/released holds.
+No credential appeared in responses or logs; there were no customer charges,
+balance entries or funding receipts. The scoped verification key was revoked.
+Native replacement preserved original configuration, encrypted identities and
+durable record counts, after a fresh backup restored with matching business
+fingerprints.
+
+This verifies bounded recording refusal for an actual OpenRouter HTTP rejection.
+Other provider classifications and interrupted-stream branches require their own
+evidence. It neither reconstructs the historical GPT-4.1-mini 502 cause nor adds
+automatic replay of a failure observation lost during database refusal. Unknown
+liabilities remain unresolved until genuine recovery evidence is available.
