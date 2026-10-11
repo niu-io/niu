@@ -125,3 +125,27 @@ actual multi-call history. It does not establish frontend presentation, task
 acceptance, commercial supply, a paid top-up or performance under concurrent
 reporting load. The source evidence and original development database were
 preserved.
+
+
+## Actual output-budget overrun observation — 2026-10-12
+
+The retained low-output-budget probe on `a5f2f3b` produced complete valid JSON
+with reported input/output quantities of 103/16. Its recorded output bound was
+1, so it could not qualify the intended malformed-output refusal. A metadata-only
+independent reopening instead verified that Niu retained the actual quantities
+and the platform's bound-exceeded diagnostic rather than replacing usage with
+the requested limit. No new inference or clock/configuration change was made
+to inspect this observation.
+
+Original-rate arithmetic gave a customer charge of 28,519 USD nanounits, matching
+one negative charge entry. This was below the original customer reservation of
+253,828 nanounits, which was released. The copied history contained the preceding
+eight qualified calls plus this one generation: nine exact charges/debits totaling
+243,832 nanounits, with no open customer hold or funding receipt. Procurement
+prices/expenses were retained privately and not substituted for customer amounts.
+
+This verifies actual-use accounting within the monetary reservation for this
+observed overrun. It does not prove an upstream minimum output limit, explain
+why the limit was exceeded, guarantee arbitrary overruns stay within reservations,
+or qualify malformed-output rejection. Requested generation limits and measured
+usage have different meanings; the requested value is not billing evidence.
