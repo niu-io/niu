@@ -533,3 +533,24 @@ path contains a commercially charged video, so positive/zero media matching,
 mismatched-account rejection and populated financial recovery remain unverified.
 No qualification or financial evidence was fabricated. The original installation
 was untouched; its native runtime remains `d4718ed` pending later deployment.
+
+
+## Original-data upgrade and native deployment — 2026-10-12
+
+A fresh backup of the existing native installation was restored into an isolated
+PostgreSQL instance, then a stopped copy was upgraded from schema 277 to 278 with
+clean `35b8045`. Full-row fingerprints of vendors, organizations, workspaces,
+customer balance entries, media jobs/timings/charges, reservations, attempt account
+bindings, invoices and invoice entries matched before and after upgrade/restart.
+Authenticated routing status matched the original published configuration.
+Independent reopening confirmed the successful migration, account-bound view,
+all saved fingerprints and the exact clean executable hash.
+
+The original native integration service subsequently refreshed to that same
+binary after target-hash and retained-previous-executable checks. Readiness,
+schema 278 and authenticated routing agreement were checked. Configuration and
+secrets hashes, vendor ciphertexts/revisions and durable business record counts
+remained unchanged. The new backup and previous executable are retained privately.
+No upstream invocation or financial mutation was requested during upgrade.
+This deploys the shared posted-media predicate; the unverified commercial media
+settlement branches are not qualified by upgrade or unchanged-record evidence.
