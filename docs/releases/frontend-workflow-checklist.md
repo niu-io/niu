@@ -37,7 +37,7 @@ Every row remains partial. Verified subsets below do not establish the entire fl
 
 | Dependency | Current boundary / required next evidence |
 | --- | --- |
-| Workspace route identity | Backend response has no stable route slug or retained rename aliases. Do not repair bookmarks with browser storage; require a durable collision-safe, authorized contract. |
+| Workspace route identity | Backend now returns immutable `route_slug`; scoped `GET /admin/v1/workspaces/by-route/{route_slug}` and SDK resolution are available. Frontend adoption and historical name-alias compatibility remain pending; do not use browser storage as the source of route identity. |
 | Authentication administration | No OAuth provider configuration lifecycle API. Keep the unsupported destination absent; require read/write/validation/secret-handling contracts before building it. |
 | Merchant administration | EPay has dashboard read/write configuration. Stripe and Zhifux setup is server-managed; do not add invented dashboard write controls. Merchant entitlement and enabled checkout remain deployment-specific checks. |
 | Financial acceptance | Follow the [capability inventory](../product/backend-capability-checklist.md#financial-capability-inventory). Customer pricing, balance funding, reservations/debits, reversals and statements need distinct evidence. Personal-key inference cannot qualify customer prepaid charging. |
@@ -50,7 +50,7 @@ Every row remains partial. Verified subsets below do not establish the entire fl
 
 1. Complete the actual independent Supplier credential/model-subset lifecycle and configuration-error recovery.
 2. Qualify populated customer pricing and customer-only Rates/statement display using authorized real test data; keep commercial qualification and procurement separate.
-3. Complete ordinary-role/key/session boundary workflows and stable workspace route handling when its contract is available.
+3. Complete ordinary-role/key/session boundary workflows and stable workspace route handling using the available backend contract.
 4. Qualify current Guardrail input/output diagnosis, then the remaining Chat/Video failure, restoration and retention paths. Fresh paid Video submission waits for its specific authorization.
 5. Complete top-up/configuration and financial-history recovery through supported APIs. External account activation does not block unrelated frontend implementation.
 6. Compare changed screens with their actual references, complete the desktop/narrow interaction matrix and audit every row before claiming completion.

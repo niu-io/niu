@@ -37,6 +37,14 @@ terminal state and handle its error event.
 
 ### Stable workspace routing
 
+The SDK exposes `listWorkspaces()`, `createWorkspace(input)`,
+`renameWorkspace(scope, name)` and `deleteWorkspace(scope)`. Creation is not
+idempotent: recover an uncertain response before resubmitting. With installation
+credentials, omitting `organization_id` creates a new zero-funded USD company;
+provide an existing organization when adding another workspace to it. Members
+remain constrained to their authorized organization. Deletion requires an
+eligible empty workspace and appropriate owner permissions.
+
 `GET /admin/v1/workspaces` and `POST /admin/v1/workspaces` return a persisted
 `route_slug` for each workspace. Use it as a URL segment and use `name` as the
 display label. The backend assigns unique references to existing and new

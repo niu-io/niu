@@ -1433,3 +1433,13 @@ organization and sibling-workspace readers, and rejected an invalid credential.
 Independent database reopening matched the saved identities and unchanged ledger.
 The served API overview and generated OpenAPI include this operation. Historical
 name aliases and frontend browser adoption remain pending.
+
+The TypeScript SDK now exposes workspace list/create/rename/delete alongside
+canonical route resolution. A fresh isolated run used the built SDK against the
+actual Gateway to create and rename an empty workspace, restore it after restart,
+and delete it. A viewer's rename returned 403; deleting an existing populated
+workspace returned 409. The deleted route returned 404 and disappeared from the
+list. Independent reopening confirmed removal of only the temporary workspace,
+preservation of the original workspace identity/route and unchanged ledger.
+The dependency checklist now marks the canonical backend contract available;
+frontend adoption, browser verification and historical aliases remain pending.

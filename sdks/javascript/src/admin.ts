@@ -1,5 +1,13 @@
 /** Authorized identity for a canonical route; never display the routing reference as a name. */
 export type WorkspaceRoute = { id: string; organization_id: string; name: string; route_slug: string };
+export type Workspace = WorkspaceRoute & {
+  organization_name: string; is_default: boolean; created_at_ms: number;
+  active_key_count: number; requests_30d: number;
+  requests_by_day: Array<{ start_ms: number; request_count: number }>;
+  last_request_at_ms: number | null;
+};
+export type WorkspaceInput = { name: string; organization_id?: string | null };
+
 
 export type VendorCooldown = { policy_revision: 'openrouter-auth-cooldown-v1'; failure_threshold: 3; window_seconds: 60; cooldown_seconds: 60; active: boolean; cooldown_until: string | null; qualifying_failures: number };
 export type VendorRequestRateLimit = { requests_per_minute: number | null; revision: string };
@@ -662,6 +670,29 @@ export class NiuAdminClient {
   private readonly token: string;
   private readonly base: string;
   private readonly requestFetch: typeof globalThis.fetch;
+
+  /** Up to 1,000 authorized workspaces. Use route resolution for direct bookmarks. */
+  listWorkspaces(options?: RequestOptions): Promise<{ data: Workspace[] }> {
+    return this.request('/workspaces', undefined, options);
+  }
+
+  /** Not idempotent. Installation credentials without an organization create a zero-funded USD company. */
+  createWorkspace(input: WorkspaceInput, options?: RequestOptions): Promise<Workspace> {
+    return this.request('/workspaces', {
+      name: input.name,
+      organization_id: input.organization_id == null ? input.organization_id : uuid(input.organization_id),
+    }, options, 'POST');
+  }
+
+  /** Renaming preserves the backend-assigned routing reference. */
+  renameWorkspace(scope: TenantScope, name: string, options?: RequestOptions): Promise<{ id: string; name: string }> {
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}`, { name }, options, 'PATCH');
+  }
+
+  /** Only eligible empty workspaces may be deleted; existing business data is protected. */
+  deleteWorkspace(scope: TenantScope, options?: RequestOptions): Promise<void> {
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}`, undefined, options, 'DELETE');
+  }
 
   /** Exact persisted route lookup; missing and out-of-scope workspaces both return 404. */
   resolveWorkspaceRoute(routeSlug: string, options?: RequestOptions): Promise<WorkspaceRoute> {
