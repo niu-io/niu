@@ -111,3 +111,25 @@ The current-input verification covers the empty-offer exclusion path only.
 Nonempty Supplier earnings, mixed eligible/ineligible pages, cursor traversal
 across more than 100 real offer bindings, and settlement retry/restart behavior
 remain unverified. This change does not qualify commercial supply or payouts.
+
+## Native runtime upgrade — 2026-10-11
+
+The development service was subsequently upgraded from a clean checkout of
+`5cfb4f4`, including bounded customer/Supplier recovery, migration 0265 and the
+completion-category replay lock-order fix. A fresh native database archive was
+first restored into a separate PostgreSQL instance. Independent reopening matched
+its saved organization, workspace, encrypted-vendor, customer-ledger, video-job
+and transport-timing fingerprints.
+
+The pinned binary then upgraded a copy of that restored database from migration
+0264 to 0265. The same business fingerprints survived migration and restart;
+workspace pagination/route lookup and offline encryption inspection succeeded.
+Only after those checks was the original service replaced with the retained
+binary and its original environment. It became ready on the existing port with
+unchanged configuration files, encrypted credential identities/revisions and
+business record counts. Post-upgrade workspace directory, route and reconciliation
+reads completed, migration 0265 was present, and encryption inspection succeeded.
+
+The archive, binary digest and runtime observations remain private. This deploys
+the scoped fixes to the native development service; it is not a container,
+large-database upgrade, full business acceptance or performance certification.
