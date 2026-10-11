@@ -1423,3 +1423,27 @@ model. An independent verifier reopened the database and checked the saved
 responses, personal ownership and disabled configuration revision, with no
 attempt, media job or financial entry created. This verifies directory consistency
 and scope, not video generation or a published inference registry generation.
+
+## Bounded resumption after key rotation — 2026-10-11
+
+Discovery of stopped jobs eligible after key rotation now resumes at most 100
+schedule rows per pass, matching the existing bound on newly discovered jobs.
+Rows are ordered by attempt identity and locked with `SKIP LOCKED` so concurrent
+resumption workers need not wait on another worker's selected rows. Original
+lineage, workspace, current key grants and nonterminal-job conditions remain in
+force. This bounds updated rows, not total scan cost or global replica throughput.
+
+A fresh isolated native run submitted one actual personal OpenRouter video job
+and rotated its workspace key through the management API. Only that real job's
+schedule row was deliberately stopped to represent recovery failure during the
+rotation window; no generation response or success observation was fabricated.
+With background polling enabled, the worker resumed the original job, queried it
+to success and retained success across restart. The revoked original key returned
+401. Independent database reopening confirmed one attempt/job, one submission
+transport record, subsequent query records, a successful upstream observation and
+the original/replacement key lineage. No customer financial entry was created.
+
+Compilation and PostgreSQL planning separately checked the changed query's syntax
+and bounded locking plan. The actual single-job run does not establish 100-row
+batch behavior, fairness or multi-instance contention performance. Full paid media
+settlement and decoded-result verification are separate from this recovery check.
