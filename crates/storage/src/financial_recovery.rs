@@ -42,7 +42,7 @@ impl FinancialStage {
                 include_str!("customer_charge_recovery.sql")
             }
             Self::CustomerMediaCharge => {
-                "SELECT a.id,a.organization_id,a.project_id FROM attempts a JOIN customer_media_attempt_pricing p ON p.attempt_id=a.id WHERE a.execution='confirmed_completed' AND EXISTS(SELECT 1 FROM media_job_observations o WHERE o.attempt_id=a.id AND o.status='succeeded') AND NOT EXISTS(SELECT 1 FROM media_job_observations o WHERE o.attempt_id=a.id AND o.status='failed') AND NOT EXISTS(SELECT 1 FROM customer_media_charges c JOIN customer_activity_charges posted ON posted.attempt_id=c.attempt_id AND posted.organization_id=c.organization_id AND posted.project_id=c.project_id AND posted.currency=c.currency AND posted.amount_nanos=c.amount_nanos WHERE c.attempt_id=a.id) AND ($1::uuid IS NULL OR a.id>$1) ORDER BY a.id LIMIT 100"
+                include_str!("customer_media_charge_recovery.sql")
             }
             Self::SupplierEarning => {
                 include_str!("supplier_earning_recovery.sql")
@@ -114,7 +114,9 @@ impl Store {
             }
         };
         let rows: Vec<(Uuid, Uuid, Uuid, bool)> = match stage {
-            FinancialStage::CustomerCharge | FinancialStage::SupplierEarning => {
+            FinancialStage::CustomerCharge
+            | FinancialStage::CustomerMediaCharge
+            | FinancialStage::SupplierEarning => {
                 sqlx::query_as(stage.query())
                     .bind(after)
                     .fetch_all(&mut **tx)
