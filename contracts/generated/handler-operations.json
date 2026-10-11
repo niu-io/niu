@@ -2825,6 +2825,74 @@
             "description": "Cursor is missing, deleted or outside the authorized scope. Restart traversal."
           }
         }
+      },
+      "post": {
+        "operationId": "createWorkspace",
+        "summary": "Create a workspace with retry-safe identity",
+        "description": "Requires installation write access or a company-scoped member allowed to create workspaces. Optional Idempotency-Key is durable and actor-scoped: identical input returns the original identity and current metadata with 201; changed input returns 409; replay after deletion returns 404 without recreation. Installation credentials share one namespace; members use their stable member identity. Without the header, each successful call creates a workspace. Current member/session authorization is rechecked after lock waits. If an installation caller omits organization_id, company, zero-funded USD account, zero approved credit, workspace and receipt commit together. No payment or funded balance is created.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-niu-implementation": "implemented",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[!-~]+$"
+            },
+            "description": "One header containing visible ASCII characters. Retain the same value and input when recovering an uncertain response."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceCreationInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created or replayed workspace with its current metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceDirectoryEntry"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid name, malformed JSON syntax, or invalid/repeated Idempotency-Key header."
+          },
+          "422": {
+            "description": "JSON body has an unknown field, invalid field type or UUID, or is missing a required field."
+          },
+          "401": {
+            "description": "Missing, expired or revoked credentials, including member/session authorization lost while waiting for a lock."
+          },
+          "403": {
+            "description": "Credential does not have write access."
+          },
+          "404": {
+            "description": "Company scope is not permitted, or the workspace from the original idempotent creation has been deleted."
+          },
+          "409": {
+            "description": "Idempotency-Key already belongs to different creation input."
+          },
+          "503": {
+            "description": "Storage unavailable; the outcome may be uncertain. Retry with the same idempotency identity and input."
+          }
+        }
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}": {
@@ -15386,6 +15454,29 @@
               "null"
             ],
             "format": "int64"
+          }
+        }
+      },
+      "WorkspaceCreationInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Must contain non-whitespace text; at most 200 UTF-8 bytes before trimming. The saved name is trimmed."
+          },
+          "organization_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Company scope. Members default to their current company. Installation callers may omit it to create a Personal workspace company."
           }
         }
       },

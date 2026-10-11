@@ -3102,6 +3102,79 @@ HTTP 409: Workspace still has dependent records
 
 HTTP 503: Storage unavailable
 
+## Create a workspace with retry-safe identity
+
+`POST /admin/v1/workspaces`
+
+Requires installation write access or a company-scoped member allowed to create workspaces. Optional Idempotency-Key is durable and actor-scoped: identical input returns the original identity and current metadata with 201; changed input returns 409; replay after deletion returns 404 without recreation. Installation credentials share one namespace; members use their stable member identity. Without the header, each successful call creates a workspace. Current member/session authorization is rechecked after lock waits. If an installation caller omits organization_id, company, zero-funded USD account, zero approved credit, workspace and receipt commit together. No payment or funded balance is created.
+
+Implementation: `implemented`. Operation: `createWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`Idempotency-Key` (header, optional)
+
+One header containing visible ASCII characters. Retain the same value and input when recovering an uncertain response.
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 128,
+  "pattern": "^[!-~]+$"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/WorkspaceCreationInput"
+}
+```
+
+### Responses
+
+HTTP 201: Created or replayed workspace with its current metadata.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/WorkspaceDirectoryEntry"
+}
+```
+
+HTTP 400: Invalid name, malformed JSON syntax, or invalid/repeated Idempotency-Key header.
+
+HTTP 422: JSON body has an unknown field, invalid field type or UUID, or is missing a required field.
+
+HTTP 401: Missing, expired or revoked credentials, including member/session authorization lost while waiting for a lock.
+
+HTTP 403: Credential does not have write access.
+
+HTTP 404: Company scope is not permitted, or the workspace from the original idempotent creation has been deleted.
+
+HTTP 409: Idempotency-Key already belongs to different creation input.
+
+HTTP 503: Storage unavailable; the outcome may be uncertain. Retry with the same idempotency identity and input.
+
 ## Issue a workspace API key and return its secret once
 
 `POST /admin/v1/organizations/{organization}/projects/{project}/keys`
@@ -19614,6 +19687,34 @@ Local `#/components/schemas/…` references resolve to these definitions.
           "type": "null"
         }
       ]
+    }
+  }
+}
+```
+
+### WorkspaceCreationInput
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Must contain non-whitespace text; at most 200 UTF-8 bytes before trimming. The saved name is trimmed."
+    },
+    "organization_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid",
+      "description": "Company scope. Members default to their current company. Installation callers may omit it to create a Personal workspace company."
     }
   }
 }
