@@ -627,3 +627,26 @@ the complete responses. Independent reopening reconciled both actual usages and
 charges, all 107 refunds referencing the original debit, net debt equal to the
 second charge and no held reservations. This extends populated filtered history
 coverage beyond the page limit, not financial throughput or bank-refund scope.
+
+
+### Balance refund with a lost commit acknowledgement — 2026-10-11
+
+An isolated copy of the stopped database from the actual text-settlement run
+retained its single genuine model charge/debit. A normal balance reversal request
+then refunded half that debit. A local PostgreSQL wire proxy withheld the
+successful COMMIT completion of the refund transaction, causing the management
+request to return HTTP 503 even though the refund was durable.
+
+Eight concurrent retries with the same amount and idempotency key, divided
+between two gateways, all returned 200 and retained one refund identity. Reusing
+the key with a changed amount returned 409. A new key requesting more than the
+remaining refundable amount also returned 409. Restarting both gateways and
+replaying the original request preserved the same refund and exact net balance.
+
+Independent reopening recomputed the original charge from its saved upstream
+response and pinned rates, then matched the debit, the refund's original-entry
+link, amount and idempotency identity. Exactly two ledger entries remained, with
+one original attempt and no funding receipt or open hold. This is an internal
+balance credit, not an external bank/processor refund or received-money funding.
+Callers must retain the original reversal idempotency key after an uncertain
+response rather than inventing a new refund identity.

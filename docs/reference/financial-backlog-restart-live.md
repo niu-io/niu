@@ -193,3 +193,31 @@ separate company's foreground admission. It does not reserve foreground capacity
 qualify a one-connection overlap, prove same-account lock independence, or establish
 sustained backlog performance. The database delay is explicit storage fault
 injection; both upstream completions were actual, not fixture responses.
+
+
+## Text settlement with a lost commit acknowledgement — 2026-10-11
+
+A fresh native gateway/PostgreSQL run sent an actual self-funded OpenRouter Chat
+request with a unique response marker, explicit internal customer rates and
+approved verification credit. A local PostgreSQL wire proxy targeted the
+transaction inserting the customer balance debit. After PostgreSQL emitted its
+successful COMMIT completion, the proxy closed the connection without delivering
+that completion to the gateway. The saved event records that boundary; this was
+a committed transaction with uncertain client acknowledgement, not a rollback
+or an invented upstream response.
+
+The actual model response reached the client with HTTP 200. Exactly one customer
+charge and one matching ledger debit existed, and the reservation was released.
+Two gateways were then restarted against the same database and allowed to resume
+financial recovery; they retained one completed attempt and one debit.
+Independent reopening verified the saved response marker and usage against the
+persisted attempt and immutable tariff. Integer arithmetic reproduced the
+combined token charge, rounded upward once, plus the configured request fee;
+both financial records matched. There were no funding receipts or open customer
+holds.
+
+This extends the text settlement evidence to lost database commit confirmation.
+It does not qualify media/Supplier settlement, received merchant funding, client
+retry of a new generation, or sustained capacity. The separate admission-loss
+case still retains unknown execution and its liability; a successful settlement
+commit must not be generalized to that earlier dispatch boundary.
