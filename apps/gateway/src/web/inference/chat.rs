@@ -1253,6 +1253,16 @@ async fn stream_openai_compatible(
         ))),
         _ => None,
     };
+    let structured = structured.map(|output| {
+        output.with_tool_names(
+            body.get("tools")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .filter_map(|tool| tool.pointer("/function/name").and_then(Value::as_str))
+                .map(str::to_owned),
+        )
+    });
     let upstream = upstream_client
         .post(endpoint)
         .bearer_auth(api_key)
@@ -1587,18 +1597,6 @@ fn chat_route_requirements(
         }
     }
 
-    if has_tool_semantics
-        && matches!(
-            body.pointer("/response_format/type")
-                .and_then(Value::as_str),
-            Some("json_object" | "json_schema")
-        )
-    {
-        return Err(ApiError::unsupported_message(
-            "Combining function tools and structured JSON output is not supported. Send separate requests.",
-        ));
-    }
-
     Ok(crate::config::ModelRequirements {
         streaming: stream,
         tools: has_tool_semantics,
@@ -1616,12 +1614,13 @@ pub(in crate::web) fn valid_chat_completion_features(response: &Value, request: 
     let Some(choices) = response.get("choices").and_then(Value::as_array) else {
         return false;
     };
-    let tool_names: std::collections::HashSet<&str> = request
+    let tool_names: std::collections::BTreeSet<String> = request
         .get("tools")
         .and_then(Value::as_array)
         .into_iter()
         .flatten()
         .filter_map(|tool| tool.pointer("/function/name").and_then(Value::as_str))
+        .map(str::to_owned)
         .collect();
     let json_mode = matches!(
         request
@@ -1660,32 +1659,31 @@ pub(in crate::web) fn valid_chat_completion_features(response: &Value, request: 
             return false;
         }
         if let Some(calls) = calls {
-            if tool_names.is_empty()
+            if calls.len() > 128
                 || choice.get("finish_reason").and_then(Value::as_str) != Some("tool_calls")
             {
                 return false;
             }
+            let mut ids = std::collections::BTreeSet::new();
             for call in calls {
-                let Some(name) = call.pointer("/function/name").and_then(Value::as_str) else {
+                let (Some(id), Some(name), Some(arguments)) = (
+                    call.get("id").and_then(Value::as_str),
+                    call.pointer("/function/name").and_then(Value::as_str),
+                    call.pointer("/function/arguments").and_then(Value::as_str),
+                ) else {
                     return false;
                 };
                 if call.get("type").and_then(Value::as_str) != Some("function")
-                    || call
-                        .get("id")
-                        .and_then(Value::as_str)
-                        .is_none_or(str::is_empty)
-                    || !tool_names.contains(name)
-                    || call
-                        .pointer("/function/arguments")
-                        .and_then(Value::as_str)
-                        .and_then(|arguments| serde_json::from_str::<Value>(arguments).ok())
-                        .is_none_or(|arguments| !arguments.is_object())
+                    || !ids.insert(id)
+                    || !crate::structured_stream::valid_tool_call(id, name, arguments, &tool_names)
                 {
                     return false;
                 }
             }
         }
+        // A validated function turn precedes the final structured text answer.
         if json_mode
+            && calls.is_none()
             && message
                 .get("refusal")
                 .and_then(Value::as_str)
