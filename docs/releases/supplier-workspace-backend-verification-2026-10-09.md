@@ -156,3 +156,14 @@ the rejected stale first association. No ownership referenced a deleted Supplier
 The three disabled configurations retained encrypted credentials and no inference
 attempt was created. These are administration lifecycle and concurrency results;
 they do not qualify upstream access, commercial supply or Supplier settlement.
+
+## Rejected settlement selections — 2026-10-11
+
+Actual administration HTTP calls in a fresh isolated database submitted an empty
+selection, a duplicated unavailable attempt, and a single unavailable attempt to
+the Supplier settlement endpoint. They returned 400, 400 and 409 respectively.
+No payment was made or asserted as completed. After Gateway restart, a separate
+verifier reopened the database and confirmed no settlement, settlement entry,
+Supplier earning or external-payment audit was written. This verifies rejection
+atomicity for these inputs only; nonempty earning selection, successful settlement
+and settlement replay remain unverified by this run.
