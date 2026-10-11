@@ -793,3 +793,28 @@ rechecked on the changed binary. Release compilation and all-target gateway/stor
 Clippy completed; no fixture outcome is used as behavioral evidence. These runs
 qualify the exercised local transaction failure/recovery, not merchant funding,
 every database commit-acknowledgment failure or all payment adapters.
+
+### Clean two-gateway contention and native integration
+
+Clean `b6ec01f` repeated the local checkout contract across two native gateways.
+Sixteen simultaneous identical requests in one company returned identical order
+and checkout data, with one stored pair. A changed amount returned 409. Reusing
+the idempotency value in another company created its separate pair. Restart
+preserved exact replay. Independent reopening confirmed the two company-scoped
+orders/links and no settlement or balance entries.
+
+A separate actual database-lock interleaving held checkout admission while a
+second gateway attempted to replace the merchant configuration. PostgreSQL
+inspection confirmed the shared configuration lock and waiting replacement.
+After checkout committed, replacement returned 409; the order, signed link and
+configuration remained bound to the original merchant/revision. Restart and
+independent reopened-database checks retained one order/link and no funding.
+These observations apply to local checkout; no external payment was requested.
+
+Before native integration, a fresh backup/restore and independent full-row
+fingerprint comparison preserved Supplier credentials, organizations, workspaces,
+ledger entries, media jobs and transport timings on schema 276. The clean binary
+passed destination-independent encryption inspection and restart without rotation.
+The existing native service was then refreshed to `b6ec01f`; its original
+configuration, encrypted credential revisions and durable record counts remained
+unchanged.
