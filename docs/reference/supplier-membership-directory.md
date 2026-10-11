@@ -81,3 +81,37 @@ credentials, qualification records, inference attempts or financial entries were
 created. This validates the exercised lifecycle race; no authorization relaxation
 or speculative code change was needed. It does not cover every concurrent
 Supplier lifecycle operation or frontend state management.
+
+
+## Platform membership administration SDK
+
+The JavaScript client exports `SupplierMember`, `SupplierMemberUpdate`,
+`listSupplierMembers(supplierId)` and
+`setSupplierMember(supplierId, operatorId, { role, active })`. These use the
+existing provider-named GET/PUT routes and require platform administration.
+A Supplier manager cannot use them to grant access or inspect platform member
+history. `listSupplierMemberships()` remains the separately authorized current
+operator's active Supplier directory.
+
+Member history includes inactive and revoked operators. Its `active` field
+reflects both the saved membership and operator revocation; `revoked` describes
+the operator. Revoking an operator does not erase the retained membership or its
+audit events. Membership roles remain `viewer` and `manager`, independently of
+customer workspace roles and platform configuration authority.
+
+Current-input SDK verification, reviewed 2026-10-12, created two Supplier
+identities in an isolated copy of actual request accounting. The installation
+credential granted viewer access, changed it to manager, disabled it, then
+restored viewer access. The member's own membership directory reflected each
+state; platform-only member-list, grant and Supplier-profile operations remained
+forbidden. The unrelated Supplier acquired no membership. Restart retained the
+restored grant. Revoking the operator made its subsequent membership read return
+401 and its platform member-history row report inactive/revoked.
+
+Independent reopening matched all four member-change audit actions, the retained
+membership and operator revocation, and the unrelated Supplier's empty membership
+state. Existing customer records remained present, with no new funding or
+Supplier earning. Tested SDK source hashes matched the staged additions, built
+separately from unrelated shared-worktree edits. No fixture outcome is evidence.
+This covers the exercised membership lifecycle and boundaries; it does not
+qualify every concurrent grant/revocation race or rendered frontend behavior.

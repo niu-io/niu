@@ -745,6 +745,11 @@ export type PaymentIntegration = {
   refunds: boolean;
 };
 
+export type SupplierMember = {
+  operator_id: string; name: string; role: 'manager' | 'viewer'; active: boolean; revoked: boolean;
+};
+export type SupplierMemberUpdate = { role: 'manager' | 'viewer'; active: boolean };
+
 export type SupplierMembership = { id: string; name: string; role: 'manager' | 'viewer' };
 
 /** Platform-only status; route definitions and procurement details are not returned. */
@@ -755,6 +760,16 @@ export interface RoutingRegistryStatus {
 }
 
 export class NiuAdminClient {
+  /** Platform-only membership history, including inactive and revoked members. */
+  listSupplierMembers(supplierId: string, options?: RequestOptions): Promise<{ data: SupplierMember[] }> {
+    return this.request(`/providers/${uuid(supplierId)}/members`, undefined, options);
+  }
+
+  /** Grant/change/revoke a membership; Supplier roles do not grant platform configuration authority. */
+  setSupplierMember(supplierId: string, operatorId: string, input: SupplierMemberUpdate, options?: RequestOptions): Promise<{ data: { active: boolean } }> {
+    return this.request(`/providers/${uuid(supplierId)}/members/${uuid(operatorId)}`, input, options, 'PUT');
+  }
+
   /** Platform directory; configuration counts include retained disabled configurations. */
   listSupplierBusinesses(options?: RequestOptions): Promise<{ data: SupplierBusiness[] }> {
     return this.request('/providers', undefined, options);
