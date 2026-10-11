@@ -255,7 +255,7 @@ impl Store {
         organization: Uuid,
         input: &TopupInput<'_>,
     ) -> Result<TopupOrder, StoreError> {
-        self.create_customer_topup_inner(organization, input, None, None)
+        self.create_customer_topup_inner(organization, input, None, None, None)
             .await
     }
 
@@ -270,7 +270,7 @@ impl Store {
         if input.aggregator != "epay" || revision < 0 {
             return Err(StoreError::Conflict);
         }
-        self.create_customer_topup_inner(organization, input, Some(revision), None)
+        self.create_customer_topup_inner(organization, input, Some(revision), None, None)
             .await
     }
 
@@ -287,7 +287,25 @@ impl Store {
         {
             return Err(StoreError::Conflict);
         }
-        self.create_customer_topup_inner(organization, input, configuration_revision, member)
+        self.create_customer_topup_inner(organization, input, configuration_revision, member, None)
+            .await
+    }
+
+    /// Atomically save a classic EPay intent and its locally generated checkout.
+    /// The builder must only format/sign locally; it must not perform network I/O.
+    /// Replays retain existing links and may complete legacy intents without one.
+    pub async fn create_authorized_epay_checkout(
+        &self,
+        organization: Uuid,
+        input: &TopupInput<'_>,
+        revision: i64,
+        member: Option<crate::OperatorPrincipal>,
+        build: &(dyn Fn(Uuid) -> Result<String, StoreError> + Send + Sync),
+    ) -> Result<TopupOrder, StoreError> {
+        if input.aggregator != "epay" || input.currency != "CNY" || revision < 0 {
+            return Err(StoreError::Conflict);
+        }
+        self.create_customer_topup_inner(organization, input, Some(revision), member, Some(build))
             .await
     }
 
@@ -297,6 +315,7 @@ impl Store {
         input: &TopupInput<'_>,
         configuration_revision: Option<i64>,
         member: Option<crate::OperatorPrincipal>,
+        checkout: Option<&(dyn Fn(Uuid) -> Result<String, StoreError> + Send + Sync)>,
     ) -> Result<TopupOrder, StoreError> {
         if input.amount_nanos <= 0
             || input.currency.len() != 3
@@ -348,6 +367,10 @@ impl Store {
             {
                 return Err(StoreError::Conflict);
             }
+            if let Some(build) = checkout {
+                Self::complete_local_epay_checkout(&mut tx, &prior, build).await?;
+                tx.commit().await?;
+            }
             return Ok(prior);
         }
         let order = TopupOrder {
@@ -362,6 +385,9 @@ impl Store {
             idempotency_key: input.idempotency_key,
         };
         sqlx::query("INSERT INTO customer_topup_orders(id,organization_id,account_id,currency,amount_nanos,aggregator,merchant,payment_method,idempotency_key) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)").bind(order.id).bind(organization).bind(account).bind(&order.currency).bind(order.amount_nanos).bind(&order.aggregator).bind(&order.merchant).bind(&order.payment_method).bind(order.idempotency_key).execute(&mut *tx).await?;
+        if let Some(build) = checkout {
+            Self::complete_local_epay_checkout(&mut tx, &order, build).await?;
+        }
         tx.commit().await?;
         Ok(order)
     }
@@ -412,6 +438,37 @@ impl Store {
         order: Uuid,
         checkout_url: &str,
     ) -> Result<(), StoreError> {
+        let mut tx = self.pool.begin().await?;
+        sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR UPDATE")
+            .bind(organization)
+            .fetch_optional(&mut *tx)
+            .await?
+            .ok_or(StoreError::Conflict)?;
+        Self::save_epay_checkout_in_tx(&mut tx, organization, order, checkout_url).await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    async fn complete_local_epay_checkout(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        order: &TopupOrder,
+        build: &(dyn Fn(Uuid) -> Result<String, StoreError> + Send + Sync),
+    ) -> Result<(), StoreError> {
+        let complete: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM customer_topup_checkout WHERE order_id=$1) OR EXISTS(SELECT 1 FROM customer_topup_settlements WHERE order_id=$1) OR EXISTS(SELECT 1 FROM customer_topup_closures WHERE order_id=$1)")
+            .bind(order.id).fetch_one(&mut **tx).await?;
+        if !complete {
+            let url = build(order.id)?;
+            Self::save_epay_checkout_in_tx(tx, order.organization_id, order.id, &url).await?;
+        }
+        Ok(())
+    }
+
+    async fn save_epay_checkout_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        organization: Uuid,
+        order: Uuid,
+        checkout_url: &str,
+    ) -> Result<(), StoreError> {
         let url = url::Url::parse(checkout_url).map_err(|_| StoreError::InvalidPrice)?;
         if checkout_url.len() > 2048
             || url.scheme() != "https"
@@ -423,29 +480,22 @@ impl Store {
         {
             return Err(StoreError::InvalidPrice);
         }
-        let mut tx = self.pool.begin().await?;
-        sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR UPDATE")
-            .bind(organization)
-            .fetch_optional(&mut *tx)
-            .await?
-            .ok_or(StoreError::Conflict)?;
         let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM customer_topup_orders WHERE id=$1 AND organization_id=$2 AND aggregator='epay' AND currency='CNY')")
-            .bind(order).bind(organization).fetch_one(&mut *tx).await?;
+            .bind(order).bind(organization).fetch_one(&mut **tx).await?;
         if !exists {
             return Err(StoreError::Conflict);
         }
         sqlx::query("INSERT INTO customer_topup_checkout(order_id,checkout_url) VALUES($1,$2) ON CONFLICT DO NOTHING")
-            .bind(order).bind(checkout_url).execute(&mut *tx).await?;
+            .bind(order).bind(checkout_url).execute(&mut **tx).await?;
         let saved: String = sqlx::query_scalar(
             "SELECT checkout_url FROM customer_topup_checkout WHERE order_id=$1",
         )
         .bind(order)
-        .fetch_one(&mut *tx)
+        .fetch_one(&mut **tx)
         .await?;
         if saved != checkout_url {
             return Err(StoreError::Conflict);
         }
-        tx.commit().await?;
         Ok(())
     }
 

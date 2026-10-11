@@ -495,7 +495,7 @@ pub(crate) async fn notify(
 ///   "operation": {
 ///     "operationId": "createCustomerTopup",
 ///     "summary": "Create or recover a company prepaid top-up",
-///     "description": "Organization-wide owner/admin with write access or installation administrator only. Requires an enabled method and an existing account in the selected integration's currency. Classic EPay and native Zhifux use CNY; Stripe uses its configured supported currency. Exact positive amounts must match the integration's minor-unit precision. No implicit account creation, FX or approved credit. Reuse the same idempotency key and identical intent after an uncertain response. Remote creation is durably claimed before contact and never automatically repeated; EPay saves a deterministic signed checkout locally. Checkout alone grants no balance. Independently verified payment gates funding. Merchant credentials and enabled methods are deployment configuration. An explicit payment_gateway never falls through to another integration. Omission preserves runtime priority for compatibility.",
+///     "description": "Organization-wide owner/admin with write access or installation administrator only. Requires an enabled method and an existing account in the selected integration's currency. Classic EPay and native Zhifux use CNY; Stripe uses its configured supported currency. Exact positive amounts must match the integration's minor-unit precision. No implicit account creation, FX or approved credit. Reuse the same idempotency key and identical intent after an uncertain response. Remote creation is durably claimed before contact and never automatically repeated; EPay atomically saves its intent and deterministic signed checkout locally. A checkout write failure rolls back a new intent; replay can complete an older saved intent without a link. Checkout alone grants no balance. Independently verified payment gates funding. Merchant credentials and enabled methods are deployment configuration. An explicit payment_gateway never falls through to another integration. Omission preserves runtime priority for compatibility.",
 ///     "requestBody": {
 ///       "required": true,
 ///       "content": {
@@ -3207,7 +3207,7 @@ async fn create_epay_topup(
         .map_err(|_| ApiError::invalid_request("CNY top-ups require at most two decimal places"))?;
     let order = state
         .store
-        .create_authorized_customer_topup(
+        .create_authorized_epay_checkout(
             organization,
             &niu_storage::TopupInput {
                 currency: "CNY",
@@ -3217,49 +3217,26 @@ async fn create_epay_topup(
                 payment_method: &input.payment_method,
                 idempotency_key: input.idempotency_key,
             },
-            Some(configuration_revision),
+            configuration_revision,
             member,
+            &|id| {
+                runtime
+                    .verifier
+                    .checkout(
+                        &checkout.endpoint,
+                        &checkout.notify,
+                        &checkout.return_url,
+                        &niu_payments::epay::ExpectedOrder {
+                            number: &id.simple().to_string(),
+                            payment_method: &input.payment_method,
+                            amount_nanos: amount,
+                        },
+                    )
+                    .map_err(|_| niu_storage::StoreError::InvalidPrice)
+            },
         )
         .await
         .map_err(ApiError::from_store)?;
-    if state
-        .store
-        .customer_topup_paid(organization, order.id)
-        .await
-        .map_err(ApiError::from_store)?
-        != Some(true)
-        && state
-            .store
-            .customer_topup_closed(organization, order.id)
-            .await
-            .map_err(ApiError::from_store)?
-            != Some(true)
-        && state
-            .store
-            .customer_topup_checkout(organization, order.id)
-            .await
-            .map_err(ApiError::from_store)?
-            .is_none()
-    {
-        let url = runtime
-            .verifier
-            .checkout(
-                &checkout.endpoint,
-                &checkout.notify,
-                &checkout.return_url,
-                &niu_payments::epay::ExpectedOrder {
-                    number: &order.id.simple().to_string(),
-                    payment_method: &order.payment_method,
-                    amount_nanos: order.amount_nanos,
-                },
-            )
-            .map_err(|_| ApiError::upstream_message("EPay checkout configuration is invalid"))?;
-        state
-            .store
-            .save_epay_merchant_checkout(organization, order.id, &url)
-            .await
-            .map_err(ApiError::from_store)?;
-    }
     topup_response(state, organization, order.id).await
 }
 /// ```openapi

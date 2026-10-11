@@ -767,3 +767,29 @@ across startup/restart. The native service then became ready on that clean binar
 with configuration, encrypted credential revisions and durable record counts
 unchanged. This closes the shared-development-binary limitation for this boundary;
 it does not qualify merchant activation or alter existing checkout records.
+
+## Atomic local EPay checkout persistence
+
+EPay intent and locally signed checkout now commit in one authorized storage
+transaction, under the existing company/account and configuration locks. The
+protocol signer is a synchronous local formatter; no upstream network work runs
+inside the transaction. Existing checkout links remain immutable on replay.
+Older pending intents without links can be completed under their original order
+and idempotency identity. Paid/closed records are not given new checkout links.
+This does not change remote creation semantics for Stripe or native Zhifux.
+
+An actual isolated PostgreSQL write fault on checkout insertion reproduced the
+previous state: HTTP 503 with one intent and no link. After the change, the same
+fault returned 503 with neither record retained. Removing the fault and retrying
+the original client intent saved exactly one order/link; restart replay was
+identical. Separately, clean pre-change `e3263df` produced a real incomplete
+intent under that fault. The changed binary opened a stopped copy and recovered
+its link under the same original order ID, preserving replay after restart.
+Independent reopening matched the saved HTTP checkout artifacts and found no
+settlement, balance entry or funding receipt in either recovered database.
+
+The 2,048-byte configuration boundary and exact maximum-amount checkout were also
+rechecked on the changed binary. Release compilation and all-target gateway/storage
+Clippy completed; no fixture outcome is used as behavioral evidence. These runs
+qualify the exercised local transaction failure/recovery, not merchant funding,
+every database commit-acknowledgment failure or all payment adapters.
