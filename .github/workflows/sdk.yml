@@ -1,0 +1,49 @@
+name: JavaScript SDK static checks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sdk.yml'
+      - 'sdks/javascript/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+  pull_request:
+    paths:
+      - '.github/workflows/sdk.yml'
+      - 'sdks/javascript/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sdk-static-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sdk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install locked workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check SDK types
+        run: pnpm --dir sdks/javascript check
+      - name: Build SDK JavaScript and declarations
+        run: pnpm --dir sdks/javascript build
+      - name: Record verification scope
+        if: always()
+        run: echo 'SDK type and build checks only. Runtime authorization, model calls, accounting and release readiness require current-input end-to-end runs and independent artifact verification.' >> "$GITHUB_STEP_SUMMARY"
