@@ -136,3 +136,23 @@ Association acquires its Supplier lock before the configuration lock, matching
 Supplier offer publication and avoiding the reverse lock order between those
 operations. The deletion/association HTTP cases and independent persisted-state
 inspection were repeated with this ordering.
+
+## Competing ownership and idempotent association — 2026-10-11
+
+Using the current Gateway and a fresh isolated PostgreSQL database, two actual
+administration HTTP requests associated the same previously unowned configuration
+with different Suppliers using the same initial revision. One returned 204 and
+the other 409. Reading the association returned the winning Supplier. Repeating
+the winning association with the original revision returned 204 without advancing
+the configuration revision. Trying the losing Supplier with the new current
+revision still returned 409: association is not an ownership-transfer operation.
+A stale first association on another unowned configuration returned 409 and its
+association read remained null.
+
+After Gateway restart, an independent connection reopened the saved database and
+confirmed the winning ownership, exactly one configuration revision increment,
+exactly one association audit, and unchanged revision and absent ownership for
+the rejected stale first association. No ownership referenced a deleted Supplier.
+The three disabled configurations retained encrypted credentials and no inference
+attempt was created. These are administration lifecycle and concurrency results;
+they do not qualify upstream access, commercial supply or Supplier settlement.
