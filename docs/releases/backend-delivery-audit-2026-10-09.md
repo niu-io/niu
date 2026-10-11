@@ -43,8 +43,10 @@ already exercised read-only paths.
   includes interrupted image ingestion/read recovery. Actual priced foreground
   calls completed during two-gateway recovery lock contention. Those foreground runs used empty queues. Later restored, naturally expired
   payload/media backlogs exercised per-row retry, poisoned-row recovery after
-  restart and two-process cleanup without duplicate successful mutations. Other
-  asset domains and priced admission during a populated backlog remain open.
+  restart and two-process cleanup without duplicate successful mutations. A subsequent [active-cleanup admission run](../reference/retention-active-priced-admission.md)
+  observed actual priced dispatch while payload cleanup was active, with 15
+  expired payloads and three media results independently reconciled after recovery.
+  Other asset domains and sustained capacity remain open.
   A single advisory owner does not bound all cross-process claim contenders to
   one checked-out connection.
 
