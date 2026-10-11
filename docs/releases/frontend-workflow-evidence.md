@@ -1337,3 +1337,20 @@ A new browser-state read again timed out with a session reset. Rendered timeout
 recovery remains unqualified; the prior existing-editor checks do not establish
 this changed failure path. Visual reasoning controls remain pending as recorded
 above. No merchant, credential, price or paid inference mutation was performed.
+
+## Authorized customer test price publication rejected — 2026-10-11
+
+Browser access recovered. The user authorized local GPT-4.1 Mini customer pricing
+for Spending limit verification: USD input 0.40, output 1.60 and cache read 0.10
+per million tokens, zero request fee and minimum. The normal Admin editor selected
+that named workspace and model, retained those exact draft values and submitted
+once. The backend rejected the publication with “Choose an available model alias”.
+No success or tariff persistence is claimed; no inference or funding was performed.
+
+The platform inventory used by the frontend includes enabled credential model
+mappings. The tariff handler separately checks effective_models before writing.
+These eligibility sources currently disagree for the selected model. Resolving
+the supported pricing eligibility contract belongs with backend coordination;
+Supplier offer activation or procurement changes must not be inferred from
+permission to publish a customer test price. The original authorized draft was
+preserved for recovery, and the rejection screenshot retained outside the tree.
