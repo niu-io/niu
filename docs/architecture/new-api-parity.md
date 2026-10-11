@@ -61,8 +61,8 @@ and [financial recovery](../reference/financial-backlog-restart-live.md) describ
 actual verification and remaining limits. Do not infer full completion of
 [#7](https://github.com/niu-io/niu/issues/7) from that implementation alone.
 
-Chat pools implement a bounded, canonical OpenRouter authentication-rejection
-successor policy. Its [retry contract](../reference/upstream-retry-policy.md)
+Chat and Responses pools share a bounded, canonical OpenRouter
+authentication-rejection successor driver with separate persisted policy versions. Its [retry contract](../reference/upstream-retry-policy.md)
 requires durable nonexecution evidence and rechecks admission for the successor.
 Credential cooldown is separately implemented under the narrow policy above.
 Generic failover and broad commercial supply qualification remain open under #8.

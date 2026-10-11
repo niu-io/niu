@@ -403,3 +403,19 @@ successor, no alternate-route attempt or ledger entry, and the exact outstanding
 reservation. API balance/request views before rotation, after rotation and after
 restart agreed. This qualifies this early successor-disconnect boundary; terminal
 completion/disconnect races and later upstream evidence recovery remain separate.
+
+### Responses key revocation between attempts
+
+A current-input run held the successor vendor row while the first credential
+received an actual canonical OpenRouter 401. The administrator revoked the
+workspace key before releasing that lock. Successor admission returned 401 and
+the client retained the original operation/attempt correlation headers. Only the
+refused predecessor existed; neither a second upstream attempt nor a customer
+charge was created. Both customer and procurement holds were released.
+
+After Gateway restart the revoked key was still rejected. Independent database
+reopening checked the revoked key, Responses policy, single ordinal-one attempt,
+its saved upstream 401 and confirmed nonexecution, matching operation identifiers,
+and absence of charges, ledger entries and open holds. This verifies revocation
+at this specific successor-admission boundary, not every credential/configuration
+race or an already dispatched request.
