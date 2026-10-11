@@ -439,3 +439,33 @@ The clean committed `1175e0e` binary repeated the actual contention, retry,
 restart replay and subsequent model-call run. Independent final-artifact and
 reopened-database verification again confirmed the same accounting invariants;
 the held-lock response took approximately 259 ms.
+
+
+## Approved-credit policy contention — 2026-10-12
+
+Installation-approved credit policy updates now share the bounded financial
+transaction helper. Existing revision checks, immutable policy history and the
+in-flight reservation safety check are unchanged. This operation grants no funds.
+
+Against an isolated database with actual model-request debt, an organization-row
+lock kept a valid policy update pending until release after 1.6 seconds. The
+changed implementation returned HTTP 503 in approximately 256 ms while that lock
+remained held, with the ledger, invoices and billing audit counts unchanged.
+Retry after release retained the same approved credit amount, changed only the
+warning threshold, and incremented the policy revision once. Reusing the stale
+expected revision returned HTTP 409 before and after Gateway restart. Independent
+reopening confirmed one matching immutable policy revision, unchanged funding
+receipts and exact ledger arithmetic after a subsequent actual model request.
+No active request reservation remained. These observations cover this contention
+and recovery path; pool acquisition, whole-request duration and every uncertain
+commit outcome are not qualified by the individual lock/statement deadlines.
+
+
+Clean committed `f91eb89` repeated both approved-credit policy and charge-refund
+contention runs, including independent reopened-database and raw-response checks.
+The native Gateway then refreshed to that binary after a fresh backup was restored
+and full-row fingerprints matched the source. Configuration and encrypted vendor
+identities remained unchanged, as did organization, workspace, video-job and
+financial-entry counts on schema 277. Readiness and authenticated published-routing
+status were accessible after refresh. This does not requalify the historical
+performance workloads or claim every financial write path has bounded waits.
