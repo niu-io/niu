@@ -723,3 +723,44 @@ legacy duration. Independent reopening compared both API artifacts with original
 receipt timestamps, timing rows and single charge/debit records; none of those
 stored records changed. These reads use actual upstream-request artifacts, not
 fixture results or an inference-performance benchmark.
+
+
+### Native client-tool lifecycle prerequisite observation
+
+Native Messages tools remain unsupported by Niu. A direct current-input canonical
+OpenRouter observation used the dated mini model and a client-defined
+`sha256_text` tool with an object input schema. The first request forced that tool;
+the response contained one `tool_use` block and native `stop_reason: tool_use`.
+The client computed SHA-256 from the actual returned UTF-8 argument and sent a
+matching `tool_result` in the next user message. With automatic tool choice, the
+second response returned the independently computed digest and `end_turn`.
+This follows the [native client-tool lifecycle](https://platform.claude.com/docs/en/agents-and-tools/tool-use/handle-tool-calls).
+
+Independent inspection of the retained original requests and responses verified
+the fresh input, tool name, argument, call/result identity, computed digest and
+final answer. Canonical metadata for the same two generation references matched
+the configured model and reported noncancelled execution. Its normalized finish
+reason was `tool_calls` for the first turn and `stop` for the continuation; the
+provider-native reason was `completed` for both. Native prompt/output counts
+matched the corresponding response quantities (100/23 and 161/34). No Niu
+attempt, customer charge, Supplier qualification or supported Niu tool capability
+is inferred from this direct provider observation.
+
+Implementation must cover these boundaries together:
+
+- Explicit native tool capability and candidate filtering, independent of the
+  existing text-streaming opt-in; do not silently enable unsupported stream events.
+- Bounded tool definitions, choices and object inputs, plus matching tool-use and
+  tool-result history. Niu transports client-owned tools; it does not execute them.
+- Response projection and tool identity/argument validation without forwarding
+  arbitrary upstream metadata. Schema handling must remain offline and bounded.
+- Input/output inspection of tool definitions, arguments and results, or an
+  explicit pre-dispatch rejection when an installed policy cannot inspect them.
+  The current text-only inspection path is insufficient for this extension.
+- Durable completion/finish evidence and exact accounting for the tool-producing
+  turn as well as the continuation. The current supplemental metadata parser and
+  immutable receipt constraint exclude `tool_calls`; these must be deliberately
+  extended with the native tool path rather than accepting unknown finish reasons.
+- Actual workspace-key round trips, permissions, interruption/restart and
+  independent ledger verification before claiming backend support. Direct
+  provider compatibility alone does not establish those outcomes.
