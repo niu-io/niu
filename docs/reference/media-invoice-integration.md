@@ -305,3 +305,25 @@ This verifies coexistence of customer-priced text and personal video. It does no
 qualify an invoice containing a positive customer media charge, media-overrun
 recovery, or external commercial settlement. Those branches remain unverified;
 external provider or merchant activation is not itself a backend-readiness gate.
+
+## Closed-period issuance with a later real request
+
+Pinned backend `e655a37` completed a real credit-backed text request in a fresh
+isolated workspace, then closed its invoice interval at a database-clock boundary.
+A second real request ran concurrently with issuing that first interval. It was
+dispatched at or after the boundary and belonged to the next adjacent interval.
+Each invoice contained only its own attempt and exact token-priced amount.
+Idempotent replay after Gateway restart retained the same two invoice identities.
+
+Independent reopening rehashed both original responses, recomputed their charges,
+and checked dispatch times against the boundary, invoice attribution and each
+balance debit. Exactly two attempts, two invoice entries and two debits existed;
+the temporary key was revoked, no customer reservation remained open and no
+funding receipt existed. This verifies ordinary closed-period text issuance while
+new work continues, not a late media charge inside a historical issued interval.
+
+Current issuance rejects overlapping periods and unresolved priced attempts in
+its interval. Historical media supplements remain unimplemented, but they should
+not be introduced merely to compensate for ordinary later dispatch: that work
+belongs to its own period. A reproduced historical case and explicit adjustment
+contract are needed before changing immutable issued invoices.
