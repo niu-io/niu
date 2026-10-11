@@ -51,9 +51,9 @@ metadata identifying the explicit dated model instead. Reconciliation returned
 reasoning and no receipt or financial entry. An earlier inference attempt received
 503 before the successful verification; it is not evidence of completed inference.
 
-The aggregate-conflict fault run below covers one numeric mismatch. Conflicting
-known category values and simultaneous complementary category updates still
-require their own current-input verification. The later Chat checkpoint
+The aggregate and cached-input conflict runs below cover two numeric mismatch
+boundaries. Other known-category conflicts and simultaneous complementary
+category updates still require their own current-input verification. The later Chat checkpoint
 below covers customer settlement after a missing-category persistence fault;
 existing generic merge invariants and static checks are not its evidence.
 
@@ -190,3 +190,24 @@ receipt, original missing-category snapshot, final categories, exact charge/debi
 revoked key and released hold. This verifies the observed aggregate mismatch and
 subsequent recovery, not every conflicting category or concurrent merge case.
 The original installation and retained databases were not altered.
+
+
+## Known cached-input conflict
+
+A separate real buffered Chat completion repeated the missing-reasoning persistence
+fault with an already known cached-input count. An isolated mutation increased
+that saved cached-input count by one, within the known aggregate input total.
+The original response and upstream generation metadata were unchanged.
+
+Reconciliation returned 409 before and after Gateway restart. No receipt, charge
+or balance entry was created, reasoning stayed missing and the reservation stayed
+open. Restoring the original cached-input count allowed the same genuine metadata
+lookup to supplement reasoning. Replay and restart preserved one exact debit under
+the original tariff, despite the intervening price edit.
+
+Independent verification rehashed and parsed the original response, checked the
+saved conflict responses, and reopened the stopped database. Final aggregate and
+reasoning counts, upstream receipt and original missing-category snapshot matched;
+one completed attempt, one receipt, one charge/debit and no remaining customer
+hold existed. Temporary keys were revoked. This verifies one existing cached-input
+value conflict, not every category disagreement or complementary-update race.
