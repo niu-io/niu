@@ -108,3 +108,14 @@ kept its documented failure/recovery semantics and final financial counts. This
 checks the negative Supplier recording boundary and common initializer; positive
 Supplier settlement and every long-statement/uncertain-commit case remain
 unverified. Static formatting and release compilation are separate checks.
+
+
+Clean committed `f3cdde2` repeated the Supplier rejection, invoice-payment
+rejection and delayed invoice-audit rollback runs with independent verification.
+Before native replacement, a fresh private archive restored with matching
+business-record and encrypted-identity fingerprints. The exact target hash and
+previous retained binary were checked. The original port reached readiness after
+graceful replacement; configuration, encrypted credential revisions and durable
+record counts were preserved on schema 277. Authenticated routing status remained
+consistent with the published configuration. Implementation CI completed
+successfully as a static check; it does not fill positive settlement evidence.

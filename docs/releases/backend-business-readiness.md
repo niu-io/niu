@@ -1,9 +1,9 @@
 # Backend business readiness review
 
-Reviewed: 2026-10-11. This is an incomplete acceptance review, not a release
+Reviewed: 2026-10-12. This is an incomplete acceptance review, not a release
 approval or a claim of parity with another gateway. Review the committed `main`
-contracts separately from uncommitted shared development changes. The native backend is now pinned to `8bb70a8`, including shared bounded invoice
-issuance and payment-recording transactions. The broad buffered/streaming workload evidence remains pinned
+contracts separately from uncommitted shared development changes. The native backend is now pinned to `f3cdde2`, including shared bounded invoice
+issuance, invoice payment and Supplier settlement recording transactions. The broad buffered/streaming workload evidence remains pinned
 to `e655a37`; do not relabel historical measurements as new-version results.
 
 ## Required business paths
