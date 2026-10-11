@@ -942,7 +942,12 @@ pub(super) async fn finalize_response(
             .await
             .is_err()
     {
-        tracing::error!(attempt_id = %dispatch.attempt, "request failure persistence or reservation release requires retry");
+        tracing::error!(
+            attempt_id = %dispatch.attempt,
+            failure_kind = failure.kind.as_str(),
+            upstream_http_status = ?failure.upstream_http_status,
+            "request failure persistence or reservation release requires retry"
+        );
     }
     if let Some(input) = dispatch.retained_input {
         response
