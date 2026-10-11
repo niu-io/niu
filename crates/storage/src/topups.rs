@@ -196,7 +196,9 @@ impl Store {
         organization: Uuid,
         order: Uuid,
     ) -> Result<bool, StoreError> {
-        let mut tx = self.pool.begin().await?;
+        // Keep pre-contact contention bounded while preserving the durable
+        // claim that prevents repeating an uncertain remote creation.
+        let mut tx = self.begin_bounded_recording().await?;
         sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR UPDATE")
             .bind(organization)
             .fetch_optional(&mut *tx)
