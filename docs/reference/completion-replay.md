@@ -152,3 +152,31 @@ This verifies first settlement when a persisted category is missing but the
 actual completion response retained its explicit zero value. It does not qualify
 nonzero category supplementation, an upstream correction feed, public correction
 administration, or all mixed-category concurrency cases.
+
+## Nonzero complementary observations — 2026-10-11
+
+A further current run copied the retained real cache-write/reasoning history into
+an isolated database. Its original saved response reported 5,314 input tokens,
+5,269 cache-write tokens, 47 output tokens and 35 reasoning tokens. Only the
+persisted write/reasoning fields were temporarily removed; the source database
+and original provider response were preserved.
+
+Two concurrent callers supplied complementary observations: completion batching
+supplied the actual write quantity without reasoning, while the standalone scoped
+writer supplied actual reasoning without the write quantity. Both succeeded and
+the combined row recovered the complete original evidence. A partial replay
+preserved known values; a contradictory write quantity and foreign-company write
+were rejected. After gateway restart, request detail returned the restored
+categories and the unchanged 1,387,531-nanounit customer charge.
+
+An independent process reopened PostgreSQL and compared all six full business
+fingerprints. It also checked both original response hashes, recomputed their
+category charges from the original rates, and matched category quantities and
+pinned revision IDs to durable rows. Both historical charges and debits remained
+unchanged, despite the account's current tariff having been replaced previously.
+
+This extends supplementation evidence to nonzero complementary write/reasoning
+observations on an already charged request. It does not establish concurrent
+cache-read/write partition overflow rejection, first settlement of an originally
+unknown nonzero category, or a provider correction feed. No fresh inference or
+funding was submitted in this run.
