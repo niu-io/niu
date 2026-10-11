@@ -281,6 +281,17 @@ changes. This qualifies the observed catalog read only: a real upstream inventor
 above 2,000 entries remains unverified, and catalog access is not generation or
 commercial qualification. No fixture outcome is used as evidence.
 
+A follow-up actual refresh used two disabled mappings with explicit internal
+procurement configuration: one existing OpenRouter model and one freshly named
+absent model. The refresh changed only the existing model's catalog metadata and
+incremented its revision once. It preserved both mappings' prices, routing fields,
+capability declarations and disabled state, and retained the absent model.
+An immediate second real catalog refresh returned zero changes. Gateway restart
+preserved the responses; independent database reopening matched both mappings,
+prices and revisions against the saved artifacts and checked the catalog response
+hash. No inference, funding or commercial offer was created. Concurrent upstream
+configuration changes during refresh remain outside this checkpoint.
+
 ## Shared catalog inputs use one database snapshot — 2026-10-11
 
 Shared model mappings and Supplier-unavailable aliases are now read in one
