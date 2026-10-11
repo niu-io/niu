@@ -735,3 +735,25 @@ These observations qualify local checkout construction and persistence in the
 changed development binary, not merchant acceptance or received-cash settlement.
 Existing immutable checkout URLs are not rewritten by this change. No fixture
 outcome supports the observations.
+
+## Reject oversized checkout configuration before creating orders
+
+Enabled EPay configuration now validates the complete encoded checkout URL against
+the 2,048-byte durable storage limit. The probe uses the actual 32-character order
+reference width, the largest representable two-decimal CNY amount and every enabled
+method. The protocol builder also enforces the limit. This includes percent-encoded
+notification/return URLs and signing parameters, not just the endpoint length.
+
+An actual management run reproduced the previous defect: a long notification URL
+saved successfully, but checkout creation returned 400 after creating one pending
+order with no checkout. Such an order also prevented ordinary configuration edits.
+After correction, the same configuration returned 400 before configuration or
+order persistence. A separately calculated exact-boundary configuration produced
+a 2,048-byte checkout for CNY 9,223,372,036.85; adding one byte was rejected before
+any order existed. The boundary order's encoded amount and signature matched
+independent calculations, and replay after restart returned the same saved order.
+Independent reopening matched the HTTP checkout artifact and found one order,
+one checkout and no settlement, balance entry or funding receipt. No payment URL
+was followed or external payment initiated. These are local construction and
+persistence observations from the changed development binary, not merchant
+acceptance. Existing saved orders and links are not automatically rewritten.

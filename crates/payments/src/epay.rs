@@ -135,6 +135,11 @@ impl Merchant {
         };
         endpoint.set_path(&checkout_path);
         endpoint.query_pairs_mut().extend_pairs(parameters);
+        // Match the durable checkout URL limit before an order can be stranded
+        // without a usable link. Configuration probes must use worst-case inputs.
+        if endpoint.as_str().len() > 2048 {
+            return Err(Error::Configuration);
+        }
         Ok(endpoint.into())
     }
     /// Pass raw form/query bytes. Duplicate fields are rejected before verification.

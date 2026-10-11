@@ -3144,18 +3144,24 @@ impl EPayRuntime {
                         {
                             return Err("Invalid EPay payment methods");
                         }
-                        verifier
-                            .checkout(
-                                &endpoint,
-                                &notify,
-                                &return_url,
-                                &niu_payments::epay::ExpectedOrder {
-                                    number: "configuration",
-                                    payment_method: &methods[0],
-                                    amount_nanos: 10_000_000,
-                                },
-                            )
-                            .map_err(|_| "Invalid EPay checkout configuration")?;
+                        // Probe the full persisted URL bound, including the
+                        // actual UUID width and largest representable CNY amount.
+                        // Otherwise a configuration can pass but strand an order
+                        // when its later checkout cannot fit durable storage.
+                        for method in &methods {
+                            verifier
+                                .checkout(
+                                    &endpoint,
+                                    &notify,
+                                    &return_url,
+                                    &niu_payments::epay::ExpectedOrder {
+                                        number: "00000000000000000000000000000000",
+                                        payment_method: method,
+                                        amount_nanos: i64::MAX / 10_000_000 * 10_000_000,
+                                    },
+                                )
+                                .map_err(|_| "Invalid EPay checkout configuration")?;
+                        }
                         Some(EPayCheckout {
                             endpoint,
                             notify,
