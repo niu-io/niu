@@ -37,5 +37,20 @@ development database, configuration and encrypted identity were unchanged.
 This verifies negative configuration contention and rollback, not successful
 qualified-rate publication, populated replacement, customer-paid media or external
 settlement. Release compilation is a separate static check. No fixture outcome is
-evidence. The native development listener remains on the previously verified
-`40b5aa4` until a separate refresh.
+evidence.
+
+## Native runtime refresh
+
+The existing development listener was subsequently updated to the exact retained
+`ef77d30` binary. A fresh schema-278 backup restored into a new isolated database
+with matching full-row fingerprints for organizations, workspaces, encrypted
+vendors, financial entries, video jobs and transport timings. The previous
+`40b5aa4` binary remains retained.
+
+Graceful replacement preserved the original environment, port, configuration and
+secret-file hashes, encrypted credential revisions and durable business counts.
+Readiness returned 200; authenticated routing matched the published configuration;
+schema 278 remained unchanged. Three actual requests to the updated customer
+media-price endpoints returned expected 409 conflicts for unconfigured identities.
+Rate, retirement, billing-audit and balance-entry counts were unchanged. This
+refresh does not establish positive paid-media acceptance.
