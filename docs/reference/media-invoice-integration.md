@@ -282,3 +282,26 @@ A separate actual unknown-usage completion still rejected issuance with
 `reconciliation_required`, retained its open reservation through restart, and had
 no invoice, charge or debit. These observations do not qualify positive customer
 media invoices, historical media supplements or external commercial settlement.
+
+## Personal video alongside credit-backed text
+
+A current-input run on pinned backend revision `e655a37` reopened an isolated copy
+of a stopped database containing an actual completed personal video. In the same
+workspace, a new real text completion used explicit customer token prices and
+approved internal credit. Issuing an invoice across both requests produced one
+text entry with the exact token-based charge and no media lines. The video billing
+response remained `owner_funded`, with null customer currency, charge and usage.
+It did not block text invoice issuance.
+
+Idempotent issuance and Gateway restart preserved the invoice and video billing
+response. A separate process rehashed the saved upstream text response and reopened
+the stopped database: both attempts were completed; the text charge matched its
+bound tariff and single balance debit; the video retained its personal-route
+binding without customer media pricing or charges. No funding receipt or active
+balance hold existed, temporary keys were revoked, and media job/transport counts
+were unchanged. This run submitted one new text request, not another video.
+
+This verifies coexistence of customer-priced text and personal video. It does not
+qualify an invoice containing a positive customer media charge, media-overrun
+recovery, or external commercial settlement. Those branches remain unverified;
+external provider or merchant activation is not itself a backend-readiness gate.
