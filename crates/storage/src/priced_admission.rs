@@ -117,7 +117,8 @@ impl Store {
         if dispatched {
             Ok((admission.operation_id, attempt))
         } else {
-            Err(StoreError::Conflict)
+            // False is returned only after the audited Guardrail denial.
+            Err(StoreError::GuardrailAdmissionConflict)
         }
     }
 }

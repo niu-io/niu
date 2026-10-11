@@ -1021,7 +1021,8 @@ impl Store {
         if dispatched {
             Ok(())
         } else {
-            Err(StoreError::Conflict)
+            // The denial and any unsent hold release have committed.
+            Err(StoreError::GuardrailAdmissionConflict)
         }
     }
 

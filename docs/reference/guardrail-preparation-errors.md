@@ -212,3 +212,24 @@ development runtime. Readiness returned 200, with configuration/encryption-file
 hashes, vendor ciphertext/revisions and checked organization, workspace, media-job
 and financial-entry counts unchanged. Its GitHub CI completed successfully;
 fixture outcomes are not business-verification evidence.
+
+## Paid dispatch policy conflicts
+
+Priced admission now returns the same `409 guardrail_admission_conflict` after
+committing an audited Guardrail refusal and releasing the unsent customer hold.
+Previously it returned the generic `conflict_error`. Only the audited denial
+branch gets this classification; unknown storage/commit failures keep their
+existing behavior. Unlike unpriced batch rollback, paid refusal retains its
+prepared `not_sent` attempt and immutable rejection record. It creates no charge
+and does not authorize automatic upstream replay.
+
+Actual current-input Chat and Messages requests were paused at inspection-binding
+insertion while the management API activated a new workspace policy. Each
+returned the explicit 409; Messages preserved its native error envelope and used
+`x-niu-error-code` for the Niu classification. Restart retained one unsent denial
+with no open hold. A freshly inspected Chat request in each run then completed
+against personal OpenRouter access under approved internal credit. Independent
+reopening matched its raw response usage, pinned tariff, exact single customer
+charge and debit, with released holds and revoked temporary keys. Neither run
+created merchant funding. These checks cover the exercised workspace-policy race,
+not paid key-assignment races, every protocol or full Guardrails acceptance.
