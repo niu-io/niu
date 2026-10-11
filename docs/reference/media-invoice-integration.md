@@ -412,3 +412,30 @@ credential revisions and durable record counts stayed unchanged on schema 277.
 Retained invoice detail and published routing status remained accessible through
 authenticated no-store reads. These integration observations do not qualify a
 positive external payment or customer media settlement.
+
+
+## Balance refund contention — 2026-10-12
+
+Balance reversal recording now uses the shared financial transaction boundary:
+250 ms for individual database lock waits and 2 seconds for individual statements.
+This does not bound connection-pool acquisition or the whole HTTP request. The
+existing account lock, cumulative reversal limit, immutable original entry and
+idempotency validation remain in the caller.
+
+An isolated copy containing actual credit-backed model request debits reproduced
+an unbounded account-row wait: the internal charge refund remained pending until
+the lock was released after 1.6 seconds. With the changed implementation, the
+same contention returned HTTP 503 in approximately 257 ms without a refund entry.
+After release, retrying the original idempotency key recorded exactly one
+one-nano refund; replay after Gateway restart returned the identical record.
+An independent database reopen checked the refund, retained invoice and audit
+counts, ledger arithmetic and the raw response to a subsequent actual model call.
+That call produced one exact debit, with no active balance reservations or
+funding receipts. This was an internal account-balance refund, not an external
+payment refund. Positive settled-funding reversals and every uncertain commit
+outcome remain unverified. No fixture outcome is used as evidence.
+
+The clean committed `1175e0e` binary repeated the actual contention, retry,
+restart replay and subsequent model-call run. Independent final-artifact and
+reopened-database verification again confirmed the same accounting invariants;
+the held-lock response took approximately 259 ms.
