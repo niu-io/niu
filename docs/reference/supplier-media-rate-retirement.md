@@ -41,5 +41,20 @@ text accounting path. It does not qualify successful retirement of a populated
 rate, publication/replacement contention, customer-paid media, Supplier earnings
 or external settlement. Release compilation and formatting were separate static
 checks; no fixture outcome is evidence. Original development data, configuration
-and encrypted identity were unchanged. The native development listener remains
-on `35b8045463` until a separately verified runtime refresh.
+and encrypted identity were unchanged.
+
+## Native runtime refresh
+
+The existing native listener was subsequently refreshed to the exact retained
+`c397802` binary after a fresh private backup. Restoring that backup into a new
+isolated PostgreSQL database reproduced full-row fingerprints for organizations,
+workspaces, encrypted vendors, financial entries, video jobs and transport timings.
+The previous `35b8045463` binary was retained.
+
+Graceful replacement used the original process environment and port. Readiness
+returned 200; configuration and secret-file hashes, vendor ciphertexts/revisions
+and durable business counts were unchanged. Authenticated routing status matched
+the published configuration. An actual negative retirement request to the updated
+listener returned 409 without changing rate, retirement, Supplier audit or balance
+entry counts. Schema 278 remained in place. This refresh does not fill the positive
+media-rate or commercial accounting verification gaps listed above.
