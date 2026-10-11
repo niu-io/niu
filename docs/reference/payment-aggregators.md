@@ -940,3 +940,24 @@ locally signed checkout persistence, partial-write rollback, success after retry
 merchant activation, actual payment or positive funding. The earlier inactive
 EPay observations retain their narrower scope. Original runtime configuration,
 database and encryption identity were untouched.
+
+
+### Retry after actual Zhifux recording timeout — 2026-10-12
+
+A subsequent isolated run repeated the company-lock refusal with the saved real
+Zhifux configuration on `cefd284`, then released the lock and retried the same
+intent. Local recording committed exactly one CNY intent for 1.00 CNY and one
+durable remote-creation claim. The actual merchant creation operation returned a
+sanitized HTTP 502; no successful merchant identity or checkout was asserted.
+Customer detail retained `reconciliation_required` with no checkout URL.
+
+The same-key replay returned that retained state rather than automatically
+repeating remote creation. Changing the amount returned 409. Restart preserved
+the detail and one creation claim, and another same-key replay stayed identical.
+Independent reopening checked the exact amount, currency, payment method and
+scope, absence of provider binding, checkout link and settlement, unchanged
+funding/ledger counts, saved HTTP bodies and clean binary hash. No merchant
+payment was requested or funding manufactured. Logs/response checks found no
+merchant credentials. The upstream failure's underlying cause was not retained
+as acceptance evidence and remains undiagnosed; this verifies durable uncertain
+creation and replay, not positive checkout or funding.
