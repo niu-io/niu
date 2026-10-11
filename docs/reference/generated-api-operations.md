@@ -5149,6 +5149,149 @@ HTTP 404: Company balance permission required.
 
 HTTP 409: Cursor is unknown or does not match the company/currency.
 
+## Supplement unknown native request usage from captured OpenRouter evidence
+
+`POST /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation`
+
+Installation write access only. Empty object input; no client-supplied generation identifier, quantities or costs. Uses the stored server response reference and original managed credential only while vendor/model revisions remain current. Exact upstream model match required; aliases are not inferred equivalent. Bounded metadata lookup can return 502 while metadata is unavailable. Only confirmed-completed attempts with unknown aggregate usage are eligible. Atomically retains the original completion and immutable supplemental evidence. Recorded does not mean settled: existing financial recovery applies the request-bound tariffs; missing required categories keep liability unresolved. Never resubmits inference. Identical replay returns the saved receipt without upstream access. Cache-Control no-store.
+
+Implementation: `implemented`. Operation: `reconcileRequestUsage`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`attempt` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+### Responses
+
+HTTP 200: Supplemental usage recorded; settlement may remain pending.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status",
+    "source_version",
+    "recorded_at",
+    "prompt_tokens",
+    "completion_tokens",
+    "cached_input_tokens",
+    "reasoning_output_tokens",
+    "cache_write_input_tokens"
+  ],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "recorded"
+      ]
+    },
+    "source_version": {
+      "type": "string",
+      "enum": [
+        "openrouter-native-generation-v1"
+      ]
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "prompt_tokens": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "completion_tokens": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "cached_input_tokens": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$"
+    },
+    "reasoning_output_tokens": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$"
+    },
+    "cache_write_input_tokens": {
+      "type": "null"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid input or usage quantities.
+
+HTTP 401: Authentication required.
+
+HTTP 403: Installation write access required.
+
+HTTP 404: Scope unavailable.
+
+HTTP 409: Ineligible completion, changed route, conflicting evidence or model/reference mismatch.
+
+HTTP 502: Upstream metadata unavailable, refused, malformed, oversized or timed out.
+
+HTTP 503: Storage or credential decryption unavailable.
+
 ## Read workspace customer charges, tariffs and latest 100 invoices
 
 `GET /admin/v1/organizations/{organization}/projects/{project}/billing`

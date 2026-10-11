@@ -466,16 +466,31 @@ Responses, streaming and failure-path correlation remain separate work.
 
 The [OpenRouter generation metadata API](https://openrouter.ai/docs/api/api-reference/generations/get-generation)
 returns separate normalized and native token fields, plus commercial metadata.
-A real query observed different values in those token families. Future billing
-reconciliation must use qualified native quantities, validate the original
+A real query observed different values in those token families. Supplemental billing
+reconciliation uses validated native quantities, validate the original
 credential/route/reference binding and preserve unknown categories. Upstream costs
 must not enter customer responses or substitute for customer tariffs. The original
 unknown completion must remain immutable evidence; supplementing it requires an
 explicit auditable transaction with exact idempotency and pinned prices.
 
-Automatic metadata lookup, durable supplemental usage observations and settlement
-from them are not implemented. Persisting an ID does not reconcile an open hold or
-qualify the upstream's generation metadata for every protocol/model.
+An installation administrator can explicitly call
+`POST /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation`
+with `{}`. It fetches metadata using the saved reference and original credential,
+requires unchanged managed route revisions and exact model identity, and records
+one immutable supplemental receipt containing the original unknown completion.
+The attempt's current usage projection then becomes eligible for existing financial
+recovery under its bound tariffs. No inference is retried. Cache-write usage stays
+unknown, and any missing category required by the bound rate prevents settlement.
+The response reports recorded usage, not a guarantee of settlement; repeated calls
+return the saved receipt. Customer quantities are decimal strings and no upstream
+reference or commercial metadata is returned. The SDK exposes `reconcileRequestUsage`.
+
+The metadata fetch has a ten-second total deadline and a 256 KiB body limit. Missing
+or refused metadata returns a sanitized 502 without changing accounting. Mismatched
+model/reference, changed configuration and ineligible completion return 409.
+Normalized token counts, upstream costs and inferred alias equivalence are never
+billing inputs. Periodic automatic lookup, streaming and other protocol correlation
+remain outside this implementation.
 
 
 A current-input Gateway run saved the real canonical response header despite a
@@ -495,3 +510,28 @@ An offline populated database upgrade from migration 0254 to 0255 preserved prio
 migration checksums, encrypted credential identity and the existing unresolved
 hold through restart. Independent reopening confirmed those values and an empty
 new reference table: historical generation bindings were not invented.
+
+## Supplemental usage current-input checkpoint
+
+An actual Gateway Messages request configured the explicit dated model
+`openai/gpt-4.1-mini-2025-04-14` and returned the fresh requested text. Its missing
+native cache fields left aggregate usage unknown and the reservation open. The
+installation reconciliation operation fetched the captured generation's metadata
+and recorded native aggregate usage, retaining the original unknown completion
+and completion timestamp. An intervening customer tariff edit did not reprice the
+request: financial recovery used the bound older tariff and posted exactly one
+charge and debit. Eight concurrent receipt replays, workspace-key revocation and
+restart preserved that result. The receipt kept cache-write usage null.
+Independent reopening compared the actual native response, original evidence,
+current usage, tariff binding, exact charge/debit and released reservation.
+These were internal verification rates and approved credit, not external funding,
+commercial Supplier qualification or a discount claim.
+
+A separate run queried the actual earlier undated-model generation. Its metadata
+reported the dated model, so reconciliation returned 409; the original unknown
+usage, open reservation and absence of financial entries survived restart. No
+alias equivalence or replacement inference was invented. A populated offline
+0255-to-0256 upgrade preserved migration checksums, encrypted credential identity
+and the existing unknown liability; independent reopening verified those values.
+This checkpoint does not establish streaming, other protocol/model equivalence,
+category-priced settlement with missing quantities, or production capacity.

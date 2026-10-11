@@ -294,6 +294,10 @@ pub(crate) fn router(state: AppState) -> Router {
             get(crate::admin::costs),
         )
         .route(
+            "/admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation",
+            post(crate::billing::usage_reconciliation::reconcile),
+        )
+        .route(
             "/admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/payloads",
             get(crate::admin::request_payloads::get).delete(crate::admin::request_payloads::delete),
         )

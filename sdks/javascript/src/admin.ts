@@ -145,6 +145,7 @@ export type CustomerBalanceReservation = {
   execution: string; usage_confidence: string; created_at: string; observed_at: string;
   status: 'preparing' | 'in_progress' | 'execution_unknown' | 'usage_unknown' | 'settlement_pending';
 };
+export type RequestUsageReconciliation = { status: 'recorded'; source_version: 'openrouter-native-generation-v1'; recorded_at: string; prompt_tokens: string; completion_tokens: string; cached_input_tokens: string | null; reasoning_output_tokens: string | null; cache_write_input_tokens: null };
 export type CustomerBalanceReservationQuery = { before?: string; currency?: string; limit?: number };
 
 export type CustomerChargeReconciliation = {
@@ -880,6 +881,11 @@ export class NiuAdminClient {
   /** Shared company funds require organization-wide owner/admin authorization. */
   getCustomerBalance(organizationId: string, options?: RequestOptions): Promise<{ data: CustomerBalance[] }> {
     return this.request(`/organizations/${uuid(organizationId)}/billing/balance`, undefined, options);
+  }
+
+  /** Installation write only. Records supplemental usage; financial recovery settles separately. */
+  reconcileRequestUsage(scope: TenantScope, attemptId: string, options?: RequestOptions): Promise<RequestUsageReconciliation> {
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/requests/${uuid(attemptId)}/usage-reconciliation`, {}, options, 'POST');
   }
 
   /** Company-wide balance permission required. Keep currency fixed while following next_before. */
