@@ -262,3 +262,31 @@ no funding entry existed. All five saved refusals retained the expected error.
 This extends the earlier personal-route checkpoint to priced admission and
 reservation cleanup under cross-process contention. It does not qualify sustained
 load, every protocol or settlement of uncertain upstream work.
+
+## Priced multi-key admission across two gateways — 2026-10-11
+
+A current-input run used a clean `8fca735` release binary, a fresh PostgreSQL 17
+database and two native gateways with two admission connections each. Eight
+independent workspace keys each had a two-request-per-minute cap. A synchronized
+32-client burst sent four requests per key, split across both gateways, using
+actual personal self-funded OpenRouter `openai/gpt-4.1-mini`. Bounded internal
+approved credit and explicit customer rates exercised accounting without creating
+a funding receipt or claiming commercial Supplier qualification.
+
+Each key admitted exactly two requests and rejected two with HTTP 429
+`key_request_rate_exceeded`. All 16 successful responses contained their fresh
+strict-JSON marker. Restarting both gateways inside the same window preserved
+the used allowance: a further request for every key returned the same 429, with
+no additional attempts. Temporary keys were revoked.
+
+Independent inspection after stopping and reopening PostgreSQL checked each raw
+response hash and parsed marker, matched its reported tokens to the completed
+attempt and key, and recalculated the pinned customer price. Exactly one charge
+and matching debit existed per successful attempt, totaling **272,848 USD
+nanounits**. All 16 successful response timings were complete. There were no
+outstanding customer/procurement holds, funding receipts or live temporary keys.
+
+This verifies the stated shared RPM boundary and accounting under a finite burst
+and restart. It does not establish TPM/concurrency-cap combinations, fairness,
+long-duration capacity, or every limit-window boundary. Fixture outcomes provide
+no evidence for these observations.
