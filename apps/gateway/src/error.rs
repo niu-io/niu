@@ -366,7 +366,7 @@ impl ApiError {
                 "media_result_timeout",
                 "Result retrieval timed out. Try again later.",
             ),
-            ResultError::Unavailable => (
+            ResultError::Unavailable | ResultError::HttpStatus(403 | 404 | 410) => (
                 StatusCode::BAD_GATEWAY,
                 "media_result_unavailable",
                 "The Supplier cannot currently serve this saved result. Its link may have expired.",

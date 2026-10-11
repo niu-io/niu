@@ -80,7 +80,6 @@ pub(crate) async fn read(
 ) -> Result<ResultMedia, ResultError> {
     match response.status().as_u16() {
         200 => {}
-        403 | 404 | 410 => return Err(ResultError::Unavailable),
         status => return Err(ResultError::HttpStatus(status)),
     }
     if response
@@ -317,7 +316,7 @@ mod tests {
             .unwrap();
         for (path, expected) in [
             ("redirect", ResultError::HttpStatus(302)),
-            ("expired", ResultError::Unavailable),
+            ("expired", ResultError::HttpStatus(410)),
             ("html", ResultError::InvalidMedia),
             ("fake", ResultError::InvalidMedia),
             ("chunked", ResultError::TooLarge),

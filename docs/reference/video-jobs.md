@@ -1476,7 +1476,8 @@ not extend the evidence to paid settlement or every model/output combination.
 Video transport diagnostics now include a `result` phase for upstream result
 retrieval and bounded body reading. Records contain elapsed time and the existing
 `received`/`unavailable` outcome, without signed URLs, credentials or response
-bodies. Result failure HTTP status remains unknown. `received` means media bytes
+bodies. Numeric upstream HTTP failures are preserved when a response is received;
+network failures and redirect exhaustion have no final HTTP status. `received` means media bytes
 reached the Gateway, not that the client received them; current access and content
 retention are checked again before delivery. These spans do not change generation
 state or billing. Pre-fetch authorization refusals create no network span. Timing
@@ -1579,3 +1580,25 @@ Consequently, personal video success must not be presented as prepaid video
 billing verification. External activation is separate from implementation
 readiness, and absent external evidence does not justify inventing supply
 qualification, funding receipts or reported usage.
+
+## Preserve unavailable-result status codes
+
+Result responses with upstream HTTP 403, 404 or 410 now retain the numeric status
+in transport diagnostics instead of collapsing it into a status-free unavailable
+error. The customer response remains HTTP 502 `media_result_unavailable`, with
+the existing safe explanation that the saved link may have expired. No upstream
+body, URL or credential is exposed. Redirect exhaustion still reports unavailable
+without inventing a final status. This changes neither job completion nor billing.
+
+The mapping is implemented; a current upstream 403/404/410 saved-result response
+has not yet qualified those three branches end to end. Do not interpret static
+checks or fixture outcomes as that missing evidence.
+
+The changed development binary was also run against an isolated stopped copy of
+an actual completed personal video. Two current authorized downloads had identical
+hashes and decoded completely with FFmpeg; revocation then denied retrieval with
+401. Independent reopening matched both result timings to the API across restart,
+verified the downloaded bytes and decoded them again, and found one original job
+and submission with no customer financial entries. This is normal-path evidence
+from the shared development tree, not a clean release or evidence for the three
+unobserved upstream failure statuses above.
