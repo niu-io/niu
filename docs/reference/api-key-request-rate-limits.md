@@ -233,3 +233,13 @@ binding to the sole attempt, with no customer account, charge, debit or hold.
 The legacy organization was explicitly initialized without a prepaid account in
 the disposable database; no production account or funding history was removed.
 The concurrent HTTP run does not establish that both requests shared one batch.
+
+The committed `1109707` release binary was subsequently rebuilt and installed in
+the existing native development runtime. Readiness returned 200; configuration
+and encryption-file hashes, vendor ciphertext/revisions, and organization,
+workspace, media-job and financial-entry counts were unchanged. A fresh isolated
+current-input run against that binary repeated the legacy Chat/Messages denials,
+concurrent permitted completion and restart check. Independent inspection again
+matched the saved response usage and credential binding to one attempt, with no
+customer financial records. This checkpoint covers the legacy admission path;
+it does not establish full release readiness or sustained-load performance.
