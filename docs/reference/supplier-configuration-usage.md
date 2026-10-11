@@ -60,7 +60,15 @@ Explicit internal verification credit and rates supported accounting; there were
 no funding receipts or Supplier earnings. The original runtime/database were not
 modified by the isolated run.
 
-This run covers completed text traffic. Nonempty media/unknown-usage/failure
-aggregation, Supplier-member and scoped-administrator negative checks, large
-history query performance and upgrade index-build duration remain unverified.
+A subsequent current-input authorization run restored a stopped copy of those
+actual records. A company owner received 403. After the installation credential
+added that operator as an active Supplier manager, the usage endpoint still
+returned 403 while the same member successfully read its Supplier dashboard
+(200). Administrator totals and model rows stayed unchanged. Independent database
+reopening checked the persisted membership, unchanged attempts and revocation of
+the temporary operator against the saved HTTP results.
+
+These runs cover completed text traffic and the stated authorization boundaries.
+Nonempty media/unknown-usage/failure aggregation, large history query performance
+and upgrade index-build duration remain unverified.
 It does not qualify an entire Supplier business workflow or release gate.
