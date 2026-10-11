@@ -463,3 +463,30 @@ A fresh native backup restored with matching durable-data fingerprints before
 replacement with the verified binary. Original configuration and encrypted
 identities were preserved; readiness and persisted routing agreement were
 confirmed on schema 278.
+
+### Shared stream concurrency across two Gateways — 2026-10-12
+
+Digest-verified clean implementation
+`feae5a7c17f3bc139a8a67a13767381c35206878` ran two Gateway processes sharing a
+fresh native PostgreSQL database. Each configured two admission connections;
+maintenance connections remain additional. An actual personal OpenRouter
+structured stream occupied a workspace key with concurrency limit one. Before
+changing the policy, an overlapping request through the second Gateway received
+429 `key_concurrency_exceeded` and created no additional attempt.
+
+While the original request was dispatched, the administrator reduced the limit
+to zero and rotated the key. The replacement was denied through the second
+Gateway, while the original stream returned its unique marker, native usage and
+`[DONE]`. One exact customer charge/debit settled, reservations released and the
+shared lineage's active count returned to zero. Restart retained the zero policy
+and the replacement's 429 refusal; both temporary secrets were finally revoked.
+
+Independent parsing and hashing of the original SSE plus PostgreSQL reopening
+checked the unique output, original-rate debit, one completed attempt, shared
+rotation lineage, policy history `1 → 0`, released holds and absence of funding.
+The overlap was observed against the real upstream; no artificial delay or fake
+completion was inserted. This verifies these stream admission and policy-edit
+transitions, not every protocol, unknown-disconnect recovery or maximum capacity.
+Personal access and internal credit/rates are not commercial supply or externally
+funded payments. Original deployment data and encrypted identity were unchanged.
+No fixture outcome supports this checkpoint.
