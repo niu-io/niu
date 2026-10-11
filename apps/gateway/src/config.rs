@@ -135,6 +135,7 @@ impl ModelProtocol {
 #[derive(Default)]
 pub(crate) struct ModelRequirements {
     pub streaming: bool,
+    pub messages_streaming: bool,
     pub tools: bool,
     pub streaming_tools: bool,
     pub structured_output: bool,
@@ -145,6 +146,7 @@ pub(crate) struct ModelRequirements {
 impl ModelRequirements {
     pub fn allows(&self, model: &ModelConfig) -> bool {
         (!self.streaming || model.protocol().supports_streaming())
+            && (!self.messages_streaming || model.supports_messages_streaming)
             && (!self.tools || model.supports_tool_calls)
             && (!self.streaming_tools || model.supports_streaming_tool_calls)
             && (!self.structured_output || model.supports_structured_output)

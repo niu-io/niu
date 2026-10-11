@@ -720,3 +720,33 @@ study, multi-host performance, concurrent publication qualification or a compari
 with New API. Baseline per-run throughput varied from 63.71 to 74.67 reads/second;
 current runs ranged from 1,306.75 to 1,386.05. Longer runs and other inventory sizes
 remain unqualified. No fixture result supports these observations.
+
+
+## Native Messages streaming selection — 2026-10-11
+
+Native Messages streaming requests filter candidates by both `supports_messages`
+and `supports_messages_streaming` before applying priority and weight. This is
+separate from OpenAI-compatible Chat streaming capability: native Anthropic
+routes are eligible when explicitly enabled. Buffered Messages requests do not
+require the streaming flag. No eligible pool candidate returns 503 before
+admission; a direct mapping without streaming support retains its 501 response.
+
+An actual management/API run reproduced a defect: a preferred buffered-only
+candidate caused a stream request to return 501 even though a lower-priority
+streaming candidate was enabled. The request created no attempt. The resolver now
+receives the native streaming requirement and uses the existing candidate filter.
+
+On the corrected gateway, a fresh request returned its unique marker through
+native SSE using the lower-priority streaming mapping. Disabling that candidate
+caused 503 without another attempt, both before and after restart. A buffered
+request still completed on the preferred mapping. Both responses used the public
+pool alias, while durable attempt bindings retained the respective candidate and
+pool revisions. Independent reopening matched both saved response artifacts,
+exactly two completed attempts and unchanged encrypted credentials. Missing
+native usage categories retained two holds and no invented charge or debit.
+These calls used personal upstream access with explicit internal verification
+prices and credit, not commercial supply or merchant funding.
+
+This checkpoint verifies capability selection for the exercised OpenRouter native
+text path. Direct Anthropic streaming, complete immutable published route
+snapshots and generic failover remain separate unverified or unfinished scope.
