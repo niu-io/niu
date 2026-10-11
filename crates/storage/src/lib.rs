@@ -299,7 +299,7 @@ pub struct GatewayCompletion {
 
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {
-    #[error("gateway request deadline expired before admission")]
+    #[error("gateway request deadline expired before dispatch")]
     GatewayRequestDeadlineExceeded,
 
     #[error("Managed route changed before dispatch")]
@@ -852,6 +852,7 @@ impl Store {
                 }
                 return Err(match code.as_deref() {
                     Some("P0024") => StoreError::ManagedRouteChanged,
+                    Some("P0028") => StoreError::GatewayRequestDeadlineExceeded,
                     Some("P0020") => StoreError::KeyRequestRateExceeded,
                     Some("P0025") => StoreError::VendorRequestRateExceeded,
                     Some("P0026") => StoreError::KeyRequestRateDisabled,

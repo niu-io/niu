@@ -501,3 +501,27 @@ holds. Personal upstream access and internal credit do not qualify commercial
 supply or merchant funding. Build and static lint checks completed; fixture
 outcomes were not used as evidence. Native runtime deployment of this fix is
 separate from these isolated runs.
+
+### Persisted deadline refusals are request timeouts
+
+Migration 0276 keeps the existing dispatch-time deadline predicate and assigns
+its refusal SQLSTATE `P0028`. Gateway admission maps that known denial to HTTP 504
+`request_deadline_exceeded`, matching preparation expiry. It no longer reports
+this case as an unavailable database. The safe message says **this attempt** was
+not sent upstream: a retry operation may already contain an earlier refused call.
+Other storage failures retain their existing classification.
+
+Actual Chat and Responses requests waited on the selected credential row beyond
+a one-second deadline. Both returned the explicit 504 and rolled back admission;
+restart and independent reopening confirmed no operations, attempts, retry
+policies, charges, debits or reservations. In a separate Responses run the first
+credential received a real OpenRouter 401, then the successor waited beyond the
+persisted four-second deadline. The client received 504 with original correlation
+headers. Independent reopening found only the confirmed-not-executed predecessor,
+no successor or charge, and no outstanding customer/procurement hold. Restart did
+not resubmit it and the temporary keys were revoked.
+
+These current-input checks supersede the older 503 classification recorded above
+for the same dispatch deadline boundary. They do not claim that arbitrary database
+errors or uncertain transport failures establish nonexecution. No fixture outcome
+was used as evidence.

@@ -319,6 +319,7 @@ pub(crate) fn map_gateway_admission_error(error: sqlx::Error) -> StoreError {
         .map(|code| code.into_owned());
     match code.as_deref() {
         Some("P0024") => StoreError::ManagedRouteChanged,
+        Some("P0028") => StoreError::GatewayRequestDeadlineExceeded,
         Some("P0020") => StoreError::KeyRequestRateExceeded,
         Some("P0025") => StoreError::VendorRequestRateExceeded,
         Some("P0026") => StoreError::KeyRequestRateDisabled,
