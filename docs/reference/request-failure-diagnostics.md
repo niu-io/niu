@@ -40,3 +40,27 @@ classification field.
 Use request scope and timing alongside `failure`. Ordinary workspace read
 permissions apply to the Logs API and CSV; a foreign workspace cannot retrieve
 these records. Diagnostic metadata does not grant access to Supplier accounting.
+
+## Mixed failure and completion reporting — 2026-10-11
+
+A fresh isolated current-input run retained one actual upstream authentication
+failure and two successful personal OpenRouter completions. After gateway restart,
+workspace request history was read with a one-row page size. The three pages
+contained every stored attempt exactly once; each page's full-range summary
+reported three requests, two provider-reported usage records and the sum of the
+two customer charges, independently of the loaded row.
+
+An independent verifier reopened the stopped database, matched the saved page
+identities to all attempts, reconciled reported token totals to the actual
+completed response quantities, and checked customer charge/debit arithmetic.
+The authentication-failed attempt had a null customer charge and no charge record.
+There were no open customer holds. A recursive response inspection found none of
+the checked procurement/credential fields (`cash_nanos`, `api_equivalent_nanos`,
+`supplier_cost`, `credential_ciphertext`, `api_key`). This field check supplements
+rather than replaces the separate authorization and commercial-boundary work.
+
+Internal tariffs and approved credit were verification inputs, not payment
+receipts or Supplier qualification. This checkpoint covers mixed authentication
+failure/completion reporting and pagination after restart; cancellation, retries,
+all filter combinations and customer-facing rendered diagnosis remain separate
+verification scopes. The original development database and identity were preserved.
