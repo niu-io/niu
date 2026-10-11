@@ -204,3 +204,37 @@ client key. Customer presentation must preserve pending/unknown states and use
 the typed error context instead of treating every 401 as a revoked Niu key.
 This qualifies backend serialization and access for these records, not frontend
 rendering or automatic recovery of the missing failure observation.
+
+
+## Healthy streams during shared failure-table contention — 2026-10-12
+
+Clean committed `ca4e5a9` ran two Gateways against fresh native PostgreSQL, each
+with two admission connections and one dedicated maintenance connection. Sixteen
+actual streaming-shaped Chat requests shared an approved-credit verification
+company: twelve used the saved personal OpenRouter credential, while four used a
+deliberately invalid credential against the real canonical endpoint. Eight client
+workers submitted the small mixed batch while `request_failures` remained under
+an exclusive table lock. This is actual external refusal, not a fixture result.
+
+All twelve healthy streams returned their requested markers, native usage and
+terminal event; their customer charges settled while the diagnostic lock was
+still held. The four actual upstream 401 responses returned safely despite
+recording refusal. Their transactions left execution/usage unknown and retained
+customer and procurement holds, with safe correlated failure logs. No failure
+classification or nonexecution transition was manufactured for them.
+
+Independent reopening checked all sixteen raw response hashes and HTTP timing
+records against the saved state captured before lock release. The twelve exact
+original-rate charges/debits totaled 196,179 USD nanounits. The observed maximum
+healthy request time was 1,872.22 ms; maximum refusal time was 904.10 ms, both
+including upstream/transport waiting. Four recording lock-timeout diagnostics
+and safe persistence-failure events matched the four uncertain attempts. After
+release and restart, twelve charges remained and exactly four customer and four
+procurement holds remained unresolved. There was no funding receipt; verification
+keys were revoked and credentials were absent from responses/logs.
+
+This verifies healthy customer completion during this bounded diagnostic fault
+across two processes. It does not prove a latency SLO, overload capacity,
+unlimited failure traffic, automatic recovery of lost classifications or a
+matched New API performance comparison. Internal verification prices and credit
+do not qualify commercial supply or merchant funding.
