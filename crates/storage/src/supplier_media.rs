@@ -173,7 +173,7 @@ impl Store {
         revision: &str,
         cutoff: i64,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         retire_rate(&mut tx, supplier, revision, cutoff).await?;
         tx.commit().await?;
         Ok(())
