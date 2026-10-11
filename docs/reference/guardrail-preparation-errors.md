@@ -197,3 +197,18 @@ rejection records and absence of customer charges, debits or reservations. No
 existing installation data was removed. This verifies a workspace-policy race
 for the two exercised unpriced protocols; it does not establish a mixed-record
 batch, key-policy race, paid dispatch behavior or commercial settlement.
+
+A follow-up actual Chat run kept workspace revision one unchanged while assigning
+that policy to the request's API key after inspection. The paused request returned
+409 `guardrail_admission_conflict`; independent reopening confirmed the rejection
+bound to workspace revision one, key policy one and assignment revision one. Only
+the subsequent freshly inspected request completed upstream, with its saved usage
+matching the sole attempt and no customer financial records. This adds key-policy
+assignment evidence for unpriced Chat; removal, rotation and mixed-record batches
+remain separate cases.
+
+The committed `933ce9c` binary was rebuilt and installed in the existing native
+development runtime. Readiness returned 200, with configuration/encryption-file
+hashes, vendor ciphertext/revisions and checked organization, workspace, media-job
+and financial-entry counts unchanged. Its GitHub CI completed successfully;
+fixture outcomes are not business-verification evidence.
