@@ -243,3 +243,22 @@ concurrent permitted completion and restart check. Independent inspection again
 matched the saved response usage and credential binding to one attempt, with no
 customer financial records. This checkpoint covers the legacy admission path;
 it does not establish full release readiness or sustained-load performance.
+
+## Priced admission across two Gateways — 2026-10-11
+
+A fresh isolated PostgreSQL database and two native Gateway processes exercised
+one key with a positive limit of three requests per minute. Eight simultaneous
+Chat requests competed across both listeners. Three actual OpenRouter responses
+contained their independently generated requested markers; five requests returned
+429 `key_request_rate_exceeded` with `Retry-After: 60`. The run used explicit
+internal customer rates and approved verification credit, without merchant
+funding or commercial Supplier qualification. Restart preserved the policy.
+
+Independent reopening matched the three saved response hashes and reported token
+quantities to exactly three customer charges and their ledger debits, recomputing
+the exact rounded amounts from the configured rates. The same three attempt IDs
+were the only RPM admission entries. No customer reservation remained open and
+no funding entry existed. All five saved refusals retained the expected error.
+This extends the earlier personal-route checkpoint to priced admission and
+reservation cleanup under cross-process contention. It does not qualify sustained
+load, every protocol or settlement of uncertain upstream work.
