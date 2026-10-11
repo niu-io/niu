@@ -35,6 +35,19 @@ Preserve the original idempotency identity when recovering an uncertain submissi
 A streaming HTTP 200 is not proof of successful generation: consume the stream's
 terminal state and handle its error event.
 
+### Stable workspace routing
+
+`GET /admin/v1/workspaces` and `POST /admin/v1/workspaces` return a persisted
+`route_slug` for each workspace. Use it as a URL segment and use `name` as the
+display label. The backend assigns unique references to existing and new
+workspaces, including duplicate names; renaming preserves the reference.
+References cannot be edited and do not grant access. Continue using the workspace
+ID for existing scoped API paths and enforce the caller's normal authorization.
+
+This field does not resolve historical name-derived URLs. Direct slug lookup and
+retained aliases are not implemented; frontend migration must account for old
+bookmarks rather than treating them as supported aliases.
+
 ### Guardrail changes before dispatch
 
 An unpriced request inspected under an earlier Guardrail binding can be rejected
