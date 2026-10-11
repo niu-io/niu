@@ -237,3 +237,21 @@ keep their route. Credential rotation does not clear the cooldown. The read-only
 platform API and SDK expose policy, deadline and current-window count without
 credentials, endpoints or procurement prices. See the
 [policy and actual verification](../reference/upstream-credential-cooldown.md).
+
+## Static credential loading and pool shadowing — 2026-10-11
+
+Startup now treats both database model mappings and database candidate pools as
+shadowing a same-name static alias, including disabled records. It checks their
+existence without loading credential ciphertext. A static credential environment
+variable is required only when a static route actually remains a source for that
+alias. Other unshadowed aliases using the same variable still require it.
+
+An actual isolated run reproduced startup failure when a disabled database pool
+shadowed a static alias whose unused credential variable was absent. After the
+fix, startup and restart succeeded; the pool stayed absent from model discovery,
+and inference returned 404 without creating an attempt. Adding an unshadowed
+static control alias using that absent variable still prevented startup. An
+independent database inspection confirmed the disabled pool/mapping revisions,
+original credential ciphertext fingerprint, and absence of attempts or financial
+entries. This aligns startup shadowing with existing resolution; it does not
+implement published registry generations.

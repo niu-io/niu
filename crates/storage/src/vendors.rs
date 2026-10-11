@@ -154,6 +154,17 @@ impl VendorRouteRow {
 }
 
 impl Store {
+    /// Both database mappings and pools shadow static aliases, even when disabled.
+    /// This startup check needs no credential material or route eligibility reads.
+    pub async fn database_shadows_static_alias(&self, alias: &str) -> Result<bool, StoreError> {
+        Ok(sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM vendor_models WHERE alias=$1) OR EXISTS(SELECT 1 FROM model_route_pools WHERE alias=$1)",
+        )
+        .bind(alias)
+        .fetch_one(&self.pool)
+        .await?)
+    }
+
     /// Assign an installation-managed personal credential to one account.
     /// This does not activate routes, qualify commercial offers or grant credit.
     pub async fn assign_personal_vendor_owner(

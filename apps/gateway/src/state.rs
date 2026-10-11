@@ -98,10 +98,9 @@ impl AppState {
         let mut provider_keys = HashMap::new();
         for (alias, model) in &config.models {
             if store
-                .vendor_route(alias)
+                .database_shadows_static_alias(alias)
                 .await
                 .map_err(|_| "Cannot read vendor registry")?
-                .is_some()
             {
                 continue;
             }
