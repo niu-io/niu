@@ -121,6 +121,7 @@ impl Store {
             .bind(RECOVERY_PAGE_SIZE)
             .fetch_all(&mut **tx)
             .await?;
+        let candidate_count = rows.len() as i32;
         let next = if rows.len() == RECOVERY_PAGE_SIZE as usize {
             rows.last().map(|row| row.0)
         } else {
@@ -189,8 +190,11 @@ impl Store {
             }
         }
         if cursor.is_none() {
-            sqlx::query("UPDATE financial_recovery_progress SET after_attempt=$2,updated_at=clock_timestamp() WHERE stage=$1")
-                .bind(stage.name()).bind(next).execute(&mut **tx).await?;
+            // Publish diagnostics only with the committed durable cursor. Explicit
+            // library traversals and rolled-back steps do not impersonate worker progress.
+            sqlx::query("UPDATE financial_recovery_progress SET after_attempt=$2,updated_at=clock_timestamp(),last_step_at=clock_timestamp(),last_candidate_count=$3,last_failure_count=$4 WHERE stage=$1")
+                .bind(stage.name()).bind(next).bind(candidate_count).bind(failed as i32)
+                .execute(&mut **tx).await?;
         }
         Ok((next, failed))
     }
