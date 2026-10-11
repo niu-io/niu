@@ -232,3 +232,23 @@ the original real result reference, Supplier credential fingerprints and ledger
 counts. Failure output contained neither the key nor the decrypted result URL.
 This adds nonempty media-domain command evidence; it does not establish coverage
 of nonempty asset/image/legacy domains, writer fencing, or rotation itself.
+
+## Inspection schema compatibility — 2026-10-11
+
+The read-only command now requires the complete migration set embedded in its
+binary, including successful status and matching checksums, before inspecting
+any encrypted domain. An older binary must not report complete authentication
+while silently omitting a newer schema's encrypted data. Missing, failed, extra
+or checksum-mismatched migrations produce a bounded compatibility error. The
+command never repairs metadata or applies migrations. Use the matching binary
+and resolve schema compatibility through the normal upgrade procedure first.
+This validates recorded migration compatibility, not arbitrary out-of-band DDL.
+
+An actual offline copy containing encrypted Supplier credentials and completed
+customer charges exercised each incompatible metadata state. Every invocation
+left the supplied metadata unchanged. Restoring the original migration records
+restored successful inspection. Independent reopening recomputed checksums from
+the migration source files, matched the restored migration inventory and confirmed
+unchanged credential fingerprints, revisions and financial entries. The original
+development database was not modified. This closes an inspection boundary only;
+rotation writing, writer coordination and crash-resume remain unimplemented.

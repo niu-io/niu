@@ -404,6 +404,34 @@ impl Store {
         Ok(Self { pool })
     }
 
+    /// A maintenance inspector must not silently skip domains introduced by a
+    /// newer schema or report completeness against an incomplete migration set.
+    /// This checks metadata only and never repairs or migrates the database.
+    pub async fn require_current_inspection_schema(&self) -> Result<(), StoreError> {
+        let applied: Vec<(i64, bool, Vec<u8>)> = sqlx::query_as(
+            "SELECT version,success,checksum FROM _sqlx_migrations ORDER BY version",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        let expected: Vec<_> = MIGRATOR
+            .iter()
+            .filter(|migration| migration.migration_type.is_up_migration())
+            .collect();
+        if applied.len() != expected.len()
+            || applied
+                .iter()
+                .zip(expected)
+                .any(|((version, success, checksum), migration)| {
+                    !success
+                        || *version != migration.version
+                        || checksum.as_slice() != migration.checksum.as_ref()
+                })
+        {
+            return Err(StoreError::Conflict);
+        }
+        Ok(())
+    }
+
     /// Content maintenance has one dedicated connection per process so a sweep
     /// cannot consume the admission pool. Migration ownership stays with startup.
     pub async fn content_maintenance_store(&self) -> Result<Self, StoreError> {

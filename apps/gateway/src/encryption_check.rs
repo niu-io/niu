@@ -10,6 +10,9 @@ pub(crate) async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let store = niu_storage::Store::connect_read_only(&url)
         .await
         .map_err(|_| "Cannot open encryption inspection database")?;
+    store.require_current_inspection_schema().await.map_err(
+        |_| "Encryption inspection requires the complete matching database migration set",
+    )?;
     crate::vendors::validate_saved_codex_credentials(&store, cipher.as_ref()).await?;
     crate::vendors::validate_saved_credentials(&store, cipher.as_ref()).await?;
     crate::payments::validate_saved_configuration(&store, cipher.as_ref()).await?;
