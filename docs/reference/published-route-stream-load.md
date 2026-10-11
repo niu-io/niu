@@ -111,5 +111,25 @@ above. This observes the current version under a two-connection configured pool;
 it is not a maximum-capacity, overload, long-soak, media or multi-instance result.
 Do not infer a performance change from the earlier run: external upstream timing
 and pool settings differ, and no controlled matched comparison was performed.
-Customer reporting for this new history has not been independently checked; the
-reporting checkpoint above remains pinned to its original 120-stream records.
+The earlier reporting checkpoint remains pinned to its original 120-stream
+records; separate current-history verification follows below.
+
+
+### Reporting for the current two-connection stream history
+
+A stopped copy of the latest `d4718ed` 120-stream database was opened with that
+same backend and two configured admission connections. An ordinary workspace
+viewer traversed all customer request pages and eight key filters. Every key
+returned its own 15 attempts; full-range usage/charge totals included all 120.
+CSV rows matched request records and remained byte-identical after restart.
+Customer response/export fields contained no procurement or credential categories;
+procurement access returned 403 and reader revocation changed request access to
+401. Financial counts did not change and no new inference or funding occurred.
+
+Independent reopening matched each saved customer API/CSV row to the actual
+stream-run usage, key attribution and customer charge, reconciled full-range
+totals, and confirmed the revoked reader. Original SSE and exact debit evidence
+remain those independently checked in the workload above. The source run and
+original native installation were untouched. This verifies completed-stream
+backend reporting; concurrent ingestion/pagination, browser presentation and
+failed/interrupted histories are separate scopes, not inferred from this run.
