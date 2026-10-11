@@ -696,3 +696,5 @@ export type { Workspace, WorkspaceInput, WorkspaceCreateOptions, WorkspaceRoute 
 export type { CompanyCreationInput, CreatedCompany, CompanyCreateOptions } from './admin.js';
 
 export type { CompanyMetadata, CompanyPage, CompanyPageOptions } from './admin.js';
+
+export type { FinancialRecoveryDiagnostics } from './admin.js';

@@ -10,6 +10,7 @@ mod customer_response;
 mod encryption_check;
 mod enterprise;
 mod error;
+mod financial_recovery;
 mod guardrails;
 mod inference_schema;
 mod native_messages_tools;

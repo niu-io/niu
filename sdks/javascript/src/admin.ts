@@ -1,3 +1,15 @@
+/** Last committed worker page, not settlement or backlog status. */
+export interface FinancialRecoveryDiagnostics {
+  observed_at: string;
+  data: Array<{
+    stage: 'balance_release' | 'customer_charge' | 'customer_media_charge' | 'media_completion' | 'supplier_earning' | 'upstream_cost';
+    last_step_at: string | null;
+    last_candidate_count: number | null;
+    last_failure_count: number | null;
+    has_cursor: boolean;
+  }>;
+}
+
 /** Authorized identity for a canonical route; never display the routing reference as a name. */
 export type WorkspaceRoute = { id: string; organization_id: string; name: string; route_slug: string };
 export type Workspace = WorkspaceRoute & {
@@ -802,6 +814,11 @@ export class NiuAdminClient {
   /** Complete active Supplier grants for the signed-in operator; installation sessions return an empty list. */
   listSupplierMemberships(options?: RequestOptions): Promise<{ data: SupplierMembership[] }> {
     return this.request('/provider-memberships', undefined, options);
+  }
+
+  /** Platform-only committed recovery progress; null fields mean no recorded worker step. */
+  getFinancialRecoveryDiagnostics(options?: RequestOptions): Promise<FinancialRecoveryDiagnostics> {
+    return this.request('/platform/financial-recovery', undefined, options);
   }
 
   /** Platform administrator inventory; does not imply merchant activation or enabled checkout. */

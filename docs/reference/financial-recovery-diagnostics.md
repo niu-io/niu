@@ -34,5 +34,23 @@ Both runs used isolated databases and a binary containing shared working-tree
 changes; hashes and raw evidence remain private. Compilation and formatting were
 checked separately. No fixture outcome is acceptance evidence. The original
 development database was not migrated. These checks qualify durable diagnostic
-storage and worker updates, not a public diagnostic API, sustained recovery
-capacity, customer-funded media or Supplier settlement.
+storage and worker updates, not sustained recovery capacity, customer-funded media
+or Supplier settlement.
+
+## Platform API and JavaScript SDK
+
+`GET /admin/v1/platform/financial-recovery` returns `observed_at` and `data`, an
+alphabetically ordered array of the six stages. Each row contains `stage`,
+`last_step_at`, `last_candidate_count`, `last_failure_count` and `has_cursor`.
+The three last-step fields are nullable as described above. A single database
+statement supplies the projection. No attempt identifier or monetary value is
+included. The JavaScript admin SDK exposes `getFinancialRecoveryDiagnostics()`.
+
+Actual HTTP calls against the migrated isolated database returned six rows for
+platform administration, 401 for invalid authentication and 403 for a scoped
+workspace viewer. The built SDK retrieved the same six-stage contract through
+HTTP. Restart and independent database reopening retained the 101 unknown
+liabilities and unchanged ledgers. The response and SDK artifacts were saved
+privately; these calls do not qualify all other principal types or storage-outage
+responses. Generated OpenAPI and documentation expose the operation and its
+nullable fields; the SDK typecheck and docs build completed separately.
