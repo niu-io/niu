@@ -1,5 +1,5 @@
 //! Supplemental provider evidence; settlement remains owned by financial recovery.
-use crate::{Store, StoreError, TenantScope};
+use crate::{RequestTokenCategories, Store, StoreError, TenantScope};
 use serde_json::Value;
 use sqlx::Row;
 use uuid::Uuid;
@@ -73,18 +73,23 @@ impl OpenRouterUsageObservation {
     }
 }
 
-const CONTEXT: &str = "SELECT v.id, v.credential_ciphertext, g.generation_id, COALESCE(g.upstream_model,m.upstream_model) AS upstream_model \
+const CONTEXT: &str = "SELECT v.id, v.credential_ciphertext, g.generation_id, COALESCE(g.upstream_model,m.upstream_model) AS upstream_model, a.prompt_tokens, a.completion_tokens, \
+ c.cached_input_tokens, c.reasoning_output_tokens \
  FROM attempts a JOIN managed_attempt_routes r ON r.attempt_id=a.id \
  JOIN openrouter_generation_references g ON g.attempt_id=a.id \
  JOIN vendors v ON v.id=r.vendor_id LEFT JOIN vendor_models m ON m.alias=r.model_alias \
+ LEFT JOIN request_token_categories c ON c.attempt_id=a.id \
  WHERE a.id=$1 AND a.organization_id=$2 AND a.project_id=$3 \
- AND a.execution IN ('confirmed_completed','may_have_executed') AND a.usage_confidence='unknown' \
- AND a.prompt_tokens IS NULL AND a.completion_tokens IS NULL \
+ AND ((a.execution IN ('confirmed_completed','may_have_executed') AND a.usage_confidence='unknown' \
+ AND a.prompt_tokens IS NULL AND a.completion_tokens IS NULL AND c.attempt_id IS NULL) \
+ OR (a.execution='confirmed_completed' AND a.usage_confidence='provider_reported' \
+ AND a.prompt_tokens IS NOT NULL AND a.completion_tokens IS NOT NULL \
+ AND (c.cached_input_tokens IS NULL OR c.reasoning_output_tokens IS NULL) \
+ AND NOT EXISTS(SELECT 1 FROM customer_charges paid WHERE paid.attempt_id=a.id))) \
  AND v.adapter='openrouter' AND trim(trailing '/' FROM v.api_base)='https://openrouter.ai/api/v1' \
  AND v.enabled AND v.revision=r.vendor_revision \
  AND (g.upstream_model IS NOT NULL OR (m.enabled AND m.vendor_id=v.id AND m.revision=r.model_revision)) \
- AND NOT EXISTS(SELECT 1 FROM personal_vendor_ownership o WHERE o.vendor_id=v.id AND o.organization_id<>a.organization_id) \
- AND NOT EXISTS(SELECT 1 FROM request_token_categories c WHERE c.attempt_id=a.id)";
+ AND NOT EXISTS(SELECT 1 FROM personal_vendor_ownership o WHERE o.vendor_id=v.id AND o.organization_id<>a.organization_id)";
 
 impl Store {
     /// No upstream reference, credential, Supplier price or raw response leaves this projection.
@@ -176,15 +181,45 @@ impl Store {
         {
             return Err(StoreError::Conflict);
         }
+        // Supplemental metadata must agree with every quantity already known.
+        // Do not consume the one immutable receipt unless it adds evidence.
+        let original_prompt: Option<i64> = row.try_get("prompt_tokens")?;
+        let original_completion: Option<i64> = row.try_get("completion_tokens")?;
+        let original_cached: Option<i64> = row.try_get("cached_input_tokens")?;
+        let original_reasoning: Option<i64> = row.try_get("reasoning_output_tokens")?;
+        if original_prompt.is_some_and(|value| value != usage.prompt)
+            || original_completion.is_some_and(|value| value != usage.completion)
+            || original_cached
+                .zip(usage.cached)
+                .is_some_and(|(a, b)| a != b)
+            || original_reasoning
+                .zip(usage.reasoning)
+                .is_some_and(|(a, b)| a != b)
+            || (original_prompt.is_some()
+                && !(original_cached.is_none() && usage.cached.is_some()
+                    || original_reasoning.is_none() && usage.reasoning.is_some()))
+        {
+            return Err(StoreError::Conflict);
+        }
         sqlx::query("INSERT INTO openrouter_usage_reconciliations(attempt_id,prompt_tokens,completion_tokens,cached_input_tokens,reasoning_output_tokens,provider_model,original_state,source_version,upstream_finish_reason,upstream_cancelled) \
             SELECT id,$2,$3,$4,$5,$6,jsonb_build_object('execution',execution,'usage_confidence',usage_confidence, \
-            'prompt_tokens',prompt_tokens,'completion_tokens',completion_tokens,'provider_model',provider_model,'completed_at',completed_at,'settlement',settlement),'openrouter-native-generation-v2',$7,FALSE FROM attempts WHERE id=$1")
+            'prompt_tokens',prompt_tokens,'completion_tokens',completion_tokens,'provider_model',provider_model,'completed_at',completed_at,'settlement',settlement, \
+            'token_categories',(SELECT to_jsonb(c)-'attempt_id' FROM request_token_categories c WHERE c.attempt_id=attempts.id)),'openrouter-native-generation-v2',$7,FALSE FROM attempts WHERE id=$1")
             .bind(attempt).bind(usage.prompt).bind(usage.completion).bind(usage.cached).bind(usage.reasoning).bind(&usage.model).bind(&usage.finish_reason).execute(&mut *tx).await?;
         sqlx::query("UPDATE attempts SET execution='confirmed_completed',usage_confidence='provider_reported',prompt_tokens=$2,completion_tokens=$3,completed_at=COALESCE(completed_at,statement_timestamp()) WHERE id=$1")
             .bind(attempt).bind(usage.prompt).bind(usage.completion).execute(&mut *tx).await?;
         if usage.cached.is_some() || usage.reasoning.is_some() {
-            sqlx::query("INSERT INTO request_token_categories(attempt_id,cached_input_tokens,reasoning_output_tokens) VALUES($1,$2,$3)")
-                .bind(attempt).bind(usage.cached).bind(usage.reasoning).execute(&mut *tx).await?;
+            Self::save_request_token_categories_in_tx(
+                &mut tx,
+                scope,
+                attempt,
+                RequestTokenCategories {
+                    cached_input_tokens: usage.cached,
+                    reasoning_output_tokens: usage.reasoning,
+                    cache_write_input_tokens: None,
+                },
+            )
+            .await?;
         }
         tx.commit().await?;
         Ok(())
