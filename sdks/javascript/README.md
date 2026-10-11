@@ -790,3 +790,11 @@ management dashboard's 1000-row preview. Both accept cancellation options. An
 active member can read its own Supplier; company membership alone is insufficient.
 The dashboard exposes `offers_has_more`; do not treat a truncated preview as a
 complete offer directory. Separate pages are not a frozen snapshot.
+
+Platform administrators can read credential configurations with
+`admin.listSupplierCredentials()` or filter explicit business ownership with
+`admin.listSupplierCredentials({ supplierId })`. The `SupplierCredential` type
+contains metadata, independent configuration revision, enabled state, credential
+presence and optional Supplier identity; secret values are never returned.
+Disabled configurations remain in the complete list. This read does not probe the
+upstream, qualify commercial supply, or grant customer access.

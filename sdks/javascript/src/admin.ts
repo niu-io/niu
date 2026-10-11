@@ -16,6 +16,12 @@ export type CreatedCompany = { id: string; name: string; currency: string };
 export type CompanyCreateOptions = RequestOptions & { idempotencyKey?: string };
 
 
+/** Platform-only credential configuration metadata. Secret values are never returned. */
+export type SupplierCredential = {
+  id: string; name: string; adapter: string; api_base: string;
+  enabled: boolean; revision: number; has_credential: boolean;
+  owner_funded: boolean; supplier: { id: string; name: string } | null;
+};
 export type VendorCooldown = { policy_revision: 'openrouter-auth-cooldown-v1'; failure_threshold: 3; window_seconds: 60; cooldown_seconds: 60; active: boolean; cooldown_until: string | null; qualifying_failures: number };
 export type VendorRequestRateLimit = { requests_per_minute: number | null; revision: string };
 export type VendorRequestRateLimitRevision = VendorRequestRateLimit & { recorded_at: string; actor_kind: 'installation' | 'member'; actor_name: string };
@@ -1348,6 +1354,13 @@ export class NiuAdminClient {
   /** Read known token subtotals; unknown requests are not zero usage. No TPM enforcement. */
   getKeyTokenUsageWindow(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<{ data: KeyTokenUsageWindow }> {
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/token-usage-window`, undefined, options);
+  }
+
+  /** All matching configurations, including disabled entries. No silent row cap.
+   * Platform administration required; supplying a Supplier ID filters business ownership. */
+  listSupplierCredentials(query: { supplierId?: string } = {}, options?: RequestOptions): Promise<{ data: SupplierCredential[] }> {
+    const suffix = query.supplierId === undefined ? '' : `?supplier=${uuid(query.supplierId)}`;
+    return this.request(`/vendors${suffix}`, undefined, options);
   }
 
   /** Platform-only safe-failure state; reading does not probe or reset the credential. */
