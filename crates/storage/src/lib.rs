@@ -361,6 +361,8 @@ pub enum StoreError {
     KeyTokenBoundRequired,
     #[error("provider metadata does not confirm completed generation")]
     UnconfirmedGeneration,
+    #[error("provider usage evidence does not match captured request identity")]
+    UsageReconciliationIdentityMismatch,
     #[error("usage or execution remains unresolved")]
     Unresolved,
     #[error("invalid account or quota observation")]

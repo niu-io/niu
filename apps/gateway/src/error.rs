@@ -45,6 +45,12 @@ impl ApiError {
                 kind: "usage_reconciliation_incomplete",
                 message: "Provider metadata does not confirm a completed generation; usage and charges remain unresolved",
             },
+            niu_storage::StoreError::UsageReconciliationIdentityMismatch => Self {
+                failure: None,
+                status: StatusCode::CONFLICT,
+                kind: "usage_reconciliation_identity_mismatch",
+                message: "Provider usage evidence does not match the captured request identity; usage and charges remain unresolved",
+            },
             niu_storage::StoreError::GuardrailAdmissionConflict => Self {
                 failure: None,
                 status: StatusCode::CONFLICT,

@@ -31,7 +31,7 @@ impl OpenRouterUsageObservation {
         if data["id"].as_str() != Some(context.generation_id.as_str())
             || data["model"].as_str() != Some(context.upstream_model.as_str())
         {
-            return Err(StoreError::Conflict);
+            return Err(StoreError::UsageReconciliationIdentityMismatch);
         }
         if data["cancelled"].as_bool() != Some(false)
             || !matches!(
