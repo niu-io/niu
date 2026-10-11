@@ -816,3 +816,22 @@ Supplier, preserved both ciphertexts during a metadata-only update, rejected a
 stale revision, and changed only the selected ciphertext during rotation. Restart
 and independent database reopening preserved both configurations and ownership.
 No upstream request, commercial qualification or balance funding was performed.
+
+Model configuration uses `listSupplierModels(credentialId)` and
+`upsertSupplierModel(credentialId, input)`. New aliases omit `expected_revision`;
+updates supply the current revision. Send the intended complete capability and
+visibility/enabled settings. Omitted `pricing` preserves existing pricing on an
+update, while explicit `null` clears it. This is administrator upstream route
+configuration, not customer selling tariffs or a Supplier commercial rate card.
+Use those separate billing APIs for agreed purchase and customer selling prices.
+
+The returned management inventory includes read-only `available` and
+`owner_funded` fields. Do not send those fields as model configuration or infer
+commercial qualification from availability. An alias cannot move between
+credentials through this endpoint.
+
+Actual SDK verification bound separate aliases to two disabled credentials,
+updated one mapping while preserving omitted pricing, rejected cross-credential
+alias takeover with 409, and cleared only the selected mapping's price. Restart
+preserved both unavailable mappings. Independent reopening matched ownership,
+upstream names, revisions and separate retained/cleared pricing to the saved lists.

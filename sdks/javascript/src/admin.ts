@@ -32,6 +32,19 @@ export type SupplierCredentialUpdateInput = {
   /** Omit to retain the existing secret; provide a value to replace it. */
   api_key?: string;
 };
+export type SupplierModelInput = {
+  alias: string; upstream_model: string; public_catalog?: boolean; enabled?: boolean;
+  capabilities?: Record<string, unknown>;
+  /** Omit on update to preserve pricing; null explicitly clears it. */
+  pricing?: Record<string, unknown> | null;
+  expected_revision?: number;
+};
+export type SupplierModel = {
+  alias: string; vendor_id: string; upstream_model: string; public_catalog: boolean;
+  enabled: boolean; capabilities: Record<string, unknown>;
+  pricing: Record<string, unknown> | null; revision: number;
+};
+export type SupplierModelAvailability = SupplierModel & { available: boolean; owner_funded: boolean };
 export type VendorCooldown = { policy_revision: 'openrouter-auth-cooldown-v1'; failure_threshold: 3; window_seconds: 60; cooldown_seconds: 60; active: boolean; cooldown_until: string | null; qualifying_failures: number };
 export type VendorRequestRateLimit = { requests_per_minute: number | null; revision: string };
 export type VendorRequestRateLimitRevision = VendorRequestRateLimit & { recorded_at: string; actor_kind: 'installation' | 'member'; actor_name: string };
@@ -1383,6 +1396,17 @@ export class NiuAdminClient {
   updateSupplierCredential(id: string, input: SupplierCredentialUpdateInput, options?: RequestOptions): Promise<{ data: Omit<SupplierCredential, 'supplier'> }> {
     if (!Number.isSafeInteger(input.expected_revision) || input.expected_revision < 1) throw new Error('Provide the current configuration revision');
     return this.request(`/vendors/${uuid(id)}`, input, options, 'PUT');
+  }
+
+  /** Complete per-credential management inventory; availability is not commercial qualification. */
+  listSupplierModels(credentialId: string, options?: RequestOptions): Promise<{ data: SupplierModelAvailability[] }> {
+    return this.request(`/vendors/${uuid(credentialId)}/models`, undefined, options);
+  }
+
+  /** Create a new alias or update using its current revision. Alias ownership cannot move. */
+  upsertSupplierModel(credentialId: string, input: SupplierModelInput, options?: RequestOptions): Promise<{ data: SupplierModel }> {
+    if (input.expected_revision !== undefined && (!Number.isSafeInteger(input.expected_revision) || input.expected_revision < 1)) throw new Error('Provide the current model revision');
+    return this.request(`/vendors/${uuid(credentialId)}/models`, input, options);
   }
 
   /** Platform-only safe-failure state; reading does not probe or reset the credential. */
