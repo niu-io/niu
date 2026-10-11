@@ -23,6 +23,38 @@ pub(crate) fn valid_tool_call(
         && serde_json::from_str::<Value>(arguments).is_ok_and(|v| v.is_object())
 }
 
+/// The same choice constraints apply to buffered and streamed tool turns.
+pub(crate) struct ToolSelection {
+    forced: Option<String>,
+    required: bool,
+    forbidden: bool,
+    single: bool,
+}
+impl ToolSelection {
+    pub(crate) fn from_request(request: &Value) -> Self {
+        let choice = &request["tool_choice"];
+        let forced = choice
+            .pointer("/function/name")
+            .and_then(Value::as_str)
+            .map(str::to_owned);
+        Self {
+            required: choice == "required" || forced.is_some(),
+            forbidden: choice == "none",
+            single: request["parallel_tool_calls"] == false,
+            forced,
+        }
+    }
+    pub(crate) fn valid(&self, names: &[&str]) -> bool {
+        (!self.required || !names.is_empty())
+            && (!self.forbidden || names.is_empty())
+            && (!self.single || names.len() <= 1)
+            && self
+                .forced
+                .as_ref()
+                .is_none_or(|name| names.iter().all(|actual| *actual == name))
+    }
+}
+
 #[derive(Default)]
 struct ToolCall {
     id: String,
@@ -100,6 +132,7 @@ pub struct StructuredStream {
     invalid: bool,
     tool_names: BTreeSet<String>,
     tool_count: usize,
+    selection: ToolSelection,
 }
 
 impl StructuredStream {
@@ -111,11 +144,21 @@ impl StructuredStream {
             invalid: false,
             tool_names: BTreeSet::new(),
             tool_count: 0,
+            selection: ToolSelection::from_request(&Value::Null),
         }
     }
 
-    pub fn with_tool_names(mut self, names: impl IntoIterator<Item = String>) -> Self {
-        self.tool_names.extend(names);
+    pub fn with_tools(mut self, request: &Value) -> Self {
+        self.tool_names.extend(
+            request
+                .get("tools")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .filter_map(|tool| tool.pointer("/function/name").and_then(Value::as_str))
+                .map(str::to_owned),
+        );
+        self.selection = ToolSelection::from_request(request);
         self
     }
 
@@ -224,6 +267,13 @@ impl StructuredStream {
                     return choice.tool_turn
                         && !choice.refused
                         && !choice.tools.is_empty()
+                        && self.selection.valid(
+                            &choice
+                                .tools
+                                .values()
+                                .map(|call| call.name.as_str())
+                                .collect::<Vec<_>>(),
+                        )
                         && choice.tools.values().all(|call| {
                             call.function
                                 && ids.insert(&call.id)
@@ -238,6 +288,9 @@ impl StructuredStream {
                 // Refusals are explicit model output, not malformed JSON.
                 if choice.refused {
                     return true;
+                }
+                if !self.selection.valid(&[]) {
+                    return false;
                 }
                 let Ok(value) = serde_json::from_str::<Value>(&choice.content) else {
                     return false;

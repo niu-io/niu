@@ -1253,16 +1253,7 @@ async fn stream_openai_compatible(
         ))),
         _ => None,
     };
-    let structured = structured.map(|output| {
-        output.with_tool_names(
-            body.get("tools")
-                .and_then(Value::as_array)
-                .into_iter()
-                .flatten()
-                .filter_map(|tool| tool.pointer("/function/name").and_then(Value::as_str))
-                .map(str::to_owned),
-        )
-    });
+    let structured = structured.map(|output| output.with_tools(&body));
     let upstream = upstream_client
         .post(endpoint)
         .bearer_auth(api_key)
@@ -1680,6 +1671,19 @@ pub(in crate::web) fn valid_chat_completion_features(response: &Value, request: 
                     return false;
                 }
             }
+        }
+        let names: Vec<&str> = calls
+            .into_iter()
+            .flatten()
+            .filter_map(|call| call.pointer("/function/name").and_then(Value::as_str))
+            .collect();
+        if message
+            .get("refusal")
+            .and_then(Value::as_str)
+            .is_none_or(str::is_empty)
+            && !crate::structured_stream::ToolSelection::from_request(request).valid(&names)
+        {
+            return false;
         }
         // A validated function turn precedes the final structured text answer.
         if json_mode
