@@ -51,8 +51,9 @@ metadata identifying the explicit dated model instead. Reconciliation returned
 reasoning and no receipt or financial entry. An earlier inference attempt received
 503 before the successful verification; it is not evidence of completed inference.
 
-Conflicting numeric metadata and simultaneous complementary category updates
-still require their own current-input verification. The later Chat checkpoint
+The aggregate-conflict fault run below covers one numeric mismatch. Conflicting
+known category values and simultaneous complementary category updates still
+require their own current-input verification. The later Chat checkpoint
 below covers customer settlement after a missing-category persistence fault;
 existing generic merge invariants and static checks are not its evidence.
 
@@ -164,3 +165,28 @@ and one charge, with the temporary key revoked and no unresolved reservation or
 merchant funding. The private generation header was not forwarded to the client.
 These are internal-credit recovery checks, not interrupted-stream qualification,
 commercial Supplier settlement or evidence for an unreported upstream quantity.
+
+
+## Aggregate mismatch retains unresolved liability
+
+A current-input buffered Chat completion on pinned backend `e655a37` returned
+known aggregate counts, nonzero reasoning and a fresh output marker. The isolated
+missing-category persistence fault retained the original raw response and held
+customer settlement. After removing that fault, an explicit isolated database
+mutation incremented the saved input total by one. No upstream response or
+reported usage was changed.
+
+Reconciliation fetched real generation metadata and returned 409 because its
+input total conflicted with the saved total. There was no reconciliation receipt,
+customer charge or balance entry; reasoning remained missing and the customer
+reservation stayed open. Gateway restart preserved the rejection and absence of
+financial entries. Restoring the isolated input total to the original response's
+count allowed the same lookup to supplement reasoning and settle once under the
+original tariff despite a newer tariff revision.
+
+Independent inspection checked the saved rejection artifacts and unchanged raw
+response hash, then reopened the stopped database to reconcile the actual upstream
+receipt, original missing-category snapshot, final categories, exact charge/debit,
+revoked key and released hold. This verifies the observed aggregate mismatch and
+subsequent recovery, not every conflicting category or concurrent merge case.
+The original installation and retained databases were not altered.
