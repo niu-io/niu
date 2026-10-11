@@ -234,7 +234,8 @@ impl Store {
         if allowed {
             Ok(())
         } else {
-            Err(StoreError::Conflict)
+            // The audited denial committed without authorizing transport.
+            Err(StoreError::GuardrailAdmissionConflict)
         }
     }
 

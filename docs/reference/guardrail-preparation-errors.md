@@ -240,3 +240,19 @@ between inspection and dispatch, with workspace revision one unchanged. The
 one. Independent reopening confirmed the unsent attempt, released holds and one
 later fresh Chat completion with exact usage, charge and debit. This adds that
 key-assignment race; other paid protocols and assignment removal remain separate.
+
+## Personal route policy conflicts
+
+The standalone dispatch boundary used by personal routes now maps an audited
+Guardrail refusal to `guardrail_admission_conflict` after its transaction commits.
+Previously this branch returned generic `conflict_error`. Other transition
+conflicts remain distinct; an uncertain commit is not converted into a known denial.
+
+Actual personal Chat and Messages requests paused during inspection binding while
+a new workspace policy was activated. Both returned the specific 409, with the
+native Messages envelope preserved. Restart retained the unsent audit. A fresh
+personal Chat call then completed in each run. Independent reopening matched the
+saved response usage and two personal route bindings (denied and completed), with
+no customer tariff, charge, balance entry, reservation or upstream-cost ledger
+entry. Temporary keys were revoked. These runs verify the personal workspace-policy
+race and financial separation, not all personal media or key-assignment races.
