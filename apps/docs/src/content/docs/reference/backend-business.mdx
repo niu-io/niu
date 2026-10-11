@@ -1,0 +1,81 @@
+---
+title: Backend business integration
+description: Supplier, workspace key, customer billing and video integration contracts.
+---
+
+Use the [implemented API operations](/docs/reference/handler-operations/) for
+annotated request/response schemas, authorization and error states. The
+[root OpenAPI contract](https://github.com/niu-io/niu/blob/main/contracts/openapi.yaml)
+contains additional interfaces. A successful empty read describes empty data;
+it does not establish a completed business workflow.
+
+## Supplier configuration
+
+Supplier identity owns independent credentials and model bindings. Provider names
+identify technical adapters. Follow the
+[configuration workflow](https://github.com/niu-io/niu/blob/main/docs/reference/supplier-key-isolation-live.md),
+[offer directory](https://github.com/niu-io/niu/blob/main/docs/reference/supplier-offer-directory.md),
+[configuration usage](https://github.com/niu-io/niu/blob/main/docs/reference/supplier-configuration-usage.md)
+and [settlement history](https://github.com/niu-io/niu/blob/main/docs/reference/supplier-settlement-history.md).
+Procurement rates and Supplier earnings are separate from customer charges.
+Personal OpenRouter testing does not establish qualified commercial supply.
+
+## Workspace keys
+
+Keys inherit workspace model access and may narrow it. Spending, request rate,
+token rate and unresolved-request concurrency are separate controls:
+
+- [Customer spending caps](https://github.com/niu-io/niu/blob/main/docs/reference/api-key-spending-limits.md)
+- [Request-rate limits](https://github.com/niu-io/niu/blob/main/docs/reference/api-key-request-rate-limits.md)
+- [Estimated token budgets](https://github.com/niu-io/niu/blob/main/docs/reference/api-key-token-rate-limits.md)
+- [Concurrent request limits](https://github.com/niu-io/niu/blob/main/docs/reference/api-key-concurrency-limits.md)
+
+Rotation preserves the key's spending identity and applicable limits. Revocation
+does not erase already dispatched work or its unresolved liability. Finite token
+budgets require a supported bounded request shape; missing usage remains unknown.
+
+## Customer money and recovery
+
+Read the [payment integration inventory](https://github.com/niu-io/niu/blob/main/docs/reference/payment-aggregators.md)
+for supported adapters and installation availability. Merchant activation is a
+deployment concern; listing support does not grant balance. Browser returns do
+not authorize funding. Approved credit is distinct from prepaid cash.
+
+[Charge reconciliation](https://github.com/niu-io/niu/blob/main/docs/reference/customer-charge-reconciliation.md)
+and [supplemental token usage](https://github.com/niu-io/niu/blob/main/docs/reference/token-category-reconciliation.md)
+describe exact debits, unknown liabilities and original-price recovery. A recorded
+usage receipt may precede settlement. Conflict errors must not be rendered as
+zero usage or a successful financial operation.
+
+## Video and invoices
+
+The [media invoice contract](https://github.com/niu-io/niu/blob/main/docs/reference/media-invoice-integration.md)
+explains durable jobs, result recovery, billing states and invoice boundaries.
+A completed personal video may retain null customer charges. Customer-priced media
+requires supported measured usage and pinned pricing; requested duration or
+upstream expense must not be substituted for a customer charge.
+
+Positive customer media invoices and nonempty commercial Supplier settlement
+remain unverified. Actual personal video recovery and mixed personal-video /
+customer-text invoicing do not establish those financial paths.
+
+## Current measured text paths
+
+Pinned backend `e655a37` completed 600 real buffered requests across eight keys
+at five scheduled requests per second and 120 real structured streams at two
+scheduled requests per second. Independent raw-response and reopened-database
+checks matched usage, route attribution and every exact debit, with no retained
+customer reservation. These measurements use personal upstream access and
+explicit internal prices/credit.
+
+| Workload | Completed | Completion throughput | Client full round-trip p95 |
+| --- | ---: | ---: | ---: |
+| Buffered Chat | 600 | 4.956 requests/second | 1,742.35 ms |
+| Structured streaming Chat | 120 | 1.975 requests/second | 1,902.23 ms |
+
+The streaming first-content p95 was 1,626.47 ms. All times include upstream work;
+these runs do not establish Gateway-only latency, maximum capacity or complete
+release readiness. See the
+[buffered evidence](https://github.com/niu-io/niu/blob/main/docs/reference/mixed-key-sustained-text.md)
+and [streaming evidence](https://github.com/niu-io/niu/blob/main/docs/reference/published-route-stream-load.md)
+for workload definitions and measurement limits.
