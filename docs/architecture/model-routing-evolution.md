@@ -352,3 +352,40 @@ business-table fingerprints and confirmed unchanged encryption identity. After
 replacement, the original service retained its configuration and durable record
 counts; actual scoped model discovery and workspace directory/route reads remained
 available. This update adds no schema migration and is not full release acceptance.
+
+### Publication input and mutation inventory
+
+The current storage paths establish the following publication boundary. This is
+an implementation inventory, not evidence that publication is implemented.
+
+| Configured input | Current mutation authority | Publication requirement |
+| --- | --- | --- |
+| Credential configuration, endpoint, adapter, enabled state and revision | `vendors.rs`: `create_vendor*`, `update_vendor` | Include every creation variant, including atomic Supplier/configuration creation. Retain only credential identity/revision in the compiled record. |
+| Model identity, capabilities, configured rates and enabled state | `vendors.rs`: `upsert_vendor_model`, `refresh_vendor_catalog` | A multi-model metadata refresh is one proposed generation, not one publish per updated row. |
+| Personal ownership and Supplier association | `vendors.rs`: `assign_personal_vendor_owner`, `associate_vendor_supplier` | Ownership/offer consequences and the generation must commit together; preserve immutable ownership and financial boundaries. |
+| Bootstrap mappings | `vendors.rs`: `seed_vendor`, gateway `vendors/bootstrap.rs` | Include the first import transaction; a restart that skips bootstrap must not produce replacement configuration. |
+| Pool membership, priorities, weights and enabled state | `route_pools.rs`: `set_model_route_pool` | Publish the complete revision and mappings; preserve disabled alias shadowing and company ownership. |
+| Offer identity, rates, activation and qualification references | `providers.rs`: offer publication/activation and qualification/revocation methods; `supplier_media_offers.rs`: `publish_supplier_media_offer` | Include text and media publication and indirect offer changes from vendor/model edits. Preserve existing offer-binding checks. |
+| Static model configuration | `AppState` configuration loading and `config::AppConfig` validation | Define a canonical validated identity across gateways before enabling competing writers; environment variable names are references, never secret material to serialize. |
+
+Master-key re-encryption changes ciphertext storage, not the credential's business
+revision or routing semantics. It must not become an extra publication-secret
+store or trigger historical route rewrites. Supplier profile fields that do not
+participate in routing likewise do not justify rebuilding a route generation.
+
+**Time-dependent eligibility remains live.**
+`niu_supplier_model_route_available` calls qualification checks whose `valid_until`
+comparisons use the current transaction time. Pool selection also excludes
+`vendor_cooldowns` until their expiry. Both can change without a registry write.
+The current per-read `VendorCatalogInputs.unavailable` and `cooling_down` sets are
+therefore unsuitable as immutable publication contents: freezing them could keep
+a recovered route unavailable or preserve an expired qualification.
+
+The published compiler must retain configured mappings, pool policies, ownership
+and qualification references/constraints. Live eligibility may remove candidates
+from that complete input; it must not introduce a competing route definition or
+fall back to static configuration after a managed denial. Directory projection
+and dispatch must apply the same distinction. Verify natural cooldown recovery
+and qualification expiry without configuration writes as part of snapshot
+acceptance, alongside explicit disable/revoke races. This extends the input
+inventory; it does not relax existing transactional dispatch rechecks.
