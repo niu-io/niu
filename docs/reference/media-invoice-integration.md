@@ -510,3 +510,26 @@ organization, workspace, media-job and ledger counts were unchanged. Readiness
 returned 200 and authenticated routing status matched the published configuration.
 The previous executable was retained. This deploys the invoice guard and safe
 payment-failure diagnostics; their explicitly unverified branches remain open.
+
+
+## Shared original-account posted-media predicate
+
+Migration 0278 makes `customer_activity_charges` require the original attempt's
+balance-account binding, currency and customer scope for media. Positive amounts
+need the exact debit in that account; zero amounts need its released reservation.
+Invoice unresolved checks now reuse this view, as media recovery already does,
+rather than maintaining a separate debit/release expression. Existing text rows,
+financial records and issued invoices are unchanged. An unmatched media liability
+remains unresolved; it is not converted to a free or settled customer charge.
+
+Clean committed `35b8045` built and upgraded isolated copies of actual business
+history to schema 278. A new real text response plus a retained personal video
+again produced only the exact text invoice entry, surviving replay/restart.
+Separately, an ordinary reader traversed all 120 actual stream records, eight key
+filters, full-range totals and CSV after upgrade. Independent reopening checked
+the successful migration and original-account view definition, matched reports to
+actual usage/charges, and retained the scoped authorization boundaries. Neither
+path contains a commercially charged video, so positive/zero media matching,
+mismatched-account rejection and populated financial recovery remain unverified.
+No qualification or financial evidence was fabricated. The original installation
+was untouched; its native runtime remains `d4718ed` pending later deployment.
