@@ -169,3 +169,19 @@ bytes/revisions and durable business counts were unchanged. Readiness, workspace
 directory and all six financial-recovery stages returned HTTP 200. This establishes
 upgrade and runtime integration; expired asset poison-row recovery still awaits
 the original retention deadline and is not qualified by these checks.
+
+## Persisted deadline classification runtime integration
+
+Clean committed `d10ffc5d35e7cec4f1fd3c5b5dded4422a656f46` upgraded a fresh
+restored native backup from 275 to 276. Independent reopening preserved the six
+complete business-table fingerprints and encryption identity. Workspace reads
+survived restart. The exact binary also returned `504 request_deadline_exceeded`
+after an actual credential-lock wait exceeded the persisted request deadline;
+restart and independent inspection found no attempt, debit or reservation.
+
+The verified binary then replaced the native process. Existing configuration
+hashes, encrypted vendor bytes/revisions and durable business counts remained
+unchanged. The running database reached 276, and readiness, workspace directory
+and six-stage financial recovery returned HTTP 200. The API docs build and live
+HTTP route both contained the new timeout-handling contract. These checks qualify
+this upgrade and error boundary, not complete backend or release acceptance.

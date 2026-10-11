@@ -980,3 +980,20 @@ response awaiting accounting recovery reports `settlement_pending`. Actual calls
 verified both states across restart and release of only the recoverable hold.
 The SDK exposes `listCustomerBalanceReservations`; see the [scope and actual
 verification](https://github.com/niu-io/niu/blob/main/docs/reference/customer-charge-reconciliation.md#open-reservation-inspection).
+
+## Request deadline errors
+
+Chat and Responses route-pool admission can return HTTP `504` with
+`error.type: "request_deadline_exceeded"` when the original request deadline
+expires during preparation or before committed dispatch. That attempt was not
+sent upstream. A retry operation may already contain an earlier upstream
+rejection; preserve any returned `x-niu-operation-id` and `x-niu-attempt-id`
+headers when linking to request diagnostics.
+
+Display this as a request timeout rather than a database availability failure.
+This classification does not authorize replay of an uncertain attempt or an
+already returned stream. Inspect saved request state before deciding whether to
+start a new operation. Other HTTP 504 errors do not inherit this nonexecution
+guarantee merely from their status code.
+
+See [the bounded retry and deadline contract](https://github.com/niu-io/niu/blob/main/docs/reference/upstream-retry-policy.md).
