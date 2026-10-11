@@ -614,3 +614,24 @@ settlements, closures, funding receipts or balance entries. Checkout URLs were
 not followed. This verifies local checkout creation, persistence and pending-state
 reads; paid/closed transitions and concurrency with a real payment callback remain
 unverified by this run. No merchant activation or payment success is claimed.
+
+### Checkout recovery after lost commit acknowledgement — 2026-10-11
+
+A current native gateway (`3bb165b`) created a locally signed EPay checkout in a
+fresh isolated PostgreSQL database. A protocol proxy withheld the database's
+successful COMMIT acknowledgement for the initial order transaction. The actual
+checkout API returned 503, while detail exposed the saved intent as
+`reconciliation_required` with no checkout URL.
+
+Eight concurrent retries with the original intent/key produced one identical
+pending checkout for the original order. A changed amount returned 409. Gateway
+restart preserved the same order and checkout URL. No checkout URL was followed,
+no merchant was contacted, and no paid evidence was generated.
+
+An independent process reopened the stopped database, matched the stored intent,
+amount/currency/idempotency key and checkout to saved HTTP responses, and
+independently recomputed the checkout signature. It confirmed one order and
+checkout and no settlement, funding receipt or balance entry. This verifies the
+local EPay intent-to-checkout recovery window; remote Stripe/PaymentFM creation,
+payment callbacks and received-cash funding require separate evidence. Original
+merchant configuration, database and encryption identity were unchanged.
