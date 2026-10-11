@@ -1,0 +1,70 @@
+name: Documentation build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/docs.yml'
+      - 'apps/docs/**'
+      - 'apps/dashboard/src/**'
+      - 'apps/dashboard/package.json'
+      - 'branding/**'
+      - 'contracts/generated/handler-operations.json'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+  pull_request:
+    paths:
+      - '.github/workflows/docs.yml'
+      - 'apps/docs/**'
+      - 'apps/dashboard/src/**'
+      - 'apps/dashboard/package.json'
+      - 'branding/**'
+      - 'contracts/generated/handler-operations.json'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install locked workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check documentation types
+        run: pnpm --dir apps/docs check
+      - name: Build documentation
+        run: pnpm --dir apps/docs build
+      - name: Verify built API entrypoints
+        run: |
+          node --input-type=module <<'JS'
+          import { readFileSync } from 'node:fs';
+          import { deepStrictEqual, ok } from 'node:assert/strict';
+          const root = 'apps/docs/dist/';
+          for (const file of ['index.html', 'reference/api/index.html', 'reference/handler-operations/index.html']) {
+            ok(readFileSync(root + file, 'utf8').includes('<html'), `Missing HTML entrypoint: ${file}`);
+          }
+          deepStrictEqual(
+            JSON.parse(readFileSync(root + 'openapi/handler-operations.json', 'utf8')),
+            JSON.parse(readFileSync('contracts/generated/handler-operations.json', 'utf8')),
+          );
+          JS
+      - name: Record verification scope
+        run: echo 'Documentation compilation and built API artifacts only. Browser behavior, backend workflows and release readiness require separate current-input verification.' >> "$GITHUB_STEP_SUMMARY"
