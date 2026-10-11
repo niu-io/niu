@@ -49,6 +49,33 @@ commercial Supplier settlement or paid-media qualification. No fixture outcome
 supports these observations. The original database, configuration and encrypted
 identity were unchanged.
 
+### Customer reporting and isolation for the streaming run
+
+A separate native reporting run used the same committed binary on a stopped copy
+of the actual 240-request database. An ordinary workspace reader traversed all
+three request-history pages at a page size of 100. Every exposed key, token count
+and customer charge matched its stored attempt. Complete-range summaries remained
+identical across pages; all eight key filters returned their own 30 requests.
+Full-range token and charge totals covered all 240 requests, including rows beyond
+the first page. CSV export matched their usage and customer amounts.
+
+The reader's procurement-cost request returned 403. A reader scoped to a different
+organization and workspace received 404 for both request history and CSV export,
+without revealing any of the tested attempt identifiers. Customer response objects
+and export columns contained none of the checked procurement, credential or margin
+fields. After restarting the reporting Gateway, the CSV was byte-identical.
+Revoking the reporting reader changed its history request to 401; both temporary
+readers were revoked.
+
+A separate process reopened this stopped reporting database, rehashed and parsed
+the original source SSE artifacts, recomputed the charges from their reported
+usage, and matched every saved API row and exported record to the database. The
+total remained **4,026,681 USD nanounits**. Attempt, charge and balance-entry counts
+and ledger totals were unchanged by reporting; no new inference or financial
+posting was needed. This verifies the stated backend reporting and authorization
+paths for this actual dataset. It does not qualify dashboard rendering, reporting
+under concurrent inference load or every filter combination.
+
 Date: 2026-10-11. Backend implementation through `f75908a`; main integration
 `a0cd865`. This extends the [single-gateway measurement](priced-text-concurrency-live.md)
 with a current-input two-process run. It does not qualify production capacity or
