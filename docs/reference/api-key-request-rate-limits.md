@@ -339,3 +339,21 @@ isolation; it does not measure maximum capacity, arbitrary overload, minute-wind
 reopening, two-Gateway races, token-rate admission or unresolved media occupancy.
 The upstream credential is personal testing access, not qualified commercial
 supply, and the internal customer debits are not externally funded cash.
+
+
+### Increasing a populated limit preserves the rolling window
+
+A further actual `35b8045` run repeated the sixteen-client burst at two RPM,
+then changed that key to three RPM with expected revision 1. The next real
+completion consumed its single remaining slot; a subsequent request was denied.
+Restart retained that denial. A stale revision-1 write returned 409 without
+changing the new policy. The independent key retained its separate admission.
+
+Independent raw-response parsing and database reopening checked three completed
+attempts for the limited key, one for the control key, exact charges/debits for
+all four, final policy revision 2/value 3, and immutable history `1:2, 2:3`.
+Rejected calls produced no attempt/charge; no held reservation or funding remained.
+This verifies that raising a populated cap adds headroom without resetting prior
+usage in the exercised current-input path. It does not extend the scope to all
+concurrent policy-change races or arbitrary overload. No clock/window data was
+modified and the original installation was untouched.
