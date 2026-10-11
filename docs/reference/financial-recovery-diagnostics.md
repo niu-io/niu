@@ -87,3 +87,28 @@ The endpoint, privilege boundary and last-page semantics rendered without docume
 horizontal overflow. Its downloadable OpenAPI JSON returned HTTP 200 and included
 `getFinancialRecoveryDiagnostics`. This verifies local generated documentation;
 it is not a hosted deployment claim.
+
+## Bounded diagnostic read — 2026-10-12
+
+Implementation `e4f00fa` reuses the bounded read-only financial snapshot
+initializer for the platform diagnostic query. Its existing projection,
+authorization and response shape are unchanged. The transaction-local lock wait
+is 250 ms and the statement limit is two seconds. Pool admission and caller
+authorization are separate; this is not a whole-HTTP deadline.
+
+An actual native run copied stopped history containing a genuine upstream
+completion and exact customer debit. With the progress table locked, the preceding
+immutable binary's HTTP read remained pending after 1.6 seconds. The updated
+immutable binary returned 503 after approximately 258 ms while the lock remained
+held. An unrelated balance read returned 200 during contention. After release
+and restart, the diagnostic read returned all six safe stage projections.
+Independent reopening checked the error body, restored field sets and server
+lock-timeout record against the original native response, invoice, exact debit
+and unchanged account fingerprint. No inference, funding, payment or financial
+mutation was introduced. No fixture outcome is evidence.
+
+A fresh native backup was restored and fingerprint-checked before updating the
+existing installation. Exact binary digests were checked; original configuration,
+encrypted identity and durable counts remained unchanged. Readiness and persisted
+routing agreement were confirmed on schema 278. These observations do not
+establish backlog settlement, zero recoverable debt or complete release readiness.
