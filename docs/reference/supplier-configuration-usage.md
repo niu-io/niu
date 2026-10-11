@@ -68,7 +68,22 @@ returned 403 while the same member successfully read its Supplier dashboard
 reopening checked the persisted membership, unchanged attempts and revocation of
 the temporary operator against the saved HTTP results.
 
-These runs cover completed text traffic and the stated authorization boundaries.
-Nonempty media/unknown-usage/failure aggregation, large history query performance
-and upgrade index-build duration remain unverified.
+A separate current-input run used explicitly personal-owned configurations,
+without customer credit or billing rates. An actual OpenRouter native Messages
+completion for `openai/gpt-4.1-mini` returned the requested unique output marker
+without complete aggregate token usage. A separate deliberately invalid upstream
+credential produced a canonical HTTP 401 and a persisted `upstream_http_error`
+observation with upstream status 401. The directory counted two unknown-usage
+attempts, one completion and one failure; summed known tokens remained zero
+without converting either request to known zero usage. Restart preserved the
+report. Independent response-file inspection and database reopening checked the
+output, aggregate nulls, safe failure, execution classification and timing sum.
+Neither request produced a customer ledger entry or Supplier earning; temporary
+workspace keys were revoked. An initial verification script incorrectly expected
+502 for the credential refusal; the actual canonical 401 was preserved and the
+expectation corrected, without changing gateway behavior.
+
+These runs cover text traffic, unknown aggregate usage, an upstream authentication
+failure and the stated authorization boundaries. Nonempty media aggregation,
+large history query performance and upgrade index-build duration remain unverified.
 It does not qualify an entire Supplier business workflow or release gate.
