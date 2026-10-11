@@ -87,3 +87,23 @@ new encryption of the same secret. It does not establish external key rotation,
 revocation of an upstream key, switching between different upstream accounts or
 commercial supply eligibility. Private secrets, ciphertext and identifiers remain
 outside the repository. No fixture result is used.
+
+## Shared route selection read — 2026-10-11
+
+Shared text resolution now reads the stored model and encrypted credential,
+immutable personal ownership, Supplier availability and media-offer kind in one
+PostgreSQL statement. It no longer compares separate registry reads for these
+conditions. Disabled or personal mappings remain present in the selection result
+and are rejected before credential decryption; they cannot become an absent row
+that permits static fallback. Dispatch-time revision and live eligibility checks
+remain mandatory. This is not a published immutable routing generation; atomic
+publication, generation attribution and failed-publication recovery remain open.
+
+A fresh actual internal-credit run through two Gateways completed three model
+requests while five competing requests were refused by the shared key RPM cap.
+Disabling the selected mapping then returned 404 before and after restart.
+Independent reopening matched saved response quantities to three exact customer
+charge/debit pairs and the same three RPM admissions, confirmed the disabled
+mapping at revision two, and found no outstanding customer reservations or
+funding entries. This checks the exercised shared text and disabled-mapping
+paths; it does not establish every offer kind or concurrent publication behavior.

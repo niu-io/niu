@@ -134,6 +134,22 @@ impl VendorCatalogRow {
     }
 }
 
+/// Shared text selection inputs from one database statement. Dispatch must still
+/// recheck live eligibility and the selected credential/model revisions.
+pub struct SharedVendorRoute {
+    pub route: VendorRoute,
+    pub supplier_available: bool,
+    pub uses_media_offer: bool,
+}
+
+#[derive(FromRow)]
+struct SharedVendorRouteRow {
+    #[sqlx(flatten)]
+    route: VendorRouteRow,
+    supplier_available: bool,
+    uses_media_offer: bool,
+}
+
 #[derive(FromRow)]
 struct VendorRouteRow {
     #[sqlx(flatten)]
@@ -661,6 +677,30 @@ impl Store {
             .fetch_optional(&self.pool)
             .await?
             .map(VendorRouteRow::into_route))
+    }
+
+    /// Keep disabled and personal mappings present so they cannot fall back to
+    /// static aliases. Ownership, offer kind and availability share the route read.
+    pub async fn shared_vendor_route(
+        &self,
+        alias: &str,
+    ) -> Result<Option<SharedVendorRoute>, StoreError> {
+        let query = format!(
+            "SELECT route.*,niu_supplier_model_route_available(route.alias) AS supplier_available, \
+             EXISTS(SELECT 1 FROM provider_offers o JOIN provider_offer_revisions r ON r.id=o.current_revision \
+             WHERE o.model_alias=route.alias AND r.rate_kind='media') AS uses_media_offer \
+             FROM ({}) route",
+            route_query("WHERE m.alias=$1")
+        );
+        Ok(sqlx::query_as::<_, SharedVendorRouteRow>(&query)
+            .bind(alias)
+            .fetch_optional(&self.pool)
+            .await?
+            .map(|row| SharedVendorRoute {
+                route: row.route.into_route(),
+                supplier_available: row.supplier_available,
+                uses_media_offer: row.uses_media_offer,
+            }))
     }
 
     /// Read the bounded pool's eligible mappings in one database statement.

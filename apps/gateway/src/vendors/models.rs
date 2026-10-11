@@ -395,38 +395,23 @@ pub(crate) async fn resolve_model(
     state: &AppState,
     alias: &str,
 ) -> Result<ResolvedModel, ApiError> {
-    if state
+    if let Some(selection) = state
         .store
-        .supplier_model_uses_media_offer(alias)
+        .shared_vendor_route(alias)
         .await
         .map_err(ApiError::from_store)?
     {
-        return Err(ApiError::unsupported_message(
-            "This model uses a media offer. Use the qualified video job API.",
-        ));
-    }
-    if !state
-        .store
-        .supplier_model_available(alias)
-        .await
-        .map_err(ApiError::from_store)?
-    {
-        return Err(ApiError::unavailable());
-    }
-    if let Some(route) = state
-        .store
-        .vendor_route(alias)
-        .await
-        .map_err(ApiError::from_store)?
-    {
-        // Shared resolution must reject personal credentials before decrypting.
-        if state
-            .store
-            .personal_vendor_organization(route.vendor.id)
-            .await
-            .map_err(ApiError::from_store)?
-            .is_some()
-        {
+        if selection.uses_media_offer {
+            return Err(ApiError::unsupported_message(
+                "This model uses a media offer. Use the qualified video job API.",
+            ));
+        }
+        if !selection.supplier_available {
+            return Err(ApiError::unavailable());
+        }
+        let route = selection.route;
+        // Ownership is part of the selected row, not a later registry read.
+        if route.personal_organization_id.is_some() {
             return Err(ApiError::not_found());
         }
         if !route.vendor.enabled || !route.model.enabled {
