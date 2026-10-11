@@ -332,7 +332,7 @@ impl Store {
         {
             return Err(StoreError::InvalidPrice);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         if let Some(expected) = configuration_revision {
             sqlx::query("SELECT pg_advisory_xact_lock_shared(716553)")
                 .execute(&mut *tx)
