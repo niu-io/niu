@@ -10965,7 +10965,7 @@
       "get": {
         "operationId": "getConfigurationSupplier",
         "summary": "Read the Supplier owning an API configuration",
-        "description": "Installation administration only. Returns the Supplier identity and name, or null when no association exists, including an unknown configuration. Never returns credentials or procurement values.",
+        "description": "Installation credential or explicitly granted platform administrator required. Supplier membership and customer ownership alone do not grant access. Returns the Supplier identity and name, or null when no association exists, including an unknown configuration. Never returns credentials or procurement values.",
         "security": [
           {
             "bearerAuth": []
@@ -11036,7 +11036,7 @@
       "put": {
         "operationId": "associateConfigurationSupplier",
         "summary": "Associate an API configuration with a Supplier",
-        "description": "Installation administration only. Atomic and audited. The first association requires the current configuration revision. Repeating the same Supplier association is idempotent even with the original revision and does not increment it again. A different Supplier cannot take over an existing association. Deleted Suppliers cannot receive configurations. Association and deletion serialize: once ownership commits, deletion returns 409. Does not activate, qualify or price an offer.",
+        "description": "Installation credential or explicitly granted platform administrator required. Supplier membership and customer ownership alone do not grant access. Atomic and audited. The first association requires the current configuration revision. Repeating the same Supplier association is idempotent even with the original revision and does not increment it again. A different Supplier cannot take over an existing association. Deleted Suppliers cannot receive configurations. Association and deletion serialize: once ownership commits, deletion returns 409. Does not activate, qualify or price an offer.",
         "security": [
           {
             "bearerAuth": []

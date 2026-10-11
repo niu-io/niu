@@ -11398,7 +11398,7 @@ HTTP 401: Invalid or expired administrative credential.
 
 `GET /admin/v1/vendors/{id}/supplier`
 
-Installation administration only. Returns the Supplier identity and name, or null when no association exists, including an unknown configuration. Never returns credentials or procurement values.
+Installation credential or explicitly granted platform administrator required. Supplier membership and customer ownership alone do not grant access. Returns the Supplier identity and name, or null when no association exists, including an unknown configuration. Never returns credentials or procurement values.
 
 Implementation: `implemented`. Operation: `getConfigurationSupplier`.
 
@@ -11475,7 +11475,7 @@ HTTP 503: Storage unavailable.
 
 `PUT /admin/v1/vendors/{id}/supplier`
 
-Installation administration only. Atomic and audited. The first association requires the current configuration revision. Repeating the same Supplier association is idempotent even with the original revision and does not increment it again. A different Supplier cannot take over an existing association. Deleted Suppliers cannot receive configurations. Association and deletion serialize: once ownership commits, deletion returns 409. Does not activate, qualify or price an offer.
+Installation credential or explicitly granted platform administrator required. Supplier membership and customer ownership alone do not grant access. Atomic and audited. The first association requires the current configuration revision. Repeating the same Supplier association is idempotent even with the original revision and does not increment it again. A different Supplier cannot take over an existing association. Deleted Suppliers cannot receive configurations. Association and deletion serialize: once ownership commits, deletion returns 409. Does not activate, qualify or price an offer.
 
 Implementation: `implemented`. Operation: `associateConfigurationSupplier`.
 
