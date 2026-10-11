@@ -83,9 +83,21 @@ workspace keys were revoked. An initial verification script incorrectly expected
 502 for the credential refusal; the actual canonical 401 was preserved and the
 expectation corrected, without changing gateway behavior.
 
-These runs cover text traffic, unknown aggregate usage, an upstream authentication
-failure and the stated authorization boundaries. Nonempty media aggregation,
-large history query performance and production index-build duration remain
-unverified. An isolated [272-to-273 native upgrade](../releases/native-backend-upgrade-2026-10-11.md#supplier-configuration-index-upgrade)
+A current-input media read used a stopped copy of an actual completed personal
+video job. The directory initially had no requests for a newly created diagnostic
+Supplier. Associating its existing configuration through the normal administrator
+API produced one completed media attempt with unknown aggregate token usage.
+This explicitly exercises current ownership, not retroactive commercial or
+financial attribution. The report survived restart. Independent database reopening
+checked the exact attempt/model association and HTTP timing semantics, and full
+FFmpeg decoding plus the retained artifact hash checked the original generated
+video. Full-record fingerprints of attempts, jobs, media routes, media transport
+timings, customer balance entries and Supplier earnings remained unchanged.
+No new video generation, upstream polling, funding or earnings was introduced by
+this read verification.
+
+These runs cover text and retained media traffic, unknown aggregate usage, an
+upstream authentication failure and the stated authorization boundaries. Large
+history query performance and production index-build duration remain unverified. An isolated [272-to-273 native upgrade](../releases/native-backend-upgrade-2026-10-11.md#supplier-configuration-index-upgrade)
 preserved the existing business records and encryption identity.
 It does not qualify an entire Supplier business workflow or release gate.
