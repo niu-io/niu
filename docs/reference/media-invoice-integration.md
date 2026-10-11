@@ -47,7 +47,7 @@ argument to `getCustomerInvoiceLines`.
 
 ## Remaining work
 
-Actual positive text/media invoices, mixed invoices, pending media-overrun
+Positive customer media invoices, mixed invoices, pending media-overrun
 rejection, source-trigger rejection, populated cursor traversal and paid
 settlement remain unverified. The clean bootstrap covers upgrade compatibility
 and owner-funded inference, not these financial branches.
@@ -254,3 +254,31 @@ charge. These reads made no upstream request and did not alter the original
 installation or the retained source database. This verifies customer reporting
 for the recovered owner-funded job; it does not qualify paid-media reporting or
 browser presentation.
+
+
+## Reconciled text invoice checkpoint
+
+Invoice-detail reads now require an existing invoice in the authorized workspace.
+Unknown and out-of-scope invoice identifiers return 404; empty text/media arrays
+only describe an existing invoice without that kind of charge. The response
+explicitly sets `Cache-Control: no-store`. Before the correction, an actual request
+for a nonexistent invoice returned 200 with empty details.
+
+An isolated copy of an actual native Messages completion exercised invoicing after
+supplemental usage reconciliation. Eight simultaneous issuance calls produced one
+invoice and one entry. Its token counts, immutable tariff revision and exact amount
+matched the original native response and customer charge, even though a newer
+customer tariff had been published. Replay and restart retained the same invoice.
+There remained exactly one inference attempt, customer charge and balance debit.
+
+The invoice reported paid from its existing credit-backed debit, without creating
+an external invoice-payment or funding record. Billing showed no invoice amount
+due and no unbilled charge, while the company balance retained the negative amount
+owed under approved credit. Workspace viewers could read but not issue invoices;
+sibling-workspace and foreign-company reads were refused. Independent reopening
+checked the invoice entry, original usage, bound price and ledger amounts.
+
+A separate actual unknown-usage completion still rejected issuance with
+`reconciliation_required`, retained its open reservation through restart, and had
+no invoice, charge or debit. These observations do not qualify positive customer
+media invoices, historical media supplements or external commercial settlement.

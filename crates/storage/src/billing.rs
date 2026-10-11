@@ -949,6 +949,17 @@ SELECT jsonb_build_object(
             json!({"balances":balances,"unresolved":unresolved,"unpriced":unpriced,"tariffs":tariffs,"invoices":invoices}),
         )
     }
+    /// Invoice identity is immutable; distinguish absence from an empty line family.
+    pub async fn customer_invoice_exists(
+        &self,
+        scope: TenantScope,
+        invoice: Uuid,
+    ) -> Result<bool, StoreError> {
+        Ok(sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM customer_invoices WHERE id=$1 AND organization_id=$2 AND project_id=$3)")
+            .bind(invoice).bind(scope.organization_id).bind(scope.project_id)
+            .fetch_one(&self.pool).await?)
+    }
+
     pub async fn customer_invoice_media_lines(
         &self,
         scope: TenantScope,

@@ -6627,7 +6627,7 @@ HTTP 404: Workspace outside authorized scope.
 
 `GET /admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}`
 
-Requires workspace read access. Returns no entries for an invoice outside that workspace. Cache-Control is no-store. Text quantities and rates are pinned to the charge revision; publishing a new tariff does not reprice historical invoice lines. Supplier expenses are never included.
+Requires workspace read access and an existing invoice in that workspace. Unknown or out-of-scope invoice IDs return 404. Text quantities and rates are pinned to the charge revision; publishing a new tariff does not reprice historical invoice lines. Empty text or media arrays describe an existing invoice with no entries of that kind. Supplier expenses are never included. Cache-Control no-store.
 
 Implementation: `implemented`. Operation: `getCustomerInvoiceLines`.
 
@@ -7005,7 +7005,7 @@ Content type: `application/json`.
 }
 ```
 
-HTTP 404: Workspace outside authorized scope
+HTTP 404: Invoice not found in the authorized workspace.
 
 HTTP 401: Invalid or expired administrative credential.
 

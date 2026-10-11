@@ -1927,7 +1927,7 @@ pub struct InvoiceLinesQuery {
 ///       }
 ///     ],
 ///     "summary": "Read invoice lines grouped by model and pinned rate revision",
-///     "description": "Requires workspace read access. Returns no entries for an invoice outside that workspace. Cache-Control is no-store. Text quantities and rates are pinned to the charge revision; publishing a new tariff does not reprice historical invoice lines. Supplier expenses are never included.",
+///     "description": "Requires workspace read access and an existing invoice in that workspace. Unknown or out-of-scope invoice IDs return 404. Text quantities and rates are pinned to the charge revision; publishing a new tariff does not reprice historical invoice lines. Empty text or media arrays describe an existing invoice with no entries of that kind. Supplier expenses are never included. Cache-Control no-store.",
 ///     "responses": {
 ///       "200": {
 ///         "description": "Grouped immutable charge entries",
@@ -2250,7 +2250,7 @@ pub struct InvoiceLinesQuery {
 ///         }
 ///       },
 ///       "404": {
-///         "description": "Workspace outside authorized scope"
+///         "description": "Invoice not found in the authorized workspace."
 ///       },
 ///       "401": {
 ///         "description": "Invalid or expired administrative credential."
@@ -2265,19 +2265,30 @@ pub async fn lines(
     headers: HeaderMap,
     Query(query): Query<InvoiceLinesQuery>,
     Path((organization_id, project_id, invoice)): Path<(Uuid, Uuid, Uuid)>,
-) -> Result<Json<Value>, ApiError> {
+) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {
     let scope = TenantScope {
         organization_id,
         project_id,
     };
     authorize(&state, &headers, scope, false).await?;
+    if !state
+        .store
+        .customer_invoice_exists(scope, invoice)
+        .await
+        .map_err(ApiError::from_store)?
+    {
+        return Err(ApiError::not_found());
+    }
     let (media_lines, media_next_cursor) = state
         .store
         .customer_invoice_media_lines(scope, invoice, query.media_after)
         .await
         .map_err(ApiError::from_store)?;
-    Ok(Json(
-        json!({"data":state.store.customer_invoice_lines(scope,invoice).await.map_err(ApiError::from_store)?, "media_lines":media_lines, "media_next_cursor":media_next_cursor}),
+    Ok((
+        [("cache-control", "no-store")],
+        Json(
+            json!({"data":state.store.customer_invoice_lines(scope,invoice).await.map_err(ApiError::from_store)?, "media_lines":media_lines, "media_next_cursor":media_next_cursor}),
+        ),
     ))
 }
 #[derive(Deserialize)]

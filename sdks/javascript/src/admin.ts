@@ -1188,7 +1188,7 @@ export class NiuAdminClient {
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/billing/invoices`, input, options);
   }
 
-  /** Workspace-authorized customer line items; amounts and token counts remain exact decimal strings. */
+  /** Workspace-authorized customer line items. Unknown/out-of-scope invoices return 404; amounts and token counts remain exact decimal strings. */
   getCustomerInvoiceLines(scope: TenantScope, invoiceId: string, options?: RequestOptions, mediaAfter?: string): Promise<{ data: CustomerInvoiceLine[]; media_lines?: CustomerInvoiceMediaLine[]; media_next_cursor?: string | null }> {
     const cursor = mediaAfter === undefined ? '' : `?media_after=${uuid(mediaAfter)}`;
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/billing/invoices/${uuid(invoiceId)}${cursor}`, undefined, options);
