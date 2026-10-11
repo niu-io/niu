@@ -5492,7 +5492,7 @@ HTTP 409: Cursor no longer eligible; restart pagination
 
 `GET /admin/v1/organizations/{organization}/billing/reservations`
 
-Organization-wide owner/admin or installation read access required, matching company balance permissions. Newest-first keyset pages observe one statement snapshot; pages do not share a snapshot. Released reservations are omitted, but a released cursor remains usable. Unknown or foreign cursors and currency-mismatched cursors return 409. Exact nanounit strings distinguish the original reservation from outstanding liability, including known media overrun and excluding posted charge debits. This is a read-only diagnostic; states do not prove nonexecution or authorize releasing funds or retrying inference. No Supplier prices, upstream endpoints, credentials or payment references are exposed. Names are current display metadata; IDs are internal links only. Cache-Control no-store.
+Organization-wide owner/admin or installation read access required, matching company balance permissions. Newest-first keyset pages observe one statement snapshot; pages do not share a snapshot. Released reservations are omitted, but a released cursor remains usable. Unknown or foreign cursors and currency-mismatched cursors return 409. Exact nanounit strings distinguish the original reservation from outstanding liability, including known media overrun and excluding posted charge debits. This is a read-only diagnostic; states do not prove nonexecution or authorize releasing funds or retrying inference. No Supplier prices, upstream endpoints, credentials or payment references are exposed. Names are current display metadata; IDs are internal links only. Cache-Control no-store. missing_usage_categories lists the absent token categories required by the request-bound customer tariff and selected context tier. Null means classification is unavailable (including unknown aggregate usage, incomplete execution or non-text pricing); an empty list means no required category is missing, not that settlement succeeded. Later price publication does not change this diagnostic.
 
 Implementation: `implemented`. Operation: `listCustomerBalanceReservations`.
 
@@ -5581,7 +5581,8 @@ Content type: `application/json`.
           "outstanding_nanos",
           "created_at",
           "observed_at",
-          "status"
+          "status",
+          "missing_usage_categories"
         ],
         "properties": {
           "attempt_id": {
@@ -5649,6 +5650,21 @@ Content type: `application/json`.
               "usage_unknown",
               "settlement_pending"
             ]
+          },
+          "missing_usage_categories": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string",
+              "enum": [
+                "cached_input_tokens",
+                "cache_write_input_tokens",
+                "reasoning_output_tokens"
+              ]
+            },
+            "description": "Missing required categories under the pinned customer tariff; null when classification is unavailable. Empty does not establish settlement. No prices or private accounting metadata."
           }
         }
       }

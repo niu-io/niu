@@ -10,12 +10,27 @@ WITH page AS MATERIALIZED (
           WHEN a.execution='may_have_executed' THEN 'execution_unknown'
           WHEN a.dispatched_at IS NULL THEN 'preparing'
           ELSE 'in_progress' END AS status,
+        CASE WHEN a.execution='confirmed_completed' AND a.usage_confidence='provider_reported'
+            AND a.prompt_tokens IS NOT NULL AND a.completion_tokens IS NOT NULL AND t.attempt_id IS NOT NULL
+          THEN jsonb_build_object(
+            'prompt_tokens',a.prompt_tokens,
+            'cached_input_tokens',categories.cached_input_tokens,
+            'cache_write_input_tokens',categories.cache_write_input_tokens,
+            'reasoning_output_tokens',categories.reasoning_output_tokens,
+            'cached_prompt_rate',tariff.cached_prompt_rate,
+            'cache_write_prompt_rate',tariff.cache_write_prompt_rate,
+            'reasoning_completion_rate',tariff.reasoning_completion_rate,
+            'context_tiers',tariff.context_tiers)
+          ELSE NULL END AS category_diagnostic_input,
         statement_timestamp() AS observed_at
     FROM customer_balance_reservations r
     JOIN attempts a ON a.id=r.attempt_id AND a.organization_id=r.organization_id
     JOIN projects p ON p.id=a.project_id AND p.organization_id=a.organization_id
     LEFT JOIN api_keys k ON k.id=a.api_key_id AND k.organization_id=a.organization_id AND k.project_id=a.project_id
     LEFT JOIN customer_media_charges m ON m.attempt_id=r.attempt_id
+    LEFT JOIN customer_attempt_tariffs t ON t.attempt_id=r.attempt_id
+    LEFT JOIN customer_tariff_revisions tariff ON tariff.id=t.revision_id
+    LEFT JOIN request_token_categories categories ON categories.attempt_id=r.attempt_id
     WHERE r.organization_id=$1 AND r.released_at IS NULL AND ($3::text IS NULL OR r.currency=$3)
       AND ($2::uuid IS NULL OR (r.created_at,r.attempt_id)<(
           SELECT created_at,attempt_id FROM customer_balance_reservations

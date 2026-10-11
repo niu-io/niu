@@ -347,3 +347,45 @@ missing debit appended. No new inference or external payment was submitted by
 this reporting run. This qualifies the missing-debit case; mismatched amounts,
 duplicate sources, unexpected entries and media discrepancies remain separate
 unverified cases.
+
+## Missing token categories in open holds — 2026-10-11
+
+The company reservation directory now includes `missing_usage_categories`.
+For completed text requests with known aggregate usage and a pinned customer
+tariff, it lists absent categories required by the selected historical context
+tier: `cached_input_tokens`, `cache_write_input_tokens` or
+`reasoning_output_tokens`. Explicit zero category prices still require usage.
+Null tier rates do not inherit base rates. The diagnostic reuses settlement's
+Rust tier selector and reads its inputs in the same statement snapshot as the
+reservation page; current tariff publication cannot reclassify an older request.
+
+The field is `null` when classification is unavailable, including unknown totals,
+uncompleted execution and non-text pricing. An empty array means no required
+category is missing, not that settlement succeeded. Existing status values are
+unchanged. Internal diagnostic inputs are removed before response serialization;
+no customer price schedule, Supplier price or credential is included in this field.
+The JavaScript SDK and generated OpenAPI include the nullable category array.
+
+A stopped copy of an actual completed GPT-4.1-mini request with an unresolved
+cache-write tier was served by the changed Gateway. Current HTTP reads reported
+only `cache_write_input_tokens`, despite a null base write rate. Clearing the
+current tier schedule through the tariff API did not change the diagnostic.
+Company-owner access worked, foreign-company access was denied, and Gateway
+restart preserved the result. Independent reopening matched the saved actual
+response, pinned selected tier and missing quantity, and confirmed unchanged
+full-row attempt/reservation fingerprints with no financial entry.
+
+A separate fresh native Messages request returned incomplete aggregate usage;
+its hold reported `null`. An actual Chat completion with complete usage ran while
+an isolated database trigger refused debit insertion. Its hold reported an empty
+array and `settlement_pending`, including after restart. Removing the fault
+allowed exactly one debit and released only that hold. Pagination continued
+using the now-released cursor, still returning the older unknown-usage hold.
+Independent reopening reconciled both saved responses, the exact pinned charge,
+remaining hold and captured diagnostic states.
+
+Three earlier fresh-call attempts returned 502; two Chat logs explicitly recorded
+connection timeouts. Those runs did not establish successful generation. Their isolated
+records were preserved. Model-list reachability was not used to qualify inference.
+These checks cover the observed text diagnostics, not media usage classification,
+every context/category combination or large-directory performance.
