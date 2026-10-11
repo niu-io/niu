@@ -146,3 +146,23 @@ no Supplier earning or funding was fabricated. No fixture outcome is evidence.
 Membership updates are ordinary writes, not idempotency-key operations: another
 accepted repeat write can add another audit event. This checkpoint does not
 qualify every concurrent grant/revocation race or uncertain commit outcome.
+
+
+## Handler-generated authorization contract
+
+The membership PUT operation is now documented at its Rust handler and extracted
+as `setProviderMembership`, preserving the existing operation identifier. The
+root OpenAPI contract references the generated definition. It includes UUID path
+parameters, the required role/active request fields, platform authorization,
+atomic audit behavior and HTTP 200/400/401/403/409/422/503 responses. This changes
+documentation ownership, not the route, accepted payload or authorization.
+
+An isolated source build generated and checked the annotation subset and root
+entrypoints, preserving unrelated shared-worktree edits. The docs site built
+using isolated dependencies. Its generated operation HTML and downloadable JSON
+were served over HTTP: both returned 200, the operation/body/error definitions
+were present, and download bytes matched the generated contract. An initial
+cross-directory dependency-symlink build failed in Astro compile metadata; an
+isolated offline dependency installation resolved that build setup problem.
+This is HTML/contract verification, not browser visual acceptance or new evidence
+of a financial business path. No fixture outcome is used as evidence.

@@ -560,6 +560,118 @@ pub struct Membership {
     role: String,
     active: bool,
 }
+/// ```openapi
+/// {
+///   "path": "/admin/v1/providers/{provider}/members/{operator}",
+///   "method": "put",
+///   "operation": {
+///     "operationId": "setProviderMembership",
+///     "summary": "Grant, change or disable a Supplier membership",
+///     "description": "Requires platform administration. Grants viewer or manager membership to a non-revoked operator. Supplier membership grants no platform configuration authority. Membership state and immutable audit are recorded atomically. Repeated accepted writes can add audit events. Individual transaction lock waits are bounded to 250 ms and statements to 2 seconds; pool acquisition and whole HTTP duration are not bounded by these settings.",
+///     "tags": [
+///       "Suppliers"
+///     ],
+///     "parameters": [
+///       {
+///         "name": "provider",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "operator",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "required": [
+///               "role",
+///               "active"
+///             ],
+///             "properties": {
+///               "role": {
+///                 "type": "string",
+///                 "enum": [
+///                   "manager",
+///                   "viewer"
+///                 ]
+///               },
+///               "active": {
+///                 "type": "boolean"
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "200": {
+///         "description": "Membership saved and audited",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "required": [
+///                     "active"
+///                   ],
+///                   "properties": {
+///                     "active": {
+///                       "type": "boolean"
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid membership role"
+///       },
+///       "401": {
+///         "description": "Missing, expired or revoked administrative credential"
+///       },
+///       "403": {
+///         "description": "Platform administration required"
+///       },
+///       "409": {
+///         "description": "Missing/deleted Supplier or missing/revoked operator"
+///       },
+///       "422": {
+///         "description": "Malformed membership input"
+///       },
+///       "503": {
+///         "description": "Storage unavailable or transaction lock/statement timeout"
+///       }
+///     },
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
 pub async fn set_member(
     State(state): State<AppState>,
     headers: HeaderMap,
