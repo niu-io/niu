@@ -77,3 +77,48 @@ that verifier error was corrected before assessing the result.
 This covers nonempty asset-management credentials, including superseded revisions.
 It does not qualify upstream asset authorization or the separate encrypted asset
 lookup/list/read/update result domains.
+
+## Clean committed rotation with a real unresolved stream — 2026-10-12
+
+A current-input run used the digest-verified clean committed Gateway
+`ab6f2ff1832af753b05c674651883c2fdedaf3db`. Its isolated database copy retained
+240 actual completed stream charges and a separate actual tool-argument stream
+disconnect: that request had unknown usage/execution, no charge or debit and one
+unreleased customer reservation. The original raw partial SSE and its hash were
+retained; no fault trigger or invented usage was needed.
+
+Offline rotation completed with one credential-envelope replacement. Source-only
+encryption inspection failed; destination-only inspection and startup succeeded.
+The original cancelled attempt and reservation fingerprints, and all 240 prior
+charge/debit records, remained unchanged. Maintenance did not reconcile uncertain
+usage, create an invoice payment or release an unresolved liability.
+
+A newly scoped key then made an actual structured stream through the re-encrypted
+credential. The response delivered its fresh marker, native usage and `[DONE]`.
+44 input and 9 output tokens at the bound customer tariff produced exactly
+**14,321 USD nanounits** and one matching debit in the original bound account.
+Restart preserved the original unknown request and hold, all historical accounting
+and the new completed request. The temporary key was revoked.
+
+Independent reopening parsed both partial and completed SSE artifacts and checked
+request quantities, hashes, original-account attribution and exact billing against
+PostgreSQL. A separate AES-GCM implementation authenticated the old and new
+envelopes to identical plaintext under the original vendor identity, with unchanged
+business metadata. The old key and changed identity failed authentication against
+the new envelope. One completed operation and one matching replacement authority
+remained. The authorization digest check initially used the database's default
+timezone; it was corrected to the documented UTC/hexadecimal audit settings and
+rerun on the same stopped database, without repeating rotation or inference.
+
+There were 242 total attempts, 241 charges/debits and exactly the original one
+open customer reservation, with no external funding or invoice payment. These are
+actual retained/generated records, not fixture outcomes. Original source databases,
+deployment configuration and encryption identity were not changed. Personal
+OpenRouter access and explicit internal verification prices do not establish
+commercial Supplier supply or discounts.
+
+This adds clean committed evidence for credential rotation, genuine unresolved
+liability preservation and subsequent actual streaming/accounting. Nonempty
+image/asset-result and legacy credential domains, populated Supplier qualification
+preservation and large-inventory capacity still need independent current-input
+evidence; it does not qualify the complete rotation issue.
