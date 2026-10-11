@@ -961,3 +961,24 @@ payment was requested or funding manufactured. Logs/response checks found no
 merchant credentials. The upstream failure's underlying cause was not retained
 as acceptance evidence and remains undiagnosed; this verifies durable uncertain
 creation and replay, not positive checkout or funding.
+
+
+### Safe merchant-creation failure diagnostics — 2026-10-12
+
+Zhifux checkout creation now records a fixed failure category, the internal
+saved-order correlation reference and an optional numeric provider application
+code in platform logs. Categories are configuration, transport, invalid response,
+provider rejection, not paid and protocol. It never logs the error body, signed
+request, merchant identity or secret. Customer responses retain the existing
+sanitized uncertain-creation error; saved intent and replay semantics are unchanged.
+
+Clean committed `d4718ed` repeated the actual configured lock/refusal/retry path.
+The merchant returned a rejection with application code `5008`; its business
+meaning has not been independently confirmed. Exactly one creation-failure event
+was retained across replay and restart. The saved intent stayed reconciliation
+required without a provider binding, checkout or settlement. Independent database
+reopening matched the exact intent/creation claim and unchanged funding/ledger;
+response and log checks found no merchant credential. Clean build and formatting
+checks completed separately. This diagnoses the observed class/code, not the
+underlying merchant condition, successful checkout, funding, or every category.
+The original native runtime remains on `cefd284` pending a separate deployment.
