@@ -299,6 +299,25 @@ prevent later refresh from restoring them, even if the job was unfinished when
 deleted. It preserves status and accounting, and does not delete media held by
 a Supplier or copies already downloaded.
 
+### Current retained-expiry checkpoint — 2026-10-12
+
+The clean committed `bdf1a6d` Gateway read an isolated restored copy of a real
+completed personal OpenRouter video. Its original result deadline had elapsed
+and its encrypted reference had already been erased, with a retained deletion
+timestamp at or after that deadline. Authorized retrieval returned 404 while
+the job retained its succeeded state. An actual upstream refresh and Gateway
+restart both preserved unavailable result metadata and 404 retrieval.
+
+Independent reopening of PostgreSQL and inspection of saved HTTP bodies matched
+the unchanged reference creation, expiry and deletion timestamps, successful
+execution observations, and original generation-submission and accounting
+counts. The executable hash matched the retained clean build. No clock or expiry
+was changed, no new generation was submitted, and the source installation was
+untouched. This checks an existing expired-and-erased result's durable state; it
+does not observe a downloadable reference crossing its deadline, measure cleanup
+lag, or independently attribute the earlier erasure to a particular worker.
+Paid video settlement remains outside this personal-result checkpoint.
+
 Use `await client.video.jobs.results.retrieve(job.id, 'video', { signal })` for
 an authenticated `Response` whose body can be streamed by the caller. Use
 `await client.video.jobs.results.delete(job.id)` for local deletion. Neither
