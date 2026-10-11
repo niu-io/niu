@@ -419,3 +419,18 @@ its saved upstream 401 and confirmed nonexecution, matching operation identifier
 and absence of charges, ledger entries and open holds. This verifies revocation
 at this specific successor-admission boundary, not every credential/configuration
 race or an already dispatched request.
+
+### Existing retry-history migration
+
+A stopped copy of actual retained Chat retry history at schema 260 was upgraded
+by the current Gateway to schema 274. Full-record fingerprints of attempts,
+retry policies, retry-chain entries, operation tariffs, attempt tariffs, customer
+charges and balance entries remained unchanged. Existing operations kept
+`openrouter-chat-auth-rejection-v1`; the migration did not convert them into
+Responses operations or grant additional attempts.
+
+Administrator HTTP reads returned the existing two-attempt operation with its
+original policy, and another Gateway restart retained the same response.
+Independent reopening confirmed schema 274 and all seven full-table fingerprints.
+No new inference was dispatched. This verifies this retained-history upgrade;
+it does not claim every historical schema path or a production-size migration.
