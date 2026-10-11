@@ -287,7 +287,7 @@ fn default_limit() -> u32 {
 ///         "description": "Supplier does not exist or is deleted."
 ///       },
 ///       "503": {
-///         "description": "Storage unavailable."
+///         "description": "Storage unavailable or diagnostic query deadline exceeded; no partial totals."
 ///       }
 ///     },
 ///     "x-niu-implementation": "implemented"

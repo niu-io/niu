@@ -101,3 +101,20 @@ upstream authentication failure and the stated authorization boundaries. Large
 history query performance and production index-build duration remain unverified. An isolated [272-to-273 native upgrade](../releases/native-backend-upgrade-2026-10-11.md#supplier-configuration-index-upgrade)
 preserved the existing business records and encryption identity.
 It does not qualify an entire Supplier business workflow or release gate.
+
+## Database contention
+
+The diagnostic statement has transaction-local `lock_timeout=250ms` and
+`statement_timeout=2s`. These bounds do not replace pool-acquisition, network or
+HTTP deadlines. Timeout returns a sanitized 503, never truncated or empty success;
+the transaction ends without leaving these settings on a pooled connection.
+Large ranges that exceed the statement budget must be narrowed.
+
+A current-input run held an actual exclusive route-table lock in a separate
+PostgreSQL session while querying the retained three real text attempts. The API
+returned 503 in 256.15 ms without a partial report or database object names.
+After releasing the lock, and again after Gateway restart, the complete original
+totals and model rows returned. Independent database reopening reconciled token
+and timing sums; the PostgreSQL log recorded lock-timeout cancellation. This
+checks lock contention and recovery, not the two-second execution deadline under
+a large-history workload or production throughput.

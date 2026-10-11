@@ -24,6 +24,15 @@ impl Store {
         {
             return Err(StoreError::InvalidObservation);
         }
+        // Bound diagnostic work on a borrowed connection. Transaction-local
+        // settings cannot leak into subsequent inference/accounting operations.
+        // Pool acquisition and network deadlines remain separate bounds.
+        let mut tx = self.pool.begin().await?;
+        sqlx::query(
+            "SELECT set_config('lock_timeout','250ms',true), set_config('statement_timeout','2s',true)",
+        )
+        .execute(&mut *tx)
+        .await?;
         let (exists, mut result): (bool, Value) =
             sqlx::query_as(include_str!("supplier_configuration_usage.sql"))
                 .bind(supplier)
@@ -31,8 +40,9 @@ impl Store {
                 .bind(to_ms)
                 .bind(after)
                 .bind(i64::from(limit) + 1)
-                .fetch_one(&self.pool)
+                .fetch_one(&mut *tx)
                 .await?;
+        tx.commit().await?;
         if !exists {
             return Ok(None);
         }

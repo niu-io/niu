@@ -11846,7 +11846,7 @@ HTTP 403: Platform administration required.
 
 HTTP 404: Supplier does not exist or is deleted.
 
-HTTP 503: Storage unavailable.
+HTTP 503: Storage unavailable or diagnostic query deadline exceeded; no partial totals.
 
 ## List Supplier API-key configurations without credentials
 
