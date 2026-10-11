@@ -218,3 +218,39 @@ response against their original rates, exact debits, restored categories and
 released reservations, and confirmed removal of the fault trigger. This is one
 new upstream request plus retained history, not a new load run or qualification of
 commercial media, merchant funding or every change in the shared workspace.
+
+## Actual mixed completion batch fallback — 2026-10-12
+
+Clean digest-verified implementation `69c161d` handled 32 concurrent actual
+structured OpenRouter requests in fresh native PostgreSQL. Two configured aliases
+used the explicit dated model. Every response returned its unique marker and
+native usage. An isolated category-write trigger rejected one alias's sole
+attempt and delayed writes briefly to expose the real completion queue. No
+upstream response or usage quantity was fabricated.
+
+Gateway diagnostics retained a failed 13-record priced completion batch and its
+per-record fallback. PostgreSQL identified exactly the batch and single-row
+fallback failures from the deliberate row fault, with no statement timeout.
+The other 31 requests settled; the unresolved request retained its liability.
+A delivered HTTP 200 is not proof that its accounting persisted.
+
+After removing the fault, authenticated canonical generation metadata returned a
+usage receipt. The first saved artifact still had 31 charges: receipt acceptance
+was not yet customer settlement. A stopped copy restarted with the same binary
+and recovered the remaining debit without another upstream inference. Final
+state had 32 charges/debits and no held customer or procurement reservation.
+
+Independent reopening hashed and parsed every original response, matched each
+generation to its distinct attempt, recomputed all pinned-rate charges and
+checked original account identity. Exactly **534,461 USD nanounits** matched the
+ledger. There was one canonical usage receipt, removed fault trigger, revoked
+temporary keys and no funding receipt or Supplier earning. The unresolved
+cache-write quantity remained null; its pinned tariff had no independent
+cache-write rate, so known aggregate usage sufficed for this exact charge. No
+unknown category was converted to invented zero usage.
+
+This qualifies this real mixed priced-completion fallback and subsequent customer
+recovery. It does not qualify every batch size/failure ordering, category-priced
+unknown recovery, media/Supplier financial batches or production capacity.
+Original deployment data and encrypted identity were unchanged. No fixture
+outcome is evidence.

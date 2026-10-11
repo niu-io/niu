@@ -155,7 +155,7 @@ See [key concurrency limits](../reference/api-key-concurrency-limits.md) for unr
 
 See [key token rate budgets](../reference/api-key-token-rate-limits.md) for estimation limits, window semantics and verification gaps.
 
-See [completion replay and category preservation](../reference/completion-replay.md) for the shared batch/fallback implementation and actual completed-request replay evidence. Actual paid customer category recovery and independent procurement cost recovery are covered in the [cost recovery checkpoint](../reference/upstream-cost-recovery-paging.md); mixed-batch failure recovery remains unverified.
+See [completion replay and category preservation](../reference/completion-replay.md) for the shared batch/fallback implementation and actual completed-request replay evidence. Actual paid customer category recovery and independent procurement cost recovery are covered in the [cost recovery checkpoint](../reference/upstream-cost-recovery-paging.md); A [32-request completion fault run](../reference/completion-replay.md#actual-mixed-completion-batch-fallback--2026-10-12) now verifies per-record fallback and later exact customer recovery; mixed Supplier/media recovery remains unverified.
 
 See [customer cached-input pricing](../reference/cached-input-pricing.md) for versioning, conservative bounds, missing-usage behavior and the exact current-input verification boundary.
 
