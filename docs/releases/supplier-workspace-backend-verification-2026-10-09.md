@@ -131,3 +131,8 @@ Supplier still deleted. Both configuration credentials remained encrypted and no
 inference attempt was dispatched. The original development database was not
 modified. This establishes these configuration lifecycle cases, not Supplier
 qualification, earnings, settlement or complete release readiness.
+
+Association acquires its Supplier lock before the configuration lock, matching
+Supplier offer publication and avoiding the reverse lock order between those
+operations. The deletion/association HTTP cases and independent persisted-state
+inspection were repeated with this ordering.

@@ -308,6 +308,18 @@ impl Store {
         expected_revision: i64,
     ) -> Result<(), StoreError> {
         let mut tx = self.pool.begin().await?;
+        // Lock Supplier before configuration, matching offer publication.
+        // Retain liveness through ownership commit so deletion cannot pass
+        // its dependency check between this read and the insert.
+        let exists: Option<Uuid> = sqlx::query_scalar(
+            "SELECT id FROM provider_businesses WHERE id=$1 AND deleted_at IS NULL FOR KEY SHARE",
+        )
+        .bind(supplier)
+        .fetch_optional(&mut *tx)
+        .await?;
+        if exists.is_none() {
+            return Err(StoreError::Conflict);
+        }
         let revision: i64 =
             sqlx::query_scalar("SELECT revision FROM vendors WHERE id=$1 FOR UPDATE")
                 .bind(vendor)
@@ -341,17 +353,6 @@ impl Store {
             return Err(StoreError::Conflict);
         }
 
-        // Keep deletion's FOR UPDATE lock from passing its dependency check
-        // between this liveness check and the ownership insert.
-        let exists: Option<Uuid> = sqlx::query_scalar(
-            "SELECT id FROM provider_businesses WHERE id=$1 AND deleted_at IS NULL FOR KEY SHARE",
-        )
-        .bind(supplier)
-        .fetch_optional(&mut *tx)
-        .await?;
-        if exists.is_none() {
-            return Err(StoreError::Conflict);
-        }
         sqlx::query("INSERT INTO vendor_supplier_ownership(vendor_id,provider_id) VALUES($1,$2)")
             .bind(vendor)
             .bind(supplier)
