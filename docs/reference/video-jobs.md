@@ -1470,3 +1470,24 @@ one job, one generation submission, successful queried completion and no custome
 financial entries. No replacement generation was submitted to obtain the result.
 This connects the exercised recovery path to actual downloadable media; it does
 not extend the evidence to paid settlement or every model/output combination.
+
+## Result retrieval timing — 2026-10-11
+
+Video transport diagnostics now include a `result` phase for upstream result
+retrieval and bounded body reading. Records contain elapsed time and the existing
+`received`/`unavailable` outcome, without signed URLs, credentials or response
+bodies. Result failure HTTP status remains unknown. `received` means media bytes
+reached the Gateway, not that the client received them; current access and content
+retention are checked again before delivery. These spans do not change generation
+state or billing. Pre-fetch authorization refusals create no network span. Timing
+persistence is best effort, and handler cancellation can leave no span.
+
+A stopped database copy containing an actual successful recovered video upgraded
+to migration 262. Two authorized result downloads returned identical bytes; full
+FFmpeg decoding succeeded. The timing API returned two bounded `result` spans
+with no private fields and preserved them across restart. Revoking the reading key
+returned 401 without another result span. Independent reopening matched the API
+spans to stored records, rehashed and decoded the downloaded file, and confirmed
+one original generation submission and no customer financial entries. This
+qualifies successful retrieval diagnostics for this recovered owner-funded job;
+network-failure/cancellation diagnostics and paid media settlement remain separate.

@@ -356,7 +356,7 @@ impl Store {
         if timing
             .upstream_http_status
             .is_some_and(|status| timing.received || !(100..=599).contains(&status))
-            || !matches!(timing.phase, "submission" | "query")
+            || !matches!(timing.phase, "submission" | "query" | "result")
             || !(0..=9007199254740991).contains(&timing.started_unix_ms)
             || !(0..=120000).contains(&timing.elapsed_ms)
         {

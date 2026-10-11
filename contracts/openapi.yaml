@@ -623,7 +623,7 @@ paths:
                       additionalProperties: false
                       required: [phase, started_unix_ms, elapsed_ms, outcome]
                       properties:
-                        phase: { type: string, enum: [submission, query] }
+                        phase: { type: string, enum: [submission, query, result], description: "Result measures retrieval transport only; received does not imply client delivery or another generation." }
                         started_unix_ms: { type: integer, minimum: 0, maximum: 9007199254740991 }
                         elapsed_ms: { type: integer, minimum: 0, maximum: 120000 }
                         outcome: { type: string, enum: [received, unavailable] }
@@ -747,7 +747,7 @@ paths:
                       additionalProperties: false
                       required: [phase, started_unix_ms, elapsed_ms, outcome]
                       properties:
-                        phase: { type: string, enum: [submission, query] }
+                        phase: { type: string, enum: [submission, query, result], description: "Result measures retrieval transport only; received does not imply client delivery or another generation." }
                         started_unix_ms: { type: integer, minimum: 0, maximum: 9007199254740991 }
                         elapsed_ms: { type: integer, minimum: 0, maximum: 120000 }
                         outcome: { type: string, enum: [received, unavailable] }

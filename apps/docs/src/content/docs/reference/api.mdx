@@ -576,6 +576,14 @@ and current verification limits. Images/references and customer-funded video
 qualification remain outside this verified subset. Browser restoration still
 requires frontend integration and verification.
 
+Video timing responses include a `result` phase for result retrieval. Its elapsed
+time measures the upstream fetch and bounded body read. `received` means the
+Gateway obtained the media bytes; current access is checked again before delivery,
+so it does not prove client receipt. Retrieval failures record `unavailable` with
+unknown upstream HTTP status. These records never create another generation or
+customer charge. Authorization failures before retrieval do not create a network
+span. A cancelled handler or failed diagnostic write may leave no timing entry.
+
 Video transport timing entries also expose nullable `upstream_http_status` for
 submission and refresh HTTP failures. Historical and unclassified spans retain
 null. This diagnostic never changes the saved generation state or proves that a

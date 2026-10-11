@@ -1765,12 +1765,12 @@ pub(crate) async fn refresh_for_principal(
     Ok(saved)
 }
 
-struct TransportClock {
+pub(super) struct TransportClock {
     start: std::time::Instant,
     unix_ms: Option<i64>,
 }
 impl TransportClock {
-    fn start() -> Self {
+    pub(super) fn start() -> Self {
         Self {
             start: std::time::Instant::now(),
             unix_ms: std::time::SystemTime::now()
@@ -1779,7 +1779,7 @@ impl TransportClock {
                 .and_then(|v| i64::try_from(v.as_millis()).ok()),
         }
     }
-    async fn save(
+    pub(super) async fn save(
         self,
         state: &AppState,
         scope: niu_storage::TenantScope,

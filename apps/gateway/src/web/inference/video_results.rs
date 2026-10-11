@@ -92,6 +92,7 @@ pub(super) async fn retrieve_as(
         .await
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::not_found)?;
+    let clock = super::video::TransportClock::start();
     let media = if route.channel == niu_media::openrouter::REVISION {
         if kind != MediaResultKind::Video || route.adapter != "openrouter" {
             return Err(ApiError::not_found());
@@ -116,8 +117,11 @@ pub(super) async fn retrieve_as(
             Duration::from_secs(60),
         )
         .await
-    }
-    .map_err(ApiError::from_media_result)?;
+    };
+    clock
+        .save(state, scope, id, "result", media.is_ok(), None)
+        .await;
+    let media = media.map_err(ApiError::from_media_result)?;
     // Recheck after network work: expiry, deletion and current grants can change
     // while a large result is downloading. Do not deliver that stale access.
     authorize(state, principal, id).await?;

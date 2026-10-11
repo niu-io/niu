@@ -263,10 +263,11 @@ export type VideoLifecycleTiming = {
   conflicting_terminal: boolean;
 };
 
+/** Result spans measure upstream retrieval, not client delivery or generation billing. */
 export type VideoTransportTimings = {
   /** First gateway observations, not exact Supplier queue/run transitions. */
   lifecycle?: VideoLifecycleTiming;
-  data: Array<{ phase: 'submission' | 'query'; started_unix_ms: number; elapsed_ms: number; outcome: 'received' | 'unavailable'; upstream_http_status?: number | null }>;
+  data: Array<{ phase: 'submission' | 'query' | 'result'; started_unix_ms: number; elapsed_ms: number; outcome: 'received' | 'unavailable'; upstream_http_status?: number | null }>;
   has_more: boolean;
 };
 
