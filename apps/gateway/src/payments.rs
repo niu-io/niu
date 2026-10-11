@@ -665,6 +665,10 @@ pub(crate) async fn create_topup(
     if !auth.permits_billing_account(organization) {
         return Err(ApiError::not_found());
     }
+    let member = match auth {
+        crate::state::AdminAuthorization::Installation => None,
+        crate::state::AdminAuthorization::Operator(member) => Some(member),
+    };
     if input.currency.as_ref().is_some_and(|currency| {
         currency.len() != 3 || !currency.bytes().all(|b| b.is_ascii_uppercase())
     }) {
@@ -717,6 +721,7 @@ pub(crate) async fn create_topup(
             checkout,
             input,
             epay_revision,
+            member,
         )
         .await;
     }
@@ -731,7 +736,7 @@ pub(crate) async fn create_topup(
             .as_deref()
             .is_none_or(|currency| currency.eq_ignore_ascii_case(&checkout.currency))
     {
-        return create_stripe_topup(&state, organization, runtime, checkout, input).await;
+        return create_stripe_topup(&state, organization, runtime, checkout, input, member).await;
     }
     if input
         .payment_gateway
@@ -775,7 +780,7 @@ pub(crate) async fn create_topup(
     })?;
     let order = state
         .store
-        .create_customer_topup(
+        .create_authorized_customer_topup(
             organization,
             &niu_storage::TopupInput {
                 currency: "CNY",
@@ -785,6 +790,8 @@ pub(crate) async fn create_topup(
                 payment_method: &input.payment_method,
                 idempotency_key: input.idempotency_key,
             },
+            None,
+            member,
         )
         .await
         .map_err(ApiError::from_store)?;
@@ -2556,6 +2563,7 @@ async fn create_stripe_topup(
     runtime: &StripeRuntime,
     checkout: &StripeCheckout,
     input: CreateTopup,
+    member: Option<niu_storage::OperatorPrincipal>,
 ) -> Result<Json<Value>, ApiError> {
     if input.amount_nanos.is_empty() || !input.amount_nanos.bytes().all(|b| b.is_ascii_digit()) {
         return Err(ApiError::invalid_request(
@@ -2577,7 +2585,7 @@ async fn create_stripe_topup(
     .map_err(|_| ApiError::invalid_request("Top-ups require positive whole minor units"))?;
     let order = state
         .store
-        .create_customer_topup(
+        .create_authorized_customer_topup(
             organization,
             &niu_storage::TopupInput {
                 currency: &checkout.currency.to_ascii_uppercase(),
@@ -2587,6 +2595,8 @@ async fn create_stripe_topup(
                 payment_method: &input.payment_method,
                 idempotency_key: input.idempotency_key,
             },
+            None,
+            member,
         )
         .await
         .map_err(ApiError::from_store)?;
@@ -3050,6 +3060,7 @@ async fn create_epay_topup(
     checkout: &EPayCheckout,
     input: CreateTopup,
     configuration_revision: i64,
+    member: Option<niu_storage::OperatorPrincipal>,
 ) -> Result<Json<Value>, ApiError> {
     if input.amount_nanos.is_empty() || !input.amount_nanos.bytes().all(|b| b.is_ascii_digit()) {
         return Err(ApiError::invalid_request(
@@ -3064,7 +3075,7 @@ async fn create_epay_topup(
         .map_err(|_| ApiError::invalid_request("CNY top-ups require at most two decimal places"))?;
     let order = state
         .store
-        .create_customer_topup_with_payment_revision(
+        .create_authorized_customer_topup(
             organization,
             &niu_storage::TopupInput {
                 currency: "CNY",
@@ -3074,7 +3085,8 @@ async fn create_epay_topup(
                 payment_method: &input.payment_method,
                 idempotency_key: input.idempotency_key,
             },
-            configuration_revision,
+            Some(configuration_revision),
+            member,
         )
         .await
         .map_err(ApiError::from_store)?;

@@ -635,3 +635,27 @@ checkout and no settlement, funding receipt or balance entry. This verifies the
 local EPay intent-to-checkout recovery window; remote Stripe/PaymentFM creation,
 payment callbacks and received-cash funding require separate evidence. Original
 merchant configuration, database and encryption identity were unchanged.
+
+### Checkout authorization after database waits — 2026-10-11
+
+A current-input native run reproduced a revoked-session race: an owner submitted
+checkout while another transaction held its company row lock; the session was
+revoked before releasing the lock, but checkout returned 200 and saved an order.
+No payment was made and no balance was credited.
+
+Gateway checkout creation now supplies the authenticated member to shared intent
+storage for EPay, Stripe and native PaymentFM. After configuration and account
+lock waits, the transaction locks the current member/session rows and verifies
+company scope, owner/admin role, revocation and expiry before reading an existing
+intent or inserting a new one. Installation/internal callers retain their explicit
+separate authorization path. This is intent-creation authorization, not a promise
+to cancel remote work whose authorized intent has already committed.
+
+Repeating the actual EPay lock/revocation sequence returned 401 after the change.
+Independent reopening confirmed the revoked session and zero orders, checkouts,
+provider bindings, funding receipts and balance entries. A separate run kept the
+owner session valid during the same lock wait and returned 200; independent
+reopening confirmed one order/checkout and no funding. The lost-acknowledgement
+checkout run above was also repeated and independently reconciled after this
+change. These runs do not qualify remote Stripe/PaymentFM execution, signed paid
+callbacks or received-cash funding. No fixture result supports these conclusions.

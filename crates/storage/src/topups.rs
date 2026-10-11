@@ -255,7 +255,7 @@ impl Store {
         organization: Uuid,
         input: &TopupInput<'_>,
     ) -> Result<TopupOrder, StoreError> {
-        self.create_customer_topup_inner(organization, input, None)
+        self.create_customer_topup_inner(organization, input, None, None)
             .await
     }
 
@@ -270,7 +270,24 @@ impl Store {
         if input.aggregator != "epay" || revision < 0 {
             return Err(StoreError::Conflict);
         }
-        self.create_customer_topup_inner(organization, input, Some(revision))
+        self.create_customer_topup_inner(organization, input, Some(revision), None)
+            .await
+    }
+
+    /// Gateway intent creation rechecks the member after configuration/account
+    /// lock waits. Internal payment adapters may use the unscoped methods above.
+    pub async fn create_authorized_customer_topup(
+        &self,
+        organization: Uuid,
+        input: &TopupInput<'_>,
+        configuration_revision: Option<i64>,
+        member: Option<crate::OperatorPrincipal>,
+    ) -> Result<TopupOrder, StoreError> {
+        if configuration_revision.is_some_and(|revision| revision < 0 || input.aggregator != "epay")
+        {
+            return Err(StoreError::Conflict);
+        }
+        self.create_customer_topup_inner(organization, input, configuration_revision, member)
             .await
     }
 
@@ -279,6 +296,7 @@ impl Store {
         organization: Uuid,
         input: &TopupInput<'_>,
         configuration_revision: Option<i64>,
+        member: Option<crate::OperatorPrincipal>,
     ) -> Result<TopupOrder, StoreError> {
         if input.amount_nanos <= 0
             || input.currency.len() != 3
@@ -316,6 +334,32 @@ impl Store {
             .await?
             .ok_or(StoreError::Conflict)?;
         let account:Uuid=sqlx::query_scalar("SELECT id FROM customer_balance_accounts WHERE organization_id=$1 AND currency=$2 FOR UPDATE").bind(organization).bind(input.currency).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
+        if let Some(member) = member {
+            let access: Option<(bool, i64)> = sqlx::query_as(
+                "SELECT o.revoked_at IS NULL AND s.revoked_at IS NULL \
+                 AND o.role IN ('owner','admin') AND o.project_id IS NULL \
+                 AND o.organization_id=$3, s.expires_at_unix \
+                 FROM admin_operators o JOIN admin_sessions s ON s.operator_id=o.id \
+                 WHERE o.id=$1 AND s.id=$2 FOR SHARE OF o,s",
+            )
+            .bind(member.id)
+            .bind(member.session_id)
+            .bind(organization)
+            .fetch_optional(&mut *tx)
+            .await?;
+            let Some((true, expires_at)) = access else {
+                return Err(StoreError::Unauthorized);
+            };
+            let unexpired: bool = sqlx::query_scalar(
+                "SELECT $1::bigint > extract(epoch FROM clock_timestamp())::bigint",
+            )
+            .bind(expires_at)
+            .fetch_one(&mut *tx)
+            .await?;
+            if !unexpired {
+                return Err(StoreError::Unauthorized);
+            }
+        }
         let prior:Option<TopupOrder>=sqlx::query_as("SELECT id,organization_id,account_id,currency,amount_nanos,aggregator,merchant,payment_method,idempotency_key FROM customer_topup_orders WHERE organization_id=$1 AND idempotency_key=$2").bind(organization).bind(input.idempotency_key).fetch_optional(&mut *tx).await?;
         if let Some(prior) = prior {
             if prior.account_id != account
