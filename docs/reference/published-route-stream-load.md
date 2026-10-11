@@ -72,3 +72,44 @@ customer charge was introduced by these reads.
 This verifies backend reporting for the observed completed-stream history. It
 does not establish browser presentation, failed/interrupted-stream reporting,
 all possible concurrent pagination changes or unrestricted history capacity.
+
+
+## Current two-connection checkpoint — 2026-10-12
+
+Clean committed backend `d4718ed` repeated 120 actual structured streams across
+eight workspace keys, scheduled at two requests per second with sixteen client
+workers. Its admission pool was configured for **two** database connections;
+background maintenance retains its separate connection policy. This is one Gateway
+in an isolated native installation using personal OpenRouter access and explicit
+internal tariffs/approved credit, not commercial supply or external funding.
+
+| Observation | Result |
+| --- | --- |
+| Completed streams | 120 |
+| Workload duration | 60.79 seconds |
+| Completion throughput | 1.974 requests/second |
+| Maximum scheduled-start delay | 13.94 ms |
+| Client first-content p50 / nearest-rank p95 | 1,134.06 / 1,283.81 ms |
+| Client full round-trip p50 / nearest-rank p95 | 1,310.66 / 1,566.45 ms |
+| Maximum client full round-trip | 1,890.83 ms |
+| Maximum sampled Gateway RSS | 33,280 KiB |
+| Maximum sampled macOS ps CPU percentage | 3.8% |
+| Resource samples | 117 |
+| Reconciled internal customer charges | 2,010,063 USD nanounits |
+
+Independent parsing and rehashing of every original SSE checked the unique
+structured marker, terminal usage and DONE event. Reopening the stopped database
+matched each key, execution, actual token quantities, integer tariff charge and
+sole corresponding debit. One published generation attributed all attempts;
+restart preserved them, temporary keys were revoked, and no active balance hold
+or funding receipt remained. Additional original-SSE inspection found no Supplier
+cost or credential fields, and the retained executable fingerprint matched the
+recorded clean build.
+
+Measurement boundaries and process-sampling limitations are the same as described
+above. This observes the current version under a two-connection configured pool;
+it is not a maximum-capacity, overload, long-soak, media or multi-instance result.
+Do not infer a performance change from the earlier run: external upstream timing
+and pool settings differ, and no controlled matched comparison was performed.
+Customer reporting for this new history has not been independently checked; the
+reporting checkpoint above remains pinned to its original 120-stream records.
