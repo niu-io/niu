@@ -1382,3 +1382,24 @@ credit test mappings. Both shared calls completed with independently reconciled
 charge/debit pairs; a concurrent model edit returned one success and one conflict
 without changing the sibling credential. No merchant funding or commercial supply
 qualification was created. This does not implement published route generations.
+
+## Backend tariff-model directory — 2026-10-11
+
+The price editor can now use `GET /admin/v1/pricing/models`, or
+`admin.listPlatformPricingModels({ after, limit })`, instead of inferring billing
+eligibility from enabled Supplier mappings. The platform-only response contains
+`data: [{ model_alias }]` and `next_after`. It uses the same shared catalog as
+price publication, excluding personal and unavailable aliases. Page size defaults
+to 50 and is bounded at 100. An unavailable cursor returns 409; refresh from the
+first page. Each page reflects current eligibility, not a frozen multi-page
+snapshot. Publication still rechecks availability and expected tariff revision.
+No rate, upstream mapping, credential or procurement information is returned.
+
+A fresh isolated HTTP and built-SDK run traversed two shared aliases with page
+size one while excluding personal and disabled mappings. Company-viewer access
+returned 403 and an invalid credential returned 401. Selected shared aliases
+accepted customer prices and completed actual model calls. Independent reopening
+matched saved response usages, two exact charge/debit pairs and released holds;
+restart preserved the directory. This is internal-credit test evidence, not
+commercial qualification. The backend and SDK are delivered; frontend adoption
+and browser verification remain separate work.

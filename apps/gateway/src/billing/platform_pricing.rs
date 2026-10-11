@@ -389,3 +389,139 @@ pub async fn tariffs(
         .ok_or_else(ApiError::not_found)?;
     Ok(([("cache-control", "no-store")], Json(data)))
 }
+
+/// ```openapi
+/// {
+///   "path": "/admin/v1/pricing/models",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listPlatformPricingModels",
+///     "summary": "List models eligible for customer tariff publication",
+///     "description": "Explicit platform administration required. Uses the same shared catalog as customer tariff publication, excluding personal owner-funded and unavailable aliases. This is a current eligibility read, not a price, supply qualification or dispatch guarantee. Publication rechecks eligibility. Sorted by model alias; limit defaults to 50, maximum 100. Pass next_after unchanged; null means complete. An unavailable cursor returns 409: restart pagination. No credentials, upstream mappings or procurement prices. Cache-Control no-store.",
+///     "x-niu-implementation": "implemented",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "after",
+///         "in": "query",
+///         "schema": {
+///           "type": "string",
+///           "maxLength": 200
+///         }
+///       },
+///       {
+///         "name": "limit",
+///         "in": "query",
+///         "schema": {
+///           "type": "integer",
+///           "minimum": 1,
+///           "maximum": 100,
+///           "default": 50
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Current eligible alias page",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "additionalProperties": false,
+///               "required": [
+///                 "data",
+///                 "next_after"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "maxItems": 100,
+///                   "items": {
+///                     "type": "object",
+///                     "additionalProperties": false,
+///                     "required": [
+///                       "model_alias"
+///                     ],
+///                     "properties": {
+///                       "model_alias": {
+///                         "type": "string"
+///                       }
+///                     }
+///                   }
+///                 },
+///                 "next_after": {
+///                   "type": [
+///                     "string",
+///                     "null"
+///                   ]
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid page size or alias cursor"
+///       },
+///       "401": {
+///         "description": "Authentication required"
+///       },
+///       "403": {
+///         "description": "Platform administration required"
+///       },
+///       "409": {
+///         "description": "Cursor no longer eligible; restart pagination"
+///       }
+///     }
+///   }
+/// }
+/// ```
+pub async fn models(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(page): Query<TariffPage>,
+) -> Result<([(&'static str, &'static str); 1], Json<Value>), ApiError> {
+    state.authorize_platform_headers(&headers).await?;
+    let limit = page.limit.unwrap_or(50);
+    if !(1..=100).contains(&limit)
+        || page
+            .after
+            .as_ref()
+            .is_some_and(|alias| alias.is_empty() || alias.len() > 200)
+    {
+        return Err(ApiError::invalid_request(
+            "Choose a page size from 1 to 100 and a valid model cursor",
+        ));
+    }
+    let models = crate::vendors::effective_models(&state).await?;
+    if page
+        .after
+        .as_ref()
+        .is_some_and(|alias| !models.contains_key(alias))
+    {
+        return Err(ApiError::from_store(niu_storage::StoreError::Conflict));
+    }
+    let mut aliases: Vec<_> = models
+        .into_keys()
+        .filter(|alias| page.after.as_ref().is_none_or(|after| alias > after))
+        .take(limit as usize + 1)
+        .collect();
+    let next_after = if aliases.len() > limit as usize {
+        aliases.pop();
+        aliases.last().cloned()
+    } else {
+        None
+    };
+    let data: Vec<_> = aliases
+        .into_iter()
+        .map(|alias| serde_json::json!({"model_alias":alias}))
+        .collect();
+    Ok((
+        [("cache-control", "no-store")],
+        Json(serde_json::json!({"data":data,"next_after":next_after})),
+    ))
+}

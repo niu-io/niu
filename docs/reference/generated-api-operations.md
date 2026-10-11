@@ -4965,6 +4965,97 @@ HTTP 503: Storage unavailable
 
 HTTP 404: Company/workspace pair does not exist
 
+## List models eligible for customer tariff publication
+
+`GET /admin/v1/pricing/models`
+
+Explicit platform administration required. Uses the same shared catalog as customer tariff publication, excluding personal owner-funded and unavailable aliases. This is a current eligibility read, not a price, supply qualification or dispatch guarantee. Publication rechecks eligibility. Sorted by model alias; limit defaults to 50, maximum 100. Pass next_after unchanged; null means complete. An unavailable cursor returns 409: restart pagination. No credentials, upstream mappings or procurement prices. Cache-Control no-store.
+
+Implementation: `implemented`. Operation: `listPlatformPricingModels`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`after` (query, optional)
+
+```json
+{
+  "type": "string",
+  "maxLength": 200
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Current eligible alias page
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data",
+    "next_after"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "model_alias"
+        ],
+        "properties": {
+          "model_alias": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "next_after": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}
+```
+
+HTTP 400: Invalid page size or alias cursor
+
+HTTP 401: Authentication required
+
+HTTP 403: Platform administration required
+
+HTTP 409: Cursor no longer eligible; restart pagination
+
 ## Inspect open customer balance reservations
 
 `GET /admin/v1/organizations/{organization}/billing/reservations`

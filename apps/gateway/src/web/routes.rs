@@ -107,6 +107,7 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/admin/v1/organizations/{organization}/billing/media-rates/replace", axum::routing::post(crate::billing::replace_media_rate).layer(axum::extract::DefaultBodyLimit::max(128 * 1024)))
         .route("/admin/v1/organizations/{organization}/billing/media-rates", get(crate::billing::media_rates).post(crate::billing::media_rate).layer(axum::extract::DefaultBodyLimit::max(128 * 1024)))
         .route("/admin/v1/organizations/{organization}/billing/funding/settled", axum::routing::post(crate::billing::settled_funding))
+        .route("/admin/v1/pricing/models", get(crate::billing::platform_pricing::models))
         .route("/admin/v1/pricing/targets", get(crate::billing::platform_pricing::targets))
         .route("/admin/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs", get(crate::billing::platform_pricing::tariffs))
         .route("/admin/v1/organizations/{organization}/projects/{project}/billing", get(crate::billing::overview))

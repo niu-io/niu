@@ -1028,6 +1028,20 @@ export class NiuAdminClient {
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/billing/tariffs/${encodeURIComponent(model)}/history${query.size ? `?${query}` : ''}`, undefined, options);
   }
 
+  /** Current shared tariff-eligible aliases; publication rechecks availability. */
+  listPlatformPricingModels(page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: { model_alias: string }[]; next_after: string | null }> {
+    const query = new URLSearchParams();
+    if (page.after !== undefined) {
+      if (!page.after || new TextEncoder().encode(page.after).length > 200) throw new TypeError('A model cursor of at most 200 bytes is required');
+      query.set('after', page.after);
+    }
+    if (page.limit !== undefined) {
+      if (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100) throw new TypeError('Choose a page size from 1 to 100');
+      query.set('limit', String(page.limit));
+    }
+    return this.request(`/pricing/models${query.size ? '?' + query : ''}`, undefined, options);
+  }
+
   /** Named pricing targets; platform permission does not grant customer data access. */
   listPlatformPricingTargets(page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: { organization_id: string; organization_name: string; workspace_id: string; workspace_name: string }[]; next_after: string | null }> {
     const query = new URLSearchParams();
