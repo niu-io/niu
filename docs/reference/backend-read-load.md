@@ -1,0 +1,61 @@
+# Authenticated backend read-load checkpoint
+
+## Scope — 2026-10-11
+
+A native release gateway processed authenticated company-owner reads against an
+isolated copy of 112 retained real model requests and their customer charges.
+The bounded text-recovery implementation from `1db3e04` was active. No inference,
+funding or financial write was submitted by the load generator.
+
+Requests rotated evenly through these actual endpoints:
+
+- Workspace request Logs, with a 50-record page.
+- Workspace billing overview.
+- Company customer-charge reconciliation.
+- Workspace directory, with a 20-record page limit.
+
+Three consecutive phases used 1, 4 and 8 concurrent clients for 20 seconds each.
+The Python HTTPX client used HTTP/1.1 keep-alive over loopback, with no HTTP proxy.
+Each response had to return 200 and match its saved JSON baseline, excluding only
+`observed_at`. Response parsing and validation are included in client-observed
+latency. The shared database pool was limited to four connections; content
+retention used its separate single-connection pool. PostgreSQL session counts,
+gateway RSS and financial recovery timestamps were sampled approximately every
+half second.
+
+The development host had 10 logical CPUs and 24 GiB RAM, running macOS 27.2 and
+PostgreSQL 17. Other development activity was not isolated from the host.
+
+## Observations
+
+| Concurrent clients | Requests | Requests/second | p50 ms | p95 ms | p99 ms | Maximum ms |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 3,273 | 163.6 | 1.59 | 19.91 | 21.56 | 33.83 |
+| 4 | 9,199 | 459.5 | 2.44 | 29.24 | 32.56 | 45.27 |
+| 8 | 11,488 | 574.2 | 8.08 | 35.78 | 43.44 | 65.79 |
+
+All 23,960 responses matched their baselines. The observed peak was four shared
+connections plus one content-retention connection, excluding the observer.
+Financial recovery timestamps advanced through 12 distinct observations during
+the load. Sampled gateway RSS ranged from 18.6 to 21.8 MiB.
+
+The first run used an incorrect assertion that total process connections must be
+at most four. Inspection identified the separate retention pool. The completed
+run above sampled and checked each pool independently; it does not reinterpret
+five total connections as four.
+
+## Independent artifact checks
+
+After shutdown, an independent process reopened PostgreSQL and checked the full
+ledger fingerprint, all 112 charges/attempts and absence of open customer holds.
+It matched the saved Logs page's token quantities and customer charges to durable
+records, the workspace request counts to operations, and billing/reconciliation
+totals to the ledger. Saved sample rows reproduced the latency percentiles,
+request rates and connection bounds. Restarted endpoint reads matched the same
+baselines. The tested binary and measurement artifacts were retained privately.
+
+These are achieved rates for this short, local, authenticated read workload.
+They are not a maximum-throughput estimate, sustained service-level guarantee,
+long-duration memory check or qualification of inference/media/write workloads.
+Larger histories, concurrent mutations and longer runs require separate evidence.
+No fixture outcome supports this checkpoint.

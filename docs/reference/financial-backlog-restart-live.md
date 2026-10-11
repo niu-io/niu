@@ -283,3 +283,9 @@ explicit zero cache-write quantity from the current upstream. That response is
 not evidence of unknown usage; the completed mixed-page checkpoint above uses a
 persistent database write fault. Recovery of subsequently corrected missing
 categories retains its separate unverified status.
+
+
+The [authenticated read-load checkpoint](backend-read-load.md) exercises Logs,
+billing, reconciliation and directory reads while this bounded recovery runs.
+Its measured read rates, separate shared/retention connection counts and exact
+verification limits are recorded independently of inference throughput.
