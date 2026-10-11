@@ -235,3 +235,30 @@ This verifies lock refusal and subsequent recovery against real retained data.
 The five-second execution-timeout branch, larger histories and sustained mixed
 inference/reporting capacity remain unverified. No inference was submitted by
 this reporting run.
+
+## Mixed inference and reporting — 2026-10-11
+
+Clean committed `f749235` was run with one gateway and two admission connections
+on an isolated copy of the 1,600-request history. The existing internal verification
+mapping and its independent customer tariff were re-enabled through management
+APIs. Four report readers continuously requested 100-row activity pages while
+32 real structured Chat requests were scheduled at four per second, with at most
+eight inference workers. The original development database remained unchanged.
+
+The workload completed in 9.090 seconds. All 32 upstream responses returned the
+fresh requested marker, and all 1,055 report reads returned HTTP 200. Client
+inference P50/P95/maximum were 1,434.66/1,714.70/1,790.50 ms; report values were
+33.74/36.49/45.50 ms. These measurements include local HTTP client overhead.
+
+Independent reopening matched every retained raw inference response and hash,
+reported tokens, key attribution, pinned customer rates, exact charge and single
+balance debit. The 32 additional debits totaled 531,376 USD nanounits. Final
+history contained 1,632 attempts, charges and charge entries, with no open customer
+holds or funding entries. Recorded report IDs belonged to that workspace's retained
+attempts; the final full-range report reconciled and remained identical after
+restart. The temporary inference key and report reader were revoked afterward.
+
+This is a short mixed-workload correctness and latency checkpoint, not a sustained
+SLO, maximum capacity, multi-gateway contention or a causal latency comparison.
+It uses personal upstream access and explicit internal verification credit/rates;
+it establishes no received cash, discounted commercial supply or Supplier payout.
