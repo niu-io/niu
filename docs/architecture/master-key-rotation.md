@@ -311,3 +311,29 @@ artifact confirmed identical plaintext under their respective keys and original
 associated data. The binary included shared working-tree changes; the original
 runtime database and deployment key were untouched. Nonempty asset-result/image
 paths and preservation of a populated Supplier qualification remain unverified.
+
+## Atomic storage replacement primitive
+
+The internal storage API now selects targets from a closed enum covering the ten
+retained domains. Each invocation locks an unfinished operation and the exact
+identified row, compares the caller's expected ciphertext, inserts the precise
+transaction-bound authorization and replaces only the ciphertext column. Both
+writes commit together. A missing, erased or changed record and a completed
+operation return conflict. Lock and statement timeouts bound database waits.
+Neither keys nor plaintext enter the storage API. Its caller still owns complete
+cryptographic validation and transition identity; it is not a rotation endpoint
+or a substitute for the unfinished offline command.
+
+A private caller exercised the production storage method against a fresh
+management-created asset credential. An injected database failure after authority
+creation left no extra authorization or changed envelope. A valid replacement
+committed; repeating its stale expected envelope returned conflict. Restoring the
+original through the same method preserved metadata. A completed maintenance
+operation rejected another call. Independent reopening confirmed exact original
+bytes and metadata, the expected authorization history, removed fault trigger,
+unchanged protection triggers and empty inference/financial ledgers. Independent
+AES-GCM decoding matched the original and retained replacement plaintexts.
+Compilation, formatting and library lint checks are separate static validation;
+no fixture result supports this evidence. Other nonempty domain targets, writer
+exclusion, interrupted multi-page rotation and destination-only startup remain
+unverified.
