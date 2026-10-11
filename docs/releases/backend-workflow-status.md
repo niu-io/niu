@@ -85,5 +85,7 @@ streams, retaining free-text final answers and independent accounting. Four real
 buffered/streamed text round trips and four fresh JSON-format round trips were
 independently parsed and reconciled with their exact original-rate debits and
 restart. The [tool contract](../reference/chat-tools-structured-output.md#plain-text-streamed-tool-validation--2026-10-12)
-records the limits, separate totals and still-unverified malformed upstream cases.
+records the limits and separate totals. Two later real malformed text-tool streams
+were independently checked for terminal refusal, exact debits and scoped customer
+list/detail/CSV diagnostics; other malformed/provider cases remain unverified.
 The native upgrade preserved the original database/configuration/encrypted identity.

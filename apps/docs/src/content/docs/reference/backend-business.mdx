@@ -103,5 +103,6 @@ Ordinary text-mode tool streams now use the same bounded call/selection validato
 as JSON tool streams, while permitting free-text final answers. Current actual
 buffered/streamed text and JSON round trips were independently reconciled with
 native usage and exact debits on `5a8a39c`. Clients must wait for validated
-`[DONE]` before executing streamed calls; malformed upstream cases still require
-separate actual evidence. See the [text-mode validation checkpoint](https://github.com/niu-io/niu/blob/main/docs/reference/chat-tools-structured-output.md#plain-text-streamed-tool-validation--2026-10-12).
+`[DONE]` before executing streamed calls; two actual malformed text-tool streams were independently verified to fail
+without `[DONE]` while preserving reported usage and exact charges. Other malformed
+upstream cases still require separate actual evidence. See the [text-mode validation checkpoint](https://github.com/niu-io/niu/blob/main/docs/reference/chat-tools-structured-output.md#plain-text-streamed-tool-validation--2026-10-12).

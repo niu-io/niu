@@ -199,8 +199,51 @@ and independently compared in isolated PostgreSQL. Configuration, encrypted
 credential identities/revisions and durable business counts remained unchanged.
 
 These observations establish actual compatible text/JSON tool round trips and
-accounting on the stated implementation. They do not exercise an actually
-malformed text-tool upstream stream, every refusal/selection violation,
+accounting on the stated implementation. Those successful round trips alone do not exercise malformed text-tool streams
+or every refusal/selection violation,
 interleaved fragments, every Provider or sustained tool-workflow capacity. The
 historical initial 502 is not reconstructed by this code inspection or these
 successful requests. Personal access is not commercial supply qualification.
+
+
+## Actual malformed text-tool streams — 2026-10-12
+
+Two fresh requests on clean `5a8a39c` requested a long function argument under a
+16-token output bound, once with omitted format and once with explicit text.
+Both actual upstream streams delivered a named function call whose accumulated
+arguments were incomplete JSON (30 and 38 bytes). The upstream nevertheless
+reported terminal `tool_calls` observations and native usage. This is an observed
+inconsistent tool result, not a claim that the model always reports this reason
+on truncation or obeys every requested token bound.
+
+Niu returned an `upstream_invalid_response` SSE error with code 502 and suppressed
+`[DONE]` in both streams. HTTP response headers had already carried status 200;
+that delivery status is preserved rather than rewritten after the body starts.
+No tool was executed and neither request was retried. Native input/output
+quantities were 114/16 and 110/16. Independent reopening hashed/re-parsed both
+retained response bodies, reconstructed the malformed arguments and terminal
+observations, and matched the exact quantities to confirmed completed attempts.
+
+Original-rate customer charges were 29,877 and 29,383 USD nanounits, each with
+one equal negative balance entry: 59,260 total. Delivery validation failure did
+not erase actual upstream usage or imply nonexecution. Restart retained both
+charges, failure records and finish observations. There were no outstanding
+customer/procurement holds, funding receipts or live temporary inference keys.
+
+A stopped copy served customer Logs, request detail and CSV through an ordinary
+workspace viewer. Independent reopening matched all reported quantities,
+customer amounts and timing to the original actual streams and stored records.
+Both rows exposed confirmed execution, `charged`, completed HTTP 200 delivery,
+and `upstream_invalid_response` with a null upstream HTTP error status. CSV
+retained the same failure and delivery distinction. List and detail were equal;
+restart retained both and byte-identical export. Procurement access returned 403,
+foreign-scope list/detail/export were denied, and revoked-reader export returned
+401. Reporting generated no new attempt or financial entry.
+
+This qualifies actual malformed argument rejection and accurate accounting for
+these two text-tool streams. It does not qualify every tool-selection violation,
+interleaved fragmentation, missing-terminal/cancellation case or other Provider.
+It does not reconstruct the historical handoff 502. The failure's SSE code and
+HTTP header status describe different boundaries; clients must inspect the SSE
+error and validated terminal marker. Personal access and internal credit remain
+separate from commercial supply and received cash.
