@@ -472,6 +472,75 @@ pub async fn rename(
         .map_err(ApiError::from_store)?;
     Ok(Json(json!({"data":data})))
 }
+/// ```openapi
+/// {
+///   "path": "/admin/v1/providers/{provider}",
+///   "method": "delete",
+///   "operation": {
+///     "operationId": "deleteSupplierBusiness",
+///     "summary": "Remove an unconfigured Supplier from the directory",
+///     "description": "Platform administration required. Soft-deletes only a live Supplier with no owned API configurations, offers or memberships; disabled configurations and inactive memberships still count as dependencies. Audit history is retained. Concurrent configuration association serializes with deletion. This is not a credential revocation or financial-history deletion operation. Repeating deletion returns 409.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "provider",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Supplier removed from the active directory.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "required": [
+///                     "deleted"
+///                   ],
+///                   "properties": {
+///                     "deleted": {
+///                       "type": "boolean",
+///                       "const": true
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Missing or invalid administrative credential."
+///       },
+///       "403": {
+///         "description": "Platform administration required."
+///       },
+///       "409": {
+///         "description": "Unknown or already deleted Supplier, or existing configuration, offer or membership dependency."
+///       },
+///       "503": {
+///         "description": "Storage unavailable."
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
 pub async fn delete(
     State(state): State<AppState>,
     headers: HeaderMap,

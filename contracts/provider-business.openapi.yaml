@@ -333,13 +333,7 @@ paths:
     patch:
       $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1providers~1{provider}/patch'
     delete:
-      operationId: deleteSupplierBusiness
-      summary: Remove an unconfigured Supplier from the directory while retaining audit history
-      description: Refuses Suppliers with API keys, offers or memberships. Existing accounting history is never removed.
-      responses:
-        '200': { description: Supplier removed from active directory }
-        '403': { description: Platform administrator write access required }
-        '409': { description: Supplier unavailable or has dependent configuration }
+      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1providers~1{provider}/delete'
   /admin/v1/providers/{provider}/members/{operator}:
     parameters:
       - $ref: '#/components/parameters/provider'

@@ -9432,6 +9432,74 @@ HTTP 409: Stale revision, missing or deleted Supplier
 
 HTTP 422: Invalid body shape or unknown field
 
+## Remove an unconfigured Supplier from the directory
+
+`DELETE /admin/v1/providers/{provider}`
+
+Platform administration required. Soft-deletes only a live Supplier with no owned API configurations, offers or memberships; disabled configurations and inactive memberships still count as dependencies. Audit history is retained. Concurrent configuration association serializes with deletion. This is not a credential revocation or financial-history deletion operation. Repeating deletion returns 409.
+
+Implementation: `implemented`. Operation: `deleteSupplierBusiness`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`provider` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Supplier removed from the active directory.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "deleted"
+      ],
+      "properties": {
+        "deleted": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Missing or invalid administrative credential.
+
+HTTP 403: Platform administration required.
+
+HTTP 409: Unknown or already deleted Supplier, or existing configuration, offer or membership dependency.
+
+HTTP 503: Storage unavailable.
+
 ## Publish an immutable agreed Supplier payout schedule
 
 `POST /admin/v1/providers/{provider}/offers`
