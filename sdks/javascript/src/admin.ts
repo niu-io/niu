@@ -22,6 +22,16 @@ export type SupplierCredential = {
   enabled: boolean; revision: number; has_credential: boolean;
   owner_funded: boolean; supplier: { id: string; name: string } | null;
 };
+/** Write-only secret input; creation does not establish upstream or commercial qualification. */
+export type SupplierCredentialCreateInput = {
+  name: string; adapter: 'openrouter' | 'openai' | 'anthropic' | 'gemini'; api_base: string; api_key: string;
+  enabled?: boolean; create_supplier?: boolean; supplier_id?: string;
+};
+export type SupplierCredentialUpdateInput = {
+  name: string; api_base: string; enabled: boolean; expected_revision: number;
+  /** Omit to retain the existing secret; provide a value to replace it. */
+  api_key?: string;
+};
 export type VendorCooldown = { policy_revision: 'openrouter-auth-cooldown-v1'; failure_threshold: 3; window_seconds: 60; cooldown_seconds: 60; active: boolean; cooldown_until: string | null; qualifying_failures: number };
 export type VendorRequestRateLimit = { requests_per_minute: number | null; revision: string };
 export type VendorRequestRateLimitRevision = VendorRequestRateLimit & { recorded_at: string; actor_kind: 'installation' | 'member'; actor_name: string };
@@ -1361,6 +1371,18 @@ export class NiuAdminClient {
   listSupplierCredentials(query: { supplierId?: string } = {}, options?: RequestOptions): Promise<{ data: SupplierCredential[] }> {
     const suffix = query.supplierId === undefined ? '' : `?supplier=${uuid(query.supplierId)}`;
     return this.request(`/vendors${suffix}`, undefined, options);
+  }
+
+  /** Platform-only creation; preserve the returned configuration identity. No automatic retry. */
+  createSupplierCredential(input: SupplierCredentialCreateInput, options?: RequestOptions): Promise<{ data: Omit<SupplierCredential, 'supplier'> }> {
+    if (input.create_supplier && input.supplier_id !== undefined) throw new Error('Choose a new or existing Supplier');
+    return this.request('/vendors', { ...input, ...(input.supplier_id === undefined ? {} : { supplier_id: uuid(input.supplier_id) }) }, options);
+  }
+
+  /** Optimistic update of one configuration. Omitted api_key preserves the secret. */
+  updateSupplierCredential(id: string, input: SupplierCredentialUpdateInput, options?: RequestOptions): Promise<{ data: Omit<SupplierCredential, 'supplier'> }> {
+    if (!Number.isSafeInteger(input.expected_revision) || input.expected_revision < 1) throw new Error('Provide the current configuration revision');
+    return this.request(`/vendors/${uuid(id)}`, input, options, 'PUT');
   }
 
   /** Platform-only safe-failure state; reading does not probe or reset the credential. */

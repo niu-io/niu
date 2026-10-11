@@ -798,3 +798,21 @@ contains metadata, independent configuration revision, enabled state, credential
 presence and optional Supplier identity; secret values are never returned.
 Disabled configurations remain in the complete list. This read does not probe the
 upstream, qualify commercial supply, or grant customer access.
+
+Use `createSupplierCredential(input)` to save an independently configured key.
+Choose `create_supplier: true` or `supplier_id` for a new or existing Supplier;
+do not supply both. Supported adapter identifiers are `openrouter`, `openai`,
+`anthropic` and `gemini`. Creation does not validate upstream access or qualify
+commercial supply. Preserve its returned identity; creation has no automatic retry.
+
+`updateSupplierCredential(id, input)` requires the current `expected_revision`.
+Omit `api_key` to preserve the secret, or supply a new value to replace only that
+configuration's secret. Refresh after a 409 before deciding whether to retry.
+Adapter identity is immutable. Responses contain safe metadata, never secret
+values; the Supplier association is available through the list/association APIs.
+
+Current-input SDK verification created two disabled configurations for one
+Supplier, preserved both ciphertexts during a metadata-only update, rejected a
+stale revision, and changed only the selected ciphertext during rotation. Restart
+and independent database reopening preserved both configurations and ownership.
+No upstream request, commercial qualification or balance funding was performed.
