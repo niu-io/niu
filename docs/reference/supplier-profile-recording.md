@@ -117,3 +117,32 @@ funding records. The original two customer charge/debit pairs still matched.
 The isolated SDK build excluded unrelated shared-worktree edits; tested source
 hashes matched the staged changes. This validates lifecycle integration, not
 commercial qualification, live inference or rendered frontend acceptance.
+
+
+## Handler-generated business directory contracts
+
+Supplier creation and the complete compatibility directory are now annotated at
+their Rust handlers as `createProviderBusiness` and `listProviderBusinesses`.
+Existing operation identifiers and routes remain unchanged. The root and legacy
+Supplier contract both reference the generated definitions instead of separate
+handwritten schemas. Names are limited to 100 UTF-8 bytes before trimming; the
+schema's character limit is supplemented by this explicit byte restriction.
+Directory schemas describe the exact identity, name, configuration/model/member
+counts and qualification-status fields. Error responses retain actual platform
+permission and typed-body behavior.
+
+A current-input isolated Gateway run rejected blank names, an over-limit UTF-8
+name, control characters, unknown body fields and a non-string name without
+creating identities or audits. A 100-byte ASCII name and a whitespace-trimmed name
+were accepted, survived restart and matched the returned directory. Independent
+reopening found exactly those accepted identities and creation audits. Typed
+JSON rejection returned the framework's text response; the verification script
+was corrected to retain that actual response rather than assuming JSON.
+
+Isolated handler generation and root-entrypoint checks completed, followed by an
+offline-dependency docs build. HTTP reads of the generated operation page and
+annotated JSON download returned 200; both business operation identifiers were
+present, schemas matched, and download bytes equaled the generated contract.
+Unrelated shared-worktree edits were preserved. This is contract/HTML and scoped
+current-input API evidence, not browser visual acceptance or a claim that every
+Supplier commercial workflow is complete. No fixture outcome is evidence.

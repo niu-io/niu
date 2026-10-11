@@ -302,29 +302,7 @@ paths:
   /admin/v1/provider-memberships:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1provider-memberships'
   /admin/v1/providers:
-    get:
-      operationId: listProviderBusinesses
-      description: Returns all active Suppliers ordered by name and internal ID. This compatibility endpoint has no cursor and does not silently truncate the directory.
-      summary: Installation-only complete list of active supplier businesses
-      responses:
-        '200': { description: 'Data array of internal routing ID, name, API-key count, configured model count, active member count, and qualification status. Deleted Suppliers are excluded.' }
-        '403': { description: Installation access required }
-    post:
-      operationId: createProviderBusiness
-      summary: Register a supplier without granting membership
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              required: [name]
-              properties:
-                name: { type: string, minLength: 1, maxLength: 100 }
-      responses:
-        '200': { description: Provider ID in data.id }
-        '403': { description: Installation access required }
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1providers'
   /admin/v1/providers/{provider}:
     get:
       $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1providers~1{provider}/get'

@@ -192,6 +192,92 @@ pub async fn set_offer(
 pub struct Name {
     name: String,
 }
+/// ```openapi
+/// {
+///   "path": "/admin/v1/providers",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "createProviderBusiness",
+///     "summary": "Create a Supplier business identity",
+///     "description": "Requires platform administration. Creation grants no membership, qualification, offer or permission to resell supply. Stores the trimmed name and an immutable creation audit.",
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "name"
+///             ],
+///             "properties": {
+///               "name": {
+///                 "type": "string",
+///                 "minLength": 1,
+///                 "maxLength": 100,
+///                 "description": "Nonblank after trimming; at most 100 UTF-8 bytes before trimming; no control characters. Saved value is trimmed."
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "200": {
+///         "description": "Created identity",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "required": [
+///                     "id"
+///                   ],
+///                   "properties": {
+///                     "id": {
+///                       "type": "string",
+///                       "format": "uuid"
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid Supplier name"
+///       },
+///       "401": {
+///         "description": "Missing, expired or revoked administrative credential"
+///       },
+///       "403": {
+///         "description": "Platform administration required"
+///       },
+///       "422": {
+///         "description": "Malformed body or unknown field"
+///       },
+///       "503": {
+///         "description": "Storage unavailable"
+///       }
+///     },
+///     "tags": [
+///       "Suppliers"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
 pub async fn create(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -1393,6 +1479,94 @@ pub async fn record_settlement(
     Ok(Json(json!({"data":{"id":id}})))
 }
 
+/// ```openapi
+/// {
+///   "path": "/admin/v1/providers",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listProviderBusinesses",
+///     "summary": "List active Supplier business identities",
+///     "description": "Requires platform administration. Complete compatibility directory with no pagination or silent truncation, ordered by name and internal ID. Counts retain disabled credential configurations and models. Member counts include active memberships for non-revoked operators. Deleted Suppliers are excluded. Qualification is explicit and never inferred from configuration counts.",
+///     "responses": {
+///       "200": {
+///         "description": "Active directory",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "items": {
+///                     "type": "object",
+///                     "required": [
+///                       "id",
+///                       "name",
+///                       "api_keys",
+///                       "models",
+///                       "members",
+///                       "qualification_status"
+///                     ],
+///                     "properties": {
+///                       "id": {
+///                         "type": "string",
+///                         "format": "uuid"
+///                       },
+///                       "name": {
+///                         "type": "string"
+///                       },
+///                       "api_keys": {
+///                         "type": "integer",
+///                         "minimum": 0
+///                       },
+///                       "models": {
+///                         "type": "integer",
+///                         "minimum": 0
+///                       },
+///                       "members": {
+///                         "type": "integer",
+///                         "minimum": 0
+///                       },
+///                       "qualification_status": {
+///                         "type": "string",
+///                         "enum": [
+///                           "qualified",
+///                           "unqualified"
+///                         ]
+///                       }
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Missing, expired or revoked administrative credential"
+///       },
+///       "403": {
+///         "description": "Platform administration required"
+///       },
+///       "503": {
+///         "description": "Storage unavailable"
+///       }
+///     },
+///     "tags": [
+///       "Suppliers"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
 pub async fn list(
     State(state): State<AppState>,
     headers: HeaderMap,

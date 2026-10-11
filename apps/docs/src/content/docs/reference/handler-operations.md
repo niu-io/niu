@@ -9963,6 +9963,89 @@ HTTP 401: Missing or unusable session.
 
 HTTP 503: Storage unavailable.
 
+## Create a Supplier business identity
+
+`POST /admin/v1/providers`
+
+Requires platform administration. Creation grants no membership, qualification, offer or permission to resell supply. Stores the trimmed name and an immutable creation audit.
+
+Implementation: `implemented`. Operation: `createProviderBusiness`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "description": "Nonblank after trimming; at most 100 UTF-8 bytes before trimming; no control characters. Saved value is trimmed."
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Created identity
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid Supplier name
+
+HTTP 401: Missing, expired or revoked administrative credential
+
+HTTP 403: Platform administration required
+
+HTTP 422: Malformed body or unknown field
+
+HTTP 503: Storage unavailable
+
 ## Read Supplier business profile
 
 `GET /admin/v1/providers/{provider}`
@@ -10758,6 +10841,91 @@ HTTP 403: Platform administration required.
 HTTP 409: Supplier or earnings unavailable, changed replay, or duplicate payment reference.
 
 HTTP 503: Storage unavailable.
+
+## List active Supplier business identities
+
+`GET /admin/v1/providers`
+
+Requires platform administration. Complete compatibility directory with no pagination or silent truncation, ordered by name and internal ID. Counts retain disabled credential configurations and models. Member counts include active memberships for non-revoked operators. Deleted Suppliers are excluded. Qualification is explicit and never inferred from configuration counts.
+
+Implementation: `implemented`. Operation: `listProviderBusinesses`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Responses
+
+HTTP 200: Active directory
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "api_keys",
+          "models",
+          "members",
+          "qualification_status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "api_keys": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "models": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "members": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "qualification_status": {
+            "type": "string",
+            "enum": [
+              "qualified",
+              "unqualified"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Missing, expired or revoked administrative credential
+
+HTTP 403: Platform administration required
+
+HTTP 503: Storage unavailable
 
 ## List Supplier business members
 
