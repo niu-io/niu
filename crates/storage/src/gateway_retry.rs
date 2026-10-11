@@ -81,11 +81,7 @@ impl Store {
                 &admission.revision,
             )
             .await?;
-            if let Some(GatewayRetryAdmission::First {
-                deadline,
-                protocol,
-            }) = retry
-            {
+            if let Some(GatewayRetryAdmission::First { deadline, protocol }) = retry {
                 // Preparation and pool waits consume the original request budget.
                 // Never start a fresh duration when durable admission finally begins.
                 let remaining_ms = deadline
