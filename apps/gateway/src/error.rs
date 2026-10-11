@@ -160,6 +160,12 @@ impl ApiError {
                 kind: "route_configuration_changed",
                 message: "The model route changed before dispatch; this request was not sent upstream",
             },
+            niu_storage::StoreError::GatewayRequestDeadlineExceeded => Self {
+                failure: None,
+                status: StatusCode::GATEWAY_TIMEOUT,
+                kind: "request_deadline_exceeded",
+                message: "The request deadline expired before admission; this request was not sent upstream",
+            },
             niu_storage::StoreError::Conflict => Self {
                 failure: None,
                 status: StatusCode::CONFLICT,

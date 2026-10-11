@@ -65,7 +65,7 @@ pub(super) async fn execute(
                     Uuid::new_v4(),
                     niu_storage::GatewayRetryAdmission::First {
                         protocol: retry_protocol,
-                        remaining_ms: timeout.as_millis().min(86_400_000) as i64,
+                        deadline,
                     },
                 )
             })

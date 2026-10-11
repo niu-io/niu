@@ -299,6 +299,9 @@ pub struct GatewayCompletion {
 
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {
+    #[error("gateway request deadline expired before admission")]
+    GatewayRequestDeadlineExceeded,
+
     #[error("Managed route changed before dispatch")]
     ManagedRouteChanged,
 

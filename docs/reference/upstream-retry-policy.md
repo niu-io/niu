@@ -467,3 +467,37 @@ and final revocation of the temporary customer key. This qualifies expiry while 
 successor waits for credential admission. It does not measure deadline enforcement
 through every first-attempt preparation step, bound the wall time of database lock
 waits, or qualify transport-error retries. No fixture outcome supports this result.
+
+### Preparation consumes the original deadline
+
+The first retry-policy admission now receives the original monotonic request
+deadline rather than a duration captured before input inspection and price
+publication. Storage recomputes the remaining duration after preparation and
+connection acquisition. If no full millisecond remains, the admission transaction
+rolls back and the API returns HTTP 504 with `request_deadline_exceeded`. No
+operation, attempt, retry policy or financial reservation is committed in this
+case. This error is distinct from an upstream timeout after possible dispatch.
+
+The change fixes a reproduced Responses failure: holding the price-revision table
+for two seconds with a one-second request deadline previously produced HTTP 502,
+one persisted attempt and an unresolved customer reservation. Price publication
+had consumed the request budget, but the captured duration started a new durable
+window afterward. This boundary applies to the shared Chat/Responses pool driver;
+it does not introduce a new retry status or permit uncertain replay.
+
+With the change, actual Chat and Responses HTTP requests under the same table-lock
+condition each returned the explicit 504. Gateway restart preserved the absence
+of attempts and liabilities. Independent reopening of each stopped PostgreSQL
+database confirmed zero operations, attempts, retry policies, charges, balance
+entries and reservations, with the temporary key revoked. This is actual local
+admission verification; the rejected requests did not require an upstream call.
+
+A separate current-input Responses run then exercised real OpenRouter buffered
+and streamed generation: each first-credential 401 was followed by one completed
+successor and exactly one customer debit. Two consecutive real authentication
+refusals stopped at the two-attempt cap. Independent response/SSE artifact and
+database checks reconciled six attempts, two pinned-tariff charges and released
+holds. Personal upstream access and internal credit do not qualify commercial
+supply or merchant funding. Build and static lint checks completed; fixture
+outcomes were not used as evidence. Native runtime deployment of this fix is
+separate from these isolated runs.

@@ -22,7 +22,8 @@ pub enum GatewayRetryAdmission {
     /// The gateway qualified the first route as a canonical OpenRouter protocol.
     First {
         protocol: GatewayRetryProtocol,
-        remaining_ms: i64,
+        /// Original monotonic request deadline, including all preparation waits.
+        deadline: std::time::Instant,
     },
     Successor {
         protocol: GatewayRetryProtocol,
@@ -81,12 +82,20 @@ impl Store {
             )
             .await?;
             if let Some(GatewayRetryAdmission::First {
-                remaining_ms,
+                deadline,
                 protocol,
             }) = retry
             {
-                if !(1..=86_400_000).contains(&remaining_ms)
-                    || admission.dispatch_provider != "openrouter"
+                // Preparation and pool waits consume the original request budget.
+                // Never start a fresh duration when durable admission finally begins.
+                let remaining_ms = deadline
+                    .saturating_duration_since(std::time::Instant::now())
+                    .as_millis()
+                    .min(86_400_000) as i64;
+                if remaining_ms == 0 {
+                    return Err(StoreError::GatewayRequestDeadlineExceeded);
+                }
+                if admission.dispatch_provider != "openrouter"
                     || admission.api_base.as_deref().is_none_or(|base| {
                         base.trim_end_matches('/') != "https://openrouter.ai/api/v1"
                     })
