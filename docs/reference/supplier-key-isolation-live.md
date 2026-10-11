@@ -363,3 +363,24 @@ This verifies optimistic concurrency for the exercised model-price edit and
 continued operation of the sibling configuration. It does not qualify a price
 change racing an already dispatched request, Supplier earnings/settlement,
 external commercial supply or rendered configuration forms.
+
+## Draft offer refuses dispatch despite enabled configuration
+
+On pinned backend `e655a37`, normal management APIs created a fresh explicit
+Supplier, enabled credential/model binding, internal customer tariff and approved
+credit. Publishing an internal draft purchase quote left its offer inactive and
+unqualified. Workspace-key Chat requests returned HTTP 503 both before and after
+Gateway restart. No upstream attempt or financial record was created.
+
+Independent reopening matched the saved HTTP refusals and Supplier draft with the
+enabled credential/model, explicit ownership, inactive offer and false current
+qualification. Attempts, customer charges/reservations, balance entries, Supplier
+earnings/settlements and funding receipts were all absent; the temporary key was
+revoked. The verification initially expected 404 and was corrected to the actual
+503 unavailable-route contract without changing Gateway behavior.
+
+Legacy routes without an explicit offer retain their documented compatibility
+behavior. Therefore earlier credit-backed legacy-route accounting runs must not
+be interpreted as proof of qualified commercial supply. This checkpoint proves
+the explicit draft-offer refusal, not positive qualification, earning or payment.
+No qualification agreement or payment was fabricated for the run.
