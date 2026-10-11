@@ -1443,3 +1443,22 @@ list. Independent reopening confirmed removal of only the temporary workspace,
 preservation of the original workspace identity/route and unchanged ledger.
 The dependency checklist now marks the canonical backend contract available;
 frontend adoption, browser verification and historical aliases remain pending.
+
+## Atomic workspace onboarding — 2026-10-11
+
+Actual fault injection in an isolated database reproduced an orphan-creation
+bug: the no-organization workspace endpoint committed its new company and
+zero-funded account before inserting the workspace. A rejected workspace insert
+returned 503 but changed company/account/workspace counts from `1/1/1` to `2/2/1`.
+
+Canonical workspace creation now commits those three records in one transaction,
+reusing the same prepaid-account initialization helper as company creation.
+Repeating the actual insertion fault left all three counts at `1/1/1`. Removing
+the fault allowed normal creation and restart restoration. Independent reopening
+confirmed exactly one successful company/account/workspace set, zero approved
+credit, no funding and unchanged existing ledger. The built SDK lifecycle against
+an existing company also retained its rename, restart, permission and protected
+deletion behavior, with independent final-state verification.
+
+This fixes database-write atomicity. Creation remains non-idempotent; a lost
+response after commit must not be treated as proof that nothing was created.

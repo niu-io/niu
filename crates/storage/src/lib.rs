@@ -574,6 +574,35 @@ impl Store {
         Ok(id)
     }
 
+    /// Canonical onboarding commits the optional company, zero-funded account
+    /// and workspace together. A failed workspace insert leaves no orphan company.
+    pub async fn create_workspace(
+        &self,
+        organization_id: Option<Uuid>,
+        name: &str,
+    ) -> Result<TenantScope, StoreError> {
+        let mut tx = self.pool.begin().await?;
+        let organization_id = match organization_id {
+            Some(id) => id,
+            None => {
+                Self::create_prepaid_organization_in_tx(&mut tx, "Personal workspace", "USD")
+                    .await?
+            }
+        };
+        let project_id = Uuid::new_v4();
+        sqlx::query("INSERT INTO projects(id,organization_id,name) VALUES($1,$2,$3)")
+            .bind(project_id)
+            .bind(organization_id)
+            .bind(name)
+            .execute(&mut *tx)
+            .await?;
+        tx.commit().await?;
+        Ok(TenantScope {
+            organization_id,
+            project_id,
+        })
+    }
+
     pub async fn create_project(
         &self,
         organization_id: Uuid,

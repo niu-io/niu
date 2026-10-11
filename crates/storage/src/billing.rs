@@ -69,15 +69,25 @@ SELECT jsonb_build_object(
         name: &str,
         currency: &str,
     ) -> Result<Uuid, StoreError> {
+        let mut tx = self.pool.begin().await?;
+        let organization = Self::create_prepaid_organization_in_tx(&mut tx, name, currency).await?;
+        tx.commit().await?;
+        Ok(organization)
+    }
+
+    pub(crate) async fn create_prepaid_organization_in_tx(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        name: &str,
+        currency: &str,
+    ) -> Result<Uuid, StoreError> {
         if currency.len() != 3 || !currency.bytes().all(|b| b.is_ascii_uppercase()) {
             return Err(StoreError::InvalidPrice);
         }
-        let mut tx = self.pool.begin().await?;
         let organization = Uuid::new_v4();
         sqlx::query("INSERT INTO organizations(id,name) VALUES($1,$2)")
             .bind(organization)
             .bind(name)
-            .execute(&mut *tx)
+            .execute(&mut **tx)
             .await?;
         sqlx::query(
             "INSERT INTO customer_balance_accounts(id,organization_id,currency) VALUES($1,$2,$3)",
@@ -85,9 +95,8 @@ SELECT jsonb_build_object(
         .bind(Uuid::new_v4())
         .bind(organization)
         .bind(currency)
-        .execute(&mut *tx)
+        .execute(&mut **tx)
         .await?;
-        tx.commit().await?;
         Ok(organization)
     }
 

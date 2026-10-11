@@ -627,17 +627,9 @@ pub async fn create_workspace(
             Some(operator.scope.organization_id)
         }
     };
-    let organization_id = match organization_id {
-        Some(organization) => organization,
-        None => state
-            .store
-            .create_prepaid_organization("Personal workspace", "USD")
-            .await
-            .map_err(ApiError::from_store)?,
-    };
     let scope = state
         .store
-        .create_project(organization_id, &input.name)
+        .create_workspace(organization_id, &input.name)
         .await
         .map_err(ApiError::from_store)?;
     let workspace = state
