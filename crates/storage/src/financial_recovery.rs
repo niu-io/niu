@@ -61,7 +61,8 @@ impl Store {
     /// Installation-only diagnostic projection. Caller must enforce platform authority.
     /// One statement snapshot; no attempt identifiers or financial values escape.
     pub async fn financial_recovery_diagnostics(&self) -> Result<serde_json::Value, StoreError> {
-        Ok(sqlx::query_scalar(
+        let mut tx = self.begin_bounded_financial_snapshot().await?;
+        let diagnostics = sqlx::query_scalar(
             "SELECT jsonb_build_object('observed_at',statement_timestamp(),'data',\
              COALESCE(jsonb_agg(jsonb_build_object(\
              'stage',stage,'last_step_at',last_step_at,\
@@ -69,8 +70,10 @@ impl Store {
              'has_cursor',after_attempt IS NOT NULL) ORDER BY stage),'[]'::jsonb)) \
              FROM financial_recovery_progress",
         )
-        .fetch_one(&self.pool)
-        .await?)
+        .fetch_one(&mut *tx)
+        .await?;
+        tx.commit().await?;
+        Ok(diagnostics)
     }
 
     /// Each ledger commits independently; one unavailable ledger never prevents
