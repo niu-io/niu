@@ -184,5 +184,15 @@ and diagnosis, not successful cancellation reconciliation or final settlement.
 The handler-generated OpenAPI and documentation include this error. Isolated
 contract consistency checks and the docs build completed; the rendered operation
 page contained the fixed diagnosis. Release compilation and formatting completed
-separately. No fixture outcome is evidence. The original development listener
-remains on `ef77d30` until a separately verified refresh.
+separately. No fixture outcome is evidence.
+
+The native development listener was subsequently refreshed to the exact retained
+`3235c49` binary after a fresh schema-278 backup. Restoring that backup into an
+isolated database reproduced full-row fingerprints for organizations, workspaces,
+encrypted vendors, financial entries, video jobs and transport timings. The
+previous `ef77d30` binary remains retained. Graceful replacement preserved the
+original environment, port, configuration and secret-file hashes, encrypted
+credential revisions and durable business counts. Readiness returned 200;
+authenticated routing matched the published configuration; schema 278 remained
+unchanged. This runtime refresh does not turn refused cancelled metadata into
+settled usage or fill the remaining commercial/media verification gaps.
