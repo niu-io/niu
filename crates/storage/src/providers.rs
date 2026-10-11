@@ -545,7 +545,7 @@ impl Store {
         if !matches!(role, "manager" | "viewer") {
             return Err(StoreError::InvalidOperator);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         sqlx::query(
             "SELECT id FROM provider_businesses WHERE id=$1 AND deleted_at IS NULL FOR UPDATE",
         )
