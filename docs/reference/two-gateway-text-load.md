@@ -1,5 +1,39 @@
 # Two-gateway priced text load checkpoint
 
+## Current committed 8-request/second stream checkpoint — 2026-10-12
+
+Digest-verified clean committed Gateway
+`1b209f7fb1472b914a7ce69c2a47951b7fb83c0b` ran two processes against one
+fresh native PostgreSQL database, with two configured admission-pool connections
+per process plus the existing dedicated maintenance connections. Eight distinct
+keys each crossed both Gateways. The driver scheduled 240 genuine structured
+Chat streams at 8 requests/second with 32 client workers. Every response returned
+its fresh marker, native usage and `[DONE]`, without an inference retry.
+
+The workload, including final response drain, took **32.63 seconds**, yielding
+**7.355 completed requests/second**. End-to-end elapsed p50/p95 were
+**1,318.27/1,721.30 ms**, with a **3,405.38 ms** maximum. First-content
+p50/p95 were **1,146.05/1,506.29 ms**; maximum scheduled-start lag was
+**11.17 ms**. Gateway maximum sampled RSS was **33,904/32,720 KiB**,
+and maximum sampled `ps` CPU percentages were **5.7/7.3** respectively. These
+coarse process samples exclude PostgreSQL and whole-host resource accounting.
+
+Independent reopening parsed and hashed all retained SSE responses, checked all
+240 stored request/key attributions and complete timings, and recomputed each
+charge from native token counts and pinned internal customer rates. Exactly
+**4,011,486 USD nanounits** of charges matched equal original-account debits.
+All customer/procurement reservations were released; no funding receipt was
+created. Restart retained all attempts and temporary keys were revoked.
+
+This extends actual clean committed text/accounting verification to the higher
+offered rate. It does not establish a sustained 8 completed requests/second,
+maximum capacity, long-soak stability, production SLOs, cross-company scale, media
+capacity or a causal comparison with the older/different-revision checkpoint or
+New API. Personal self-funded OpenRouter access and approved internal credit/
+rates do not establish commercial supply or externally funded payments. Original
+databases, configuration and encrypted identity were unchanged. No fixture
+outcome is performance or business evidence.
+
 ## Actual streaming checkpoint (2026-10-12)
 
 A separate current-input run used committed gateway
