@@ -314,3 +314,28 @@ verification credit supported this personal upstream run; it establishes no cash
 receipt or commercial Supplier qualification. This covers natural window expiry
 with rotation and restart, not every exact-boundary race, protocol or combined
 RPM/TPM/concurrency policy.
+
+
+## Current actual burst and restart checkpoint — 2026-10-12
+
+Clean committed `35b8045` ran an isolated native Gateway with one configured
+admission connection. A workspace key had an explicit two-request-per-minute
+limit. Sixteen concurrent clients submitted current structured Chat inputs using
+personal OpenRouter access and internal customer tariffs/approved test credit.
+Exactly two returned real completions; fourteen returned HTTP 429 with
+`key_request_rate_exceeded`. Gateway restart retained that key's denial.
+An independent workspace key then completed a real request, demonstrating that
+the limited key did not make the shared admission path unavailable.
+
+Independent original-response parsing and database reopening checked two completed
+attempts attributed to the limited key and one to the control key, recomputed all
+three tariff charges and matching original-account debits, and confirmed no
+attempt record for rejected calls. No active balance reservation or funding
+receipt remained. Temporary keys were revoked and the retained clean executable
+hash matched the run. Original runtime/database/configuration were untouched.
+
+This verifies the observed burst admission, persisted window and per-key
+isolation; it does not measure maximum capacity, arbitrary overload, minute-window
+reopening, two-Gateway races, token-rate admission or unresolved media occupancy.
+The upstream credential is personal testing access, not qualified commercial
+supply, and the internal customer debits are not externally funded cash.
