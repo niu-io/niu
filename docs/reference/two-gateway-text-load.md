@@ -1,5 +1,54 @@
 # Two-gateway priced text load checkpoint
 
+## Actual streaming checkpoint (2026-10-12)
+
+A separate current-input run used committed gateway
+`35b80454633826f88a3e913a1fa19a30a73fc98d`, verified by its retained binary
+digest, with schema 278 in a fresh isolated PostgreSQL 17 database. Two native
+Gateway processes shared that database. Each configured its admission pool to two
+connections; dedicated maintenance connections are additional, so this is not a
+four-connection total limit. Existing development services remained running.
+
+The owner's personal OpenRouter account supplied `openai/gpt-4.1-mini`. Eight
+workspace keys each called both processes. Sixteen client workers scheduled 240
+streaming Chat requests at four per second, without retries. Each request used a
+fresh strict-schema JSON marker and a 32-token output limit, with streamed usage
+enabled. Explicit internal customer prices and approved internal credit exercised
+accounting; no commercial offer, merchant funding or Supplier qualification was
+claimed. Before granting credit, an actual request returned 402 with no attempt.
+
+| Requests | Workload seconds | Completed requests/second | End-to-end P50 ms | End-to-end P95 ms | Maximum ms | First-content P50 ms | First-content P95 ms |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 240 | 60.99 | 3.935 | 1,299.75 | 1,659.24 | 3,238.63 | 1,122.41 | 1,404.99 |
+
+End-to-end duration runs from starting the HTTP request through reading the
+complete SSE response. First-content time ends at the first event with nonempty
+content. Both include upstream and network time. P50 is the median and P95 uses
+nearest rank. Maximum scheduled-start lag was 10.16 ms.
+
+After restarting both Gateways and revoking temporary keys, a separate process
+reopened the stopped database. It independently rehashed and parsed every raw SSE
+artifact, checked the requested marker, usage and `[DONE]`, and matched all 240
+completed attempts to their keys and pinned token prices. Each Gateway handled
+120 requests; each key accounted for 30 and crossed both processes. Exactly one
+customer charge and one matching debit in the original bound account existed per
+attempt, totaling **4,026,681 USD nanounits**. All 240 response timings were
+complete. There were no recorded failures, outstanding customer or procurement
+holds, funding receipts, or live temporary keys. Customer stream objects contained
+none of the checked procurement-cost or encrypted-credential fields.
+
+Half-second process sampling retained 232 observations across both Gateways.
+Maximum sampled RSS was 33,184 and 32,320 KiB; maximum `ps` CPU readings were
+5.2% and 5.0%, respectively. These are coarse process samples, not interval CPU
+profiles, PostgreSQL resource measurements, or peak-resource guarantees.
+
+This adds actual two-Gateway streaming and accounting evidence for the stated
+small-pool workload. It is approximately one minute of traffic, not a saturation
+test, long-duration soak, production SLO, cross-product performance comparison,
+commercial Supplier settlement or paid-media qualification. No fixture outcome
+supports these observations. The original database, configuration and encrypted
+identity were unchanged.
+
 Date: 2026-10-11. Backend implementation through `f75908a`; main integration
 `a0cd865`. This extends the [single-gateway measurement](priced-text-concurrency-live.md)
 with a current-input two-process run. It does not qualify production capacity or
