@@ -341,13 +341,15 @@ impl Store {
             return Err(StoreError::Conflict);
         }
 
-        let exists: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM provider_businesses WHERE id=$1 AND deleted_at IS NULL)",
+        // Keep deletion's FOR UPDATE lock from passing its dependency check
+        // between this liveness check and the ownership insert.
+        let exists: Option<Uuid> = sqlx::query_scalar(
+            "SELECT id FROM provider_businesses WHERE id=$1 AND deleted_at IS NULL FOR KEY SHARE",
         )
         .bind(supplier)
-        .fetch_one(&mut *tx)
+        .fetch_optional(&mut *tx)
         .await?;
-        if !exists {
+        if exists.is_none() {
             return Err(StoreError::Conflict);
         }
         sqlx::query("INSERT INTO vendor_supplier_ownership(vendor_id,provider_id) VALUES($1,$2)")

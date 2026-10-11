@@ -107,3 +107,27 @@ as audit records; no qualification evidence or customer charge was created.
 This evidence covers saved text-price version replacement and customer-owner
 access boundaries. It does not establish commercial settlement correctness,
 media-price behavior, or live payment acceptance. No fixture outcome is used.
+
+## Concurrent Supplier deletion and configuration association — 2026-10-11
+
+An actual administration HTTP run against an isolated PostgreSQL database
+reproduced a lifecycle race: associating an existing configuration returned 204
+while deleting its Supplier returned 200. The resulting ownership pointed to a
+soft-deleted Supplier and survived Gateway restart. A temporary database trigger
+paused the ownership insert so the competing deletion could run; no upstream
+response or inference result was simulated.
+
+Association now holds a Supplier row key-share lock through the ownership commit,
+matching the existing create-configuration path. Deletion already takes an
+exclusive row lock before checking dependencies. With the same transaction
+barrier, PostgreSQL showed the deletion waiting, association returned 204, and
+deletion returned 409 after the committed ownership became visible. Conversely,
+associating a configuration after its Supplier had been deleted returned 409.
+
+After Gateway restart, a separate verifier reopened the persisted database and
+confirmed one ownership belonging to a live Supplier, no ownership of a deleted
+Supplier, no deletion audit for the rejected deletion, and the separately deleted
+Supplier still deleted. Both configuration credentials remained encrypted and no
+inference attempt was dispatched. The original development database was not
+modified. This establishes these configuration lifecycle cases, not Supplier
+qualification, earnings, settlement or complete release readiness.
