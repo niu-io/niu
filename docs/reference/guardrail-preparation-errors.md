@@ -233,3 +233,10 @@ reopening matched its raw response usage, pinned tariff, exact single customer
 charge and debit, with released holds and revoked temporary keys. Neither run
 created merchant funding. These checks cover the exercised workspace-policy race,
 not paid key-assignment races, every protocol or full Guardrails acceptance.
+
+A clean committed `7547a04` run also exercised paid Chat key-policy assignment
+between inspection and dispatch, with workspace revision one unchanged. The
+409 denial retained workspace policy one, key policy one and assignment revision
+one. Independent reopening confirmed the unsent attempt, released holds and one
+later fresh Chat completion with exact usage, charge and debit. This adds that
+key-assignment race; other paid protocols and assignment removal remain separate.

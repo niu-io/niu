@@ -997,3 +997,15 @@ start a new operation. Other HTTP 504 errors do not inherit this nonexecution
 guarantee merely from their status code.
 
 See [the bounded retry and deadline contract](https://github.com/niu-io/niu/blob/main/docs/reference/upstream-retry-policy.md).
+
+## Guardrail policy changes during admission
+
+HTTP `409` with `guardrail_admission_conflict` means the inspected policy no
+longer permits dispatch under the current workspace/key policy. The rejected
+attempt was not sent upstream. Paid admission retains an unsent attempt and its
+safe rejection audit, releases its customer hold, and creates no customer charge.
+A new request must be inspected under the current policy.
+
+Messages keeps its native error envelope; read `x-niu-error-code` for the Niu
+classification. Generic conflicts and unknown database failures retain their
+separate meanings. See [policy-race behavior and evidence](https://github.com/niu-io/niu/blob/main/docs/reference/guardrail-preparation-errors.md).

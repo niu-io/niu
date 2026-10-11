@@ -185,3 +185,19 @@ unchanged. The running database reached 276, and readiness, workspace directory
 and six-stage financial recovery returned HTTP 200. The API docs build and live
 HTTP route both contained the new timeout-handling contract. These checks qualify
 this upgrade and error boundary, not complete backend or release acceptance.
+
+## Paid Guardrail conflict runtime refresh
+
+Clean committed `7547a04eec8435804fd8e229cd797226f159f154` was checked against a
+fresh restored native backup at schema 276. Independent reopening preserved all
+six complete business-table fingerprints and encryption identity; workspace reads
+survived restart. No new migration was needed. That exact artifact also verified
+a paid key-policy assignment race and subsequent real Chat charge, as recorded in
+[Guardrail admission evidence](../reference/guardrail-preparation-errors.md).
+
+The verified binary replaced the native process with unchanged configuration
+hashes, encrypted vendor bytes/revisions and durable business counts. Readiness,
+workspace directory and all six financial-recovery stages returned HTTP 200.
+The docs build and live API-reference route included the policy-conflict handling
+contract. These checks retain their stated scope; full Guardrails acceptance
+remains open.
