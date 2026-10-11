@@ -70,3 +70,34 @@ Parallel returned calls, tool-call cancellation, other model/provider combinatio
 schema-rejected billed output, merchant funding and sustained performance remain
 unverified. The customer charges are internal credit-backed accounting evidence,
 not a claim of commercial supply qualification or settled external payments.
+
+## Streamed tool conversation on the current backend (2026-10-12)
+
+Committed gateway `ef77d30ea1f4084c10d89f6716431df18be6db1c`, checked against
+its retained binary digest, ran in an isolated copy of the actual 240-request
+streaming database. A fresh workspace key first received 501 when calling tools
+on the structured-output-only model configuration; no attempt was created.
+Normal administration then explicitly enabled `supports_tool_calls` and
+`supports_streaming_tool_calls`, preserving the existing customer and procurement
+prices through the revisioned model update.
+
+Two actual OpenRouter `openai/gpt-4.1-mini` streams exercised a forced single
+`echo_marker` call and a follow-up with the client's tool result. Raw deltas
+assembled the expected function name and strict JSON marker argument; the first
+stream finished with `tool_calls`. The second returned the same marker as text.
+Both included terminal usage and `[DONE]`. Niu transported the tool conversation;
+the verification client supplied the tool result.
+
+After Gateway restart and temporary-key revocation, a separate process reopened
+the stopped database and rehashed and parsed both raw SSE artifacts. Each usage
+matched its completed attempt, pinned customer token rates and exactly one debit
+in its original bound account. Their total customer charge was **37,655 USD
+nanounits**. The original 240 records remained alongside these two new requests;
+no customer hold or funding receipt existed. The checked procurement and encrypted
+credential fields were absent from the streamed objects.
+
+This extends the stated single-tool conversation evidence on the current backend.
+It does not qualify parallel tools, cancellation, sustained tool workloads, other
+Providers, task acceptance, received merchant payments or commercial Supplier
+rights. No fixture outcome supports it. Original development data and encrypted
+identity were unchanged.
