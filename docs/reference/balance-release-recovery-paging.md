@@ -27,6 +27,28 @@ separately; fixture outcomes are not evidence. The binary included shared
 working-tree changes, and the original development database was not migrated by
 this verification.
 
-This is retained unknown-liability evidence, not a newly released reservation,
-more-than-100-row traversal or sustained recovery capacity. Other stages and
-customer-funded media settlement retain their separate qualification boundaries.
+This first checkpoint covers retained unknown liability. A positive release case
+is recorded below; more-than-100-row traversal and sustained recovery capacity
+remain unverified. Other stages and customer-funded media settlement retain their
+separate qualification boundaries.
+
+## Actual nonexecution recovered after a release fault
+
+A fresh request in an isolated copy used an intentionally invalid OpenRouter
+credential and the existing explicit internal verification tariff/credit policy.
+The actual upstream returned 401. Niu's narrow OpenRouter text authentication
+rejection policy durably classified this request as `confirmed_not_executed`.
+A temporary trigger blocked reservation release without changing that observation.
+
+The positive reservation remained held across restart while the fault was present.
+After revoking its workspace key, stopping the Gateway and removing the fault,
+the restarted recovery worker released the reservation. A further restart kept
+the same release timestamp. The existing ledger fingerprint remained unchanged
+and this request acquired no customer charge.
+
+Independent database reopening verified the stored upstream 401, nonexecution,
+reservation amount and release timestamp, one attempt for the revoked key,
+removed fault trigger and exact retained ledger fingerprint. The binary included
+shared working-tree changes. No response was simulated and no funding receipt or
+commercial qualification was created. This evidence applies to the explicit
+OpenRouter text authentication rejection policy, not arbitrary upstream errors.
