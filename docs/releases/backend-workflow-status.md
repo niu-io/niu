@@ -1,6 +1,6 @@
 # Backend workflow verification status
 
-Reviewed 2026-10-12 against main `58e8fc3`; native implementation `3a3f02c`.
+Reviewed 2026-10-12 against main `d3dcf91`; native implementation `0b304dc`.
 This is an index of scoped evidence, not a declaration that the complete release
 or New API comparison is qualified. Linked runs identify their own implementation
 revisions. Fixture outcomes provide no evidence. Current-input runs and
@@ -61,3 +61,28 @@ This verifies generated documentation delivery over HTTP, not browser visual
 layout, interaction states or deployment. Browser presentation remains unverified.
 The documentation links to scoped payment claim/query recovery and concurrent
 customer reporting evidence; those runs retain their own executable revisions.
+
+
+## Confirmed implementation gap: combined Chat tools and JSON format
+
+Current clean implementation `0b304dc` rejects a Chat request combining function
+tools with `json_object` or `json_schema`, including streamed requests. A current
+workspace-key run declared both individual capabilities and observed explicit
+501 responses before any attempt or financial entry. Independent reopening
+confirmed zero dispatch and revoked the verification key. This is an implementation
+gap, separate from unavailable merchant activation or commercial qualification.
+
+A direct personal OpenRouter observation used the same JSON schema across a
+real declared function call, a client-computed tool result and a schema-valid
+final answer. Independent inspection checked the retained requests/responses and
+native usage. This establishes that observed upstream combination only, not
+Niu integration, stream handling, accounting or a link to the original 502.
+OpenRouter documents the individual [tool-calling parameters](https://openrouter.ai/docs/guides/features/tool-calling)
+and [structured-output parameters](https://openrouter.ai/docs/guides/features/structured-outputs);
+parameter listings alone do not qualify their combined behavior through Niu.
+
+Implementation must extend the existing validators rather than merely remove
+the refusal. Declared tool-call shape and bounded streamed arguments require
+validation, while structured final text must still satisfy its JSON contract.
+Intermediate tool turns, final answers, terminal observations and customer
+accounting need actual current-input verification before support is claimed.

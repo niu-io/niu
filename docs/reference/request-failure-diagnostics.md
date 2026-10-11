@@ -238,3 +238,23 @@ across two processes. It does not prove a latency SLO, overload capacity,
 unlimited failure traffic, automatic recovery of lost classifications or a
 matched New API performance comparison. Internal verification prices and credit
 do not qualify commercial supply or merchant funding.
+
+
+## Historical 502 correlation boundary — 2026-10-12
+
+A metadata-only current read of retained personal verification history, checked
+again after restoring a fresh native backup, found invalid-response classifications
+with completed provider-reported accounting evidence and tool-call finish
+observations. These records did not retain an upstream HTTP rejection status.
+They therefore describe failed delivery validation with observed generation,
+not a proved upstream HTTP 502 refusal. No request or response body was read;
+payload retention no longer covered those records.
+
+The private handoff did not identify its original failing request. The retained
+classifications cannot be automatically equated with that event, and the exact
+validation cause cannot be reconstructed from a finish reason alone. The separate
+[regional network checkpoint](../releases/openrouter-backend-verification-2026-10-09.md)
+retains its own observations; a current successful stream does not prove why a
+historical request failed. Keep original-event correlation and root cause
+unverified rather than merging transport, HTTP rejection and output-validation
+failures into one explanation. Original data and encrypted identity were untouched.
