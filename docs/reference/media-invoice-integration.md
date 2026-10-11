@@ -351,3 +351,22 @@ were untouched by the isolated run. Release compilation and storage formatting
 checks completed separately. This verifies the row-lock timeout and subsequent
 business path; arbitrary long statements and every commit-acknowledgment failure
 remain outside this checkpoint.
+
+
+### Native integration of invoice deadlines
+
+Clean committed `ed0b5cd` repeated the held-workspace-lock run: HTTP 503 in
+approximately 259 ms, exact replay after release/restart, and a subsequent real
+completion with one exact debit. Independent reopening checked its raw response,
+lock-timeout diagnostic, preserved invoice/audit counts and released hold.
+
+Before replacing the native service, a fresh private backup restored into an
+isolated PostgreSQL instance with matching full-row fingerprints for organizations,
+workspaces, encrypted credentials, ledger, video jobs and transport timings.
+The target binary hash matched the clean committed build; the prior binary was
+retained. Graceful replacement reached readiness on the original port without
+changing configuration, encrypted credential revisions or durable business counts.
+Authenticated retained invoice-detail and routing-status reads returned HTTP 200
+with no-store; the local static configuration matched the published generation.
+Schema remained 277. This is native integration evidence for the invoice wait
+change, not a new maximum-capacity or paid-media qualification.

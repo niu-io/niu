@@ -2,9 +2,9 @@
 
 Reviewed: 2026-10-11. This is an incomplete acceptance review, not a release
 approval or a claim of parity with another gateway. Review the committed `main`
-contracts separately from uncommitted shared development changes. The current
-native backend and recent actual-input runs are pinned to `e655a37`; subsequent
-commits in this workstream contain documentation changes.
+contracts separately from uncommitted shared development changes. The native backend is now pinned to `ed0b5cd`, including bounded invoice
+transaction waits. The broad buffered/streaming workload evidence remains pinned
+to `e655a37`; do not relabel historical measurements as new-version results.
 
 ## Required business paths
 
