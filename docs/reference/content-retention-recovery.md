@@ -417,3 +417,34 @@ with no attempts or financial entries. The first verification script used an
 incorrect organization-response envelope after successful recovery; the corrected
 complete run supplies the evidence. Operators must budget the additional per-process
 maintenance connection in database role/server limits as well as the admission pool.
+
+## Asset group request cleanup isolation
+
+Migration 0275 replaces the create-intent request cleanup batch with a bounded
+per-row function. It selects at most 64 expired retained request bodies using
+`FOR UPDATE SKIP LOCKED`. A row data or constraint failure rolls back only that
+row and stores a content-free retry deadline 60 seconds later. Explicit erasure
+and successful expiry clear retry state. The original expiry predicate, immutable
+fingerprint, intent identity and reconciliation state remain unchanged. The
+function uses the existing content-maintenance owner, connection and transaction
+deadlines; no asset table is added to priced admission.
+
+Actual current-input management calls saved four local asset-group create
+requests. A disabled configuration held freshly generated local signing values;
+no upstream-issued credential or asset-operation authorization was claimed.
+Dispatch was refused, while the prepared local requests remained available through
+the workspace request API. Running cleanup preserved all four unexpired bodies.
+Explicit API deletion removed one body's content, and Gateway restart preserved
+that deletion and the other three request responses.
+
+Independent reopening matched the three retained bodies and fingerprints to the
+submitted HTTP inputs and found one immutable deletion event. All four intents
+remained prepared, with no upstream result, dispatch outcome, inference attempt,
+financial entry or cleanup retry. These checks verify unexpired-content protection
+and local deletion/restart behavior, not successful upstream asset creation.
+
+The remaining bodies are retained with their original 24-hour deadlines for a
+later natural-expiry run. Nonempty expired-row failure isolation, retry after a
+restart and competing-worker traversal remain unverified for this domain. No
+fixture outcome or empty cleanup count establishes those requirements. Interrupted
+image recovery and the strict cross-process connection cap also remain open.

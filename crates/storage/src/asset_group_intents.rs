@@ -89,9 +89,23 @@ impl Store {
     }
 
     /// Remove expired request content in bounded batches while preserving the
-    /// original intent, fingerprint and reconciliation state.
+    /// original intent, fingerprint and reconciliation state. Row data failures
+    /// defer only that row for a minute, including across process restarts.
     pub async fn purge_expired_asset_group_requests(&self) -> Result<u64, StoreError> {
-        self.execute_content_retention("UPDATE asset_group_create_intents SET request_body=NULL WHERE id IN (SELECT id FROM asset_group_create_intents WHERE request_body IS NOT NULL AND request_expires_at<=clock_timestamp() ORDER BY request_expires_at,id LIMIT 500 FOR UPDATE SKIP LOCKED)").await
+        self.run_background_work(
+            crate::background_work::BackgroundWork::ContentRetention,
+            |tx| {
+                Box::pin(async move {
+                    let removed: i64 =
+                        sqlx::query_scalar("SELECT niu_purge_asset_group_request_page()")
+                            .fetch_one(&mut **tx)
+                            .await?;
+                    Ok(removed as u64)
+                })
+            },
+        )
+        .await
+        .map(|removed| removed.unwrap_or(0))
     }
 
     /// Bounded local discovery only. A candidate is never permission to create
