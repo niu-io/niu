@@ -47,6 +47,31 @@ presentation or reporting capacity under concurrent load. Source evidence and
 the original development database were preserved.
 
 
+### Current mixed reporting read burst
+
+A further stopped copy of this same current dataset was served by digest-verified
+`a5f2f3b`, one Gateway and two admission database connections. An ordinary
+workspace viewer issued 96 reads through 12 client workers, with 12 observed
+in-flight HTTP reads: 32 first-page Logs reads with full-range summaries,
+32 key-filtered reads covering all eight keys, and 32 complete CSV exports.
+This burst generated no upstream request or additional charge.
+
+All reads returned HTTP 200 and `no-store`. Independent reopening hashed each
+retained response, re-parsed all 1,600 original upstream streams, and checked
+returned rows, filtered/full-range quantities, CSV records and exact charges
+against native PostgreSQL. The original 26,879,148 USD-nanounit total and every
+matching debit remained unchanged. Procurement fields were absent from the
+checked customer responses and CSV headings. Separate procurement/foreign-scope
+refusals, reader revocation and restart/export equality were rechecked.
+
+The finite burst completed in 0.557 seconds; combined client round-trip
+p50/p95/maximum were 62.43/76.15/81.97 ms (nearest-rank percentiles over all 96
+mixed reads). These are warmed loopback measurements for this one small retained
+dataset, not sustained reporting capacity or per-endpoint latency guarantees.
+The run included no concurrent writes, multi-company load or resource sampling.
+It does not establish a production SLO or a causal performance comparison.
+
+
 ## Twelve-request/second checkpoint — 2026-10-12
 
 Digest-verified clean implementation `268c25d` ran 1,600 actual structured

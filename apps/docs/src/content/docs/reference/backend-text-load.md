@@ -38,6 +38,16 @@ were revoked with no added attempt or financial entry. This verifies reporting
 and isolation for the dataset, not frontend presentation or reporting throughput
 under concurrent load.
 
+
+A further isolated copy served 96 mixed reads through 12 workers: 32 Logs pages,
+32 key-filtered pages across all eight keys and 32 complete CSV exports. All
+returned HTTP 200 and no-store. Independent reopening checked each saved
+response against the original streams and PostgreSQL; exact charges and debits
+remained unchanged. The burst lasted 0.557 seconds, with combined client
+p50/p95/maximum of 62.43/76.15/81.97 ms. This verifies a short warmed read-only
+burst, not sustained reporting capacity, concurrent writes, frontend presentation
+or multi-company scale.
+
 Personal upstream access and approved internal verification credit do not imply
 merchant funding or commercial Supplier qualification. Neither measurement
 establishes maximum capacity, overload behavior, production SLOs, media capacity
