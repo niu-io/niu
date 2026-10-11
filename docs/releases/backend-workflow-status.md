@@ -1,6 +1,6 @@
 # Backend workflow verification status
 
-Reviewed 2026-10-12 against main `a5ec698`; native implementation `69c161d`.
+Reviewed 2026-10-12 against main `58e8fc3`; native implementation `3a3f02c`.
 This is an index of scoped evidence, not a declaration that the complete release
 or New API comparison is qualified. Linked runs identify their own implementation
 revisions. Fixture outcomes provide no evidence. Current-input runs and
@@ -44,3 +44,20 @@ container/image qualification and Agent Observability are excluded from this
 backend iteration. Existing databases and encrypted identity remain preserved.
 Public and enterprise issues close only when their own full acceptance is proved;
 a partial checkpoint does not close a broader release issue.
+
+
+## Documentation delivery checkpoint
+
+A clean archive of committed `58e8fc3` completed the documentation build and
+handler-annotation consistency check. A local HTTP server served all 17 generated
+index-page routes and their linked local resources: 30 unique paths were read
+completely, with page bytes compared to the retained generated artifacts. The
+handler OpenAPI JSON was accessible and retained the committed Messages and
+`/v1beta/models/{model_action}` operations. Uncommitted interface changes were
+excluded from this artifact. The error page accounts for the build's additional
+page and was not part of the index-route check.
+
+This verifies generated documentation delivery over HTTP, not browser visual
+layout, interaction states or deployment. Browser presentation remains unverified.
+The documentation links to scoped payment claim/query recovery and concurrent
+customer reporting evidence; those runs retain their own executable revisions.
