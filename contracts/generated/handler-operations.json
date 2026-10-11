@@ -3151,7 +3151,7 @@
       "get": {
         "operationId": "listOrganizations",
         "summary": "List authorized company metadata",
-        "description": "Requires management read authorization. Installation callers receive at most 1000 companies in creation order; this endpoint currently has no pagination cursor. A member receives only its own company, including when scoped to one workspace. Returns identity and name only, without funding, credentials or Supplier financial data. Legacy organization identifiers represent the customer company scope.",
+        "description": "Requires management read authorization. Member company scope is applied before paging, including workspace-scoped members. Stable creation order; renaming does not move entries. Follow next_cursor as after with unchanged credentials until null. Pages reflect live data, not a frozen snapshot; deletion of a cursor requires restarting traversal. Returns only identity/name metadata, never financial data or credentials.",
         "security": [
           {
             "bearerAuth": []
@@ -3166,7 +3166,8 @@
                 "schema": {
                   "type": "object",
                   "required": [
-                    "data"
+                    "data",
+                    "next_cursor"
                   ],
                   "properties": {
                     "data": {
@@ -3174,6 +3175,13 @@
                       "items": {
                         "$ref": "#/components/schemas/CompanyMetadata"
                       }
+                    },
+                    "next_cursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uuid"
                     }
                   }
                 }
@@ -3185,8 +3193,34 @@
           },
           "403": {
             "description": "Credential lacks management read access."
+          },
+          "400": {
+            "description": "Invalid page size, cursor syntax or unknown query parameter."
+          },
+          "409": {
+            "description": "Cursor is missing, deleted or outside current company scope."
           }
-        }
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "after",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 1000
+            }
+          }
+        ]
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/keys": {

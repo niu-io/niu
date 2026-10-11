@@ -385,6 +385,13 @@ pub async fn workspace_route(
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct CompanyPageQuery {
+    after: Option<Uuid>,
+    limit: Option<u16>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct WorkspacePageQuery {
     after: Option<Uuid>,
     limit: Option<u16>,
@@ -1833,7 +1840,7 @@ pub async fn delete_quota_window(
 ///   "operation": {
 ///     "operationId": "listOrganizations",
 ///     "summary": "List authorized company metadata",
-///     "description": "Requires management read authorization. Installation callers receive at most 1000 companies in creation order; this endpoint currently has no pagination cursor. A member receives only its own company, including when scoped to one workspace. Returns identity and name only, without funding, credentials or Supplier financial data. Legacy organization identifiers represent the customer company scope.",
+///     "description": "Requires management read authorization. Member company scope is applied before paging, including workspace-scoped members. Stable creation order; renaming does not move entries. Follow next_cursor as after with unchanged credentials until null. Pages reflect live data, not a frozen snapshot; deletion of a cursor requires restarting traversal. Returns only identity/name metadata, never financial data or credentials.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1848,7 +1855,8 @@ pub async fn delete_quota_window(
 ///             "schema": {
 ///               "type": "object",
 ///               "required": [
-///                 "data"
+///                 "data",
+///                 "next_cursor"
 ///               ],
 ///               "properties": {
 ///                 "data": {
@@ -1856,6 +1864,13 @@ pub async fn delete_quota_window(
 ///                   "items": {
 ///                     "$ref": "#/components/schemas/CompanyMetadata"
 ///                   }
+///                 },
+///                 "next_cursor": {
+///                   "type": [
+///                     "string",
+///                     "null"
+///                   ],
+///                   "format": "uuid"
 ///                 }
 ///               }
 ///             }
@@ -1867,8 +1882,34 @@ pub async fn delete_quota_window(
 ///       },
 ///       "403": {
 ///         "description": "Credential lacks management read access."
+///       },
+///       "400": {
+///         "description": "Invalid page size, cursor syntax or unknown query parameter."
+///       },
+///       "409": {
+///         "description": "Cursor is missing, deleted or outside current company scope."
 ///       }
-///     }
+///     },
+///     "parameters": [
+///       {
+///         "in": "query",
+///         "name": "after",
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "in": "query",
+///         "name": "limit",
+///         "schema": {
+///           "type": "integer",
+///           "minimum": 1,
+///           "maximum": 1000,
+///           "default": 1000
+///         }
+///       }
+///     ]
 ///   },
 ///   "schemas": {
 ///     "CompanyMetadata": {
@@ -1893,16 +1934,35 @@ pub async fn delete_quota_window(
 pub async fn organizations(
     State(state): State<AppState>,
     headers: HeaderMap,
+    Query(page): Query<CompanyPageQuery>,
 ) -> Result<Json<Value>, ApiError> {
     let authorization = authorize(&state, &headers, AdminPermission::Read).await?;
-    let organizations = match authorization {
-        crate::state::AdminAuthorization::Installation => state.store.organizations().await,
+    let organization = match authorization {
+        crate::state::AdminAuthorization::Installation => None,
         crate::state::AdminAuthorization::Operator(operator) => {
-            state.store.organizations_for_scope(operator.scope).await
+            Some(operator.scope.organization_id)
         }
+    };
+    let limit = page.limit.unwrap_or(1000);
+    if !(1..=1000).contains(&limit) {
+        return Err(ApiError::invalid_request(
+            "Company page limit must be between 1 and 1000",
+        ));
     }
-    .map_err(ApiError::from_store)?;
-    Ok(Json(json!({"data": organizations})))
+    let mut organizations = state
+        .store
+        .organization_page(organization, page.after, i64::from(limit) + 1)
+        .await
+        .map_err(ApiError::from_store)?;
+    let next_cursor = if organizations.len() > limit as usize {
+        organizations.truncate(limit as usize);
+        organizations.last().map(|company| company.id)
+    } else {
+        None
+    };
+    Ok(Json(
+        json!({"data": organizations, "next_cursor": next_cursor}),
+    ))
 }
 
 pub async fn operators(

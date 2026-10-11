@@ -34,8 +34,13 @@ not generate a different key for each transport retry. The SDK exposes
 `CompanyCreationInput`, `CompanyCreateOptions` and `CreatedCompany` types.
 
 The generated handler OpenAPI is the source of the request/response contract.
-Company-list pagination is separate: the existing list remains capped at 1,000
-installation-visible companies and has no continuation cursor.
+Company-directory traversal uses `GET /admin/v1/organizations?limit=1000&after=…`.
+`limit` accepts 1–1000 and defaults to 1000. The response preserves `data` and adds
+`next_cursor`; pass it as `after` until it is null. The SDK exposes
+`listCompaniesPage({ limit, after })` and `listCompanies()` for complete traversal.
+A missing, deleted or out-of-scope cursor returns 409; malformed parameters return
+400. Member company scope is applied before pagination. Creation order is stable
+through renaming, but pages are live observations rather than a frozen snapshot.
 
 ## Current-input verification — 2026-10-11
 
@@ -62,3 +67,25 @@ contract checks completed separately; no fixture result supports these claims.
 
 Lost commit acknowledgements for this specific endpoint and a native upgrade of
 the original development service to migration 0266 remain unverified.
+
+
+## Directory traversal verification — 2026-10-11
+
+A current native gateway and built SDK created zero-funded companies through the
+actual API in an isolated database until the directory contained 1,002 entries.
+The default page returned 1,000 followed by two; SDK complete traversal returned
+all identities. A separate 37-entry traversal preserved the database's creation
+order even when a company was renamed between pages. Restart preserved the full
+SDK traversal order.
+
+A company owner received only its own entry and no continuation. A foreign cursor
+was rejected with 409; invalid limits/cursor syntax and unknown query fields
+returned 400. Administrative deletion of an empty company in the isolated database
+made its cursor return 409. Revoking the member made subsequent reads return 401.
+No company deletion API is implied by this fault check.
+
+Independent reopening compared every saved page identity and cursor with database
+ordering, checked absence of duplicates/omissions, verified the new ordering index
+and zero-credit accounts, and matched the original customer-ledger fingerprint.
+The original running database was not changed. This verifies directory traversal;
+it does not establish general write throughput or a snapshot-consistent export.

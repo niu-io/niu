@@ -8,6 +8,9 @@ export type Workspace = WorkspaceRoute & {
 };
 export type WorkspaceInput = { name: string; organization_id?: string | null };
 export type WorkspaceCreateOptions = RequestOptions & { idempotencyKey?: string };
+export type CompanyMetadata = { id: string; name: string };
+export type CompanyPage = { data: CompanyMetadata[]; next_cursor: string | null };
+export type CompanyPageOptions = { after?: string; limit?: number };
 export type CompanyCreationInput = { name: string; currency?: string };
 export type CreatedCompany = { id: string; name: string; currency: string };
 export type CompanyCreateOptions = RequestOptions & { idempotencyKey?: string };
@@ -692,6 +695,29 @@ export class NiuAdminClient {
     let after: string | undefined;
     do {
       const page = await this.listWorkspacesPage({ after }, options);
+      data.push(...page.data);
+      after = page.next_cursor ?? undefined;
+    } while (after);
+    return { data };
+  }
+
+  /** Read a scoped page; a missing or foreign cursor returns 409. */
+  listCompaniesPage(page: CompanyPageOptions = {}, options?: RequestOptions): Promise<CompanyPage> {
+    const query = new URLSearchParams();
+    if (page.after !== undefined) query.set('after', uuid(page.after));
+    if (page.limit !== undefined) {
+      if (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 1000) throw new RangeError('Company page limit must be between 1 and 1000');
+      query.set('limit', String(page.limit));
+    }
+    return this.request(`/organizations?${query}`, undefined, options);
+  }
+
+  /** Traverse every authorized page; never return partial results after an error. */
+  async listCompanies(options?: RequestOptions): Promise<{ data: CompanyMetadata[] }> {
+    const data: CompanyMetadata[] = [];
+    let after: string | undefined;
+    do {
+      const page = await this.listCompaniesPage({ after }, options);
       data.push(...page.data);
       after = page.next_cursor ?? undefined;
     } while (after);

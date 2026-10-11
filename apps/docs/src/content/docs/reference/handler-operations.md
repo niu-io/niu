@@ -3688,7 +3688,7 @@ Content type: `application/json`.
 
 `GET /admin/v1/organizations`
 
-Requires management read authorization. Installation callers receive at most 1000 companies in creation order; this endpoint currently has no pagination cursor. A member receives only its own company, including when scoped to one workspace. Returns identity and name only, without funding, credentials or Supplier financial data. Legacy organization identifiers represent the customer company scope.
+Requires management read authorization. Member company scope is applied before paging, including workspace-scoped members. Stable creation order; renaming does not move entries. Follow next_cursor as after with unchanged credentials until null. Pages reflect live data, not a frozen snapshot; deletion of a cursor requires restarting traversal. Returns only identity/name metadata, never financial data or credentials.
 
 Implementation: `implemented`. Operation: `listOrganizations`.
 
@@ -3704,6 +3704,28 @@ Each array entry is an alternative; schemes within one entry are required togeth
 ]
 ```
 
+### Parameters
+
+`after` (query, optional)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 1000,
+  "default": 1000
+}
+```
+
 ### Responses
 
 HTTP 200: Authorized company metadata.
@@ -3714,7 +3736,8 @@ Content type: `application/json`.
 {
   "type": "object",
   "required": [
-    "data"
+    "data",
+    "next_cursor"
   ],
   "properties": {
     "data": {
@@ -3722,6 +3745,13 @@ Content type: `application/json`.
       "items": {
         "$ref": "#/components/schemas/CompanyMetadata"
       }
+    },
+    "next_cursor": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
     }
   }
 }
@@ -3730,6 +3760,10 @@ Content type: `application/json`.
 HTTP 401: Missing, invalid, expired or revoked management credential.
 
 HTTP 403: Credential lacks management read access.
+
+HTTP 400: Invalid page size, cursor syntax or unknown query parameter.
+
+HTTP 409: Cursor is missing, deleted or outside current company scope.
 
 ## List workspace API-key metadata (up to 1000 records)
 
