@@ -250,6 +250,120 @@ pub async fn default_workspace(
     ))
 }
 
+/// ```openapi
+/// {
+///   "path": "/admin/v1/workspaces/by-route/{route_slug}",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "resolveWorkspaceRoute",
+///     "summary": "Resolve an authorized canonical workspace route",
+///     "description": "Exact persisted route lookup independent of workspace list limits. Renames preserve the route. Historical name aliases are not supported. Foreign, missing and malformed references return the same 404.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "x-niu-implementation": "implemented",
+///     "parameters": [
+///       {
+///         "name": "route_slug",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "maxLength": 81
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Authorized workspace identity.",
+///         "headers": {
+///           "Cache-Control": {
+///             "schema": {
+///               "type": "string",
+///               "const": "no-store"
+///             }
+///           }
+///         },
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "id",
+///                 "organization_id",
+///                 "name",
+///                 "route_slug"
+///               ],
+///               "properties": {
+///                 "id": {
+///                   "type": "string",
+///                   "format": "uuid"
+///                 },
+///                 "organization_id": {
+///                   "type": "string",
+///                   "format": "uuid"
+///                 },
+///                 "name": {
+///                   "type": "string"
+///                 },
+///                 "route_slug": {
+///                   "type": "string",
+///                   "maxLength": 81,
+///                   "description": "Immutable routing reference, never a display label or authorization grant."
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Invalid or inference-only credential."
+///       },
+///       "403": {
+///         "description": "Credential lacks read permission."
+///       },
+///       "404": {
+///         "description": "No authorized workspace matches the reference."
+///       }
+///     }
+///   }
+/// }
+/// ```
+pub async fn workspace_route(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(route_slug): Path<String>,
+) -> Result<([(axum::http::HeaderName, &'static str); 1], Json<Value>), ApiError> {
+    let authorization = authorize(&state, &headers, AdminPermission::Read).await?;
+    if route_slug.is_empty()
+        || route_slug.len() > 81
+        || !route_slug
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+    {
+        return Err(ApiError::not_found());
+    }
+    let (organization_id, project_id) = match authorization {
+        crate::state::AdminAuthorization::Installation => (None, None),
+        crate::state::AdminAuthorization::Operator(operator) => (
+            Some(operator.scope.organization_id),
+            operator.scope.project_id,
+        ),
+    };
+    let workspace = state
+        .store
+        .workspace_route(&route_slug, organization_id, project_id)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    Ok((
+        [(axum::http::header::CACHE_CONTROL, "no-store")],
+        Json(json!(workspace)),
+    ))
+}
+
 pub async fn workspaces(
     State(state): State<AppState>,
     headers: HeaderMap,

@@ -2673,6 +2673,83 @@
         }
       }
     },
+    "/admin/v1/workspaces/by-route/{route_slug}": {
+      "get": {
+        "operationId": "resolveWorkspaceRoute",
+        "summary": "Resolve an authorized canonical workspace route",
+        "description": "Exact persisted route lookup independent of workspace list limits. Renames preserve the route. Historical name aliases are not supported. Foreign, missing and malformed references return the same 404.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-niu-implementation": "implemented",
+        "parameters": [
+          {
+            "name": "route_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 81
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized workspace identity.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "organization_id",
+                    "name",
+                    "route_slug"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "organization_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "route_slug": {
+                      "type": "string",
+                      "maxLength": 81,
+                      "description": "Immutable routing reference, never a display label or authorization grant."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or inference-only credential."
+          },
+          "403": {
+            "description": "Credential lacks read permission."
+          },
+          "404": {
+            "description": "No authorized workspace matches the reference."
+          }
+        }
+      }
+    },
     "/admin/v1/organizations/{organization}/projects/{project}": {
       "patch": {
         "security": [

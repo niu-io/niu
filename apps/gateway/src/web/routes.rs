@@ -170,6 +170,10 @@ pub(crate) fn router(state: AppState) -> Router {
             get(crate::admin::organizations).post(crate::admin::organization),
         )
         .route(
+            "/admin/v1/workspaces/by-route/{route_slug}",
+            get(crate::admin::workspace_route),
+        )
+        .route(
             "/admin/v1/workspaces",
             get(crate::admin::workspaces).post(crate::admin::create_workspace),
         )

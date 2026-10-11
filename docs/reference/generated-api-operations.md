@@ -2783,6 +2783,88 @@ HTTP 401: Missing, invalid, expired or inference-only credential.
 
 HTTP 403: Authenticated member lacks installation authority, including a platform administrator.
 
+## Resolve an authorized canonical workspace route
+
+`GET /admin/v1/workspaces/by-route/{route_slug}`
+
+Exact persisted route lookup independent of workspace list limits. Renames preserve the route. Historical name aliases are not supported. Foreign, missing and malformed references return the same 404.
+
+Implementation: `implemented`. Operation: `resolveWorkspaceRoute`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`route_slug` (path, required)
+
+```json
+{
+  "type": "string",
+  "maxLength": 81
+}
+```
+
+### Responses
+
+HTTP 200: Authorized workspace identity.
+
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "id",
+    "organization_id",
+    "name",
+    "route_slug"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "organization_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "name": {
+      "type": "string"
+    },
+    "route_slug": {
+      "type": "string",
+      "maxLength": 81,
+      "description": "Immutable routing reference, never a display label or authorization grant."
+    }
+  }
+}
+```
+
+HTTP 401: Invalid or inference-only credential.
+
+HTTP 403: Credential lacks read permission.
+
+HTTP 404: No authorized workspace matches the reference.
+
 ## Rename a workspace
 
 `PATCH /admin/v1/organizations/{organization}/projects/{project}`

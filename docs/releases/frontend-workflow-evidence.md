@@ -1422,3 +1422,14 @@ confirmed the unchanged ledger fingerprint and enabled immutability guard.
 Frontend adoption and browser verification remain pending. This additive field
 does not preserve historical name-derived aliases or provide a direct slug lookup;
 the complete bookmark recovery workflow remains open.
+
+The backend now also provides `GET /admin/v1/workspaces/by-route/{route_slug}`.
+It returns only the authorized workspace's `id`, `organization_id`, `name` and
+`route_slug`, with `Cache-Control: no-store`. Resolution applies organization and
+workspace scope inside the database query and does not scan the bounded list.
+Missing, malformed and out-of-scope references return 404. An actual HTTP run
+resolved the same route before and after rename and restart, denied foreign
+organization and sibling-workspace readers, and rejected an invalid credential.
+Independent database reopening matched the saved identities and unchanged ledger.
+The served API overview and generated OpenAPI include this operation. Historical
+name aliases and frontend browser adoption remain pending.

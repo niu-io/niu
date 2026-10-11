@@ -44,9 +44,13 @@ workspaces, including duplicate names; renaming preserves the reference.
 References cannot be edited and do not grant access. Continue using the workspace
 ID for existing scoped API paths and enforce the caller's normal authorization.
 
-This field does not resolve historical name-derived URLs. Direct slug lookup and
-retained aliases are not implemented; frontend migration must account for old
-bookmarks rather than treating them as supported aliases.
+Use `GET /admin/v1/workspaces/by-route/{route_slug}` to restore a workspace
+without scanning the bounded workspace list. The response contains `id`,
+`organization_id`, `name` and `route_slug`, with `Cache-Control: no-store`.
+Missing references and workspaces outside the caller's scope both return 404.
+
+Historical name-derived URLs are not supported aliases. Frontend migration must
+account for old bookmarks separately.
 
 ### Guardrail changes before dispatch
 

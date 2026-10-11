@@ -2397,6 +2397,9 @@ paths:
           description: Invalid dataset, mismatched trial, incomplete cost evidence, or budget limit exceeded.
         '401':
           description: Invalid or expired administrator/operator credential.
+  /admin/v1/workspaces/by-route/{route_slug}:
+    get:
+      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1workspaces~1by-route~1{route_slug}/get'
   /admin/v1/workspaces:
     get:
       operationId: listWorkspaces

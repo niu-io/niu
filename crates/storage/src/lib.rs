@@ -199,6 +199,15 @@ pub struct NamedResource {
     pub name: String,
 }
 
+/// Minimal authorized workspace identity for restoring a canonical route.
+#[derive(sqlx::FromRow, serde::Serialize)]
+pub struct WorkspaceRoute {
+    pub id: Uuid,
+    pub organization_id: Uuid,
+    pub name: String,
+    pub route_slug: String,
+}
+
 #[derive(sqlx::FromRow, serde::Serialize)]
 pub struct WorkspaceResource {
     pub id: Uuid,
@@ -439,6 +448,21 @@ impl Store {
                 .fetch_optional(&self.pool)
                 .await?,
         )
+    }
+
+    /// Resolve in the database with scope predicates, independent of list limits.
+    pub async fn workspace_route(
+        &self,
+        route_slug: &str,
+        organization_id: Option<Uuid>,
+        project_id: Option<Uuid>,
+    ) -> Result<Option<WorkspaceRoute>, StoreError> {
+        Ok(sqlx::query_as("SELECT id,organization_id,name,route_slug FROM projects WHERE route_slug=$1 AND ($2::uuid IS NULL OR organization_id=$2) AND ($3::uuid IS NULL OR id=$3)")
+            .bind(route_slug)
+            .bind(organization_id)
+            .bind(project_id)
+            .fetch_optional(&self.pool)
+            .await?)
     }
 
     pub async fn workspaces(
