@@ -9,7 +9,7 @@ internal-readiness gate. Fixture outcomes have no evidentiary weight.
 
 | Required area | Current actual evidence | Still unverified or incomplete |
 | --- | --- | --- |
-| Supplier configuration | [Independent credentials and prices](supplier-workspace-backend-verification-2026-10-09.md); [priced candidate selection, separate expenses and immutable history](../reference/model-route-pools.md); startup now checks unbound/disabled credentials | Full commercial settlement workflow; broader provider coverage; master-key rotation remains unimplemented |
+| Supplier configuration | [Independent credentials and prices](supplier-workspace-backend-verification-2026-10-09.md); [priced candidate selection, separate expenses and immutable history](../reference/model-route-pools.md); startup now checks unbound/disabled credentials | Full commercial settlement workflow; broader provider coverage; [offline master-key rotation is implemented](../reference/offline-key-rotation.md), with broader populated-domain qualification still pending |
 | Workspace API keys | [Granular controls](../product/backend-capability-checklist.md); [credit-backed spending refusal, partial refunds and in-flight rotation](../reference/internal-credit-workflow-live.md); [actual text overrun settlement and zero remaining allowance](../reference/api-key-spending-limits.md#actual-text-overrun-rotation-and-restart--2026-10-10); platform grants do not expand customer scope | Other estimator-overrun paths and sustained multi-instance limiter contention; mixed-key completion batches now have scoped actual evidence |
 | Prepaid and accounting | [Actual credit-backed charges, debits, refunds, invoices and reconciliation](../reference/internal-credit-workflow-live.md); [shared-company contention](../reference/company-credit-concurrency-live.md); [nonempty recovery and database fault runs](../reference/financial-backlog-restart-live.md); [payment configuration, checkout and grant lifecycle](../reference/payment-aggregators.md) | Received-cash funding/reversal evidence and complete customer-funded media settlement. Credit-backed evidence is not a received-cash top-up; activation of every merchant is not required |
 | Request diagnostics | Actual request detail/CSV and [positive customer-charge reports](../reference/internal-credit-workflow-live.md#customer-reporting-with-actual-positive-charges); [structured-stream failures and disconnect liabilities](../reference/structured-output-streaming.md) | Full protocol/input/error matrix and complete media charge reporting; no overall diagnosis workflow claim |
@@ -176,3 +176,13 @@ counts. Company/workspace reads, route resolution, a saved OpenRouter catalog
 diagnostic and encryption inspection completed. The installed binary hash matches
 the privately pinned clean build. This refresh does not qualify all billing,
 media or Supplier settlement paths; catalog access is not generation evidence.
+
+## Additional bounded concurrency evidence — 2026-10-11
+
+[Two-gateway mixed-key small-pool verification](../reference/two-gateway-text-load.md#small-pool-mixed-key-concurrency-follow-up)
+used clean commit `8fca735`: 224 actual text calls across eight keys and two
+processes, each with two admission connections, at 8/16/32 client workers.
+Independent reopened-database inspection matched every response's usage, pinned
+price, customer charge and debit, with no outstanding holds or duplicate restart
+charges. This narrows the concurrent text-accounting gap; sustained capacity,
+media billing and the other remaining acceptance items above remain open.

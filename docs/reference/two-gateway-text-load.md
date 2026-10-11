@@ -66,3 +66,32 @@ prepaid operation, Supplier settlements, video billing or every Provider. It doe
 not isolate gateway overhead, set an SLO or determine a safe production worker
 count. Streaming, long prompts, detector-enabled Guardrails, saturation/overload
 and longer resource observations still need their own current-input runs.
+
+## Small-pool, mixed-key concurrency follow-up
+
+A separate current-input run used clean commit `8fca735` on 2026-10-11,
+two gateways with two admission database connections each, and one dedicated
+content-maintenance connection per gateway. Eight workspace keys each crossed
+both gateways. The same actual upstream, strict JSON marker and bounded internal
+credit approach described above applied. No client retries were made.
+
+| Client workers | Requests | Elapsed seconds | Completed requests/second | P50 ms | P95 ms | Maximum ms |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 8 | 32 | 11.52 | 2.78 | 1,316 | 1,668 | 7,670 |
+| 16 | 64 | 6.04 | 10.60 | 1,344 | 1,634 | 1,978 |
+| 32 | 128 | 6.70 | 19.11 | 1,327 | 1,645 | 3,236 |
+
+All 224 responses were HTTP 200 with their requested marker. Independent
+inspection of the stopped and reopened database verified each saved raw response
+hash, parsed output and reported usage against completed attempts, pinned prices,
+and exactly one customer charge and matching debit. The total was **3,759,016 USD
+nanounits**. Each key accounted for 28 calls; each gateway served 112. All 224
+response timings were complete. There were no outstanding customer or procurement
+holds, request failures, funding receipts or live temporary keys. Restart did not
+duplicate charges; the reconciliation API independently matched the total.
+
+These short, closed-loop phases demonstrate this particular accounting path
+under concurrent small-pool access. They do not establish sustainable throughput,
+saturation capacity, a production SLO, or a causal explanation for the first
+phase's latency outlier. Upstream and host variability remain included. Streaming,
+long-duration load and media settlement need separate verification.
