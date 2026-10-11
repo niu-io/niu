@@ -175,3 +175,26 @@ Supplier management fixes. Two Niu configurations sharing one personal secret
 do not establish two externally issued keys or commercially qualified supply.
 The positive offer-to-earning-to-settlement and paid media paths remain separate
 unverified acceptance items. No fixture outcome is evidence.
+
+
+## Current actual streaming checkpoint — 2026-10-12
+
+The same clean `bdf1a6d` backend repeated the two-configuration Supplier journey
+with actual streaming Chat requests and explicit usage inclusion. All three
+streams returned HTTP 200, delivered the requested structured marker, reported
+aggregate usage and ended with `[DONE]`. The second configuration completed
+streams both before and after Gateway restart while the first had been rotated
+and disabled. No upstream response was supplied by a fixture.
+
+Original SSE bytes and hashes were retained independently from derived local
+JSON used by the reporting helper. Reopening the database and parsing each
+original stream reconciled content, terminal usage, Supplier/model attribution,
+complete HTTP timings, original customer tariff, one charge and equal debit.
+No active customer reservation remained. Customer SSE usage exposed token totals
+and token-category details, without upstream cost or procurement expense fields.
+
+This current-input run did not reproduce the original actual-generation 502.
+It establishes the exercised streaming configuration/calling/accounting path,
+not the absence of every upstream fault or a newly proven cause of the historical
+502. The two Niu configurations reused personal OpenRouter access; no commercial
+Supplier qualification, earning or external funding was asserted.
