@@ -2,9 +2,10 @@
 
 Reviewed: 2026-10-12. This is an incomplete acceptance review, not a release
 approval or a claim of parity with another gateway. Review the committed `main`
-contracts separately from uncommitted shared development changes. The native backend is now pinned to `f91eb89`, including shared bounded invoice
+contracts separately from uncommitted shared development changes. The native backend is now pinned to `138b577`, including shared bounded invoice
 issuance, invoice payment, Supplier settlement, balance refund and approved-credit
-policy recording transactions. The broad buffered/streaming workload evidence remains pinned
+and warning-policy recording transactions, plus atomic Supplier profile/audit
+updates. The broad buffered/streaming workload evidence remains pinned
 to `e655a37`; do not relabel historical measurements as new-version results.
 
 ## Required business paths
@@ -46,6 +47,7 @@ workstreams. Advisory issue feedback does not override the user's priorities.
 
 - [Supplier configuration](../reference/supplier-key-isolation-live.md),
   [operational usage](../reference/supplier-configuration-usage.md),
+  [profile recording](../reference/supplier-profile-recording.md),
   [earning history](../reference/supplier-earning-history.md) and
   [settlement history](../reference/supplier-settlement-history.md).
 - [Key spending](../reference/api-key-spending-limits.md),
