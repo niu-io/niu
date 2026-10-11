@@ -750,3 +750,29 @@ prices and credit, not commercial supply or merchant funding.
 This checkpoint verifies capability selection for the exercised OpenRouter native
 text path. Direct Anthropic streaming, complete immutable published route
 snapshots and generic failover remain separate unverified or unfinished scope.
+
+
+### Capability revocation during native streaming
+
+A subsequent actual request began returning native text through a pool. After the
+first text delta, management disabled `supports_messages_streaming` on the selected
+mapping. The existing stream still returned its requested marker and terminal
+`message_stop`; the attempt retained the original model and pool revisions.
+Independent persisted timestamps placed the model edit after dispatch and before
+completion, so this was an overlapping change rather than a post-completion edit.
+
+Later stream requests returned 503 before dispatch, including after restart.
+Independent reopening found one completed attempt with complete delivery timing,
+no request failure and unchanged encrypted credential. Incomplete native usage
+retained its single customer hold. Explicit reconciliation returned 409 because
+the mapping revision had changed; no receipt or charge was invented. A later
+configuration edit does not authorize silently looking up usage under a different
+route revision.
+
+The first script requested an output bound above its own configured price bound
+and correctly received 400 before dispatch. The isolated configuration was fixed
+and the complete run repeated. An independent-reader column-name error was then
+corrected against the same retained final artifacts, without another generation.
+No fixture result supports this checkpoint. This verifies the native Messages
+in-flight binding boundary, not the still-unimplemented complete published catalog
+generation or generalized reconciliation across configuration changes.
