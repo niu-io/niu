@@ -1131,6 +1131,30 @@ pub async fn organization(
     ))
 }
 
+pub async fn project(
+    State(state): State<AppState>,
+    Path(organization_id): Path<Uuid>,
+    headers: HeaderMap,
+    Json(input): Json<Name>,
+) -> Result<(StatusCode, Json<Value>), ApiError> {
+    let authorization = authorize(&state, &headers, AdminPermission::Write).await?;
+    if !authorization.permits_project_creation(organization_id) {
+        return Err(ApiError::not_found());
+    }
+    validate_name(&input.name)?;
+    let scope = state
+        .store
+        .create_project(organization_id, &input.name)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok((
+        StatusCode::CREATED,
+        Json(
+            json!({"id": scope.project_id, "organization_id": organization_id, "name": input.name}),
+        ),
+    ))
+}
+
 /// ```openapi
 /// {
 ///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys",
