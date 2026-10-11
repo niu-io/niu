@@ -828,6 +828,14 @@ SELECT jsonb_build_object(
             return Err(StoreError::InvalidPrice);
         }
         let mut tx = self.pool.begin().await?;
+        // Invoice issuance and replay must not occupy an admission connection
+        // indefinitely behind a workspace writer. Failure rolls back all work;
+        // transaction-local settings do not affect later pooled requests.
+        sqlx::query(
+            "SELECT set_config('lock_timeout','250ms',true), set_config('statement_timeout','2s',true)",
+        )
+        .execute(&mut *tx)
+        .await?;
         sqlx::query("SELECT id FROM projects WHERE organization_id=$1 AND id=$2 FOR UPDATE")
             .bind(scope.organization_id)
             .bind(scope.project_id)

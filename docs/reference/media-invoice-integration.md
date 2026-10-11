@@ -327,3 +327,27 @@ its interval. Historical media supplements remain unimplemented, but they should
 not be introduced merely to compensate for ordinary later dispatch: that work
 belongs to its own period. A reproduced historical case and explicit adjustment
 contract are needed before changing immutable issued invoices.
+
+## Bounded invoice transaction contention
+
+Issuance and idempotent replay now set transaction-local `lock_timeout=250ms` and
+`statement_timeout=2s` before acquiring the workspace lock. These bounds cover
+database waits, not pool acquisition or the entire HTTP request. A failed
+transaction returns the existing sanitized storage-unavailable error; retries
+must preserve the original period, currency and idempotency key. Timeout does
+not establish whether an earlier independent transaction committed.
+
+A current-input run on a stopped copy of real text invoice history reproduced
+pre-change replay waiting beyond 1.6 seconds behind a held workspace row lock.
+The changed binary returned HTTP 503 in approximately 259 ms while the lock
+remained held, without changing invoice, entry, ledger or billing-audit records.
+After releasing the lock, exact replay succeeded before and after restart.
+A subsequent real model call completed and charged exactly once.
+
+Independent reopening checked the PostgreSQL lock-timeout diagnostic, unchanged
+invoice/audit counts, retained raw response hash and usage, exact subsequent debit,
+revoked temporary keys and no open customer hold. The original runtime/database
+were untouched by the isolated run. Release compilation and storage formatting
+checks completed separately. This verifies the row-lock timeout and subsequent
+business path; arbitrary long statements and every commit-acknowledgment failure
+remain outside this checkpoint.
