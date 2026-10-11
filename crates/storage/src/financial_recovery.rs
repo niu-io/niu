@@ -33,7 +33,7 @@ impl FinancialStage {
     fn query(self) -> &'static str {
         match self {
             Self::MediaCompletion => {
-                "SELECT a.id,a.organization_id,a.project_id FROM attempts a JOIN media_jobs j ON j.attempt_id=a.id WHERE a.execution='may_have_executed' AND EXISTS(SELECT 1 FROM media_job_observations o WHERE o.attempt_id=a.id AND o.status='succeeded') AND NOT EXISTS(SELECT 1 FROM media_job_observations o WHERE o.attempt_id=a.id AND o.status='failed') AND ($1::uuid IS NULL OR a.id>$1) ORDER BY a.id LIMIT 100"
+                include_str!("media_completion_recovery.sql")
             }
             Self::BalanceRelease => {
                 "SELECT a.id,a.organization_id,a.project_id FROM customer_balance_reservations r JOIN attempts a ON a.id=r.attempt_id WHERE r.released_at IS NULL AND a.execution IN ('not_sent','confirmed_not_executed') AND ($1::uuid IS NULL OR a.id>$1) ORDER BY a.id LIMIT 100"
@@ -114,7 +114,8 @@ impl Store {
             }
         };
         let rows: Vec<(Uuid, Uuid, Uuid, bool)> = match stage {
-            FinancialStage::CustomerCharge
+            FinancialStage::MediaCompletion
+            | FinancialStage::CustomerCharge
             | FinancialStage::CustomerMediaCharge
             | FinancialStage::SupplierEarning => {
                 sqlx::query_as(stage.query())
