@@ -30,3 +30,31 @@ It does not qualify container packaging, every historical migration path,
 customer-funded video settlement, Supplier payouts or production capacity.
 No fixture outcome was used as evidence. Backups and operational artifacts are
 retained privately; no original database was replaced with a test database.
+
+## Usage and hold diagnostics runtime refresh
+
+The native service was subsequently refreshed to a clean build of
+`5e014f9ac9e60b8bcde8dc0930d9a76f07465208`, including category-only usage
+supplementation, bounded reconciliation record waits and the reservation
+`missing_usage_categories` field. The full commit was embedded at build time;
+uncommitted shared-worktree changes were excluded.
+
+A fresh schema-272 backup was restored into isolated PostgreSQL and compared
+against the original six business-table fingerprints. The new binary passed
+encryption inspection and workspace/recovery API checks across restart. Independent
+reopening preserved the same fingerprints and confirmed that no encryption
+rotation operation existed. The schema remained at 272; this refresh introduced
+no additional database migration.
+
+Separately, that exact binary served a stopped copy containing an actual unresolved
+cache-write hold. Current API reads, company authorization, later tariff clearing
+and restart retained the correct missing-category diagnostic from the original
+pinned tier. Independent response/database inspection confirmed unchanged original
+attempt and hold records with no financial mutation. This populated check is
+stronger than inferring field behavior from an empty directory.
+
+After graceful native process replacement, readiness and the six-stage financial
+recovery endpoint returned HTTP 200 on the existing listener. Configuration hashes,
+encrypted credential bytes/revisions and durable organization, workspace,
+video-job and financial-entry counts remained unchanged. This refresh does not
+claim another actual upstream generation or extend media/payment qualification.
