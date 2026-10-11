@@ -695,6 +695,7 @@ mod tests {
         role: OperatorRole,
     ) -> AdminAuthorization {
         AdminAuthorization::Operator(OperatorPrincipal {
+            session_id: Uuid::new_v4(),
             id: Uuid::new_v4(),
             platform_admin: false,
             role,

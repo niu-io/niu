@@ -1488,3 +1488,25 @@ exactly four intended receipts, isolated member identities, the deleted workspac
 receipt, one revoked actor and unchanged original ledger. No funding was created.
 This closes optional creation retry recovery; historical route aliases and full
 frontend browser integration remain separate work.
+
+
+## Workspace creation authorization during lock waits — 2026-10-11
+
+An actual HTTP request blocked behind its creation-idempotency lock previously
+returned 201 and inserted a workspace after its member had been revoked. The
+creation transaction now retains the authenticated session identity, locks the
+current member/session records after the idempotency wait, and rechecks role,
+organization, workspace scope, revocation and session expiry before inserting or
+replaying. These row locks remain held through commit; expiry uses the wall clock
+after acquiring them. Stale authorization returns 401. This also applies when
+creation does not use an idempotency header.
+
+Actual blocked requests were denied after member revocation, session revocation,
+role downgrade, narrowed workspace scope and session expiry. Existing-receipt
+replays were also denied after member or session revocation. Independent reopening
+of each stopped database confirmed unchanged workspace and receipt counts, the
+intended authorization changes, and an unchanged customer ledger. The current
+built-SDK eight-way creation/retry workflow was rerun and its saved database was
+independently checked: actor isolation, atomic rollback, restart recovery and
+deleted-workspace tombstones retained their behavior. No external funding or
+commercial qualification is implied by these authorization checks.

@@ -612,6 +612,8 @@ pub async fn delete_workspace(
 /// Replays return 201 with the original workspace identity and current metadata;
 /// changed input returns 409, and replay after deletion returns 404 without recreation.
 /// Company, zero-funded account, workspace and receipt commit in one transaction.
+/// Member/session access is rechecked after lock waits and held through commit;
+/// stale authorization is rejected with 401 before creation or receipt replay.
 pub async fn create_workspace(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -654,7 +656,15 @@ pub async fn create_workspace(
     };
     let scope = state
         .store
-        .create_workspace_with_key(organization_id, &input.name, creation_key)
+        .create_workspace_with_key(
+            organization_id,
+            &input.name,
+            creation_key,
+            match authorization {
+                crate::state::AdminAuthorization::Installation => None,
+                crate::state::AdminAuthorization::Operator(member) => Some(member),
+            },
+        )
         .await
         .map_err(ApiError::from_store)?;
     let workspace = state

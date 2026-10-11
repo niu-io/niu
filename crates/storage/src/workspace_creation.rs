@@ -1,5 +1,5 @@
 //! Atomic workspace onboarding with optional durable, actor-scoped replay.
-use crate::{OperatorAuditActor, Store, StoreError, TenantScope};
+use crate::{OperatorAuditActor, OperatorPrincipal, Store, StoreError, TenantScope};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
@@ -14,17 +14,19 @@ impl Store {
         organization_id: Option<Uuid>,
         name: &str,
     ) -> Result<TenantScope, StoreError> {
-        self.create_workspace_with_key(organization_id, name, None)
+        self.create_workspace_with_key(organization_id, name, None, None)
             .await
     }
 
     /// Receipt, optional company/account and workspace commit together. Replays
-    /// return the original identity; callers must still enforce current access.
+    /// return the original identity. Gateway callers supply the authenticated
+    /// member for transactional reauthorization; None is installation/internal use.
     pub async fn create_workspace_with_key(
         &self,
         organization_id: Option<Uuid>,
         name: &str,
         key: Option<WorkspaceCreationKey>,
+        member: Option<OperatorPrincipal>,
     ) -> Result<TenantScope, StoreError> {
         let request =
             serde_json::to_vec(&serde_json::json!({"organization_id":organization_id,"name":name}))
@@ -44,6 +46,37 @@ impl Store {
             }
             sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('niu-workspace-create:'||$1::text||':'||$2::uuid::text||':'||encode($3::bytea,'hex'),0))")
                 .bind(kind).bind(actor).bind(hash).execute(&mut *tx).await?;
+        }
+        // Lock current member and session rows after any idempotency wait, so
+        // revocation or scope changes cannot race the receipt/business commit.
+        // The separate clock query also evaluates expiry after row-lock waits.
+        if let Some(member) = member {
+            let access: Option<(bool, i64)> = sqlx::query_as(
+                "SELECT o.revoked_at IS NULL AND s.revoked_at IS NULL \
+                 AND o.role IN ('owner','admin') AND o.project_id IS NULL \
+                 AND o.organization_id=$3, s.expires_at_unix \
+                 FROM admin_operators o JOIN admin_sessions s ON s.operator_id=o.id \
+                 WHERE o.id=$1 AND s.id=$2 FOR SHARE OF o,s",
+            )
+            .bind(member.id)
+            .bind(member.session_id)
+            .bind(organization_id)
+            .fetch_optional(&mut *tx)
+            .await?;
+            let Some((true, expires_at)) = access else {
+                return Err(StoreError::Unauthorized);
+            };
+            let unexpired: bool = sqlx::query_scalar(
+                "SELECT $1::bigint > extract(epoch FROM clock_timestamp())::bigint",
+            )
+            .bind(expires_at)
+            .fetch_one(&mut *tx)
+            .await?;
+            if !unexpired {
+                return Err(StoreError::Unauthorized);
+            }
+        }
+        if let Some((kind, actor, hash)) = &identity {
             let saved: Option<(Vec<u8>, Uuid, Uuid)> = sqlx::query_as("SELECT request_sha256,organization_id,project_id FROM workspace_creation_receipts WHERE actor_kind=$1 AND actor_id=$2 AND key_sha256=$3")
                 .bind(kind).bind(actor).bind(hash).fetch_optional(&mut *tx).await?;
             if let Some((request, organization_id, project_id)) = saved {

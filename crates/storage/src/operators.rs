@@ -36,6 +36,8 @@ impl OperatorScope {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct OperatorPrincipal {
+    /// Authenticated durable session, retained for transactional authorization.
+    pub session_id: Uuid,
     pub id: Uuid,
     pub platform_admin: bool,
     pub role: OperatorRole,
@@ -128,6 +130,7 @@ impl TryFrom<OperatorRow> for OperatorView {
 
 #[derive(FromRow)]
 struct PrincipalRow {
+    session_id: Uuid,
     id: Uuid,
     platform_admin: bool,
     role: String,
@@ -190,7 +193,7 @@ impl Store {
         }
         let digest = token_hash(token);
         let principal: Option<PrincipalRow> = sqlx::query_as(
-            "SELECT o.id, o.platform_admin, o.role, o.organization_id, o.project_id \
+            "SELECT s.id AS session_id, o.id, o.platform_admin, o.role, o.organization_id, o.project_id \
              FROM admin_sessions s JOIN admin_operators o ON o.id=s.operator_id \
              WHERE s.token_hash=$1 AND s.expires_at_unix > extract(epoch FROM now())::bigint \
                AND s.revoked_at IS NULL AND o.revoked_at IS NULL",
@@ -200,6 +203,7 @@ impl Store {
         .await?;
         let principal = principal.ok_or(StoreError::Unauthorized)?;
         Ok(OperatorPrincipal {
+            session_id: principal.session_id,
             id: principal.id,
             platform_admin: principal.platform_admin,
             role: OperatorRole::parse(&principal.role)?,
