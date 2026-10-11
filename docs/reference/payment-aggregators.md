@@ -418,12 +418,17 @@ identifiers, display names, configuration mechanisms and capability boundaries.
 Use `admin.listPaymentIntegrations()` in the JavaScript SDK. Installation credentials
 and members with an explicit platform-administrator grant can read this inventory.
 A company owner or viewer without that grant cannot inspect platform payment
-administration. It does not read merchant secrets or require upstream access.
+administration. The response exposes no merchant secrets and requires no upstream access.
+Saved EPay settings are read privately to resolve the current local checkout state.
 
 `query_recovery` is `unsupported` for EPay, `bound_session` for Stripe and
 `saved_order` for native Zhifux. `refunds` means initiating refunds, which is not
-implemented by these adapters. The inventory is not the customer checkout menu:
-continue to use company `payment-methods` for enabled methods. No inventory flag
+implemented by these adapters. `checkout_enabled` indicates an enabled local checkout configuration, while
+`enabled_methods` lists its configured method identifiers (empty when disabled).
+These fields refresh after a saved EPay change without restarting. Stripe and
+native Zhifux reflect the process configuration. They do not establish merchant
+approval or funding. The inventory is not the customer checkout menu: continue
+to use company `payment-methods` for account-currency eligibility. No inventory flag
 claims merchant activation or a successful real transaction.
 
 Current-input verification used the built SDK against the restarted gateway:
@@ -431,6 +436,20 @@ installation access returned exactly the documented fields and three adapters;
 company owner/viewer access returned 403 and an invalid credential returned 401.
 The company balance was unchanged before/after and temporary operators were
 revoked. This verifies inventory serialization and authorization, not settlement.
+
+### Local checkout state verification
+
+A fresh isolated Gateway was exercised through the administration API with all
+integrations initially disabled. Saving enabled EPay settings immediately added
+`alipay` and `wxpay` to its inventory entry; the other entries remained disabled.
+Restart preserved the response. Disabling EPay emptied its enabled methods while
+retaining the support inventory, also after restart. Responses excluded merchant
+identity, URLs and secret values. An ordinary company viewer was denied; an
+explicit platform grant allowed access and revocation removed it immediately.
+
+Independent reopening of the stopped database confirmed configuration revision 2,
+audit revisions 1 and 2, and no top-up orders or balance entries. This checks local
+configuration and authorization, not merchant activation or payment settlement.
 
 ### Unsupported reconciliation routing
 

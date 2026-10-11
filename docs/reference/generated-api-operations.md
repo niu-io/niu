@@ -8202,7 +8202,7 @@ HTTP 422: Malformed JSON shape, missing fields or unknown fields
 
 `GET /admin/v1/platform/payments/integrations`
 
-Installation credential or an explicit platform-administrator grant required, independent of customer company role. Capability inventory is independent of merchant activation. Returns no merchant configuration or credentials. Refunds means refund initiation; query recovery is limited to the declared scope.
+Installation credential or an explicit platform-administrator grant required, independent of customer company role. Capability inventory is independent of merchant activation. checkout_enabled and enabled_methods describe locally configured checkout, not merchant approval, funding or verified settlement. Customer checkout additionally requires the matching company currency account. Returns no merchant identity, endpoint or credentials. Refunds means refund initiation; query recovery is limited to the declared scope.
 
 Implementation: `implemented`. Operation: `listPaymentIntegrations`.
 
@@ -8243,7 +8243,9 @@ Content type: `application/json`.
           "checkout",
           "signed_notifications",
           "query_recovery",
-          "refunds"
+          "refunds",
+          "checkout_enabled",
+          "enabled_methods"
         ],
         "properties": {
           "id": {
@@ -8281,6 +8283,17 @@ Content type: `application/json`.
           },
           "refunds": {
             "type": "boolean"
+          },
+          "checkout_enabled": {
+            "type": "boolean",
+            "description": "A local checkout configuration is enabled; this does not certify merchant activation or actual payment."
+          },
+          "enabled_methods": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Configured method identifiers; empty when checkout is disabled. No company balance-account eligibility is implied."
           }
         }
       }

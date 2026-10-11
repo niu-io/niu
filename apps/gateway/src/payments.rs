@@ -32,7 +32,7 @@ use uuid::Uuid;
 ///   "operation": {
 ///     "operationId": "listPaymentIntegrations",
 ///     "summary": "List supported payment integrations",
-///     "description": "Installation credential or an explicit platform-administrator grant required, independent of customer company role. Capability inventory is independent of merchant activation. Returns no merchant configuration or credentials. Refunds means refund initiation; query recovery is limited to the declared scope.",
+///     "description": "Installation credential or an explicit platform-administrator grant required, independent of customer company role. Capability inventory is independent of merchant activation. checkout_enabled and enabled_methods describe locally configured checkout, not merchant approval, funding or verified settlement. Customer checkout additionally requires the matching company currency account. Returns no merchant identity, endpoint or credentials. Refunds means refund initiation; query recovery is limited to the declared scope.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -62,7 +62,9 @@ use uuid::Uuid;
 ///                       "checkout",
 ///                       "signed_notifications",
 ///                       "query_recovery",
-///                       "refunds"
+///                       "refunds",
+///                       "checkout_enabled",
+///                       "enabled_methods"
 ///                     ],
 ///                     "properties": {
 ///                       "id": {
@@ -100,6 +102,15 @@ use uuid::Uuid;
 ///                       },
 ///                       "refunds": {
 ///                         "type": "boolean"
+///                       },
+///                       "checkout_enabled": {
+///                         "type": "boolean",
+///                         "description": "A local checkout configuration is enabled; this does not certify merchant activation or actual payment."
+///                       },
+///                       "enabled_methods": {
+///                         "type": "array",
+///                         "items": { "type": "string" },
+///                         "description": "Configured method identifiers; empty when checkout is disabled. No company balance-account eligibility is implied."
 ///                       }
 ///                     }
 ///                   }
@@ -124,16 +135,25 @@ pub(crate) async fn integrations(
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
     state.authorize_platform_headers(&headers).await?;
+    let epay = configuration::runtime(&state).await?;
+    let epay_checkout = epay.as_ref().and_then(|runtime| runtime.checkout.as_ref());
+    let stripe_checkout = state
+        .stripe_payments
+        .as_ref()
+        .and_then(|runtime| runtime.checkout.as_ref());
     Ok(Json(json!({"data": [
         {"id":"epay", "name":"EPay-compatible gateway", "configuration":"administration_api",
          "checkout":true, "signed_notifications":true, "query_recovery":"unsupported",
-         "refunds":false},
+         "refunds":false, "checkout_enabled":epay_checkout.is_some(),
+         "enabled_methods":epay_checkout.map(|checkout| checkout.methods.as_slice()).unwrap_or_default()},
         {"id":"stripe", "name":"Stripe", "configuration":"server_environment",
          "checkout":true, "signed_notifications":true, "query_recovery":"bound_session",
-         "refunds":false},
+         "refunds":false, "checkout_enabled":stripe_checkout.is_some(),
+         "enabled_methods":stripe_checkout.map(|checkout| checkout.methods.as_slice()).unwrap_or_default()},
         {"id":"zhifux", "name":"PaymentFM native API", "configuration":"server_file",
          "checkout":true, "signed_notifications":true, "query_recovery":"saved_order",
-         "refunds":false}
+         "refunds":false, "checkout_enabled":state.payments.is_some(),
+         "enabled_methods":state.payments.as_ref().map(|runtime| runtime.payment_methods.as_slice()).unwrap_or_default()}
     ]})))
 }
 

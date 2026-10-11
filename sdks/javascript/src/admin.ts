@@ -645,6 +645,10 @@ export type PaymentIntegration = {
   checkout: boolean;
   signed_notifications: boolean;
   query_recovery: 'unsupported' | 'bound_session' | 'saved_order';
+  /** Local checkout configuration only; no merchant or payment qualification. */
+  checkout_enabled: boolean;
+  /** Deployment method identifiers; company currency eligibility is separate. */
+  enabled_methods: string[];
   /** Whether this adapter can initiate refunds. */
   refunds: boolean;
 };
