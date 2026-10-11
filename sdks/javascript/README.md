@@ -763,6 +763,15 @@ from older servers or intermediary/framework responses). The SDK does not retry
 these errors automatically. Existing response bodies and diagnostic references
 remain available.
 
+`NiuAPIError.retryAfter` preserves the raw `Retry-After` header when present.
+It can contain delay seconds or an HTTP date; the SDK does not convert it to a
+deadline or automatically retry. Absence remains `undefined`, not zero. A zero
+key or upstream-credential RPM policy reports `key_request_rate_disabled` or
+`upstream_request_rate_disabled` without a retry hint and requires a policy
+change. An exhausted positive rolling window reports the corresponding
+`*_request_rate_exceeded` code with `retryAfter === "60"`. A retry hint is not a
+guarantee that a later request will be admitted.
+
 ### Supplier memberships
 
 `admin.listSupplierMemberships()` returns every active Supplier membership for the

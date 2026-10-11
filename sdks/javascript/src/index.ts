@@ -227,8 +227,10 @@ export class NiuAPIError extends Error {
   readonly responseBody: unknown;
   /** Niu-specific reason when the operation supplies x-niu-error-code. */
   readonly gatewayCode?: string;
+  /** Raw Retry-After value, when supplied. Absence is not permission to retry. */
+  readonly retryAfter?: string;
 
-  constructor(status: number, responseBody: unknown, requestId?: string, attemptId?: string, operationId?: string, gatewayCode?: string) {
+  constructor(status: number, responseBody: unknown, requestId?: string, attemptId?: string, operationId?: string, gatewayCode?: string, retryAfter?: string) {
     super(errorMessage(responseBody, status));
     this.name = 'NiuAPIError';
     this.status = status;
@@ -237,6 +239,7 @@ export class NiuAPIError extends Error {
     this.attemptId = attemptId;
     this.operationId = operationId;
     this.gatewayCode = gatewayCode;
+    this.retryAfter = retryAfter;
   }
 
   static fromResponse(response: Response, payload: unknown): NiuAPIError {
@@ -246,6 +249,7 @@ export class NiuAPIError extends Error {
       response.headers.get('x-niu-attempt-id') ?? undefined,
       response.headers.get('x-niu-operation-id') ?? undefined,
       response.headers.get('x-niu-error-code') ?? undefined,
+      response.headers.get('retry-after') ?? undefined,
     );
   }
 }
