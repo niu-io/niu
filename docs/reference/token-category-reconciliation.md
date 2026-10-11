@@ -52,8 +52,9 @@ reasoning and no receipt or financial entry. An earlier inference attempt receiv
 503 before the successful verification; it is not evidence of completed inference.
 
 The aggregate and cached-input conflict runs below cover two numeric mismatch
-boundaries. Other known-category conflicts and simultaneous complementary
-category updates still require their own current-input verification. The later Chat checkpoint
+boundaries. Other known-category conflicts and impossible concurrent input partitions
+remain unverified. The complementary-observation run below covers a valid
+cached-input/reasoning merge at the production storage SQL boundary. The later Chat checkpoint
 below covers customer settlement after a missing-category persistence fault;
 existing generic merge invariants and static checks are not its evidence.
 
@@ -211,3 +212,27 @@ reasoning counts, upstream receipt and original missing-category snapshot matche
 one completed attempt, one receipt, one charge/debit and no remaining customer
 hold existed. Temporary keys were revoked. This verifies one existing cached-input
 value conflict, not every category disagreement or complementary-update race.
+
+
+## Complementary production storage observations
+
+A fresh actual Chat response on `e655a37` reported cached-input and nonzero
+reasoning quantities. An isolated persistence fault omitted those two categories
+without modifying the upstream request or retained response. Once the fault was
+removed, two concurrent database sessions executed the production
+`save_request_token_categories.sql`, one with the response's cached-input quantity
+and the other with its reasoning quantity. No unreported quantity was supplied.
+
+Both categories persisted together. The running financial recovery worker posted
+one exact charge under the pinned customer tariff and released the reservation.
+Gateway restart retained the merged categories and single debit. An independent
+process rehashed and parsed the raw response, matched the production SQL hash,
+and reopened the stopped database: aggregate/category quantities matched the
+response, one completed attempt and one original-rate charge/debit existed,
+the temporary key was revoked and the omission trigger and open hold were absent.
+No funding or reconciliation receipt was created by these storage observations.
+
+This exercises the actual inference-to-recovery flow with concurrent production
+storage SQL. It does not exercise two category-observation HTTP handlers, establish
+every possible lock interleaving, or qualify an impossible cache-read/cache-write
+partition. Those distinctions must remain explicit when assessing API coverage.
