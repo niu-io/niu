@@ -6,7 +6,8 @@ request/response payload retention. The CSV export appends `Failure kind` and
 older servers may omit the field. No frontend presentation is implied by the
 backend field.
 
-Current capture covers OpenAI-compatible Chat failures before streaming begins:
+The failure vocabulary includes OpenAI-compatible Chat failures before streaming
+begins and response-body cancellation:
 
 | Kind | Meaning | Upstream HTTP status |
 | --- | --- | --- |
@@ -15,7 +16,8 @@ Current capture covers OpenAI-compatible Chat failures before streaming begins:
 | `upstream_timeout` | The outbound request timed out before response headers | Unknown |
 | `upstream_connection_error` | Connection establishment failed | Unknown |
 | `upstream_transport_error` | Another outbound transport failure | Unknown |
-| `upstream_invalid_response` | A successful upstream response failed Chat envelope or stream content-type validation | Unknown |
+| `upstream_invalid_response` | A successful upstream response failed adapter validation | Unknown |
+| `response_stream_cancelled` | The response body was dropped before terminal or explicit upstream failure handling | Unknown |
 
 Classifications contain no arbitrary upstream messages, URLs, credentials,
 response metadata, prompts or Supplier prices. HTTP status is a separate fact
@@ -34,8 +36,10 @@ observations cannot replace the first. Storage failures are logged and leave
 classification unknown. Records survive payload opt-out, payload deletion and
 gateway restart. Older attempts are not retroactively classified from HTTP
 status alone. A null value means no recorded classification; it does not mean
-success. Midstream failures and other protocol paths are not yet covered by this
-classification field.
+success. Cancellation classification does not identify who cancelled delivery or
+prove upstream nonexecution. Protocol coverage must be established per path; the
+native Messages cancellation checkpoint below does not qualify every adapter or
+all midstream failure modes.
 
 Use request scope and timing alongside `failure`. Ordinary workspace read
 permissions apply to the Logs API and CSV; a foreign workspace cannot retrieve
@@ -64,3 +68,21 @@ receipts or Supplier qualification. This checkpoint covers mixed authentication
 failure/completion reporting and pagination after restart; cancellation, retries,
 all filter combinations and customer-facing rendered diagnosis remain separate
 verification scopes. The original development database and identity were preserved.
+
+
+## Cancelled native Messages reporting — 2026-10-11
+
+A stopped isolated database containing two previously completed real tool turns
+was copied, then the current gateway made a fresh native Messages streaming call.
+The client closed after receiving an actual partial tool-argument JSON fragment,
+before `message_stop`. After key revocation and gateway restart, customer request
+APIs retained `response_stream_cancelled`, `may_have_executed`, unknown usage,
+null customer charge and null completed duration for that attempt.
+
+The one-row request page still summarized the entire three-attempt history:
+two known-usage requests, one unresolved customer charge and two complete timing
+samples. Independent reopening matched the saved API report to the database and
+received SSE prefix: one customer hold remained, the two earlier exact debits were
+unchanged, and the incomplete cancellation was excluded from completed latency
+samples. No completion, zero usage or refund was invented for the interrupted
+request. Its eventual upstream settlement remains unresolved by this run.
