@@ -108,3 +108,27 @@ Full-row fingerprints for attempts, charges, balance entries/reservations and
 usage receipts were unchanged through the refused reconciliation and restart.
 The isolated copy and original saved database remained separate. Eventual
 settlement of cancelled executions is not qualified by this refusal checkpoint.
+
+### Cancelled billing recovery design boundary
+
+The [OpenRouter streaming guide](https://openrouter.ai/docs/api_reference/streaming)
+describes provider-dependent cancellation. Its
+[cancelled-generation export documentation](https://openrouter.ai/docs/guides/features/broadcast#cancelled-generations)
+distinguishes billed quantities from provider processing and warns that absent
+usage provenance is unknown. The
+[generation metadata API](https://openrouter.ai/docs/api/api-reference/generations/get-generation)
+is a separate surface; export-specific guarantees must not be assumed for it.
+
+The actual saved cancelled metadata has native counts but no finish reason,
+`usage_is_estimated` or `finalized_at`. Absence is not proof of zero cost or final
+measurement. Repeated identical reads alone would not prove finality either.
+
+Future cancelled-charge recovery must separate execution outcome, delivery and
+billing evidence. Preserve cancellation instead of marking the attempt completed;
+retain immutable quantity provenance and category coverage; apply original
+customer tariffs only to qualified quantities; settle/release exactly once under
+existing ledger locks. Never use upstream currency cost as the customer charge.
+A new receipt version and state-transition rules are required: current v2 receipts
+explicitly require non-cancelled terminal completion. Partial category evidence
+must keep affected liabilities unresolved. This is an implementation boundary,
+not an available recovery feature or justification for releasing existing holds.
