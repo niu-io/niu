@@ -82,3 +82,14 @@ quantity, with one attempt, one debit, and no remaining hold. After restart,
 remaining credit could not cover another full input-bound reservation, so another
 request was refused before dispatch. This checks that a write-only tariff does
 not enter the free-request exemption; it is not sustained performance evidence.
+
+
+## Recovery with retained explicit write usage
+
+The [first-settlement recovery checkpoint](completion-replay.md#first-settlement-after-missing-category-recovery--2026-10-11)
+uses a new actual response and an isolated missing-field persistence fault.
+An unknown persisted write quantity retained the reservation through restart;
+supplementing the response's explicit zero write quantity produced one exact
+customer debit and released the hold. Repeated supplementation after restart
+preserved the ledger. This does not establish recovery from a provider that never
+reported the quantity, or nonzero correction and Supplier settlement behavior.

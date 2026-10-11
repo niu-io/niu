@@ -118,6 +118,37 @@ Formatting and Clippy completed separately.
 
 This verifies restoring retained known evidence through the current storage
 entrypoints. It does not establish an upstream correction feed, a public manual
-correction API, first settlement of a previously unpriced request, concurrent
-complementary nonzero partitions, or deployment to the original running gateway.
-Those paths still require their own current-input verification.
+correction API, concurrent complementary nonzero partitions, or deployment to
+the original running gateway. First settlement after an isolated missing-field
+fault is covered by the subsequent checkpoint below. Other paths still require
+their own current-input verification.
+
+
+## First settlement after missing-category recovery — 2026-10-11
+
+Two native gateways shared an isolated copy of a retained credit-backed account.
+An explicit customer cache-write tariff required a known write quantity. A new
+actual OpenRouter `openai/gpt-4.1-mini` request returned 16 input and 8 output
+tokens, explicitly reporting zero cache-write, cache-read and reasoning tokens.
+A temporary database trigger omitted only the persisted cache-write field.
+The saved response remained intact; no category was fabricated or inferred.
+
+While the field was unknown, the completed request had no customer charge and
+retained its 1,537,284-nanounit reservation through a two-gateway restart. After
+removing the trigger, a current storage caller supplied the saved response's
+actual categories through concurrent completion-batch and standalone observation
+writes. The request then accrued one 1,009,877-nanounit charge and matching debit,
+and released its reservation. Repeating supplementation after another restart
+left the complete ledger unchanged and did not submit inference again.
+
+Independent reopening matched the response hash, aggregate usage, restored
+categories and exact tariff arithmetic, including the request fee. Both the
+pre-existing and new charge had one exact debit; the prior ledger fingerprint
+was unchanged, no customer hold remained, no funding receipt was created and
+the temporary trigger was absent. This is internal-credit accounting over a
+personal self-funded upstream call, not cash receipt or commercial supply.
+
+This verifies first settlement when a persisted category is missing but the
+actual completion response retained its explicit zero value. It does not qualify
+nonzero category supplementation, an upstream correction feed, public correction
+administration, or all mixed-category concurrency cases.
