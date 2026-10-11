@@ -379,37 +379,50 @@ All four gateway payment tests passed on fresh PostgreSQL through migration 0096
 
 ## Stripe authentication foundation — 2026-10-07
 
-The original `niu-payments::stripe` module authenticates exact raw webhook bytes using HMAC-SHA256, the endpoint secret and Stripe’s `t`/`v1` signature header. It accepts multiple rotation signatures, uses constant-time MAC verification and enforces a five-minute past/future timestamp window, a 256 KiB body cap and bounded header/signature counts. Safe errors omit payloads and credentials. Protocol behavior was checked against [Stripe’s webhook documentation](https://docs.stripe.com/events/manage-webhook-endpoints) and [official Python implementation](https://github.com/stripe/stripe-python/blob/master/stripe/_webhook.py); no upstream source was copied.
+Current implementation scope reviewed 2026-10-12. Historical fixture commands
+were executed; their outcomes are disregarded. This section describes code and
+contracts, not successful merchant transactions or runtime acceptance. Earlier
+notes that gateway initiation, callbacks or bound-session recovery were unwired
+are superseded by the current implementation below.
 
-Authentication alone does not fund an account. Checkout creation, saved session/order and merchant binding, paid amount/currency validation, test/live separation, durable event deduplication, settlement, reconciliation and refunds remain required. The module is not yet exposed as a gateway callback and no live Stripe payment has been qualified.
+The protocol module authenticates exact raw webhook bytes with HMAC-SHA256,
+constant-time signature verification, rotation signatures and a five-minute
+past/future timestamp window. Body and signature/header counts are bounded;
+safe failures omit payloads and credentials. Paid evidence must match the saved
+session, order, merchant, amount, currency and test/live mode. Connected-account
+events remain unsupported without explicit account binding.
 
-Verification: all 13 payment-module tests passed, including an independently calculated Stripe signature vector, rotation, exact-byte tampering, incorrect secrets, stale/future timestamps and bounded malformed inputs. Payment-module all-target Clippy passed with warnings denied; public boundary checks passed. These checks establish authentication behavior only, not checkout or collection.
+`POST /admin/v1/organizations/{organization}/billing/topups` is wired to Stripe
+creation when the selected integration has an enabled configured method and the
+company has the matching currency account. The implementation validates exact
+minor units, saves the intent and commits a durable creation claim before remote
+contact. Replaying an uncertain claimed order does not create another session.
+API-key configuration is required for creation; callback-only configuration does
+not advertise checkout methods. Explicit integration selection never falls
+through to another adapter.
 
-The Stripe protocol module also verifies signed paid Checkout events against saved session identity, client order reference, exact USD/CNY amount and currency, payment/complete/paid state and matching test/live modes. Amount conversion uses checked integer arithmetic. Connected-account events are rejected until explicit account binding is implemented. Only completed or asynchronous-success events can produce opaque paid evidence; that evidence still requires durable event deduplication and company-scoped settlement. See the [Checkout Session contract](https://docs.stripe.com/api/checkout/sessions/object).
+`POST /payments/stripe/notify` is wired to bounded raw-signature verification,
+saved merchant/session/order checks and atomic funding/receipt settlement.
+Browser return URLs grant no funds. The endpoint acknowledges success only after
+durable handling. This implemented contract is distinct from actual signed
+merchant callback qualification; no fixture outcome proves funding correctness.
 
-Paid-event verification: all 14 payment tests and all-target Clippy passed. Signed fixtures reject wrong session/order, partial amounts, amount overflow, currency/mode changes, unpaid/open/subscription sessions and unbound connected accounts; asynchronous paid completion succeeds. No account was credited and no live checkout was initiated.
+`POST /admin/v1/organizations/{organization}/billing/topups/{order}/reconcile`
+is wired to fixed-origin authenticated retrieval of an already bound Stripe
+session. It requires the saved merchant alias, amount/currency and test/live mode;
+it never creates another checkout. Confirmed paid or closed states use their
+existing durable settlement/closure paths; pending state grants no balance.
+Unknown session identity after uncertain creation remains outside bound-session
+recovery. Refund initiation remains unsupported.
 
-Stripe storage compatibility: migration 0145 permits bounded `cs_` Checkout references only for Stripe orders; legacy adapters retain their alphanumeric reference rules. The existing immutable identity and atomic funding/receipt/settlement transaction are reused. All eight top-up PostgreSQL tests passed in an isolated database, including concurrent Stripe settlement replay, reopened-store identity, partial-amount rejection and legacy reference rejection. This is trusted storage integration evidence; the Stripe HTTP handler and Checkout lifecycle are not yet connected.
-
-Stripe gateway callback implementation: `/payments/stripe/notify` is bounded to 256 KiB and verifies raw signatures before reading an order reference. Trusted server environment configuration uses `NIU_STRIPE_MERCHANT` (a stable alphanumeric configuration alias), `NIU_STRIPE_WEBHOOK_SECRET` and explicit `NIU_STRIPE_MODE=test|live`. The endpoint loads only Stripe orders for that alias, requires a previously bound session, verifies paid evidence against saved amount/currency/reference and commits through the existing atomic settlement contract before HTTP 200. Session receipts suppress duplicate funding. No checkout creation is exposed yet; callback integration/restart fixtures and live merchant qualification remain required.
-
-Stripe callback checkpoint: an isolated PostgreSQL router integration test passed for invalid-signature, signed-unpaid and wrong-merchant rejection without funding, followed by concurrent valid callback replay producing HTTP 200 and exactly one funding entry. This exercises the actual gateway route and storage commit. Checkout creation, process-restart delivery recovery, rollback injection, refunds and live merchant collection remain unqualified.
-
-Callback rollback/recovery verification: the router/PostgreSQL fixture now injects a settlement-write failure, observes HTTP 503 with zero funding entries, removes the failure and reconstructs gateway/store state before concurrent callback retry. The retry commits exactly one funding entry. This is in-process state reconstruction, not a real process-restart qualification.
-
-Checkout request parameters now derive one fixed prepaid line item from the saved 32-character order reference and exact USD/CNY minor units, with supported method and trusted HTTPS return validation. All 15 payment tests and all-target payment Clippy passed, including rejection of fractional minor units and insecure return URLs. Creation transport, uncertain-response reconciliation and customer initiation remain unfinished. See [Stripe Checkout creation](https://docs.stripe.com/api/checkout/sessions/create) and [idempotent requests](https://docs.stripe.com/api/idempotent_requests).
-
-Stripe creation transport checkpoint: the fixed `https://api.stripe.com/v1/checkout/sessions` client uses explicit matching test/live API credentials, a deterministic saved-order idempotency header, disabled proxies/redirects/retries, a three-second connection bound, five-second request/body deadline and 64 KiB response limit. Returned session identity, order reference, amount, currency, mode and state must match; hosted checkout must use the Stripe HTTPS checkout origin. No accounting writes occur. All 17 payment tests and all-target payment Clippy passed, including an actual local HTTP fixture checking request parameters/idempotency and changed-response amount rejection. This does not qualify real Stripe access. Gateway initiation remains unwired. Migration 0146 now stores Stripe hosted URLs up to 8 KiB with their fragments, restricted to the exact HTTPS checkout origin; other adapters retain the 2 KiB/no-fragment rules.
-
-Stripe hosted URL storage verification: all eight top-up PostgreSQL tests passed after migration 0146, including preservation of the checkout fragment across store reopening, rejection of deceptive origins/embedded credentials, immutable identity, concurrent settlement and legacy adapter behavior. Customer initiation and uncertain creation reconciliation remain unfinished.
-
-Stripe customer initiation implementation: optional `NIU_STRIPE_API_KEY`, `NIU_STRIPE_CURRENCY=usd|cny`, trusted `NIU_STRIPE_SUCCESS_URL` / `NIU_STRIPE_CANCEL_URL` and explicit comma-separated `NIU_STRIPE_PAYMENT_METHODS` configure Checkout. The existing company-authorized top-up POST selects Stripe for its configured methods, validates whole minor units, saves intent and commits the creation claim before calling Stripe. A claimed uncertain order is not recreated. Saved paid/closed/checkout state is replayed from storage. Discovery accepts an explicit gateway and currency and returns one matching integration per request. Without a gateway selector, matching checkout configurations use EPay, then Stripe, then native Zhifux priority. Explicit gateway selection never falls through to another adapter. Simultaneous CNY EPay and USD Stripe discovery has local acceptance evidence above; the customer UI still needs currency/integration selection. Without an API key, the runtime is callback-only and advertises no Stripe checkout methods. Real creation-to-callback acceptance and uncertain creation reconciliation remain unqualified.
-
-Stripe bound-session recovery: the existing installation-only reconciliation endpoint now routes saved Stripe orders to authenticated fixed-origin session retrieval. It requires the original configured merchant alias and stored session, shared database query admission, exact saved order/amount/currency and test/live mode. Confirmed paid sessions reuse atomic settlement; verified expired/unpaid sessions close the order; pending sessions grant no balance. Retrieval never creates another checkout. All 18 payment tests and payment Clippy passed, including real local HTTP lifecycle/mismatch fixtures. Gateway recovery wiring still requires an end-to-end transport/database fixture; unknown session identity after uncertain creation, actual process restart and live collection remain open.
-
-Bound-session gateway recovery verification: an isolated PostgreSQL test passed through Niu’s reconciliation route and a local authenticated merchant HTTP fixture. Paid state creates one funding entry; pending state persists its hosted URL without funding; expired/unpaid state closes the order without funding. The fixture implements only retrieval, so no creation request can succeed. Payment Clippy and public-boundary checks passed. Loopback injection is restricted to the explicit `test-fixtures` crate feature enabled by gateway dev-dependencies; normal distribution must omit that feature and retains the fixed Stripe API origin. This does not prove live merchant behavior, process-restart recovery or unknown-session reconciliation.
-
-Creation/lifecycle integration verification: the gateway/PostgreSQL fixture now exercises customer top-up POST → local merchant creation → durable checkout → repeated POST → authenticated lifecycle reconciliation. Three saved orders produce three creation requests despite six initiation calls. Checkout alone grants no funds; paid/pending/expired reconciliation retains the existing verified behavior. This is a local controlled fixture, not live merchant acceptance, actual restart or uncertain-response recovery.
+Hosted URLs retain their bounded Stripe HTTPS-origin and fragment contract;
+other adapters retain their own URL/reference rules. Native methods, signatures
+and merchant activation cannot be inferred from the other adapters. See the
+[administration inventory](#administration-support-inventory-api) for supported
+versus locally enabled state and the generated `createCustomerTopup` /
+`reconcileCustomerTopup` operations for current authorization and request schemas.
+Full real Stripe creation/callback/restart qualification remains unverified;
+activating every external merchant is not an internal-readiness prerequisite.
 
 ## Administration support inventory API
 
