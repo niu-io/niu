@@ -403,8 +403,42 @@ impl Store {
             .next())
     }
 
+    /// One response observes one snapshot, including its page and full-range totals.
+    /// A later cursor request opens a new snapshot rather than retaining a transaction.
+    pub async fn gateway_activity_page(
+        &self,
+        scope: TenantScope,
+        after: Option<Uuid>,
+        limit: i64,
+        filter: &GatewayActivityFilter,
+    ) -> Result<(Vec<GatewayActivityEntry>, GatewayActivitySummary), StoreError> {
+        let mut snapshot = self.pool.begin().await?;
+        sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+            .execute(&mut *snapshot)
+            .await?;
+        let summary = Self::gateway_activity_summary_on(&mut snapshot, scope, filter).await?;
+        let data =
+            Self::gateway_activity_selection_on(&mut snapshot, scope, after, limit, filter, None)
+                .await?;
+        snapshot.commit().await?;
+        Ok((data, summary))
+    }
+
     async fn gateway_activity_selection(
         &self,
+        scope: TenantScope,
+        after: Option<Uuid>,
+        limit: i64,
+        filter: &GatewayActivityFilter,
+        attempt: Option<Uuid>,
+    ) -> Result<Vec<GatewayActivityEntry>, StoreError> {
+        let mut connection = self.pool.acquire().await?;
+        Self::gateway_activity_selection_on(&mut connection, scope, after, limit, filter, attempt)
+            .await
+    }
+
+    async fn gateway_activity_selection_on(
+        connection: &mut sqlx::PgConnection,
         scope: TenantScope,
         after: Option<Uuid>,
         limit: i64,
@@ -483,7 +517,7 @@ impl Store {
         }
         push_activity_order(&mut query, filter.sort);
         query.push(" LIMIT ").push_bind(limit);
-        Ok(query.build_query_as().fetch_all(&self.pool).await?)
+        Ok(query.build_query_as().fetch_all(connection).await?)
     }
 
     /// Exact totals for the current workspace and filter set. Pagination never
@@ -497,6 +531,16 @@ impl Store {
         sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
             .execute(&mut *snapshot)
             .await?;
+        let summary = Self::gateway_activity_summary_on(&mut snapshot, scope, filter).await?;
+        snapshot.commit().await?;
+        Ok(summary)
+    }
+
+    async fn gateway_activity_summary_on(
+        snapshot: &mut sqlx::PgConnection,
+        scope: TenantScope,
+        filter: &GatewayActivityFilter,
+    ) -> Result<GatewayActivitySummary, StoreError> {
         let mut counts = QueryBuilder::new(
             "SELECT COUNT(*)::bigint AS request_count, \
              COUNT(*) FILTER (WHERE a.usage_confidence='provider_reported')::bigint AS usage_count, \
@@ -633,7 +677,6 @@ impl Store {
             .build_query_scalar()
             .fetch_one(&mut *snapshot)
             .await?;
-        snapshot.commit().await?;
         Ok(GatewayActivitySummary {
             request_count: counts.request_count,
             usage_count: counts.usage_count,

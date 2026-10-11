@@ -3070,7 +3070,7 @@ pub async fn gateway_request(
 ///   "operation": {
 ///     "operationId": "listProjectGatewayActivity",
 ///     "summary": "Read automatically retained gateway request activity",
-///     "description": "Returns metadata for model attempts admitted by Niu, newest first by default, with the requested sort applied to the whole range. Request and response bodies, prompts and completions are not included. Pages are bounded to at most 100 entries. Pass the previous response's next_cursor as after to read older matching entries; traversal is a live view, not a cross-page snapshot. Optional filters apply to the whole workspace scope. summary totals cover the selected filters independent of page. An absent task_id means the caller did not supply X-Niu-Task-ID. Missing usage remains unknown. All workspace responses exclude Supplier expenses and platform margins, including for installation administrators. Customer-facing charges and nullable observed request phase timing are included.",
+///     "description": "Returns metadata for model attempts admitted by Niu, newest first by default, with the requested sort applied to the whole range. Request and response bodies, prompts and completions are not included. Pages are bounded to at most 100 entries. Pass the previous response's next_cursor as after to read older matching entries; traversal is a live view, not a cross-page snapshot. Optional filters apply to the whole workspace scope. summary totals cover the selected filters independent of page. Rows and summary in one response share a database snapshot. An absent task_id means the caller did not supply X-Niu-Task-ID. Missing usage remains unknown. All workspace responses exclude Supplier expenses and platform margins, including for installation administrators. Customer-facing charges and nullable observed request phase timing are included.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -4130,14 +4130,9 @@ pub async fn gateway_activity(
         organization_id,
         project_id,
     };
-    let summary = state
+    let (mut data, summary) = state
         .store
-        .gateway_activity_summary(scope, &filter)
-        .await
-        .map_err(ApiError::from_store)?;
-    let mut data = state
-        .store
-        .gateway_activity(scope, query.after, i64::from(limit) + 1, &filter)
+        .gateway_activity_page(scope, query.after, i64::from(limit) + 1, &filter)
         .await
         .map_err(ApiError::from_store)?;
     let has_more = data.len() > usize::from(limit);

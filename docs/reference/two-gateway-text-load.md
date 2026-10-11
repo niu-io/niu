@@ -184,3 +184,29 @@ gateway and a two-connection admission pool. The near-equal throughput of the la
 two bursts is an observation, not attribution to a particular bottleneck. This
 short read-only workload does not establish sustained capacity, concurrent-write
 behavior, other query shapes, larger datasets, production latency or an SLO.
+
+## Page and summary consistency during admission — 2026-10-11
+
+Request-list rows and full-range summaries now share one read-only repeatable-read
+transaction. Previously the summary committed its snapshot before the page query,
+allowing a single HTTP response to describe different populations. The existing
+selection and aggregate queries now accept the same connection; no second pool
+connection, persistent cursor transaction or schema migration is introduced.
+Cross-page traversal remains a live view, as documented in OpenAPI.
+
+An actual HTTP run against a copy of the retained history held a relation lock
+while the report computed its summary. A newly configured personal OpenRouter
+route admitted one real structured completion before the reader resumed. Before
+the fix, the response reported 1,600 requests but included the new request in its
+page. After the fix, that response consistently excluded the later request from
+both the page and its 1,600-request summary; the subsequent read counted 1,601.
+Independent reopening matched the saved upstream response and token quantities,
+the final attempt population and the retained report. The original 1,600 customer
+charges remained unchanged; the new owner-funded request produced no customer
+charge. The first verification attempt used a previously disabled route and did
+not establish the intended interleaving; it was replaced with the fresh route.
+
+This verifies one-response consistency under actual admission, not a frozen
+multi-page report or every concurrent settlement/update interleaving. The docs
+build and served OpenAPI were checked separately; no frontend visual acceptance
+is claimed.
