@@ -253,3 +253,33 @@ healthy rows. It does not change the separate Supplier/media recovery queries,
 prove constant total sweep duration, or qualify sustained foreground throughput.
 Larger histories require more bounded ticks; the existing per-stage claim,
 transaction deadlines and cursor wrap remain in force.
+
+
+## Mixed healthy and failing candidate pages — 2026-10-11
+
+A current native run started from an isolated copy of the retained 112 completed
+requests. Its disabled verification model was re-enabled through normal management
+APIs in that copy. Two new real model requests completed while an explicit database
+write fault prevented their customer charge transactions from committing. Their
+positive reservations remained held.
+
+After restart, the fault was narrowed to one of those actual attempts. The other
+request settled while the targeted request continued to retain its original hold.
+Candidate traversal returned pages of 100 and 14 covering every binding once;
+only the blocked request still required recovery. Another restart retained the
+same single liability. The reconciliation API reported one completed-unaccrued
+attempt, rather than a fabricated charge or missing debit.
+
+Removing the final fault allowed the remaining charge/debit to settle once.
+Restart retained exactly 114 attempts, charges and debits with no open customer
+holds. Independent reopening compared the two new saved real responses, computed
+both amounts from their pinned rates, matched the intermediate and final ledgers,
+and confirmed that all 112 original ledger rows were unchanged. The injected
+trigger was absent at completion. This exercises row-failure isolation under the
+new candidate paging, not sustained throughput or every ledger's recovery path.
+
+An initial attempt to exercise missing cache-write usage instead received an
+explicit zero cache-write quantity from the current upstream. That response is
+not evidence of unknown usage; the completed mixed-page checkpoint above uses a
+persistent database write fault. Recovery of subsequently corrected missing
+categories retains its separate unverified status.
