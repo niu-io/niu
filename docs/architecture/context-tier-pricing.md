@@ -525,3 +525,35 @@ financial-entry counts were unchanged, with no unresolved reservation. The
 original evidence database was preserved. This is backend reporting and access
 verification; no browser workflow or nonempty Supplier settlement is qualified
 by these reads.
+
+
+### Native Messages recovery and shared historical invoice — 2026-10-12
+
+Clean committed `268c25d` completed an actual native Messages stream and an
+actual structured Chat request through the saved personal OpenRouter credential.
+An internal customer tier at input threshold 1 used 11,111,111 input and
+22,222,222 output nanounits per million tokens, below the base schedule. The
+threshold and rates are verification configuration, not commercial pricing.
+
+Messages initially retained unknown billable usage; canonical metadata for that
+same completed generation supplied the native counts matching its terminal
+stream observation. Chat supplied usage directly. Both selected the tier from
+their immutable customer tariff revision and settled exactly once. Independent
+database reopening parsed both retained responses and the supplemental receipt,
+checked the original unknown state, selected tier and exact charges/debits, and
+recomputed the total of 1,090 USD nanounits. No open customer hold or funding
+receipt remained.
+
+After clearing the current tier schedule, the customer invoice retained one
+historical line combining these requests at their original revision, threshold
+and rates. Its amount matched both charges. Same-key invoice creation returned
+the existing invoice; restart retained the identical line. The verification
+script first attempted an unsupported tariff GET, then continued on a stopped
+database copy using the retained records; no new inference was submitted during
+that continuation. The copied responses matched the original artifacts byte for
+byte, and the copied verification key was revoked.
+
+This verifies tier selection after genuine Messages usage supplementation,
+cross-protocol invoice grouping and preservation after schedule clearing. It
+does not qualify native Google success, Supplier earning accrual, an externally
+funded payment, overlapping categories or a new capacity measurement.
