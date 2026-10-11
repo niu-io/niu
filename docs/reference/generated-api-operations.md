@@ -11326,6 +11326,156 @@ HTTP 502: Provider catalog unavailable or invalid.
 
 HTTP 401: Invalid or expired administrative credential.
 
+## Read the Supplier owning an API configuration
+
+`GET /admin/v1/vendors/{id}/supplier`
+
+Installation administration only. Returns the Supplier identity and name, or null when no association exists, including an unknown configuration. Never returns credentials or procurement values.
+
+Implementation: `implemented`. Operation: `getConfigurationSupplier`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Supplier association or null.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "required": [
+            "id",
+            "name"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "name": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+HTTP 401: Invalid or missing administrative credential.
+
+HTTP 403: Installation administration required.
+
+HTTP 503: Storage unavailable.
+
+## Associate an API configuration with a Supplier
+
+`PUT /admin/v1/vendors/{id}/supplier`
+
+Installation administration only. Atomic and audited. The first association requires the current configuration revision. Repeating the same Supplier association is idempotent even with the original revision and does not increment it again. A different Supplier cannot take over an existing association. Deleted Suppliers cannot receive configurations. Association and deletion serialize: once ownership commits, deletion returns 409. Does not activate, qualify or price an offer.
+
+Implementation: `implemented`. Operation: `associateConfigurationSupplier`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "supplier_id",
+    "expected_revision"
+  ],
+  "properties": {
+    "supplier_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "expected_revision": {
+      "type": "integer",
+      "format": "int64",
+      "description": "Current configuration revision for a first association; ignored on an identical existing association."
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 204: Association established or already present; no response body.
+
+HTTP 409: Unknown or deleted Supplier, unknown configuration, stale first-association revision, conflicting offer ownership or attempted reassignment.
+
+HTTP 422: Malformed request fields or unknown properties.
+
+HTTP 401: Invalid or missing administrative credential.
+
+HTTP 403: Installation administration required.
+
+HTTP 503: Storage unavailable.
+
 ## Read an installation-managed model candidate pool
 
 `GET /admin/v1/model-route-pools`

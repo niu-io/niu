@@ -2167,6 +2167,83 @@ pub struct SupplierAssociation {
     expected_revision: i64,
 }
 
+/// ```openapi
+/// {
+///   "path": "/admin/v1/vendors/{id}/supplier",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "getConfigurationSupplier",
+///     "summary": "Read the Supplier owning an API configuration",
+///     "description": "Installation administration only. Returns the Supplier identity and name, or null when no association exists, including an unknown configuration. Never returns credentials or procurement values.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Supplier association or null.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "oneOf": [
+///                     {
+///                       "type": "null"
+///                     },
+///                     {
+///                       "type": "object",
+///                       "required": [
+///                         "id",
+///                         "name"
+///                       ],
+///                       "properties": {
+///                         "id": {
+///                           "type": "string",
+///                           "format": "uuid"
+///                         },
+///                         "name": {
+///                           "type": "string"
+///                         }
+///                       }
+///                     }
+///                   ]
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Invalid or missing administrative credential."
+///       },
+///       "403": {
+///         "description": "Installation administration required."
+///       },
+///       "503": {
+///         "description": "Storage unavailable."
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
 pub async fn supplier(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -2181,6 +2258,80 @@ pub async fn supplier(
     Ok(Json(json!({"data":data})))
 }
 
+/// ```openapi
+/// {
+///   "path": "/admin/v1/vendors/{id}/supplier",
+///   "method": "put",
+///   "operation": {
+///     "operationId": "associateConfigurationSupplier",
+///     "summary": "Associate an API configuration with a Supplier",
+///     "description": "Installation administration only. Atomic and audited. The first association requires the current configuration revision. Repeating the same Supplier association is idempotent even with the original revision and does not increment it again. A different Supplier cannot take over an existing association. Deleted Suppliers cannot receive configurations. Association and deletion serialize: once ownership commits, deletion returns 409. Does not activate, qualify or price an offer.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "supplier_id",
+///               "expected_revision"
+///             ],
+///             "properties": {
+///               "supplier_id": {
+///                 "type": "string",
+///                 "format": "uuid"
+///               },
+///               "expected_revision": {
+///                 "type": "integer",
+///                 "format": "int64",
+///                 "description": "Current configuration revision for a first association; ignored on an identical existing association."
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "204": {
+///         "description": "Association established or already present; no response body."
+///       },
+///       "409": {
+///         "description": "Unknown or deleted Supplier, unknown configuration, stale first-association revision, conflicting offer ownership or attempted reassignment."
+///       },
+///       "422": {
+///         "description": "Malformed request fields or unknown properties."
+///       },
+///       "401": {
+///         "description": "Invalid or missing administrative credential."
+///       },
+///       "403": {
+///         "description": "Installation administration required."
+///       },
+///       "503": {
+///         "description": "Storage unavailable."
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
 pub async fn associate_supplier(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,

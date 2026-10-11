@@ -1090,39 +1090,7 @@ paths:
         '403': { description: Workspace write access required. }
         '404': { description: No session in the caller's owner and workspace scope. }
   /admin/v1/vendors/{id}/supplier:
-    parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: string, format: uuid }
-    get:
-      summary: Read explicit Supplier ownership of an API configuration
-      description: Installation administration only. Returns business identity/name or null, never credentials or procurement values.
-      security: [{ adminBearerAuth: [] }]
-      responses:
-        '200': { description: Ownership or null in the data field. }
-        '401': { description: Authentication required. }
-        '403': { description: Installation access required. }
-    put:
-      summary: Associate an API configuration with an existing Supplier
-      description: Installation-only, atomic and audited. Same-Supplier retries are idempotent; reassignment conflicts. Does not create or qualify a business or offer.
-      security: [{ adminBearerAuth: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              required: [supplier_id, expected_revision]
-              properties:
-                supplier_id: { type: string, format: uuid }
-                expected_revision: { type: integer, minimum: 1 }
-      responses:
-        '204': { description: Association established or already present. }
-        '401': { description: Authentication required. }
-        '403': { description: Installation access required. }
-        '409': { description: "Unknown reference, stale revision or attempted reassignment." }
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1vendors~1{id}~1supplier'
   /admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/guardrails:
     $ref: './guardrails.openapi.yaml#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1requests~1{attempt}~1guardrails'
   /admin/v1/organizations/{organization}/projects/{project}/guardrails/output-preview:
