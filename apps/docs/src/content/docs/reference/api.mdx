@@ -35,6 +35,21 @@ Preserve the original idempotency identity when recovering an uncertain submissi
 A streaming HTTP 200 is not proof of successful generation: consume the stream's
 terminal state and handle its error event.
 
+### Guardrail changes before dispatch
+
+An unpriced request inspected under an earlier Guardrail binding can be rejected
+if the workspace policy or API key assignment changes before dispatch. This
+returns HTTP 409 with `guardrail_admission_conflict`; native Messages retains its
+protocol envelope and exposes the reason in `x-niu-error-code`. The request was
+not dispatched. Submit a new request to inspect it under the current policy;
+do not display this conflict as a storage outage or automatically bypass the
+policy. Preparation refusals remain HTTP 403 `guardrail_denied`.
+
+Zero request-rate policies return HTTP 429 with `key_request_rate_disabled` or
+`upstream_request_rate_disabled`, without `Retry-After`. They require an authorized
+configuration change. Exhausted positive request-rate windows keep their
+`*_request_rate_exceeded` reason and conservative `Retry-After: 60` hint.
+
 ## Chat drafts
 
 `GET` and `PUT /admin/v1/organizations/{organization}/projects/{project}/chat-draft`
