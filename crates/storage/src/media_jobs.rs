@@ -978,13 +978,26 @@ impl Store {
         scope: TenantScope,
         attempt: Uuid,
     ) -> Result<Option<MediaJobStatus>, StoreError> {
+        Self::media_job_status_on(scope, attempt, &self.pool).await
+    }
+
+    /// Reuse the same terminal-state classifier on either a pooled read or an
+    /// existing snapshot; result readers must not open another connection.
+    pub(crate) async fn media_job_status_on<'e, E>(
+        scope: TenantScope,
+        attempt: Uuid,
+        executor: E,
+    ) -> Result<Option<MediaJobStatus>, StoreError>
+    where
+        E: sqlx::Executor<'e, Database = sqlx::Postgres>,
+    {
         let statuses: Option<Vec<String>> = sqlx::query_scalar("SELECT ARRAY(SELECT status FROM media_job_observations o WHERE o.attempt_id=j.attempt_id) FROM media_jobs j WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3")
-            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_optional(&self.pool).await?;
+            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_optional(executor).await?;
         Ok(statuses.map(media_status_from_observations))
     }
 }
 
-pub(crate) fn media_status_from_observations(values: Vec<String>) -> MediaJobStatus {
+fn media_status_from_observations(values: Vec<String>) -> MediaJobStatus {
     let has = |s| values.iter().any(|v| v == s);
     if has("succeeded") && has("failed") {
         MediaJobStatus::Conflicting

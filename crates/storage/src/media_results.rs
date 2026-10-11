@@ -58,11 +58,16 @@ impl Store {
         attempt: Uuid,
         kind: MediaResultKind,
     ) -> Result<Option<Vec<u8>>, StoreError> {
-        if self.media_job_status(scope, attempt).await? != Some(MediaJobStatus::Succeeded) {
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        if Self::media_job_status_on(scope, attempt, &mut *snapshot).await?
+            != Some(MediaJobStatus::Succeeded)
+        {
             return Ok(None);
         }
-        sqlx::query_scalar("SELECT ciphertext FROM media_result_references WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3 AND kind=$4 AND deleted_at IS NULL AND expires_at>clock_timestamp()")
-            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(kind.as_str()).fetch_optional(&self.pool).await.map_err(Into::into)
+        let ciphertext = sqlx::query_scalar("SELECT ciphertext FROM media_result_references WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3 AND kind=$4 AND deleted_at IS NULL AND expires_at>clock_timestamp()")
+            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(kind.as_str()).fetch_optional(&mut *snapshot).await?;
+        snapshot.commit().await?;
+        Ok(ciphertext)
     }
     pub async fn delete_media_result_references(
         &self,
@@ -102,9 +107,7 @@ impl Store {
         attempt: Uuid,
     ) -> Result<Option<serde_json::Value>, StoreError> {
         let mut snapshot = self.begin_bounded_read_snapshot().await?;
-        let statuses: Option<Vec<String>> = sqlx::query_scalar("SELECT ARRAY(SELECT status FROM media_job_observations o WHERE o.attempt_id=j.attempt_id) FROM media_jobs j WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3")
-            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_optional(&mut *snapshot).await?;
-        let Some(status) = statuses.map(crate::media_jobs::media_status_from_observations) else {
+        let Some(status) = Self::media_job_status_on(scope, attempt, &mut *snapshot).await? else {
             return Ok(None);
         };
         let rows:Vec<(String,String)>=sqlx::query_as("SELECT kind,CASE WHEN deleted_at IS NOT NULL OR expires_at<=clock_timestamp() THEN 'unavailable' ELSE 'available' END FROM media_result_references WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3").bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_all(&mut *snapshot).await?;
