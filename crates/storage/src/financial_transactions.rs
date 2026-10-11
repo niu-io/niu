@@ -1,4 +1,4 @@
-//! Bounded transactions for invoice and Supplier payment recording.
+//! Bounded transactions for financial ledger, invoice and Supplier recording.
 use crate::{Store, StoreError};
 use sqlx::{Postgres, Transaction};
 
