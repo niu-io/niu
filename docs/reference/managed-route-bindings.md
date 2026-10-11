@@ -126,3 +126,25 @@ qualification was created. Internal verification credit was used, not a merchant
 funding receipt. This extends the shared-selection refactor's evidence to a paid
 configuration race; it does not qualify atomic generation publication or all
 protocol/configuration races.
+
+## Credential disablement during a real stream
+
+A current-input Chat request through a managed OpenRouter mapping began returning
+text. Before changing configuration, a database read observed the attempt as
+`may_have_executed` with unknown usage. An administrator then disabled that
+credential. The original stream completed with its fresh requested marker,
+terminal provider-reported usage and one exact customer charge/debit under its
+pinned route revision. A subsequent request returned HTTP 404 despite a same-name
+static TOML route. Restart preserved the refusal and did not add another attempt.
+
+Independent inspection of the saved SSE artifact and reopened database matched
+reported token counts to the completed original attempt, its earlier managed
+credential revision, the exact debit and released customer/procurement holds.
+The current credential remained disabled at its newer revision. This used personal
+upstream access and approved internal credit, without merchant funding or a
+commercial Supplier offer.
+
+This verifies the existing disablement and dispatched-work boundary. It does not
+implement a published immutable generation combining database and static routes,
+failed-publication rollback or concurrent publication ordering. Those snapshot
+requirements remain separate from per-attempt revision binding.
