@@ -85,5 +85,7 @@ expectation corrected, without changing gateway behavior.
 
 These runs cover text traffic, unknown aggregate usage, an upstream authentication
 failure and the stated authorization boundaries. Nonempty media aggregation,
-large history query performance and upgrade index-build duration remain unverified.
+large history query performance and production index-build duration remain
+unverified. An isolated [272-to-273 native upgrade](../releases/native-backend-upgrade-2026-10-11.md#supplier-configuration-index-upgrade)
+preserved the existing business records and encryption identity.
 It does not qualify an entire Supplier business workflow or release gate.

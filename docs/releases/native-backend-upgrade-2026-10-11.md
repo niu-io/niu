@@ -58,3 +58,27 @@ recovery endpoint returned HTTP 200 on the existing listener. Configuration hash
 encrypted credential bytes/revisions and durable organization, workspace,
 video-job and financial-entry counts remained unchanged. This refresh does not
 claim another actual upstream generation or extend media/payment qualification.
+
+## Supplier configuration index upgrade
+
+A clean source archive of `bdb716b5606aeb6638c174f56920d031e767a646`
+was built with its full commit embedded and its binary retained separately.
+A stopped copy of the previously verified schema-272 native backup was upgraded
+to 273. Both Supplier configuration route indexes were present. Workspace
+pagination, saved route resolution and all six financial-recovery diagnostics
+remained accessible; workspace responses remained identical across restart.
+Offline encryption inspection succeeded.
+
+Independent reopening confirmed schema 273 and unchanged full-row fingerprints
+for organizations, workspaces, encrypted vendor records, customer balance
+entries, video jobs and media transport timings. No encryption rotation operation
+was created. Observed process startup through readiness, including migration,
+was 448.66 ms for this retained database; it is not a measurement of index-build
+time alone or a large-production-database estimate. These ordinary transactional
+indexes can block concurrent writes during construction; plan the upgrade window
+for the actual route-table size.
+
+This verification did not replace the original database or refresh the running
+native service beyond its previously recorded `5e014f9` version. It qualifies
+this isolated 272-to-273 upgrade and preservation scope, not media usage
+aggregation or production query capacity.
