@@ -195,3 +195,31 @@ This verifies one observed in-flight policy reduction combined with rotation and
 restart. It does not establish every concurrent policy/admission interleaving or
 sustained performance. The upstream credential was used for personal testing;
 no commercial Supplier qualification or external funding was asserted.
+
+
+## Responses cancellation blocks Chat across two Gateways
+
+Reviewed 2026-10-12 on clean committed `f91eb89`. A current-input isolated run
+cancelled an actual personal OpenRouter Responses stream after its first content.
+The request remained possibly executed with unknown usage and an outstanding
+customer reservation. Rotation preserved its concurrency policy and shared key
+identity. The replacement secret attempted both non-streaming and streaming Chat
+on each of two Gateway processes using the same PostgreSQL database. All four
+requests returned HTTP 429 with `key_concurrency_exceeded`, without another
+attempt. Repeating Chat and Responses admission on the original Gateway after
+restart still rejected new work.
+
+An independent key's normally completed Responses stream produced the sole
+customer charge and equal ledger debit, calculated from its retained terminal
+SSE usage and original internal tariff. A deliberately shortened deadline then
+retained a distinct `upstream_timeout` liability for that independent key. Final
+independent reopening verified exactly three upstream attempts, the cancelled
+and timed-out requests' separate failure classifications, both outstanding
+customer/procurement reservations, and the sole exact completed-request charge.
+The saved four rejection responses covered both processes and both Chat delivery
+modes. No cooldown, cash funding or extra charge was manufactured.
+
+This verifies this Responses-to-Chat admission boundary across two Gateways,
+rotation and restart. It does not qualify every simultaneous mixed-protocol race,
+media occupancy or eventual settlement of cancelled upstream work. Personal
+OpenRouter testing does not establish commercial Supplier qualification.
