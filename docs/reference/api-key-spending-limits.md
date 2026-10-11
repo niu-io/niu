@@ -391,3 +391,48 @@ previous retained binaries were checked; authenticated routing configuration sti
 matched. No fixture outcome is evidence. This qualifies these policy-contention,
 rotation and exercised admission paths; it does not establish every cross-protocol
 interleaving, production throughput, permanent keys or full New API parity.
+
+## Key lifecycle contention and atomic rollback — 2026-10-12
+
+Committed `ab6f2ff1832af753b05c674651883c2fdedaf3db` extends the same bounded
+recording initializer to key metadata edits, rotation and revocation. Key issuance
+and dispatch/admission transactions are unchanged. These operations retain their
+existing authentication, scope checks, revision rules, audit and atomic commit
+contracts. The bounds apply to lock waits and individual statements, not the
+complete HTTP request or connection-pool acquisition.
+
+Actual HTTP runs on retained `03a027a` separately blocked all three operations
+on their key identity row and on the audit table: the six requests remained
+pending after about 1.60 seconds and completed only after lock release. The initial
+metadata client mistakenly used PUT; the documented PATCH method was used for
+the completed verification. On the digest-verified clean `ab6f2ff` binary, every
+corresponding request returned 503 in approximately **252–255 ms** with the lock
+still held. The audit-table cases exercise rollback after the transaction has
+reached its final audit insertion, rather than only an initial identity lock.
+
+During each failed operation, key-table fingerprints and non-audit record counts
+were unchanged and the old credential still authenticated. After lock release,
+audit counts were also unchanged before retry. This is a refused operation:
+503 does not mean revocation succeeded. Retry after resolving contention and
+confirm the resulting state; this bound cannot cancel work already dispatched.
+
+Successful retries updated metadata exactly once, atomically revoked old keys
+and created replacements, or revoked the selected keys. Stale edits and a second
+rotation returned 409. Repeated revocation retained 204 without another audit
+event. Restart preserved the old/replacement authorization transitions. Replacement
+identity, absolute expiry and model grants were unchanged; secret hashes differed.
+All temporary keys were revoked at completion.
+
+Independent PostgreSQL reopening matched the saved operation artifacts,
+per-key edit/rotation/revocation audits, key lineage and final authorization state.
+The server log identified lock timeout at audit insertion for all three actions.
+The original actual-response customer charge/debit and account fingerprint were
+preserved, with no new inference, external payment, funding or reservation.
+`/v1/models` checks here verify credential authorization transitions; they are not
+evidence of a new upstream inference or complete business acceptance.
+
+A fresh private backup restored with matching business and encrypted-identity
+fingerprints before graceful native replacement. Exact replacement and retained
+previous binaries were checked; the original configuration, credential ciphertexts
+and revisions and durable counts remained unchanged on schema 278. Authenticated
+routing configuration still matched. No fixture outcome is evidence.
