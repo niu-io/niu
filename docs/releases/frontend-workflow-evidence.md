@@ -1510,3 +1510,28 @@ built-SDK eight-way creation/retry workflow was rerun and its saved database was
 independently checked: actor isolation, atomic rollback, restart recovery and
 deleted-workspace tombstones retained their behavior. No external funding or
 commercial qualification is implied by these authorization checks.
+
+
+## Complete workspace directory traversal — 2026-10-11
+
+The workspace directory now exposes `next_cursor` alongside `data`. HTTP callers
+can pass `after` and `limit` (1–1000, default 1000); the SDK's `listWorkspaces()`
+traverses all pages, while `listWorkspacesPage()` supports incremental loading.
+Creation-order keys preserve existing company grouping and remain stable across
+renames. Cursor lookup applies the caller's company/workspace scope; missing,
+deleted and foreign cursors return 409 without revealing another scope's records.
+This is a live directory, not a snapshot; deletion of a cursor requires restarting
+traversal. The older organization/project metadata endpoints retain their separate
+existing bounds.
+
+An actual isolated gateway run created 1,001 workspaces through normal management
+APIs. Together with the existing workspace, the default pages returned 1,000 and
+2 records. A 37-row traversal spanning a rename returned each identity once.
+After restart, the built SDK returned all 1,002 authorized records; a separate
+company was excluded. Project-scoped reads, foreign/missing-scope cursors, invalid
+queries, cursor deletion and member revocation were exercised. Independent
+reopening matched saved HTTP/SDK order, persisted names, routing references and
+scope, and confirmed unchanged original financial records. The verification
+script's initial saved-page array alias was corrected before repeating the run
+and accepting its independently checked artifacts. These observations establish
+this directory workflow, not sustained capacity or complete frontend acceptance.

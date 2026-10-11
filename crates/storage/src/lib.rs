@@ -500,13 +500,39 @@ impl Store {
         organization_id: Option<Uuid>,
         project_id: Option<Uuid>,
     ) -> Result<Vec<WorkspaceResource>, StoreError> {
-        Ok(sqlx::query_as(
-            "SELECT p.id,p.name,p.route_slug,o.id AS organization_id,o.name AS organization_name,(EXTRACT(EPOCH FROM p.created_at)*1000)::bigint AS created_at_ms,(SELECT COUNT(*) FROM api_keys k WHERE k.organization_id=p.organization_id AND k.project_id=p.id AND k.revoked_at IS NULL AND k.expires_at>now()) AS active_key_count,(SELECT COUNT(*) FROM operations r WHERE r.organization_id=p.organization_id AND r.project_id=p.id AND r.created_at>=now()-interval '30 days') AS requests_30d,(SELECT (EXTRACT(EPOCH FROM MAX(r.created_at))*1000)::bigint FROM operations r WHERE r.organization_id=p.organization_id AND r.project_id=p.id) AS last_request_at_ms,(SELECT jsonb_agg(jsonb_build_object('start_ms',(EXTRACT(EPOCH FROM d.day)*1000)::bigint,'request_count',(SELECT COUNT(*) FROM operations r WHERE r.organization_id=p.organization_id AND r.project_id=p.id AND r.created_at>=d.day AND r.created_at<d.day+interval '1 day')) ORDER BY d.day) FROM generate_series(date_trunc('day',now(), 'UTC')-interval '29 days',date_trunc('day',now(), 'UTC'),interval '1 day') d(day)) AS requests_by_day,EXISTS(SELECT 1 FROM default_workspace d WHERE d.organization_id=p.organization_id AND d.project_id=p.id AND d.singleton) AS is_default FROM projects p JOIN organizations o ON o.id=p.organization_id WHERE ($1::uuid IS NULL OR o.id=$1) AND ($2::uuid IS NULL OR p.id=$2) ORDER BY o.created_at,o.id,p.created_at,p.id LIMIT 1000",
-        )
-        .bind(organization_id)
-        .bind(project_id)
-        .fetch_all(&self.pool)
-        .await?)
+        self.workspace_page(organization_id, project_id, None, 1000)
+            .await
+    }
+
+    /// Cursor lookup is scoped before revealing or using its ordering fields.
+    /// Names do not participate in ordering, so renames cannot move page entries.
+    pub async fn workspace_page(
+        &self,
+        organization_id: Option<Uuid>,
+        project_id: Option<Uuid>,
+        after: Option<Uuid>,
+        limit: i64,
+    ) -> Result<Vec<WorkspaceResource>, StoreError> {
+        if !(1..=1001).contains(&limit) {
+            return Err(StoreError::Conflict);
+        }
+        let cursor: Option<(String, Uuid, String, Uuid)> = if let Some(after) = after {
+            Some(sqlx::query_as("SELECT o.created_at::text,o.id,p.created_at::text,p.id FROM projects p JOIN organizations o ON o.id=p.organization_id WHERE p.id=$1 AND ($2::uuid IS NULL OR o.id=$2) AND ($3::uuid IS NULL OR p.id=$3)")
+                .bind(after).bind(organization_id).bind(project_id)
+                .fetch_optional(&self.pool).await?.ok_or(StoreError::Conflict)?)
+        } else {
+            None
+        };
+        Ok(sqlx::query_as(include_str!("workspace_directory.sql"))
+            .bind(organization_id)
+            .bind(project_id)
+            .bind(cursor.as_ref().map(|v| &v.0))
+            .bind(cursor.as_ref().map(|v| v.1))
+            .bind(cursor.as_ref().map(|v| &v.2))
+            .bind(cursor.as_ref().map(|v| v.3))
+            .bind(limit)
+            .fetch_all(&self.pool)
+            .await?)
     }
 
     /// Explicit installation-admin quick setup. Creates both ownership records

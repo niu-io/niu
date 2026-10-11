@@ -672,9 +672,27 @@ export class NiuAdminClient {
   private readonly base: string;
   private readonly requestFetch: typeof globalThis.fetch;
 
-  /** Up to 1,000 authorized workspaces. Use route resolution for direct bookmarks. */
-  listWorkspaces(options?: RequestOptions): Promise<{ data: Workspace[] }> {
-    return this.request('/workspaces', undefined, options);
+  /** A bounded directory page. Keep credentials fixed while following next_cursor. */
+  listWorkspacesPage(page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: Workspace[]; next_cursor: string | null }> {
+    const query = new URLSearchParams();
+    if (page.after !== undefined) query.set('after', uuid(page.after));
+    if (page.limit !== undefined) {
+      if (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 1000) throw new RangeError('Workspace page limit must be between 1 and 1000');
+      query.set('limit', String(page.limit));
+    }
+    return this.request(`/workspaces?${query}`, undefined, options);
+  }
+
+  /** Traverse the complete authorized directory; errors never return a partial result. */
+  async listWorkspaces(options?: RequestOptions): Promise<{ data: Workspace[] }> {
+    const data: Workspace[] = [];
+    let after: string | undefined;
+    do {
+      const page = await this.listWorkspacesPage({ after }, options);
+      data.push(...page.data);
+      after = page.next_cursor ?? undefined;
+    } while (after);
+    return { data };
   }
 
   /** Use options.idempotencyKey for safe replay. Installation credentials without an organization create a zero-funded USD company. */

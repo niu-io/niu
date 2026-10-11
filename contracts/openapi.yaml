@@ -2403,9 +2403,17 @@ paths:
   /admin/v1/workspaces:
     get:
       operationId: listWorkspaces
-      summary: List up to 1000 workspaces available to the current administrator
+      summary: List a page of workspaces available to the current administrator
       security:
         - adminBearerAuth: []
+      description: Stable company/workspace creation order. Follow next_cursor as after with unchanged credentials. This is a live directory, not a snapshot; restart traversal if its cursor is deleted. Renaming does not change ordering.
+      parameters:
+        - in: query
+          name: after
+          schema: { type: string, format: uuid }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 1000, default: 1000 }
       responses:
         '200':
           description: Workspaces pair each project with its parent organization.
@@ -2413,12 +2421,19 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [data]
+                required: [data, next_cursor]
                 properties:
+                  next_cursor:
+                    type: [string, "null"]
+                    format: uuid
                   data:
                     type: array
                     items:
                       $ref: '#/components/schemas/Workspace'
+        '400':
+          description: Invalid page size, cursor syntax or unknown query parameter.
+        '409':
+          description: Cursor does not exist in the current authorized scope.
         '401':
           description: Invalid administrator or operator credential.
         '403':

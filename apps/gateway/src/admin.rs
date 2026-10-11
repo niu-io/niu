@@ -364,9 +364,20 @@ pub async fn workspace_route(
     ))
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WorkspacePageQuery {
+    after: Option<Uuid>,
+    limit: Option<u16>,
+}
+
+/// Bounded current-scope directory in stable company/workspace creation order.
+/// Follow next_cursor as after; missing or foreign cursors return 409.
+/// Concurrent deletion of the cursor requires restarting directory traversal.
 pub async fn workspaces(
     State(state): State<AppState>,
     headers: HeaderMap,
+    Query(page): Query<WorkspacePageQuery>,
 ) -> Result<Json<Value>, ApiError> {
     let authorization = authorize(&state, &headers, AdminPermission::Read).await?;
     let (organization_id, project_id) = match authorization {
@@ -376,12 +387,31 @@ pub async fn workspaces(
             operator.scope.project_id,
         ),
     };
-    let workspaces = state
+    let limit = page.limit.unwrap_or(1000);
+    if !(1..=1000).contains(&limit) {
+        return Err(ApiError::invalid_request(
+            "Workspace page limit must be between 1 and 1000",
+        ));
+    }
+    let mut workspaces = state
         .store
-        .workspaces(organization_id, project_id)
+        .workspace_page(
+            organization_id,
+            project_id,
+            page.after,
+            i64::from(limit) + 1,
+        )
         .await
         .map_err(ApiError::from_store)?;
-    Ok(Json(json!({"data": workspaces})))
+    let next_cursor = if workspaces.len() > limit as usize {
+        workspaces.truncate(limit as usize);
+        workspaces.last().map(|workspace| workspace.id)
+    } else {
+        None
+    };
+    Ok(Json(
+        json!({"data": workspaces, "next_cursor": next_cursor}),
+    ))
 }
 
 /// ```openapi

@@ -37,6 +37,13 @@ terminal state and handle its error event.
 
 ### Stable workspace routing
 
+`GET /admin/v1/workspaces` accepts `limit` (1–1000, default 1000) and `after`.
+Follow `next_cursor` until null with the same credentials. Missing, deleted or
+out-of-scope cursors return 409; restart traversal after deletion. The directory
+uses company/workspace creation order, so renaming does not move an entry. Pages
+reflect live data rather than a frozen snapshot. `listWorkspaces()` follows all
+pages; `listWorkspacesPage({ limit, after })` supports incremental loading.
+
 The SDK exposes `listWorkspaces()`, `createWorkspace(input)`,
 `renameWorkspace(scope, name)` and `deleteWorkspace(scope)`. Supply
 `{ idempotencyKey: stableKey }` in the creation options (the HTTP `Idempotency-Key`
