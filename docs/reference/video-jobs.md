@@ -1508,3 +1508,25 @@ reopening confirmed the numeric failure record, original credential fingerprint,
 download hash and full decoding, one original generation and no customer financial
 entries. This covers authentication refusal and recovery, not timeout, client
 cancellation, every HTTP status or customer-funded media settlement.
+
+## Bounded concurrent result retrieval — 2026-10-11
+
+A native Gateway serving a stopped copy of the actual recovered-video database
+received two waves of eight simultaneous downloads for the same saved job.
+Eight downloads completed; eight returned 503 `media_result_busy`. The successful
+90,767-byte files all had the same SHA-256 and independently passed full FFmpeg
+decoding. Successful end-to-end request times ranged from 570.3 to 1,604.4 ms.
+Process sampling every 200 ms observed at most 8.1% CPU and 22,320 KiB RSS; these
+are sampled process observations, not a measured memory ceiling or CPU capacity.
+
+The first run stopped on an overly strict verification assertion expecting the
+literal cache header `private, no-store`; the common response middleware emits
+`no-store`. The new run checked the actual no-cache directive and `nosniff`.
+No production cache behavior was changed to satisfy the verifier.
+
+The timing endpoint returned eight successful result spans, unchanged after
+restart. Independent database reopening matched those spans and confirmed one
+original generation submission and no customer financial entries. All eight
+saved files were rehashed and decoded independently. This exercises per-process
+four-download admission for a small real file; it does not qualify large-file
+memory pressure, slow-client handling, replica-wide limits or sustained capacity.
