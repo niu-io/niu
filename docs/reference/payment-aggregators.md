@@ -852,3 +852,21 @@ foreign-key check. That run did not establish the intended ordering. It was
 replaced with `FOR NO KEY UPDATE`, which still blocked checkout's `FOR UPDATE`
 while allowing the revocation audit to commit. The successful run explicitly
 observed guarded admission before revocation; no fixture outcome is evidence.
+
+### Forged callback against a retained checkout
+
+On pinned backend `e655a37`, a fresh isolated installation saved an actual pending
+EPay checkout through its management/customer HTTP APIs. Sixteen concurrent
+unauthenticated GET/POST notifications named that saved order and exact amount
+but supplied a forged signature. Each returned HTTP 400. Two further deliveries
+after Gateway restart were also rejected. Responses exposed neither the merchant
+key nor the saved checkout signature, and customer reads retained the original
+pending checkout unchanged.
+
+A separate process reopened the stopped database and matched the saved HTTP
+checkout artifact, exact CNY amount and configuration revision. There was one
+order/link and no provider payment binding, settlement, closure, funding receipt
+or balance entry. The checkout URL was not followed; no merchant payment or
+successful payment evidence was fabricated. This current-input run verifies the
+exercised invalid-signature rejection and restart boundary, not positive signed
+payment acceptance, every malformed-input case or payment throughput.
