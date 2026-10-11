@@ -362,8 +362,7 @@ the same buffered, streamed and two-refusal sequence, with independent saved
 response/database reconciliation and unchanged Chat policy identifiers.
 
 This qualifies those actual canonical authentication-refusal paths. It does not
-qualify failover after arbitrary errors, Responses cancellation during the
-successor or production load.
+qualify failover after arbitrary errors or production load.
 Earlier Chat-only evidence retains its original scope.
 
 ### Responses tariff edit between attempts
@@ -382,3 +381,25 @@ operation had one tariff revision across both attempts, no charge for its reject
 predecessor and exactly one matching ledger debit. Four attempts, two charges and
 no customer/procurement holds remained across restart. This qualifies this
 in-flight tier edit, not every category, discount or concurrent pricing schedule.
+
+### Responses successor stream disconnect
+
+Another actual run received the first canonical 401, switched to the second
+credential and deliberately closed the client after its first nonempty
+`response.output_text.delta`. A third valid candidate was available. The second
+attempt retained `may_have_executed` and unknown aggregate usage; the first
+retained confirmed nonexecution. No third request or completed customer charge
+was recorded.
+
+The exact 1,000,000-nanounit customer minimum-charge reservation remained open.
+Its key cap rejected another request before dispatch. Rotating the workspace key,
+restarting the Gateway and allowing recovery ticks preserved that refusal and
+pending liability. The old key was rejected after rotation; revoking the final
+key did not forgive the hold. No funding receipt was created.
+
+Independent inspection of the saved actual output event and reopened database
+confirmed two attempts under the Responses policy, one canonical 401, one unknown
+successor, no alternate-route attempt or ledger entry, and the exact outstanding
+reservation. API balance/request views before rotation, after rotation and after
+restart agreed. This qualifies this early successor-disconnect boundary; terminal
+completion/disconnect races and later upstream evidence recovery remain separate.
