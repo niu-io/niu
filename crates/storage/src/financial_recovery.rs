@@ -36,7 +36,7 @@ impl FinancialStage {
                 include_str!("media_completion_recovery.sql")
             }
             Self::BalanceRelease => {
-                "SELECT a.id,a.organization_id,a.project_id FROM customer_balance_reservations r JOIN attempts a ON a.id=r.attempt_id WHERE r.released_at IS NULL AND a.execution IN ('not_sent','confirmed_not_executed') AND ($1::uuid IS NULL OR a.id>$1) ORDER BY a.id LIMIT 100"
+                include_str!("customer_balance_release_recovery.sql")
             }
             Self::CustomerCharge => {
                 include_str!("customer_charge_recovery.sql")
@@ -115,6 +115,7 @@ impl Store {
         };
         let rows: Vec<(Uuid, Uuid, Uuid, bool)> = match stage {
             FinancialStage::MediaCompletion
+            | FinancialStage::BalanceRelease
             | FinancialStage::CustomerCharge
             | FinancialStage::CustomerMediaCharge
             | FinancialStage::SupplierEarning => {
