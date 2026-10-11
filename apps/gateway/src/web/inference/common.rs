@@ -7,6 +7,48 @@ use uuid::Uuid;
 
 use crate::{error::ApiError, state::AppState};
 
+/// Retain only canonical server response headers, before consuming any body.
+/// A reference-save failure must not turn already dispatched work into a retry.
+pub(super) async fn retain_openrouter_reference(
+    state: &AppState,
+    scope: niu_storage::TenantScope,
+    attempt: Uuid,
+    model: &crate::config::ModelConfig,
+    managed: bool,
+    headers: &HeaderMap,
+) {
+    if !managed
+        || model.provider != "openrouter"
+        || model.endpoint_base().map(|base| base.trim_end_matches('/'))
+            != Some("https://openrouter.ai/api/v1")
+    {
+        return;
+    }
+    let Some(reference) = headers.get("x-generation-id") else {
+        return;
+    };
+    let saved = if let Ok(reference) = reference.to_str() {
+        matches!(
+            tokio::time::timeout(
+                std::time::Duration::from_millis(250),
+                state.store.save_openrouter_generation_reference(
+                    scope,
+                    attempt,
+                    reference,
+                    &model.upstream_model
+                ),
+            )
+            .await,
+            Ok(Ok(()))
+        )
+    } else {
+        false
+    };
+    if !saved {
+        tracing::warn!(attempt_id = %attempt, "upstream reconciliation reference could not be retained");
+    }
+}
+
 const MAX_PROVIDER_JSON_BYTES: usize = crate::customer_response::MAX_STRUCTURED_RESPONSE_BYTES;
 
 /// Read only a bounded error envelope and classify a known regional refusal.

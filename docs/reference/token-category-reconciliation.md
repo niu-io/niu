@@ -9,6 +9,11 @@ remains available under its original eligibility rules.
 The lookup uses the saved generation reference, original enabled credential
 revision and exact dispatched upstream model. It never accepts client-supplied
 quantities, generation identifiers or costs, and never resubmits inference.
+Managed canonical OpenRouter Chat (buffered and streaming) and Messages responses
+retain the server's `X-Generation-Id` header before consuming the response body.
+The shared save has a 250 ms deadline. A failed save logs a bounded diagnostic
+without converting already dispatched work into a new inference attempt. Static
+routes and noncanonical endpoints do not acquire reconciliation references.
 Terminal, non-cancelled provider metadata must match both known aggregate totals
 and every category reported by both observations. At least one previously missing
 category must become known; otherwise the request returns 409 without consuming
@@ -46,10 +51,10 @@ metadata identifying the explicit dated model instead. Reconciliation returned
 reasoning and no receipt or financial entry. An earlier inference attempt received
 503 before the successful verification; it is not evidence of completed inference.
 
-Conflicting numeric metadata, simultaneous complementary category updates and
-customer-funded settlement after category-only supplementation still require
-current-input verification. Existing generic category merge invariants and static
-checks do not substitute for that evidence.
+Conflicting numeric metadata and simultaneous complementary category updates
+still require their own current-input verification. The later Chat checkpoint
+below covers customer settlement after a missing-category persistence fault;
+existing generic merge invariants and static checks are not its evidence.
 
 The existing unknown-aggregate path was also rerun using an actual dated-model
 GPT-4.1-mini Messages response. After an in-flight tariff change, supplemental
@@ -105,3 +110,33 @@ Consequently this path cannot qualify category-only customer debit recovery.
 That remaining case requires an admitted, supported pricing/protocol combination
 with actual missing usage evidence; do not weaken admission or manufacture missing
 categories merely to obtain a settlement result. This adds no new protocol support.
+
+## Chat reasoning recovery after a persistence fault
+
+Actual buffered and completed-stream Chat requests used
+`openai/o4-mini-2025-04-16`, explicit internal customer rates and approved credit.
+Each original response contained nonzero reasoning usage and the requested fresh
+marker. An isolated database trigger omitted only the persisted reasoning field;
+it did not alter the upstream request, response or reported quantities. This
+checks a persistence failure, not a claim that this provider omitted its usage.
+
+The original response and known aggregate totals were retained, no customer
+charge was posted, and the reservation survived restart after the fault was
+removed. A later tariff edit preceded the existing reconciliation API's real
+metadata lookup. The canonical metadata matched the exact dispatched model,
+reference, aggregate totals and nonzero reasoning subset. Financial recovery
+then posted one debit under the original tariff. Repeated reconciliation and
+another restart retained one receipt and debit, with no remaining hold.
+
+Independent processes reopened each stopped database and reconciled the saved
+JSON or raw terminal SSE, receipt, original missing-category record, restored
+quantity, pinned rate, exact charge/debit and revoked key. No merchant funding
+receipt or commercial Supplier qualification was created.
+
+The initial diagnostic run exposed missing Chat reference capture. It also used
+the undated model alias, while metadata identified a dated model. That request
+remained unresolved; no historical reference was inferred from a customer body,
+and strict model matching was not relaxed. The completed verification runs sent
+the explicit dated model and captured the server header through the fixed path.
+Other protocols, interrupted Chat streams and a provider that never reports the
+missing quantity remain outside this checkpoint.

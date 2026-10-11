@@ -52,7 +52,9 @@ The initial evidence covers non-streaming customer reasoning pricing with
 request fees and minimum charges. Completed-stream verification is recorded below. Concurrent admission under an explicit minimum and combined cache/reasoning
 pricing are verified below. A two-Gateway reasoning-rate-only reservation race is also verified below;
 this is bounded concurrency evidence, not a sustained capacity result. Missing-category retention is verified below;
-recovering a subsequently supplied category remains unverified. The served
+later recovery through canonical OpenRouter metadata is now covered by the
+[Chat persistence-fault checkpoint](token-category-reconciliation.md#chat-reasoning-recovery-after-a-persistence-fault).
+That checkpoint does not qualify a provider that never reports the category. The served
 documentation OpenAPI matches the generated contract, and its reference HTML
 contains the new rate field; visual browser acceptance is not claimed. Supplier earned-liability verification remains unfinished. Customer
 [cache-write pricing](customer-cache-write-pricing.md) and
@@ -141,4 +143,7 @@ The four-category calculation, one rounding, fee/minimum, pinned quantities and
 rates, debit entries, refund-adjusted balance, invoice total, and released holds
 matched. Total customer charges were 13,180,740 currency nanounits. This verifies
 completed streams; interrupted streams and later recovery of missing category
-usage are not qualified by this run.
+usage are not qualified by this run. The separate
+[Chat recovery checkpoint](token-category-reconciliation.md#chat-reasoning-recovery-after-a-persistence-fault)
+covers the latter after an isolated persistence fault, using new buffered and
+streaming responses, real metadata supplementation and independent ledger checks.

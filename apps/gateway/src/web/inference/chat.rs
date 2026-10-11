@@ -30,9 +30,10 @@ struct ChatExecution<'a> {
     upstream_client: Option<reqwest::Client>,
     scope: niu_storage::TenantScope,
     attempt: Uuid,
+    managed: bool,
 }
 
-struct StreamExecution<'a> {
+struct CompatibleExecution<'a> {
     public_model: &'a str,
     model: &'a crate::config::ModelConfig,
     api_key: String,
@@ -41,6 +42,7 @@ struct StreamExecution<'a> {
     upstream_client: reqwest::Client,
     scope: niu_storage::TenantScope,
     attempt: Uuid,
+    managed: bool,
 }
 
 /// ```openapi
@@ -867,6 +869,7 @@ pub(super) async fn execute_chat_attempt(
             upstream_client,
             scope: dispatch.scope,
             attempt: dispatch.attempt,
+            managed: resolved.managed_route.is_some(),
         },
     )
     .await;
@@ -889,11 +892,12 @@ async fn execute_chat(
         upstream_client,
         scope,
         attempt,
+        managed,
     } = execution;
     if stream {
         return stream_openai_compatible(
             state,
-            StreamExecution {
+            CompatibleExecution {
                 public_model,
                 model,
                 api_key,
@@ -902,6 +906,7 @@ async fn execute_chat(
                 upstream_client: upstream_client.ok_or_else(ApiError::unavailable)?,
                 scope,
                 attempt,
+                managed,
             },
         )
         .await;
@@ -910,12 +915,17 @@ async fn execute_chat(
     if model.protocol().is_openai_compatible() {
         return complete_openai_compatible(
             state,
-            public_model,
-            model,
-            api_key,
-            body,
-            timeout,
-            upstream_client.ok_or_else(ApiError::unavailable)?,
+            CompatibleExecution {
+                public_model,
+                model,
+                api_key,
+                body,
+                timeout,
+                upstream_client: upstream_client.ok_or_else(ApiError::unavailable)?,
+                scope,
+                attempt,
+                managed,
+            },
         )
         .await;
     }
@@ -995,13 +1005,19 @@ fn validated_native_chat_usage(usage: &Value) -> Option<(u64, u64)> {
 
 async fn complete_openai_compatible(
     state: &AppState,
-    public_model: &str,
-    model: &crate::config::ModelConfig,
-    api_key: String,
-    mut body: Value,
-    timeout: Duration,
-    client: reqwest::Client,
+    execution: CompatibleExecution<'_>,
 ) -> Result<ProviderResponse, ApiError> {
+    let CompatibleExecution {
+        public_model,
+        model,
+        api_key,
+        mut body,
+        timeout,
+        upstream_client,
+        scope,
+        attempt,
+        managed,
+    } = execution;
     let base = model.endpoint_base().ok_or_else(ApiError::unavailable)?;
     let endpoint = format!("{}/chat/completions", base.trim_end_matches('/'));
     let Some(object) = body.as_object_mut() else {
@@ -1013,7 +1029,7 @@ async fn complete_openai_compatible(
     strip_server_control_fields(object);
 
     let usage_attempt = state.usage.begin();
-    let upstream = client
+    let upstream = upstream_client
         .post(endpoint)
         .bearer_auth(api_key)
         .timeout(timeout)
@@ -1030,6 +1046,7 @@ async fn complete_openai_compatible(
             state.failures.fetch_add(1, Ordering::Relaxed);
             ApiError::upstream_transport(&error)
         })?;
+    retain_openrouter_reference(state, scope, attempt, model, managed, upstream.headers()).await;
     if !upstream.status().is_success() {
         tracing::warn!(
             model = public_model,
@@ -1205,9 +1222,9 @@ fn terminal_chat_envelope(value: &Value) -> bool {
 
 async fn stream_openai_compatible(
     state: &AppState,
-    execution: StreamExecution<'_>,
+    execution: CompatibleExecution<'_>,
 ) -> Result<ProviderResponse, ApiError> {
-    let StreamExecution {
+    let CompatibleExecution {
         public_model,
         model,
         api_key,
@@ -1216,6 +1233,7 @@ async fn stream_openai_compatible(
         upstream_client,
         scope,
         attempt,
+        managed,
     } = execution;
     let base = model.endpoint_base().ok_or_else(ApiError::unavailable)?;
     let endpoint = format!("{}/chat/completions", base.trim_end_matches('/'));
@@ -1253,6 +1271,7 @@ async fn stream_openai_compatible(
             state.failures.fetch_add(1, Ordering::Relaxed);
             ApiError::upstream_transport(&error)
         })?;
+    retain_openrouter_reference(state, scope, attempt, model, managed, upstream.headers()).await;
     let status =
         StatusCode::from_u16(upstream.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
     if !status.is_success() {

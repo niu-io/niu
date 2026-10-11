@@ -802,45 +802,57 @@ async fn execute(
             .send()
             .await
             .map_err(|e| ApiError::upstream_transport(&e))?;
-        // Messages body IDs are not OpenRouter generation IDs. Preserve the
-        // canonical response header privately before consuming the body, even
-        // when it subsequently fails. Never derive or accept it from the client.
-        if model.provider == "openrouter"
-            && model.endpoint_base().map(|base| base.trim_end_matches('/'))
-                == Some("https://openrouter.ai/api/v1")
-            && resolved.managed_route.is_some()
-            && let Some(reference) = response.headers().get("x-generation-id")
-        {
-            let saved = if let Ok(reference) = reference.to_str() {
-                matches!(tokio::time::timeout(
-                    Duration::from_millis(250),
-                    state.store.save_openrouter_generation_reference(
-                        dispatch.scope, dispatch.attempt, reference, &model.upstream_model,
-                    ),
-                ).await, Ok(Ok(())))
-            } else { false };
-            if !saved {
-                tracing::warn!(attempt_id = %dispatch.attempt, "upstream reconciliation reference could not be retained");
-            }
-        }
+        retain_openrouter_reference(
+            state,
+            dispatch.scope,
+            dispatch.attempt,
+            model,
+            resolved.managed_route.is_some(),
+            response.headers(),
+        )
+        .await;
         if !response.status().is_success() {
             return Err(provider_rejection(response).await);
         }
         if streaming {
-            if response.headers().get("content-type").and_then(|v| v.to_str().ok())
-                .and_then(|v| v.split(';').next()).is_none_or(|v| !v.trim().eq_ignore_ascii_case("text/event-stream")) {
+            if response
+                .headers()
+                .get("content-type")
+                .and_then(|v| v.to_str().ok())
+                .and_then(|v| v.split(';').next())
+                .is_none_or(|v| !v.trim().eq_ignore_ascii_case("text/event-stream"))
+            {
                 return Err(ApiError::upstream_invalid_response());
             }
             let mut response = Response::new(crate::streaming::tracked_messages_body(
-                response.bytes_stream(), crate::streaming::StreamAttempt {
-                    store:state.store.clone(), gateway_writes:state.gateway_writes.clone(),
-                    diagnostic_writes:state.diagnostic_writes.clone(), scope:dispatch.scope, id:dispatch.attempt,
-                    priced:dispatch.priced, usage:usage_attempt, failures:state.failures.clone(),
-                }, public_model.clone(), crate::native_messages_tools::StreamTools::new(&body),
+                response.bytes_stream(),
+                crate::streaming::StreamAttempt {
+                    store: state.store.clone(),
+                    gateway_writes: state.gateway_writes.clone(),
+                    diagnostic_writes: state.diagnostic_writes.clone(),
+                    scope: dispatch.scope,
+                    id: dispatch.attempt,
+                    priced: dispatch.priced,
+                    usage: usage_attempt,
+                    failures: state.failures.clone(),
+                },
+                public_model.clone(),
+                crate::native_messages_tools::StreamTools::new(&body),
             ));
-            response.headers_mut().insert("content-type", "text/event-stream".parse().unwrap());
-            response.headers_mut().insert("cache-control", "no-store".parse().unwrap());
-            return Ok(ProviderResponse {response,completed:false,usage:None,token_categories:None,provider_model:None,finish_reasons:None});
+            response
+                .headers_mut()
+                .insert("content-type", "text/event-stream".parse().unwrap());
+            response
+                .headers_mut()
+                .insert("cache-control", "no-store".parse().unwrap());
+            return Ok(ProviderResponse {
+                response,
+                completed: false,
+                usage: None,
+                token_categories: None,
+                provider_model: None,
+                finish_reasons: None,
+            });
         }
         let value = provider_json(response)
             .await
