@@ -29,6 +29,14 @@ export type CompanyCreateOptions = RequestOptions & { idempotencyKey?: string };
 
 
 /** Platform-only credential configuration metadata. Secret values are never returned. */
+export type SupplierProfile = {
+  id: string; name: string; description: string; website_url: string; logo_url: string; revision: number;
+};
+export type SupplierProfileUpdate = {
+  name: string; description?: string | null; website_url?: string | null;
+  logo_url?: string | null; expected_revision?: number | null;
+};
+
 export type SupplierCredential = {
   id: string; name: string; adapter: string; api_base: string;
   enabled: boolean; revision: number; has_credential: boolean;
@@ -742,6 +750,17 @@ export interface RoutingRegistryStatus {
 }
 
 export class NiuAdminClient {
+  /** Platform administration only; metadata contains no credentials or procurement prices. */
+  getSupplierProfile(supplierId: string, options?: RequestOptions): Promise<{ data: SupplierProfile }> {
+    return this.request(`/providers/${uuid(supplierId)}`, undefined, options);
+  }
+
+  /** Empty strings clear optional metadata; omission/null preserves it. Retain the last read revision. */
+  updateSupplierProfile(supplierId: string, input: SupplierProfileUpdate, options?: RequestOptions): Promise<{ data: SupplierProfile }> {
+    if (input.expected_revision != null && (!Number.isSafeInteger(input.expected_revision) || input.expected_revision < 1)) throw new TypeError('Choose a positive safe integer Supplier profile revision');
+    return this.request(`/providers/${uuid(supplierId)}`, input, options, 'PATCH');
+  }
+
   /** Read the current publication for diagnostics or an explicit static replacement. */
   getRoutingRegistryStatus(options?: RequestOptions): Promise<{ data: RoutingRegistryStatus }> {
     return this.request('/routing-registry', undefined, options);

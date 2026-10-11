@@ -50,3 +50,35 @@ final-artifact and reopened-database checks; its held-lock response took about
 restore and full-row comparison. Configuration, encrypted vendor identities and
 durable business record counts stayed unchanged on schema 277. Readiness and
 authenticated published-routing status were available after refresh.
+
+
+## JavaScript administration SDK
+
+`NiuAdminClient.getSupplierProfile(supplierId)` returns `{ data: SupplierProfile }`.
+`updateSupplierProfile(supplierId, input)` sends the existing PATCH contract and
+returns the saved profile. The package exports `SupplierProfile` and
+`SupplierProfileUpdate`. Supply the last read numeric `revision` as
+`expected_revision`; the SDK rejects unsafe/nonpositive numeric revisions rather
+than serializing a rounded JavaScript value. Server-side authorization and
+validation remain authoritative. HTTP 409 is surfaced as `NiuAPIError`, never
+silently retried as an unconditional update.
+
+```typescript
+const { data: profile } = await admin.getSupplierProfile(supplierId);
+const { data: updated } = await admin.updateSupplierProfile(supplierId, {
+  name: profile.name,
+  website_url: "", // Clear; omitted or null would preserve the saved URL.
+  expected_revision: profile.revision,
+});
+```
+
+An isolated SDK build used committed source plus only these profile additions,
+excluding unrelated shared-worktree changes. Against the actual pinned Gateway,
+it set and trimmed metadata, retained omitted/null fields, explicitly cleared all
+optional fields, and rejected stale revision, credential-bearing URL and
+Supplier-manager read/write attempts with HTTP 409, 400 and 403 respectively.
+Restart preserved the final profile. Independent reopening matched saved SDK
+responses to the final revision and exactly three successful-update audits,
+checked the existing customer debit pairs, and confirmed the temporary manager
+was revoked. Source hashes matched the staged SDK files. No fixture outcome is
+used as evidence; this does not claim rendered frontend acceptance.
