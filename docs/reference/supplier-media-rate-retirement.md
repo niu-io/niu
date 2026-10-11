@@ -86,6 +86,20 @@ Release compilation and committed-source formatting completed separately.
 
 This qualifies negative publication/replacement lock contention and rollback only.
 It does not prove successful publication, replacement of a populated rate or media
-financial settlement. The native development listener remains on the previously
-verified `c397802` until a separate runtime refresh; this follow-up was run in
-isolated environments. No fixture outcome supports these claims.
+financial settlement. These contention checks ran in isolated environments.
+No fixture outcome supports these claims.
+
+### Publication/replacement native refresh
+
+The native development listener was subsequently updated to the retained
+`40b5aa4` binary. A fresh schema-278 backup restored into a new isolated database
+with matching full-row business and encrypted-vendor fingerprints. The previous
+`c397802` binary remains retained.
+
+Graceful replacement preserved the original environment, port, configuration and
+secret-file hashes, encrypted credential revisions and durable business counts.
+Readiness returned 200, authenticated routing matched the published configuration,
+and schema 278 remained unchanged. Actual publication and replacement requests
+for an unconfigured Supplier/offer returned their expected 409 conflicts with
+unchanged rate, retirement, Supplier audit and balance-entry counts. These negative
+checks do not establish successful qualified-rate publication or media settlement.
