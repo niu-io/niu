@@ -549,3 +549,30 @@ or funding receipt. Both tokens were revoked at completion. This verifies a
 completed stream's unresolved usage across rotation/restart and subsequent
 recovery; it does not qualify rotation during active native transmission,
 concurrent cross-protocol admission, commercial supply or paid media.
+
+
+### Bounded current-limit and history reads — 2026-10-12
+
+Current key spending projections and immutable revision history now use the
+shared bounded read-only financial snapshot. Database contention returns a
+sanitized service-unavailable response rather than holding a service connection
+indefinitely. The response schema and currency/revision semantics are unchanged.
+Each HTTP request opens its own snapshot.
+
+An isolated stopped-database copy retained the preceding actual Messages/Chat
+responses, rotated key and three-revision spending history. Exclusive locks on
+the limit and history tables blocked their corresponding GET endpoints. The
+previous `3a3f02c` executable remained pending at each 1.6-second observation;
+releasing each lock permitted a normal response. Clean committed `268c25d`
+returned 503 while the locks remained held, in 257.86 ms and 253.93 ms respectively.
+After release, saved projections were identical, including after restart.
+
+Independent database reopening checked both lock diagnostics and retained error
+bodies against the clean executable digest, then re-parsed the original two
+actual responses and supplemental receipt. The shared key lineage, exact
+27,779 USD-nanounit charges/debits and immutable history remained intact, with
+no extra attempts, open customer holds or funding receipts. This verifies these
+two read paths under table-lock contention; it does not qualify every key-policy
+read or pool saturation. Native replacement preserved original configuration,
+encrypted identities and durable record counts; its preceding backup restored
+with matching full-row business fingerprints.
