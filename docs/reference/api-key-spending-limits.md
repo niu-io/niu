@@ -520,3 +520,32 @@ and persistent denial. It does not verify concurrent cross-protocol reservations
 rotation during a native Messages hold, Google GenerateContent success, direct
 Anthropic access or customer-funded media. Unknown usage still requires genuine
 terminal evidence rather than an invented zero or inferred quantity.
+
+
+### Rotation with an actual unresolved Messages stream — 2026-10-12
+
+A separate clean `3a3f02c` run completed an actual native Messages stream using
+the saved personal OpenRouter access. The native response retained unknown
+billable usage and a 284,445 USD-nanounit reservation; neither output text nor
+stream termination was treated as sufficient accounting evidence. Setting the
+key limit to the held amount consumed all remaining key capacity.
+
+Rotation revoked the original token (401) and preserved the same spending root
+for its replacement. Both Chat and Messages using the replacement returned 402
+without another attempt. The original and replacement management views matched,
+and restart retained the exact hold and limit; rotation did not erase liability.
+
+Canonical metadata for that same completed generation supplied genuine usage
+matching the retained terminal stream counts. Settlement used the original tariff
+and released the reservation. An explicit limit increase then permitted the
+replacement token's actual structured Chat completion. Finally, reducing the cap
+to the settled total refused both protocols again, including after restart.
+
+Independent reopening parsed both raw responses and the supplemental receipt,
+checked the preserved original unknown state, shared key lineage and immutable
+three-revision limit history, and recalculated two exact charges/debits totaling
+27,779 USD nanounits. Exactly two attempts remained, with no open customer hold
+or funding receipt. Both tokens were revoked at completion. This verifies a
+completed stream's unresolved usage across rotation/restart and subsequent
+recovery; it does not qualify rotation during active native transmission,
+concurrent cross-protocol admission, commercial supply or paid media.
