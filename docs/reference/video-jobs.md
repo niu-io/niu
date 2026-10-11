@@ -1459,3 +1459,14 @@ again found one actual submission, successful queried completion, preserved key
 lineage and no customer financial entries. This establishes nonblocking behavior
 against a competing row-lock holder for one real job; it does not establish
 multi-gateway throughput, batch saturation or starvation freedom.
+
+The successful job from that lock-contention run was subsequently read from a
+stopped database copy using a newly authorized workspace key. Its result endpoint
+returned a video that the result verifier fully decoded with FFmpeg. A second
+retrieval matched the same SHA-256; revoking the reading key made subsequent
+retrieval return 401. Separate saved-file inspection confirmed hash, byte size,
+positive video dimensions and duration. Independent database reopening retained
+one job, one generation submission, successful queried completion and no customer
+financial entries. No replacement generation was submitted to obtain the result.
+This connects the exercised recovery path to actual downloadable media; it does
+not extend the evidence to paid settlement or every model/output combination.
