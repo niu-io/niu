@@ -66,7 +66,7 @@ preserved. The rebuilt development gateway reached readiness. Rust compilation,
 static checks, SDK compilation, contract parsing and public-boundary review
 completed. No fixture outcome supports this checkpoint.
 
-Parallel returned calls, tool-call cancellation, other model/provider combinations,
+At that checkpoint, parallel returned calls, tool-call cancellation, other model/provider combinations,
 schema-rejected billed output, merchant funding and sustained performance remain
 unverified. The customer charges are internal credit-backed accounting evidence,
 not a claim of commercial supply qualification or settled external payments.
@@ -101,3 +101,28 @@ It does not qualify parallel tools, cancellation, sustained tool workloads, othe
 Providers, task acceptance, received merchant payments or commercial Supplier
 rights. No fixture outcome supports it. Original development data and encrypted
 identity were unchanged.
+
+## Two returned streaming tool calls (2026-10-12)
+
+A separate current-input run on the same pinned `ef77d30` binary and a fresh
+stopped copy of the actual streaming database requested `parallel_tool_calls: true`
+with two strict-schema functions. The model returned both `echo_marker_a` and
+`echo_marker_b`, with distinct call IDs and delta indices. Independently assembled
+arguments for each index contained the requested marker. The client returned both
+tool results; a second actual stream answered with that marker.
+
+After restart and key revocation, separate raw-SSE and reopened-database inspection
+verified both function identities, distinct IDs, per-call arguments, `tool_calls`
+finish reason, follow-up content, terminal usage and `[DONE]`. Each model request
+had exactly one charge and matching debit in its original bound account. The two
+customer charges totaled **88,643 USD nanounits**. There were no open customer
+holds or funding receipts; the checked procurement and credential fields were
+absent from both customer streams. The initial capability-disabled request returned
+501 without creating an attempt, before explicit API configuration enabled tools.
+
+This verifies two returned tool calls and a client-supplied result conversation
+for this model. It does not establish concurrent tool execution by Niu, arbitrary
+tool counts or delta interleavings, cancellation, sustained load or other Providers.
+The personal upstream and approved internal credit retain the earlier commercial
+boundaries. No fixture outcome is evidence. Original development configuration,
+database and encrypted identity were unchanged.
