@@ -107,3 +107,22 @@ charge/debit pairs and the same three RPM admissions, confirmed the disabled
 mapping at revision two, and found no outstanding customer reservations or
 funding entries. This checks the exercised shared text and disabled-mapping
 paths; it does not establish every offer kind or concurrent publication behavior.
+
+## Priced model-revision race — 2026-10-11
+
+A fresh isolated native run held the workspace admission lock until PostgreSQL
+reported the actual incoming request blocked on that lock. The model mapping
+was then updated through the management API before releasing admission. The
+stale priced request returned 409 `route_configuration_changed`. Its entire
+admission transaction rolled back: no attempt, customer hold or financial entry
+remained. This differs from the retained not-sent record in the earlier personal
+path; neither path dispatched the stale route upstream.
+
+A new request completed against the updated mapping and survived restart.
+Independent reopening matched its saved response hash, requested marker and
+reported usage to the sole attempt, model revision two, exact customer charge
+and matching debit. No outstanding customer hold, Supplier offer or commercial
+qualification was created. Internal verification credit was used, not a merchant
+funding receipt. This extends the shared-selection refactor's evidence to a paid
+configuration race; it does not qualify atomic generation publication or all
+protocol/configuration races.
