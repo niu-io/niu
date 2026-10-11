@@ -54,3 +54,16 @@ liabilities and unchanged ledgers. The response and SDK artifacts were saved
 privately; these calls do not qualify all other principal types or storage-outage
 responses. Generated OpenAPI and documentation expose the operation and its
 nullable fields; the SDK typecheck and docs build completed separately.
+
+## Never-run versus empty committed work
+
+A fresh PostgreSQL database was migrated by the native Gateway while a separate
+connection held the real financial-recovery advisory claim. Actual HTTP reads
+returned six stages with null last-step fields, including after Gateway restart.
+Releasing the claim allowed the worker to commit six empty pages: timestamps then
+became non-null and candidate/failure counts became zero. A further restart kept
+this distinction. Independent database reopening verified migration 269, six
+committed empty stages, and no attempts, customer charges, balance entries,
+procurement cost entries or funding receipts. Saved HTTP artifacts independently
+preserve the before/after response shapes. This establishes response semantics for
+an unexecuted worker, not an outage detector or a populated settlement result.
