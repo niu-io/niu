@@ -99,3 +99,29 @@ multiple choices, concurrent client tool execution or rejection of upstream
 parallel-call violations. An earlier named-function probe returned only one call;
 that valid upstream choice was not treated as a product failure or multiple-call
 evidence. No fixture outcome is used as evidence.
+
+
+## Customer reporting and invoice request counts — 2026-10-12
+
+A stopped-database copy of the preceding two-tool-call history was served by the
+same clean `a5f2f3b` implementation. An ordinary workspace viewer read Logs,
+full-range summaries, CSV and the customer invoice. All four generation request
+IDs and individual native token quantities/charges matched the original calls.
+The invoice contained one original-rate line with four requests, totaling
+236,052 USD nanounits; repeated same-key invoice creation returned that invoice.
+Intermediate tool actions did not create additional charge or invoice entries.
+
+Independent reopening parsed the original four response artifacts again and
+matched every reported usage/charge record, exported row and invoice amount to
+the exact individual debits and four invoice entries. There was no new inference
+or balance entry during reporting. Restart preserved the full Logs response,
+invoice line and byte-identical CSV. The viewer could not read procurement costs;
+a different organization could not read Logs, CSV or this invoice. Recursive
+response checks found no procurement fields. Temporary readers were revoked and
+a revoked-reader export was rejected.
+
+This verifies backend reporting and request-based invoice grouping for the
+actual multi-call history. It does not establish frontend presentation, task
+acceptance, commercial supply, a paid top-up or performance under concurrent
+reporting load. The source evidence and original development database were
+preserved.
