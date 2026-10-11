@@ -207,3 +207,19 @@ not pool acquisition or whole HTTP duration. These observations cover the
 exercised contention, rollback/retry and configuration-dependency paths, not
 every concurrent deletion/configuration race or uncertain commit outcome.
 No fixture outcome is evidence.
+
+## Native integration runtime refresh — 2026-10-12
+
+The existing native integration Gateway refreshed to clean committed `bdf1a6d`
+after a new private backup was restored into a fresh isolated PostgreSQL instance.
+Full-row fingerprints matched the source organizations, workspaces, encrypted
+vendor records, customer balance entries, media jobs and media transport timings.
+The target executable hash matched the retained clean build; the preceding
+runtime executable was retained before replacement.
+
+After graceful replacement, readiness returned 200 and the authenticated routing
+registry reported agreement with the published configuration. Configuration and
+secrets file hashes, vendor ciphertexts and revisions, and durable business record
+counts remained unchanged on schema 277. This deploys the verified deletion
+change for native backend integration; it does not extend isolated business
+evidence to frontend acceptance or qualify the complete release.
