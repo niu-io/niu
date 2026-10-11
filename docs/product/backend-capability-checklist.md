@@ -163,4 +163,6 @@ The [customer charge reconciliation report](../reference/customer-charge-reconci
 compares prepaid-bound text/media charges and original ledger debits without
 mutating money. Empty multi-currency reports, real authorization boundaries and [nonempty text
 charges with partial refund and restart](../reference/customer-charge-reconciliation.md#nonempty-charges-and-partial-refund--2026-10-10)
-are verified. Discrepancy cases and media reconciliation remain unverified.
+are verified. A [real missing-debit observation and recovery](../reference/customer-charge-reconciliation.md#actual-missing-debit-observation-and-recovery--2026-10-11)
+is also verified; mismatched amounts, duplicate sources, unexpected entries and
+media reconciliation remain unverified.

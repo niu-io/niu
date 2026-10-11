@@ -318,3 +318,32 @@ net balance, statement entries and released reservations. There was no funding
 entry. This rechecks the supported internal-credit text path on the updated
 startup implementation; it does not establish received funding, funding reversal,
 external refunds or customer-funded media settlement.
+
+
+## Actual missing-debit observation and recovery — 2026-10-11
+
+The retained database from the real [ledger-key collision](customer-ledger-idempotency.md)
+contained two customer charges, one debit and a one-nanounit refund. A stopped
+copy was upgraded while an external transaction held the financial worker's
+advisory claim. This preserved the observed discrepancy long enough to read it
+without manufacturing or modifying any financial record.
+
+The current HTTP endpoint and built SDK both reported two charge records, one
+missing debit, the exact sum of both original charges and the exact single posted
+debit. All other discrepancy counts were zero. Reading the report left the ledger
+unchanged. An organization owner could read it; an organization viewer,
+workspace-scoped owner and owner from another company received 404.
+
+Releasing the claim allowed recovery to append the missing debit. Subsequent
+reports showed zero missing entries and equal expected/posted gross totals. The
+refund remained a separate positive ledger entry, so net balance was one nanounit
+higher than the negative gross charges. Restart preserved the report, excluding
+its observation timestamp; revoking the owner's session denied further reads.
+
+Independent reopening recalculated both charges from saved real model responses
+and pinned rates, compared the before/after reports and exact response field set,
+and confirmed that every original ledger row remained unchanged with only the
+missing debit appended. No new inference or external payment was submitted by
+this reporting run. This qualifies the missing-debit case; mismatched amounts,
+duplicate sources, unexpected entries and media discrepancies remain separate
+unverified cases.
