@@ -870,3 +870,33 @@ or balance entry. The checkout URL was not followed; no merchant payment or
 successful payment evidence was fabricated. This current-input run verifies the
 exercised invalid-signature rejection and restart boundary, not positive signed
 payment acceptance, every malformed-input case or payment throughput.
+
+
+### Bounded top-up intent recording — 2026-10-12
+
+Top-up intent creation now uses the shared recording transaction budget: each
+lock wait is limited to 250 ms and each statement to 2 seconds. This includes
+configuration-generation locking, company/account locking, authorization checks,
+and atomic saving of a locally signed classic EPay checkout. Existing input
+validation, idempotency and transactional rollback are retained. A storage
+failure is returned through the existing sanitized error mapping; it is not an
+empty successful checkout. These settings do not bound pool acquisition, the
+complete HTTP request, or separate merchant network operations.
+
+The available restored installation's EPay configuration was inactive, so a
+current-input checkout contention run could not reach this recording boundary.
+Its contention, partial-write rollback and retry behavior therefore remain
+unverified for this change. Compilation and existing other financial-path
+checkpoints do not substitute for that evidence. Supported integration capability
+remains distinct from external merchant activation, and no configuration, paid
+callback, receipt or balance credit was fabricated to fill this gap.
+
+
+The clean committed `cefd284` binary built successfully. A current-input run
+restored the existing inactive configuration, created a CNY company through the
+normal API, and submitted an explicit EPay checkout intent. It received HTTP 400
+with the enabled-method/currency denial before recording, both before and after
+restart. Independent database reopening and saved response inspection confirmed
+unchanged order, checkout-link, ledger and funding-receipt counts. This verifies
+the inactive deployment's safe denial on the changed binary, not contention in
+the recording transaction. The original installation was untouched.
