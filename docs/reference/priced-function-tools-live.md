@@ -154,3 +154,35 @@ settled final usage. Existing captured-reference usage reconciliation requires i
 own actual follow-up; cancellation alone does not authorize releasing unresolved
 liability. Other disconnect timings and sustained cancellation workloads remain
 unverified. No fixture outcome supports this checkpoint.
+
+## Actual cancelled-tool usage reconciliation
+
+An isolated copy of that stopped cancellation database exercised the existing
+installation-triggered usage-reconciliation endpoint without resubmitting
+inference. The stored generation reference and original credential revision were
+present. Actual upstream metadata matched the captured reference but not the
+captured model identity; it also reported cancellation and no terminal finish
+reason. Reported native token counts therefore did not authorize a customer charge.
+The prior response was a generic 409 conflict, with no reconciliation receipt.
+
+Committed gateway `3235c493f263579a32dc0c4afea469a48d7c0239` adds a specific
+409 `usage_reconciliation_identity_mismatch` for model/reference mismatches in
+upstream usage evidence. Its fixed message reveals neither identity nor raw
+metadata. Context changes retain their existing generic conflict; matching but
+cancelled/nonterminal evidence retains `usage_reconciliation_incomplete`. Identity
+checks, eligible states and settlement rules are unchanged.
+
+An actual repeat against the new binary returned the specific mismatch error.
+Restart retained unknown usage and execution, the original cancellation diagnostic
+and one open reservation. Independent response hashing, private upstream-metadata
+inspection and reopened SQL verified the matched reference, mismatched model,
+cancelled nonterminal state, absence of a reconciliation receipt and unchanged
+241 attempts, 240 original charges and 240 original debits. No new inference,
+charge, debit, funding receipt or hold release occurred. This verifies safe refusal
+and diagnosis, not successful cancellation reconciliation or final settlement.
+
+The handler-generated OpenAPI and documentation include this error. Isolated
+contract consistency checks and the docs build completed; the rendered operation
+page contained the fixed diagnosis. Release compilation and formatting completed
+separately. No fixture outcome is evidence. The original development listener
+remains on `ef77d30` until a separately verified refresh.
