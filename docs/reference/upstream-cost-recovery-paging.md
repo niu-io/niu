@@ -52,4 +52,33 @@ then allowed customer recovery without a ledger debit.
 
 These isolated runs establish independent recovery for this explicit authentication
 rejection policy. They do not generalize nonexecution to arbitrary errors or
-qualify positive upstream cost settlement and commercial Supplier earnings.
+qualify commercial Supplier earnings. Positive cost recovery is covered separately
+below.
+
+## Actual completed request recovered after a cost-write fault
+
+A new real OpenRouter completion returned its fresh marker and reported usage.
+Two isolated Gateways retained that response while a temporary trigger blocked
+cost-entry insertion. Procurement remained held across restart. A separate fault
+left the customer cache-write category unknown, so no customer charge could be
+created and its customer reservation remained held.
+
+Removing only the cost-write fault allowed the paged procurement worker to settle
+the saved reported usage, while the unknown customer category still prevented
+customer charging. After removing the category fault and supplementing only the
+categories from the saved actual response, customer settlement produced one exact
+charge and debit and released its reservation. Repeated supplementation and
+restart did not change the customer ledger.
+
+Independent reopening reconciled the new response and the retained prior real
+request against their immutable procurement rates and customer tariffs. Each cost
+entry's amounts and token counts matched independent integer calculations;
+procurement budget spent equaled their sum, reserved budget was zero, and both
+cost reservations were settled. Customer debits, restored categories, released
+customer holds, response hashes and removed fault triggers were checked
+separately. The new run pins its shared-working-tree binary hash privately.
+
+This establishes a populated cost-recovery case using explicit internal
+verification rates, not an external Supplier invoice, paid top-up or Supplier
+earning/settlement agreement. Two final accounting rows include one retained prior
+request and one new generation; they are not a concurrent load qualification.
