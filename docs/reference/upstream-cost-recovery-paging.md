@@ -84,3 +84,34 @@ This establishes a populated cost-recovery case using explicit internal
 verification rates, not an external Supplier invoice, paid top-up or Supplier
 earning/settlement agreement. Two final accounting rows include one retained prior
 request and one new generation; they are not a concurrent load qualification.
+
+## Mixed nonempty recovery with an isolated row fault — 2026-10-12
+
+A fresh native PostgreSQL run used digest-verified clean implementation
+`feae5a7c17f3bc139a8a67a13767381c35206878` and two actual personal OpenRouter
+streams under separate configured aliases. Both returned their fresh output
+marker and native usage. An isolated trigger rejected procurement cost writes,
+leaving both actual liabilities held while their exact customer debits completed.
+
+After stopping the Gateway, the fault was narrowed to the first actual attempt.
+Restart recovery settled the healthy second attempt while the first remained
+held with no cost entry. A saved atomic database observation retained both states
+and the unchanged customer-ledger fingerprint. Removing the remaining fault
+allowed the original first attempt to settle exactly once. Another restart
+retained both costs and the same customer ledger; temporary keys were revoked.
+
+Independent reopening parsed and hashed both original SSE files, checked the
+saved intermediate state, recomputed procurement and customer amounts from
+actual token quantities and configured internal rates, and matched the original
+account debits. Procurement spent budget equaled the sum of exact costs; reserved
+budget and open customer holds were zero. The fault trigger was removed. No
+funding receipt or Supplier earning was created. Reused verification-script file
+selection and query-function references were corrected before repeating the
+independent check on the same evidence.
+
+This adds mixed nonempty procurement-row isolation and recovery evidence; it does
+not qualify completion-batch fallback, Supplier earning recovery, every failure
+ordering, large mixed backlogs or commercial rates. Two earlier exploratory real
+requests are separate from this retained final run and are not included in its
+counts. Original deployment data and encrypted identity were unchanged. No
+fixture outcome is evidence.
