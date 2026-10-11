@@ -51,3 +51,24 @@ The absence of a 502 in this run does not resolve every possible upstream failur
 saved failures elsewhere remain independently diagnosable. Compare with the
 [buffered workload](mixed-key-sustained-text.md) without inferring a regression or
 improvement from different rates and external upstream timings.
+
+## Workspace reporting after streaming completion
+
+A separate stopped-database copy of the 120-stream run was opened with the same
+pinned Gateway for customer reporting. An ordinary workspace viewer traversed
+all request pages without duplicates or omissions. Full-range summaries matched
+the complete reported token counts and exact customer-charge total; all eight
+key filters returned their own 15 attempts. CSV contained all 120 rows with the
+same usage and charges and remained byte-identical after Gateway restart.
+
+Checked customer response/export fields contained no procurement or credential
+categories. The viewer's procurement-cost read returned 403, and revoking its
+session changed subsequent request-list access to 401. Independent reopening
+matched the original stream-run usage and charges to every saved customer API
+row and CSV entry, confirmed exact full-range totals and unchanged financial
+counts, and checked the revoked reporting session. No inference, funding or new
+customer charge was introduced by these reads.
+
+This verifies backend reporting for the observed completed-stream history. It
+does not establish browser presentation, failed/interrupted-stream reporting,
+all possible concurrent pagination changes or unrestricted history capacity.
