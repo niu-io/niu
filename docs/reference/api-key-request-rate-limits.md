@@ -375,7 +375,7 @@ a matched performance comparison. No upstream module was imported.
 | Model access | Workspace inheritance with optional narrower key grants | A key does not require manually enumerating every model |
 | Request/token rate and concurrency | Separate durable RPM, estimated TPM and unresolved-work concurrency policies | Their stated actual-run checkpoints are narrower than every possible race |
 | Rotation | Preserved spending identity, policies and occupied admission windows | Separate new keys have independent identities |
-| Source-IP restriction | No single-key IP allowlist implementation identified | Unimplemented; do not advertise full key-control parity |
+| Source-IP restriction | Revisioned IPv4/IPv6 allowlists, rotation preservation and trusted-proxy source resolution | Actual HTTP and independent database verification are recorded in [IP policies](api-key-ip-policies.md); deployed reverse proxies and IPv6 networking remain unverified |
 | Routing groups | Explicit workspace access and immutable route pools | Different contract; cross-group retry is not implied |
 
 These differences keep the key feature inventory explicit. They do not authorize
