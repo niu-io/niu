@@ -7,7 +7,7 @@ WITH candidates AS MATERIALIZED (
     FROM media_jobs j
     WHERE ($1::uuid IS NULL OR j.attempt_id>$1)
     ORDER BY j.attempt_id
-    LIMIT 100
+    LIMIT $2
 )
 SELECT a.id,a.organization_id,a.project_id,
     CASE WHEN a.execution='may_have_executed' THEN

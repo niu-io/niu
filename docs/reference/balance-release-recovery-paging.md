@@ -116,3 +116,22 @@ attempts, no funding receipts and revoked keys. The pinned binary includes share
 working-tree changes. This is a bounded concurrent business scenario, not a
 sustained throughput measurement or a global two-connection limit; dedicated
 maintenance connections are separate from each admission pool.
+
+## Shared batch-size invariant
+
+The six candidate queries now bind their SQL limit from the worker's single
+`RECOVERY_PAGE_SIZE` constant. Cursor continuation uses that same constant, keeping
+the query limit and page-boundary decision from drifting apart during maintenance.
+The current size remains 100; this is not an externally configurable capacity
+promise.
+
+A fresh isolated copy of the 101 actual admission records exercised all six
+parameterized queries through the native worker. Newly recorded progress events
+showed customer-charge, customer-balance-release and procurement stages traversing
+100+1 candidates; the other stages completed their empty candidate pages. Restart
+preserved every outstanding hold and the empty customer ledger. Independent
+reopening checked exact page membership, new cursor events, all query hashes,
+reserved procurement totals and removal of instrumentation. No synthetic attempt
+or upstream completion was introduced. The shared-working-tree binary hash was
+retained privately; prior limitations on throughput and commercial qualification
+still apply.

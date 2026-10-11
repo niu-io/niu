@@ -3,6 +3,9 @@ use crate::{Store, StoreError, TenantScope};
 use sqlx::Acquire;
 use uuid::Uuid;
 
+// Query limits and cursor continuation must use the same batch size.
+const RECOVERY_PAGE_SIZE: i64 = 100;
+
 /// Safe recovery diagnostics; never includes database messages or ledger data.
 pub enum FinancialRecoveryFailure {
     Attempts { stage: &'static str, count: usize },
@@ -115,9 +118,10 @@ impl Store {
         };
         let rows: Vec<(Uuid, Uuid, Uuid, bool)> = sqlx::query_as(stage.query())
             .bind(after)
+            .bind(RECOVERY_PAGE_SIZE)
             .fetch_all(&mut **tx)
             .await?;
-        let next = if rows.len() == 100 {
+        let next = if rows.len() == RECOVERY_PAGE_SIZE as usize {
             rows.last().map(|row| row.0)
         } else {
             None

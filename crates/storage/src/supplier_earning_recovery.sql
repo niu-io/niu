@@ -5,7 +5,7 @@ WITH candidates AS MATERIALIZED (
     FROM provider_attempt_offers b
     WHERE ($1::uuid IS NULL OR b.attempt_id>$1)
     ORDER BY b.attempt_id
-    LIMIT 100
+    LIMIT $2
 )
 SELECT a.id,a.organization_id,a.project_id,
     (e.attempt_id IS NULL AND a.execution='confirmed_completed'

@@ -6,7 +6,7 @@ WITH candidates AS MATERIALIZED (
     JOIN attempts a ON a.id=t.attempt_id
     WHERE ($1::uuid IS NULL OR t.attempt_id>$1)
     ORDER BY t.attempt_id
-    LIMIT 100
+    LIMIT $2
 )
 SELECT a.id,a.organization_id,a.project_id,
   (a.execution='confirmed_completed' AND a.usage_confidence='provider_reported'
