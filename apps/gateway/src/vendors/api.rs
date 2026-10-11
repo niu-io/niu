@@ -11,7 +11,6 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
 const MAX_MODEL_CATALOG_BYTES: usize = 2 * 1024 * 1024;
-const MAX_DISCOVERED_MODELS: usize = 2_000;
 
 /// Diagnostics use only server-owned authentication, never client headers.
 /// Anthropic catalogs are bounded to one maximal page; incomplete catalogs
@@ -1613,7 +1612,6 @@ pub async fn catalog(
     })?;
     let data = models
         .iter()
-        .take(MAX_DISCOVERED_MODELS)
         .filter_map(|model| {
             let id = model.get("id")?.as_str()?;
             if id.is_empty() || id.len() > 200 {

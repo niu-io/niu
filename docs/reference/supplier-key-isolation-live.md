@@ -263,6 +263,24 @@ catalog mutations, model deletion semantics or commercial Supplier qualification
 The run used internal verification credit/rates and no fixture result.
 
 
+## Upstream discovery does not silently truncate — 2026-10-11
+
+Supplier credential catalog discovery previously kept only the first 2,000
+upstream entries without exposing truncation. Discovery now processes every entry
+within the existing 2 MiB response bound, retaining valid allowlisted model IDs
+and descriptive metadata. Timeout, redirect and endpoint restrictions remain;
+incomplete native paginated catalogs are still rejected. Metadata refresh uses
+the same discovery handler and therefore no longer inherits that silent cutoff.
+
+An actual saved-credential OpenRouter request through the rebuilt native Gateway
+returned 458 distinct model IDs, including `openai/gpt-4.1-mini`. Independent
+inspection of the saved response and reopening of the isolated database checked
+the response hash, inventory, unchanged encrypted credential, disabled credential
+state and absence of ledger entries. The binary included shared working-tree
+changes. This qualifies the observed catalog read only: a real upstream inventory
+above 2,000 entries remains unverified, and catalog access is not generation or
+commercial qualification. No fixture outcome is used as evidence.
+
 ## Shared catalog inputs use one database snapshot — 2026-10-11
 
 Shared model mappings and Supplier-unavailable aliases are now read in one
