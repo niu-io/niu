@@ -3175,6 +3175,95 @@ HTTP 409: Idempotency-Key already belongs to different creation input.
 
 HTTP 503: Storage unavailable; the outcome may be uncertain. Retry with the same idempotency identity and input.
 
+## Create a company and its initial zero-funded account
+
+`POST /admin/v1/organizations`
+
+Installation administrator only. Atomically creates the company and an initial account in the requested currency (USD by default), with zero funding and zero approved credit. No payment or funding receipt is recorded. Paid admission still requires permitted capacity and customer pricing. Name is validated but preserved without trimming. Additional currencies need explicit account setup; no currency conversion is implied. This endpoint does not implement creation idempotency: repeated successful calls create distinct companies. An uncertain response must not be blindly retried as a new creation.
+
+Implementation: `implemented`. Operation: `createOrganization`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Must contain non-whitespace text and fit within 200 UTF-8 bytes."
+    },
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$",
+      "default": "USD"
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 201: Company identity and initial account currency.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "currency"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "name": {
+      "type": "string"
+    },
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid name/currency or malformed JSON syntax.
+
+HTTP 401: Missing, invalid, expired or revoked management credential.
+
+HTTP 403: Installation administrator required; company/workspace members cannot create companies.
+
+HTTP 422: Missing required field, unknown field, or invalid JSON field type.
+
+HTTP 503: Storage unavailable; creation outcome may be uncertain.
+
 ## Issue a workspace API key and return its secret once
 
 `POST /admin/v1/organizations/{organization}/projects/{project}/keys`
@@ -3570,6 +3659,53 @@ Content type: `application/json`.
   "$ref": "#/components/schemas/ApiErrorResponse"
 }
 ```
+
+## List authorized company metadata
+
+`GET /admin/v1/organizations`
+
+Requires management read authorization. Installation callers receive at most 1000 companies in creation order; this endpoint currently has no pagination cursor. A member receives only its own company, including when scoped to one workspace. Returns identity and name only, without funding, credentials or Supplier financial data. Legacy organization identifiers represent the customer company scope.
+
+Implementation: `implemented`. Operation: `listOrganizations`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Responses
+
+HTTP 200: Authorized company metadata.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "$ref": "#/components/schemas/CompanyMetadata"
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Missing, invalid, expired or revoked management credential.
+
+HTTP 403: Credential lacks management read access.
 
 ## List workspace API-key metadata (up to 1000 records)
 
@@ -16203,6 +16339,27 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "model",
     "choices"
   ]
+}
+```
+
+### CompanyMetadata
+
+```json
+{
+  "type": "object",
+  "required": [
+    "id",
+    "name"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "name": {
+      "type": "string"
+    }
+  }
 }
 ```
 

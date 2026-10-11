@@ -975,6 +975,95 @@ pub async fn create_workspace(
     Ok((StatusCode::CREATED, Json(json!(workspace))))
 }
 
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "createOrganization",
+///     "summary": "Create a company and its initial zero-funded account",
+///     "description": "Installation administrator only. Atomically creates the company and an initial account in the requested currency (USD by default), with zero funding and zero approved credit. No payment or funding receipt is recorded. Paid admission still requires permitted capacity and customer pricing. Name is validated but preserved without trimming. Additional currencies need explicit account setup; no currency conversion is implied. This endpoint does not implement creation idempotency: repeated successful calls create distinct companies. An uncertain response must not be blindly retried as a new creation.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "x-niu-implementation": "implemented",
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "name"
+///             ],
+///             "properties": {
+///               "name": {
+///                 "type": "string",
+///                 "minLength": 1,
+///                 "maxLength": 200,
+///                 "description": "Must contain non-whitespace text and fit within 200 UTF-8 bytes."
+///               },
+///               "currency": {
+///                 "type": "string",
+///                 "pattern": "^[A-Z]{3}$",
+///                 "default": "USD"
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "201": {
+///         "description": "Company identity and initial account currency.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "id",
+///                 "name",
+///                 "currency"
+///               ],
+///               "properties": {
+///                 "id": {
+///                   "type": "string",
+///                   "format": "uuid"
+///                 },
+///                 "name": {
+///                   "type": "string"
+///                 },
+///                 "currency": {
+///                   "type": "string",
+///                   "pattern": "^[A-Z]{3}$"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid name/currency or malformed JSON syntax."
+///       },
+///       "401": {
+///         "description": "Missing, invalid, expired or revoked management credential."
+///       },
+///       "403": {
+///         "description": "Installation administrator required; company/workspace members cannot create companies."
+///       },
+///       "422": {
+///         "description": "Missing required field, unknown field, or invalid JSON field type."
+///       },
+///       "503": {
+///         "description": "Storage unavailable; creation outcome may be uncertain."
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub async fn organization(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -1729,6 +1818,70 @@ pub async fn delete_quota_window(
     })))
 }
 
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listOrganizations",
+///     "summary": "List authorized company metadata",
+///     "description": "Requires management read authorization. Installation callers receive at most 1000 companies in creation order; this endpoint currently has no pagination cursor. A member receives only its own company, including when scoped to one workspace. Returns identity and name only, without funding, credentials or Supplier financial data. Legacy organization identifiers represent the customer company scope.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "x-niu-implementation": "implemented",
+///     "responses": {
+///       "200": {
+///         "description": "Authorized company metadata.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "items": {
+///                     "$ref": "#/components/schemas/CompanyMetadata"
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Missing, invalid, expired or revoked management credential."
+///       },
+///       "403": {
+///         "description": "Credential lacks management read access."
+///       }
+///     }
+///   },
+///   "schemas": {
+///     "CompanyMetadata": {
+///       "type": "object",
+///       "required": [
+///         "id",
+///         "name"
+///       ],
+///       "properties": {
+///         "id": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "name": {
+///           "type": "string"
+///         }
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub async fn organizations(
     State(state): State<AppState>,
     headers: HeaderMap,
