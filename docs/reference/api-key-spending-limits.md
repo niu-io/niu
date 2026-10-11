@@ -309,3 +309,37 @@ spending identity; both temporary tokens were revoked at the end. No outstanding
 customer hold, funding receipt or external invoice-payment record existed. This
 verifies the stated rotation/refund combination; it is not an external payment
 refund, media settlement or general refund-capacity qualification.
+
+## Native missing-usage recovery and rotated cap (2026-10-12)
+
+Pinned committed gateway `3235c493f263579a32dc0c4afea469a48d7c0239` ran a fresh
+actual Messages request to explicit OpenRouter model
+`openai/gpt-4.1-mini-2025-04-14` in an isolated native PostgreSQL environment.
+The response's incomplete usage naturally retained unknown aggregate state and a
+**284,445 USD nanounit** customer hold. No fault trigger or fabricated missing
+quantity was used in this run.
+
+Normal administration set the key cap to that outstanding liability and rotated
+the secret. Original and replacement management reads agreed. Four concurrent
+requests using the replacement returned 402 with `key_spending_limit_exceeded`;
+the database still contained only the original attempt. Reducing the cap below
+the open liability also returned 402.
+
+Captured-reference reconciliation obtained matching non-cancelled terminal usage
+and settled exactly **8,889 USD nanounits** under the request's original tariff,
+despite a later tenfold price publication. The hold was released, and the same
+spending identity reported 8,889 committed and 275,556 remaining. Tightening the
+cap to the actual debit left zero remaining; another request was denied without
+creating an attempt. A reduction below the debit was rejected. Eight concurrent
+reconciliation replays and restart preserved one receipt and one debit. Both
+temporary secrets were revoked.
+
+Independent reopening matched the saved native response, recovered usage, original
+bound tariff, exact original-account debit, shared rotation identity and two policy
+history rows. The final cap and committed amount both equaled 8,889; one attempt,
+charge and debit remained, without an open hold or funding receipt. Encrypted
+credential identity was preserved. This verifies the stated key-cap/recovery
+combination using personal upstream access and approved internal credit; it does
+not establish merchant funding, commercial Supplier rights or media settlement.
+No fixture outcome is evidence. Original development data and encryption were
+unchanged.
