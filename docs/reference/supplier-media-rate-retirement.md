@@ -9,8 +9,9 @@ The retirement transaction now uses the shared bounded recording initializer:
 transaction-local `lock_timeout=250ms` and `statement_timeout=2s` apply before
 reading and locking the rate. These bounds cover database waits, not pool
 acquisition or the entire HTTP request. Rate identity, effective-time validation,
-idempotency and atomic retirement/audit recording are unchanged. Rate publication
-and replacement are separate paths; this change does not bound their transactions.
+idempotency and atomic retirement/audit recording are unchanged. The initial
+retirement change did not bound publication or replacement; the follow-up below
+extends the same initializer to those separate paths.
 
 ## Current-input verification (2026-10-12)
 
@@ -58,3 +59,33 @@ the published configuration. An actual negative retirement request to the update
 listener returned 409 without changing rate, retirement, Supplier audit or balance
 entry counts. Schema 278 remained in place. This refresh does not fill the positive
 media-rate or commercial accounting verification gaps listed above.
+
+## Publication and replacement contention follow-up
+
+Clean committed gateway `40b5aa49cae5b26a6932bea2090d666642f7b6f1` also applies
+the shared bounded initializer to Supplier media-rate publication and replacement.
+Replacement still publishes the successor and retires the previous rate in one
+transaction. No agreed terms, eligibility rules or qualification requirements are
+relaxed.
+
+Two separate current-input native runs used stopped copies of the actual
+240-request streaming database and API-created Suppliers. Structurally valid rate
+documents named an unconfigured offer/revision; they were negative configuration
+inputs, not invented qualified agreements. Independent sessions locked the offer
+table for publication and the rate table for replacement. The previous `c397802`
+binary left both HTTP requests pending beyond 1.6 seconds until lock release.
+The updated binary returned sanitized 503 responses with the locks still held,
+in approximately 257 ms and 255 ms respectively. After release, both restored
+their expected 409 conflicts, including after restart.
+
+Independent reopening of each stopped database verified unchanged rate,
+retirement, Supplier audit, attempt and balance-entry counts. Original customer
+charges and debits were retained without open customer holds or funding receipts.
+Private artifacts retain raw responses, target binary hashes and observations.
+Release compilation and committed-source formatting completed separately.
+
+This qualifies negative publication/replacement lock contention and rollback only.
+It does not prove successful publication, replacement of a populated rate or media
+financial settlement. The native development listener remains on the previously
+verified `c397802` until a separate runtime refresh; this follow-up was run in
+isolated environments. No fixture outcome supports these claims.
