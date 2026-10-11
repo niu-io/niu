@@ -592,6 +592,12 @@ pub(super) async fn begin_retry_attempt(
                 crate::admission::AdmissionError::RequestRateExceeded => {
                     ApiError::from_store(niu_storage::StoreError::KeyRequestRateExceeded)
                 }
+                crate::admission::AdmissionError::RequestRateDisabled => {
+                    ApiError::from_store(niu_storage::StoreError::KeyRequestRateDisabled)
+                }
+                crate::admission::AdmissionError::VendorRequestRateDisabled => {
+                    ApiError::from_store(niu_storage::StoreError::VendorRequestRateDisabled)
+                }
                 crate::admission::AdmissionError::Unauthorized => ApiError::unauthorized(),
                 crate::admission::AdmissionError::ManagedRouteChanged => {
                     ApiError::from_store(niu_storage::StoreError::ManagedRouteChanged)

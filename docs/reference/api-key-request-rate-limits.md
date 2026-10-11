@@ -213,3 +213,23 @@ Readiness returned 200 at migration 0260; configuration-file hashes, vendor
 ciphertext/revisions and organization, workspace, media-job and financial-entry
 counts were unchanged. The backup archive inventory was readable; this is not a
 claim that the backup itself was restored or that all release gates are complete.
+
+## Legacy unpriced admission compatibility — 2026-10-11
+
+The initial zero-limit change omitted the unpriced admission queue's explicit
+error mapping. An actual isolated run with a legacy organization that had no
+prepaid account reproduced Chat and Messages returning `503 storage_error` for a
+zero key policy. New prepaid organizations reject unpriced routes earlier, so the
+priced verification above did not exercise this path.
+
+The queue now classifies zero key and credential policies as known rolled-back
+admission denials and preserves their specific 429 reasons. It retains the
+existing per-record handling for these explicit transactional refusals; ambiguous
+storage failures still do not authorize replay. Actual Chat and Messages requests
+covered both zero policies, followed by a concurrent denied request and one
+permitted upstream completion. Restart preserved the denial. A separate verifier
+reopened the database and matched the one actual response's usage and credential
+binding to the sole attempt, with no customer account, charge, debit or hold.
+The legacy organization was explicitly initialized without a prepaid account in
+the disposable database; no production account or funding history was removed.
+The concurrent HTTP run does not establish that both requests shared one batch.
