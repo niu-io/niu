@@ -80,3 +80,31 @@ before deletion, then 409 after deletion and restart. Profile reads returned
 confirmed the deletion marker and one deletion audit event, with no inference,
 earning or settlement records created. This is lifecycle evidence only; it does
 not qualify nonempty accounting or concurrent deletion of configured Suppliers.
+
+## Bounded settlement recording
+
+Supplier external-payment recording now shares the invoice recording transaction
+initializer. It sets local lock_timeout to 250 ms and statement_timeout to two
+seconds before domain locks. These bounds cover database waits, not pool
+acquisition or the entire HTTP call. Supplier selection, immutable earning
+selection, currency checks, exact amount arithmetic, payment identity and
+idempotency rules are unchanged.
+
+An actual negative request selected a nonexistent earning for a newly created
+Supplier in an isolated copy of real text billing history. With the Supplier row
+locked independently, the pre-change request remained pending beyond 1.6 seconds.
+After the change it returned HTTP 503 in approximately 254 ms with the lock still
+held. Release and restart retained the expected 409 for that unconfirmed negative
+input. No earning, settlement, entry or payment audit was created.
+
+A subsequent real text call charged once. Independent reopening checked the
+lock-timeout diagnostic, unchanged Supplier audit count, absent Supplier financial
+records, the retained actual response, exact debit, revoked key and released hold.
+No qualification, earning or externally confirmed payment was fabricated.
+
+Actual invoice-payment rejection and delayed invoice-audit rollback were also
+repeated after moving the deadline setup into the shared storage helper. Each
+kept its documented failure/recovery semantics and final financial counts. This
+checks the negative Supplier recording boundary and common initializer; positive
+Supplier settlement and every long-statement/uncertain-commit case remain
+unverified. Static formatting and release compilation are separate checks.

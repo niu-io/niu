@@ -28,6 +28,7 @@ mod background_work;
 mod balance_policy_history;
 mod balance_reservations;
 mod financial_recovery;
+mod financial_transactions;
 mod supplier_configuration_usage;
 pub use financial_recovery::FinancialRecoveryFailure;
 mod gateway_retry;
