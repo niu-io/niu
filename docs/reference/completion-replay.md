@@ -202,3 +202,19 @@ including simultaneous invalid writes through both entrypoints. It does not
 establish every ordering of two previously unknown complementary quantities or
 an upstream correction feed. The original database was not altered, and no new
 inference or funding was submitted.
+
+### Follow-up after company authorization and media recovery changes
+
+A fresh actual personal OpenRouter request repeated the missing-category recovery
+scenario on the current native workspace build after the shared authorization and
+media candidate-paging changes. The response contained its fresh request marker.
+An isolated persistence fault kept cache-write usage unknown and the liability
+held without a charge across two-gateway restart. Restoring only the actual saved
+response categories produced one exact debit and released the hold; repeated
+supplementation after restart did not change the ledger.
+
+Independent reopening checked both the retained earlier response and this fresh
+response against their original rates, exact debits, restored categories and
+released reservations, and confirmed removal of the fault trigger. This is one
+new upstream request plus retained history, not a new load run or qualification of
+commercial media, merchant funding or every change in the shared workspace.
