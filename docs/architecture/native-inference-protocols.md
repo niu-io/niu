@@ -886,3 +886,31 @@ upstream argument fragments and nonzero cache category pricing on tool streams
 remain unverified. Tool-content inspection remains unsupported and required
 input/output text policies reject tool requests before dispatch. The complete
 native protocol and release gates remain open.
+
+
+### Multiple tool calls in one streamed turn
+
+A further fresh current-input run used automatic tool choice and requested two
+independent SHA-256 calculations. The native SSE response contained two distinct
+`tool_use` IDs in sequential content blocks. The client computed both digests and
+sent both results through the streaming SDK in the reverse order of the original
+calls. Niu accepted the complete ID-matched result set and the continuation
+returned both correct digests. Missing one result, duplicating a result or using
+an unknown ID was refused before dispatch.
+
+Independent reopening reconstructed both tool inputs from the original SSE and
+the continuation from SDK events. It matched the original request's fresh inputs,
+computed digests, reversed result-ID mapping, provider-native usage, immutable
+finish receipts and exact per-turn charges. There were exactly two attempts and
+two charge/debit pairs, not one charge per tool. All settled customer holds were
+released and restart/replay added no entries; the encrypted credential was
+unchanged. Both attempts pinned the capable pool candidate despite a preferred
+candidate lacking tool-stream support.
+
+An earlier request forcing a named tool returned only one call, so it did not
+qualify this multiple-call branch. Its actual response was retained; the successful
+run above used a different request with automatic choice. This observation does
+not promise that prompting guarantees a particular number of calls. The verified
+shape is multiple calls carried by sequential blocks, not interleaved block
+streaming or a claim about concurrent client-side tool execution. No fixture
+outcome is used as evidence.
