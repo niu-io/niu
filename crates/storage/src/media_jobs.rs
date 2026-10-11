@@ -535,7 +535,7 @@ impl Store {
         if bytes.len() > 8192 {
             return Err(StoreError::InvalidUsage);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         sqlx::query("INSERT INTO media_query_evidence(organization_id,project_id,attempt_id,receipt_sha256,metadata) VALUES($1,$2,$3,$4,$5) ON CONFLICT(attempt_id,receipt_sha256) DO NOTHING")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(Sha256::digest(bytes).to_vec()).bind(metadata).execute(&mut *tx).await?;
         // Keep reported attribution distinct from the configured recovery route.
