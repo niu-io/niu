@@ -448,3 +448,22 @@ admission, no successor, customer charge, ledger entry or open customer/procurem
 hold. The final key was revoked. This checks request-rate accounting for a refused
 predecessor; it does not establish token-rate accuracy for unknown usage or
 production throughput.
+
+### Responses successor deadline
+
+A current-input run against the clean committed `cf84a17` binary used the saved
+personal OpenRouter account, three configured candidates and explicit internal
+credit. The first candidate received a real upstream HTTP 401. An independent
+PostgreSQL connection held the next credential row until the operation's persisted
+four-second deadline had expired, then released it. The client received HTTP 503
+with the original operation and attempt correlation headers. Only the refused
+first attempt remained; no successor, customer charge, balance debit or outstanding
+customer/procurement reservation was created. Restart did not resubmit the request.
+
+Independent reopening of the stopped database matched the saved HTTP correlation
+to the original confirmed-not-executed 401, ordinal one and Responses policy. It
+confirmed the expired deadline, absence of a second attempt or financial mutation,
+and final revocation of the temporary customer key. This qualifies expiry while a
+successor waits for credential admission. It does not measure deadline enforcement
+through every first-attempt preparation step, bound the wall time of database lock
+waits, or qualify transport-error retries. No fixture outcome supports this result.
