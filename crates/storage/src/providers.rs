@@ -410,7 +410,7 @@ impl Store {
             return Err(StoreError::InvalidAccount);
         }
         let id = Uuid::new_v4();
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         sqlx::query("INSERT INTO provider_businesses(id,name) VALUES($1,$2)")
             .bind(id)
             .bind(name.trim())
