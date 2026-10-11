@@ -101,3 +101,27 @@ spending and unchanged prior positive ledger entries. This covers explicit zero
 pricing, not missing pricing or the database trigger's zero-valued reservation
 release branch. The verifier was corrected to use the actual tariff revision and
 to check reservation absence rather than assume a zero-valued reservation row.
+
+
+## Native runtime upgrade and restored-backup check — 2026-10-11
+
+The native development gateway was refreshed from a clean detached checkout of
+committed main (`bb09fb6`), with a retained binary hash. Uncommitted work from
+other development sessions was not included in that binary.
+
+Before replacement, a fresh native PostgreSQL archive was restored into a new
+isolated database. Full-row fingerprints for organizations, workspaces, encrypted
+Supplier credentials, ledger entries, video jobs and transport timings matched
+the source. Independent reopening confirmed the restored records. A separate
+copy was then upgraded from migration 262 to 264 using the committed binary;
+all recorded fingerprints remained unchanged. Workspace pagination and stable
+route resolution survived restart, and offline encryption inspection succeeded.
+
+The original native service subsequently applied migrations 263 and 264 without
+rewriting its configuration or encryption identity. Configuration hashes,
+credential identities/ciphertext/revisions and organization, workspace, video-job
+and financial-entry counts stayed unchanged. Actual post-upgrade API reads
+confirmed workspace pagination/routing and a discrepancy-free selected-company
+charge report. Offline encryption inspection against the upgraded original
+database also completed. These checks cover this native upgrade and restored
+backup; they do not establish container, full business or performance acceptance.
