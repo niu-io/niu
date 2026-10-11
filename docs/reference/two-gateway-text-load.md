@@ -38,6 +38,31 @@ internal verification credit are not commercial supply or external payments.
 Original databases, configuration and encrypted identity were unchanged; no
 fixture outcome is evidence.
 
+### Customer reporting against the sustained stream dataset
+
+A current-input HTTP run copied the stopped 1,600-stream database and used the
+same digest-verified implementation. An ordinary workspace viewer traversed all
+16 request pages, read the full-range summary and traversed both filtered pages
+for each of eight keys. Each key retained exactly its 200 original requests;
+there were no omissions or duplicates. Native token totals and the
+**26,685,801 USD-nanounit** customer-charge total matched all customer rows and
+CSV exports. Installation and customer responses agreed on these customer values.
+
+Customer serialization contained no procurement prices, Supplier expenses,
+margins, upstream endpoint or encrypted credentials. The procurement API returned
+403 to the viewer. An unrelated company/workspace reader was denied request data
+and export without receiving original attempt identities. The saved artifacts
+retain the observed denial statuses.
+
+Restart preserved an identical full-range summary and byte-identical CSV.
+Revocation subsequently returned 401. Independent PostgreSQL reopening parsed
+and hashed the original SSE files again, recomputed every bound-rate charge, and
+matched the saved API rows and CSV to original keys and account debits. Reporting
+introduced no inference or financial entry; original workload evidence and the
+native development installation remained unchanged. This verifies these populated
+backend reporting and isolation paths, not frontend presentation, reporting under
+concurrent writes or broader tenant capacity. No fixture outcome is evidence.
+
 ## Earlier committed 8-request/second stream checkpoint — 2026-10-12
 
 Digest-verified clean committed Gateway

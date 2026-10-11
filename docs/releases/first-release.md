@@ -74,9 +74,10 @@ verification; text accounting evidence does not cover them.
 - [Two-gateway text load](../reference/two-gateway-text-load.md): the latest sustained
   stream run completed 1,600 actual calls across eight keys in 201.59 seconds,
   with two admission connections per process and independently reconciled native
-  responses and exact debits after restart. Earlier nonstreaming workloads and
-  their customer pagination, full-range summaries and CSV have separate evidence;
-  reporting on this latest stream dataset remains unverified. Maximum capacity,
+  responses and exact debits after restart. An ordinary viewer's pagination,
+  key filters, full-range summary and CSV also match this entire stream dataset;
+  restart, procurement boundaries and cross-workspace denials were checked.
+  Earlier nonstreaming workloads retain separate evidence. Maximum capacity,
   overload, media load, production SLOs and broader workloads remain unqualified.
 
 - [Bounded Chat failover](../reference/upstream-retry-policy.md): actual canonical OpenRouter authentication rejection followed by one distinct-credential successor, pinned price/funding, exact single charge, request-limit/deadline denials, partial-stream nonretry and restart preservation. This narrow policy does not qualify generic provider/status retries or circuit breaking.
