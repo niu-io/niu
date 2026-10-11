@@ -691,4 +691,4 @@ export type { VideoIntentRequest, VideoIntentIndexEntry, VideoSubmissionIntent, 
 
 export type { SupplierMembership } from './admin.js';
 
-export type { Workspace, WorkspaceInput, WorkspaceRoute } from './admin.js';
+export type { Workspace, WorkspaceInput, WorkspaceCreateOptions, WorkspaceRoute } from './admin.js';

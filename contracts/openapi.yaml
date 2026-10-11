@@ -2428,6 +2428,12 @@ paths:
       summary: Create a workspace under an organization
       security:
         - adminBearerAuth: []
+      description: Optional actor-scoped Idempotency-Key replays the original workspace identity with current metadata. Changed name or resolved organization returns 409. A deleted workspace returns 404 and is never recreated by replay. Current authorization is always required; installation credentials share one namespace, members use their stable member identity. Without the header each call creates a new workspace.
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: false
+          schema: { type: string, minLength: 1, maxLength: 128, pattern: '^[!-~]+$' }
       requestBody:
         required: true
         content:
@@ -2442,13 +2448,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/Workspace'
         '400':
-          description: Workspace name is empty or exceeds 200 bytes.
+          description: Invalid workspace name or Idempotency-Key header.
         '401':
           description: Invalid administrator or operator credential.
         '403':
           description: The credential does not have write access.
         '404':
-          description: The credential cannot create a workspace in the requested organization.
+          description: Out-of-scope organization or the original idempotent workspace has been deleted.
+        '409':
+          description: Idempotency-Key was already used with different creation input.
   /admin/v1/organizations:
     get:
       operationId: listOrganizations

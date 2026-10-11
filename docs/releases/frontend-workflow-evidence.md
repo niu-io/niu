@@ -1462,3 +1462,29 @@ deletion behavior, with independent final-state verification.
 
 This fixes database-write atomicity. Creation remains non-idempotent; a lost
 response after commit must not be treated as proof that nothing was created.
+
+## Retry-safe workspace creation — 2026-10-11
+
+`POST /admin/v1/workspaces` now accepts an optional `Idempotency-Key`, exposed as
+`createWorkspace(input, { idempotencyKey })` in the SDK. Keep the same key and
+input when recovering an uncertain response. Keys are scoped to the stable
+member identity or the shared installation namespace. Matching retries return
+201 with the original identity and current workspace metadata; changed name or
+resolved organization returns 409. Current permissions always apply. Deletion
+leaves an immutable receipt: replay returns 404 and never recreates the workspace.
+Without the header, creation remains non-idempotent.
+
+Migration 263 stores only key/request hashes and resource identities. Receipt,
+company/account initialization and workspace insertion share one transaction.
+The implementation lives in a dedicated workspace-creation storage module rather
+than adding another transaction path to the main storage module.
+
+An actual built-SDK run issued eight concurrent creations that converged to one
+identity. Changed input/scope, invalid header, member isolation, viewer denial,
+revoked-member replay, restart and deleted-workspace replay were exercised.
+A database fault at receipt insertion rolled back all preceding business writes;
+removing it allowed the same request key to succeed. Independent reopening found
+exactly four intended receipts, isolated member identities, the deleted workspace's
+receipt, one revoked actor and unchanged original ledger. No funding was created.
+This closes optional creation retry recovery; historical route aliases and full
+frontend browser integration remain separate work.

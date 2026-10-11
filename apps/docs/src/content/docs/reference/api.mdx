@@ -38,8 +38,14 @@ terminal state and handle its error event.
 ### Stable workspace routing
 
 The SDK exposes `listWorkspaces()`, `createWorkspace(input)`,
-`renameWorkspace(scope, name)` and `deleteWorkspace(scope)`. Creation is not
-idempotent: recover an uncertain response before resubmitting. With installation
+`renameWorkspace(scope, name)` and `deleteWorkspace(scope)`. Supply
+`{ idempotencyKey: stableKey }` in the creation options (the HTTP `Idempotency-Key`
+header) and retain that same key and input for uncertain-response recovery.
+Keys contain 1–128 visible ASCII characters. Concurrent/restarted retries return
+the same workspace identity with current metadata; changed input returns 409.
+The key is scoped to the member identity, or to the shared installation namespace.
+Current authorization still applies. Replaying a deleted workspace returns 404
+without recreating it. Calls without the header remain non-idempotent. With installation
 credentials, omitting `organization_id` creates a new zero-funded USD company;
 provide an existing organization when adding another workspace to it. Members
 remain constrained to their authorized organization. Deletion requires an

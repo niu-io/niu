@@ -607,6 +607,11 @@ pub async fn delete_workspace(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// Create within current member scope or installation-selected company scope.
+/// Optional Idempotency-Key (1..=128 visible ASCII bytes) is durable and actor-scoped.
+/// Replays return 201 with the original workspace identity and current metadata;
+/// changed input returns 409, and replay after deletion returns 404 without recreation.
+/// Company, zero-funded account, workspace and receipt commit in one transaction.
 pub async fn create_workspace(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -614,6 +619,26 @@ pub async fn create_workspace(
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
     let authorization = authorize(&state, &headers, AdminPermission::Write).await?;
     validate_name(&input.name)?;
+    let mut keys = headers.get_all("idempotency-key").iter();
+    let creation_key = if let Some(key) = keys.next() {
+        use sha2::{Digest, Sha256};
+        if keys.next().is_some()
+            || key.as_bytes().is_empty()
+            || key.as_bytes().len() > 128
+            || !key.as_bytes().iter().all(u8::is_ascii_graphic)
+        {
+            return Err(ApiError::invalid_request(
+                "Use one Idempotency-Key containing 1 to 128 visible ASCII characters",
+            ));
+        }
+        Some(niu_storage::WorkspaceCreationKey {
+            actor: audit_actor(authorization),
+            key_sha256: Sha256::digest(key.as_bytes()).to_vec(),
+        })
+    } else {
+        None
+    };
+
     let organization_id = match authorization {
         crate::state::AdminAuthorization::Installation => input.organization_id,
         crate::state::AdminAuthorization::Operator(operator) => {
@@ -629,7 +654,7 @@ pub async fn create_workspace(
     };
     let scope = state
         .store
-        .create_workspace(organization_id, &input.name)
+        .create_workspace_with_key(organization_id, &input.name, creation_key)
         .await
         .map_err(ApiError::from_store)?;
     let workspace = state

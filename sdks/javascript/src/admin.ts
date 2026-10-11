@@ -7,6 +7,7 @@ export type Workspace = WorkspaceRoute & {
   last_request_at_ms: number | null;
 };
 export type WorkspaceInput = { name: string; organization_id?: string | null };
+export type WorkspaceCreateOptions = RequestOptions & { idempotencyKey?: string };
 
 
 export type VendorCooldown = { policy_revision: 'openrouter-auth-cooldown-v1'; failure_threshold: 3; window_seconds: 60; cooldown_seconds: 60; active: boolean; cooldown_until: string | null; qualifying_failures: number };
@@ -676,8 +677,8 @@ export class NiuAdminClient {
     return this.request('/workspaces', undefined, options);
   }
 
-  /** Not idempotent. Installation credentials without an organization create a zero-funded USD company. */
-  createWorkspace(input: WorkspaceInput, options?: RequestOptions): Promise<Workspace> {
+  /** Use options.idempotencyKey for safe replay. Installation credentials without an organization create a zero-funded USD company. */
+  createWorkspace(input: WorkspaceInput, options?: WorkspaceCreateOptions): Promise<Workspace> {
     return this.request('/workspaces', {
       name: input.name,
       organization_id: input.organization_id == null ? input.organization_id : uuid(input.organization_id),
@@ -2000,12 +2001,12 @@ export class NiuAdminClient {
     return `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/accounts`;
   }
 
-  private async raw(path: string, body: unknown, options: VideoCreateOptions, method?: string, accept = 'application/json'): Promise<Response> {
+  private async raw(path: string, body: unknown, options: RequestOptions & { idempotencyKey?: string }, method?: string, accept = 'application/json'): Promise<Response> {
     const requestMethod = method ?? (body === undefined ? 'GET' : 'POST');
     const headers: Record<string, string> = { authorization: `Bearer ${this.token}`, accept, ...(body === undefined ? {} : { 'content-type': 'application/json' }) };
     if (options.idempotencyKey !== undefined) {
-      if (!/^\/organizations\/[^/]+\/projects\/[^/]+\/keys\/[^/]+\/video\/jobs$/.test(path) || requestMethod !== 'POST' || typeof options.idempotencyKey !== 'string' || !/^[\x21-\x7e]{1,128}$/.test(options.idempotencyKey)) {
-        throw new TypeError('idempotencyKey requires video creation and 1 to 128 visible ASCII characters');
+      if ((path !== '/workspaces' && !/^\/organizations\/[^/]+\/projects\/[^/]+\/keys\/[^/]+\/video\/jobs$/.test(path)) || requestMethod !== 'POST' || typeof options.idempotencyKey !== 'string' || !/^[\x21-\x7e]{1,128}$/.test(options.idempotencyKey)) {
+        throw new TypeError('idempotencyKey requires workspace or video creation and 1 to 128 visible ASCII characters');
       }
       headers['idempotency-key'] = options.idempotencyKey;
     }
