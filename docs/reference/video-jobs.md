@@ -1491,3 +1491,20 @@ spans to stored records, rehashed and decoded the downloaded file, and confirmed
 one original generation submission and no customer financial entries. This
 qualifies successful retrieval diagnostics for this recovered owner-funded job;
 network-failure/cancellation diagnostics and paid media settlement remain separate.
+
+A follow-up actual failure run found that result retrieval discarded explicit
+transport HTTP status when saving its new timing span. Retrieval now preserves
+`ResultError::HttpStatus` as safe numeric failure metadata; other transport errors
+retain unknown status. It does not store the upstream error body or result URL.
+
+In a stopped copy of the real completed job database, the encrypted credential
+was temporarily replaced with an authenticated invalid test value under the same
+identity. No original runtime credential was changed. The actual OpenRouter
+result request returned 401; the customer API returned a sanitized 502
+`media_result_transport_error`, and timing recorded `unavailable` with upstream
+status 401. Restoring the original encrypted bytes made that same job downloadable
+and fully decodable again. Restart retained the failure timing. Independent
+reopening confirmed the numeric failure record, original credential fingerprint,
+download hash and full decoding, one original generation and no customer financial
+entries. This covers authentication refusal and recovery, not timeout, client
+cancellation, every HTTP status or customer-funded media settlement.

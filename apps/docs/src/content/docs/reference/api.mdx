@@ -579,8 +579,8 @@ requires frontend integration and verification.
 Video timing responses include a `result` phase for result retrieval. Its elapsed
 time measures the upstream fetch and bounded body read. `received` means the
 Gateway obtained the media bytes; current access is checked again before delivery,
-so it does not prove client receipt. Retrieval failures record `unavailable` with
-unknown upstream HTTP status. These records never create another generation or
+so it does not prove client receipt. Retrieval failures record `unavailable`, with the upstream HTTP status when
+explicitly classified by the adapter; otherwise it remains unknown. These records never create another generation or
 customer charge. Authorization failures before retrieval do not create a network
 span. A cancelled handler or failed diagnostic write may leave no timing entry.
 

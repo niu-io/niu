@@ -118,8 +118,19 @@ pub(super) async fn retrieve_as(
         )
         .await
     };
+    let upstream_http_status = match &media {
+        Err(niu_media::result::ResultError::HttpStatus(status)) => Some(i32::from(*status)),
+        _ => None,
+    };
     clock
-        .save(state, scope, id, "result", media.is_ok(), None)
+        .save(
+            state,
+            scope,
+            id,
+            "result",
+            media.is_ok(),
+            upstream_http_status,
+        )
         .await;
     let media = media.map_err(ApiError::from_media_result)?;
     // Recheck after network work: expiry, deletion and current grants can change
