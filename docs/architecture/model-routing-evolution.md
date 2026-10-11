@@ -344,3 +344,11 @@ the retained responses to model metadata and the final pool revision. The run
 created no inference attempts or financial entries and establishes directory
 behavior only. Release compilation and formatting checks completed separately.
 This does not implement or qualify unified registry publication.
+
+The native integration service was subsequently updated from clean committed
+`4c3a980`. Before replacement, a fresh backup was restored into isolated PostgreSQL
+and opened by that binary across restart. Independent inspection matched six full
+business-table fingerprints and confirmed unchanged encryption identity. After
+replacement, the original service retained its configuration and durable record
+counts; actual scoped model discovery and workspace directory/route reads remained
+available. This update adds no schema migration and is not full release acceptance.
