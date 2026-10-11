@@ -67,3 +67,37 @@ The balance-refund lost-COMMIT-acknowledgement run was repeated under migration
 refund and exact net balance, independently checked from the saved database.
 A read-only inspection of the original development database found no prepaid text
 charge missing its exact matching debit; it did not migrate or mutate that database.
+
+
+## Omitted debit, retained allowance and later recovery — 2026-10-11
+
+A further actual request ran with an isolated database trigger that returned no
+row for charge-debit insertion. The real model returned the requested marker and
+reported usage, but the posting check rejected the absent debit and rolled back
+the new charge transaction. The attempt retained its known completion and its
+positive customer reservation. Setting its key cap to that reservation made the
+next request return 402 `key_spending_limit_exceeded` without another attempt.
+
+Two gateways were restarted while the fault remained active. The charge was
+still absent, the original hold remained, and the key's committed allowance
+still equaled its cap. Removing the trigger let recovery post one exact
+pinned-rate charge/debit and release the hold. Committed key spending then equaled
+the actual charge; remaining allowance equaled the cap minus that charge.
+Another restart preserved these values without a new generation.
+
+Independent reopening matched both saved real responses (the original charge and
+the new recovered request), their usage, pinned-rate arithmetic, ledger amounts,
+the stored key policy and its computed committed spending. No injected trigger,
+open customer hold, extra attempt or funding receipt remained.
+
+## Explicit zero-price compatibility — 2026-10-11
+
+A separate actual request used an explicitly published zero input/output tariff
+and zero request fee, with a zero key spending cap. It completed with reported
+usage and a durable zero customer charge. No balance debit or customer reservation
+was created; zero-price admission intentionally skips reservation creation.
+Restart and independent reopening confirmed pinned zero rates, zero committed
+spending and unchanged prior positive ledger entries. This covers explicit zero
+pricing, not missing pricing or the database trigger's zero-valued reservation
+release branch. The verifier was corrected to use the actual tariff revision and
+to check reservation absence rather than assume a zero-valued reservation row.
