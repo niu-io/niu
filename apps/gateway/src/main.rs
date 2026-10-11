@@ -7,6 +7,7 @@ mod catalog_metadata;
 mod codex;
 mod config;
 mod customer_response;
+mod encryption_check;
 mod enterprise;
 mod error;
 mod guardrails;
@@ -45,6 +46,13 @@ use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let arguments: Vec<_> = env::args_os().skip(1).collect();
+    if !arguments.is_empty() {
+        if arguments.len() == 1 && arguments[0] == "--check-encryption" {
+            return encryption_check::run().await;
+        }
+        return Err("Usage: niu-gateway [--check-encryption]".into());
+    }
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),

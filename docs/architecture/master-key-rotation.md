@@ -191,3 +191,28 @@ command wiring, then actual crash-resume and post-rotation use verification as
 reviewable increments. Keep the command unavailable until every retained domain
 is covered; a Supplier-only loop cannot report completed rotation. No command or
 rotation migration has been implemented by this planning update.
+
+## Available read-only encryption inspection
+
+`niu-gateway --check-encryption` authenticates retained encrypted data using
+`NIU_DATABASE_URL` and `NIU_VENDOR_ENCRYPTION_KEY` from the protected environment.
+Do not put either value in command arguments. It reuses startup domain validators,
+including retained legacy credential records, without enabling their features.
+A successful check exits zero; a missing/incompatible key, malformed retained data,
+or unavailable/incompatible schema exits unsuccessfully with bounded diagnostics.
+
+The command opens at most one database connection, sets transactions read-only,
+and does not run migrations, configuration bootstrap, listeners, retention,
+payment recovery or upstream calls. It does not require an admin token or a server
+configuration file. Do not interpret its success as proof of upstream credential
+validity, commercial qualification, a consistent audit across concurrent writers,
+or a completed key rotation. Stop writers for a definitive offline inventory;
+the command itself does not fence other processes.
+
+Current-input verification ran against the existing native encrypted database
+while its Gateway remained available. The matching key succeeded; a fresh wrong
+key and an absent key failed. A deliberately nonexistent server configuration did
+not affect the standalone check. Separately reread table fingerprints and migration
+history matched the pre-command artifacts, and private configuration hashes stayed
+unchanged. Captured command output did not contain either supplied key. This does
+not qualify nonempty contents in every domain or implement re-encryption/resume.

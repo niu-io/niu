@@ -74,19 +74,7 @@ impl AppState {
             .map(|key| crate::vendors::crypto::CredentialCipher::new(&key))
             .transpose()?
             .map(Arc::new);
-        let codex_connections = store
-            .codex_connection_secrets()
-            .await
-            .map_err(|_| "Cannot read private Codex connections")?;
-        if !codex_connections.is_empty() && vendor_cipher.is_none() {
-            return Err("NIU_VENDOR_ENCRYPTION_KEY is required for saved Codex connections".into());
-        }
-        if let Some(cipher) = &vendor_cipher {
-            for connection in codex_connections {
-                cipher.open(connection.account_id,&connection.credential_ciphertext)
-                    .map_err(|_| "Cannot decrypt saved Codex credentials with the configured encryption key")?;
-            }
-        }
+        crate::vendors::validate_saved_codex_credentials(&store, vendor_cipher.as_deref()).await?;
         crate::vendors::seed_from_env(&store, vendor_cipher.as_deref()).await?;
         crate::vendors::validate_saved_credentials(&store, vendor_cipher.as_deref()).await?;
         crate::payments::validate_saved_configuration(&store, vendor_cipher.as_deref()).await?;

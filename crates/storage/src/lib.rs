@@ -375,6 +375,24 @@ impl Store {
         Ok(Self { pool })
     }
 
+    /// Offline inspection of an existing schema. Never runs migrations; every
+    /// connection is read-only before being made available to inspection code.
+    pub async fn connect_read_only(url: &str) -> Result<Self, StoreError> {
+        let pool = PgPoolOptions::new()
+            .max_connections(1)
+            .after_connect(|connection, _| {
+                Box::pin(async move {
+                    sqlx::query("SET default_transaction_read_only = on")
+                        .execute(connection)
+                        .await?;
+                    Ok(())
+                })
+            })
+            .connect(url)
+            .await?;
+        Ok(Self { pool })
+    }
+
     /// Content maintenance has one dedicated connection per process so a sweep
     /// cannot consume the admission pool. Migration ownership stays with startup.
     pub async fn content_maintenance_store(&self) -> Result<Self, StoreError> {

@@ -26,4 +26,6 @@ pub(crate) use models::{
     ResolvedModel, effective_models, require_customer_tariff_model, require_selectable_credential,
     resolve_scoped_model, resolve_scoped_model_excluding, scoped_managed_catalog, scoped_models,
 };
-pub(crate) use startup::{validate_retained_content, validate_saved_credentials};
+pub(crate) use startup::{
+    validate_retained_content, validate_saved_codex_credentials, validate_saved_credentials,
+};

@@ -123,3 +123,27 @@ pub(crate) async fn validate_retained_content(
     }
     Ok(())
 }
+
+/// Authenticate retained legacy records without enabling their product surface.
+pub(crate) async fn validate_saved_codex_credentials(
+    store: &Store,
+    cipher: Option<&CredentialCipher>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let codex_connections = store
+        .codex_connection_secrets()
+        .await
+        .map_err(|_| "Cannot read private Codex connections")?;
+    if !codex_connections.is_empty() && cipher.is_none() {
+        return Err("NIU_VENDOR_ENCRYPTION_KEY is required for saved Codex connections".into());
+    }
+    if let Some(cipher) = cipher {
+        for connection in codex_connections {
+            cipher
+                .open(connection.account_id, &connection.credential_ciphertext)
+                .map_err(
+                    |_| "Cannot decrypt saved Codex credentials with the configured encryption key",
+                )?;
+        }
+    }
+    Ok(())
+}
