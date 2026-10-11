@@ -835,3 +835,16 @@ updated one mapping while preserving omitted pricing, rejected cross-credential
 alias takeover with 409, and cleared only the selected mapping's price. Restart
 preserved both unavailable mappings. Independent reopening matched ownership,
 upstream names, revisions and separate retained/cleared pricing to the saved lists.
+
+`checkSupplierModel(credentialId, alias)` performs the backend's bounded catalog
+probe with the saved credential. `SupplierModelCheck` exposes sanitized status,
+model-list membership, upstream HTTP status and timing. HTTP success may contain
+a diagnostic failure status; inspect `data.status` and `data.model`. A
+`connected`/`listed` result does not prove that generation, streaming or billing
+works. It neither publishes a model nor qualifies commercial supply.
+
+An actual SDK check using the retained personal OpenRouter configuration returned
+HTTP 200 with `connected`/`listed` for its configured GPT-4.1 mini mapping. The
+response contained only the declared diagnostic fields, and direct database reads
+confirmed the encrypted configuration fingerprint was unchanged. Actual inference
+and settlement evidence remain separate from this catalog-only check.

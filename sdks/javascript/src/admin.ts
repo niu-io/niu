@@ -45,6 +45,14 @@ export type SupplierModel = {
   pricing: Record<string, unknown> | null; revision: number;
 };
 export type SupplierModelAvailability = SupplierModel & { available: boolean; owner_funded: boolean };
+/** Catalog reachability only; this does not prove inference or billing readiness. */
+export type SupplierModelCheck = {
+  status: 'connected' | 'credentials_rejected' | 'endpoint_unavailable' | 'private_endpoint_blocked'
+    | 'invalid_endpoint' | 'redirect_blocked' | 'provider_rate_limited' | 'provider_error'
+    | 'model_catalog_unavailable' | 'model_catalog_too_large' | 'invalid_model_catalog';
+  model: 'listed' | 'not_listed' | 'unknown'; http_status: number | null;
+  duration_ms: number; checked_at_ms: number;
+};
 export type VendorCooldown = { policy_revision: 'openrouter-auth-cooldown-v1'; failure_threshold: 3; window_seconds: 60; cooldown_seconds: 60; active: boolean; cooldown_until: string | null; qualifying_failures: number };
 export type VendorRequestRateLimit = { requests_per_minute: number | null; revision: string };
 export type VendorRequestRateLimitRevision = VendorRequestRateLimit & { recorded_at: string; actor_kind: 'installation' | 'member'; actor_name: string };
@@ -1407,6 +1415,12 @@ export class NiuAdminClient {
   upsertSupplierModel(credentialId: string, input: SupplierModelInput, options?: RequestOptions): Promise<{ data: SupplierModel }> {
     if (input.expected_revision !== undefined && (!Number.isSafeInteger(input.expected_revision) || input.expected_revision < 1)) throw new Error('Provide the current model revision');
     return this.request(`/vendors/${uuid(credentialId)}/models`, input, options);
+  }
+
+  /** Bounded upstream catalog probe using the saved credential. Does not generate output. */
+  checkSupplierModel(credentialId: string, alias: string, options?: RequestOptions): Promise<{ data: SupplierModelCheck }> {
+    if (!alias.trim() || alias.length > 200) throw new Error('Provide a model alias');
+    return this.request(`/vendors/${uuid(credentialId)}/check`, { alias }, options);
   }
 
   /** Platform-only safe-failure state; reading does not probe or reset the credential. */
