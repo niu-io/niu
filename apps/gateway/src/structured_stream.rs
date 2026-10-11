@@ -1,4 +1,4 @@
-//! Bounded validation of streamed structured Chat output. Partial deltas are
+//! Bounded validation of streamed structured Chat and function output. Partial deltas are
 //! provisional; a terminal marker is released only after validation. Accounting
 //! evidence is handled independently by the stream completion writer.
 use serde_json::Value;
@@ -127,6 +127,7 @@ struct Choice {
 
 pub struct StructuredStream {
     schema: Option<jsonschema::Validator>,
+    json_required: bool,
     choices: BTreeMap<u64, Choice>,
     bytes: usize,
     invalid: bool,
@@ -139,6 +140,7 @@ impl StructuredStream {
     pub fn new(schema: Option<jsonschema::Validator>) -> Self {
         Self {
             schema,
+            json_required: true,
             choices: BTreeMap::new(),
             bytes: 0,
             invalid: false,
@@ -146,6 +148,14 @@ impl StructuredStream {
             tool_count: 0,
             selection: ToolSelection::from_request(&Value::Null),
         }
+    }
+
+    /// Text-mode tool conversations share call/selection validation, without
+    /// imposing a JSON format on the assistant's final answer.
+    pub fn text() -> Self {
+        let mut output = Self::new(None);
+        output.json_required = false;
+        output
     }
 
     pub fn with_tools(mut self, request: &Value) -> Self {
@@ -291,6 +301,9 @@ impl StructuredStream {
                 }
                 if !self.selection.valid(&[]) {
                     return false;
+                }
+                if !self.json_required {
+                    return true;
                 }
                 let Ok(value) = serde_json::from_str::<Value>(&choice.content) else {
                     return false;

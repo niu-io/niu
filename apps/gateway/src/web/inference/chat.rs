@@ -1251,6 +1251,9 @@ async fn stream_openai_compatible(
             structured_schema_validator(&body["response_format"]["json_schema"]["schema"])
                 .map_err(|_| ApiError::invalid_request("Invalid structured output schema"))?,
         ))),
+        _ if chat_route_requirements(&body, true)?.tools => {
+            Some(crate::structured_stream::StructuredStream::text())
+        }
         _ => None,
     };
     let structured = structured.map(|output| output.with_tools(&body));
