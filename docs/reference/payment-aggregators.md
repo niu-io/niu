@@ -920,3 +920,23 @@ Readiness returned 200 and authenticated published-routing status matched.
 Configuration and secrets file hashes, vendor ciphertexts/revisions and durable
 organization, workspace, video and ledger counts stayed unchanged on schema 277.
 The refresh did not enable payments or alter the saved integration configuration.
+
+
+### Actual Zhifux top-up recording contention — 2026-10-12
+
+The clean `cefd284` binary loaded the owner's saved real Zhifux merchant
+credentials privately in an isolated restored native installation. A CNY company
+was created through the normal API. While another PostgreSQL session held its
+company row lock, an explicit Zhifux top-up intent returned sanitized HTTP 503
+within the recording budget. No order, checkout link, funding receipt or balance
+entry was added. After releasing the lock and restarting Gateway, those original
+counts were unchanged. No checkout retry or payment was initiated.
+
+Independent reopening matched the retained counts, saved error body, PostgreSQL
+lock-timeout diagnostic and clean executable hash. The merchant credential was
+absent from the response and Gateway log. This verifies lock refusal in shared
+intent recording for an actual configured integration; it does not verify EPay's
+locally signed checkout persistence, partial-write rollback, success after retry,
+merchant activation, actual payment or positive funding. The earlier inactive
+EPay observations retain their narrower scope. Original runtime configuration,
+database and encryption identity were untouched.
