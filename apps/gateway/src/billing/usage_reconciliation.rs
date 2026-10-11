@@ -191,7 +191,7 @@ pub(crate) struct ReconcileInput {}
 ///         "description": "Upstream metadata unavailable, refused, malformed, oversized or timed out."
 ///       },
 ///       "503": {
-///         "description": "Storage or credential decryption unavailable."
+///         "description": "Storage or credential decryption unavailable, including a bounded record-lock or statement timeout. A failed recording transaction preserves prior usage and leaves no partial receipt; retry does not resubmit inference."
 ///       }
 ///     },
 ///     "x-niu-implementation": "implemented"

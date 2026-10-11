@@ -5850,7 +5850,7 @@ HTTP 409: Ineligible completion, changed route, conflicting evidence or model/re
 
 HTTP 502: Upstream metadata unavailable, refused, malformed, oversized or timed out.
 
-HTTP 503: Storage or credential decryption unavailable.
+HTTP 503: Storage or credential decryption unavailable, including a bounded record-lock or statement timeout. A failed recording transaction preserves prior usage and leaves no partial receipt; retry does not resubmit inference.
 
 ## Read recorded supplemental request usage
 

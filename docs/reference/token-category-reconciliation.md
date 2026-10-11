@@ -59,3 +59,34 @@ no open hold. Independent reopening recomputed the amount from the saved actual
 response and pinned rates, and confirmed preserved encrypted credential identity.
 This verifies the existing aggregate-recovery path after this change; it does
 not fill the category-only customer settlement evidence gap above.
+
+## Bounded recording under contention
+
+The recording transaction uses a 250 ms lock timeout and a two-second statement
+timeout. These settings are transaction-local and do not change the connection's
+subsequent work. They bound database lock/statement waits, not the entire HTTP
+request: the preceding metadata lookup has its own deadline, and pool acquisition
+has its existing timeout. Failure rolls back the receipt and category update
+and returns a sanitized storage error. Retrying reconciliation never resubmits
+inference.
+
+A fresh actual Messages completion retained known totals and missing reasoning.
+An independent PostgreSQL session held that attempt's row lock while the API
+queried its original upstream metadata. The API returned 503 in approximately
+0.93 seconds; PostgreSQL independently logged the lock timeout. While the lock
+remained held, reads confirmed no receipt and still-unknown reasoning. The HTTP
+error exposed neither SQL nor private routing/credential fields.
+
+After releasing the lock, eight concurrent reconciliation calls all returned
+the same receipt. Restart preserved it. Independent reopening matched the saved
+Messages response, separately fetched terminal generation metadata, original
+category record, unchanged completion timestamp and final merged quantities.
+Exactly one attempt and one receipt remained, with no customer financial entries.
+This verifies bounded recording failure and concurrent retry for an actual
+personal request; it does not qualify a missing-category customer debit or
+throughput capacity.
+
+An earlier concurrency run reached the generation endpoint before metadata was
+available and received 502 for all lookups. The successful contention run waited
+for independently observed terminal metadata before racing record writes. No
+inference retry or relaxation of evidence checks was added.
