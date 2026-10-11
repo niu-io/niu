@@ -50,7 +50,7 @@ impl Store {
         if amount.is_some_and(|v| v < 0) || expected < 0 || expected == i64::MAX {
             return Err(StoreError::InvalidPrice);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         let (actor_kind, actor_name, actor_id) = match actor {
             OperatorAuditActor::Installation => (
                 "installation",

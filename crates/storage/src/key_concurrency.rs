@@ -38,7 +38,7 @@ impl Store {
         {
             return Err(StoreError::InvalidKey);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         let (kind, name, actor_id) = match actor {
             OperatorAuditActor::Installation => (
                 "installation",

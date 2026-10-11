@@ -68,7 +68,7 @@ impl Store {
                     .collect::<Result<Vec<_>, StoreError>>()
             })
             .transpose()?;
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         let (kind, name, actor_id) = match actor {
             OperatorAuditActor::Installation => (
                 "installation",
