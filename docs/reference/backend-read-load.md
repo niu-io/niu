@@ -83,6 +83,31 @@ uses the existing transactional migration mechanism and takes the usual index
 creation lock; no concurrent online migration is claimed.
 
 The same inspection found Supplier-earning recovery scanning 112 completed
-attempts even with no bound offers. That query still requires separate bounded
-candidate traversal work. The other inspected media/release queues were empty;
+attempts even with no bound offers. The Supplier follow-up below addresses that lookup.
+The other inspected media/release queues were empty;
 their empty plans do not qualify nonempty recovery or large-history performance.
+
+
+## Follow-up: Supplier recovery candidate pages
+
+Supplier-earning recovery now materializes at most 100 offer bindings before
+joining attempt state and checking whether an earning is missing. All inspected
+bindings advance the existing durable cursor; only eligible rows enter the
+existing per-row settlement transaction. The completed-execution and reported
+usage/media-pricing requirements are preserved. No new recovery worker or ledger
+is introduced.
+
+A current native run used an isolated copy of 112 real completed requests with no
+Supplier offer bindings. The old lookup read all 112 attempts. The new lookup
+read the empty offer index and never entered the attempts scan. The running
+Supplier recovery stage advanced its persisted timestamp, and restart preserved
+the complete customer-ledger fingerprint with no Supplier earnings created.
+An independent process reopened the database and checked these retained plans,
+query hash and durable records. This run also applied migration 0265 through the
+gateway's migrator and retained its valid index across restart. Formatting,
+Clippy and release compilation completed as structural checks.
+
+The current-input verification covers the empty-offer exclusion path only.
+Nonempty Supplier earnings, mixed eligible/ineligible pages, cursor traversal
+across more than 100 real offer bindings, and settlement retry/restart behavior
+remain unverified. This change does not qualify commercial supply or payouts.
