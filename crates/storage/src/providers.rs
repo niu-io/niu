@@ -449,7 +449,7 @@ impl Store {
         {
             return Err(StoreError::InvalidAccount);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         let profile = sqlx::query_as("UPDATE provider_businesses SET name=$2,description=COALESCE($3,description),website_url=COALESCE($4,website_url),logo_url=COALESCE($5,logo_url),profile_revision=profile_revision+1 WHERE id=$1 AND deleted_at IS NULL AND ($6::bigint IS NULL OR profile_revision=$6) RETURNING id,name,description,website_url,logo_url,profile_revision AS revision")
             .bind(provider).bind(input.name.trim()).bind(description).bind(website).bind(logo).bind(input.expected_revision)
             .fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
@@ -972,7 +972,7 @@ impl Store {
         if sorted.len() != attempts.len() {
             return Err(StoreError::InvalidPrice);
         }
-        let mut tx = self.begin_financial_recording().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         sqlx::query(
             "SELECT id FROM provider_businesses WHERE id=$1 AND deleted_at IS NULL FOR UPDATE",
         )

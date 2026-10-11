@@ -174,7 +174,7 @@ SELECT jsonb_build_object(
         if amount_nanos <= 0 {
             return Err(StoreError::InvalidPrice);
         }
-        let mut tx = self.begin_financial_recording().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR SHARE")
             .bind(organization)
             .fetch_optional(&mut *tx)
@@ -255,7 +255,7 @@ SELECT jsonb_build_object(
         {
             return Err(StoreError::InvalidPrice);
         }
-        let mut tx = self.begin_financial_recording().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR UPDATE")
             .bind(organization)
             .fetch_optional(&mut *tx)
@@ -297,7 +297,7 @@ SELECT jsonb_build_object(
         {
             return Err(StoreError::InvalidPrice);
         }
-        let mut tx = self.begin_financial_recording().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         sqlx::query("SELECT id FROM organizations WHERE id=$1 FOR UPDATE")
             .bind(organization)
             .fetch_optional(&mut *tx)
@@ -827,7 +827,7 @@ SELECT jsonb_build_object(
         {
             return Err(StoreError::InvalidPrice);
         }
-        let mut tx = self.begin_financial_recording().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         sqlx::query("SELECT id FROM projects WHERE organization_id=$1 AND id=$2 FOR UPDATE")
             .bind(scope.organization_id)
             .bind(scope.project_id)
@@ -886,7 +886,7 @@ SELECT jsonb_build_object(
         {
             return Err(StoreError::InvalidPrice);
         }
-        let mut tx = self.begin_financial_recording().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         sqlx::query("SELECT id FROM customer_invoices WHERE id=$1 AND organization_id=$2 AND project_id=$3 FOR UPDATE").bind(invoice).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
         if let Some(prior) = sqlx::query_scalar::<_, String>(
             "SELECT payment_reference FROM customer_invoice_payments WHERE invoice_id=$1",
