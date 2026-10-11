@@ -294,3 +294,25 @@ not qualify nonempty commercial-offer mutations, personal/pool snapshot coherenc
 publication generations, rejected publications or generation-pinned attempts.
 Those remain part of the complete immutable registry work. No fixture outcome
 was used as evidence.
+
+## Concurrent model pricing edits — 2026-10-11
+
+A fresh isolated run created one Supplier with two independent credential
+configurations and a model on each. Two simultaneous management requests edited
+the first model's procurement input rate using the same expected revision one.
+Exactly one returned 200 and one returned 409. The model retained the winning
+rate at revision two. The second configuration's ciphertext digest/revision and
+complete model-management response stayed unchanged through gateway restart.
+
+Both routes subsequently completed actual personal OpenRouter requests with
+fresh requested markers. Independent reopening matched the saved responses to
+two exact customer charges/debits at their unchanged customer tariffs, confirmed
+the winning model rate and the untouched sibling model at revision one, and found
+no open customer holds. No funding receipts, commercial offers or qualification
+records were manufactured. These configurations used the same saved personal
+upstream key; they do not represent independently issued upstream accounts.
+
+This verifies optimistic concurrency for the exercised model-price edit and
+continued operation of the sibling configuration. It does not qualify a price
+change racing an already dispatched request, Supplier earnings/settlement,
+external commercial supply or rendered configuration forms.
