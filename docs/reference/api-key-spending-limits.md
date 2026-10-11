@@ -343,3 +343,51 @@ combination using personal upstream access and approved internal credit; it does
 not establish merchant funding, commercial Supplier rights or media settlement.
 No fixture outcome is evidence. Original development data and encryption were
 unchanged.
+
+## Bounded policy recording across key controls — 2026-10-12
+
+Key spending, request-rate, token-rate, concurrency and IP policy updates all
+serialize on the durable key identity. An actual native HTTP run on retained
+`cafce5a` locked that identity row separately for each valid update. All five
+requests remained pending after approximately 1.60 seconds; releasing the lock
+allowed the original requests to save their policies. No Supplier agreement,
+external payment or inference was fabricated for this management run.
+
+Committed `03a027a81c6dc0597ac2f184fa44ce0dd964dcf7` uses the existing bounded
+recording initializer for all five writes. Validation, owner authorization,
+identity locking, expected revisions, audit history and commit logic are preserved.
+The shared transaction-local limits are 250 ms for lock waits and two seconds per
+statement. They do not change pool-wide settings or impose a whole-request deadline.
+Storage contention retains the existing HTTP 503 response contract.
+
+A repeat on the digest-verified clean committed binary returned 503 in roughly
+252–256 ms for every policy while the identity lock was still held. Each timeout
+left the current policy/history and customer financial counts unchanged. Successful
+updates after release created exactly one revision per policy; stale revision
+replays returned 409. Key rotation and Gateway restart preserved all five policies
+and the zero pre-request usage state. The old credential returned 401. The token
+window's observation timestamp naturally changes between reads and was excluded
+from policy equality; quantities and policy fields were checked.
+
+The rotated key then made one actual structured text request. The native response
+reported 46 input and 10 output tokens; the bound customer tariff produced exactly
+**155,556 USD nanounits** and one matching debit. A second request returned 429
+under the one-request-per-minute policy, including after restart, without another
+attempt or charge. Both original and replacement keys were revoked at completion.
+
+Independent reopening checked the saved policy responses and actual native
+response against PostgreSQL: one revision in each history, common rotation identity,
+preserved absolute expiry and model permissions, the original recovered request's
+unchanged charge/debit, and exactly one new completed request attributed to the
+replacement key with the exact bound-tariff debit. No open reservation, external
+funding receipt or invoice payment remained. An initial verification script compared
+all timeouts to the starting counts instead of each policy's pre-update counts;
+correcting that client bookkeeping and repeating the run preceded the actual call.
+
+After fresh backup restoration matched business and encrypted-identity
+fingerprints, graceful native replacement preserved configuration, credential
+ciphertexts/revisions and durable counts on schema 278. Exact replacement and
+previous retained binaries were checked; authenticated routing configuration still
+matched. No fixture outcome is evidence. This qualifies these policy-contention,
+rotation and exercised admission paths; it does not establish every cross-protocol
+interleaving, production throughput, permanent keys or full New API parity.
