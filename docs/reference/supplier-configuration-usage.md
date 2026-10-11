@@ -118,3 +118,33 @@ totals and model rows returned. Independent database reopening reconciled token
 and timing sums; the PostgreSQL log recorded lock-timeout cancellation. This
 checks lock contention and recovery, not the two-second execution deadline under
 a large-history workload or production throughput.
+
+## Retained-history read baseline
+
+On 2026-10-11 an isolated stopped copy of the 600 actual Chat attempts from the
+existing eight-key upstream run was read through the current HTTP endpoint.
+The administrator explicitly associated its existing configurations with a
+personal diagnostic Supplier; this was current configuration attribution, not
+commercial qualification. No synthetic attempts or additional inference were
+inserted for this workload.
+
+Eight concurrent readers ran for 30.004 seconds with two admission-pool database
+connections and one separately observed maintenance connection. All 59,155 HTTP
+reads returned 200, no-store and identical full-range/model statistics. Observed
+throughput was 1,971.58 reads/second; latency was p50 3.983 ms, p95 4.434 ms,
+p99 4.747 ms and maximum 28.897 ms. Percentiles use the stored sorted samples
+at floor(N × percentile), with the median for p50.
+
+Across 109 process/connection samples, Gateway CPU consumption was 7.09 CPU
+seconds (23.61% of one core over the sampled interval), and sampled peak RSS was
+18.58 MiB. Sampling targeted 250 ms intervals and included measurement overhead.
+These are Gateway process observations, not combined PostgreSQL/system resource
+use, a memory ceiling or a production capacity limit.
+
+Restart preserved the report. Independent reopening matched each retained
+attempt's original usage and key attribution, all 600 exact customer charges and
+ledger debits, the Supplier route association and timing sum. No new attempts,
+held reservations or financial differences appeared. Independently recalculating
+stored latency/resource samples reproduced the reported metrics. This is a
+600-row, warmed, local read baseline; it does not qualify large histories,
+concurrent ingestion, multi-instance deployment or comparison with New API.
