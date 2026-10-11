@@ -23,6 +23,7 @@ mod request_timings;
 mod state;
 mod streaming;
 mod structured_stream;
+mod supplier_configuration_usage;
 mod token_pricing;
 mod upstream;
 mod usage;

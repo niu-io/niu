@@ -933,6 +933,23 @@ export class NiuAdminClient {
     return this.request(`${this.dashboardVideoPath(scope,keyId)}/jobs/${uuid(jobId)}/results`,undefined,options,'DELETE');
   }
 
+  /** Platform-only current-configuration traffic, independent of offers and earnings.
+   * Range totals are independent of model pagination; pages are live snapshots.
+   */
+  getSupplierConfigurationUsage(supplierId: string, range: SupplierConfigurationUsageQuery, options?: RequestOptions): Promise<{ data: SupplierConfigurationUsage }> {
+    if (!Number.isSafeInteger(range.from_ms) || !Number.isSafeInteger(range.to_ms) || range.from_ms < 0 || range.to_ms > 253402300799999 || range.to_ms <= range.from_ms || range.to_ms - range.from_ms > 90 * 86400000) throw new TypeError('Usage range must be positive and at most 90 days');
+    const query = new URLSearchParams({ from_ms: String(range.from_ms), to_ms: String(range.to_ms) });
+    if (range.limit !== undefined) {
+      if (!Number.isInteger(range.limit) || range.limit < 1 || range.limit > 100) throw new TypeError('Usage page limit must be 1–100');
+      query.set('limit', String(range.limit));
+    }
+    if (range.after !== undefined) {
+      if (!range.after.length || new TextEncoder().encode(range.after).length > 256) throw new TypeError('Invalid model boundary');
+      query.set('after', range.after);
+    }
+    return this.request(`/providers/${uuid(supplierId)}/configuration-usage?${query}`, undefined, options);
+  }
+
   /** Current own-Supplier rates, with explicit alias continuation; no customer identities. */
   listSupplierOffersPage(supplierId: string, page: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<{ data: SupplierOffer[]; next_after: string | null }> {
     const query = new URLSearchParams();
@@ -2344,4 +2361,34 @@ function ledgerHistoryQuery(page: LedgerHistoryQuery): URLSearchParams {
     if (page.fromMs !== undefined) query.set('from_ms', String(page.fromMs));
     if (page.toMs !== undefined) query.set('to_ms', String(page.toMs));
     return query;
+}
+
+/** Exact decimal strings avoid loss of precision in aggregated counters. */
+export interface SupplierConfigurationUsageTotals {
+  requests: string;
+  completed: string;
+  execution_unknown: string;
+  known_token_usage_requests: string;
+  unknown_token_usage_requests: string;
+  prompt_tokens: string;
+  completion_tokens: string;
+  failures: string;
+  observed_timing_requests: string;
+  complete_timing_requests: string;
+  /** Complete HTTP delivery durations only, not asynchronous job duration. */
+  complete_total_ms: string | null;
+}
+export interface SupplierConfigurationUsageQuery {
+  from_ms: number;
+  to_ms: number;
+  after?: string;
+  limit?: number;
+}
+export interface SupplierConfigurationUsage {
+  from_ms: number;
+  to_ms: number;
+  observed_at: string;
+  totals: SupplierConfigurationUsageTotals;
+  models: Array<SupplierConfigurationUsageTotals & { model: string }>;
+  next_after: string | null;
 }

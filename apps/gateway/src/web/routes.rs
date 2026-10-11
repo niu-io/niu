@@ -124,6 +124,10 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/admin/v1/platform/payments/epay", get(crate::payments::read_configuration_api).put(crate::payments::save_configuration_api).layer(DefaultBodyLimit::max(16384)))
         .route("/admin/v1/platform/financial-recovery", get(crate::financial_recovery::diagnostics))
         .route("/admin/v1/platform/configuration", get(crate::providers::platform_configuration))
+        .route(
+            "/admin/v1/providers/{provider}/configuration-usage",
+            get(crate::supplier_configuration_usage::read),
+        )
         .route("/admin/v1/providers/{provider}", get(crate::providers::profile).patch(crate::providers::rename).delete(crate::providers::delete).layer(DefaultBodyLimit::max(16384)))
         .route("/admin/v1/providers", get(crate::providers::list).post(crate::providers::create))
         .route("/admin/v1/providers/{provider}/members", get(crate::providers::members))

@@ -11582,6 +11582,277 @@ HTTP 409: Missing or foreign continuation alias.
 
 HTTP 503: Storage unavailable.
 
+## Inspect operational usage of Supplier-owned configurations
+
+`GET /admin/v1/providers/{provider}/configuration-usage`
+
+Installation credential or explicit platform administrator required. Supplier membership and customer roles do not grant access. Uses current explicit configuration ownership and persisted managed/media request routes; includes disabled configurations and does not infer unbound legacy/static traffic. This is current-configuration operational history, not historical financial attribution, qualified commercial supply, earnings or settlement. Counts each dispatched attempt once, including retry attempts. From is inclusive, to exclusive, in epoch milliseconds; maximum range 90 days. Token sums include only complete provider-reported aggregate token usage; unknown requests and non-token media remain separately counted. Failures count persisted safe failure observations, not an inference that every unsuccessful request has one. Timing counts refer to recorded HTTP delivery, not video job completion. Totals cover the whole range regardless of model page. after is an exclusive lexical model-alias boundary, not an identity lookup; pages are live statement snapshots. No customer identity, request/key IDs, endpoint, credentials, costs or prices are returned. No upstream call or mutation. Cache-Control no-store.
+
+Implementation: `implemented`. Operation: `getSupplierConfigurationUsage`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`provider` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`from_ms` (query, required)
+
+```json
+{
+  "type": "integer",
+  "minimum": 0,
+  "maximum": 253402300799999
+}
+```
+
+`to_ms` (query, required)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 253402300799999
+}
+```
+
+`after` (query, optional)
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 256
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Scoped operational counts; not supply or financial qualification.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "from_ms",
+        "to_ms",
+        "observed_at",
+        "totals",
+        "models",
+        "next_after"
+      ],
+      "properties": {
+        "from_ms": {
+          "type": "integer"
+        },
+        "to_ms": {
+          "type": "integer"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "totals": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "requests",
+            "completed",
+            "execution_unknown",
+            "known_token_usage_requests",
+            "unknown_token_usage_requests",
+            "prompt_tokens",
+            "completion_tokens",
+            "failures",
+            "observed_timing_requests",
+            "complete_timing_requests",
+            "complete_total_ms"
+          ],
+          "properties": {
+            "requests": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            },
+            "completed": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            },
+            "execution_unknown": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            },
+            "known_token_usage_requests": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            },
+            "unknown_token_usage_requests": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            },
+            "prompt_tokens": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            },
+            "completion_tokens": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            },
+            "failures": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            },
+            "observed_timing_requests": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            },
+            "complete_timing_requests": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            },
+            "complete_total_ms": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9]+$",
+              "description": "Sum of complete observed HTTP delivery durations; null without any complete timing. Not asynchronous job duration."
+            }
+          }
+        },
+        "models": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "requests",
+              "completed",
+              "execution_unknown",
+              "known_token_usage_requests",
+              "unknown_token_usage_requests",
+              "prompt_tokens",
+              "completion_tokens",
+              "failures",
+              "observed_timing_requests",
+              "complete_timing_requests",
+              "complete_total_ms",
+              "model"
+            ],
+            "properties": {
+              "requests": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "completed": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "execution_unknown": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "known_token_usage_requests": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "unknown_token_usage_requests": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "prompt_tokens": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "completion_tokens": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "failures": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "observed_timing_requests": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "complete_timing_requests": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              },
+              "complete_total_ms": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[0-9]+$",
+                "description": "Sum of complete observed HTTP delivery durations; null without any complete timing. Not asynchronous job duration."
+              },
+              "model": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "next_after": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+HTTP 400: Invalid interval, cursor boundary, limit or query.
+
+HTTP 401: Authentication required.
+
+HTTP 403: Platform administration required.
+
+HTTP 404: Supplier does not exist or is deleted.
+
+HTTP 503: Storage unavailable.
+
 ## List Supplier API-key configurations without credentials
 
 `GET /admin/v1/vendors`
