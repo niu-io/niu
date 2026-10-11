@@ -72,3 +72,17 @@ measured workloads and limits. This is the documentation site's single summary
 of current performance values; historical runs retain their own pinned evidence.
 Full backend release acceptance, customer-funded video and commercial Supplier
 settlement remain unverified within the boundaries above.
+
+
+## Chat tools with structured final answers
+
+Configured OpenAI-compatible routes can combine function tools with JSON object
+or JSON schema output. A validated function turn is intermediate output; final
+text must satisfy its JSON format. Both model capabilities must be declared, and
+streaming additionally requires streamed-tool support. Niu does not execute tools.
+Partial tool deltas are provisional until terminal validation.
+
+The [combined Chat contract and actual verification](https://github.com/niu-io/niu/blob/main/docs/reference/chat-tools-structured-output.md)
+record four real client round trips with independent usage/debit checks and
+explicit unverified scope. A successful upstream example alone is not Niu
+integration evidence, and this does not qualify a complete release gate.

@@ -1,6 +1,6 @@
 # Backend workflow verification status
 
-Reviewed 2026-10-12 against main `d3dcf91`; native implementation `0b304dc`.
+Reviewed 2026-10-12 against implementation `a5f2f3b`; native implementation `a5f2f3b`.
 This is an index of scoped evidence, not a declaration that the complete release
 or New API comparison is qualified. Linked runs identify their own implementation
 revisions. Fixture outcomes provide no evidence. Current-input runs and
@@ -63,26 +63,15 @@ The documentation links to scoped payment claim/query recovery and concurrent
 customer reporting evidence; those runs retain their own executable revisions.
 
 
-## Confirmed implementation gap: combined Chat tools and JSON format
+## Combined Chat tools and JSON format
 
-Current clean implementation `0b304dc` rejects a Chat request combining function
-tools with `json_object` or `json_schema`, including streamed requests. A current
-workspace-key run declared both individual capabilities and observed explicit
-501 responses before any attempt or financial entry. Independent reopening
-confirmed zero dispatch and revoked the verification key. This is an implementation
-gap, separate from unavailable merchant activation or commercial qualification.
+The earlier `0b304dc` implementation returned explicit 501 for this combination
+before dispatch, despite declared individual capabilities. Actual direct upstream
+support did not establish Niu support. Clean `a5f2f3b` now implements intermediate
+function turns and structured final text through the existing validators.
 
-A direct personal OpenRouter observation used the same JSON schema across a
-real declared function call, a client-computed tool result and a schema-valid
-final answer. Independent inspection checked the retained requests/responses and
-native usage. This establishes that observed upstream combination only, not
-Niu integration, stream handling, accounting or a link to the original 502.
-OpenRouter documents the individual [tool-calling parameters](https://openrouter.ai/docs/guides/features/tool-calling)
-and [structured-output parameters](https://openrouter.ai/docs/guides/features/structured-outputs);
-parameter listings alone do not qualify their combined behavior through Niu.
-
-Implementation must extend the existing validators rather than merely remove
-the refusal. Declared tool-call shape and bounded streamed arguments require
-validation, while structured final text must still satisfy its JSON contract.
-Intermediate tool turns, final answers, terminal observations and customer
-accounting need actual current-input verification before support is claimed.
+[The current contract and scoped verification](../reference/chat-tools-structured-output.md)
+cover four real buffered/streamed schema/object round trips, independently checked
+native usage, exact customer debits and restart. Function selection, bounded
+stream assembly and final-text validation remain distinct. Malformed combined
+upstream output and broader provider combinations still need their own evidence.
