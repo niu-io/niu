@@ -255,3 +255,14 @@ independent database inspection confirmed the disabled pool/mapping revisions,
 original credential ciphertext fingerprint, and absence of attempts or financial
 entries. This aligns startup shadowing with existing resolution; it does not
 implement published registry generations.
+
+A follow-up actual run enabled the same database pool, configuration and candidate
+through management APIs, configured explicit internal customer rates and credit,
+and restarted without supplying the shadowed static secret. Discovery exposed the
+pool and a real personal-funded upstream completion returned the public pool
+alias and a fresh requested marker. After another restart, independent inspection
+matched the response usage to exactly one customer charge/debit and the immutable
+binding to the database credential, candidate alias and pool revision two. The
+credential ciphertext fingerprint stayed unchanged and no customer hold remained.
+This demonstrates dispatch through the database pool, not merely startup success;
+these internal verification rates are not a commercial Supplier agreement.
