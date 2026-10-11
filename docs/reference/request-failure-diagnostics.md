@@ -172,3 +172,35 @@ Other provider classifications and interrupted-stream branches require their own
 evidence. It neither reconstructs the historical GPT-4.1-mini 502 cause nor adds
 automatic replay of a failure observation lost during database refusal. Unknown
 liabilities remain unresolved until genuine recovery evidence is available.
+
+
+## Customer projections of recorded and unrecorded refusal — 2026-10-12
+
+A separate stopped-database copy of the preceding actual OpenRouter refusals was
+served by the same clean `ca4e5a9` executable. An ordinary company viewer read
+workspace Logs and CSV, rather than using installation privileges. The first
+request retained `may_have_executed`, null failure classification and `pending`
+customer charge status. The second retained `confirmed_not_executed`, immutable
+`upstream_http_error` / 401 and `not_charged`. Both delivery timing records showed
+401. Input/output quantities and customer amounts remained null in JSON and
+blank in CSV; neither absence was turned into a zero quantity or charge.
+
+Independent reopening checked the saved customer projections and export against
+both original error artifacts, immutable failure state, request timings and
+retained/released reservations. There were still exactly two attempts and no
+customer charge, balance entry or funding receipt. Restart preserved the full
+Logs response and byte-identical CSV. Recursive customer response checks found
+no procurement fields; the procurement endpoint returned 403, and a different
+organization could not read the request list or export. Both temporary readers
+were revoked and a subsequent revoked-reader export returned 401. The original
+evidence database and development runtime were unchanged; no inference was
+repeated for these reads.
+
+A null failure object means no immutable classification is available, not that
+delivery succeeded or the model did not execute. Delivery HTTP status and
+execution/accounting evidence have separate meanings. Likewise, a provider's
+401 response with `error.type=upstream_error` is distinct from Niu rejecting the
+client key. Customer presentation must preserve pending/unknown states and use
+the typed error context instead of treating every 401 as a revoked Niu key.
+This qualifies backend serialization and access for these records, not frontend
+rendering or automatic recovery of the missing failure observation.
