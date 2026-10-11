@@ -274,3 +274,13 @@ policy-history revisions, no open customer hold and unchanged encrypted Supplier
 credential. This exercises the completion-write-failure recovery branch, not
 successful settlement of cancelled upstream work. Customer-funded media and
 other providers are outside this checkpoint. No fixture outcome is evidence.
+
+## Multi-key burst across two Gateways — 2026-10-11
+
+The [64-request current-input burst](key-spending-burst.md) used eight keys with
+two fixed-fee requests of allowance each. Sixteen actual model completions and
+48 key-cap refusals produced exactly two debits per key, with no extra attempts
+or open customer reservations after restart and independent artifact inspection.
+The linked report separates successful upstream-inclusive latency from refusal
+latency and records the limits of its sampled process observations. It does not
+qualify sustained capacity, variable-token prices or funded payment.
