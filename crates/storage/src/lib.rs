@@ -31,6 +31,7 @@ mod priced_admission;
 mod request_failures;
 pub use request_failures::{RequestFailure, RequestFailureKind};
 mod request_finish_reasons;
+mod upstream_references;
 pub use request_finish_reasons::{RequestChoiceFinish, RequestFinishReason};
 mod request_token_categories;
 pub use request_token_categories::RequestTokenCategories;

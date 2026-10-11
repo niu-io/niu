@@ -445,3 +445,53 @@ encrypted identity, Supplier/attempt association, refusal artifact and liability
 This corrects configuration and qualifies those admission/refusal paths. It does
 not establish successful direct Anthropic generation, complete category usage,
 settled native charges, commercial qualification or an external payment.
+
+
+### Private OpenRouter generation correlation
+
+Canonical managed OpenRouter Messages responses now retain an allowlisted
+`X-Generation-Id` header in a server-only, immutable record linked to the dispatched
+managed attempt. Native message body IDs are not interchangeable with generation
+IDs: an actual lookup using the `msg_` body ID returned 400, while the real response
+header located a matching generation record. Client-supplied headers cannot set
+this binding. A reference cannot be reassigned to another attempt or replaced
+with a conflicting value. It is not exposed in customer headers, payloads or
+financial responses and is separate from erasable request/response content.
+
+Recording is bounded and best-effort; failure emits a sanitized diagnostic and
+does not change execution, usage or charging. Missing/malformed headers, static
+routes, custom endpoints and other native adapters do not gain an inferred
+reference. This checkpoint covers the managed native Messages path; broad Chat,
+Responses, streaming and failure-path correlation remain separate work.
+
+The [OpenRouter generation metadata API](https://openrouter.ai/docs/api/api-reference/generations/get-generation)
+returns separate normalized and native token fields, plus commercial metadata.
+A real query observed different values in those token families. Future billing
+reconciliation must use qualified native quantities, validate the original
+credential/route/reference binding and preserve unknown categories. Upstream costs
+must not enter customer responses or substitute for customer tariffs. The original
+unknown completion must remain immutable evidence; supplementing it requires an
+explicit auditable transaction with exact idempotency and pinned prices.
+
+Automatic metadata lookup, durable supplemental usage observations and settlement
+from them are not implemented. Persisting an ID does not reconcile an open hold or
+qualify the upstream's generation metadata for every protocol/model.
+
+
+A current-input Gateway run saved the real canonical response header despite a
+forged client header, without returning it in customer headers or the native body.
+The first metadata reads returned 404. A later read of the same original reference
+succeeded; no replacement inference was sent. Native token totals matched the
+retained response's explicit quantities, but the missing cache-write category
+remained missing. The metadata reported a dated model variant rather than the
+configured alias, which was recorded as an unresolved model-equivalence boundary.
+Deleting request payloads and restarting twice preserved the private reference,
+original unknown usage and its single hold, with no charge or funding entry.
+Independent reopening checked that binding, unchanged encrypted credential,
+actual metadata and payload tombstone. This validates durable correlation and a
+manual read of available upstream metadata, not automatic usage correction.
+
+An offline populated database upgrade from migration 0254 to 0255 preserved prior
+migration checksums, encrypted credential identity and the existing unresolved
+hold through restart. Independent reopening confirmed those values and an empty
+new reference table: historical generation bindings were not invented.

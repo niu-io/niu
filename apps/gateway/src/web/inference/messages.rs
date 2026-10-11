@@ -603,6 +603,27 @@ async fn execute(
             .send()
             .await
             .map_err(|e| ApiError::upstream_transport(&e))?;
+        // Messages body IDs are not OpenRouter generation IDs. Preserve the
+        // canonical response header privately before consuming the body, even
+        // when it subsequently fails. Never derive or accept it from the client.
+        if model.provider == "openrouter"
+            && model.endpoint_base().map(|base| base.trim_end_matches('/'))
+                == Some("https://openrouter.ai/api/v1")
+            && resolved.managed_route.is_some()
+            && let Some(reference) = response.headers().get("x-generation-id")
+        {
+            let saved = if let Ok(reference) = reference.to_str() {
+                matches!(tokio::time::timeout(
+                    Duration::from_millis(250),
+                    state.store.save_openrouter_generation_reference(
+                        dispatch.scope, dispatch.attempt, reference,
+                    ),
+                ).await, Ok(Ok(())))
+            } else { false };
+            if !saved {
+                tracing::warn!(attempt_id = %dispatch.attempt, "upstream reconciliation reference could not be retained");
+            }
+        }
         if !response.status().is_success() {
             return Err(provider_rejection(response).await);
         }
