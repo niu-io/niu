@@ -82,3 +82,22 @@ This verification did not replace the original database or refresh the running
 native service beyond its previously recorded `5e014f9` version. It qualifies
 this isolated 272-to-273 upgrade and preservation scope, not media usage
 aggregation or production query capacity.
+
+## Configuration usage runtime integration
+
+The native development service was subsequently refreshed to clean committed
+`3232f967e8e36092eec236781a81a57285b696be`, including configuration usage and its
+transaction-local database deadlines. A fresh backup of the original schema-272
+database was restored and independently compared before the retained binary
+upgraded an isolated stopped copy to 273. Reopening that upgraded copy again
+preserved all six business-table fingerprints, both route indexes and encryption
+identity; workspace reads survived restart.
+
+After checking the retained binary hash, graceful process replacement upgraded
+the original development service to schema 273 on its existing listener.
+Configuration-file hashes, encrypted vendor bytes/revisions and durable
+organization, workspace, video-job and financial-entry counts were unchanged.
+Readiness, an existing Supplier's configuration-usage endpoint and the six-stage
+financial-recovery endpoint returned HTTP 200. These final reads confirm runtime
+integration and do not replace the populated isolated workflow evidence above.
+No original database was replaced, key rotated or upstream generation initiated.
