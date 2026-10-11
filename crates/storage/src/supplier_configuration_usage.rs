@@ -27,12 +27,7 @@ impl Store {
         // Bound diagnostic work on a borrowed connection. Transaction-local
         // settings cannot leak into subsequent inference/accounting operations.
         // Pool acquisition and network deadlines remain separate bounds.
-        let mut tx = self.pool.begin().await?;
-        sqlx::query(
-            "SELECT set_config('lock_timeout','250ms',true), set_config('statement_timeout','2s',true)",
-        )
-        .execute(&mut *tx)
-        .await?;
+        let mut tx = self.begin_bounded_financial_snapshot().await?;
         let (exists, mut result): (bool, Value) =
             sqlx::query_as(include_str!("supplier_configuration_usage.sql"))
                 .bind(supplier)

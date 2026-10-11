@@ -141,14 +141,9 @@ impl Store {
         context: &OpenRouterReconciliationContext,
         usage: &OpenRouterUsageObservation,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
         // A metadata lookup must not wait indefinitely behind configuration or
         // accounting writers. These settings are local to this transaction.
-        sqlx::query(
-            "SELECT set_config('lock_timeout','250ms',true), set_config('statement_timeout','2s',true)",
-        )
-        .execute(&mut *tx)
-        .await?;
+        let mut tx = self.begin_bounded_recording().await?;
         // Match dispatch lock order; recheck versions after the network operation.
         sqlx::query("SELECT id FROM vendors WHERE id=$1 FOR SHARE")
             .bind(context.vendor_id)
