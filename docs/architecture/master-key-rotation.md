@@ -216,3 +216,19 @@ not affect the standalone check. Separately reread table fingerprints and migrat
 history matched the pre-command artifacts, and private configuration hashes stayed
 unchanged. Captured command output did not contain either supplied key. This does
 not qualify nonempty contents in every domain or implement re-encryption/resume.
+
+### Standalone check with an actual retained video result
+
+The inspection command was run against a stopped copy of a database containing
+an actual generated video's encrypted result reference. Changing its tag,
+truncating its ciphertext, encrypting the reference under another key, and binding
+it to another job each produced an unsuccessful exit with a sanitized retained
+content diagnostic. Each check preserved the supplied ciphertext and financial
+inventory. Restoring the original representation produced a successful exit.
+
+No Gateway listener or retention advisory lock was needed: the standalone command
+does not start cleanup. Independent reopening and AES-GCM authentication matched
+the original real result reference, Supplier credential fingerprints and ledger
+counts. Failure output contained neither the key nor the decrypted result URL.
+This adds nonempty media-domain command evidence; it does not establish coverage
+of nonempty asset/image/legacy domains, writer fencing, or rotation itself.
