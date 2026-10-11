@@ -1667,3 +1667,41 @@ This verifies availability-table contention and current saved-result reads, not
 a natural expiry transition, every authorization-table lock, conflicting-job
 runtime coverage, result-body download performance or customer-funded video.
 No clock or retention timestamp was modified to manufacture expiry evidence.
+
+
+## Bounded encrypted reference reads for actual download — 2026-10-12
+
+Encrypted result-reference reads now use the same bounded read-only snapshot as
+availability. Job status queries share one executor-aware implementation and
+classifier, usable with a pool or an existing snapshot. The snapshot is committed
+before result transport; the existing second authorization/reference check after
+network work still guards deletion, expiry and current grants. No transaction is
+held across the upstream download.
+
+An isolated copy retained the same actual personal video. Previous `bb8f95c`
+remained pending at the 1.6-second observation while result references were
+exclusively locked; release permitted an actual successful download. Clean
+committed `d4e64bf` returned 503 in 262.32 ms with the lock still held, without
+starting a result transport observation. After release, retrieval returned
+90,729 bytes of `video/mp4` with exact content length, no-store and nosniff headers.
+There was exactly one additional result transport observation for that download.
+
+Independent reopening verified the retained error response and lock diagnostic,
+clean executable digest, reference/observation/attempt fingerprints and video
+hash. FFprobe confirmed a video stream and positive duration; FFmpeg decoded the
+complete returned artifact independently. Owner-funded billing remained intact,
+with no customer media charge, balance entry, invoice payment or funding receipt.
+Restart retained availability and the verification key was revoked.
+
+The availability route was separately repeated on this implementation: lock
+refusal took 257.01 ms, release/restart preserved the saved projection, foreign
+workspace access returned 404 and revoked-key access returned 401. Its independent
+reopening confirmed the same encrypted references and durable business records.
+Native replacement preserved original configuration and encrypted identity after
+a fresh backup restored with matching business fingerprints.
+
+This verifies bounded reference-table contention before transport and successful
+retrieval of this current actual artifact. It does not qualify every authorization
+lock, a concurrent deletion during download, natural expiry, customer-funded
+video or result-download capacity. No new video generation or retention/clock
+change was performed to obtain the result.
