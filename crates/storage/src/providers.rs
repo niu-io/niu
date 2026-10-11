@@ -460,7 +460,7 @@ impl Store {
 
     /// Retain audit history; only an unconfigured Supplier can leave the directory.
     pub async fn delete_provider_business(&self, provider: Uuid) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         sqlx::query(
             "SELECT id FROM provider_businesses WHERE id=$1 AND deleted_at IS NULL FOR UPDATE",
         )
