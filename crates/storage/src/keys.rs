@@ -152,7 +152,7 @@ impl Store {
         {
             return Err(StoreError::InvalidKey);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         let row = sqlx::query("SELECT name,allowed_models,revision FROM api_keys WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND revoked_at IS NULL AND expires_at > clock_timestamp() FOR UPDATE")
             .bind(scope.organization_id).bind(scope.project_id).bind(id)
             .fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
@@ -187,7 +187,7 @@ impl Store {
         let id = Uuid::new_v4();
         let token = format!("niu_{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
         let hash = Sha256::digest(token.as_bytes()).to_vec();
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         let changed = sqlx::query("UPDATE api_keys SET revoked_at=clock_timestamp() WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND revoked_at IS NULL AND expires_at > clock_timestamp()")
             .bind(scope.organization_id).bind(scope.project_id).bind(old).execute(&mut *tx).await?.rows_affected();
         if changed != 1 {
@@ -209,7 +209,7 @@ impl Store {
 
     /// Idempotent revocation within a trusted administrative tenant scope.
     pub async fn revoke_key(&self, scope: TenantScope, id: Uuid) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         let revoked: bool = sqlx::query_scalar("SELECT revoked_at IS NOT NULL FROM api_keys WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")
             .bind(scope.organization_id).bind(scope.project_id).bind(id).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
         if !revoked {
