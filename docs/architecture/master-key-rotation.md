@@ -337,3 +337,34 @@ Compilation, formatting and library lint checks are separate static validation;
 no fixture result supports this evidence. Other nonempty domain targets, writer
 exclusion, interrupted multi-page rotation and destination-only startup remain
 unverified.
+
+## Durable transition identity
+
+Migration 272 stores two nullable 32-byte verification values on each rotation
+operation. Existing unbound maintenance history stays intact but cannot authorize
+rewrapping. New storage callers must create or resume the exact operation using
+independently derived source and target checks. An opaque in-memory handle carries
+that binding into every atomic envelope replacement; the operation UUID alone is
+no longer sufficient for the storage write API. Completion cannot change either
+check or any other operation metadata.
+
+The storage layer treats checks as verification material, not raw secrets. The
+trusted command must derive them from the actual supplied keys and operation
+identity rather than read and echo database values. Its production cryptographic
+input handling remains to be implemented. Beginning/resuming an operation uses a
+transaction-scoped advisory claim to serialize creation; it does not exclude a
+second complete maintenance process or fence already running Gateway writers.
+Those command-level ownership checks and the destination-only completion scan
+remain required before exposing rotation to operators.
+
+A fresh management-created credential exercised the bound storage writer through
+separate native caller processes. The private caller derived HMAC-SHA-256 checks
+from each supplied key, a role-specific domain and the operation UUID. Changing
+the source key, target key or operation identity returned conflict; the original
+pair resumed. An attempted completion that also changed a check was rejected.
+The same run preserved failed-write rollback and stale-envelope rejection. An
+independent verifier reopened PostgreSQL, recomputed both checks from privately
+retained inputs, and verified the restored ciphertext, unchanged metadata and
+expected authorization history. AES-GCM independently authenticated the original
+and replacement representations as identical plaintext. No full rotation command,
+upstream dispatch or multi-page crash-resume acceptance is claimed.
