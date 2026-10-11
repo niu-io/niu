@@ -693,3 +693,11 @@ restart. Independent reopening confirmed no invented receipt or charge. These
 are personal upstream calls with internal verification credit/prices, not evidence
 of merchant funding or commercial supply. Cross-credential recovery and automatic
 periodic metadata lookup remain outside this implementation.
+
+
+A separate fresh actual stream then exercised credential revocation with the new
+model binding present. Rotating only the isolated Supplier credential caused
+reconciliation to return 409 before and after restart. Independent reopening
+confirmed the original immutable model identity, the older dispatched credential
+revision, one unknown completion and hold, and no receipt, charge or debit. The
+new binding therefore does not relax the original-credential boundary.
