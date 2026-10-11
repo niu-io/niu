@@ -424,3 +424,34 @@ independently reopened database. The export was byte-identical after restart;
 procurement access returned 403 and revoked-viewer export access returned 401.
 This is actual CSV serialization/access evidence, not a claim about every
 spreadsheet application's import settings or formula execution behavior.
+
+
+### Actual reporting during concurrent writes — 2026-10-12
+
+Clean committed `3a3f02c` opened an isolated stopped-database copy of the earlier
+1,600 actual stream workload. A newly issued workspace key completed 24 more
+actual OpenRouter streams while an ordinary workspace viewer paginated request
+history. The internal verification tariffs and approved credit were retained;
+this did not use paid top-ups or qualify commercial supply.
+
+Seventeen pages were read while admissions continued: the observed persisted
+count grew from 1,601 at the first page to 1,613 at the last. Every page's full-range
+request count lay within the independently observed counts before and after that
+read. Cursor traversal exactly matched the final database's descending creation
+time/ID range at or below its first row, with no duplicate or skipped row. Newer
+requests above that anchor belong to a fresh traversal. Each HTTP page has its own
+consistent read snapshot; the summary is refreshed per request, not frozen across
+a multi-request traversal.
+
+After all 24 completions settled, customer summary and CSV covered all 1,624
+requests. Independent reopening checked every retained raw stream digest, unique
+requested marker, terminal event and native usage, then recalculated charges from
+the original rates. Total charges were 27,087,912 USD nanounits, matching the
+exact negative balance entries and exported token/charge records. No outstanding
+customer reservation or funding receipt remained. Restart preserved the summary
+and byte-identical export; the new key and reporting session were revoked.
+
+This verifies concurrent admissions during default time-ordered customer
+pagination and the settled final export on one Gateway with two configured
+admission connections. It does not qualify every mutable sort, a frozen
+cross-page aggregate, larger tenant scale or maximum reporting throughput.
