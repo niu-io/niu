@@ -101,3 +101,25 @@ Readiness, an existing Supplier's configuration-usage endpoint and the six-stage
 financial-recovery endpoint returned HTTP 200. These final reads confirm runtime
 integration and do not replace the populated isolated workflow evidence above.
 No original database was replaced, key rotated or upstream generation initiated.
+
+## Responses retry runtime integration
+
+The native development service now runs a clean source-archive build of
+`cf84a177c4d62ce0151e639c84572998fcf4efe9`, including shared bounded Chat and
+Responses authentication failover. The retained binary hash was checked before
+process replacement; uncommitted shared-worktree changes were excluded.
+
+A fresh schema-273 backup was restored and its six business-table fingerprints
+checked against the original database. The exact binary upgraded an isolated
+stopped copy to 274. Workspace directory and saved-route reads survived restart,
+offline encryption inspection succeeded, and all six financial-recovery stages
+were accessible. Independent reopening confirmed schema 274, unchanged complete
+business fingerprints and no encryption rotation operation.
+
+After graceful replacement on the existing listener, the original database also
+reached schema 274. Configuration hashes, encrypted vendor bytes/revisions and
+durable organization, workspace, video-job and balance-entry counts were
+unchanged. Actual readiness, workspace directory and six-stage financial-recovery
+reads returned HTTP 200. No original database was replaced or encryption key
+rotated. These checks establish native upgrade and runtime integration; they do
+not claim a new upstream generation or broader failover qualification.
