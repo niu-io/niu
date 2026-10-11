@@ -292,3 +292,27 @@ This qualifies recovered text usage through invoice integration and the stated
 reader permissions, not customer-funded media or external payment collection.
 No fixture outcome supports it; original development data and encryption were
 unchanged.
+
+## Settled statement overview and duplicate-payment refusal
+
+A further actual HTTP run on pinned `3235c49` copied the stopped invoice
+database above. Workspace Billing reported charged and paid amounts of exactly
+**7,655 USD nanounits**, zero due and one paid invoice. An ordinary scoped viewer
+and installation administrator received identical overview data. Recording a new
+payment reference against this already-settled invoice returned 409. Account
+fingerprints, attempt/charge/debit counts, external payment records and open
+reservations were unchanged. Gateway restart preserved the byte-identical viewer
+response; revoking the viewer changed its next request to 401.
+
+An independent verifier reopened PostgreSQL, recomputed the charge from the
+original native response and bound prices, and checked the saved overview, invoice
+entry, original-account debit and account fingerprint. One attempt, charge, debit
+and reconciliation receipt remained, with no external payment, funding receipt or
+open reservation. The verification script initially read the documented `data`
+wrapper incorrectly; correcting that client parsing and repeating the reporting
+run did not require another inference request.
+
+This verifies the recovered prepaid text statement's backend overview and safe
+duplicate-payment refusal. Unsettled invoices, other currencies/workspaces, media
+settlement and frontend Billing presentation need their own evidence. No fixture
+outcome is evidence. Original development data and encrypted identity were unchanged.
