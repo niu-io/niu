@@ -402,3 +402,13 @@ These runs cover the observed row-lock rejection and partial-write rollback with
 subsequent recovery. They do not qualify positive external invoice payment or
 every uncertain database commit outcome. Storage formatting and isolated release
 compilation completed separately; no fixture result is used as evidence.
+
+
+Clean committed `8bb70a8` repeated both contention and delayed-audit runs with
+independent final-artifact/database checks. The native installation then refreshed
+from its prior pinned version after another fresh private backup/restore check.
+Target hash and retained previous binary were verified; configuration, encrypted
+credential revisions and durable record counts stayed unchanged on schema 277.
+Retained invoice detail and published routing status remained accessible through
+authenticated no-store reads. These integration observations do not qualify a
+positive external payment or customer media settlement.
