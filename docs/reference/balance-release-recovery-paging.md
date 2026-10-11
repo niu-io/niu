@@ -93,3 +93,26 @@ revoked and progress instrumentation removed. The shared-working-tree binary has
 and private artifacts were retained. This verifies traversal of ineligible unknown
 liabilities, not 101 completed generations, eligible-release throughput, media
 pagination or production capacity.
+
+## Priced generation alongside the retained pending pages
+
+A stopped copy of the 101-admission database was started with two native Gateways,
+each using two admission-pool connections. A new key had a 5,000,000-nanounit cap
+and the existing internal 1,000,000-nanounit request fee. Six concurrent actual
+Chat requests across both Gateways produced five successful fresh-marker responses
+and one `key_spending_limit_exceeded` 402. Exactly five customer charges/debits
+totaling 5,000,000 nanounits were recorded, and that key's remaining allowance was
+zero. The recovery stage advanced during the run.
+
+All 101 original unknown customer and procurement liabilities remained held;
+reserved procurement budget returned to its original amount after the five new
+requests settled. Restart preserved those holds and five customer debits. The new
+temporary key was revoked.
+
+Independent reopening matched each response hash, fresh marker and reported usage
+to its completed attempt, exact customer fee/debit and procurement cost computed
+from its immutable rates. It also checked the original hold fingerprint, 106 total
+attempts, no funding receipts and revoked keys. The pinned binary includes shared
+working-tree changes. This is a bounded concurrent business scenario, not a
+sustained throughput measurement or a global two-connection limit; dedicated
+maintenance connections are separate from each admission pool.
