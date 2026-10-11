@@ -1021,3 +1021,29 @@ bounded claim refusal and safe recovery from the observed merchant rejection;
 it does not qualify successful checkout or payment. The existing native runtime
 was updated to this executable with configuration, encrypted credential identities
 and durable business record counts unchanged.
+
+
+### Bounded shared merchant-query admission — 2026-10-12
+
+The cross-process merchant query slot now uses the same bounded recording
+transaction as remote creation claims. Only a committed slot permits a provider
+query. A lock refusal does not advance the shared query deadline; existing
+three-second spacing, process-local admission and reconciliation semantics remain.
+
+An isolated stopped-database copy retained the actual unresolved Zhifux intent
+from the preceding creation run, rather than creating another checkout. After
+initial recovery acquired a query slot and its spacing elapsed, an exclusive
+lock on `payment_query_limits` blocked explicit reconciliation. The previous
+`d20d0cf` executable remained pending at the 1.6-second observation and continued
+only after release. Clean committed `3a3f02c` returned sanitized 503 in 257.91 ms
+while the lock remained held. Its saved query deadline was unchanged.
+
+Independent reopening checked the exact retained scope, amount and method,
+unchanged saved intent across restart, raw error response and executable digest,
+and PostgreSQL's timeout at the admission write. No merchant credential appeared
+in the response or Gateway log. One creation claim remained, without provider
+binding, checkout, settlement, funding or new financial entries. This verifies
+Zhifux's shared query-admission refusal, not positive paid-order verification or
+Stripe query behavior. The original native runtime was updated with configuration,
+encrypted identities and durable business counts unchanged; a fresh backup restored
+with matching full-row business fingerprints before replacement.
