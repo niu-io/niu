@@ -12047,6 +12047,8 @@ HTTP 403: Platform administration permission required.
 
 HTTP 404: Vendor does not exist.
 
+HTTP 409: Configuration changed during catalog retrieval; no metadata was updated. Retry against the current configuration.
+
 HTTP 502: Provider catalog unavailable or invalid.
 
 HTTP 401: Invalid or expired administrative credential.

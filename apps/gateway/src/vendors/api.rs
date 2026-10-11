@@ -1512,7 +1512,18 @@ pub async fn catalog(
     Path(id): Path<Uuid>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
-    installation(&state, &headers).await?;
+    let (_, result) = read_catalog(&state, id, &headers).await?;
+    Ok(Json(result))
+}
+
+// Carry the configuration version privately so refresh cannot apply an old
+// upstream response after a concurrent endpoint or credential edit.
+async fn read_catalog(
+    state: &AppState,
+    id: Uuid,
+    headers: &HeaderMap,
+) -> Result<(i64, Value), ApiError> {
+    installation(state, headers).await?;
     let vendor = state
         .store
         .vendor(id)
@@ -1631,7 +1642,7 @@ pub async fn catalog(
             }))
         })
         .collect::<Vec<_>>();
-    Ok(Json(json!({ "data": data })))
+    Ok((vendor.revision, json!({ "data": data })))
 }
 
 #[derive(Deserialize)]
@@ -2116,6 +2127,9 @@ pub async fn upsert_model(
 ///       "404": {
 ///         "description": "Vendor does not exist."
 ///       },
+///       "409": {
+///         "description": "Configuration changed during catalog retrieval; no metadata was updated. Retry against the current configuration."
+///       },
 ///       "502": {
 ///         "description": "Provider catalog unavailable or invalid."
 ///       },
@@ -2143,7 +2157,7 @@ pub async fn refresh_catalog(
     Path(id): Path<Uuid>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
-    let Json(result) = catalog(State(state.clone()), Path(id), headers).await?;
+    let (revision, result) = read_catalog(&state, id, &headers).await?;
     let entries = result["data"]
         .as_array()
         .into_iter()
@@ -2152,7 +2166,7 @@ pub async fn refresh_catalog(
         .collect();
     let updated = state
         .store
-        .refresh_vendor_catalog(id, entries)
+        .refresh_vendor_catalog(id, revision, entries)
         .await
         .map_err(ApiError::from_store)?;
     Ok(Json(json!({"updated": updated})))

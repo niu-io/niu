@@ -290,7 +290,25 @@ An immediate second real catalog refresh returned zero changes. Gateway restart
 preserved the responses; independent database reopening matched both mappings,
 prices and revisions against the saved artifacts and checked the catalog response
 hash. No inference, funding or commercial offer was created. Concurrent upstream
-configuration changes during refresh remain outside this checkpoint.
+configuration changes during refresh are covered separately below.
+
+### Reject stale catalog refreshes
+
+Refresh carries the credential configuration revision used for its upstream read
+into the storage transaction. After network I/O completes, storage locks that
+configuration row and compares its current revision before changing any mapping.
+A concurrent edit returns HTTP 409 with no metadata writes. No database lock is
+held across the upstream request. The public catalog response remains unchanged;
+the revision travels only through the internal handler/storage boundary.
+
+An actual OpenRouter refresh was paused at its database write while a separate
+transaction changed the configuration revision. Before the fix, it returned 200
+and applied stale metadata. With the fix, the same current-input sequence returned
+409 and both model records remained identical across restart. Independent database
+reopening confirmed the edited configuration and unchanged model revisions,
+prices and capabilities. A normal refresh and its no-change repeat were then
+rerun successfully and independently reconciled. These runs used isolated
+databases and the shared working-tree binary; no fixture result supports them.
 
 ## Shared catalog inputs use one database snapshot — 2026-10-11
 

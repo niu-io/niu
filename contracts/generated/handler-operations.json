@@ -11436,6 +11436,9 @@
           "404": {
             "description": "Vendor does not exist."
           },
+          "409": {
+            "description": "Configuration changed during catalog retrieval; no metadata was updated. Retry against the current configuration."
+          },
           "502": {
             "description": "Provider catalog unavailable or invalid."
           },

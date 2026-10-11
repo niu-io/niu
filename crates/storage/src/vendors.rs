@@ -1128,9 +1128,21 @@ impl Store {
     pub async fn refresh_vendor_catalog(
         &self,
         vendor_id: Uuid,
+        expected_revision: i64,
         entries: Vec<(String, Value)>,
     ) -> Result<u64, StoreError> {
         let mut tx = self.pool.begin().await?;
+        // Acquire this only after upstream I/O; serialize the revision check with
+        // configuration edits until all matching metadata updates commit.
+        let revision: Option<i64> =
+            sqlx::query_scalar("SELECT revision FROM vendors WHERE id=$1 FOR UPDATE")
+                .bind(vendor_id)
+                .fetch_optional(&mut *tx)
+                .await?;
+        if revision != Some(expected_revision) {
+            return Err(StoreError::Conflict);
+        }
+
         let mut updated = 0;
         for (upstream, metadata) in entries {
             if !metadata.is_object() || json_size(&metadata) > MAX_JSON_BYTES {
