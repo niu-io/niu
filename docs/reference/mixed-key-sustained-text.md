@@ -94,3 +94,35 @@ pagination, filtering, aggregate and export evidence for the exercised text
 history, not browser Logs/Usage acceptance, media reporting or unrestricted
 large-history capacity. The original development database and source evidence
 were unchanged.
+
+## Published-route runtime recheck
+
+Pinned backend `e655a37`, including immutable routing publications and Chat
+upstream-reference retention, repeated the 600-request workload in a fresh
+isolated PostgreSQL database. Eight keys each completed 75 real buffered Chat
+requests, scheduled at five requests per second with sixteen client workers and
+eight configured database connections. Each response returned HTTP 200 and its
+fresh requested marker. No fabricated upstream response or funding was used.
+
+| Observation | Result |
+| --- | --- |
+| Workload duration, excluding restart and key revocation | 121.06 seconds |
+| Achieved completion throughput | 4.956 requests/second |
+| Maximum client start delay | 10.45 ms |
+| Client round-trip p50 | 1,314.62 ms |
+| Client round-trip nearest-rank p95 | 1,742.35 ms |
+| Maximum client round-trip | 4,108.52 ms |
+| Reconciled internal customer charges | 10,064,411 USD nanounits |
+
+A separate process rehashed every retained raw response, checked its marker and
+reported usage, and reopened the stopped database. All 600 completed attempts
+matched their key and one published routing generation. Every charge matched
+exact integer arithmetic and its sole balance debit, including currency and
+customer scope. All eight keys were revoked, no customer reservation remained
+open and no funding receipt existed. Gateway restart retained all attempts.
+
+These are explicit internal verification tariffs and approved credit using
+personal upstream access, not a commercial Supplier qualification. The run does
+not establish maximum capacity or isolate Gateway latency from external service
+latency. There was no resource sampler, streaming or video workload. Differences
+from earlier latency samples are not evidence of improvement or regression.
