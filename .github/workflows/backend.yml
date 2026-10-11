@@ -1,0 +1,51 @@
+name: Backend static checks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/backend.yml'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'apps/gateway/**'
+      - 'crates/**'
+      - 'tests/extensions/**'
+      - 'vendor/**'
+      - 'contracts/**'
+  pull_request:
+    paths:
+      - '.github/workflows/backend.yml'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'apps/gateway/**'
+      - 'crates/**'
+      - 'tests/extensions/**'
+      - 'vendor/**'
+      - 'contracts/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-static-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rust:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.98.0 --profile minimal --component rustfmt --component clippy
+      - name: Check workspace formatting
+        run: cargo +1.98.0 fmt --all -- --check
+      - name: Compile and lint all workspace targets
+        run: cargo +1.98.0 clippy --locked --workspace --all-targets -- -D warnings
+      - name: Record verification scope
+        if: always()
+        run: echo 'Static Rust formatting, compilation and lint checks only. No database, merchant or upstream credentials are required. Runtime workflows, accounting, performance and release readiness require separate current-input end-to-end runs and independent artifact verification.' >> "$GITHUB_STEP_SUMMARY"
