@@ -28,6 +28,28 @@ records, the query hash, saved plans, worker progress and valid partial index.
 
 The binary included shared working-tree changes. Format, compilation and Clippy
 completed separately; fixture outcomes are not evidence. This verifies the empty
-pending sweep over retained history, not a populated procurement recovery page,
-Supplier earnings, more-than-100-row traversal or sustained capacity. No new
-commercial qualification, upstream expense or customer charge is inferred.
+pending sweep over retained history. The nonempty release case below adds a
+separate boundary; Supplier earnings, more-than-100-row traversal and sustained
+capacity remain unverified. No new commercial qualification, upstream expense or
+customer charge is inferred.
+
+## Independent release failures with actual upstream rejection
+
+A new request under explicit internal verification rates received an actual
+OpenRouter 401 and the supported text nonexecution classification. A temporary
+trigger blocked procurement reservation release. The customer reservation still
+released, while the procurement reservation remained held across Gateway restart.
+After revoking the key and removing the fault, the paged worker released that
+reservation and reduced reserved procurement budget by its exact original amount.
+Another restart preserved the released state and unchanged customer ledger.
+
+Independent database reopening checked the actual 401 record, nonexecution,
+reservation amount/state, exact budget decrement, released customer reservation,
+revoked key, single attempt and removed trigger. No customer charge was created.
+A reciprocal actual-request run blocked customer release and confirmed procurement
+release still completed while the customer hold remained; removing that fault
+then allowed customer recovery without a ledger debit.
+
+These isolated runs establish independent recovery for this explicit authentication
+rejection policy. They do not generalize nonexecution to arbitrary errors or
+qualify positive upstream cost settlement and commercial Supplier earnings.
