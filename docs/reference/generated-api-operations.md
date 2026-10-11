@@ -10394,6 +10394,7 @@ Content type: `application/json`.
 ```json
 {
   "type": "object",
+  "additionalProperties": false,
   "required": [
     "role",
     "active"

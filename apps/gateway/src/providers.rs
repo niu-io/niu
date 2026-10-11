@@ -683,6 +683,7 @@ pub struct Membership {
 ///         "application/json": {
 ///           "schema": {
 ///             "type": "object",
+///             "additionalProperties": false,
 ///             "required": [
 ///               "role",
 ///               "active"
