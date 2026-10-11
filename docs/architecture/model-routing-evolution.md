@@ -389,3 +389,35 @@ and dispatch must apply the same distinction. Verify natural cooldown recovery
 and qualification expiry without configuration writes as part of snapshot
 acceptance, alongside explicit disable/revoke races. This extends the input
 inventory; it does not relax existing transactional dispatch rechecks.
+
+### Transaction and initialization integration constraints
+
+The present `Store` owns a PostgreSQL pool, while validated static configuration
+belongs to `AppState`. `AppState::new` clones the store into `GatewayWrites`, and
+startup currently seeds configured vendors before constructing that state. A
+publisher added only to the final state's store would therefore miss bootstrap
+and could leave earlier clones outside its transaction authority.
+
+Use one pure compiler contract supplied at construction, with immutable validated
+static inputs, rather than making the storage crate depend on gateway runtime
+state or allowing a compiler to perform network I/O. Install that authority before
+route writers or their clones can run. An existing database must bootstrap its
+initial complete publication from retained configuration; an import-once restart
+must preserve existing administrator changes. Background financial/content
+stores do not become alternate route publishers.
+
+Every participating mutation must acquire publication serialization **before**
+its existing vendor/model/pool/offer row locks. Acquiring a global publication
+lock only after a mutation has locked rows allows two writers to deadlock when
+complete compilation reads the other's rows. Compilation, generation insertion
+and active-pointer replacement belong to that same transaction. Read the proposed
+configuration through its transaction connection, not through a second pool
+acquisition that cannot see the uncommitted mutation. On commit failure, do not
+publish an in-memory generation or report success.
+
+Mixed-version writers need an explicit database compatibility boundary before
+publication becomes authoritative. A writer that changes route rows without the
+publication contract must not silently leave the active generation stale. These
+constraints must be addressed in the connected implementation, not by adding an
+unused optional cache or changing callers one at a time while claiming the
+registry is authoritative.
