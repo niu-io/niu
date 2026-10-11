@@ -1,4 +1,4 @@
-use super::schema::validator as structured_schema_validator;
+use crate::inference_schema::validator as structured_schema_validator;
 use std::{sync::atomic::Ordering, time::Duration};
 
 use axum::{

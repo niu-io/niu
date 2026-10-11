@@ -1,7 +1,7 @@
 //! Bounded offline schema compilation shared by native protocol validators.
 use serde_json::Value;
 
-pub(super) fn validator(schema: &Value) -> Result<jsonschema::Validator, ()> {
+pub(crate) fn validator(schema: &Value) -> Result<jsonschema::Validator, ()> {
     // Bound compilation independently of the overall request size. Offline mode
     // also prevents caller-controlled references from reading files or making requests.
     if serde_json::to_vec(schema).map_err(|_| ())?.len() > 65_536 {

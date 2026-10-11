@@ -18,9 +18,9 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///   "operation": {
 ///     "operationId": "createMessage",
 ///     "x-niu-implementation": "implemented",
-///     "x-niu-status": "Native buffered text and explicitly enabled client tools; text streaming is separately enabled. Streaming tools, media and extended thinking remain unsupported.",
+///     "x-niu-status": "Native text and client tools with separately enabled text/tool streaming. Media and extended thinking remain unsupported.",
 ///     "summary": "Create a native text Message, optionally streamed",
-///     "description": "Requires supports_messages on an OpenRouter or Anthropic route. Uses Niu bearer or x-niu-api-key credentials, workspace grants, source policy, limits, guardrails and billing. Requests are limited to 64 KiB and conservative configured pricing bounds. No Chat translation. Media, beta headers and unsupported fields are rejected before dispatch. Buffered client tools require supports_messages_tools; route pools filter this capability. Tool definitions are limited to name, description and bounded offline object input_schema. tool_choice supports auto/any/none/tool and optional disable_parallel_tool_use. History requires uniquely identified assistant tool_use blocks followed immediately by matching user tool_result blocks with string content, before ordinary user text. Tools must remain declared for tool history. Streaming tools are rejected. Tool names, IDs and arguments are validated and projected; Niu does not execute tools. Required text input/output inspection rejects tool requests before dispatch rather than silently skipping tool content. A tool_use stop is a completed provider turn, not completion of a client task. Only version 2023-06-01 is supported (also used when omitted). Native input_tokens excludes cache reads/writes; total input accounting requires all three input categories plus output_tokens. Missing or null categories leave usage unresolved and reservations retained. Separate reasoning rates in the bound base price or a reachable context tier are rejected atomically before dispatch with 422 and x-niu-error-code unsupported_token_pricing; this adapter cannot report reasoning usage. Returned usage is not proof of a settled charge. Upstream commercial metadata is never forwarded. Native SDK and Claude Code compatibility are unverified. Streaming additionally requires supports_messages_streaming. Route pools filter this capability before priority/weight selection; no eligible candidate returns 503 before dispatch. Native SSE validates ordered text events and projects customer-safe fields with a 64 KiB per-event limit. Completion requires message_stop; missing terminal evidence, upstream interruption and client cancellation retain uncertainty and reservations. Cumulative usage updates replace earlier counts; never sum deltas or infer missing categories. HTTP 200 alone is not completed usage. No credential switch or inference retry after headers. Required output inspection rejects streaming before dispatch. SDK messages.stream() stops at message_stop; an upstream extra [DONE] is not forwarded.",
+///     "description": "Requires supports_messages on an OpenRouter or Anthropic route. Uses Niu bearer or x-niu-api-key credentials, workspace grants, source policy, limits, guardrails and billing. Requests are limited to 64 KiB and conservative configured pricing bounds. No Chat translation. Media, beta headers and unsupported fields are rejected before dispatch. Buffered client tools require supports_messages_tools; route pools filter this capability. Tool definitions are limited to name, description and bounded offline object input_schema. tool_choice supports auto/any/none/tool and optional disable_parallel_tool_use. History requires uniquely identified assistant tool_use blocks followed immediately by matching user tool_result blocks with string content, before ordinary user text. Tools must remain declared for tool history. Streaming tools additionally require supports_messages_streaming_tools, supports_messages_tools and supports_messages_streaming; pools filter all required capabilities. Only sequential content blocks are supported; interleaved tool blocks fail safely. Native input_json_delta fragments are bounded to 64 KiB per tool and 256 KiB per message, parsed and schema-validated before content_block_stop is emitted. Tool IDs must be unique. Consumers must wait for message_stop before executing tool calls; error events and incomplete streams do not establish valid completion. Tool names, IDs and arguments are validated and projected; Niu does not execute tools. Required text input/output inspection rejects tool requests before dispatch rather than silently skipping tool content. A tool_use stop is a completed provider turn, not completion of a client task. Only version 2023-06-01 is supported (also used when omitted). Native input_tokens excludes cache reads/writes; total input accounting requires all three input categories plus output_tokens. Missing or null categories leave usage unresolved and reservations retained. Separate reasoning rates in the bound base price or a reachable context tier are rejected atomically before dispatch with 422 and x-niu-error-code unsupported_token_pricing; this adapter cannot report reasoning usage. Returned usage is not proof of a settled charge. Upstream commercial metadata is never forwarded. Native SDK and Claude Code compatibility are unverified. Streaming additionally requires supports_messages_streaming. Route pools filter this capability before priority/weight selection; no eligible candidate returns 503 before dispatch. Native SSE validates ordered text and opted-in tool events and projects customer-safe fields with a 64 KiB per-event limit. Completion requires message_stop; missing terminal evidence, upstream interruption and client cancellation retain uncertainty and reservations. Cumulative usage updates replace earlier counts; never sum deltas or infer missing categories. HTTP 200 alone is not completed usage. No credential switch or inference retry after headers. Required output inspection rejects streaming before dispatch. SDK messages.stream() stops at message_stop; an upstream extra [DONE] is not forwarded.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -690,7 +690,8 @@ async fn execute(
     // routes. Filter pool candidates before applying their priority/weight.
     let requirements = crate::config::ModelRequirements {
         messages_streaming: streaming,
-        messages_tools: super::messages_tools::requested(&body),
+        messages_tools: crate::native_messages_tools::requested(&body),
+        messages_streaming_tools: streaming && crate::native_messages_tools::requested(&body),
         ..Default::default()
     };
     let resolved = crate::vendors::resolve_scoped_model(
@@ -707,9 +708,17 @@ async fn execute(
             "This route does not declare native Messages support",
         ));
     }
-    if super::messages_tools::requested(&body) && !model.supports_messages_tools {
+    if crate::native_messages_tools::requested(&body) && !model.supports_messages_tools {
         return Err(ApiError::unsupported_message(
             "This route does not declare native Messages tools support",
+        ));
+    }
+    if streaming
+        && crate::native_messages_tools::requested(&body)
+        && !model.supports_messages_streaming_tools
+    {
+        return Err(ApiError::unsupported_message(
+            "This route does not declare streaming Messages tools support",
         ));
     }
     if streaming && !model.supports_messages_streaming {
@@ -826,7 +835,7 @@ async fn execute(
                     store:state.store.clone(), gateway_writes:state.gateway_writes.clone(),
                     diagnostic_writes:state.diagnostic_writes.clone(), scope:dispatch.scope, id:dispatch.attempt,
                     priced:dispatch.priced, usage:usage_attempt, failures:state.failures.clone(),
-                }, public_model.clone(),
+                }, public_model.clone(), crate::native_messages_tools::StreamTools::new(&body),
             ));
             response.headers_mut().insert("content-type", "text/event-stream".parse().unwrap());
             response.headers_mut().insert("cache-control", "no-store".parse().unwrap());
@@ -943,7 +952,7 @@ fn validate(body: &Value) -> Result<i64, ApiError> {
     if serde_json::to_vec(body).map_err(|_| invalid())?.len() > 64 * 1024 {
         return Err(invalid());
     }
-    if !super::messages_tools::valid(body) {
+    if !crate::native_messages_tools::valid(body) {
         return Err(invalid());
     }
     Ok(bound)
@@ -972,7 +981,7 @@ fn normalize(
     // OpenRouter emits citations: null on ordinary native text blocks. Accept
     // only absent/empty citations; project text explicitly so no nested metadata
     // can cross the customer boundary or bypass output inspection.
-    let tool_definitions = super::messages_tools::definitions(request);
+    let tool_definitions = crate::native_messages_tools::definitions(request);
     let content = value["content"].as_array().and_then(|parts| {
         if parts.is_empty() || parts.len() > 128 {
             return None;
@@ -981,7 +990,7 @@ fn normalize(
             .iter()
             .map(|part| {
                 if part["type"] == "tool_use" {
-                    return super::messages_tools::project(part, tool_definitions.as_ref()?);
+                    return crate::native_messages_tools::project(part, tool_definitions.as_ref()?);
                 }
                 let object = part.as_object()?;
                 if object
@@ -1001,16 +1010,15 @@ fn normalize(
     let valid = content.as_ref().is_some_and(|parts| {
         let mut ids = std::collections::BTreeSet::new();
         let calls: Vec<_> = parts.iter().filter(|p| p["type"] == "tool_use").collect();
-        let choice = &request["tool_choice"];
         let unique = calls
             .iter()
             .all(|p| ids.insert(p["id"].as_str().unwrap_or_default()));
+        let names = calls
+            .iter()
+            .filter_map(|p| p["name"].as_str())
+            .collect::<Vec<_>>();
         unique
-            && ((stop == "tool_use") == !calls.is_empty())
-            && !(choice["disable_parallel_tool_use"] == true && calls.len() > 1)
-            && !(choice["type"] == "none" && !calls.is_empty())
-            && !(matches!(choice["type"].as_str(), Some("any" | "tool")) && calls.is_empty())
-            && !(choice["type"] == "tool" && calls.iter().any(|p| p["name"] != choice["name"]))
+            && crate::native_messages_tools::valid_selection(&request["tool_choice"], stop, &names)
     });
     let token = |key: &str| {
         value["usage"][key]

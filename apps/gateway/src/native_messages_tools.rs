@@ -20,7 +20,7 @@ fn fields(value: &Value, allowed: &[&str]) -> bool {
         .as_object()
         .is_some_and(|v| v.keys().all(|k| allowed.contains(&k.as_str())))
 }
-pub(super) fn requested(body: &Value) -> bool {
+pub(crate) fn requested(body: &Value) -> bool {
     body.get("tools").is_some()
         || body.get("tool_choice").is_some()
         || body["messages"].as_array().is_some_and(|messages| {
@@ -33,7 +33,7 @@ pub(super) fn requested(body: &Value) -> bool {
             })
         })
 }
-pub(super) fn definitions(body: &Value) -> Option<BTreeMap<&str, jsonschema::Validator>> {
+pub(crate) fn definitions(body: &Value) -> Option<BTreeMap<String, jsonschema::Validator>> {
     let tools = body["tools"]
         .as_array()
         .filter(|t| !t.is_empty() && t.len() <= 64)?;
@@ -46,19 +46,16 @@ pub(super) fn definitions(body: &Value) -> Option<BTreeMap<&str, jsonschema::Val
             return None;
         }
         let name = label(&tool["name"])?;
-        let schema = super::schema::validator(&tool["input_schema"]).ok()?;
-        if result.insert(name, schema).is_some() {
+        let schema = crate::inference_schema::validator(&tool["input_schema"]).ok()?;
+        if result.insert(name.to_owned(), schema).is_some() {
             return None;
         }
     }
     Some(result)
 }
-pub(super) fn valid(body: &Value) -> bool {
+pub(crate) fn valid(body: &Value) -> bool {
     if !requested(body) {
         return true;
-    }
-    if body["stream"] == true {
-        return false;
     }
     let Some(defs) = definitions(body) else {
         return false;
@@ -135,7 +132,10 @@ pub(super) fn valid(body: &Value) -> bool {
     pending.is_empty()
 }
 /// Only called after the complete request has passed `valid`.
-pub(super) fn project(part: &Value, defs: &BTreeMap<&str, jsonschema::Validator>) -> Option<Value> {
+pub(crate) fn project(
+    part: &Value,
+    defs: &BTreeMap<String, jsonschema::Validator>,
+) -> Option<Value> {
     if !fields(part, &["type", "id", "name", "input", "caller"])
         || part["type"] != "tool_use"
         || !part["input"].is_object()
@@ -155,4 +155,58 @@ pub(super) fn project(part: &Value, defs: &BTreeMap<&str, jsonschema::Validator>
         return None;
     }
     Some(json!({"type":"tool_use","id":call,"name":name,"input":part["input"]}))
+}
+
+/// Owned compiled schemas and selection constraints for one dispatched stream.
+pub(crate) struct StreamTools {
+    definitions: BTreeMap<String, jsonschema::Validator>,
+    choice: Value,
+}
+impl StreamTools {
+    pub(crate) fn new(body: &Value) -> Option<Self> {
+        Some(Self {
+            definitions: definitions(body)?,
+            choice: body["tool_choice"].clone(),
+        })
+    }
+    pub(crate) fn start(&self, part: &Value) -> Option<Value> {
+        if !fields(part, &["type", "id", "name", "input", "caller"])
+            || part["type"] != "tool_use"
+            || part["input"] != json!({})
+            || part
+                .get("caller")
+                .is_some_and(|v| *v != json!({"type":"direct"}))
+        {
+            return None;
+        }
+        let call = id(&part["id"])?;
+        let name = label(&part["name"])?;
+        if !self.definitions.contains_key(name) {
+            return None;
+        }
+        Some(json!({"type":"tool_use","id":call,"name":name,"input":{}}))
+    }
+    pub(crate) fn complete(&self, start: &Value, input: Value) -> bool {
+        let mut part = start.clone();
+        part["input"] = input;
+        project(&part, &self.definitions).is_some()
+    }
+    pub(crate) fn finish(&self, stop: &str, names: &[String]) -> bool {
+        valid_selection(
+            &self.choice,
+            stop,
+            &names.iter().map(String::as_str).collect::<Vec<_>>(),
+        )
+    }
+}
+
+pub(crate) fn valid_selection(choice: &Value, stop: &str, names: &[&str]) -> bool {
+    ((stop == "tool_use") == !names.is_empty())
+        && !(choice["disable_parallel_tool_use"] == true && names.len() > 1)
+        && !(choice["type"] == "none" && !names.is_empty())
+        && !(matches!(choice["type"].as_str(), Some("any" | "tool")) && names.is_empty())
+        && !(choice["type"] == "tool"
+            && names
+                .iter()
+                .any(|name| Some(*name) != choice["name"].as_str()))
 }

@@ -26,7 +26,8 @@ export type MessagesRequest = {
   top_p?: number;
   stop_sequences?: string[];
 };
-export type MessagesStreamRequest = Omit<MessagesRequest, 'stream' | 'tools' | 'tool_choice' | 'messages'> & { messages: Array<{ role: 'user' | 'assistant'; content: MessagesText }> };
+/** Tool SSE requires the route's explicit supports_messages_streaming_tools opt-in. */
+export type MessagesStreamRequest = Omit<MessagesRequest, 'stream'>;
 export type MessagesToolUse = { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> };
 export type MessagesToolResult = { type: 'tool_result'; tool_use_id: string; content: string; is_error?: boolean };
 export type MessagesTextBlock = { type: 'text'; text: string; cache_control?: { type: 'ephemeral'; ttl?: '5m' | '1h' } };

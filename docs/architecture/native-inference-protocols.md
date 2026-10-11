@@ -1,10 +1,9 @@
 # Native inference protocol integration
 
 Status: partial. `POST /v1/messages` implements native buffered text, separately
-opted-in buffered client tools and text SSE on OpenRouter and Anthropic routes.
+opted-in buffered client tools and text/tool SSE on OpenRouter and Anthropic routes.
 Buffered GenerateContent text is implemented for static and managed Gemini routes.
-Streaming Messages tools, Gemini tools, media, extended thinking and Gemini
-streaming remain unimplemented. Existing Anthropic/Bedrock
+Gemini tools, media, extended thinking and Gemini streaming remain unimplemented. Existing Anthropic/Bedrock
 conversion behind Chat is separate from this native public operation.
 
 ## Integration boundary
@@ -785,8 +784,8 @@ Assistant `tool_use` blocks contain a unique ID, declared name and schema-valid
 object input. The next user message must contain each corresponding `tool_result`
 exactly once before ordinary text, with string content and optional boolean
 `is_error`. Tools remain declared on continuation requests. Unknown IDs, duplicate
-IDs, malformed arguments, unsupported fields and streaming tool requests are
-rejected before dispatch. Tool result arrays, server tools, beta features and
+IDs, malformed arguments and unsupported fields are rejected before dispatch.
+Streaming tools require the additional capability described below. Tool result arrays, server tools, beta features and
 extended thinking are outside this implementation.
 
 Responses project only validated text/tool blocks and public model alias. Tool
@@ -801,7 +800,8 @@ Existing text-only input rules/detectors and required output inspection cannot
 inspect this tool subset and reject it before dispatch. No rule is silently
 skipped. Supporting inspection of definitions, arguments and results remains a
 separate requirement. `messages.create()` SDK types and handler OpenAPI cover the
-buffered tool request/response; `messages.stream()` remains text-only.
+buffered tool request/response; tool use with `messages.stream()` requires the
+additional streaming capability below.
 
 Missing native usage still retains the reservation. Migration 0259 explicitly
 allows terminal canonical `tool_calls` evidence in the existing immutable receipt
@@ -833,3 +833,56 @@ restart, independently rechecked. Builds, SDK compilation and contract generatio
 are structural checks only; no fixture outcome supplies acceptance evidence.
 Direct Anthropic tool calls, malformed actual upstream tool responses, parallel
 multi-tool output and interrupted native tool turns remain unverified.
+
+
+## Native client-tool streaming — 2026-10-11
+
+`supports_messages_streaming_tools` is a separate default-false capability and
+requires both `supports_messages_tools` and `supports_messages_streaming`. Requests
+without that opt-in are refused before dispatch; pools filter all required
+capabilities before selecting priority/weight. Existing text streaming and buffered
+tool settings do not silently enable streamed tools. `messages.stream()` SDK
+accepts the same declared client tools and matching result history.
+
+The existing native SSE state machine now projects sequential `tool_use` block
+starts and `input_json_delta` fragments. Initial input must be an empty object;
+only declared tool names and unique IDs are accepted. Argument fragments are
+bounded to 64 KiB per tool and 256 KiB per message, in addition to the existing
+64 KiB event limit and 128-block bound. Before forwarding `content_block_stop`,
+the complete JSON must parse as an object and satisfy the same bounded offline
+schema used for buffered tools. Selection constraints and `tool_use` finish
+semantics are shared between both paths. Interleaved blocks and unsupported
+provenance/events fail with a sanitized native error.
+
+Clients must wait for `message_stop` before executing collected calls. A partial
+JSON fragment, block start or HTTP 200 does not establish valid completion.
+Missing terminal evidence, malformed input and client interruption retain uncertain
+execution and priced liabilities. No credential switch or inference retry is
+introduced. Completed tool turns use the existing immutable usage evidence and
+customer ledger; no new migration or financial engine is needed.
+
+A direct upstream observation first established the actual native event shape.
+Fresh workspace-key verification then streamed a tool call through a pool whose
+preferred candidate lacked tool-SSE capability. The capable candidate returned the
+fresh hash input in JSON fragments. The client computed SHA-256 and the JavaScript
+SDK streamed a result continuation containing that digest. Both turns pinned the
+capable route, reconciled canonical native usage, charged exactly once and released
+their holds. Disabling the capability rejected new requests before dispatch across
+restart while receipt replay preserved the two charges. Independent reopening
+reconstructed content and cumulative usage from the original SSE/SDK events and
+matched tool linkage, digest, finish metadata and exact debit arithmetic.
+
+On an isolated copy, another actual generation was interrupted after a nonempty
+tool JSON fragment. The retained client prefix had no terminal event. Independent
+reopening confirmed `response_stream_cancelled`, uncertain execution/usage,
+incomplete timing, no finish reason and one retained hold through restart. The two
+previous exact debits and encrypted credential were unchanged; revocation denied
+another submission. Buffered native tool round trips were independently exercised
+again after sharing protocol/schema validation. These personal upstream runs use
+internal verification prices/credit, not merchant funding or commercial supply.
+
+Direct Anthropic tool SSE, parallel/interleaved tool output, actual malformed
+upstream argument fragments and nonzero cache category pricing on tool streams
+remain unverified. Tool-content inspection remains unsupported and required
+input/output text policies reject tool requests before dispatch. The complete
+native protocol and release gates remain open.

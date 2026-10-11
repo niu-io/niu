@@ -10,6 +10,8 @@ mod customer_response;
 mod enterprise;
 mod error;
 mod guardrails;
+mod inference_schema;
+mod native_messages_tools;
 mod payments;
 mod providers;
 mod request_payloads;

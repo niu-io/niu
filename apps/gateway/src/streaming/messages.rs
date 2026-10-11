@@ -1,4 +1,4 @@
-//! Native text SSE state machine. Output is projected, never passed through.
+//! Native text/client-tool SSE state machine. Output is projected, never passed through.
 use super::{PendingStreamAttempt, StreamAttempt, StreamCompletion, persist_stream_failure};
 use axum::body::{Body, Bytes};
 use futures_util::{Stream, StreamExt};
@@ -13,6 +13,11 @@ const USAGE_FIELDS: [&str; 4] = [
 
 struct Messages {
     public_model: String,
+    tools: Option<crate::native_messages_tools::StreamTools>,
+    tool: Option<(Value, String)>,
+    tool_ids: std::collections::BTreeSet<String>,
+    tool_names: Vec<String>,
+    tool_bytes: usize,
     provider_model: Option<String>,
     line: Vec<u8>,
     data: Vec<u8>,
@@ -31,9 +36,14 @@ struct Messages {
 }
 
 impl Messages {
-    fn new(public_model: String) -> Self {
+    fn new(public_model: String, tools: Option<crate::native_messages_tools::StreamTools>) -> Self {
         Self {
             public_model,
+            tools,
+            tool: None,
+            tool_ids: Default::default(),
+            tool_names: Vec::new(),
+            tool_bytes: 0,
             provider_model: None,
             line: vec![],
             data: vec![],
@@ -105,6 +115,33 @@ impl Messages {
             "content_block_start"
                 if self.started && !self.active && self.stop.is_none() && self.blocks < 128 =>
             {
+                if value["content_block"]["type"] == "tool_use" {
+                    if value["index"].as_u64() != Some(self.blocks) {
+                        return Err("Invalid Messages tool order");
+                    }
+                    let safe = self
+                        .tools
+                        .as_ref()
+                        .and_then(|t| t.start(&value["content_block"]))
+                        .ok_or("Unsupported Messages tool start")?;
+                    let id = safe["id"]
+                        .as_str()
+                        .ok_or("Invalid Messages tool identity")?
+                        .to_owned();
+                    if !self.tool_ids.insert(id) {
+                        return Err("Duplicate Messages tool identity");
+                    }
+                    self.tool_names.push(
+                        safe["name"]
+                            .as_str()
+                            .ok_or("Invalid Messages tool name")?
+                            .to_owned(),
+                    );
+                    self.active = true;
+                    self.has_output = true;
+                    self.tool = Some((safe.clone(), String::new()));
+                    return Ok(json!({"type":kind,"index":self.blocks,"content_block":safe}));
+                }
                 if value["index"].as_u64() != Some(self.blocks)
                     || value["content_block"]["type"] != "text"
                     || !value["content_block"]["text"].is_string()
@@ -123,6 +160,26 @@ impl Messages {
                 )
             }
             "content_block_delta" if self.active && self.stop.is_none() => {
+                if let Some((_, input)) = &mut self.tool {
+                    if value["index"].as_u64() != Some(self.blocks)
+                        || value["delta"]["type"] != "input_json_delta"
+                    {
+                        return Err("Invalid Messages tool delta");
+                    }
+                    let part = value["delta"]["partial_json"]
+                        .as_str()
+                        .ok_or("Invalid Messages tool JSON fragment")?;
+                    if input.len().saturating_add(part.len()) > 65_536
+                        || self.tool_bytes.saturating_add(part.len()) > 262_144
+                    {
+                        return Err("Messages tool JSON exceeds inspection limit");
+                    }
+                    input.push_str(part);
+                    self.tool_bytes += part.len();
+                    return Ok(
+                        json!({"type":kind,"index":self.blocks,"delta":{"type":"input_json_delta","partial_json":part}}),
+                    );
+                }
                 if value["index"].as_u64() != Some(self.blocks)
                     || value["delta"]["type"] != "text_delta"
                     || !value["delta"]["text"].is_string()
@@ -140,6 +197,20 @@ impl Messages {
                 if value["index"].as_u64() != Some(self.blocks) {
                     return Err("Invalid Messages block order");
                 }
+                if let Some((start, input)) = self.tool.take() {
+                    let input = if input.is_empty() {
+                        json!({})
+                    } else {
+                        serde_json::from_str(&input).map_err(|_| "Invalid Messages tool JSON")?
+                    };
+                    if !self
+                        .tools
+                        .as_ref()
+                        .is_some_and(|tools| tools.complete(&start, input))
+                    {
+                        return Err("Invalid Messages tool arguments");
+                    }
+                }
                 let index = self.blocks;
                 self.blocks += 1;
                 self.active = false;
@@ -148,8 +219,13 @@ impl Messages {
             "message_delta" if self.started && !self.active && self.blocks > 0 => {
                 let stop = value["delta"]["stop_reason"]
                     .as_str()
-                    .filter(|s| ["end_turn", "max_tokens", "stop_sequence"].contains(s))
+                    .filter(|s| ["end_turn", "max_tokens", "stop_sequence", "tool_use"].contains(s))
                     .ok_or("Invalid Messages finish reason")?;
+                if !self.tools.as_ref().map_or(stop != "tool_use", |tools| {
+                    tools.finish(stop, &self.tool_names)
+                }) {
+                    return Err("Invalid Messages tool selection or finish");
+                }
                 if self.stop.as_deref().is_some_and(|old| old != stop) {
                     return Err("Conflicting Messages finish reason");
                 }
@@ -260,7 +336,9 @@ impl Messages {
             invalid_output: false,
             finish_reasons: Some(vec![niu_storage::RequestChoiceFinish {
                 index: 0,
-                reason: if self.stop.as_deref() == Some("max_tokens") {
+                reason: if self.stop.as_deref() == Some("tool_use") {
+                    niu_storage::RequestFinishReason::ToolCalls
+                } else if self.stop.as_deref() == Some("max_tokens") {
                     niu_storage::RequestFinishReason::Length
                 } else {
                     niu_storage::RequestFinishReason::Stop
@@ -270,13 +348,18 @@ impl Messages {
     }
 }
 
-pub fn tracked_messages_body<S>(upstream: S, attempt: StreamAttempt, public_model: String) -> Body
+pub fn tracked_messages_body<S>(
+    upstream: S,
+    attempt: StreamAttempt,
+    public_model: String,
+    tools: Option<crate::native_messages_tools::StreamTools>,
+) -> Body
 where
     S: Stream<Item = Result<Bytes, reqwest::Error>> + Send + 'static,
 {
     let state = (
         Box::pin(upstream),
-        Messages::new(public_model),
+        Messages::new(public_model, tools),
         PendingStreamAttempt(Some(attempt)),
         false,
         crate::request_timings::current(),

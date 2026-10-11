@@ -815,10 +815,15 @@ pub async fn update(
 ///           "default": false,
 ///           "description": "Native GenerateContent opt-in for static or managed gemini routes; does not imply streaming, tools or media support."
 ///         },
+///         "supports_messages_streaming_tools": {
+///           "type": "boolean",
+///           "default": false,
+///           "description": "Explicit native client-tool SSE capability; requires supports_messages_tools and supports_messages_streaming. JSON arguments are bounded and validated at block completion."
+///         },
 ///         "supports_messages_tools": {
 ///           "type": "boolean",
 ///           "default": false,
-///           "description": "Explicit buffered native client-tool capability; requires supports_messages. Streaming tools remain unsupported."
+///           "description": "Explicit buffered native client-tool capability; requires supports_messages. Streaming tools require the separate supports_messages_streaming_tools capability."
 ///         },
 ///         "supports_messages_streaming": {
 ///           "type": "boolean",

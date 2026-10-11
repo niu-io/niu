@@ -104,6 +104,8 @@ pub struct ModelConfig {
     #[serde(default)]
     pub supports_messages_tools: bool,
     #[serde(default)]
+    pub supports_messages_streaming_tools: bool,
+    #[serde(default)]
     pub supports_generate_content: bool,
     #[serde(default)]
     pub api_base: Option<String>,
@@ -139,6 +141,7 @@ pub(crate) struct ModelRequirements {
     pub streaming: bool,
     pub messages_streaming: bool,
     pub messages_tools: bool,
+    pub messages_streaming_tools: bool,
     pub tools: bool,
     pub streaming_tools: bool,
     pub structured_output: bool,
@@ -151,6 +154,7 @@ impl ModelRequirements {
         (!self.streaming || model.protocol().supports_streaming())
             && (!self.messages_streaming || model.supports_messages_streaming)
             && (!self.messages_tools || model.supports_messages_tools)
+            && (!self.messages_streaming_tools || model.supports_messages_streaming_tools)
             && (!self.tools || model.supports_tool_calls)
             && (!self.streaming_tools || model.supports_streaming_tool_calls)
             && (!self.structured_output || model.supports_structured_output)
@@ -280,6 +284,13 @@ impl AppConfig {
             {
                 return Err(ConfigError::Invalid(format!(
                     "model route {name} must set provider, upstream_model, and api_key_env"
+                )));
+            }
+            if model.supports_messages_streaming_tools
+                && !(model.supports_messages_tools && model.supports_messages_streaming)
+            {
+                return Err(ConfigError::Invalid(format!(
+                    "Streaming Messages tools on route {name} require both native tools and streaming"
                 )));
             }
             if model.supports_generate_content && model.provider != "gemini" {

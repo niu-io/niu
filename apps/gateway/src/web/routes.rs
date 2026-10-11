@@ -769,6 +769,7 @@ async fn admin_models(
                 "supports_messages": model.supports_messages,
                 "supports_messages_streaming": model.supports_messages_streaming,
                 "supports_messages_tools": model.supports_messages_tools,
+                "supports_messages_streaming_tools": model.supports_messages_streaming_tools,
                 "supports_generate_content": model.supports_generate_content,
                 "supports_responses": model.supports_responses
             });
@@ -789,6 +790,7 @@ async fn admin_models(
                     "supports_messages": model.supports_messages,
                 "supports_messages_streaming": model.supports_messages_streaming,
                 "supports_messages_tools": model.supports_messages_tools,
+                "supports_messages_streaming_tools": model.supports_messages_streaming_tools,
                 "supports_generate_content": model.supports_generate_content,
                     "supports_responses": model.supports_responses
                 })

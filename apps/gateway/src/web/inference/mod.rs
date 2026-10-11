@@ -5,8 +5,6 @@ pub(super) mod dashboard_video;
 mod embeddings;
 mod generate_content;
 mod messages;
-mod messages_tools;
-mod schema;
 pub(super) use generate_content::generate_content;
 pub(super) use messages::messages;
 mod priced_chat;
