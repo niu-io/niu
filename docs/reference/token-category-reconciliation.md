@@ -267,3 +267,28 @@ not successful recovery of cancelled evidence, every model alias, customer-paid
 media or received merchant funding. The owner's personal OpenRouter credential and
 approved internal credit do not establish commercial Supplier rights. No fixture
 outcome is evidence; original development data and encrypted identity were unchanged.
+
+## Invoice integration for the recovered request
+
+A separate native run on the same pinned `3235c49` binary copied the stopped
+database from that actual successful recovery. Issuing a closed dispatch-period
+invoice included exactly the recovered attempt at **7,655 USD nanounits**, with
+the original tariff rather than the later tenfold price. An ordinary workspace
+reader could read the statement lines and history. History showed `paid` because
+the original account's internal-credit debit had settled the obligation; no
+external invoice-payment record or merchant funding was created.
+
+The reader's issuance request returned 403. Idempotent administration replay
+returned the same invoice. Gateway restart preserved byte-identical reader detail
+and history responses; revocation changed the reader's detail request to 401.
+No new inference, customer charge or balance entry was needed.
+
+Independent reopening parsed the original native response, recomputed the charge,
+and matched the saved invoice artifacts to one immutable invoice, one entry, the
+original bound tariff, one reconciliation receipt and one exact debit in the
+original account. The newer published tariff was distinct. The temporary reader
+was revoked, and no open hold, funding receipt or external invoice payment existed.
+This qualifies recovered text usage through invoice integration and the stated
+reader permissions, not customer-funded media or external payment collection.
+No fixture outcome supports it; original development data and encryption were
+unchanged.
