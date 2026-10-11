@@ -82,3 +82,38 @@ responses to the final revision and exactly three successful-update audits,
 checked the existing customer debit pairs, and confirmed the temporary manager
 was revoked. Source hashes matched the staged SDK files. No fixture outcome is
 used as evidence; this does not claim rendered frontend acceptance.
+
+
+## Supplier business lifecycle SDK
+
+The administration client also exposes:
+
+- `listSupplierBusinesses()` → `{ data: SupplierBusiness[] }` with name,
+  configuration/model/member counts and explicit qualification status.
+- `createSupplierBusiness(name)` → `{ data: { id } }`. Creation establishes an
+  identity, not permission to resell supply or an active offer.
+- `deleteSupplierBusiness(supplierId)` → `{ data: { deleted: true } }`. Existing
+  configuration, offer or membership dependencies produce HTTP 409. Deletion
+  retains audit history and removes the identity from the active directory.
+
+`SupplierBusiness` is exported by the package. Backend provider-named routes
+remain unchanged. These methods require platform administration; a company
+owner's workspace or billing permissions do not grant directory access.
+
+Current-input SDK verification created two business identities in an isolated
+copy of actual request accounting. One acquired a disabled, encrypted personal
+credential configuration and a disabled model binding; its directory counts
+were one key and one model while qualification stayed `unqualified`. Deleting
+this configured identity returned HTTP 409 and preserved its configuration.
+The unconfigured identity was deleted successfully, disappeared from the
+directory, returned HTTP 404 on profile read, and returned HTTP 409 on repeat
+delete. A company owner received HTTP 403 for listing, creating and deleting.
+Gateway restart retained the same directory and dependency rejection.
+
+Independent reopening checked the single deletion audit, retained configuration
+ownership and encrypted credential, disabled model binding, absent unauthorized
+identity, revoked temporary owner and absence of qualification, earning or
+funding records. The original two customer charge/debit pairs still matched.
+The isolated SDK build excluded unrelated shared-worktree edits; tested source
+hashes matched the staged changes. This validates lifecycle integration, not
+commercial qualification, live inference or rendered frontend acceptance.

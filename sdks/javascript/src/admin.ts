@@ -29,6 +29,11 @@ export type CompanyCreateOptions = RequestOptions & { idempotencyKey?: string };
 
 
 /** Platform-only credential configuration metadata. Secret values are never returned. */
+export type SupplierBusiness = {
+  id: string; name: string; api_keys: number; models: number; members: number;
+  qualification_status: 'qualified' | 'unqualified';
+};
+
 export type SupplierProfile = {
   id: string; name: string; description: string; website_url: string; logo_url: string; revision: number;
 };
@@ -750,6 +755,21 @@ export interface RoutingRegistryStatus {
 }
 
 export class NiuAdminClient {
+  /** Platform directory; configuration counts include retained disabled configurations. */
+  listSupplierBusinesses(options?: RequestOptions): Promise<{ data: SupplierBusiness[] }> {
+    return this.request('/providers', undefined, options);
+  }
+
+  /** Create a business identity; this does not qualify supply or publish an offer. */
+  createSupplierBusiness(name: string, options?: RequestOptions): Promise<{ data: { id: string } }> {
+    return this.request('/providers', { name }, options);
+  }
+
+  /** Only an unconfigured Supplier can be removed; dependent configurations/offers/memberships return 409. */
+  deleteSupplierBusiness(supplierId: string, options?: RequestOptions): Promise<{ data: { deleted: true } }> {
+    return this.request(`/providers/${uuid(supplierId)}`, undefined, options, 'DELETE');
+  }
+
   /** Platform administration only; metadata contains no credentials or procurement prices. */
   getSupplierProfile(supplierId: string, options?: RequestOptions): Promise<{ data: SupplierProfile }> {
     return this.request(`/providers/${uuid(supplierId)}`, undefined, options);
