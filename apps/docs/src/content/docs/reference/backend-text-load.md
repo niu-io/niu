@@ -3,25 +3,35 @@ title: Backend text load checkpoint
 description: A bounded two-gateway actual-inference measurement and its qualification limits.
 ---
 
-Two native gateway processes, each with a four-connection database pool, handled
-152 actual OpenRouter Chat completions. One phase used eight client workers for
-32 requests; another scheduled 120 requests at two per second. Both gateways
-shared PostgreSQL and the workload alternated evenly between them.
+Two native Gateway processes using clean implementation `28bd9d0` handled 1,600
+actual structured OpenRouter Chat streams on 2026-10-12. Each process configured
+two admission-pool connections plus a dedicated maintenance connection. Eight
+workspace keys each traversed both Gateways, with 200 requests per key. Thirty-two
+client workers offered eight requests per second without inference retries.
 
 | Phase | Requests | Elapsed | End-to-end P50 | End-to-end P95 |
 | --- | ---: | ---: | ---: | ---: |
-| Eight-worker batch | 32 | 6.50 s | 1,348 ms | 2,109 ms |
-| Two requests/second | 120 | 60.81 s | 1,329 ms | 1,670 ms |
+| Eight requests/second, streaming | 1,600 | 201.59 s | 1,311.68 ms | 1,806.74 ms |
 
-All responses returned the requested current-input marker. Independent reopening
-of the stopped database matched each reported usage to its pinned price, charge
-and debit. The internal customer charge total was 2,553,906 USD nanounits, with
-no outstanding customer/procurement holds or duplicate debit after restart.
+The completed rate, including final response drain, was 7.937 requests/second.
+Maximum end-to-end duration was 4,393.07 ms. First-content P50/P95 were
+1,130.28/1,560.81 ms, measured at the client and including upstream waiting.
+Every stream returned its fresh marker, native usage and `[DONE]`.
 
-This uses personal self-funded upstream access and internal approved credit.
-It is not merchant funding or commercial Supplier qualification. Timings include
-upstream execution; they do not measure gateway-only latency or production
-capacity. Roughly one minute of paced traffic is not a long-duration soak.
-Streaming, Guardrail detector overhead, overload and video need separate runs.
+Independent reopening of PostgreSQL and parsing of retained SSE files matched
+every original-rate customer charge to its original-account debit. The total was
+26,685,801 USD nanounits. Customer and procurement reservations were released;
+restart retained all attempts and temporary keys were revoked.
 
-See the [full workload, independent verification and limitations](https://github.com/niu-io/niu/blob/main/docs/reference/two-gateway-text-load.md).
+An ordinary customer viewer separately traversed all 16 request pages, both
+pages for every key filter, full-range summaries and CSV. All usages and customer
+charges matched the workload. Restart preserved the summary and byte-identical
+CSV; procurement access and foreign-workspace reads/exports were denied.
+
+Personal self-funded upstream access and approved internal verification credit
+are not merchant funding or commercial Supplier qualification. These timings
+include upstream execution, and this workload does not establish maximum
+capacity, overload behavior, production SLOs, multi-company scale, video
+performance or superiority to another gateway. No fixture outcome is evidence.
+
+See the [full workload, historical checkpoints, independent verification and limitations](https://github.com/niu-io/niu/blob/main/docs/reference/two-gateway-text-load.md).
