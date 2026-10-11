@@ -2,10 +2,10 @@
 
 Reviewed: 2026-10-12. This is an incomplete acceptance review, not a release
 approval or a claim of parity with another gateway. Review the committed `main`
-contracts separately from uncommitted shared development changes. The native backend is now pinned to `138b577`, including shared bounded invoice
+contracts separately from uncommitted shared development changes. The native backend is now pinned to `d76c4d4`, including shared bounded invoice
 issuance, invoice payment, Supplier settlement, balance refund and approved-credit
 and warning-policy recording transactions, plus atomic Supplier profile/audit
-updates. The broad buffered/streaming workload evidence remains pinned
+updates, membership changes and business identity creation. The broad buffered/streaming workload evidence remains pinned
 to `e655a37`; do not relabel historical measurements as new-version results.
 
 ## Required business paths

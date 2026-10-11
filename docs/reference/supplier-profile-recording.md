@@ -146,3 +146,33 @@ present, schemas matched, and download bytes equaled the generated contract.
 Unrelated shared-worktree edits were preserved. This is contract/HTML and scoped
 current-input API evidence, not browser visual acceptance or a claim that every
 Supplier commercial workflow is complete. No fixture outcome is evidence.
+
+
+## Atomic Supplier creation under contention
+
+Reviewed 2026-10-12 on clean committed `d76c4d4`. Creation now uses the existing
+bounded recording transaction, keeping the identity and creation audit in one
+commit. Name validation and the ordinary POST contract remain unchanged.
+Individual lock waits are limited to 250 ms and statements to 2 seconds; neither
+pool acquisition nor whole HTTP duration is bounded by those settings.
+
+An isolated current-input API run held a table lock that conflicts with Supplier
+insertion. Before the change, creation waited until release after 1.6 seconds.
+The changed committed binary returned HTTP 503 in about 257 ms while the lock
+remained held, without an identity or audit. Release and retry created one
+identity and one audit. A temporary trigger then delayed the creation audit after
+a second identity insert. Its statement timeout rolled back both writes;
+removing the fault and retrying succeeded. Restart retained exactly the two
+successful identities. Independent reopening matched the directory artifact,
+creation audits, both timeout diagnostics and removal of the fault.
+
+Creation has no idempotency-key contract; another accepted POST can create another
+identity. This checkpoint proves the observed failed transactions rolled back,
+not every uncertain commit outcome or frontend retry workflow. No qualification,
+earning or funding record was manufactured; no fixture outcome is evidence.
+
+The native Gateway refreshed to `d76c4d4` after a fresh backup/restore and full-row
+fingerprint comparison. Configuration, encrypted vendor identities and durable
+business counts remained unchanged on schema 277. Readiness and authenticated
+published-routing status were accessible after refresh. This pin also includes
+the previously verified atomic Supplier membership change.
