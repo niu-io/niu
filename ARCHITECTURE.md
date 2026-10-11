@@ -111,6 +111,14 @@ not a published inference generation. Inference currently resolves pool,
 personal and shared/static routes through separate reads in
 `apps/gateway/src/vendors/models.rs`; `ManagedRouteSnapshot` pins selected
 mapping and pool revisions, not a complete registry generation.
+Catalog composition now lives in `apps/gateway/src/vendors/catalog_compiler.rs`;
+the outer layer acquires the database inputs once and passes static routes and
+caller scope explicitly. It reuses the existing candidate-selection and model
+conversion helpers, performs no database or upstream calls, and does not decrypt
+credentials. This is a compilation boundary, not publication or inference pinning.
+A current-input regression exercised concurrent disablement, 103 pools, personal
+scope isolation, static shadowing, two actual completions and independently
+reconciled charges after restart.
 
 The replacement must use one compiler and resolver for database and static
 inputs. Keep every database alias in the compiler's shadow set, including

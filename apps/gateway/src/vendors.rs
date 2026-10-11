@@ -8,6 +8,7 @@ pub(crate) mod asset_lookups;
 pub(crate) mod asset_reads;
 pub(crate) mod asset_updates;
 mod bootstrap;
+mod catalog_compiler;
 pub(crate) mod crypto;
 mod models;
 pub(crate) mod route_pools;
