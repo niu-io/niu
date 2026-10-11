@@ -149,3 +149,30 @@ round trips or by a green fixture workflow:
 No overall release, New API parity or production-capacity claim follows from these
 increments. The current scope still excludes frontend/browser work, container
 qualification and Agent Observability.
+
+## Native integration runtime refresh — 2026-10-11
+
+The native development Gateway now runs a binary built from a clean checkout of
+`b0c0c1a`, including transactional checkout authorization, bounded customer-media
+recovery candidate paging and stale Supplier catalog refresh rejection. Shared
+uncommitted changes were excluded from that binary.
+
+A fresh private database archive was restored into isolated PostgreSQL and
+independently reopened. Full-row fingerprints matched organizations, workspaces,
+encrypted Supplier configurations, ledger entries, video jobs and transport
+timings. The clean binary then ran against a copy of that restored database;
+workspace pagination and route lookup survived restart, encryption inspection
+completed, and migration 267 and those fingerprints remained unchanged.
+
+The clean binary also exercised an actual OpenRouter catalog refresh concurrent
+with a configuration revision change (409, unchanged model records) and checkout
+authorization expiring during a database lock wait (401, no order or funding).
+Independent database reopening checked both final states. These are current-input
+checks, not fixture evidence.
+
+After controlled replacement, the original native runtime retained its
+configuration, encrypted credential identities/revisions and durable record
+counts. Company/workspace reads, route resolution, a saved OpenRouter catalog
+diagnostic and encryption inspection completed. The installed binary hash matches
+the privately pinned clean build. This refresh does not qualify all billing,
+media or Supplier settlement paths; catalog access is not generation evidence.
