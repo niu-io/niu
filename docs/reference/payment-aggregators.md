@@ -698,3 +698,14 @@ checkout expiry during a company-row wait, and an authorized waiting checkout.
 Independent database reopening confirmed the two denials preserved records and
 receipts, while the authorized request produced one pending order without funding.
 Compilation and Clippy completed separately; fixture outcomes are not evidence.
+
+### Served reconciliation documentation — 2026-10-11
+
+The running documentation site's implemented-operations page was inspected in a
+browser at desktop width and 390px. The reconciliation section, authentication
+and path parameters were readable; the narrow navigation opened and the document
+had no horizontal overflow. Its description explicitly preserves EPay's 501
+query-recovery boundary and separates successful status retrieval from funding.
+An independent HTTP read of the downloadable annotated OpenAPI found the
+reconciliation operation exactly equal to the committed contract. This verifies
+that operation's documentation delivery, not merchant activation or settlement.
