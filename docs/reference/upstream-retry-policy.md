@@ -318,3 +318,50 @@ before inference; the complete run used the documented `minimum_input_tokens`.
 This verifies context-price preservation for the existing bounded authentication
 policy. It does not qualify generic failover, distinct commercial suppliers,
 unknown-execution retries or every tier/category combination.
+
+## Responses authentication-rejection failover
+
+Responses pools now use the same bounded retry driver as Chat, with a distinct
+immutable policy revision `openrouter-responses-auth-rejection-v1`. Migration 274
+adds that revision without rewriting existing Chat operations. A successor must
+match its operation's protocol-specific policy as well as the existing scope,
+key, model, pool, nonexecution, deadline and released-liability requirements.
+
+Only a canonical OpenRouter pool's immediate authentication refusal can qualify.
+There is at most one different-credential successor. Each selected Responses
+route must support the protocol and pass its own current input, permission,
+Guardrail and admission checks. The operation retains its original tariff and
+funding source. Remaining time is recomputed before the upstream send. Streams
+already returned to the client, transport uncertainty, other rejection statuses,
+noncanonical endpoints, direct aliases and video jobs do not gain a retry.
+Restart does not resubmit an unfinished chain.
+
+### Actual current-input verification — 2026-10-11
+
+An isolated native run configured three independent local credentials against
+the owner's actual personal OpenRouter access: first deliberately invalid, then
+two valid configurations using the same saved upstream secret. These are not
+three independently issued upstream keys or qualified commercial Supplier offers.
+Explicit internal verification prices and approved credit supported accounting;
+no top-up receipt or commercial qualification was created.
+
+For both buffered and streamed Responses, the first credential received a real
+401 and the second returned the requested unique output marker. One operation
+retained two attempts, the first durably not executed and the second completed.
+Each operation posted exactly one customer charge/debit under one pinned tariff,
+released both customer/procurement holds and preserved its request history across
+restart. After replacing the second credential with an invalid value, two real
+401 responses exhausted the policy; the third valid credential was not submitted.
+
+Independent reopening inspected retained buffered JSON and terminal Responses
+SSE, matched reported token counts to stored usage and independently recomputed
+the two charges. Six attempts belonged to three Responses-specific policies;
+there were no third-route attempts, funding receipts or open holds. The temporary
+workspace key was revoked. The shared-driver Chat regression separately exercised
+the same buffered, streamed and two-refusal sequence, with independent saved
+response/database reconciliation and unchanged Chat policy identifiers.
+
+This qualifies those actual canonical authentication-refusal paths. It does not
+qualify failover after arbitrary errors, Responses cancellation during the
+successor, concurrent price edits during Responses failover or production load.
+Earlier Chat-only evidence retains its original scope.

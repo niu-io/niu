@@ -25,7 +25,7 @@ pub(in crate::web) struct ResponsesRequestBounds {
 ///   "operation": {
 ///     "operationId": "createResponse",
 ///     "summary": "Create a text response",
-///     "description": "The route must be an OpenAI-compatible provider route with supports_responses enabled. This public subset accepts a single text input and optional text instructions, output limit, sampling values, metadata and user identifier. Text streaming returns Responses SSE events and preserves terminal reported usage. Each Responses event is bounded to 16 MiB of UTF-8 bytes because terminal events repeat the full output; Chat events retain their separate 64 KiB bound. Oversized or malformed events fail the stream without inventing usage. Multimodal input, tools, prior-response state and other fields are rejected. HTTP 200 at stream start does not establish completion; inspect the terminal response event. Workspace model grants, source policy, rate/concurrency/token limits and configured billing apply.",
+///     "description": "The route must be an OpenAI-compatible provider route with supports_responses enabled. This public subset accepts a single text input and optional text instructions, output limit, sampling values, metadata and user identifier. Text streaming returns Responses SSE events and preserves terminal reported usage. Each Responses event is bounded to 16 MiB of UTF-8 bytes because terminal events repeat the full output; Chat events retain their separate 64 KiB bound. Oversized or malformed events fail the stream without inventing usage. Multimodal input, tools, prior-response state and other fields are rejected. HTTP 200 at stream start does not establish completion; inspect the terminal response event. Workspace model grants, source policy, rate/concurrency/token limits and configured billing apply. Canonical OpenRouter pools permit at most one different-credential successor after an immediate authentication refusal with durable nonexecution, released holds and no prior charge. The operation retains its original tariff, funding and shared deadline under a Responses-specific retry policy. No retry follows uncertainty or a stream already returned to the client.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -335,7 +335,7 @@ pub(in crate::web) struct ResponsesRequestBounds {
 pub(in crate::web) async fn responses(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Json(mut body): Json<Value>,
+    Json(body): Json<Value>,
 ) -> Result<Response, ApiError> {
     let _in_flight = state.track_inference();
     let principal = state.authorize_api_headers(&headers).await?;
@@ -358,19 +358,38 @@ pub(in crate::web) async fn responses(
         )
         .await;
     }
-    let resolved = crate::vendors::resolve_scoped_model(
-        &state,
-        principal.scope().organization_id,
-        &public_model,
+    super::retry::execute(
+        state,
+        principal,
+        headers,
+        body,
+        public_model,
         crate::guardrails::input::Protocol::Responses,
         None,
     )
-    .await?;
+    .await
+}
+
+pub(super) async fn execute_responses_attempt(
+    state: &AppState,
+    principal: &niu_storage::Principal,
+    request: super::retry::ProtocolAttempt<'_>,
+) -> Result<(DispatchContext, Result<ProviderResponse, ApiError>), ApiError> {
+    let super::retry::ProtocolAttempt {
+        public_model,
+        headers,
+        mut body,
+        timeout,
+        deadline,
+        retry,
+        resolved,
+        ..
+    } = request;
     let model = &resolved.model;
     let inspected_snapshot = inspect_request_input(
-        &state,
-        &principal,
-        &public_model,
+        state,
+        principal,
+        public_model,
         model,
         crate::guardrails::input::Protocol::Responses,
         &mut body,
@@ -395,21 +414,19 @@ pub(in crate::web) async fn responses(
         ));
     }
     let api_key = resolved.api_key;
-    let timeout = Duration::from_secs(state.config.server.request_timeout_seconds);
-    let task_id = request_task_id(&headers)?;
+    let task_id = request_task_id(headers)?;
     let base = model.endpoint_base().ok_or_else(ApiError::unavailable)?;
     let endpoint = format!("{}/responses", base.trim_end_matches('/'));
     let client = crate::upstream::client_for_endpoint(&endpoint, timeout)
         .await
         .map_err(ApiError::from_endpoint)?;
-    state.requests.fetch_add(1, Ordering::Relaxed);
-    let dispatch = begin_attempt(
-        &state,
-        &principal,
+    let dispatch = begin_retry_attempt(
+        state,
+        principal,
         AttemptRequest {
             managed_route: resolved.managed_route.as_ref(),
             personal_route: resolved.personal_route.as_ref(),
-            public_model: &public_model,
+            public_model,
             model,
             completion_bound: bounds.max_output_tokens,
             task_id: task_id.as_deref(),
@@ -417,11 +434,13 @@ pub(in crate::web) async fn responses(
             request_body: &body,
             protocol: crate::guardrails::input::Protocol::Responses,
         },
+        retry,
     )
     .await?;
+    let timeout = deadline.saturating_duration_since(std::time::Instant::now());
     let result = execute_responses(
-        &state,
-        &public_model,
+        state,
+        public_model,
         model,
         api_key,
         body,
@@ -429,7 +448,7 @@ pub(in crate::web) async fn responses(
         &dispatch,
     )
     .await;
-    Ok(finalize_response(&state, dispatch, result).await)
+    Ok((dispatch, result))
 }
 
 pub(in crate::web) fn validate_responses_request(

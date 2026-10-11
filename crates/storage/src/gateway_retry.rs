@@ -4,12 +4,28 @@ use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
 
 #[derive(Clone, Copy)]
+pub enum GatewayRetryProtocol {
+    Chat,
+    Responses,
+}
+impl GatewayRetryProtocol {
+    fn revision(self) -> &'static str {
+        match self {
+            Self::Chat => "openrouter-chat-auth-rejection-v1",
+            Self::Responses => "openrouter-responses-auth-rejection-v1",
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
 pub enum GatewayRetryAdmission {
-    /// The gateway qualified the first route as canonical OpenRouter Chat.
+    /// The gateway qualified the first route as a canonical OpenRouter protocol.
     First {
+        protocol: GatewayRetryProtocol,
         remaining_ms: i64,
     },
     Successor {
+        protocol: GatewayRetryProtocol,
         predecessor_id: Uuid,
     },
 }
@@ -21,16 +37,20 @@ impl Store {
         retry: Option<GatewayRetryAdmission>,
     ) -> Result<(), StoreError> {
         let scope = admission.scope;
-        if let Some(GatewayRetryAdmission::Successor { predecessor_id }) = retry {
+        if let Some(GatewayRetryAdmission::Successor {
+            predecessor_id,
+            protocol,
+        }) = retry
+        {
             let route = admission
                 .managed_route
                 .as_ref()
                 .ok_or(StoreError::Conflict)?;
             // Serializing on the parent operation prevents competing successors.
             // Scope/model/task/key identities and the original deadline persist.
-            sqlx::query("SELECT o.id FROM operations o JOIN gateway_retry_policies p ON p.operation_id=o.id WHERE o.id=$1 AND o.organization_id=$2 AND o.project_id=$3 AND o.model_alias=$4 AND o.task_id IS NOT DISTINCT FROM $5 AND p.key_id=$6 AND p.deadline>clock_timestamp() FOR UPDATE OF o")
+            sqlx::query("SELECT o.id FROM operations o JOIN gateway_retry_policies p ON p.operation_id=o.id WHERE o.id=$1 AND o.organization_id=$2 AND o.project_id=$3 AND o.model_alias=$4 AND o.task_id IS NOT DISTINCT FROM $5 AND p.key_id=$6 AND p.policy_revision=$7 AND p.deadline>clock_timestamp() FOR UPDATE OF o")
                 .bind(admission.operation_id).bind(scope.organization_id).bind(scope.project_id)
-                .bind(&admission.model).bind(&admission.task_id).bind(admission.key_id)
+                .bind(&admission.model).bind(&admission.task_id).bind(admission.key_id).bind(protocol.revision())
                 .fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
             let eligible: bool = sqlx::query_scalar(include_str!("gateway_retry_eligible.sql"))
                 .bind(predecessor_id)
@@ -60,7 +80,11 @@ impl Store {
                 &admission.revision,
             )
             .await?;
-            if let Some(GatewayRetryAdmission::First { remaining_ms }) = retry {
+            if let Some(GatewayRetryAdmission::First {
+                remaining_ms,
+                protocol,
+            }) = retry
+            {
                 if !(1..=86_400_000).contains(&remaining_ms)
                     || admission.dispatch_provider != "openrouter"
                     || admission.api_base.as_deref().is_none_or(|base| {
@@ -73,8 +97,8 @@ impl Store {
                 {
                     return Err(StoreError::Conflict);
                 }
-                sqlx::query("INSERT INTO gateway_retry_policies(operation_id,key_id,policy_revision,maximum_attempts,deadline) VALUES($1,$2,'openrouter-chat-auth-rejection-v1',2,clock_timestamp()+$3::bigint*interval '1 millisecond')")
-                    .bind(admission.operation_id).bind(admission.key_id).bind(remaining_ms)
+                sqlx::query("INSERT INTO gateway_retry_policies(operation_id,key_id,policy_revision,maximum_attempts,deadline) VALUES($1,$2,$4,2,clock_timestamp()+$3::bigint*interval '1 millisecond')")
+                    .bind(admission.operation_id).bind(admission.key_id).bind(remaining_ms).bind(protocol.revision())
                     .execute(&mut **tx).await?;
                 sqlx::query("INSERT INTO gateway_retry_attempts(attempt_id,operation_id,ordinal) VALUES($1,$2,1)")
                     .bind(admission.attempt_id).bind(admission.operation_id).execute(&mut **tx).await?;

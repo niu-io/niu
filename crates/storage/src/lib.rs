@@ -31,7 +31,7 @@ pub use financial_recovery::FinancialRecoveryFailure;
 mod gateway_retry;
 mod media_submissions;
 mod personal_admission;
-pub use gateway_retry::GatewayRetryAdmission;
+pub use gateway_retry::{GatewayRetryAdmission, GatewayRetryProtocol};
 mod priced_admission;
 mod request_failures;
 pub use request_failures::{RequestFailure, RequestFailureKind};
