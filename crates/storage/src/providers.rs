@@ -1018,10 +1018,7 @@ impl Store {
         if ![7, 30, 90].contains(&days) {
             return Err(StoreError::InvalidPrice);
         }
-        let mut tx = self.pool.begin().await?;
-        sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
-            .execute(&mut *tx)
-            .await?;
+        let mut tx = self.begin_bounded_financial_snapshot().await?;
         let name: String = sqlx::query_scalar(
             "SELECT name FROM provider_businesses WHERE id=$1 AND deleted_at IS NULL",
         )
