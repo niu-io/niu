@@ -81,6 +81,7 @@ pub(super) async fn infer(
         &state,
         &principal,
         AttemptRequest {
+            route_generation: None,
             managed_route: None,
             personal_route: None,
             public_model: &alias,

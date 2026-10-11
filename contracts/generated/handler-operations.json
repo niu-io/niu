@@ -12108,6 +12108,71 @@
         "x-niu-implementation": "implemented"
       }
     },
+    "/admin/v1/routing-registry": {
+      "get": {
+        "operationId": "getRoutingRegistryStatus",
+        "summary": "Read the active routing generation",
+        "description": "Platform administrators can read the active immutable routing generation for diagnostics and an explicit static-configuration replacement. No definitions, endpoints, credential references, secrets or purchase prices are returned. local_static_configuration_matches is false on a Gateway whose local static configuration has been superseded; new inference on that instance fails closed until it restarts with matching configuration. The response is not cached.",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active publication status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "generation",
+                        "format_version",
+                        "local_static_configuration_matches"
+                      ],
+                      "properties": {
+                        "generation": {
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]*$"
+                        },
+                        "format_version": {
+                          "type": "integer",
+                          "enum": [
+                            1
+                          ]
+                        },
+                        "local_static_configuration_matches": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid authorization"
+          },
+          "403": {
+            "description": "Platform administration is required"
+          },
+          "503": {
+            "description": "Publication is unavailable or its format is unsupported"
+          }
+        },
+        "x-niu-implementation": "implemented"
+      }
+    },
     "/admin/v1/model-route-pools": {
       "get": {
         "operationId": "getModelRoutePool",

@@ -27,6 +27,7 @@ pub(super) struct Capabilities {
 }
 
 pub(crate) struct ResolvedModel {
+    pub route_generation: Option<i64>,
     pub managed_route: Option<niu_storage::ManagedRouteSnapshot>,
     pub model: ModelConfig,
     pub api_key: String,
@@ -70,6 +71,18 @@ pub(crate) async fn resolve_scoped_model_excluding(
     requirements: Option<&crate::config::ModelRequirements>,
     excluded_vendors: &[uuid::Uuid],
 ) -> Result<ResolvedModel, ApiError> {
+    if let Some(published) = super::publication::snapshot(state).await? {
+        return resolve_published(
+            state,
+            &published,
+            Some(organization_id),
+            alias,
+            Some(&protocol),
+            requirements,
+            excluded_vendors,
+        )
+        .await;
+    }
     if let Some(pool) = state
         .store
         .model_route_pool(alias)
@@ -109,6 +122,7 @@ pub(crate) async fn resolve_scoped_model_excluding(
         model.pricing = None;
         model.public_catalog = false;
         return Ok(ResolvedModel {
+            route_generation: None,
             managed_route: Some(niu_storage::ManagedRouteSnapshot::from(&route)),
             model,
             api_key,
@@ -149,25 +163,8 @@ async fn resolve_pool(
             .find(|candidate| candidate.alias == route.model.alias)
             .ok_or_else(ApiError::unavailable)?;
         if let Some(protocol) = protocol {
-            use crate::guardrails::input::Protocol;
             let model = stored_model(&route)?;
-            let supported = match protocol {
-                Protocol::Chat => model.protocol().supports_chat_completions(),
-                Protocol::Responses => {
-                    model.protocol().is_openai_compatible() && model.supports_responses
-                }
-                Protocol::Embeddings => {
-                    model.protocol().is_openai_compatible() && model.supports_embeddings
-                }
-                Protocol::Messages => {
-                    model.supports_messages
-                        && matches!(model.provider.as_str(), "openrouter" | "anthropic")
-                }
-                Protocol::GenerateContent => {
-                    model.supports_generate_content && model.provider == "gemini"
-                }
-                Protocol::VideoText => false,
-            };
+            let supported = supports_protocol(&model, protocol);
             if !supported || requirements.is_some_and(|required| !required.allows(&model)) {
                 continue;
             }
@@ -192,6 +189,7 @@ async fn resolve_pool(
     snapshot.pool_alias = Some(pool.alias);
     snapshot.pool_revision = Some(pool.revision);
     Ok(ResolvedModel {
+        route_generation: None,
         model,
         api_key,
         managed_route: Some(snapshot),
@@ -319,20 +317,13 @@ pub(crate) async fn require_customer_tariff_model(
     organization_id: uuid::Uuid,
     alias: &str,
 ) -> Result<(), ApiError> {
-    let inputs = state
-        .store
-        .vendor_catalog_inputs()
-        .await
-        .map_err(ApiError::from_store)?;
-    let shared = super::catalog_compiler::compile_catalog(&state.config.models, &inputs, None)?;
+    let (static_models, inputs) = super::publication::catalog_inputs(state).await?;
+    let shared = super::catalog_compiler::compile_catalog(&static_models, &inputs, None)?;
     if shared.contains_key(alias) {
         return Ok(());
     }
-    let scoped = super::catalog_compiler::compile_catalog(
-        &state.config.models,
-        &inputs,
-        Some(organization_id),
-    )?;
+    let scoped =
+        super::catalog_compiler::compile_catalog(&static_models, &inputs, Some(organization_id))?;
     if scoped.contains_key(alias) {
         return Err(ApiError::invalid_request(
             "Personal owner-funded models do not accept customer tariffs; choose an available shared billing model",
@@ -354,16 +345,9 @@ pub(crate) async fn scoped_managed_catalog(
     state: &AppState,
     organization_id: uuid::Uuid,
 ) -> Result<Vec<niu_storage::VendorCatalogRoute>, ApiError> {
-    let inputs = state
-        .store
-        .vendor_catalog_inputs()
-        .await
-        .map_err(ApiError::from_store)?;
-    let visible = super::catalog_compiler::compile_catalog(
-        &state.config.models,
-        &inputs,
-        Some(organization_id),
-    )?;
+    let (static_models, inputs) = super::publication::catalog_inputs(state).await?;
+    let visible =
+        super::catalog_compiler::compile_catalog(&static_models, &inputs, Some(organization_id))?;
     Ok(inputs
         .routes
         .into_iter()
@@ -383,18 +367,17 @@ async fn catalog_models(
     state: &AppState,
     organization_id: Option<uuid::Uuid>,
 ) -> Result<BTreeMap<String, ModelConfig>, ApiError> {
-    let inputs = state
-        .store
-        .vendor_catalog_inputs()
-        .await
-        .map_err(ApiError::from_store)?;
-    super::catalog_compiler::compile_catalog(&state.config.models, &inputs, organization_id)
+    let (static_models, inputs) = super::publication::catalog_inputs(state).await?;
+    super::catalog_compiler::compile_catalog(&static_models, &inputs, organization_id)
 }
 
 pub(crate) async fn resolve_model(
     state: &AppState,
     alias: &str,
 ) -> Result<ResolvedModel, ApiError> {
+    if let Some(published) = super::publication::snapshot(state).await? {
+        return resolve_published(state, &published, None, alias, None, None, &[]).await;
+    }
     if let Some(selection) = state
         .store
         .shared_vendor_route(alias)
@@ -427,6 +410,7 @@ pub(crate) async fn resolve_model(
             .open(route.vendor.id, &route.credential_ciphertext)
             .map_err(|_| ApiError::unavailable())?;
         return Ok(ResolvedModel {
+            route_generation: None,
             managed_route: Some(niu_storage::ManagedRouteSnapshot::from(&route)),
             model: stored_model(&route)?,
             api_key,
@@ -444,10 +428,162 @@ pub(crate) async fn resolve_model(
         .ok_or_else(ApiError::unavailable)?
         .to_owned();
     Ok(ResolvedModel {
+        route_generation: None,
         managed_route: None,
         model,
         api_key,
         personal_route: None,
+    })
+}
+
+fn supports_protocol(model: &ModelConfig, protocol: &crate::guardrails::input::Protocol) -> bool {
+    use crate::guardrails::input::Protocol;
+    match protocol {
+        Protocol::Chat => model.protocol().supports_chat_completions(),
+        Protocol::Responses => model.protocol().is_openai_compatible() && model.supports_responses,
+        Protocol::Embeddings => {
+            model.protocol().is_openai_compatible() && model.supports_embeddings
+        }
+        Protocol::Messages => {
+            model.supports_messages && matches!(model.provider.as_str(), "openrouter" | "anthropic")
+        }
+        Protocol::GenerateContent => model.supports_generate_content && model.provider == "gemini",
+        Protocol::VideoText => false,
+    }
+}
+
+async fn resolve_published(
+    state: &AppState,
+    published: &super::publication::Published,
+    organization: Option<uuid::Uuid>,
+    alias: &str,
+    protocol: Option<&crate::guardrails::input::Protocol>,
+    requirements: Option<&crate::config::ModelRequirements>,
+    excluded_vendors: &[uuid::Uuid],
+) -> Result<ResolvedModel, ApiError> {
+    let registry = &published.registry;
+    let pool = registry.pools.get(alias);
+    let selected = if let Some(pool) = pool {
+        if !pool.enabled
+            || pool
+                .organization_id
+                .is_some_and(|owner| Some(owner) != organization)
+        {
+            return Err(ApiError::not_found());
+        }
+        let (unavailable, cooling_down) = state
+            .store
+            .route_registry_live_eligibility()
+            .await
+            .map_err(ApiError::from_store)?;
+        let eligible = pool
+            .candidates
+            .iter()
+            .filter_map(|candidate| {
+                let route = registry.routes.get(&candidate.alias)?;
+                let metadata = &route.metadata;
+                (candidate.enabled
+                    && metadata.vendor.enabled
+                    && metadata.model.enabled
+                    && metadata.vendor.has_credential
+                    && !excluded_vendors.contains(&metadata.vendor.id)
+                    && !cooling_down.contains(&metadata.vendor.id)
+                    && metadata.model.capabilities.get("video_schema").is_none()
+                    && metadata.personal_organization_id == pool.organization_id
+                    && (pool.organization_id.is_some()
+                        || (route.model.pricing.is_some()
+                            && !unavailable.contains(&candidate.alias)))
+                    && protocol.is_none_or(|protocol| supports_protocol(&route.model, protocol))
+                    && requirements.is_none_or(|required| required.allows(&route.model)))
+                .then_some((candidate, route))
+            })
+            .collect();
+        Some(select_candidate(eligible).ok_or_else(ApiError::route_pool_unavailable)?)
+    } else {
+        if !excluded_vendors.is_empty() {
+            return Err(ApiError::route_pool_unavailable());
+        }
+        registry.routes.get(alias)
+    };
+    let Some(selected) = selected else {
+        let model = registry
+            .static_models
+            .get(alias)
+            .cloned()
+            .ok_or_else(ApiError::not_found)?;
+        let api_key = state
+            .provider_key(&model.api_key_env)
+            .ok_or_else(ApiError::unavailable)?
+            .to_owned();
+        return Ok(ResolvedModel {
+            route_generation: Some(published.generation),
+            managed_route: None,
+            model,
+            api_key,
+            personal_route: None,
+        });
+    };
+    let metadata = &selected.metadata;
+    if !metadata.vendor.enabled
+        || !metadata.model.enabled
+        || metadata
+            .personal_organization_id
+            .is_some_and(|owner| Some(owner) != organization)
+    {
+        return Err(ApiError::not_found());
+    }
+    // This is an exclusion/secret read, never a source of replacement definitions.
+    let live = state
+        .store
+        .shared_vendor_route(&metadata.model.alias)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(|| ApiError::from_store(niu_storage::StoreError::ManagedRouteChanged))?;
+    let route = live.route;
+    if route.vendor.id != metadata.vendor.id
+        || route.vendor.revision != metadata.vendor.revision
+        || route.model.revision != metadata.model.revision
+        || route.personal_organization_id != metadata.personal_organization_id
+    {
+        return Err(ApiError::from_store(
+            niu_storage::StoreError::ManagedRouteChanged,
+        ));
+    }
+    let personal = metadata.personal_organization_id.is_some();
+    if !personal && !live.supplier_available {
+        return Err(ApiError::unavailable());
+    }
+    if !personal && live.uses_media_offer {
+        return Err(ApiError::unsupported_message(
+            "This model uses a media offer. Use the qualified video job API.",
+        ));
+    }
+    require_selectable_credential(state, metadata.vendor.id).await?;
+    reject_video_text_route(&route)?;
+    let api_key = state
+        .vendor_cipher
+        .as_ref()
+        .ok_or_else(ApiError::unavailable)?
+        .open(metadata.vendor.id, &route.credential_ciphertext)
+        .map_err(|_| ApiError::unavailable())?;
+    let mut model = selected.model.clone();
+    if personal {
+        model.pricing = None;
+    }
+    if personal || pool.is_some() {
+        model.public_catalog = false;
+    }
+    let mut managed = niu_storage::ManagedRouteSnapshot::from(&route);
+    if let Some(pool) = pool {
+        managed.pool_alias = Some(pool.alias.clone());
+        managed.pool_revision = Some(pool.revision);
+    }
+    Ok(ResolvedModel {
+        route_generation: Some(published.generation),
+        managed_route: Some(managed),
+        model,
+        api_key,
+        personal_route: personal.then_some(route),
     })
 }
 

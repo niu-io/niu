@@ -6,6 +6,15 @@ candidate administration and pre-dispatch selection, with bounded Chat failover
 for qualified OpenRouter authentication rejection. Broad business failover and
 paid pool qualification remain open.
 
+## Publication implementation update — 2026-10-11
+
+The [routing publication implementation and evidence](../reference/routing-publications.md)
+supersedes the unimplemented-publication descriptions in the historical checkpoints
+below. Configuration writers, catalog/text selection, video submission attribution
+and atomic startup now use the generation mechanism. Private Codex account routes
+remain outside this registry. Broader failover, capacity and full-release
+qualification remain separate work.
+
 ## Inspected current structure
 
 `vendor_models.alias` is the primary key introduced by migration 0013. A mapping

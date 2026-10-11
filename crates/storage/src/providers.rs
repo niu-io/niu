@@ -164,7 +164,7 @@ impl Store {
         {
             return Err(StoreError::InvalidVendor);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_route_write().await?;
         sqlx::query(
             "SELECT id FROM provider_businesses WHERE id=$1 AND deleted_at IS NULL FOR UPDATE",
         )
@@ -192,7 +192,7 @@ impl Store {
             .bind(review)
             .execute(&mut *tx)
             .await?;
-        tx.commit().await?;
+        self.commit_route_write(tx).await?;
         Ok(())
     }
 
@@ -212,7 +212,7 @@ impl Store {
         {
             return Err(StoreError::InvalidVendor);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_route_write().await?;
         sqlx::query(
             "SELECT id FROM provider_businesses WHERE id=$1 AND deleted_at IS NULL FOR UPDATE",
         )
@@ -269,7 +269,7 @@ impl Store {
             .bind(review)
             .execute(&mut *tx)
             .await?;
-        tx.commit().await?;
+        self.commit_route_write(tx).await?;
         Ok(())
     }
 
@@ -281,7 +281,7 @@ impl Store {
         if !valid_evidence_digest(reason_sha256) {
             return Err(StoreError::InvalidVendor);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_route_write().await?;
         sqlx::query(
             "SELECT id FROM provider_businesses WHERE id=$1 AND deleted_at IS NULL FOR UPDATE",
         )
@@ -326,7 +326,7 @@ impl Store {
             .bind(review)
             .execute(&mut *tx)
             .await?;
-        tx.commit().await?;
+        self.commit_route_write(tx).await?;
         Ok(())
     }
 
@@ -339,7 +339,7 @@ impl Store {
         if !valid_evidence_digest(reason_sha256) {
             return Err(StoreError::InvalidVendor);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_route_write().await?;
         sqlx::query(
             "SELECT id FROM provider_businesses WHERE id=$1 AND deleted_at IS NULL FOR UPDATE",
         )
@@ -383,7 +383,7 @@ impl Store {
             .bind(review)
             .execute(&mut *tx)
             .await?;
-        tx.commit().await?;
+        self.commit_route_write(tx).await?;
         Ok(())
     }
 
@@ -668,7 +668,7 @@ impl Store {
         if input.currency.len() != 3 || !input.currency.bytes().all(|b| b.is_ascii_uppercase()) {
             return Err(StoreError::InvalidPrice);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_route_write().await?;
         sqlx::query(
             "SELECT id FROM provider_businesses WHERE id=$1 AND deleted_at IS NULL FOR UPDATE",
         )
@@ -751,7 +751,7 @@ impl Store {
             .execute(&mut *tx)
             .await?;
         sqlx::query("INSERT INTO provider_audit_events(provider_id,action,resource_id) VALUES($1,'offer_priced',$2)").bind(provider).bind(revision).execute(&mut *tx).await?;
-        tx.commit().await?;
+        self.commit_route_write(tx).await?;
         Ok(revision)
     }
 
@@ -762,7 +762,7 @@ impl Store {
         operator: Uuid,
         active: bool,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_route_write().await?;
         sqlx::query("SELECT provider_id FROM provider_memberships WHERE provider_id=$1 AND operator_id=$2 AND active AND role='manager' FOR SHARE").bind(provider).bind(operator).fetch_optional(&mut *tx).await?.ok_or(StoreError::Unauthorized)?;
         if active
             && !sqlx::query_scalar::<_, bool>(
@@ -789,7 +789,7 @@ impl Store {
             return Err(StoreError::Conflict);
         }
         sqlx::query("INSERT INTO provider_audit_events(provider_id,actor_operator_id,action,resource_id) VALUES($1,$2,$3,$4)").bind(provider).bind(operator).bind(if active {"offer_resumed"} else {"offer_paused"}).bind(offer).execute(&mut *tx).await?;
-        tx.commit().await?;
+        self.commit_route_write(tx).await?;
         Ok(())
     }
 
@@ -856,6 +856,7 @@ impl Store {
             sqlx::query("SELECT id FROM attempts WHERE id=$1 AND organization_id=$2 AND project_id=$3 AND execution='not_sent' FOR UPDATE").bind(attempt).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
             sqlx::query("INSERT INTO provider_attempt_offers(attempt_id,provider_id,offer_id,revision_id) VALUES($1,$2,$3,$4)").bind(attempt).bind(row.get::<Uuid,_>("provider_id")).bind(row.get::<Uuid,_>("id")).bind(row.get::<Uuid,_>("current_revision")).execute(&mut **tx).await?;
         }
+        Self::validate_published_offer_binding(tx, attempt, alias).await?;
         Ok(())
     }
 

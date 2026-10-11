@@ -35,6 +35,7 @@ impl Store {
         let attempt = admission.attempt_id;
         let mut tx = self.pool.begin().await?;
         Self::insert_gateway_retry_attempt(&mut tx, &admission, retry).await?;
+        Self::insert_route_generation(&mut *tx, attempt, admission.route_generation).await?;
         if let Some(route) = &admission.managed_route {
             Self::insert_managed_route(&mut *tx, attempt, route).await?;
         }

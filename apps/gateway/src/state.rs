@@ -15,6 +15,8 @@ use crate::{config::AppConfig, error::ApiError};
 
 #[derive(Clone)]
 pub struct AppState {
+    pub(crate) route_registry:
+        Arc<tokio::sync::RwLock<Option<Arc<crate::vendors::publication::Published>>>>,
     pub(crate) trusted_proxies: Arc<Vec<ipnet::IpNet>>,
     pub(crate) password_auth: Option<Arc<crate::admin::passwords::Runtime>>,
     pub(crate) payments: Option<Arc<crate::payments::Runtime>>,
@@ -69,6 +71,21 @@ impl AppState {
             niu_storage::Store::connect_with_max_connections(&database_url, max_connections)
                 .await
                 .map_err(|_| "Cannot initialize gateway database")?;
+        let provider_keys: HashMap<String, String> = config
+            .models
+            .values()
+            .filter_map(|model| {
+                env::var(&model.api_key_env)
+                    .ok()
+                    .filter(|secret| !secret.is_empty() && !secret.starts_with("replace-"))
+                    .map(|secret| (model.api_key_env.clone(), secret))
+            })
+            .collect();
+        let store =
+            store.with_route_compiler(Arc::new(crate::vendors::publication::Compiler::new(
+                config.models.clone(),
+                provider_keys.keys().cloned().collect(),
+            )?));
         if store
             .encryption_rotation_active()
             .await
@@ -82,7 +99,19 @@ impl AppState {
             .transpose()?
             .map(Arc::new);
         crate::vendors::validate_saved_codex_credentials(&store, vendor_cipher.as_deref()).await?;
-        crate::vendors::seed_from_env(&store, vendor_cipher.as_deref()).await?;
+        let seeds =
+            crate::vendors::collect_seeds_from_env(&store, vendor_cipher.as_deref()).await?;
+        let expected_generation = match env::var("NIU_ROUTING_EXPECTED_GENERATION") {
+            Ok(value) => Some(
+                value
+                    .parse::<i64>()
+                    .ok()
+                    .filter(|value| *value > 0)
+                    .ok_or("NIU_ROUTING_EXPECTED_GENERATION must be a positive generation")?,
+            ),
+            Err(env::VarError::NotPresent) => None,
+            Err(_) => return Err("Invalid NIU_ROUTING_EXPECTED_GENERATION".into()),
+        };
         crate::vendors::validate_saved_credentials(&store, vendor_cipher.as_deref()).await?;
         crate::payments::validate_saved_configuration(&store, vendor_cipher.as_deref()).await?;
         crate::vendors::validate_retained_content(&store, vendor_cipher.as_deref()).await?;
@@ -90,32 +119,6 @@ impl AppState {
             "NIU_ADMIN_TOKENS",
             env::var("NIU_ADMIN_TOKENS").unwrap_or_default(),
         )?;
-        let mut provider_keys = HashMap::new();
-        for (alias, model) in &config.models {
-            if store
-                .database_shadows_static_alias(alias)
-                .await
-                .map_err(|_| "Cannot read vendor registry")?
-            {
-                continue;
-            }
-            if !provider_keys.contains_key(&model.api_key_env) {
-                let secret = env::var(&model.api_key_env).map_err(|_| {
-                    format!(
-                        "provider credential environment variable {} is not set",
-                        model.api_key_env
-                    )
-                })?;
-                if secret.is_empty() || secret.starts_with("replace-") {
-                    return Err(format!(
-                        "provider credential {} is empty or still a placeholder",
-                        model.api_key_env
-                    )
-                    .into());
-                }
-                provider_keys.insert(model.api_key_env.clone(), secret);
-            }
-        }
         let mut state =
             Self::new(config, store, admin_tokens, provider_keys).with_enterprise(enterprise);
         state.vendor_cipher = vendor_cipher;
@@ -144,6 +147,8 @@ impl AppState {
             state.password_auth = Some(Arc::new(runtime));
         }
         state.trusted_proxies = Arc::new(crate::request_source::trusted_proxies()?);
+        state.store.bootstrap_route_registry(seeds, expected_generation).await
+            .map_err(|_| "Cannot publish routing configuration; inspect static credentials and the expected current generation")?;
         Ok(state)
     }
 
@@ -176,6 +181,7 @@ impl AppState {
             })
             .collect();
         Self {
+            route_registry: Arc::new(tokio::sync::RwLock::new(None)),
             trusted_proxies: Arc::new(Vec::new()),
             image_detectors: Arc::new(image_detectors),
             password_auth: None,

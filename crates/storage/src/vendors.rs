@@ -1,5 +1,5 @@
 use crate::{Store, StoreError};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::{FromRow, Postgres, Transaction};
 use std::net::IpAddr;
@@ -20,7 +20,7 @@ pub struct VendorInput {
     pub credential_ciphertext: Vec<u8>,
 }
 
-#[derive(Serialize, sqlx::FromRow)]
+#[derive(Clone, Deserialize, Serialize, sqlx::FromRow)]
 pub struct VendorView {
     pub id: Uuid,
     pub name: String,
@@ -49,7 +49,7 @@ pub struct VendorModelInput {
     pub expected_revision: Option<i64>,
 }
 
-#[derive(Serialize, sqlx::FromRow)]
+#[derive(Clone, Deserialize, Serialize, sqlx::FromRow)]
 pub struct VendorModelView {
     pub alias: String,
     pub vendor_id: Uuid,
@@ -73,6 +73,7 @@ pub struct VendorRoute {
 
 /// Server-only route metadata. No encrypted or plaintext credentials are loaded.
 /// Endpoint and procurement fields still require a customer-safe projection.
+#[derive(Clone, Deserialize, Serialize)]
 pub struct VendorCatalogRoute {
     pub model: VendorModelView,
     pub vendor: VendorView,
@@ -82,9 +83,24 @@ pub struct VendorCatalogRoute {
 /// Configured routing inputs, without credentials or clock-dependent eligibility.
 /// Read through the caller's transaction so publication can include its own writes.
 /// Disabled routes remain present to shadow static aliases.
+#[derive(Deserialize, Serialize)]
 pub struct RouteRegistryInputs {
     pub routes: Vec<VendorCatalogRoute>,
     pub pools: Vec<crate::ModelRoutePool>,
+    pub offers: Vec<RouteRegistryOffer>,
+}
+
+/// Configured offer and review identities; their expiry and revocation stay live.
+#[derive(Clone, Deserialize, Serialize, FromRow)]
+pub struct RouteRegistryOffer {
+    pub model_alias: String,
+    pub vendor_id: Uuid,
+    pub provider_id: Uuid,
+    pub offer_id: Uuid,
+    pub active: bool,
+    pub current_revision: Option<Uuid>,
+    pub offer_review: Option<Uuid>,
+    pub supplier_review: Option<Uuid>,
 }
 
 /// Server-only catalog inputs from a single database snapshot.
@@ -197,7 +213,7 @@ impl Store {
         organization: Uuid,
         expected_revision: i64,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_route_write().await?;
         let revision: i64 =
             sqlx::query_scalar("SELECT revision FROM vendors WHERE id=$1 FOR UPDATE")
                 .bind(vendor)
@@ -214,7 +230,7 @@ impl Store {
             if existing != organization {
                 return Err(StoreError::Conflict);
             }
-            tx.commit().await?;
+            self.commit_route_write(tx).await?;
             return Ok(());
         }
         if revision != expected_revision {
@@ -252,7 +268,7 @@ impl Store {
             revision + 1,
         )
         .await?;
-        tx.commit().await?;
+        self.commit_route_write(tx).await?;
         Ok(())
     }
 
@@ -374,7 +390,7 @@ impl Store {
         supplier: Uuid,
         expected_revision: i64,
     ) -> Result<(), StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_route_write().await?;
         // Lock Supplier before configuration, matching offer publication.
         // Retain liveness through ownership commit so deletion cannot pass
         // its dependency check between this read and the insert.
@@ -403,7 +419,7 @@ impl Store {
             if existing != supplier {
                 return Err(StoreError::Conflict);
             }
-            tx.commit().await?;
+            self.commit_route_write(tx).await?;
             return Ok(());
         }
         if revision != expected_revision {
@@ -430,7 +446,7 @@ impl Store {
             .execute(&mut *tx)
             .await?;
         insert_audit(&mut tx, vendor, None, "supplier_associated", revision + 1).await?;
-        tx.commit().await?;
+        self.commit_route_write(tx).await?;
         Ok(())
     }
 
@@ -460,7 +476,7 @@ impl Store {
         if create_supplier && existing_supplier.is_some() {
             return Err(StoreError::InvalidVendor);
         }
-        let mut transaction = self.pool.begin().await?;
+        let mut transaction = self.begin_route_write().await?;
         if let Some(id) = existing_supplier {
             let exists: Option<Uuid> =
                 sqlx::query_scalar("SELECT id FROM provider_businesses WHERE id=$1 AND deleted_at IS NULL FOR KEY SHARE")
@@ -523,7 +539,7 @@ impl Store {
             )
             .await?;
         }
-        transaction.commit().await?;
+        self.commit_route_write(transaction).await?;
         Ok(vendor)
     }
 
@@ -533,7 +549,7 @@ impl Store {
         update: VendorUpdate,
     ) -> Result<VendorView, StoreError> {
         validate_vendor_update(&update)?;
-        let mut transaction = self.pool.begin().await?;
+        let mut transaction = self.begin_route_write().await?;
         let query = format!(
             "UPDATE vendors SET name=$1,api_base=$2,enabled=$3, \
              credential_ciphertext=COALESCE($4,credential_ciphertext), \
@@ -559,7 +575,7 @@ impl Store {
             vendor.revision,
         )
         .await?;
-        transaction.commit().await?;
+        self.commit_route_write(transaction).await?;
         Ok(vendor)
     }
 
@@ -603,7 +619,7 @@ impl Store {
         input: VendorModelInput,
     ) -> Result<VendorModelView, StoreError> {
         validate_model(&input)?;
-        let mut transaction = self.pool.begin().await?;
+        let mut transaction = self.begin_route_write().await?;
         // Serialize the ownership check with personal-owner assignment, including
         // initial model creation. Conflicting configuration must fail at save.
         sqlx::query("SELECT id FROM vendors WHERE id=$1 FOR SHARE")
@@ -671,7 +687,7 @@ impl Store {
             model.revision,
         )
         .await?;
-        transaction.commit().await?;
+        self.commit_route_write(transaction).await?;
         Ok(model)
     }
 
@@ -848,7 +864,7 @@ impl Store {
         sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
             .execute(&mut *tx)
             .await?;
-        let RouteRegistryInputs { routes, pools } =
+        let RouteRegistryInputs { routes, pools, .. } =
             Self::routing_registry_inputs_in_tx(&mut tx).await?;
         let unavailable: Vec<String> = sqlx::query_scalar(
             "SELECT model_alias FROM provider_offers WHERE NOT niu_supplier_model_route_available(model_alias)",
@@ -900,7 +916,14 @@ impl Store {
                 break;
             }
         }
-        Ok(RouteRegistryInputs { routes, pools })
+        let offers = sqlx::query_as::<_, RouteRegistryOffer>(
+            "SELECT o.model_alias,o.vendor_id,o.provider_id,o.id AS offer_id,o.active,o.current_revision,o.current_qualification_review AS offer_review,p.current_qualification_review AS supplier_review FROM provider_offers o JOIN provider_businesses p ON p.id=o.provider_id ORDER BY o.model_alias"
+        ).fetch_all(&mut **tx).await?;
+        Ok(RouteRegistryInputs {
+            routes,
+            pools,
+            offers,
+        })
     }
 
     /// Import the initial shared vendor once. Its immutable bootstrap name
@@ -911,6 +934,16 @@ impl Store {
         input: VendorInput,
         models: Vec<VendorModelInput>,
     ) -> Result<(), StoreError> {
+        let mut tx = self.begin_route_write().await?;
+        Self::seed_vendor_in_tx(&mut tx, input, models).await?;
+        self.commit_route_write(tx).await
+    }
+
+    pub(crate) async fn seed_vendor_in_tx(
+        transaction: &mut Transaction<'_, Postgres>,
+        input: VendorInput,
+        models: Vec<VendorModelInput>,
+    ) -> Result<bool, StoreError> {
         validate_vendor(&input)?;
         for model in &models {
             validate_model(model)?;
@@ -919,7 +952,6 @@ impl Store {
             }
         }
 
-        let mut transaction = self.pool.begin().await?;
         let query = format!(
             "INSERT INTO vendors(id,name,bootstrap_name,adapter,api_base,enabled,credential_ciphertext) \
              VALUES($1,$2,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING \
@@ -932,7 +964,7 @@ impl Store {
             .bind(&input.api_base)
             .bind(input.enabled)
             .bind(&input.credential_ciphertext)
-            .fetch_optional(&mut *transaction)
+            .fetch_optional(&mut **transaction)
             .await
             .map_err(map_vendor_write_error)?;
 
@@ -941,16 +973,15 @@ impl Store {
                 "SELECT EXISTS(SELECT 1 FROM vendors WHERE name=$1 OR bootstrap_name=$1)",
             )
             .bind(&input.name)
-            .fetch_one(&mut *transaction)
+            .fetch_one(&mut **transaction)
             .await?;
             if !already_seeded {
                 return Err(StoreError::Conflict);
             }
-            transaction.commit().await?;
-            return Ok(());
+            return Ok(false);
         };
         insert_audit(
-            &mut transaction,
+            transaction,
             vendor.id,
             None,
             "vendor_seeded",
@@ -971,11 +1002,11 @@ impl Store {
                 .bind(input.enabled)
                 .bind(&input.capabilities)
                 .bind(&input.pricing)
-                .fetch_one(&mut *transaction)
+                .fetch_one(&mut **transaction)
                 .await
                 .map_err(map_vendor_write_error)?;
             insert_audit(
-                &mut transaction,
+                transaction,
                 vendor.id,
                 Some(&model.alias),
                 "vendor_model_seeded",
@@ -984,8 +1015,7 @@ impl Store {
             .await?;
         }
 
-        transaction.commit().await?;
-        Ok(())
+        Ok(true)
     }
 }
 
@@ -1149,7 +1179,7 @@ impl Store {
         expected_revision: i64,
         entries: Vec<(String, Value)>,
     ) -> Result<u64, StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_route_write().await?;
         // Acquire this only after upstream I/O; serialize the revision check with
         // configuration edits until all matching metadata updates commit.
         let revision: Option<i64> =
@@ -1169,7 +1199,7 @@ impl Store {
             updated += sqlx::query("UPDATE vendor_models SET capabilities=jsonb_set(capabilities, '{catalog}', $3), revision=revision+1 WHERE vendor_id=$1 AND upstream_model=$2 AND capabilities->'catalog' IS DISTINCT FROM $3")
                 .bind(vendor_id).bind(upstream).bind(metadata).execute(&mut *tx).await?.rows_affected();
         }
-        tx.commit().await?;
+        self.commit_route_write(tx).await?;
         Ok(updated)
     }
 }

@@ -23,31 +23,38 @@ struct SeedVendor {
 }
 
 /// Seeds an absent vendor once; persisted administrator changes always win.
-pub(crate) async fn seed_from_env(
+pub(crate) async fn collect_seeds_from_env(
     store: &niu_storage::Store,
     cipher: Option<&CredentialCipher>,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<
+    Vec<(niu_storage::VendorInput, Vec<niu_storage::VendorModelInput>)>,
+    Box<dyn std::error::Error>,
+> {
     let Some(path) = std::env::var_os("NIU_VENDOR_BOOTSTRAP_FILE") else {
-        return Ok(());
+        return Ok(Vec::new());
     };
     let bytes = std::fs::read(path).map_err(|_| "Cannot read vendor bootstrap file")?;
     if bytes.len() > 1_048_576 {
         return Err("Vendor bootstrap file is too large".into());
     }
-    seed_bytes(store, cipher, &bytes, |name| std::env::var(name).ok()).await
+    collect_seed_bytes(store, cipher, &bytes, |name| std::env::var(name).ok()).await
 }
 
-pub(super) async fn seed_bytes(
+async fn collect_seed_bytes(
     store: &niu_storage::Store,
     cipher: Option<&CredentialCipher>,
     bytes: &[u8],
     credential: impl Fn(&str) -> Option<String>,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<
+    Vec<(niu_storage::VendorInput, Vec<niu_storage::VendorModelInput>)>,
+    Box<dyn std::error::Error>,
+> {
     let bootstrap: Bootstrap =
         serde_json::from_slice(bytes).map_err(|_| "Invalid vendor bootstrap file")?;
     if bootstrap.vendors.len() > 100 {
         return Err("Too many bootstrap vendors".into());
     }
+    let mut seeds = Vec::new();
     for vendor in bootstrap.vendors {
         if store
             .vendor_by_name(&vendor.name)
@@ -88,20 +95,30 @@ pub(super) async fn seed_bytes(
             credential(&vendor.credential_env).ok_or("Bootstrap vendor credential is missing")?;
         let id = Uuid::new_v4();
         let ciphertext = cipher.seal(id, &credential)?;
-        store
-            .seed_vendor(
-                niu_storage::VendorInput {
-                    id,
-                    name: vendor.name,
-                    adapter: vendor.adapter,
-                    api_base: vendor.api_base,
-                    enabled: true,
-                    credential_ciphertext: ciphertext,
-                },
-                vendor.models.into_iter().map(ModelInput::storage).collect(),
-            )
-            .await
-            .map_err(|_| "Cannot initialize vendor registry")?;
+        seeds.push((
+            niu_storage::VendorInput {
+                id,
+                name: vendor.name,
+                adapter: vendor.adapter,
+                api_base: vendor.api_base,
+                enabled: true,
+                credential_ciphertext: ciphertext,
+            },
+            vendor.models.into_iter().map(ModelInput::storage).collect(),
+        ));
+    }
+    Ok(seeds)
+}
+
+#[cfg(test)]
+async fn seed_bytes(
+    store: &niu_storage::Store,
+    cipher: Option<&CredentialCipher>,
+    bytes: &[u8],
+    credential: impl Fn(&str) -> Option<String>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    for (input, models) in collect_seed_bytes(store, cipher, bytes, credential).await? {
+        store.seed_vendor(input, models).await?;
     }
     Ok(())
 }

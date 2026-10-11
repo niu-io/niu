@@ -663,6 +663,14 @@ pub(in crate::web) async fn status(
         .ok_or_else(ApiError::not_found)
 }
 
+pub(super) struct VideoAdmission {
+    route: niu_storage::VendorRoute,
+    pub(super) request: niu_media::ValidatedVideoRequest,
+    selling: Option<niu_storage::SelectedCustomerMediaRate>,
+    pub(super) owner_funded: bool,
+    route_generation: Option<i64>,
+}
+
 /// Direct-channel submission with separate personal and prepaid admission.
 /// Media inspection remains required before reference inputs become available.
 /// Shared authorization, capability and tariff checks for estimates and creates.
@@ -671,23 +679,95 @@ pub(super) async fn validate_admission(
     principal: &niu_storage::Principal,
     body: &Value,
     model: &str,
-) -> Result<
-    (
-        niu_storage::VendorRoute,
-        niu_media::ValidatedVideoRequest,
-        Option<niu_storage::SelectedCustomerMediaRate>,
-        niu_storage::GuardrailSnapshot,
-        bool,
-    ),
-    ApiError,
-> {
+) -> Result<VideoAdmission, ApiError> {
     let scope = principal.scope();
-    let personal = state
-        .store
-        .personal_vendor_route(scope.organization_id, model)
-        .await
-        .map_err(ApiError::from_store)?;
-    let owner_funded = personal.is_some();
+    let published = crate::vendors::publication::snapshot(state).await?;
+    let route_generation = published.as_ref().map(|published| published.generation);
+    let (route, owner_funded) = if let Some(published) = &published {
+        if published.registry.pools.contains_key(model) {
+            return Err(ApiError::not_found());
+        }
+        let configured = published
+            .registry
+            .routes
+            .get(model)
+            .ok_or_else(ApiError::not_found)?;
+        let metadata = &configured.metadata;
+        if !metadata.vendor.enabled
+            || !metadata.model.enabled
+            || metadata
+                .personal_organization_id
+                .is_some_and(|owner| owner != scope.organization_id)
+        {
+            return Err(ApiError::not_found());
+        }
+        let live = state
+            .store
+            .shared_vendor_route(model)
+            .await
+            .map_err(ApiError::from_store)?
+            .ok_or_else(|| ApiError::from_store(niu_storage::StoreError::ManagedRouteChanged))?;
+        if live.route.vendor.id != metadata.vendor.id
+            || live.route.vendor.revision != metadata.vendor.revision
+            || live.route.model.revision != metadata.model.revision
+            || live.route.personal_organization_id != metadata.personal_organization_id
+        {
+            return Err(ApiError::from_store(
+                niu_storage::StoreError::ManagedRouteChanged,
+            ));
+        }
+        let owner_funded = metadata.personal_organization_id.is_some();
+        if !owner_funded && !live.supplier_available {
+            return Err(ApiError::unavailable());
+        }
+        (
+            niu_storage::VendorRoute {
+                vendor: metadata.vendor.clone(),
+                model: metadata.model.clone(),
+                personal_organization_id: metadata.personal_organization_id,
+                credential_ciphertext: live.route.credential_ciphertext,
+            },
+            owner_funded,
+        )
+    } else {
+        let personal = state
+            .store
+            .personal_vendor_route(scope.organization_id, model)
+            .await
+            .map_err(ApiError::from_store)?;
+        let owner_funded = personal.is_some();
+        let route = if let Some(route) = personal {
+            route
+        } else {
+            let route = state
+                .store
+                .vendor_route(model)
+                .await
+                .map_err(ApiError::from_store)?
+                .ok_or_else(ApiError::not_found)?;
+            if !route.vendor.enabled
+                || !route.model.enabled
+                || state
+                    .store
+                    .personal_vendor_organization(route.vendor.id)
+                    .await
+                    .map_err(ApiError::from_store)?
+                    .is_some()
+            {
+                return Err(ApiError::not_found());
+            }
+            if !state
+                .store
+                .supplier_model_available(model)
+                .await
+                .map_err(ApiError::from_store)?
+            {
+                return Err(ApiError::unavailable());
+            }
+            route
+        };
+        (route, owner_funded)
+    };
     // Personal upstream bills belong to the credential owner. Only shared
     // routes need platform procurement admission; legacy video procurement
     // reservations are not supported. Customer retail caps remain separate.
@@ -703,36 +783,6 @@ pub(super) async fn validate_admission(
             "Video admission under this workspace budget is not supported",
         ));
     }
-    let route = if let Some(route) = personal {
-        route
-    } else {
-        let route = state
-            .store
-            .vendor_route(model)
-            .await
-            .map_err(ApiError::from_store)?
-            .ok_or_else(ApiError::not_found)?;
-        if !route.vendor.enabled
-            || !route.model.enabled
-            || state
-                .store
-                .personal_vendor_organization(route.vendor.id)
-                .await
-                .map_err(ApiError::from_store)?
-                .is_some()
-        {
-            return Err(ApiError::not_found());
-        }
-        if !state
-            .store
-            .supplier_model_available(model)
-            .await
-            .map_err(ApiError::from_store)?
-        {
-            return Err(ApiError::unavailable());
-        }
-        route
-    };
     crate::vendors::require_selectable_credential(state, route.vendor.id).await?;
     let schema: niu_media::VideoSchema = serde_json::from_value(
         route
@@ -851,7 +901,13 @@ pub(super) async fn validate_admission(
     {
         return Err(ApiError::forbidden());
     }
-    Ok((route, request, selling, snapshot, owner_funded))
+    Ok(VideoAdmission {
+        route,
+        request,
+        selling,
+        owner_funded,
+        route_generation,
+    })
 }
 
 /// Video supports local text rules, but not media detectors or output buffering.
@@ -927,8 +983,12 @@ pub(super) async fn estimate_as(
     if !principal.allows_model(model) {
         return Err(ApiError::not_found());
     }
-    let (_, request, selling, _, owner_funded) =
-        validate_admission(&state, &principal, &body, model).await?;
+    let VideoAdmission {
+        request,
+        selling,
+        owner_funded,
+        ..
+    } = validate_admission(&state, &principal, &body, model).await?;
     let output = request.effective_output().ok_or_else(|| {
         ApiError::unsupported_message("No effective video output estimator is configured")
     })?;
@@ -1281,8 +1341,13 @@ pub(super) async fn create_as(
             "Idempotent video submission currently supports text input only",
         ));
     }
-    let (route, _, selling, _, owner_funded) =
-        validate_admission(&state, &principal, &body, model).await?;
+    let VideoAdmission {
+        route,
+        selling,
+        owner_funded,
+        route_generation,
+        ..
+    } = validate_admission(&state, &principal, &body, model).await?;
     if expected_owner_funded.is_some_and(|expected| expected != owner_funded) {
         return Err(ApiError::from_store(niu_storage::StoreError::Conflict));
     }
@@ -1379,7 +1444,14 @@ pub(super) async fn create_as(
     let attempt = if let Some(identity) = &identity {
         let (attempt, fresh) = state
             .store
-            .prepare_media_submission(scope, model, &revision, &identity.key, &identity.request)
+            .prepare_media_submission_with_generation(
+                scope,
+                model,
+                &revision,
+                &identity.key,
+                &identity.request,
+                route_generation,
+            )
             .await
             .map_err(ApiError::from_store)?;
         if !fresh {
@@ -1389,7 +1461,13 @@ pub(super) async fn create_as(
     } else {
         state
             .store
-            .prepare_gateway_attempt(scope, model, None, &revision)
+            .prepare_gateway_attempt_with_generation(
+                scope,
+                model,
+                None,
+                &revision,
+                route_generation,
+            )
             .await
             .map_err(ApiError::from_store)?
             .1

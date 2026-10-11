@@ -17,6 +17,8 @@ pub use encryption_rotation::{
     EncryptionRewrapTarget, EncryptionRotation, EncryptionRotationLease,
 };
 mod branding;
+mod route_publication;
+pub use route_publication::{RouteRegistryCompiler, RouteRegistryPublication};
 mod route_pools;
 pub use route_pools::{ModelRoutePool, RoutePoolCandidate};
 mod managed_routes;
@@ -111,8 +113,9 @@ pub use operators::{
     OperatorSessionView, OperatorView,
 };
 pub use vendors::{
-    RouteRegistryInputs, SharedVendorRoute, VendorCatalogInputs, VendorCatalogRoute, VendorInput,
-    VendorModelInput, VendorModelView, VendorRoute, VendorUpdate, VendorView,
+    RouteRegistryInputs, RouteRegistryOffer, SharedVendorRoute, VendorCatalogInputs,
+    VendorCatalogRoute, VendorInput, VendorModelInput, VendorModelView, VendorRoute, VendorUpdate,
+    VendorView,
 };
 mod context_pricing;
 pub use context_pricing::{
@@ -195,6 +198,7 @@ pub static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!();
 #[derive(Clone)]
 pub struct Store {
     pool: PgPool,
+    route_compiler: Option<std::sync::Arc<dyn RouteRegistryCompiler>>,
 }
 
 #[derive(Clone, Copy)]
@@ -262,6 +266,7 @@ pub struct ManagedRouteSnapshot {
 /// enqueueing so they remain available for response headers after admission.
 #[derive(Clone)]
 pub struct GatewayAdmission {
+    pub route_generation: Option<i64>,
     pub managed_route: Option<ManagedRouteSnapshot>,
     pub token_bound: Option<i64>,
     pub inspected_guardrails: Option<GuardrailSnapshot>,
@@ -396,7 +401,10 @@ impl Store {
             .connect(url)
             .await?;
         migration_compatibility::run(&pool).await?;
-        Ok(Self { pool })
+        Ok(Self {
+            pool,
+            route_compiler: None,
+        })
     }
 
     /// Offline inspection of an existing schema. Never runs migrations; every
@@ -414,7 +422,10 @@ impl Store {
             })
             .connect(url)
             .await?;
-        Ok(Self { pool })
+        Ok(Self {
+            pool,
+            route_compiler: None,
+        })
     }
 
     /// A maintenance inspector must not silently skip domains introduced by a
@@ -456,11 +467,17 @@ impl Store {
             .min_connections(0)
             .connect_with(options)
             .await?;
-        Ok(Self { pool })
+        Ok(Self {
+            pool,
+            route_compiler: None,
+        })
     }
 
     pub fn from_pool(pool: PgPool) -> Self {
-        Self { pool }
+        Self {
+            pool,
+            route_compiler: None,
+        }
     }
 
     pub async fn ready(&self) -> Result<(), StoreError> {
@@ -769,6 +786,12 @@ impl Store {
         let mut api_bases = Vec::with_capacity(admission_count);
         let mut tx = self.pool.begin().await?;
         for admission in admissions {
+            Self::insert_route_generation(
+                &mut *tx,
+                admission.attempt_id,
+                admission.route_generation,
+            )
+            .await?;
             if let Some(route) = &admission.managed_route {
                 Self::insert_managed_route(&mut *tx, admission.attempt_id, route).await?;
             }

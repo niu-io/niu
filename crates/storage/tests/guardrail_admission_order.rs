@@ -4,6 +4,7 @@ use uuid::Uuid;
 
 fn request(scope: TenantScope, key: Uuid) -> GatewayAdmission {
     GatewayAdmission {
+        route_generation: None,
         managed_route: None,
         token_bound: None,
         inspected_guardrails: None,

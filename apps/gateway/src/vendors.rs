@@ -11,6 +11,7 @@ mod bootstrap;
 mod catalog_compiler;
 pub(crate) mod crypto;
 mod models;
+pub(crate) mod publication;
 pub(crate) mod route_pools;
 mod startup;
 
@@ -19,7 +20,7 @@ pub use api::{
     check_model, configure_asset_management, create, list, list_models, refresh_catalog,
     revoke_asset_management, supplier, update, upsert_model,
 };
-pub(crate) use bootstrap::seed_from_env;
+pub(crate) use bootstrap::collect_seeds_from_env;
 #[cfg(test)]
 pub(crate) use models::resolve_model;
 pub(crate) use models::{

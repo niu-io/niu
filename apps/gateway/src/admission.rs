@@ -57,6 +57,7 @@ struct PendingAdmission {
 }
 
 pub(crate) struct UnpricedAdmissionRequest<'a> {
+    pub route_generation: Option<i64>,
     pub managed_route: Option<niu_storage::ManagedRouteSnapshot>,
     pub token_bound: Option<i64>,
     pub inspected_guardrails: niu_storage::GuardrailSnapshot,
@@ -113,6 +114,7 @@ impl GatewayWrites {
         let operation_id = Uuid::new_v4();
         let attempt_id = Uuid::new_v4();
         let record = GatewayAdmission {
+            route_generation: request.route_generation,
             managed_route: request.managed_route,
             token_bound: request.token_bound,
             inspected_guardrails: Some(request.inspected_guardrails),

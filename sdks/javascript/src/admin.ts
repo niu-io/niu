@@ -734,7 +734,19 @@ export type PaymentIntegration = {
 
 export type SupplierMembership = { id: string; name: string; role: 'manager' | 'viewer' };
 
+/** Platform-only status; route definitions and procurement details are not returned. */
+export interface RoutingRegistryStatus {
+  generation: string;
+  format_version: 1;
+  local_static_configuration_matches: boolean;
+}
+
 export class NiuAdminClient {
+  /** Read the current publication for diagnostics or an explicit static replacement. */
+  getRoutingRegistryStatus(options?: RequestOptions): Promise<{ data: RoutingRegistryStatus }> {
+    return this.request('/routing-registry', undefined, options);
+  }
+
   private readonly token: string;
   private readonly base: string;
   private readonly requestFetch: typeof globalThis.fetch;

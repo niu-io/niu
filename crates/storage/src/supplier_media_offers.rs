@@ -115,7 +115,7 @@ impl Store {
         {
             return Err(StoreError::InvalidVendor);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_route_write().await?;
         sqlx::query(
             "SELECT id FROM provider_businesses WHERE id=$1 AND deleted_at IS NULL FOR UPDATE",
         )
@@ -129,7 +129,7 @@ impl Store {
                 || row.get::<Option<i64>,_>("vendor_revision")!=Some(input.vendor_revision) || row.get::<Option<i64>,_>("model_revision")!=Some(input.model_revision) || row.get::<Option<String>,_>("schema_revision").as_deref()!=Some(input.schema_revision.as_str()) || row.get::<Option<Uuid>,_>("replaces_revision")!=input.expected_revision {
                 return Err(StoreError::Conflict);
             }
-            tx.commit().await?;
+            self.commit_route_write(tx).await?;
             return Ok(input.revision);
         }
         let model=sqlx::query("SELECT vendor_id,upstream_model,revision,capabilities->'video_schema' AS schema FROM vendor_models WHERE alias=$1 FOR SHARE").bind(&input.model_alias).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
@@ -174,7 +174,7 @@ impl Store {
         sqlx::query("INSERT INTO provider_offer_revisions(id,offer_id,rate_kind,vendor_id,vendor_revision,model_revision,schema_revision,replaces_revision) VALUES($1,$2,'media',$3,$4,$5,$6,$7)").bind(input.revision).bind(offer).bind(vendor).bind(input.vendor_revision).bind(input.model_revision).bind(&input.schema_revision).bind(input.expected_revision).execute(&mut *tx).await.map_err(publication_error)?;
         sqlx::query("UPDATE provider_offers SET vendor_id=$3,current_revision=$2,active=FALSE,current_qualification_review=NULL WHERE id=$1").bind(offer).bind(input.revision).bind(vendor).execute(&mut *tx).await.map_err(publication_error)?;
         sqlx::query("INSERT INTO provider_audit_events(provider_id,action,resource_id) VALUES($1,'media_offer_configured',$2)").bind(supplier).bind(input.revision).execute(&mut *tx).await?;
-        tx.commit().await?;
+        self.commit_route_write(tx).await?;
         Ok(input.revision)
     }
 

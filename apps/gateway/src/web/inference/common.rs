@@ -320,6 +320,7 @@ pub(super) async fn inspect_request_input_with_image_requirements(
 }
 
 pub(super) struct AttemptRequest<'a> {
+    pub route_generation: Option<i64>,
     pub managed_route: Option<&'a niu_storage::ManagedRouteSnapshot>,
     pub personal_route: Option<&'a niu_storage::VendorRoute>,
     pub public_model: &'a str,
@@ -396,6 +397,7 @@ pub(super) async fn begin_retry_attempt(
     retry: Option<(Uuid, niu_storage::GatewayRetryAdmission)>,
 ) -> Result<DispatchContext, ApiError> {
     let AttemptRequest {
+        route_generation,
         managed_route,
         personal_route,
         public_model,
@@ -462,6 +464,7 @@ pub(super) async fn begin_retry_attempt(
             .prepare_personal_gateway_attempt_with_retry(
                 principal,
                 niu_storage::GatewayAdmission {
+                    route_generation,
                     managed_route: managed_route.cloned(),
                     token_bound,
                     inspected_guardrails: Some(snapshot),
@@ -514,6 +517,7 @@ pub(super) async fn begin_retry_attempt(
             .admit_priced_gateway_with_retry(
                 principal,
                 niu_storage::GatewayAdmission {
+                    route_generation,
                     managed_route: managed_route.cloned(),
                     token_bound,
                     inspected_guardrails: Some(snapshot),
@@ -563,6 +567,7 @@ pub(super) async fn begin_retry_attempt(
             .admit_unpriced(
                 principal,
                 crate::admission::UnpricedAdmissionRequest {
+                    route_generation,
                     managed_route: managed_route.cloned(),
                     token_bound,
                     inspected_guardrails: snapshot,

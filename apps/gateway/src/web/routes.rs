@@ -246,6 +246,7 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/admin/v1/model-route-pools", axum::routing::get(crate::vendors::route_pools::get).put(crate::vendors::route_pools::put))
         .route("/admin/v1/model-route-pools/index", axum::routing::get(crate::vendors::route_pools::index))
         .route("/admin/v1/model-route-pools/history", axum::routing::get(crate::vendors::route_pools::history))
+        .route("/admin/v1/routing-registry", get(crate::vendors::publication::status))
         .route("/admin/v1/vendors/{id}", axum::routing::put(crate::vendors::update))
         .route("/admin/v1/vendors/{id}/supplier", get(crate::vendors::supplier).put(crate::vendors::associate_supplier))
         .route("/admin/v1/vendors/{id}/asset-management", get(crate::vendors::asset_management_configuration).put(crate::vendors::configure_asset_management).delete(crate::vendors::revoke_asset_management).layer(DefaultBodyLimit::max(16 * 1024)))

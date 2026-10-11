@@ -440,8 +440,11 @@ pub(in crate::web) async fn save(
             "Saved video intents support text input only",
         ));
     }
-    let (_, validated, _, _, owner_funded) =
-        video::validate_admission(&state, &principal, &input.request, model).await?;
+    let video::VideoAdmission {
+        request: validated,
+        owner_funded,
+        ..
+    } = video::validate_admission(&state, &principal, &input.request, model).await?;
     // Materialize defaults now so later schema defaults cannot silently change
     // the restored document. Keep the customer alias, not the upstream model.
     let mut canonical = validated.body().clone();

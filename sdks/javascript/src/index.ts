@@ -700,3 +700,5 @@ export type { CompanyMetadata, CompanyPage, CompanyPageOptions } from './admin.j
 export type { FinancialRecoveryDiagnostics } from './admin.js';
 
 export type { SupplierConfigurationUsage, SupplierConfigurationUsageQuery, SupplierConfigurationUsageTotals } from './admin.js';
+
+export type { RoutingRegistryStatus } from './admin.js';

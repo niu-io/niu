@@ -122,3 +122,31 @@ An omitted output limit is set to `max_output_tokens` using the upstream `max_co
 The immutable price revision includes the route configuration and pricing. Identical publications reuse a revision. Reservations happen before dispatch; insufficient funds or a missing matching budget prevent the upstream call. Complete provider usage settles cash and API-equivalent cost; missing usage, timeout and interrupted streams retain exposure. A recovery worker retries completed priced settlements without repeating inference.
 
 Priced streaming requests always request final usage via `stream_options.include_usage=true`. Missing usage or a missing terminal event still retains the reservation. PostgreSQL/provider-fixture tests cover complete usage, missing usage and truncation.
+
+
+## Published routing configuration
+
+Static TOML routes and stored Supplier mappings are compiled into one immutable
+routing generation. Disabled stored aliases cannot fall back to a same-name static
+route. Changes affect new selection; already dispatched work retains its pinned
+route. Authorization, qualification expiry and credential cooldowns are checked
+live. Initial Supplier imports and their publication commit together, and a normal
+restart preserves saved administrator edits.
+
+Platform administrators can call `GET /admin/v1/routing-registry`, or
+`NiuAdminClient.getRoutingRegistryStatus()`, to read the current generation and
+whether the Gateway's static configuration matches it. The response contains no
+route definitions, endpoints, secrets or purchase prices.
+
+Changing an already published TOML configuration requires an explicit replacement:
+read the current `generation`, update the configuration, and start the Gateway with
+`NIU_ROUTING_EXPECTED_GENERATION` set to that value. If another publication has
+advanced the generation, startup rejects the replacement without changing the
+active configuration. Reinspect before retrying, and remove the one-time setting
+after rollout. Restart other Gateways with matching configuration; superseded
+instances fail new registry reads closed. Never downgrade active route writers
+without restoring a compatible backup.
+
+See the [publication operation and current-input evidence](https://github.com/niu-io/niu/blob/main/docs/reference/routing-publications.md)
+for coverage and remaining qualification limits. Private Codex account routes use
+a separate selection mechanism and are not assigned a fabricated registry generation.

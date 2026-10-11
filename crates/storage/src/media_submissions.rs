@@ -29,6 +29,26 @@ impl Store {
         key_digest: &[u8],
         request_digest: &[u8],
     ) -> Result<(Uuid, bool), StoreError> {
+        self.prepare_media_submission_with_generation(
+            scope,
+            model,
+            revision,
+            key_digest,
+            request_digest,
+            None,
+        )
+        .await
+    }
+
+    pub async fn prepare_media_submission_with_generation(
+        &self,
+        scope: TenantScope,
+        model: &str,
+        revision: &str,
+        key_digest: &[u8],
+        request_digest: &[u8],
+        generation: Option<i64>,
+    ) -> Result<(Uuid, bool), StoreError> {
         let mut tx = self.pool.begin().await?;
         let attempt = Uuid::new_v4();
         let inserted = sqlx::query("INSERT INTO media_submission_keys(organization_id,project_id,key_digest,request_digest,attempt_id) VALUES($1,$2,$3,$4,$5) ON CONFLICT(organization_id,project_id,key_digest) DO NOTHING")
@@ -58,6 +78,7 @@ impl Store {
         sqlx::query("INSERT INTO attempts(id,organization_id,project_id,operation_id,resource_id,offer_revision) VALUES($1,$2,$3,$4,$5,$6)")
             .bind(attempt).bind(scope.organization_id).bind(scope.project_id).bind(operation)
             .bind(model).bind(revision).execute(&mut *tx).await?;
+        Self::insert_route_generation(&mut *tx, attempt, generation).await?;
         tx.commit().await?;
         Ok((attempt, true))
     }

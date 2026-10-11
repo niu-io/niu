@@ -12589,6 +12589,72 @@ HTTP 403: Installation administration required.
 
 HTTP 503: Storage unavailable.
 
+## Read the active routing generation
+
+`GET /admin/v1/routing-registry`
+
+Platform administrators can read the active immutable routing generation for diagnostics and an explicit static-configuration replacement. No definitions, endpoints, credential references, secrets or purchase prices are returned. local_static_configuration_matches is false on a Gateway whose local static configuration has been superseded; new inference on that instance fails closed until it restarts with matching configuration. The response is not cached.
+
+Implementation: `implemented`. Operation: `getRoutingRegistryStatus`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Responses
+
+HTTP 200: Active publication status
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "generation",
+        "format_version",
+        "local_static_configuration_matches"
+      ],
+      "properties": {
+        "generation": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "format_version": {
+          "type": "integer",
+          "enum": [
+            1
+          ]
+        },
+        "local_static_configuration_matches": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Missing or invalid authorization
+
+HTTP 403: Platform administration is required
+
+HTTP 503: Publication is unavailable or its format is unsupported
+
 ## Read an installation-managed model candidate pool
 
 `GET /admin/v1/model-route-pools`

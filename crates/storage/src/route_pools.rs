@@ -99,7 +99,7 @@ impl Store {
                 return Err(StoreError::InvalidVendor);
             }
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_route_write().await?;
         // Serialize creation as well as revision changes of this alias.
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('niu-route-pool:'||$1,0))")
             .bind(&input.alias)
@@ -150,7 +150,7 @@ impl Store {
         }
         sqlx::query("INSERT INTO model_route_pool_history(alias,revision,organization_id,enabled,candidates) VALUES($1,$2,$3,$4,$5)")
             .bind(&input.alias).bind(revision).bind(input.organization_id).bind(input.enabled).bind(candidates).execute(&mut *tx).await?;
-        tx.commit().await?;
+        self.commit_route_write(tx).await?;
         Ok(revision)
     }
 

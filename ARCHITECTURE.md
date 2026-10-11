@@ -35,7 +35,7 @@ Storage and HTTP names predate the product language. `organizations` are the com
 
 ## Request path
 
-A model request authenticates a workspace API key, resolves one enabled route, and commits attempt intent before any provider call. A database commit is not atomic with the upstream network call. After a crash, unknown execution is not treated as free or safe to send again.
+A model request authenticates a workspace API key, resolves one enabled route, and commits attempt intent before any provider call. Static and database-backed text routes now resolve from one immutable published generation. Managed video selections use that same registry and retain their generation with the durable submission identity. Configuration writes and publication commit together; live authorization, cooldown and qualification checks remain mandatory. See [routing publications](docs/reference/routing-publications.md). A database commit is not atomic with the upstream network call. After a crash, unknown execution is not treated as free or safe to send again.
 
 Shared unpriced admissions are queued in batches of up to 64, with at most four batches in flight. Personal routes use their own admission path. Priced admission commits the operation, attempt, selected managed route, token bound, inspected guardrails, provider, customer tariff, Supplier offer, reservation and dispatch intent in one transaction. A price-cache miss may publish its immutable revision before that transaction. Policy denials retain their audit; other pre-commit errors roll back the new attempt. A failed commit acknowledgement does not authorize releasing a hold or resubmitting. See [atomic admission evidence and limits](docs/reference/priced-admission-atomicity.md).
 
@@ -102,7 +102,7 @@ This is a gap inventory, not an implementation order. The product focus and rele
 - Qualify the invoice settlement read model with actual paid and mixed-settlement business flows.
 - Extend routing reliability beyond the qualified bounded Chat authentication-rejection successor, preserving distinct attempts, new bounds and no resubmit after uncertain execution.
 - Re-encrypt stored credentials under a new master key.
-- Publish one compiled configuration snapshot for file routes and database routes.
+- Extend routing-publication qualification to remaining native protocol combinations and maintenance paths. Private Codex account routes remain outside the Supplier/static registry and are not assigned a fabricated generation.
 
 ## Unified route publication: implementation constraints
 

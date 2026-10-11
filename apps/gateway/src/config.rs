@@ -74,7 +74,7 @@ impl Default for ServerConfig {
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, serde::Serialize)]
 pub struct ModelConfig {
     #[serde(default)]
     pub catalog: crate::catalog_metadata::CatalogMetadata,
