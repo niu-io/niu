@@ -119,3 +119,48 @@ graceful replacement; configuration, encrypted credential revisions and durable
 record counts were preserved on schema 277. Authenticated routing status remained
 consistent with the published configuration. Implementation CI completed
 successfully as a static check; it does not fill positive settlement evidence.
+
+## Bounded financial overview reads — 2026-10-12
+
+Supplier-member and platform administration overviews previously opened a
+read-only repeatable-read transaction without statement or lock deadlines. An
+actual HTTP run on committed `3235c49` held an exclusive lock on the Supplier
+earning table: both requests remained pending after approximately 1.61 seconds.
+The first verification setup used an installation token on the member endpoint,
+which correctly rejects it; the corrected run used an actual scoped operator
+with an explicit Supplier viewer membership.
+
+Committed `cafce5a2c4334bc0d8123851a675dd1c1ae0da39` retains the same read-only
+snapshot and response contracts, while sharing the existing financial transaction
+limits: 250 ms lock waits and two seconds per statement. The isolation level is
+set before the configuration query establishes the snapshot. Limits are local
+to the transaction; pool settings and other requests are unchanged. This is a
+per-statement bound, not a two-second whole-overview deadline.
+
+Actual HTTP requests on the digest-verified retained binary returned 503 in
+approximately 254 ms for both authorized readers while the lock remained held.
+Customer Billing remained readable after those requests. Release and restart
+restored identical Supplier overview data; the member response omitted
+request-level earnings. Operator revocation denied the next member request.
+Independent reopening checked the saved artifacts, unchanged existing customer
+charge/debit and account fingerprint, retained Supplier/membership and revoked
+operator, with no Supplier earning, settlement or settlement entry created.
+
+The shared write initializer was also exercised through the actual invoice-payment
+lock rejection and a subsequent real text call. It retained 503 in approximately
+255 ms, safe rejection after release/restart, unchanged invoice/audit counts and
+one exact additional customer debit matched independently to the native response.
+No external payment, funding receipt or open reservation remained.
+
+A clean committed release build preceded these runs. Before native replacement, a
+fresh private database backup restored with matching full-row business and encrypted
+identity fingerprints. The exact replacement digest and retained previous binary
+were checked. Graceful replacement preserved the original configuration, encrypted
+credential revisions and durable record counts on schema 278. Authenticated routing
+status still matched the published configuration. No fixture outcome is evidence.
+
+These observations qualify the exercised contention, authorization and recovery
+boundaries. Empty Supplier financial data does not qualify nonempty aggregation,
+pagination, earnings or positive settlement. Large-ledger capacity and a complete
+request-wide deadline remain unverified. No original database or encrypted identity
+was replaced.
