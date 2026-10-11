@@ -183,8 +183,12 @@ impl Store {
         {
             return Err(StoreError::InvalidPrice);
         }
+        // A contended shared slot must refuse within the recording deadline,
+        // before contacting the merchant; only a committed slot permits a query.
+        let mut tx = self.begin_bounded_recording().await?;
         let result = sqlx::query("INSERT INTO payment_query_limits(aggregator,merchant,next_query_at) VALUES($1,$2,clock_timestamp()+interval '3 seconds') ON CONFLICT(aggregator,merchant) DO UPDATE SET next_query_at=clock_timestamp()+interval '3 seconds' WHERE payment_query_limits.next_query_at<=clock_timestamp()")
-            .bind(aggregator).bind(merchant).execute(&self.pool).await?;
+            .bind(aggregator).bind(merchant).execute(&mut *tx).await?;
+        tx.commit().await?;
         Ok(result.rows_affected() == 1)
     }
 
