@@ -39,7 +39,7 @@ impl FinancialStage {
                 "SELECT a.id,a.organization_id,a.project_id FROM customer_balance_reservations r JOIN attempts a ON a.id=r.attempt_id WHERE r.released_at IS NULL AND a.execution IN ('not_sent','confirmed_not_executed') AND ($1::uuid IS NULL OR a.id>$1) ORDER BY a.id LIMIT 100"
             }
             Self::CustomerCharge => {
-                "SELECT a.id,a.organization_id,a.project_id FROM attempts a JOIN customer_attempt_tariffs b ON b.attempt_id=a.id LEFT JOIN customer_charges c ON c.attempt_id=a.id WHERE c.attempt_id IS NULL AND a.execution='confirmed_completed' AND a.usage_confidence='provider_reported' AND ($1::uuid IS NULL OR a.id>$1) ORDER BY a.id LIMIT 100"
+                include_str!("customer_charge_recovery.sql")
             }
             Self::CustomerMediaCharge => {
                 "SELECT a.id,a.organization_id,a.project_id FROM attempts a JOIN customer_media_attempt_pricing p ON p.attempt_id=a.id WHERE a.execution='confirmed_completed' AND EXISTS(SELECT 1 FROM media_job_observations o WHERE o.attempt_id=a.id AND o.status='succeeded') AND NOT EXISTS(SELECT 1 FROM media_job_observations o WHERE o.attempt_id=a.id AND o.status='failed') AND NOT EXISTS(SELECT 1 FROM customer_media_charges c JOIN customer_activity_charges posted ON posted.attempt_id=c.attempt_id AND posted.organization_id=c.organization_id AND posted.project_id=c.project_id AND posted.currency=c.currency AND posted.amount_nanos=c.amount_nanos WHERE c.attempt_id=a.id) AND ($1::uuid IS NULL OR a.id>$1) ORDER BY a.id LIMIT 100"

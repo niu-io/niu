@@ -89,3 +89,9 @@ Token-priced Chat supports explicitly enabled function tools and text-only tool-
 A [short actual text-concurrency measurement](../reference/priced-text-concurrency-live.md)
 checked 56 completions and their exact debits at concurrency 1, 4 and 8. This
 extends settlement evidence under load without qualifying production capacity.
+
+
+Automatic request debits use an idempotency namespace separate from caller-supplied
+balance reversal keys. Exact debit matching gates reservation release, and text
+recovery includes missing postings for existing prepaid-bound charges. See the
+[ledger idempotency contract and actual collision/upgrade evidence](../reference/customer-ledger-idempotency.md).

@@ -197,7 +197,7 @@ SELECT jsonb_build_object(
         } else {
             -amount_nanos
         };
-        let prior:Option<(Uuid,String,i64,Option<Uuid>)>=sqlx::query_as("SELECT id,kind,amount_nanos,reverses_entry_id FROM customer_balance_entries WHERE account_id=$1 AND idempotency_key=$2")
+        let prior:Option<(Uuid,String,i64,Option<Uuid>)>=sqlx::query_as("SELECT id,kind,amount_nanos,reverses_entry_id FROM customer_balance_entries WHERE account_id=$1 AND idempotency_key=$2 AND kind<>'charge'")
             .bind(account).bind(idempotency_key).fetch_optional(&mut *tx).await?;
         if let Some((id, saved_kind, saved_amount, saved_original)) = prior {
             return if saved_kind == kind
@@ -786,8 +786,15 @@ SELECT jsonb_build_object(
         let account: Option<Uuid> = sqlx::query_scalar("SELECT c.id FROM customer_balance_accounts c JOIN customer_attempt_balance_accounts b ON b.account_id=c.id AND b.organization_id=c.organization_id AND b.currency=c.currency WHERE b.attempt_id=$1 FOR UPDATE OF c")
             .bind(attempt).fetch_optional(&mut **tx).await?;
         if let Some(account) = account {
-            sqlx::query("INSERT INTO customer_balance_entries(id,organization_id,account_id,currency,kind,amount_nanos,idempotency_key,project_id,attempt_id) SELECT $1,c.organization_id,b.account_id,c.currency,'charge',-c.amount_nanos,c.attempt_id,c.project_id,c.attempt_id FROM customer_charges c JOIN customer_attempt_balance_accounts b ON b.attempt_id=c.attempt_id AND b.organization_id=c.organization_id AND b.project_id=c.project_id AND b.currency=c.currency WHERE c.attempt_id=$2 AND b.account_id=$3 AND c.amount_nanos>0 ON CONFLICT DO NOTHING")
+            sqlx::query("INSERT INTO customer_balance_entries(id,organization_id,account_id,currency,kind,amount_nanos,idempotency_key,project_id,attempt_id) SELECT $1,c.organization_id,b.account_id,c.currency,'charge',-c.amount_nanos,c.attempt_id,c.project_id,c.attempt_id FROM customer_charges c JOIN customer_attempt_balance_accounts b ON b.attempt_id=c.attempt_id AND b.organization_id=c.organization_id AND b.project_id=c.project_id AND b.currency=c.currency WHERE c.attempt_id=$2 AND b.account_id=$3 AND c.amount_nanos>0 ON CONFLICT (attempt_id) WHERE kind='charge' DO NOTHING")
                 .bind(Uuid::new_v4()).bind(attempt).bind(account).execute(&mut **tx).await?;
+            // A uniqueness conflict is not proof of a matching debit. Validate
+            // the immutable posting even when an old reservation was released.
+            let posted: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM customer_charges c JOIN customer_attempt_balance_accounts b ON b.attempt_id=c.attempt_id AND b.organization_id=c.organization_id AND b.project_id=c.project_id AND b.currency=c.currency WHERE c.attempt_id=$1 AND b.account_id=$2 AND (c.amount_nanos=0 OR EXISTS(SELECT 1 FROM customer_balance_entries e WHERE e.attempt_id=c.attempt_id AND e.kind='charge' AND e.organization_id=c.organization_id AND e.project_id=c.project_id AND e.account_id=b.account_id AND e.currency=c.currency AND e.amount_nanos=-c.amount_nanos)))")
+                .bind(attempt).bind(account).fetch_one(&mut **tx).await?;
+            if !posted {
+                return Err(StoreError::Unresolved);
+            }
             sqlx::query("UPDATE customer_balance_reservations SET released_at=now() WHERE attempt_id=$1 AND released_at IS NULL AND EXISTS(SELECT 1 FROM customer_charges WHERE attempt_id=$1)")
                 .bind(attempt).execute(&mut **tx).await?;
         }
