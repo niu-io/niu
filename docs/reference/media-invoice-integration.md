@@ -486,3 +486,27 @@ check exercises a populated zero-priced commercial media charge. That branch's
 release/retry, recovery and invoice acceptance remain unverified; no paid media
 record or qualification was fabricated. The native integration runtime remains
 on `cefd284` until this later change is built and verified for deployment.
+
+
+## Current mixed personal-media checkpoint and native refresh — 2026-10-12
+
+The clean `d4718ed` binary, including the zero-media reservation release guard,
+restored a stopped copy of a real completed personal video. In the same workspace,
+a new actual OpenRouter text response used a published internal customer tariff
+and approved test credit. Its reported usage produced exactly one customer charge
+and matching debit. Invoice issuance included that text entry only; personal video
+billing remained owner-funded, without a media charge or extra observation.
+Replay and Gateway restart retained the invoice and video billing.
+
+Independent original-response inspection and database reopening recomputed the
+text debit, checked the single invoice entry, unchanged original media counts,
+no funding and no active holds. This verifies existing mixed personal-media/text
+behavior on the changed binary, not zero-priced commercial media settlement.
+
+The existing native integration Gateway then refreshed to the same clean binary
+after a fresh backup and isolated restore with full-row fingerprint comparisons.
+Configuration/secrets hashes, encrypted vendor identities/revisions and durable
+organization, workspace, media-job and ledger counts were unchanged. Readiness
+returned 200 and authenticated routing status matched the published configuration.
+The previous executable was retained. This deploys the invoice guard and safe
+payment-failure diagnostics; their explicitly unverified branches remain open.
