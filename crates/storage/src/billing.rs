@@ -13,6 +13,19 @@ pub struct CustomerCategoryRates<'a> {
 }
 
 impl Store {
+    /// Shared invoice mutation deadlines: rollback on contention without leaking
+    /// settings into subsequent requests using the same pooled connection.
+    async fn begin_invoice_transaction(
+        &self,
+    ) -> Result<sqlx::Transaction<'_, sqlx::Postgres>, StoreError> {
+        let mut tx = self.pool.begin().await?;
+        sqlx::query(
+            "SELECT set_config('lock_timeout','250ms',true), set_config('statement_timeout','2s',true)",
+        )
+        .execute(&mut *tx)
+        .await?;
+        Ok(tx)
+    }
     /// Same-snapshot retail charge-to-ledger reconciliation; never mutates money.
     /// Only prepaid-bound attempts participate; legacy invoices are independent.
     pub async fn customer_charge_reconciliation(
@@ -827,15 +840,7 @@ SELECT jsonb_build_object(
         {
             return Err(StoreError::InvalidPrice);
         }
-        let mut tx = self.pool.begin().await?;
-        // Invoice issuance and replay must not occupy an admission connection
-        // indefinitely behind a workspace writer. Failure rolls back all work;
-        // transaction-local settings do not affect later pooled requests.
-        sqlx::query(
-            "SELECT set_config('lock_timeout','250ms',true), set_config('statement_timeout','2s',true)",
-        )
-        .execute(&mut *tx)
-        .await?;
+        let mut tx = self.begin_invoice_transaction().await?;
         sqlx::query("SELECT id FROM projects WHERE organization_id=$1 AND id=$2 FOR UPDATE")
             .bind(scope.organization_id)
             .bind(scope.project_id)
@@ -894,7 +899,7 @@ SELECT jsonb_build_object(
         {
             return Err(StoreError::InvalidPrice);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_invoice_transaction().await?;
         sqlx::query("SELECT id FROM customer_invoices WHERE id=$1 AND organization_id=$2 AND project_id=$3 FOR UPDATE").bind(invoice).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
         if let Some(prior) = sqlx::query_scalar::<_, String>(
             "SELECT payment_reference FROM customer_invoice_payments WHERE invoice_id=$1",

@@ -370,3 +370,35 @@ Authenticated retained invoice-detail and routing-status reads returned HTTP 200
 with no-store; the local static configuration matched the published generation.
 Schema remained 277. This is native integration evidence for the invoice wait
 change, not a new maximum-capacity or paid-media qualification.
+
+## Shared deadlines for invoice payment recording
+
+Invoice issuance/replay and external-payment recording now share one private
+transaction initializer with the same local lock and statement deadlines.
+Payment eligibility is unchanged: an invoice whose charges are bound to a balance
+account cannot acquire an external invoice-payment record through this API.
+
+An actual negative request against retained credit-backed invoice history
+reproduced payment recording waiting beyond 1.6 seconds behind the invoice row
+lock. The changed binary returned sanitized HTTP 503 in approximately 264 ms.
+After release and restart, the same unconfirmed negative input received its
+expected 409; no payment, funding or ledger record was created. A subsequent
+real model call completed with one exact debit and no open hold. Independent
+reopening verified enabled history, unchanged invoice/audit counts, absent payment
+records, the saved real response and exact debit. This is rejection evidence,
+not a claim of an externally confirmed payment.
+
+A separate actual text charge exercised the two-second statement deadline during
+invoice creation. An isolated trigger delayed only the invoice audit insertion,
+after the transaction had inserted the invoice and its charge entry. HTTP returned
+503; reads showed neither new record nor audit retained. Removing that temporary
+fault and retrying the original intent created one invoice/entry. Restart replay
+preserved it. Independent reopening matched the original real response and debit,
+that invoice's exact amount and attempt, expected final record counts, removed
+trigger and PostgreSQL statement-timeout diagnostic. No financial quantities or
+external payment evidence were fabricated.
+
+These runs cover the observed row-lock rejection and partial-write rollback with
+subsequent recovery. They do not qualify positive external invoice payment or
+every uncertain database commit outcome. Storage formatting and isolated release
+compilation completed separately; no fixture result is used as evidence.
