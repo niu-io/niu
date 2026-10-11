@@ -443,3 +443,29 @@ merchant activation, external payment acceptance or a funded checkout.
 Both runs used the current native binary including shared working-tree changes,
 on isolated copies only. Their original databases, deployment keys and original
 video artifact remained unchanged. No fixture outcome is used as evidence.
+
+## Multi-page credential inventory and canonical audit time
+
+The envelope writer explicitly sets its transaction timezone to UTC and binary
+output to hexadecimal before deriving record hashes. JSONB representations of
+timestamp-with-timezone columns depend on the session timezone, even when the
+stored instant is unchanged. Independent audit tools matching a record against
+its authorization digest must also use UTC and hexadecimal `bytea_output`. This
+makes the production writer's existing SQLx UTC convention explicit; it does not
+change the encrypted payload or stored business timestamp.
+
+A fresh management flow created 101 distinct disabled credential configurations
+without model mappings. Moving an authentic envelope to the wrong identity on the
+second inventory page caused preflight rejection before any maintenance record or
+replacement authority was created; the supplied database fingerprint stayed
+unchanged. Restoring that envelope allowed all 101 records to rotate. Destination-
+only inspection and restart succeeded. The isolated database deliberately used
+non-default escaped binary output; the writer still produced canonical digests.
+
+Independent reopening authenticated every new envelope against its original
+plaintext and identity, compared all business metadata, and matched all 101 final
+records to their authorization digests using UTC/hexadecimal audit settings. One
+operation completed, with no model calls or customer balance entries. This covers
+the 100-plus-one credential page boundary and preflight failure on a later page;
+it does not establish large-inventory capacity or nonempty coverage of other
+encryption domains. The original deployment was not modified.

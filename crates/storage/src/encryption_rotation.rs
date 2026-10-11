@@ -255,6 +255,13 @@ impl Store {
         }
         let (table, column, predicate, identity) = target.binding();
         let mut tx = self.pool.begin().await?;
+        // JSONB timestamp/bytea rendering contributes to the record digest.
+        // Pin both conventions instead of depending on session defaults.
+        sqlx::query(
+            "SELECT set_config('TimeZone','UTC',true),set_config('bytea_output','hex',true)",
+        )
+        .execute(&mut *tx)
+        .await?;
         sqlx::query("SET LOCAL lock_timeout='2s'")
             .execute(&mut *tx)
             .await?;
