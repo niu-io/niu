@@ -14,7 +14,7 @@ to `e655a37`; do not relabel historical measurements as new-version results.
 | Supplier configuration | Explicit business ownership; multiple independent credentials; per-credential mappings; revisions, rotation, diagnostics and metadata refresh; actual scoped calls and authorization boundaries | Complete commercial offer-to-earning-to-settlement path; positive media purchase accounting; frontend workflow belongs to its separate workstream |
 | Workspace API keys | Workspace inheritance/narrowing; isolation; rotation/revocation; spending, RPM, estimated TPM and unresolved-work concurrency; actual calls and several two-Gateway contention scenarios | Every mixed-protocol admission interleaving and media financial occupancy; do not infer these from one concurrency run |
 | Customer funds and exact billing | Adapter inventory; durable EPay checkout; signed artifact and invalid callback rejection; separate approved credit; pinned text tariffs, exact charges/debits, refunds, invoice issuance and recovery | Actual externally evidenced cash funding remains deployment-specific; positive media debit/invoice and media-overrun recovery are unverified; historical media supplements to an already issued interval are not implemented |
-| Logs and usage | Actual text and retained video reporting; ordinary-reader authorization; pagination, key filters, full-range totals and CSV matched independently to records | Broad interrupted-stream reporting, all concurrent pagination cases and unrestricted large-history capacity; browser acceptance is separate |
+| Logs and usage | Actual text and retained video reporting; ordinary-reader authorization; pagination, key filters, full-range totals and CSV matched independently to records | Every interrupted-stream interleaving, all concurrent pagination cases and unrestricted large-history capacity; browser acceptance is separate |
 | Video durability | Actual personal generation, one-submission replay, encrypted result retention, interruption recovery, download/decode and deletion protection | Customer-paid measured usage, positive debit, overrun recovery and result-expiration cases remain unverified; personal OpenRouter cost does not provide the required billable quantity |
 | Performance | Actual buffered and structured-stream workloads with exact accounting; single/two-Gateway subsets documented | No maximum-capacity, overload or long-soak qualification; video and nonempty commercial financial backlog workloads remain unmeasured |
 
@@ -54,6 +54,9 @@ workstreams. Advisory issue feedback does not override the user's priorities.
 - [Payment support](../reference/payment-aggregators.md),
   [usage reconciliation](../reference/token-category-reconciliation.md) and
   [media invoice integration](../reference/media-invoice-integration.md).
+- [Interrupted stream reporting](../reference/interrupted-stream-reporting.md),
+  including distinct failures and unresolved financial liabilities under an
+  ordinary workspace reader.
 - [Buffered text](../reference/mixed-key-sustained-text.md) and
   [structured streaming](../reference/published-route-stream-load.md), including
   customer reporting checked against retained real responses and reopened data.
