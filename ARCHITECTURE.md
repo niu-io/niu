@@ -136,7 +136,13 @@ an expected active generation to reject overlapping stale publications. Failed
 validation or a lost publication race must leave the active pointer unchanged.
 Static configuration needs an explicit source fingerprint in that generation;
 Gateways with a different static source must not silently serve different routes
-under the same generation identifier. Bootstrap must retain its existing
+under the same generation identifier. Do not freeze time-dependent eligibility
+into that configuration generation: cooldown deadlines and qualification expiry
+can change eligibility without a configuration write. Selection must evaluate
+those live facts, and admission must recheck them. Actual two-Gateway cooldown
+expiry has been observed to restore directory eligibility under an unchanged
+pool revision; a future publisher must preserve that behavior.
+Bootstrap must retain its existing
 import-once behavior rather than republishing deployment defaults over edits.
 
 A published record contains configuration and credential references, not plaintext

@@ -83,3 +83,22 @@ deadline. No additional attempt or financial entry appeared.
 This qualifies the narrow policy, not generic failover, other Provider error
 semantics, commercial supply, or performance capacity. Fixture outcomes are not
 verification evidence.
+
+## Natural expiry across two Gateways — 2026-10-11
+
+An actual isolated run recorded three canonical OpenRouter authentication
+refusals and four successful personal-credential completions. While the rejected
+credential was cooling down, the pool was restricted to that candidate and
+excluded from discovery. The run then waited for the real 60-second deadline;
+it did not edit the stored deadline, configuration, or wall clock. Both running
+Gateways made the pool visible again without a configuration write or restart.
+The pool remained at revision two and the cooldown deadline stayed unchanged.
+No new inference was dispatched during this expiry observation.
+
+After the remaining configured-candidate and restart checks, an independent
+verifier reopened the database and checked all seven attempts, the three 401
+failure records, four actual response usage totals and alternate-credential
+bindings, both saved post-expiry catalogs and the expired stored deadline. No
+customer charge, debit, procurement entry or outstanding financial reservation
+was created for these personal calls. This is cooldown re-entry evidence, not
+proof that the formerly rejected credential itself now authenticates correctly.
