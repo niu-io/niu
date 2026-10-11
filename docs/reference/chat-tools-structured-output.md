@@ -74,3 +74,28 @@ does not prove rejection of an upstream multi-call violation. Interleaved
 parallel output, multiple choices and malformed combined tool output remain
 unverified. This supplements the named-choice/disabled-choice checkpoint rather
 than changing its retained amounts or implementation revision.
+
+
+## Two declared calls before a structured answer — 2026-10-12
+
+A separate clean `a5f2f3b` run enabled parallel calls and required tools with two
+different declared functions. Buffered and streamed first turns each returned
+two distinct call IDs. The client parsed each real argument object, computed
+its result and returned both results with their own IDs. Tool choice `none`
+then produced the unchanged JSON-schema final answer containing both products
+and a fresh requested marker.
+
+Independent reopening reassembled the actual buffered/streamed call artifacts,
+checked both declaration names and ID-to-result associations, final JSON and
+terminal usage, and recomputed four original-rate customer charges/debits:
+236,052 USD nanounits. Restart retained all charges, with no customer holds,
+request-failure record or funding receipt. The temporary key was revoked.
+Personal upstream access and internal verification tariffs/credit do not imply
+commercial supply or a paid top-up.
+
+The observed argument fragments were not interleaved between tool indexes. This
+verifies multiple-call assembly and client round trips, not interleaved fragments,
+multiple choices, concurrent client tool execution or rejection of upstream
+parallel-call violations. An earlier named-function probe returned only one call;
+that valid upstream choice was not treated as a product failure or multiple-call
+evidence. No fixture outcome is used as evidence.
