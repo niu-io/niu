@@ -180,7 +180,8 @@ pub(super) async fn runtime_snapshot(
 ///           "type": "string"
 ///         },
 ///         "endpoint": {
-///           "type": "string"
+///           "type": "string",
+///           "description": "HTTPS gateway base or complete submit.php endpoint. A base path gets /submit.php appended; a supplied submit.php is preserved, including subdirectories. Trailing slashes are normalized. Query strings, fragments and URL credentials are rejected. Existing saved checkout URLs are not rewritten."
 ///         },
 ///         "notify_url": {
 ///           "type": "string"
@@ -277,7 +278,8 @@ pub(crate) struct Write {
 ///                 "writeOnly": true
 ///               },
 ///               "endpoint": {
-///                 "type": "string"
+///                 "type": "string",
+///                 "description": "HTTPS gateway base or complete submit.php endpoint. A base path gets /submit.php appended; a supplied submit.php is preserved, including subdirectories. Trailing slashes are normalized. Query strings, fragments and URL credentials are rejected. Existing saved checkout URLs are not rewritten."
 ///               },
 ///               "notify_url": {
 ///                 "type": "string"
