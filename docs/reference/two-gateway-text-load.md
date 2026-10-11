@@ -34,6 +34,28 @@ rates do not establish commercial supply or externally funded payments. Original
 databases, configuration and encrypted identity were unchanged. No fixture
 outcome is performance or business evidence.
 
+### Customer reporting after this workload
+
+A separate actual HTTP run copied the stopped 8-request/second workload database
+and used the same digest-verified `1b209f7` binary. An ordinary scoped viewer
+traversed all three request pages and read the full-range summary, all eight
+key filters and CSV export. Each key returned its 30 original requests; all
+240 usages and the **4,011,486 USD-nanounit** customer-charge total agreed.
+Installation and scoped customer responses preserved the same financial boundary.
+No Supplier expenses, purchase rates, margins or credential fields appeared.
+The separate procurement API returned 403 to the viewer; an unrelated company/
+workspace reader received 404 for request data and export.
+
+Restart preserved byte-identical CSV and summary data, and revocation denied
+the temporary reporting session. Independent reopening parsed and hashed the
+original actual SSE responses again, recomputed every bound-rate charge and
+matched each customer API/export row to its original key and database debit.
+No inference, ledger entry, funding receipt or reservation was introduced by
+reporting. The source workload and original native runtime were unchanged.
+This qualifies these populated read/export and authorization paths, not
+concurrent-write pagination, multi-company capacity or frontend presentation.
+No fixture outcome is evidence.
+
 ## Actual streaming checkpoint (2026-10-12)
 
 A separate current-input run used committed gateway
