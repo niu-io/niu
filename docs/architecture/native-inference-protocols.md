@@ -701,3 +701,25 @@ reconciliation to return 409 before and after restart. Independent reopening
 confirmed the original immutable model identity, the older dispatched credential
 revision, one unknown completion and hold, and no receipt, charge or debit. The
 new binding therefore does not relax the original-credential boundary.
+
+
+### Reconciliation confirmation is not generation latency
+
+Request detail and request-list `duration_ms` remain null when supplemental
+evidence first established completion after the original local completion write
+was lost. In that case `completed_at` is the reconciliation confirmation time;
+subtracting dispatch time would incorrectly count the reconciliation delay as
+model latency. The immutable receipt preserves the original missing timestamp.
+`timing` remains the independently observed delivery measurement; callers must
+respect its `complete` flag. Normal locally observed completion intervals are
+unchanged, including when only usage was supplemented later.
+
+Actual API reads on an isolated copy of a previously completed real request
+reproduced an inflated legacy interval relative to its retained delivery timing.
+On the corrected gateway, detail and list returned null legacy duration while
+preserving complete measured timing and the exact customer charge through restart.
+A second copy with an original local completion timestamp retained its known
+legacy duration. Independent reopening compared both API artifacts with original
+receipt timestamps, timing rows and single charge/debit records; none of those
+stored records changed. These reads use actual upstream-request artifacts, not
+fixture results or an inference-performance benchmark.

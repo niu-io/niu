@@ -422,7 +422,7 @@ export type GatewayActivityEntry = {
   created_at: string;
   dispatched_at: string | null;
   completed_at: string | null;
-  /** Legacy dispatch-to-completion interval; complete timing.total_ms includes gateway handling. */
+  /** Legacy dispatch-to-completion interval; null for completion first confirmed by reconciliation. Complete timing.total_ms is the independently observed gateway interval. */
   duration_ms: number | null;
   execution: string;
   /** Recorded output inspection only; null does not establish delivery or protection. */

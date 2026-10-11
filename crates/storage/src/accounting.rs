@@ -416,7 +416,7 @@ impl Store {
              to_char(a.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS created_at, \
              CASE WHEN a.dispatched_at IS NULL THEN NULL ELSE to_char(a.dispatched_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') END AS dispatched_at, \
              CASE WHEN a.completed_at IS NULL THEN NULL ELSE to_char(a.completed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') END AS completed_at, \
-             CASE WHEN a.dispatched_at IS NULL OR a.completed_at IS NULL THEN NULL ELSE GREATEST(0, round(extract(epoch FROM (a.completed_at - a.dispatched_at)) * 1000))::bigint END AS duration_ms, \
+             CASE WHEN a.dispatched_at IS NULL OR a.completed_at IS NULL OR EXISTS(SELECT 1 FROM openrouter_usage_reconciliations recovered WHERE recovered.attempt_id=a.id AND recovered.original_state->>'completed_at' IS NULL) THEN NULL ELSE GREATEST(0, round(extract(epoch FROM (a.completed_at - a.dispatched_at)) * 1000))::bigint END AS duration_ms, \
              (SELECT jsonb_build_object('dispatch_ms',t.dispatch_ms,'headers_ms',t.headers_ms,'first_output_ms',t.first_output_ms,'total_ms',t.total_ms,'complete',t.complete,'http_status',t.http_status) FROM request_timings t WHERE t.attempt_id=a.id) AS timing, \
              a.execution, a.usage_confidence, a.prompt_tokens::text AS prompt_tokens, a.completion_tokens::text AS completion_tokens, \
              (SELECT cache_write_input_tokens::text FROM request_token_categories WHERE attempt_id=a.id) AS cache_write_input_tokens, \

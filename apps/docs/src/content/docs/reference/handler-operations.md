@@ -15876,7 +15876,7 @@ Local `#/components/schemas/…` references resolve to these definitions.
         "null"
       ],
       "minimum": 0,
-      "description": "Legacy dispatch-to-completion attempt interval. Prefer timing.total_ms when timing.complete is true for the full measured gateway request interval; interrupted timing must not be treated as completed latency."
+      "description": "Legacy dispatch-to-completion attempt interval. Null when completion was first confirmed by supplemental reconciliation; confirmation delay is not generation latency. Prefer timing.total_ms when timing.complete is true for the full measured gateway request interval; interrupted timing must not be treated as completed latency."
     },
     "execution": {
       "type": "string"
@@ -16251,7 +16251,7 @@ Local `#/components/schemas/…` references resolve to these definitions.
         "integer",
         "null"
       ],
-      "description": "Legacy dispatch-to-completion interval, not complete gateway latency."
+      "description": "Legacy dispatch-to-completion interval, not complete gateway latency. Null when completion was first confirmed by supplemental reconciliation; confirmation delay is not generation latency. Use timing for independently observed delivery measurements."
     },
     "prompt_tokens": {
       "type": [
