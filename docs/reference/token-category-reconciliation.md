@@ -90,3 +90,18 @@ An earlier concurrency run reached the generation endpoint before metadata was
 available and received 502 for all lookups. The successful contention run waited
 for independently observed terminal metadata before racing record writes. No
 inference retry or relaxation of evidence checks was added.
+
+## Protocol admission boundary
+
+Personal native Messages category supplementation must not be interpreted as
+support for category-priced native dispatch. A fresh HTTP request on 2026-10-11
+configured a nonzero customer reasoning rate and explicit internal verification
+credit, then attempted native Messages. Admission returned 422 because the
+selected protocol cannot supply that required pricing category. Independent
+reopening found zero attempts, charges, balance entries, reservations and
+reconciliation receipts. No upstream execution was initiated by this refusal.
+
+Consequently this path cannot qualify category-only customer debit recovery.
+That remaining case requires an admitted, supported pricing/protocol combination
+with actual missing usage evidence; do not weaken admission or manufacture missing
+categories merely to obtain a settlement result. This adds no new protocol support.
