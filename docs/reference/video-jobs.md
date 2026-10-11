@@ -1630,3 +1630,40 @@ and full decode, and matched result timings, original completion and key lineage
 One original submission/job and zero customer financial entries remained. This
 qualifies this normal saved-result path on that clean commit; no new generation
 was purchased and the upstream failure-status branches remain unverified.
+
+
+## Bounded saved-result availability snapshot — 2026-10-12
+
+Saved result availability now reads job observations and result references in
+one bounded read-only repeatable snapshot. The existing observation-to-status
+classifier is reused, including conflicting terminal states. Shared transaction
+setup is factored once; existing financial callers retain their entry point.
+No result URL, ciphertext or response-body field is added to the availability API.
+
+An isolated stopped-database copy retained an actual succeeded personal video
+whose result had not naturally expired. With an exclusive lock on result
+references, previous `ca4e5a9` stayed pending at the 1.6-second observation and
+returned only after release. Clean committed `bb8f95c` returned sanitized 503
+in 260.53 ms while the lock remained held. After release, availability matched
+the saved response; restart retained the same result and billing state. A key
+from another workspace received 404, and the revoked verification key received
+401. No new generation, provider refresh or customer charge was made.
+
+Independent reopening checked the exact retained result-reference, observation,
+provider-query evidence and attempt fingerprints, clean executable digest and
+lock diagnostic. The video remained available and owner funded, with no customer
+media charge, balance entry, invoice payment or funding receipt. Both verification
+keys were revoked. Native replacement preserved original configuration, encrypted
+identities and durable records after a fresh backup restored with matching
+business fingerprints.
+
+The shared financial entry point was separately re-exercised on a stopped copy
+of actual Chat/Messages charge history. Both key spending reads refused locks
+within their deadlines and retained their projections after restart; independent
+reopening re-parsed the original responses and exact 27,779 USD-nanounit debits.
+This checks the factored transaction behavior without changing financial semantics.
+
+This verifies availability-table contention and current saved-result reads, not
+a natural expiry transition, every authorization-table lock, conflicting-job
+runtime coverage, result-body download performance or customer-funded video.
+No clock or retention timestamp was modified to manufacture expiry evidence.
