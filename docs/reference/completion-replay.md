@@ -180,3 +180,25 @@ observations on an already charged request. It does not establish concurrent
 cache-read/write partition overflow rejection, first settlement of an originally
 unknown nonzero category, or a provider correction feed. No fresh inference or
 funding was submitted in this run.
+
+## Rejecting an impossible supplemented partition — 2026-10-11
+
+An isolated copy of the same real 5,314-input-token request retained its known
+5,269 cache-write tokens while its cached-read field was temporarily made unknown.
+Two concurrent callers then submitted a deliberately invalid observation: 5,314
+cached-read tokens with no write field. The incoming read quantity fits the
+aggregate by itself, but combining it with the saved write quantity exceeds the
+aggregate. Neither observation was treated as provider evidence.
+
+Both completion-batch and standalone storage entrypoints returned conflict. An
+immediate category-row comparison found no mutation. Supplying the original
+response's actual cached-read value afterward restored the complete record.
+Following gateway restart, independent reopening matched all six business-table
+fingerprints and both original response hashes, category quantities, charge
+amounts and pinned tariff revisions. Historical debits remained unchanged.
+
+This verifies rejection against an already known complementary input quantity,
+including simultaneous invalid writes through both entrypoints. It does not
+establish every ordering of two previously unknown complementary quantities or
+an upstream correction feed. The original database was not altered, and no new
+inference or funding was submitted.
