@@ -810,45 +810,17 @@ async fn topup_response(
     organization: Uuid,
     order: Uuid,
 ) -> Result<Json<Value>, ApiError> {
-    let saved = state
+    let mut view = state
         .store
-        .customer_topup(organization, order)
+        .customer_topup_view(organization, order)
         .await
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::not_found)?;
-    let paid = state
-        .store
-        .customer_topup_paid(organization, order)
-        .await
-        .map_err(ApiError::from_store)?
-        .unwrap_or(false);
-    let closed = state
-        .store
-        .customer_topup_closed(organization, order)
-        .await
-        .map_err(ApiError::from_store)?
-        .unwrap_or(false);
-    let checkout = if paid || closed {
-        None
-    } else {
-        state
-            .store
-            .customer_topup_checkout(organization, order)
-            .await
-            .map_err(ApiError::from_store)?
-    };
-    let status = if paid {
-        "paid"
-    } else if closed {
-        "closed"
-    } else if checkout.is_some() {
-        "pending"
-    } else {
-        "reconciliation_required"
-    };
-    Ok(Json(
-        json!({"data":{"id":saved.id,"currency":saved.currency,"amount_nanos":saved.amount_nanos.to_string(),"payment_method":saved.payment_method,"status":status,"checkout_url":checkout}}),
-    ))
+    // History includes a creation timestamp; preserve the existing detail shape.
+    if let Some(fields) = view.as_object_mut() {
+        fields.remove("created_at");
+    }
+    Ok(Json(json!({"data": view})))
 }
 
 /// Company-scoped checkout availability; no credentials or upstream calls.

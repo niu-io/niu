@@ -572,3 +572,26 @@ on the single order, and no funding, settlement or closure records. This checks
 runtime failure handling after the configuration-snapshot change, separately
 from startup rejection. It neither contacted a merchant nor exercised a payment
 callback, and did not modify the original installation's database or keys.
+
+### Consistent checkout detail and history — 2026-10-11
+
+Checkout detail now reads intent, payment/closure status and the customer checkout
+URL in one database statement. It shares the customer-safe SQL projection with
+history, replacing separate status reads while preserving the existing detail
+response fields. History alone includes the creation timestamp. Merchant secrets
+and procurement fields are excluded from this projection.
+
+A fresh isolated current-input run created 105 pending EPay checkout intents
+through the actual management API. Each detail matched its history row, excluding
+that timestamp. Pagination returned 100 then 5 distinct orders; cursor replay and
+identical checkout replay survived restart. A changed amount under the same
+idempotency key returned 409. Detail requests addressing a real order under a
+different company, or a missing order, returned 404.
+
+An independent verifier reopened the stopped database, matched all 105 saved
+HTTP detail/history artifacts to the stored intents and checkout URLs, and
+independently checked their signatures and exact amounts. There were no
+settlements, closures, funding receipts or balance entries. Checkout URLs were
+not followed. This verifies local checkout creation, persistence and pending-state
+reads; paid/closed transitions and concurrency with a real payment callback remain
+unverified by this run. No merchant activation or payment success is claimed.

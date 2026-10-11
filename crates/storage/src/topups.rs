@@ -42,8 +42,14 @@ impl Store {
         } else {
             None
         };
-        let mut rows: Vec<serde_json::Value> = sqlx::query_scalar("SELECT jsonb_build_object('id',o.id,'currency',o.currency,'amount_nanos',o.amount_nanos::text,'payment_method',o.payment_method,'created_at',o.created_at,'status',CASE WHEN s.order_id IS NOT NULL THEN 'paid' WHEN c.order_id IS NOT NULL THEN 'closed' WHEN h.order_id IS NOT NULL THEN 'pending' ELSE 'reconciliation_required' END,'checkout_url',CASE WHEN s.order_id IS NULL AND c.order_id IS NULL THEN h.checkout_url ELSE NULL END) FROM customer_topup_orders o LEFT JOIN customer_topup_settlements s ON s.order_id=o.id LEFT JOIN customer_topup_closures c ON c.order_id=o.id LEFT JOIN customer_topup_checkout h ON h.order_id=o.id WHERE o.organization_id=$1 AND ($2::text IS NULL OR (o.created_at,o.id)<($2::text::timestamptz,$3)) ORDER BY o.created_at DESC,o.id DESC LIMIT 101")
-            .bind(organization).bind(cursor.as_ref().map(|value| value.0.as_str())).bind(cursor.as_ref().map(|value| value.1)).fetch_all(&self.pool).await?;
+        let mut rows: Vec<serde_json::Value> =
+            sqlx::query_scalar(include_str!("customer_topup_view.sql"))
+                .bind(organization)
+                .bind(None::<Uuid>)
+                .bind(cursor.as_ref().map(|value| value.0.as_str()))
+                .bind(cursor.as_ref().map(|value| value.1))
+                .fetch_all(&self.pool)
+                .await?;
         let next = if rows.len() > 100 {
             rows.truncate(100);
             rows.last()
@@ -54,6 +60,23 @@ impl Store {
         };
         Ok((rows, next))
     }
+    /// Read customer-visible status and checkout from one database snapshot.
+    /// Share the history projection so terminal states suppress checkout URLs
+    /// consistently. Merchant identity and procurement fields are never selected.
+    pub async fn customer_topup_view(
+        &self,
+        organization: Uuid,
+        order: Uuid,
+    ) -> Result<Option<serde_json::Value>, StoreError> {
+        Ok(sqlx::query_scalar(include_str!("customer_topup_view.sql"))
+            .bind(organization)
+            .bind(Some(order))
+            .bind(None::<String>)
+            .bind(None::<Uuid>)
+            .fetch_optional(&self.pool)
+            .await?)
+    }
+
     pub async fn customer_topup_closed(
         &self,
         organization: Uuid,
