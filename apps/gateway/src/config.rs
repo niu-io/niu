@@ -102,6 +102,8 @@ pub struct ModelConfig {
     #[serde(default)]
     pub supports_messages_streaming: bool,
     #[serde(default)]
+    pub supports_messages_tools: bool,
+    #[serde(default)]
     pub supports_generate_content: bool,
     #[serde(default)]
     pub api_base: Option<String>,
@@ -136,6 +138,7 @@ impl ModelProtocol {
 pub(crate) struct ModelRequirements {
     pub streaming: bool,
     pub messages_streaming: bool,
+    pub messages_tools: bool,
     pub tools: bool,
     pub streaming_tools: bool,
     pub structured_output: bool,
@@ -147,6 +150,7 @@ impl ModelRequirements {
     pub fn allows(&self, model: &ModelConfig) -> bool {
         (!self.streaming || model.protocol().supports_streaming())
             && (!self.messages_streaming || model.supports_messages_streaming)
+            && (!self.messages_tools || model.supports_messages_tools)
             && (!self.tools || model.supports_tool_calls)
             && (!self.streaming_tools || model.supports_streaming_tool_calls)
             && (!self.structured_output || model.supports_structured_output)
@@ -283,9 +287,11 @@ impl AppConfig {
                     "GenerateContent capability on route {name} requires a gemini adapter"
                 )));
             }
-            if model.supports_messages_streaming && !model.supports_messages {
+            if (model.supports_messages_streaming || model.supports_messages_tools)
+                && !model.supports_messages
+            {
                 return Err(ConfigError::Invalid(format!(
-                    "Streaming Messages on route {name} requires supports_messages"
+                    "Extended Messages capabilities on route {name} require supports_messages"
                 )));
             }
             if model.supports_messages

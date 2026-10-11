@@ -5041,7 +5041,7 @@
       "post": {
         "operationId": "reconcileRequestUsage",
         "summary": "Supplement unknown native request usage from captured OpenRouter evidence",
-        "description": "Installation write access only. Empty object input; no client-supplied generation identifier, quantities or costs. Uses the stored server response reference and original managed credential only while its vendor revision remains current and enabled. New captured references pin the dispatched upstream model independently of later mapping edits; legacy references without that binding still require the unchanged enabled model revision. Exact upstream model match required; aliases are not inferred equivalent. Bounded metadata lookup can return 502 while metadata is unavailable. Confirmed-completed or uncertain dispatched attempts with unknown aggregate usage are eligible only when canonical metadata confirms not-cancelled execution with stop/length and an exact model/reference match. Cancelled or nonterminal metadata remains unresolved. Atomically retains the original execution/usage and immutable supplemental terminal evidence, then marks execution confirmed-completed. Existing completion timestamps are preserved; absent timestamps record the time confirmation is stored. Original failure and delivery timing remain unchanged. Recorded does not mean settled: existing financial recovery applies the request-bound tariffs; missing required categories keep liability unresolved. Never resubmits inference. Identical replay returns the saved receipt without upstream access. Cache-Control no-store. New v2 receipts retain terminal finish/cancellation evidence. Legacy v1 receipts retain null terminal fields without invented backfill.",
+        "description": "Installation write access only. Empty object input; no client-supplied generation identifier, quantities or costs. Uses the stored server response reference and original managed credential only while its vendor revision remains current and enabled. New captured references pin the dispatched upstream model independently of later mapping edits; legacy references without that binding still require the unchanged enabled model revision. Exact upstream model match required; aliases are not inferred equivalent. Bounded metadata lookup can return 502 while metadata is unavailable. Confirmed-completed or uncertain dispatched attempts with unknown aggregate usage are eligible only when canonical metadata confirms not-cancelled execution with stop/length/tool_calls and an exact model/reference match. Cancelled or nonterminal metadata remains unresolved. Atomically retains the original execution/usage and immutable supplemental terminal evidence, then marks execution confirmed-completed. Existing completion timestamps are preserved; absent timestamps record the time confirmation is stored. Original failure and delivery timing remain unchanged. Recorded does not mean settled: existing financial recovery applies the request-bound tariffs; missing required categories keep liability unresolved. Never resubmits inference. Identical replay returns the saved receipt without upstream access. Cache-Control no-store. New v2 receipts retain terminal finish/cancellation evidence. Legacy v1 receipts retain null terminal fields without invented backfill.",
         "security": [
           {
             "bearerAuth": []
@@ -5167,6 +5167,7 @@
                       "enum": [
                         "stop",
                         "length",
+                        "tool_calls",
                         null
                       ],
                       "description": "Null for legacy v1 receipts; never backfilled."
@@ -5331,6 +5332,7 @@
                       "enum": [
                         "stop",
                         "length",
+                        "tool_calls",
                         null
                       ],
                       "description": "Null for legacy v1 receipts; never backfilled."
@@ -12526,9 +12528,9 @@
       "post": {
         "operationId": "createMessage",
         "x-niu-implementation": "implemented",
-        "x-niu-status": "Native buffered and explicitly opted-in streaming text Messages; tools, media and extended thinking remain unsupported.",
+        "x-niu-status": "Native buffered text and explicitly enabled client tools; text streaming is separately enabled. Streaming tools, media and extended thinking remain unsupported.",
         "summary": "Create a native text Message, optionally streamed",
-        "description": "Requires supports_messages on an OpenRouter or Anthropic route. Uses Niu bearer or x-niu-api-key credentials, workspace grants, source policy, limits, guardrails and billing. Requests are limited to 64 KiB and conservative configured pricing bounds. No Chat translation. Tools, media, beta headers, unsupported fields are rejected before dispatch. Only version 2023-06-01 is supported (also used when omitted). Native input_tokens excludes cache reads/writes; total input accounting requires all three input categories plus output_tokens. Missing or null categories leave usage unresolved and reservations retained. Separate reasoning rates in the bound base price or a reachable context tier are rejected atomically before dispatch with 422 and x-niu-error-code unsupported_token_pricing; this adapter cannot report reasoning usage. Returned usage is not proof of a settled charge. Upstream commercial metadata is never forwarded. Native SDK and Claude Code compatibility are unverified. Streaming additionally requires supports_messages_streaming. Route pools filter this capability before priority/weight selection; no eligible candidate returns 503 before dispatch. Native SSE validates ordered text events and projects customer-safe fields with a 64 KiB per-event limit. Completion requires message_stop; missing terminal evidence, upstream interruption and client cancellation retain uncertainty and reservations. Cumulative usage updates replace earlier counts; never sum deltas or infer missing categories. HTTP 200 alone is not completed usage. No credential switch or inference retry after headers. Required output inspection rejects streaming before dispatch. SDK messages.stream() stops at message_stop; an upstream extra [DONE] is not forwarded.",
+        "description": "Requires supports_messages on an OpenRouter or Anthropic route. Uses Niu bearer or x-niu-api-key credentials, workspace grants, source policy, limits, guardrails and billing. Requests are limited to 64 KiB and conservative configured pricing bounds. No Chat translation. Media, beta headers and unsupported fields are rejected before dispatch. Buffered client tools require supports_messages_tools; route pools filter this capability. Tool definitions are limited to name, description and bounded offline object input_schema. tool_choice supports auto/any/none/tool and optional disable_parallel_tool_use. History requires uniquely identified assistant tool_use blocks followed immediately by matching user tool_result blocks with string content, before ordinary user text. Tools must remain declared for tool history. Streaming tools are rejected. Tool names, IDs and arguments are validated and projected; Niu does not execute tools. Required text input/output inspection rejects tool requests before dispatch rather than silently skipping tool content. A tool_use stop is a completed provider turn, not completion of a client task. Only version 2023-06-01 is supported (also used when omitted). Native input_tokens excludes cache reads/writes; total input accounting requires all three input categories plus output_tokens. Missing or null categories leave usage unresolved and reservations retained. Separate reasoning rates in the bound base price or a reachable context tier are rejected atomically before dispatch with 422 and x-niu-error-code unsupported_token_pricing; this adapter cannot report reasoning usage. Returned usage is not proof of a settled charge. Upstream commercial metadata is never forwarded. Native SDK and Claude Code compatibility are unverified. Streaming additionally requires supports_messages_streaming. Route pools filter this capability before priority/weight selection; no eligible candidate returns 503 before dispatch. Native SSE validates ordered text events and projects customer-safe fields with a 64 KiB per-event limit. Completion requires message_stop; missing terminal evidence, upstream interruption and client cancellation retain uncertainty and reservations. Cumulative usage updates replace earlier counts; never sum deltas or infer missing categories. HTTP 200 alone is not completed usage. No credential switch or inference retry after headers. Required output inspection rejects streaming before dispatch. SDK messages.stream() stops at message_stop; an upstream extra [DONE] is not forwarded.",
         "security": [
           {
             "bearerAuth": []
@@ -12677,49 +12679,169 @@
                               "minItems": 1,
                               "maxItems": 128,
                               "items": {
-                                "type": "object",
-                                "additionalProperties": false,
-                                "required": [
-                                  "type",
-                                  "text"
-                                ],
-                                "properties": {
-                                  "type": {
-                                    "type": "string",
-                                    "enum": [
-                                      "text"
-                                    ]
-                                  },
-                                  "text": {
-                                    "type": "string"
-                                  },
-                                  "cache_control": {
+                                "oneOf": [
+                                  {
                                     "type": "object",
                                     "additionalProperties": false,
                                     "required": [
-                                      "type"
+                                      "type",
+                                      "text"
                                     ],
                                     "properties": {
                                       "type": {
                                         "type": "string",
                                         "enum": [
-                                          "ephemeral"
+                                          "text"
                                         ]
                                       },
-                                      "ttl": {
+                                      "text": {
+                                        "type": "string"
+                                      },
+                                      "cache_control": {
+                                        "type": "object",
+                                        "additionalProperties": false,
+                                        "required": [
+                                          "type"
+                                        ],
+                                        "properties": {
+                                          "type": {
+                                            "type": "string",
+                                            "enum": [
+                                              "ephemeral"
+                                            ]
+                                          },
+                                          "ttl": {
+                                            "type": "string",
+                                            "enum": [
+                                              "5m",
+                                              "1h"
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                      "type",
+                                      "id",
+                                      "name",
+                                      "input"
+                                    ],
+                                    "properties": {
+                                      "type": {
+                                        "const": "tool_use"
+                                      },
+                                      "id": {
                                         "type": "string",
-                                        "enum": [
-                                          "5m",
-                                          "1h"
-                                        ]
+                                        "minLength": 1,
+                                        "maxLength": 200
+                                      },
+                                      "name": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 64,
+                                        "pattern": "^[A-Za-z0-9_-]+$"
+                                      },
+                                      "input": {
+                                        "type": "object"
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                      "type",
+                                      "tool_use_id",
+                                      "content"
+                                    ],
+                                    "properties": {
+                                      "type": {
+                                        "const": "tool_result"
+                                      },
+                                      "tool_use_id": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 200
+                                      },
+                                      "content": {
+                                        "type": "string"
+                                      },
+                                      "is_error": {
+                                        "type": "boolean"
                                       }
                                     }
                                   }
-                                }
+                                ]
                               }
                             }
                           ]
                         }
+                      }
+                    }
+                  },
+                  "tools": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 64,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "name",
+                        "input_schema"
+                      ],
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64,
+                          "pattern": "^[A-Za-z0-9_-]+$"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "input_schema": {
+                          "type": "object",
+                          "required": [
+                            "type"
+                          ],
+                          "properties": {
+                            "type": {
+                              "const": "object"
+                            }
+                          },
+                          "additionalProperties": true
+                        }
+                      }
+                    }
+                  },
+                  "tool_choice": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "type"
+                    ],
+                    "properties": {
+                      "type": {
+                        "enum": [
+                          "auto",
+                          "any",
+                          "none",
+                          "tool"
+                        ]
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64,
+                        "pattern": "^[A-Za-z0-9_-]+$"
+                      },
+                      "disable_parallel_tool_use": {
+                        "type": "boolean"
                       }
                     }
                   }
@@ -12730,7 +12852,7 @@
         },
         "responses": {
           "200": {
-            "description": "Native sanitized text Message. Inspect usage and billing diagnostics separately.",
+            "description": "Native sanitized Message or opted-in text SSE. Tool turns may require a client continuation. Inspect usage and billing diagnostics separately.",
             "content": {
               "application/json": {
                 "schema": {
@@ -12770,23 +12892,56 @@
                       "minItems": 1,
                       "maxItems": 128,
                       "items": {
-                        "type": "object",
-                        "additionalProperties": false,
-                        "required": [
-                          "type",
-                          "text"
-                        ],
-                        "properties": {
-                          "type": {
-                            "type": "string",
-                            "enum": [
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "type",
                               "text"
-                            ]
+                            ],
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "text"
+                                ]
+                              },
+                              "text": {
+                                "type": "string"
+                              }
+                            }
                           },
-                          "text": {
-                            "type": "string"
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "type",
+                              "id",
+                              "name",
+                              "input"
+                            ],
+                            "properties": {
+                              "type": {
+                                "const": "tool_use"
+                              },
+                              "id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                              },
+                              "name": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64,
+                                "pattern": "^[A-Za-z0-9_-]+$"
+                              },
+                              "input": {
+                                "type": "object"
+                              }
+                            }
                           }
-                        }
+                        ]
                       }
                     },
                     "stop_reason": {
@@ -12794,7 +12949,8 @@
                       "enum": [
                         "end_turn",
                         "max_tokens",
-                        "stop_sequence"
+                        "stop_sequence",
+                        "tool_use"
                       ]
                     },
                     "stop_sequence": {
@@ -16756,6 +16912,11 @@
             "type": "boolean",
             "default": false,
             "description": "Native GenerateContent opt-in for static or managed gemini routes; does not imply streaming, tools or media support."
+          },
+          "supports_messages_tools": {
+            "type": "boolean",
+            "default": false,
+            "description": "Explicit buffered native client-tool capability; requires supports_messages. Streaming tools remain unsupported."
           },
           "supports_messages_streaming": {
             "type": "boolean",

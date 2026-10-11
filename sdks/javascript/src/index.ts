@@ -13,23 +13,28 @@ export type GenerateContentResponse = {
   usageMetadata: { promptTokenCount: number | null; candidatesTokenCount: number | null; totalTokenCount: number | null; cachedContentTokenCount: number | null; thoughtsTokenCount: number | null };
 };
 
-/** Explicit native text subset; no tools, media, beta features or streaming. */
+/** Buffered native text and opted-in client tools; no media or beta features. */
 export type MessagesRequest = {
   model: string;
   max_tokens: number;
-  messages: Array<{ role: 'user' | 'assistant'; content: MessagesText }>;
+  messages: Array<{ role: 'user' | 'assistant'; content: MessagesText | Array<MessagesTextBlock | MessagesToolUse | MessagesToolResult> }>;
+  tools?: Array<{ name: string; description?: string; input_schema: Record<string, unknown> }>;
+  tool_choice?: { type: 'auto' | 'any' | 'none'; disable_parallel_tool_use?: boolean } | { type: 'tool'; name: string; disable_parallel_tool_use?: boolean };
   system?: MessagesText;
   stream?: false;
   temperature?: number;
   top_p?: number;
   stop_sequences?: string[];
 };
-export type MessagesStreamRequest = Omit<MessagesRequest, 'stream'>;
+export type MessagesStreamRequest = Omit<MessagesRequest, 'stream' | 'tools' | 'tool_choice' | 'messages'> & { messages: Array<{ role: 'user' | 'assistant'; content: MessagesText }> };
+export type MessagesToolUse = { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> };
+export type MessagesToolResult = { type: 'tool_result'; tool_use_id: string; content: string; is_error?: boolean };
+export type MessagesTextBlock = { type: 'text'; text: string; cache_control?: { type: 'ephemeral'; ttl?: '5m' | '1h' } };
 export type MessagesText = string | Array<{ type: 'text'; text: string; cache_control?: { type: 'ephemeral'; ttl?: '5m' | '1h' } }>;
 export type MessagesResponse = {
   id: string; type: 'message'; role: 'assistant'; model: string;
-  content: Array<{ type: 'text'; text: string }>;
-  stop_reason: 'end_turn' | 'max_tokens' | 'stop_sequence';
+  content: Array<{ type: 'text'; text: string } | MessagesToolUse>;
+  stop_reason: 'end_turn' | 'max_tokens' | 'stop_sequence' | 'tool_use';
   stop_sequence: string | null;
   /** Null categories do not establish zero usage or settled customer charges. */
   usage: { input_tokens: number | null; output_tokens: number | null;

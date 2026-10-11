@@ -21,6 +21,7 @@ pub(super) struct Capabilities {
     supports_responses: bool,
     supports_messages: bool,
     supports_messages_streaming: bool,
+    supports_messages_tools: bool,
     supports_generate_content: bool,
 }
 
@@ -265,6 +266,7 @@ pub(super) fn make_model(
         supports_responses: caps.supports_responses,
         supports_messages: caps.supports_messages,
         supports_messages_streaming: caps.supports_messages_streaming,
+        supports_messages_tools: caps.supports_messages_tools,
         supports_generate_content: caps.supports_generate_content,
     })
 }

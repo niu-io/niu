@@ -1,3 +1,4 @@
+use super::schema::validator as structured_schema_validator;
 use std::{sync::atomic::Ordering, time::Duration};
 
 use axum::{
@@ -1688,37 +1689,6 @@ fn chat_route_requirements(
         ),
         ..Default::default()
     })
-}
-
-fn structured_schema_validator(schema: &Value) -> Result<jsonschema::Validator, ()> {
-    // Bound compilation independently of the overall request size. Offline mode
-    // also prevents caller-controlled references from reading files or making requests.
-    if serde_json::to_vec(schema).map_err(|_| ())?.len() > 65_536 {
-        return Err(());
-    }
-    let mut pending = vec![(schema, 0usize)];
-    let mut nodes = 0usize;
-    while let Some((value, depth)) = pending.pop() {
-        nodes += 1;
-        if nodes > 4096 || depth > 32 {
-            return Err(());
-        }
-        match value {
-            Value::Object(object) => pending.extend(object.values().map(|v| (v, depth + 1))),
-            Value::Array(array) => pending.extend(array.iter().map(|v| (v, depth + 1))),
-            _ => {}
-        }
-    }
-    jsonschema::options()
-        .offline()
-        .with_pattern_options(
-            jsonschema::PatternOptions::fancy_regex()
-                .backtrack_limit(10_000)
-                .size_limit(1_048_576)
-                .dfa_size_limit(1_048_576),
-        )
-        .build(schema)
-        .map_err(|_| ())
 }
 
 pub(in crate::web) fn valid_chat_completion_features(response: &Value, request: &Value) -> bool {

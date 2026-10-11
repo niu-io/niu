@@ -742,6 +742,7 @@ pub(crate) fn model(slug: &str) -> crate::config::ModelConfig {
         supports_responses: true,
         supports_messages: false,
         supports_messages_streaming: false,
+        supports_messages_tools: false,
         supports_generate_content: false,
         pricing: None,
     }

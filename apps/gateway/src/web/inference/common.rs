@@ -655,6 +655,7 @@ pub(super) fn route_revision(model: &crate::config::ModelConfig) -> String {
                 "supports_structured_output": model.supports_structured_output,
                 "supports_messages": model.supports_messages,
                 "supports_messages_streaming": model.supports_messages_streaming,
+                "supports_messages_tools": model.supports_messages_tools,
                 "supports_generate_content": model.supports_generate_content,
                 "supports_responses": model.supports_responses,
                 "pricing": model.pricing

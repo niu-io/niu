@@ -1,9 +1,10 @@
 # Native inference protocol integration
 
-Status: partial. `POST /v1/messages` implements native buffered text and separately
-opted-in text SSE on OpenRouter and Anthropic routes. Buffered GenerateContent
-text is implemented for static and managed Gemini routes. Native tools, media,
-extended thinking and Gemini streaming remain unimplemented. Existing Anthropic/Bedrock
+Status: partial. `POST /v1/messages` implements native buffered text, separately
+opted-in buffered client tools and text SSE on OpenRouter and Anthropic routes.
+Buffered GenerateContent text is implemented for static and managed Gemini routes.
+Streaming Messages tools, Gemini tools, media, extended thinking and Gemini
+streaming remain unimplemented. Existing Anthropic/Bedrock
 conversion behind Chat is separate from this native public operation.
 
 ## Integration boundary
@@ -727,7 +728,7 @@ fixture results or an inference-performance benchmark.
 
 ### Native client-tool lifecycle prerequisite observation
 
-Native Messages tools remain unsupported by Niu. A direct current-input canonical
+Before the buffered tool implementation below, a direct current-input canonical
 OpenRouter observation used the dated mini model and a client-defined
 `sha256_text` tool with an object input schema. The first request forced that tool;
 the response contained one `tool_use` block and native `stop_reason: tool_use`.
@@ -764,3 +765,71 @@ Implementation must cover these boundaries together:
 - Actual workspace-key round trips, permissions, interruption/restart and
   independent ledger verification before claiming backend support. Direct
   provider compatibility alone does not establish those outcomes.
+
+
+## Buffered native client tools — 2026-10-11
+
+Managed/static mappings must enable `supports_messages_tools` together with
+`supports_messages`. The default is false, independently of Chat tool support and
+native text streaming. Pools filter this capability before priority/weight
+selection. Niu transports client-owned function calls; it never executes them.
+
+The bounded request accepts up to 64 distinct named tools with optional description
+and an object `input_schema`. Shared offline schema compilation bounds document
+size, nesting, node count and regex work; external references do not authorize
+network or file access. `tool_choice` accepts `auto`, `any`, `none` or a declared
+named `tool`, with optional `disable_parallel_tool_use`. The total native request
+remains limited to 64 KiB and the route's conservative pricing bounds.
+
+Assistant `tool_use` blocks contain a unique ID, declared name and schema-valid
+object input. The next user message must contain each corresponding `tool_result`
+exactly once before ordinary text, with string content and optional boolean
+`is_error`. Tools remain declared on continuation requests. Unknown IDs, duplicate
+IDs, malformed arguments, unsupported fields and streaming tool requests are
+rejected before dispatch. Tool result arrays, server tools, beta features and
+extended thinking are outside this implementation.
+
+Responses project only validated text/tool blocks and public model alias. Tool
+names and object arguments must match declared schemas; IDs must be unique and
+choices must satisfy the request's tool selection constraints. Recognized native
+`caller: {type: direct}` provenance is not forwarded. Other unsupported response
+content does not become an accepted tool result. Native `tool_use` completion is
+stored as `tool_calls`. It confirms one provider turn, not completion of the
+client's multi-turn task.
+
+Existing text-only input rules/detectors and required output inspection cannot
+inspect this tool subset and reject it before dispatch. No rule is silently
+skipped. Supporting inspection of definitions, arguments and results remains a
+separate requirement. `messages.create()` SDK types and handler OpenAPI cover the
+buffered tool request/response; `messages.stream()` remains text-only.
+
+Missing native usage still retains the reservation. Migration 0259 explicitly
+allows terminal canonical `tool_calls` evidence in the existing immutable receipt
+contract, alongside `stop` and `length`. Original generation/model/credential
+checks remain in force. Existing recovery owns request-bound pricing and ledger
+settlement for each turn; no separate tool ledger or hidden continuation exists.
+
+Fresh actual workspace-key calls used a declared SHA-256 tool. The first native
+response requested hashing a fresh input. The client computed the digest and the
+JavaScript SDK submitted its matching result; the second response returned that
+digest. Both turns reconciled from their own saved generation evidence and posted
+exactly one charge/debit each. Restart and receipt replay added nothing. A separate
+complete run used a pool with a preferred candidate lacking tools; both turns
+pinned the lower-priority capable mapping and retained the public pool alias.
+
+Actual missing-capability, streaming-tool, invalid tool-choice/result linkage and
+required input/output inspection requests were refused before another attempt.
+Independent reopening checked original client artifacts, argument/result linkage,
+computed digest, native quantities, finish metadata, exact two debits and released
+holds, with unchanged encrypted credential. These were personal upstream calls
+using explicit internal verification prices and approved credit, not merchant
+funding or commercial Supplier supply.
+
+Shared-schema regression exercised actual structured and streaming Chat responses,
+exact billing, invoice/refund and restart; independent saved-response hashes and
+ledger arithmetic agreed. A populated 0258-to-0259 upgrade preserved the original
+receipt, prior migration checksums, encrypted identity and debit across replay and
+restart, independently rechecked. Builds, SDK compilation and contract generation
+are structural checks only; no fixture outcome supplies acceptance evidence.
+Direct Anthropic tool calls, malformed actual upstream tool responses, parallel
+multi-tool output and interrupted native tool turns remain unverified.

@@ -221,6 +221,9 @@ pub fn inspect_messages(
     body: &serde_json::Value,
     rules: &[TextRule],
 ) -> Result<serde_json::Value, InspectionError> {
+    if body.get("tools").is_some() || body.get("tool_choice").is_some() {
+        return Err(InspectionError::UnsupportedContent);
+    }
     let mut inspected = body.clone();
     let mut messages = body
         .get("messages")
