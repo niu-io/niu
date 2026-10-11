@@ -111,8 +111,8 @@ pub use operators::{
     OperatorSessionView, OperatorView,
 };
 pub use vendors::{
-    SharedVendorRoute, VendorCatalogInputs, VendorCatalogRoute, VendorInput, VendorModelInput,
-    VendorModelView, VendorRoute, VendorUpdate, VendorView,
+    RouteRegistryInputs, SharedVendorRoute, VendorCatalogInputs, VendorCatalogRoute, VendorInput,
+    VendorModelInput, VendorModelView, VendorRoute, VendorUpdate, VendorView,
 };
 mod context_pricing;
 pub use context_pricing::{

@@ -421,3 +421,30 @@ publication contract must not silently leave the active generation stale. These
 constraints must be addressed in the connected implementation, not by adding an
 unused optional cache or changing callers one at a time while claiming the
 registry is authoritative.
+
+### Transaction-owned configuration reader
+
+`RouteRegistryInputs` now separates credential-free configured mappings and pool
+policies from clock-dependent eligibility. The existing catalog path calls
+`routing_registry_inputs_in_tx` using its repeatable-read transaction, then reads
+Supplier availability and credential cooldowns in that same snapshot. The helper
+neither starts another transaction nor acquires another connection. This gives
+the pending publisher a reader that can observe its own uncommitted configuration
+writes without freezing cooldown or qualification results into a generation.
+
+An isolated build containing this refactor exercised current management requests,
+representative selection across reorder/priority/disable changes, and restart.
+Independent reopening matched the retained directory responses and final pool
+revision. A separate two-Gateway run observed three actual OpenRouter 401 refusals
+and four successful personal model responses. With the alternate candidate
+disabled, the pool disappeared during cooldown and reappeared on both Gateways
+after natural expiry without changing the pool revision or cooldown deadline.
+Restart preserved discovery. Independent final inspection matched response usage,
+attempt bindings and failure records, with no financial entries. No fixture
+outcome is used; these are directory/live-eligibility observations, not commercial
+supply qualification.
+
+Release compilation, storage Clippy checks and formatting checks also completed.
+The active publication pointer, compiler integration, writer fencing and request
+generation attribution remain unimplemented. This refactor introduces no schema
+or runtime publication mechanism and does not close the unified-snapshot work.

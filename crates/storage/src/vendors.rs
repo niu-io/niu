@@ -79,6 +79,14 @@ pub struct VendorCatalogRoute {
     pub personal_organization_id: Option<Uuid>,
 }
 
+/// Configured routing inputs, without credentials or clock-dependent eligibility.
+/// Read through the caller's transaction so publication can include its own writes.
+/// Disabled routes remain present to shadow static aliases.
+pub struct RouteRegistryInputs {
+    pub routes: Vec<VendorCatalogRoute>,
+    pub pools: Vec<crate::ModelRoutePool>,
+}
+
 /// Server-only catalog inputs from a single database snapshot.
 pub struct VendorCatalogInputs {
     pub routes: Vec<VendorCatalogRoute>,
@@ -840,12 +848,8 @@ impl Store {
         sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
             .execute(&mut *tx)
             .await?;
-        let routes = sqlx::query_as::<_, VendorCatalogRow>(&catalog_query("", false))
-            .fetch_all(&mut *tx)
-            .await?
-            .into_iter()
-            .map(VendorCatalogRow::into_catalog)
-            .collect();
+        let RouteRegistryInputs { routes, pools } =
+            Self::routing_registry_inputs_in_tx(&mut tx).await?;
         let unavailable: Vec<String> = sqlx::query_scalar(
             "SELECT model_alias FROM provider_offers WHERE NOT niu_supplier_model_route_available(model_alias)",
         )
@@ -856,6 +860,26 @@ impl Store {
         )
         .fetch_all(&mut *tx)
         .await?;
+        tx.commit().await?;
+        Ok(VendorCatalogInputs {
+            routes,
+            unavailable: unavailable.into_iter().collect(),
+            pools,
+            cooling_down: cooling_down.into_iter().collect(),
+        })
+    }
+
+    /// Reuse an existing transaction: no nested transaction, pool acquisition,
+    /// credential loading or live eligibility classification occurs here.
+    pub(crate) async fn routing_registry_inputs_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+    ) -> Result<RouteRegistryInputs, StoreError> {
+        let routes = sqlx::query_as::<_, VendorCatalogRow>(&catalog_query("", false))
+            .fetch_all(&mut **tx)
+            .await?
+            .into_iter()
+            .map(VendorCatalogRow::into_catalog)
+            .collect();
         let mut pools = Vec::new();
         let mut after: Option<String> = None;
         loop {
@@ -863,7 +887,7 @@ impl Store {
                 "SELECT to_jsonb(p) FROM model_route_pools p WHERE ($1::text IS NULL OR alias>$1) ORDER BY alias LIMIT 100",
             )
             .bind(after.as_deref())
-            .fetch_all(&mut *tx)
+            .fetch_all(&mut **tx)
             .await?;
             let done = page.len() < 100;
             for value in page {
@@ -876,13 +900,7 @@ impl Store {
                 break;
             }
         }
-        tx.commit().await?;
-        Ok(VendorCatalogInputs {
-            routes,
-            unavailable: unavailable.into_iter().collect(),
-            pools,
-            cooling_down: cooling_down.into_iter().collect(),
-        })
+        Ok(RouteRegistryInputs { routes, pools })
     }
 
     /// Import the initial shared vendor once. Its immutable bootstrap name
