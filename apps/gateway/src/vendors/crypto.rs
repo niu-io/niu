@@ -71,7 +71,7 @@ impl CredentialCipher {
             .map_err(|_| "asset credential decoding failed")
     }
 
-    fn asset_management_aad(
+    pub(crate) fn asset_management_aad(
         vendor: Uuid,
         revision: i64,
         project: &str,
@@ -277,6 +277,32 @@ impl CredentialCipher {
         aad.extend_from_slice(job.as_bytes());
         aad.extend_from_slice(kind.as_str().as_bytes());
         aad
+    }
+
+    pub(crate) fn retained_content_aad(
+        domain: niu_storage::EncryptedContentDomain,
+        content: &niu_storage::EncryptedContent,
+    ) -> Result<Vec<u8>, &'static str> {
+        use niu_storage::EncryptedContentDomain as Domain;
+        Ok(match domain {
+            Domain::MediaResult => {
+                let kind = match content.discriminator.as_str() {
+                    "video" => niu_storage::MediaResultKind::Video,
+                    "last_frame" => niu_storage::MediaResultKind::LastFrame,
+                    _ => return Err("Invalid retained media result binding"),
+                };
+                Self::media_aad(content.scope, content.id, kind)
+            }
+            Domain::AssetListing => Self::asset_listing_aad(content.scope, content.id),
+            Domain::AssetLookup => Self::asset_lookup_aad(content.scope, content.id),
+            Domain::AssetRead => Self::asset_read_aad(content.scope, content.id),
+            Domain::AssetPatch => Self::asset_update_aad(content.scope, content.id),
+            Domain::InspectedImage => niu_storage::inspected_image_source_aad(
+                content.scope,
+                content.key_id.ok_or("Invalid retained image binding")?,
+                content.id,
+            ),
+        })
     }
 
     /// A protected OAuth record contains several tokens, not a single API key.

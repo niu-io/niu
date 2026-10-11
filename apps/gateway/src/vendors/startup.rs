@@ -129,20 +129,22 @@ pub(crate) async fn validate_saved_codex_credentials(
     store: &Store,
     cipher: Option<&CredentialCipher>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let codex_connections = store
-        .codex_connection_secrets()
-        .await
-        .map_err(|_| "Cannot read private Codex connections")?;
-    if !codex_connections.is_empty() && cipher.is_none() {
-        return Err("NIU_VENDOR_ENCRYPTION_KEY is required for saved Codex connections".into());
-    }
-    if let Some(cipher) = cipher {
-        for connection in codex_connections {
-            cipher
-                .open(connection.account_id, &connection.credential_ciphertext)
-                .map_err(
-                    |_| "Cannot decrypt saved Codex credentials with the configured encryption key",
-                )?;
+    let mut after = None;
+    loop {
+        let page = store
+            .codex_credential_page(after)
+            .await
+            .map_err(|_| "Cannot read private Codex connections")?;
+        if page.is_empty() {
+            break;
+        }
+        let cipher =
+            cipher.ok_or("NIU_VENDOR_ENCRYPTION_KEY is required for saved Codex connections")?;
+        for (account, ciphertext) in page {
+            cipher.open(account, &ciphertext).map_err(
+                |_| "Cannot decrypt saved Codex credentials with the configured encryption key",
+            )?;
+            after = Some(account);
         }
     }
     Ok(())

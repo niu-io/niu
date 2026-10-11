@@ -31,6 +31,17 @@ pub struct CodexConnectionInput<'a> {
 }
 
 impl Store {
+    /// Bounded internal encryption inventory, including inactive legacy accounts.
+    /// This does not enable their retired product surface.
+    pub async fn codex_credential_page(
+        &self,
+        after: Option<Uuid>,
+    ) -> Result<Vec<(Uuid, Vec<u8>)>, StoreError> {
+        Ok(sqlx::query_as(
+            "SELECT account_id,credential_ciphertext FROM codex_connections WHERE ($1::uuid IS NULL OR account_id>$1) ORDER BY account_id LIMIT 100",
+        ).bind(after).fetch_all(&self.pool).await?)
+    }
+
     pub async fn codex_connection_secrets(&self) -> Result<Vec<CodexConnectionSecret>, StoreError> {
         Ok(sqlx::query_as(
             "SELECT account_id,subject,client_id,credential_ciphertext FROM codex_connections",

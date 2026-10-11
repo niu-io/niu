@@ -19,6 +19,22 @@ struct StoredRotationBinding {
     target_key_check: Option<Vec<u8>>,
 }
 
+/// Session lock held by an offline command. Dropping closes the connection so
+/// the lock cannot leak into the pool. It does not fence running Gateway writers.
+pub struct EncryptionRotationLease {
+    _connection: sqlx::pool::PoolConnection<sqlx::Postgres>,
+}
+
+impl EncryptionRotationLease {
+    /// A lost session must stop the command instead of silently losing ownership.
+    pub async fn ensure_connected(&mut self) -> Result<(), StoreError> {
+        sqlx::query("SELECT 1")
+            .execute(&mut *self._connection)
+            .await?;
+        Ok(())
+    }
+}
+
 /// Closed inventory: request text never selects a relation or column.
 pub enum EncryptionRewrapTarget {
     Vendor(Uuid),
@@ -107,6 +123,50 @@ impl EncryptionRewrapTarget {
 }
 
 impl Store {
+    /// Existing-schema maintenance connection: no migrations or bootstrap. Two
+    /// connections permit one command lease plus bounded storage transactions.
+    pub async fn connect_encryption_maintenance(url: &str) -> Result<Self, StoreError> {
+        let pool = sqlx::postgres::PgPoolOptions::new()
+            .max_connections(2)
+            .connect(url)
+            .await?;
+        let store = Self { pool };
+        store.require_current_inspection_schema().await?;
+        Ok(store)
+    }
+
+    pub async fn claim_encryption_rotation(&self) -> Result<EncryptionRotationLease, StoreError> {
+        let mut connection = self.pool.acquire().await?;
+        connection.close_on_drop();
+        let claimed: bool = sqlx::query_scalar(
+            "SELECT pg_try_advisory_lock(hashtextextended('niu:encryption-rotation-command',0))",
+        )
+        .fetch_one(&mut *connection)
+        .await?;
+        if !claimed {
+            return Err(StoreError::Conflict);
+        }
+        Ok(EncryptionRotationLease {
+            _connection: connection,
+        })
+    }
+
+    /// Caller must finish a complete destination-only inventory and semantic
+    /// validation under exclusive offline ownership before clearing maintenance.
+    pub async fn complete_encryption_rotation(
+        &self,
+        rotation: &EncryptionRotation,
+    ) -> Result<(), StoreError> {
+        let updated = sqlx::query(
+            "UPDATE encryption_rotation_operations SET completed_at=clock_timestamp() WHERE id=$1 AND completed_at IS NULL AND source_key_check=$2 AND target_key_check=$3",
+        ).bind(rotation.operation).bind(rotation.source_key_check.as_slice()).bind(rotation.target_key_check.as_slice())
+        .execute(&self.pool).await?;
+        if updated.rows_affected() != 1 {
+            return Err(StoreError::Conflict);
+        }
+        Ok(())
+    }
+
     /// Discover an interrupted operation before deriving its keyed verification
     /// values. This identifier alone does not authorize any envelope write.
     pub async fn unfinished_encryption_rotation(&self) -> Result<Option<Uuid>, StoreError> {

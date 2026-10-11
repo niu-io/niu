@@ -8,6 +8,7 @@ mod codex;
 mod config;
 mod customer_response;
 mod encryption_check;
+mod encryption_rotation;
 mod enterprise;
 mod error;
 mod financial_recovery;
@@ -52,7 +53,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if arguments.len() == 1 && arguments[0] == "--check-encryption" {
             return encryption_check::run().await;
         }
-        return Err("Usage: niu-gateway [--check-encryption]".into());
+        if arguments.len() == 1 && arguments[0] == "--rotate-encryption-offline" {
+            return encryption_rotation::run().await;
+        }
+        return Err("Usage: niu-gateway [--check-encryption | --rotate-encryption-offline]".into());
     }
     tracing_subscriber::fmt()
         .with_env_filter(

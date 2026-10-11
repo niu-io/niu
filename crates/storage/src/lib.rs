@@ -13,7 +13,9 @@ use uuid::Uuid;
 mod encrypted_content;
 mod encryption_rotation;
 pub use encrypted_content::{EncryptedContent, EncryptedContentDomain};
-pub use encryption_rotation::{EncryptionRewrapTarget, EncryptionRotation};
+pub use encryption_rotation::{
+    EncryptionRewrapTarget, EncryptionRotation, EncryptionRotationLease,
+};
 mod branding;
 mod route_pools;
 pub use route_pools::{ModelRoutePool, RoutePoolCandidate};

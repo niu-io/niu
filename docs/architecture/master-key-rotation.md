@@ -1,9 +1,11 @@
 # Master-key rotation implementation boundary
 
-Status: implementation planning, not an available rotation procedure. Replacing
-`NIU_VENDOR_ENCRYPTION_KEY` alone is not supported. Retain the existing key and
-back it up separately from the database. This inventory follows the current
-`apps/gateway/src/vendors/crypto.rs` encryption domains and storage migrations.
+Status: the offline rotation command is implemented; qualification remains
+incomplete for nonempty data in every encrypted domain. Follow the
+[offline rotation procedure](../reference/offline-key-rotation.md). Replacing
+`NIU_VENDOR_ENCRYPTION_KEY` alone is not a rotation procedure. Retain the existing
+key with database backups that require it. The sections below retain the earlier
+implementation checkpoints and their evidence limits.
 
 ## Encrypted domains
 
@@ -368,3 +370,49 @@ retained inputs, and verified the restored ciphertext, unchanged metadata and
 expected authorization history. AES-GCM independently authenticated the original
 and replacement representations as identical plaintext. No full rotation command,
 upstream dispatch or multi-page crash-resume acceptance is claimed.
+
+## Complete offline command and current-input verification
+
+`niu-gateway --rotate-encryption-offline` now scans all ten registered encrypted
+domains, including retained expired rows and credentials without active routes.
+Legacy credential scanning is paginated instead of loading the whole inventory.
+It preflights source-or-target authentication before creating a new operation,
+then replaces source envelopes one row per atomic commit. Already-target envelopes
+are authenticated and skipped on resume. A complete target-only scan and existing
+startup semantic validators must succeed before completion is committed.
+
+The command requires an explicit offline acknowledgement and a matching migrated
+schema. It holds an exclusive command-session advisory lock on a connection that
+closes on drop, checks that connection during traversal and before completion,
+and uses one further connection for inventory/writes. It does not migrate,
+bootstrap, start workers/listeners, or contact upstream services. All Gateway
+writers must be stopped; the acknowledgement is an operator assertion, not a
+fence against already running processes. Keys enter only through the protected
+environment and are not printed or stored in the database.
+
+An actual invocation was killed after committing a Supplier envelope while an
+asset-credential update waited under an injected database delay. PostgreSQL restart
+preserved the committed replacement and rolled back the incomplete update. The
+mixed-key database rejected Gateway startup, a competing command was rejected,
+and a wrong target key could not resume. Correct resume preserved the first
+replacement bytes and changed only the remaining envelope. Target-only inspection,
+startup and management reads succeeded; source-only inspection failed. A wrong
+source key before first rotation and a missing offline acknowledgement created
+no maintenance history. Independent reopening authenticated both final envelopes
+against their original plaintext and bindings, checked exact preserved metadata,
+and counted exactly two additional authorizations with no unfinished operation.
+
+A separate isolated database retained 101 actual uncertain admissions. After
+rotation, target-only startup on two Gateways served one new actual OpenRouter
+completion and rejected a competing request at the key spending cap. Independent
+raw-response and database checks reconciled usage, one exact customer debit and
+procurement cost, while all 101 prior liabilities and reserved budgets remained
+unchanged after restart. This used the existing explicit internal verification
+credit/rate policy, not commercial qualification or verified merchant funding.
+
+Both binaries included shared working-tree changes; the original native database
+and keys were untouched. These runs qualify command interruption/resume and
+post-rotation Supplier dispatch plus asset-credential persistence. Nonempty
+payment, retained video/image/asset-result and legacy credential rotation,
+large-inventory throughput and populated qualification preservation still need
+current-input evidence. Issue #9 remains open.
