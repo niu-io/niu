@@ -1354,3 +1354,22 @@ the supported pricing eligibility contract belongs with backend coordination;
 Supplier offer activation or procurement changes must not be inferred from
 permission to publish a customer test price. The original authorized draft was
 preserved for recovery, and the rejection screenshot retained outside the tree.
+
+## Backend diagnosis of personal-route tariff rejection — 2026-10-11
+
+Enabled model configuration and shared customer-billing eligibility have different
+purposes. Owner-funded personal routes remain callable within their owning company
+but are excluded from the shared selling-price catalog. Publishing a customer
+price must not silently change that funding mode. The tariff endpoint now explains
+this case explicitly instead of returning only “Choose an available model alias”.
+The editor should exclude owner-funded choices when selecting customer selling
+rates; its configured-model inventory already exposes `owner_funded`. This is a
+backend contract clarification, not a claim that the editor has been changed.
+
+An isolated current-input run rejected a personal model tariff before and after
+restart, then completed an actual GPT-4.1 Mini request on that personal route.
+Independent reopening matched saved response usage to the completed attempt and
+confirmed no customer tariff, charge, debit or reservation. Customer spending-limit
+verification still needs a separately configured customer-billing test route; this
+change neither qualifies Supplier supply nor authorizes changing procurement,
+funding or the existing personal credential's ownership.

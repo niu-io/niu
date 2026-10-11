@@ -369,7 +369,7 @@ pub async fn overview(
 ///     ],
 ///     "operationId": "publishCustomerSellingRate",
 ///     "summary": "Publish an immutable customer selling rate revision",
-///     "description": "Installation administration or an explicitly granted platform administrator required. Ordinary company/workspace owners cannot set selling prices. This does not grant invoice, payment or credit-policy writes. Rates are currency nanounits per million text tokens, bounded at 1000000000000000. Optional cached_prompt_rate independently prices reported cached input. Null selects flat input pricing. When replacing an existing cached tariff this field must be explicit; omission conflicts. Missing cached usage keeps charges unresolved. No retroactive billing. Cache-Control is no-store. Optional reasoning_completion_rate prices the reported reasoning subset of completion tokens without double counting. Null selects flat output pricing. Replacing a separately priced reasoning tariff requires an explicit rate or null; omission conflicts. Unknown reasoning quantity leaves the charge unresolved. Admission bounds use the larger ordinary/reasoning output rate. Supplier procurement rates remain independent.",
+///     "description": "Installation administration or an explicitly granted platform administrator required. Ordinary company/workspace owners cannot set selling prices. Personal owner-funded models do not accept customer tariffs, even when callable by their owner. This does not grant invoice, payment or credit-policy writes. Rates are currency nanounits per million text tokens, bounded at 1000000000000000. Optional cached_prompt_rate independently prices reported cached input. Null selects flat input pricing. When replacing an existing cached tariff this field must be explicit; omission conflicts. Missing cached usage keeps charges unresolved. No retroactive billing. Cache-Control is no-store. Optional reasoning_completion_rate prices the reported reasoning subset of completion tokens without double counting. Null selects flat output pricing. Replacing a separately priced reasoning tariff requires an explicit rate or null; omission conflicts. Unknown reasoning quantity leaves the charge unresolved. Admission bounds use the larger ordinary/reasoning output rate. Supplier procurement rates remain independent.",
 ///     "requestBody": {
 ///       "required": true,
 ///       "content": {
@@ -582,6 +582,16 @@ pub async fn tariff(
     state.authorize_platform_headers(&headers).await?;
     let models = crate::vendors::effective_models(&state).await?;
     if !models.contains_key(&input.model_alias) {
+        // An owner-funded alias can be callable within this organization while
+        // deliberately absent from the shared customer-billing catalog.
+        if crate::vendors::scoped_models(&state, organization_id)
+            .await?
+            .contains_key(&input.model_alias)
+        {
+            return Err(ApiError::invalid_request(
+                "Personal owner-funded models do not accept customer tariffs; choose an available shared billing model",
+            ));
+        }
         return Err(ApiError::invalid_request("Choose an available model alias"));
     }
     let rates = ProviderOfferInput {
