@@ -363,5 +363,22 @@ response/database reconciliation and unchanged Chat policy identifiers.
 
 This qualifies those actual canonical authentication-refusal paths. It does not
 qualify failover after arbitrary errors, Responses cancellation during the
-successor, concurrent price edits during Responses failover or production load.
+successor or production load.
 Earlier Chat-only evidence retains its original scope.
+
+### Responses tariff edit between attempts
+
+A subsequent actual buffered Responses request received the first canonical 401
+while an independent PostgreSQL session held the selected successor's vendor row.
+Before releasing that lock, the administrator published a replacement customer
+context tier. The first operation completed under its original tier; a later
+streamed operation used the replacement tier. Both base rates were zero and the
+selected threshold was one input token, making the tier selection material to
+the nonzero charges rather than incidental metadata.
+
+Independent reopening and retained buffered/terminal-SSE response inspection
+recomputed each charge from its own pinned tier and reported token counts. Each
+operation had one tariff revision across both attempts, no charge for its rejected
+predecessor and exactly one matching ledger debit. Four attempts, two charges and
+no customer/procurement holds remained across restart. This qualifies this
+in-flight tier edit, not every category, discount or concurrent pricing schedule.
