@@ -95,3 +95,43 @@ under concurrent small-pool access. They do not establish sustainable throughput
 saturation capacity, a production SLO, or a causal explanation for the first
 phase's latency outlier. Upstream and host variability remain included. Streaming,
 long-duration load and media settlement need separate verification.
+
+## Sustained mixed-key small-pool run
+
+A subsequent current-input run used clean commit `22d3780`, two gateways with two
+admission connections each, and eight independent keys. It scheduled 1,600 actual
+OpenRouter requests at five requests per second with sixteen client workers.
+Each key completed 200 calls across both gateways; each gateway served 800.
+The strict-JSON marker, 32-token output bound, personal upstream account and
+internal approved-credit/rate boundaries above remained in force. There were no
+client retries.
+
+| Observation | Result |
+| --- | ---: |
+| Request phase duration | 321.36 seconds |
+| Completed requests/second | 4.979 |
+| Whole-request P50 | 1,310 ms |
+| Whole-request nearest-rank P95 | 1,639 ms |
+| Maximum whole-request duration | 3,764 ms |
+| Verified HTTP 200 responses with their requested marker | 1,600 |
+| Exact internal customer charges, USD nanounits | 26,740,990 |
+
+Independent reopening of the stopped PostgreSQL database verified all saved raw
+response hashes and parsed markers, matched reported tokens and key attribution
+to 1,600 completed attempts, and recalculated every pinned customer charge. Each
+attempt had exactly one matching debit; all successful response timings were
+complete. Reconciliation matched the independent total. No customer/procurement
+hold, request failure, funding receipt or live temporary key remained. Restart
+did not duplicate charges. The original development database and identity were
+unchanged.
+
+The one-second sampler obtained 314 observations per gateway. Observed RSS ranged
+from 23,152 to 32,736 KiB and from 16,768 to 32,080 KiB, ending at 29,680 and
+28,720 KiB. Maximum sampled `ps` CPU was 4.6% for each process. These coarse
+samples exclude PostgreSQL and do not prove the absence of leaks or capture
+unobserved peaks. Host and upstream capacity were not isolated.
+
+This extends the earlier short concurrent phases to approximately five minutes
+of paced multi-instance traffic. It establishes the stated text-accounting run,
+not a long soak, maximum throughput, production SLO, streaming/media capacity or
+performance superiority over New API. No fixture result supports this evidence.
