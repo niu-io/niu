@@ -984,7 +984,7 @@ impl Store {
     }
 }
 
-fn media_status_from_observations(values: Vec<String>) -> MediaJobStatus {
+pub(crate) fn media_status_from_observations(values: Vec<String>) -> MediaJobStatus {
     let has = |s| values.iter().any(|v| v == s);
     if has("succeeded") && has("failed") {
         MediaJobStatus::Conflicting

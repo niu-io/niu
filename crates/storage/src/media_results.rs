@@ -101,10 +101,14 @@ impl Store {
         scope: TenantScope,
         attempt: Uuid,
     ) -> Result<Option<serde_json::Value>, StoreError> {
-        let Some(status) = self.media_job_status(scope, attempt).await? else {
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        let statuses: Option<Vec<String>> = sqlx::query_scalar("SELECT ARRAY(SELECT status FROM media_job_observations o WHERE o.attempt_id=j.attempt_id) FROM media_jobs j WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3")
+            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_optional(&mut *snapshot).await?;
+        let Some(status) = statuses.map(crate::media_jobs::media_status_from_observations) else {
             return Ok(None);
         };
-        let rows:Vec<(String,String)>=sqlx::query_as("SELECT kind,CASE WHEN deleted_at IS NOT NULL OR expires_at<=clock_timestamp() THEN 'unavailable' ELSE 'available' END FROM media_result_references WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3").bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_all(&self.pool).await?;
+        let rows:Vec<(String,String)>=sqlx::query_as("SELECT kind,CASE WHEN deleted_at IS NOT NULL OR expires_at<=clock_timestamp() THEN 'unavailable' ELSE 'available' END FROM media_result_references WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3").bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_all(&mut *snapshot).await?;
+        snapshot.commit().await?;
         let mut data = serde_json::json!({"video":"missing","last_frame":"missing"});
         for (kind, state) in rows {
             data[&kind] = serde_json::Value::String(

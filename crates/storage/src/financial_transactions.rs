@@ -1,4 +1,4 @@
-//! Bounded ledger, invoice and Supplier transactions.
+//! Shared bounded recording and repeatable read transactions.
 use crate::{Store, StoreError};
 use sqlx::{Postgres, Transaction};
 
@@ -27,6 +27,14 @@ impl Store {
     /// allowing a blocked statement to hold a service connection indefinitely.
     /// Set isolation before the configuration query starts the snapshot.
     pub(crate) async fn begin_bounded_financial_snapshot(
+        &self,
+    ) -> Result<Transaction<'_, Postgres>, StoreError> {
+        self.begin_bounded_read_snapshot().await
+    }
+
+    /// Read related saved state consistently with bounded statement and lock
+    /// waits. Financial callers retain their existing entry point above.
+    pub(crate) async fn begin_bounded_read_snapshot(
         &self,
     ) -> Result<Transaction<'_, Postgres>, StoreError> {
         let mut tx = self.pool.begin().await?;
