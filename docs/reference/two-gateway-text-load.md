@@ -262,3 +262,45 @@ This is a short mixed-workload correctness and latency checkpoint, not a sustain
 SLO, maximum capacity, multi-gateway contention or a causal latency comparison.
 It uses personal upstream access and explicit internal verification credit/rates;
 it establishes no received cash, discounted commercial supply or Supplier payout.
+
+
+## Current Gateway sustained customer reporting — 2026-10-12
+
+Clean committed `039960a` ran one isolated Gateway with two admission database
+connections against a stopped copy of the actual 1,600-request history described
+above. An ordinary workspace viewer repeatedly read the first 100 request rows
+and their full-range server summary. Sixteen client workers scheduled 1,200 reads
+at 20 requests per second. This run generated no upstream model requests or new
+charges and did not modify the original installation.
+
+| Observation | Result |
+| --- | --- |
+| Completed report reads | 1,200, all HTTP 200 with no-store |
+| Scheduled rate / completion rate | 20 / 20.009 reads per second |
+| Measured workload duration | 59.973 seconds |
+| Client round-trip p50 / nearest-rank p95 / p99 | 17.391 / 28.976 / 150.130 ms |
+| Maximum client round-trip / scheduling lag | 258.988 / 18.951 ms |
+| Maximum sampled Gateway RSS | 21,232 KiB |
+| Maximum sampled Gateway CPU | 8.2% from macOS ps |
+| Resource samples | 117, approximately 500 ms intervals |
+
+Every response matched the saved current-input reference, including all 1,600
+request/usage/customer-charge totals rather than only the loaded page. Response
+hashes were retained for every read. Gateway restart preserved the report; reader
+revocation returned HTTP 401. Financial counts and sums were unchanged.
+
+Independent reopening matched all 100 returned rows and full-range totals to
+stored attempts and customer charges. A separate check parsed and hashed all
+1,600 original retained upstream responses, matched key attribution and pinned
+retail rates, recomputed every charge and equal ledger debit, and confirmed their
+26,740,990 USD-nanounit total. No active customer/procurement hold or funding
+receipt appeared. Independent arithmetic also reproduced the percentiles and
+resource maxima from the saved measurement samples. No fixture outcome is
+performance or business evidence.
+
+This is a warm-history, read-only, one-Gateway checkpoint on the exercised local
+deployment. It does not qualify maximum capacity, production SLOs, cold-cache or
+multi-company scale, concurrent writes, long-soak stability or a causal latency
+comparison. CPU/RSS samples cover the Gateway process, not PostgreSQL or the
+whole host. The historical actual model calls used personal upstream access and
+internal approved credit/rates, not commercial Supplier qualification or funds.
