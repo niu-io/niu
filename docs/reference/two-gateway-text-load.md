@@ -32,8 +32,19 @@ This qualifies the observed workload on this implementation, not maximum
 capacity, overload behavior, a production SLO, media/tool-workflow throughput or
 a matched New API baseline. Earlier runs used other implementation revisions
 and upstream observations; their timing differences are not a causal benchmark.
-Customer export qualification below belongs to its explicitly named earlier
-datasets and is not asserted for this new dataset.
+A separate stopped-database copy of this sixteen-request dataset was served by
+this same clean implementation. An ordinary workspace viewer traversed all
+16 request pages and both pages for each of eight key filters, then read
+full-range summaries and CSV. Independent reopening re-parsed every original
+stream and matched all customer rows, quantities, exact charges and export
+records to the 1,600 actual attempts and original-account debits. The total was
+26,879,148 USD nanounits. Restart retained the summary and byte-identical CSV;
+procurement access returned 403 and foreign-workspace reads/exports were denied.
+Responses and CSV headers contained no procurement prices/costs/margins or
+credentials. Readers were revoked, with no added attempt or financial entry.
+This verifies the current dataset's reporting/access boundary, not frontend
+presentation or reporting capacity under concurrent load. Source evidence and
+the original development database were preserved.
 
 
 ## Twelve-request/second checkpoint — 2026-10-12
