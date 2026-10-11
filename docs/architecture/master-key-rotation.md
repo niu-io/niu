@@ -412,7 +412,34 @@ credit/rate policy, not commercial qualification or verified merchant funding.
 
 Both binaries included shared working-tree changes; the original native database
 and keys were untouched. These runs qualify command interruption/resume and
-post-rotation Supplier dispatch plus asset-credential persistence. Nonempty
-payment, retained video/image/asset-result and legacy credential rotation,
-large-inventory throughput and populated qualification preservation still need
-current-input evidence. Issue #9 remains open.
+post-rotation Supplier dispatch plus asset-credential persistence. The subsequent checkpoints below cover retained video and payment configuration.
+Nonempty image/asset-result and legacy credential rotation, large-inventory
+throughput and populated qualification preservation still need current-input
+evidence. Issue #9 remains open.
+
+## Retained video and payment rotation — 2026-10-11
+
+An isolated copy retained the encrypted, unexpired result of an actual generated
+video. After offline rotation, destination-only inspection and startup succeeded.
+A newly issued scoped key downloaded the result through the Gateway; it was then
+revoked. Independent reopening authenticated the new envelope to the exact
+original URL using the original company/workspace/attempt/kind binding, verified
+unchanged identity and expiry, and matched the downloaded artifact to the original
+generation hash. FFmpeg fully decoded it. Restart preserved the result. There was
+one new result-retrieval transport record and no additional generation submission,
+polling record or customer charge. Rotation did not extend retention or regenerate
+the video.
+
+A separate copy retained an actual management-saved EPay configuration and its
+unpaid checkout order, with no Supplier records. The command replaced exactly one
+configuration envelope. Destination-only inspection, startup and management reads
+succeeded across restart; the source key failed inspection. Independent AES-GCM
+decoding matched the complete original settings. The configuration revision and
+update timestamp, configuration audit count and full pending-order fingerprint
+were unchanged. There were no funding receipts or customer balance entries. This
+verifies retained configuration encryption and pending-order preservation, not
+merchant activation, external payment acceptance or a funded checkout.
+
+Both runs used the current native binary including shared working-tree changes,
+on isolated copies only. Their original databases, deployment keys and original
+video artifact remained unchanged. No fixture outcome is used as evidence.
