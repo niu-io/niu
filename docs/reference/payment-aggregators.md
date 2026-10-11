@@ -995,3 +995,29 @@ response and log checks found no merchant credential. Clean build and formatting
 checks completed separately. This diagnoses the observed class/code, not the
 underlying merchant condition, successful checkout, funding, or every category.
 The original native runtime remains on `cefd284` pending a separate deployment.
+
+
+### Bounded remote-creation claim — 2026-10-12
+
+Remote checkout creation now uses the shared bounded recording transaction when
+claiming an already saved intent. The transaction still commits before contacting
+the merchant. A database refusal returns a sanitized 503; callers should retry
+the same intent and idempotency key rather than create another order.
+
+An actual configured Zhifux run held an exclusive lock on the creation-claim
+table. The previous executable remained pending at the 1.6-second observation.
+Clean committed `d20d0cf` returned 503 in 259.31 ms while the lock remained held.
+The intent was retained, with no creation claim or remote checkout. After release,
+a same-key retry made the actual merchant request and returned a sanitized 502,
+retaining exactly one claim and a reconciliation-required intent. Identical replay
+and restart preserved that state; a changed amount returned 409.
+
+Independent reopening of the stopped native PostgreSQL database checked the
+exact scope, 1.00 CNY amount and payment method, retained HTTP artifacts and
+executable digest, lock-timeout diagnostic, one safe creation-failure event,
+and absence of credentials in responses and logs. There was no provider binding,
+checkout, settlement or funding, and no financial entry was added. This verifies
+bounded claim refusal and safe recovery from the observed merchant rejection;
+it does not qualify successful checkout or payment. The existing native runtime
+was updated to this executable with configuration, encrypted credential identities
+and durable business record counts unchanged.
