@@ -46,6 +46,31 @@ claim.
 A low-output-budget probe returned complete valid JSON rather than the expected
 malformed response; it is not evidence for malformed-output rejection. Actual
 malformed combined-tool responses, interleaved parallel calls, multiple-choice
-combinations, auto/required choices in this combination and broader provider
+combinations, remaining selection/format combinations and broader provider
 coverage remain unverified. This implementation does not reconstruct the
 unidentified original handoff 502 or establish a New API performance comparison.
+
+
+## Required/auto selection with parallel calls disabled — 2026-10-12
+
+A separate clean `a5f2f3b` run exercised `required` with JSON schema and `auto`
+with JSON object, each in buffered and streamed delivery. `parallel_tool_calls`
+was false throughout. Every observed first turn returned exactly one declared
+function call; each client-computed tool result was followed by a final answer
+with tool choice `none`, the unchanged format and a fresh requested marker.
+
+Independent reopening reassembled and parsed all eight responses, checked the
+retained request selection/parallel parameters, call IDs, argument objects and
+computed results, and matched native usage and terminal observations to exact
+customer charges/debits: 247,659 USD nanounits. Restart retained the eight
+charges with no open customer reservation, request-failure record or funding
+receipt. The temporary key was revoked. The original native runtime and data
+were untouched; internal prices/approved credit do not qualify commercial supply.
+
+These are two observed selection/format combinations, not every possible pair.
+Auto may legitimately produce a final text turn without calling a tool; this
+particular run chose the tool. An observed single call with parallel disabled
+does not prove rejection of an upstream multi-call violation. Interleaved
+parallel output, multiple choices and malformed combined tool output remain
+unverified. This supplements the named-choice/disabled-choice checkpoint rather
+than changing its retained amounts or implementation revision.
