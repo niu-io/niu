@@ -357,3 +357,28 @@ This verifies that raising a populated cap adds headroom without resetting prior
 usage in the exercised current-input path. It does not extend the scope to all
 concurrent policy-change races or arbitrary overload. No clock/window data was
 modified and the original installation was untouched.
+
+
+## Key capability comparison scope
+
+A 2026-10-12 source review pinned New API to
+[42e694eb60fe3191795c00d416571ced716eb9c4](https://github.com/QuantumNous/new-api/blob/42e694eb60fe3191795c00d416571ced716eb9c4/model/token.go).
+Its token data model includes quota/used-quota fields, an unlimited flag, expiry,
+model restrictions, IP restrictions and routing-group fields. This is inspected
+source structure, not verification that those controls work end to end, and not
+a matched performance comparison. No upstream module was imported.
+
+| Key concern | Niu backend scope | Coverage boundary |
+| --- | --- | --- |
+| Customer spending cap | Currency-specific lifetime cap, pinned customer charges and unresolved reservations | Applies to customer liability; does not estimate personal upstream bills |
+| Expiry | Explicit TTL with a one-year creation maximum | Differs from New API's never-expiring token representation |
+| Model access | Workspace inheritance with optional narrower key grants | A key does not require manually enumerating every model |
+| Request/token rate and concurrency | Separate durable RPM, estimated TPM and unresolved-work concurrency policies | Their stated actual-run checkpoints are narrower than every possible race |
+| Rotation | Preserved spending identity, policies and occupied admission windows | Separate new keys have independent identities |
+| Source-IP restriction | No single-key IP allowlist implementation identified | Unimplemented; do not advertise full key-control parity |
+| Routing groups | Explicit workspace access and immutable route pools | Different contract; cross-group retry is not implied |
+
+These differences keep the key feature inventory explicit. They do not authorize
+silently extending first-release scope, copying another gateway's security
+contracts, or treating source inspection as business acceptance. Supplier, funds,
+logs, video and performance still require their separate current-input evidence.
