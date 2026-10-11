@@ -1018,3 +1018,23 @@ injected migration-failure recovery. See the
 [video upgrade checkpoint](packaged-video-recovery-verification.md#video-image-upgrade-checkpoint--2026-10-08)
 for exact scope and limitations. All 53 packaging harness tests passed. This does
 not qualify every historical upgrade, live media transport or later worktree edits.
+
+## Native database backup and runtime update — 2026-10-11
+
+Before installing the result-download changes, the current native PostgreSQL
+database was backed up as a private custom-format archive. That archive was
+actually restored into a fresh isolated PostgreSQL instance with no replacement
+of the original database. Full-row fingerprints matched the source organizations,
+workspaces, encrypted Supplier records, customer ledger, video jobs and transport
+timings. A separate reopening matched those retained fingerprints and the original
+migration version. This is native database restore evidence, not container or
+packaged-release acceptance; historical fixture outcomes above are not evidence
+for this checkpoint.
+
+The committed `61be357` binary then updated the existing native runtime to
+migration 262. Readiness returned 200; private configuration hashes, encrypted
+Supplier identities/revisions and business-record counts were unchanged.
+The read-only encryption command authenticated the upgraded database with its
+existing key and rejected missing/wrong keys without changing encrypted-table
+fingerprints or migration records. This does not establish all-domain master-key
+rotation, every recovery case or complete release readiness.
