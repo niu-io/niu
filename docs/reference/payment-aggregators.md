@@ -814,7 +814,25 @@ These observations apply to local checkout; no external payment was requested.
 Before native integration, a fresh backup/restore and independent full-row
 fingerprint comparison preserved Supplier credentials, organizations, workspaces,
 ledger entries, media jobs and transport timings on schema 276. The clean binary
-passed destination-independent encryption inspection and restart without rotation.
+authenticated retained encrypted records with the existing key and restarted without rotation.
 The existing native service was then refreshed to `b6ec01f`; its original
 configuration, encrypted credential revisions and durable record counts remained
 unchanged.
+
+### Client disconnect during checkout admission
+
+On clean `b6ec01f`, an actual HTTP client submitted an EPay top-up while its
+company row was locked by a separate database session. PostgreSQL inspection
+confirmed that admission held the shared configuration lock before the client
+closed its socket without reading a response. After releasing the row lock and
+restarting the gateways, the database contained neither order nor checkout for
+that request. Replaying the same client intent and idempotency key created one
+complete pair; further replay and another restart returned the identical order.
+Independent reopening matched the saved checkout response and exact CNY amount,
+with no settlement, closure, funding receipt or balance entry.
+
+This qualifies the observed cancellation timing, not cancellation after every
+possible commit boundary. Clients must retain the original idempotency key and
+input after connection loss: absence of an HTTP response never proves that an
+order was not committed. The server may return an already saved order on replay.
+No external payment was initiated and no fixture outcome was used.
