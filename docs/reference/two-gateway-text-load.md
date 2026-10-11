@@ -210,3 +210,28 @@ This verifies one-response consistency under actual admission, not a frozen
 multi-page report or every concurrent settlement/update interleaving. The docs
 build and served OpenAPI were checked separately; no frontend visual acceptance
 is claimed.
+
+## Bounded reporting database waits — 2026-10-11
+
+Activity list/summary, detail and CSV export reads now share a read-only transaction
+setup with transaction-local `lock_timeout = 1s` and `statement_timeout = 5s`.
+These limits bound a lock wait and each SQL statement, respectively; they do not
+promise a five-second HTTP deadline across pool acquisition and multiple queries.
+A cancelled query rolls back the read transaction and returns the existing safe
+503 storage error, without an empty success or partial report. Settings do not
+persist beyond the transaction. Expensive reports may now fail explicitly and
+require a narrower filter instead of holding a connection indefinitely.
+
+On an isolated copy of the 1,600 actual-request database, an independent session
+held a relation lock needed by reporting. The prior binary continued waiting
+through a two-second hold and returned only after release. With the change, the
+list request completed with 503 while the lock was still held. Detail and export
+requests separately returned 503 in approximately 1.004 and 1.005 seconds. Each
+endpoint returned 200 again after lock release. An independent process reopened
+the stopped database, matched three PostgreSQL lock-timeout events to retained
+safe HTTP errors, and confirmed unchanged attempts, charges and ledger totals.
+
+This verifies lock refusal and subsequent recovery against real retained data.
+The five-second execution-timeout branch, larger histories and sustained mixed
+inference/reporting capacity remain unverified. No inference was submitted by
+this reporting run.

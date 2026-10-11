@@ -337,6 +337,18 @@ pub(crate) fn map_gateway_admission_error(error: sqlx::Error) -> StoreError {
 }
 
 impl Store {
+    /// Bound reporting contention without changing later work on the pooled connection.
+    async fn begin_activity_read(&self) -> Result<sqlx::Transaction<'_, Postgres>, StoreError> {
+        let mut snapshot = self.pool.begin().await?;
+        sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+            .execute(&mut *snapshot)
+            .await?;
+        sqlx::query("SELECT set_config('lock_timeout','1s',true), set_config('statement_timeout','5s',true)")
+            .execute(&mut *snapshot)
+            .await?;
+        Ok(snapshot)
+    }
+
     /// One statement provides a consistent view of the filtered range. Fetch
     /// one extra row so the caller can reject, rather than silently truncate,
     /// an export exceeding the declared 10,000-row bound.
@@ -345,6 +357,7 @@ impl Store {
         scope: TenantScope,
         filter: &GatewayActivityFilter,
     ) -> Result<Vec<GatewayActivityExportEntry>, StoreError> {
+        let mut snapshot = self.begin_activity_read().await?;
         let mut query = QueryBuilder::new(
             "SELECT to_char(a.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS created_at, \
              o.model_alias AS model, k.name AS key_name, t.http_status, a.execution, a.usage_confidence, \
@@ -369,7 +382,9 @@ impl Store {
         push_activity_scope_and_filters(&mut query, scope, filter);
         push_activity_order(&mut query, filter.sort);
         query.push(" LIMIT 10001");
-        Ok(query.build_query_as().fetch_all(&self.pool).await?)
+        let rows = query.build_query_as().fetch_all(&mut *snapshot).await?;
+        snapshot.commit().await?;
+        Ok(rows)
     }
 
     /// Recent model requests recorded by the gateway itself, optionally grouped
@@ -412,10 +427,7 @@ impl Store {
         limit: i64,
         filter: &GatewayActivityFilter,
     ) -> Result<(Vec<GatewayActivityEntry>, GatewayActivitySummary), StoreError> {
-        let mut snapshot = self.pool.begin().await?;
-        sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
-            .execute(&mut *snapshot)
-            .await?;
+        let mut snapshot = self.begin_activity_read().await?;
         let summary = Self::gateway_activity_summary_on(&mut snapshot, scope, filter).await?;
         let data =
             Self::gateway_activity_selection_on(&mut snapshot, scope, after, limit, filter, None)
@@ -432,9 +444,18 @@ impl Store {
         filter: &GatewayActivityFilter,
         attempt: Option<Uuid>,
     ) -> Result<Vec<GatewayActivityEntry>, StoreError> {
-        let mut connection = self.pool.acquire().await?;
-        Self::gateway_activity_selection_on(&mut connection, scope, after, limit, filter, attempt)
-            .await
+        let mut snapshot = self.begin_activity_read().await?;
+        let rows = Self::gateway_activity_selection_on(
+            &mut snapshot,
+            scope,
+            after,
+            limit,
+            filter,
+            attempt,
+        )
+        .await?;
+        snapshot.commit().await?;
+        Ok(rows)
     }
 
     async fn gateway_activity_selection_on(
@@ -527,10 +548,7 @@ impl Store {
         scope: TenantScope,
         filter: &GatewayActivityFilter,
     ) -> Result<GatewayActivitySummary, StoreError> {
-        let mut snapshot = self.pool.begin().await?;
-        sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
-            .execute(&mut *snapshot)
-            .await?;
+        let mut snapshot = self.begin_activity_read().await?;
         let summary = Self::gateway_activity_summary_on(&mut snapshot, scope, filter).await?;
         snapshot.commit().await?;
         Ok(summary)
