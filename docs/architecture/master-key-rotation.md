@@ -1,91 +1,193 @@
-# Master-key rotation implementation plan
+# Master-key rotation implementation boundary
 
-Status: planned, not implemented. Changing `NIU_VENDOR_ENCRYPTION_KEY` alone is
-not rotation. Existing startup checks authenticate retained data and fail closed;
-they do not migrate it. This plan addresses public issue #9 without changing
-upstream API keys, Supplier ownership, prices, or historical request bindings.
+Status: implementation planning, not an available rotation procedure. Replacing
+`NIU_VENDOR_ENCRYPTION_KEY` alone is not supported. Retain the existing key and
+back it up separately from the database. This inventory follows the current
+`apps/gateway/src/vendors/crypto.rs` encryption domains and storage migrations.
 
-## Complete inventory
+## Encrypted domains
 
-Use the existing cryptographic domain functions, including their exact associated
-data and binary formats. A generic vendor-only loop is insufficient.
-
-| Stored domain | Binding that must remain unchanged |
+| Stored domain | Binding that rotation must preserve |
 | --- | --- |
-| Supplier inference credentials | Vendor identity |
-| Retained private Codex credentials | Account identity; preserve existing records without expanding that product surface |
-| Asset-management credentials | Vendor, immutable credential revision, upstream project and domain |
-| Saved EPay configuration | Existing payment configuration domain |
-| Media result references | Organization, workspace, job, result kind and domain |
-| Asset listing and lookup results | Organization, workspace, operation identity and distinct domain |
-| Asset group read results and update patches | Organization, workspace, operation identity and distinct domain |
-| Inspected image source bytes | Existing organization/workspace/key/source binding and binary format |
+| Supplier inference credential | Vendor identity |
+| Asset-management credential revision | Vendor, revision and upstream project |
+| Payment gateway configuration | Existing payment-configuration domain |
+| Media result reference | Tenant scope, job and result kind |
+| Asset listing and lookup result | Tenant scope and operation identity |
+| Asset group read result and update patch | Tenant scope and operation identity |
+| Inspected image source | Exact storage-provided associated data and binary bytes |
+| Retained private OAuth connection | Existing account binding, if such records remain |
 
-Include disabled configurations, expired retained content, and revoked but
-unerased credential history. Null or physically erased content remains erased.
-Never filter the inventory by supported adapter, current route availability or
-customer authorization. Future encrypted domains must extend the same inventory
-used by startup validation and rotation.
+The last domain is inventory only; rotation must not expand or reactivate retired
+agent features. Nullable erased ciphertext must stay erased. Unknown adapters
+must not cause credential rows to be skipped. Domain-specific payload validation
+and associated data must remain identical across encryption generations.
 
-## Offline, resumable operation
+## Storage constraints to resolve before writes
 
-The first implementation should be an operator maintenance command, not a public
-HTTP endpoint. Stop all Gateway writers and cleanup workers before starting and
-keep them stopped until final verification. A database maintenance marker must
-prevent normal startup while rotation is incomplete; a database lock must exclude
-a second rotation command. This does not claim online rotation support.
+The asset-management credential trigger allows revoked-secret erasure, but not
+arbitrary ciphertext replacement. Asset result and patch tables similarly permit
+erasure only. A migration must separate immutable business identity from mutable
+encryption representation without allowing modification of logical content,
+retention timestamps, approvals or revocation state. Disabling triggers globally
+is not an acceptable rotation mechanism.
 
-Supply old and new keys through protected process configuration, never command
-arguments, database rows, logs or artifacts. Require a distinct valid new key and
-retain the old key plus a database backup outside the database. Inspect all domains
-before starting writes; a wrong key or malformed retained ciphertext must produce
-a bounded diagnostic without displaying its contents.
+Updating `vendors.credential_ciphertext` currently invalidates Supplier route
+qualification through `supplier_configuration_requires_new_review`. Rewrapping
+the same secret must not masquerade as an upstream credential change. The design
+must preserve qualification evidence while retaining invalidation for a genuine
+credential, adapter or endpoint replacement.
 
-Process bounded keyset batches. Authenticate each source using its original
-binding, encrypt under the new key with a fresh nonce, and authenticate the result
-before committing. Persist the replacement and its rotation progress atomically.
-Crash recovery must distinguish committed rows from unfinished rows without
-requiring a plaintext copy. A row already authenticated under the intended new
-key is not encrypted again merely because a process restarted. A row decryptable
-under neither supplied key stops progress and preserves existing ciphertext.
+## Required execution model
 
-Rotation progress must bind the operation to the intended key transition without
-storing either key. Design and review that identifier format before implementing
-resume; an operator supplying a different destination key must not silently begin
-a second transition inside an unfinished operation.
+Use a dedicated maintenance operation with exclusive coordination against all
+Gateway writers. Define that coordination explicitly before allowing online
+rotation; a process-local mutex cannot fence another Gateway. Back up first.
+Accept old and new keys through deployment secrets, never CLI arguments,
+PostgreSQL records or logs. Validate both configuration inputs before writes.
 
-## Immutable business records
+Process bounded pages with durable progress. For each row, authenticate the old
+ciphertext using its exact domain binding, encrypt under the new key, authenticate
+the result and commit the replacement atomically with progress. A crash must leave
+either representation recoverable. Resume must distinguish completed rows from
+old rows and must fail on corruption instead of treating decryption failure as a
+reason to skip. Concurrent erasure must never resurrect secret content.
 
-Several existing asset tables permit only erasure, and inspected image content
-rejects updates. Supplier ciphertext changes also invalidate route qualification.
-Do not disable these triggers or repurpose normal credential-edit endpoints.
-Add narrowly scoped rotation persistence that changes encryption representation
-only, with an immutable audit of the operation and unchanged business fields.
+Before declaring completion, independently scan every retained encrypted domain
+using only the new key. Until that scan succeeds, do not serve a mixed-key database
+as healthy with only the new key. Keep the old key until completion and backup
+retention requirements are satisfied. Existing startup credential scans alone do
+not prove that retained media or asset content has been migrated.
 
-Vendor and model revisions, asset credential revisions, qualification, ownership,
-expiry, erasure markers and request bindings must remain unchanged. Payment
-configuration revisions and pending-order verification settings must also remain
-unchanged. The database cannot prove plaintext equivalence; the trusted command
-must authenticate both values, while SQL enforces identity/metadata preservation
-and operation ownership. Document this trust boundary explicitly.
+## Verification still required
 
-## Finalization and acceptance
+Use isolated native databases and disposable encryption keys. Include actual
+management writes and an actual upstream dispatch after restart with only the
+new key. Verify persisted content independently. Interrupt between committed
+pages and resume; inspect erasure, qualification and revision invariants. Exercise
+wrong keys, truncated ciphertext and cross-identity substitution without logging
+secret material. Fixture results are not acceptance evidence. No rotation runtime,
+crash-resume behavior or complete encrypted-domain coverage is qualified yet.
 
-Completion requires a full inventory scan with only the new key, followed by
-startup and actual authorized use. Clear the maintenance marker only after that
-scan succeeds. Keep the old key and backup until recovery has been independently
-verified; rotation must never erase application data to make startup succeed.
+## Payment startup prerequisite implemented
 
-Use an isolated database containing API-created credentials, saved payment
-configuration and actual retained media/content artifacts. Exercise interruption
-between batches, repeated resume, a wrong destination key, truncated ciphertext,
-and cross-identity replacement. Verify final records independently: original
-business identities/revisions, authenticated content, unchanged ledgers and no
-secret output. Perform actual inference with the rotated credential and retrieve
-retained content after restarting with only the new key. Empty-domain checks and
-fixture outcomes cannot establish these nonempty acceptance cases.
+Startup now authenticates and decodes saved payment configuration before
+readiness, including disabled configuration in an installation with no Supplier
+records. A fresh native run saved merchant configuration through the management
+API, then attempted startup with a missing and a different master key. Both
+exited unsuccessfully with sanitized diagnostics, without modifying ciphertext
+or its revision. Restoring the correct key restored configuration reads.
+Independent AES-GCM decryption of the stored bytes verified the saved merchant
+secret; the three management writes had exactly three audit events and no
+customer balance entries. This is startup failure containment, not rotation or
+complete validation of all retained encrypted content.
 
-Deliver storage/audit and trigger changes, the complete domain inventory and
-command, then current-input recovery verification and operator documentation as
-reviewable increments. Keep rotation unavailable until the full path is wired;
-no partial command may report success after visiting only Supplier credentials.
+A follow-up isolated run saved another configuration through the real management
+API, stopped the Gateway, and deliberately damaged only that isolated database's
+saved representation. Truncation and a changed authentication-tag byte each
+prevented startup. A separately authenticated encrypted JSON object missing the
+required configuration fields reached decoding and was also rejected. Each
+failed startup left the supplied ciphertext hash and revision unchanged; error
+messages distinguished decryption from invalid configuration without including
+merchant keys or the decrypted object. Restoring the original saved bytes
+restored normal reads, and independent AES-GCM decoding matched the saved secret.
+The original three configuration audit events remained, with no customer balance
+entries. This is fault injection against actual persisted management input, not
+an upstream payment or master-key migration acceptance run.
+
+
+## Envelope transition and completion audit
+
+Current version-one ciphertexts do not carry a key identifier. Their transition
+must authenticate the existing envelope rather than infer key ownership from
+parseable bytes. Replacement uses fresh nonces and preserves the exact associated
+data. A future key identifier is routing metadata, not proof of decryption.
+
+The completion inventory includes expired but not yet erased ciphertext. Checking
+only enabled mappings or active operations can miss retained secrets and content.
+Bounded batches must preserve erasure while maintaining the exclusive writer
+coordination above. A complete destination-only scan must cover binary inspected
+image sources as well as UTF-8 credentials and result records. Startup now also enumerates retained media, asset-result/patch and inspected-image
+content, as described below. This authenticates current retained data; it does not
+coordinate writers or establish a rotation completion transaction.
+
+## Retained-content startup authentication
+
+Startup now enumerates six private-content domains before opening the listener or
+starting retention workers: media result references, asset listing/lookup results,
+asset group read results/update patches, and inspected image source bytes. Each
+keyset page contains at most eight objects and uses the existing domain-specific
+associated data. The image path authenticates binary bytes without UTF-8 decoding.
+Expired but not yet erased content is included; null/deleted content is not
+resurrected. The scan emits no IDs, payloads, ciphertext or key material on failure.
+It adds startup work proportional to retained content, using the existing database
+pool and no permanent extra connection.
+
+An offline copy of a database containing an actual generated video's retained
+result reproduced the prior gap: its modified authentication tag did not prevent
+readiness. With the new startup check, tag corruption, truncation, encryption
+under a different key, and binding to another job all stopped startup before
+readiness. Each attempt preserved its supplied ciphertext and the existing
+attempt/media/financial inventory. Restoring the original result allowed startup.
+The observation held the existing retention advisory lock so expired content
+remained available for independent inspection; it did not extend retention or
+alter the original development database. Independent reopening and AES-GCM
+authentication verified the restored real result, encrypted vendor identities,
+sanitized failure logs and unchanged accounting records.
+
+Nonempty asset-result and inspected-image startup cases, multi-page coverage and
+large-retention startup latency remain unverified. These checks authenticate
+retained bytes at startup; they do not provide an atomic audit across concurrent
+writers, continuous corruption detection, or a rotation writer fence. The rotation
+command, rewrapping, trigger changes and crash-resume procedure remain unimplemented.
+Issue #9 therefore remains open. No fixture outcome supports these conclusions.
+
+## Cross-identity credential startup check — 2026-10-11
+
+A fresh isolated native run created two disabled configurations through the
+administration API using the saved personal upstream credential. With the Gateway
+stopped, one configuration's authenticated ciphertext was copied to the other
+configuration in that isolated database. Startup exited unsuccessfully, without
+changing either stored representation or revision. Its captured diagnostic output
+contained neither the upstream credential nor the master key. Restoring both
+original ciphertexts restored readiness and association reads.
+
+A separate verifier reopened the persisted database and authenticated both records
+with an independent AES-GCM implementation. Each decoded to the saved input only
+under its original vendor identity; substituting the other identity failed
+authentication even though both inputs contained the same upstream key. Original
+ciphertext fingerprints and revisions were preserved and no inference attempt was
+created. The original development database and encryption identity were untouched.
+This establishes current identity binding and startup failure containment. It does
+not implement rotation, prove interrupted re-encryption recovery, or establish
+post-rotation upstream dispatch.
+
+## Initial offline command and completion boundary
+
+Implement the first rotation path as an operator maintenance command, not a
+public HTTP endpoint. All Gateways and cleanup workers must be stopped; this
+initial scope does not promise online rotation. Persist a maintenance marker that
+normal startup checks, and exclude competing rotation commands with a database
+lock. Preserve the existing inventory and all acceptance requirements above.
+
+The resumable operation must bind its progress to the intended key transition
+without storing either key. Review that identifier format before implementing
+resume. Supplying a different destination key must not silently start another
+transition inside an unfinished operation. A row already authenticated under the
+intended new key must not be re-encrypted merely because the process restarted.
+A row decryptable under neither supplied key stops progress without erasure.
+
+Preflight must inspect all retained domains before writes. A final complete scan
+using only the new key is required before clearing the maintenance marker.
+Payment configuration revisions and pending-order verification settings must
+remain unchanged, alongside the Supplier and content bindings documented above.
+The database cannot prove plaintext equivalence: the trusted command authenticates
+both representations; SQL must enforce unchanged identity, business metadata and
+rotation ownership. This is an explicit trust boundary, not an authorization to
+disable existing immutability triggers.
+
+Deliver persistence/audit and trigger changes, complete domain enumeration and
+command wiring, then actual crash-resume and post-rotation use verification as
+reviewable increments. Keep the command unavailable until every retained domain
+is covered; a Supplier-only loop cannot report completed rotation. No command or
+rotation migration has been implemented by this planning update.
