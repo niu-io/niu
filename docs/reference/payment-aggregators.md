@@ -900,3 +900,23 @@ restart. Independent database reopening and saved response inspection confirmed
 unchanged order, checkout-link, ledger and funding-receipt counts. This verifies
 the inactive deployment's safe denial on the changed binary, not contention in
 the recording transaction. The original installation was untouched.
+
+
+### Native integration refresh after intent-budget change — 2026-10-12
+
+The clean `cefd284` binary completed a fresh isolated Supplier streaming journey
+with the saved personal OpenRouter credential: three actual completions, first
+configuration rotation/disablement and second-configuration calls before and
+after restart. Independent original-SSE parsing and database reopening matched
+reported usage, explicit configuration ownership, pinned customer tariffs and
+exact debits, with released reservations. Internal approved test credit was used;
+no funding or Supplier earnings was produced. This checks the current text path,
+not the unverified checkout transaction contention or commercial settlement.
+
+The existing native integration service then refreshed to that same binary after
+a fresh backup, isolated restoration and full-row comparison. Target executable
+hash and retained previous executable were checked before graceful replacement.
+Readiness returned 200 and authenticated published-routing status matched.
+Configuration and secrets file hashes, vendor ciphertexts/revisions and durable
+organization, workspace, video and ledger counts stayed unchanged on schema 277.
+The refresh did not enable payments or alter the saved integration configuration.
