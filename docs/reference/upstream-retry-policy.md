@@ -434,3 +434,17 @@ original policy, and another Gateway restart retained the same response.
 Independent reopening confirmed schema 274 and all seven full-table fingerprints.
 No new inference was dispatched. This verifies this retained-history upgrade;
 it does not claim every historical schema path or a production-size migration.
+
+### Responses key request-rate boundary
+
+With a one-request rolling-minute key limit, an actual canonical OpenRouter 401
+consumed the first dispatch slot. Successor admission returned 429 with
+`key_request_rate_exceeded` and the original operation/attempt correlation headers.
+Rotating the key and restarting the Gateway within the same window still returned
+429; neither action reset the historical rate identity.
+
+Independent reopening confirmed one refused attempt and one durable rate
+admission, no successor, customer charge, ledger entry or open customer/procurement
+hold. The final key was revoked. This checks request-rate accounting for a refused
+predecessor; it does not establish token-rate accuracy for unknown usage or
+production throughput.
