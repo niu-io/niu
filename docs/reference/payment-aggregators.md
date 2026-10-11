@@ -659,3 +659,14 @@ reopening confirmed one order/checkout and no funding. The lost-acknowledgement
 checkout run above was also repeated and independently reconciled after this
 change. These runs do not qualify remote Stripe/PaymentFM execution, signed paid
 callbacks or received-cash funding. No fixture result supports these conclusions.
+
+The same current-input authorization check also covered a role downgrade from
+owner to viewer during the company-lock wait. A separate run set a short future
+session deadline before starting checkout, observed the checkout transaction
+waiting, and held the lock until that deadline elapsed. Both requests returned
+401 and created no order. Independent reopening verified the downgraded role or
+expired session and absence of orders, checkouts, provider bindings, funding
+receipts and balance entries. The expiry run crosses the deadline while the
+transaction is open; it does not rely on a transaction-start timestamp or merely
+submit an already-expired credential. These controlled changes affected isolated
+databases only.
