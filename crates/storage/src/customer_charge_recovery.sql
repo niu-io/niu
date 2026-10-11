@@ -1,12 +1,16 @@
--- Repair the complete prepaid posting, including historical charges whose
--- debit was skipped. Legacy invoice-only charges need no prepaid ledger entry.
-SELECT a.id,a.organization_id,a.project_id
-FROM attempts a
-JOIN customer_attempt_tariffs t ON t.attempt_id=a.id
-LEFT JOIN customer_charges c ON c.attempt_id=a.id
-WHERE a.execution='confirmed_completed' AND a.usage_confidence='provider_reported'
-  AND ($1::uuid IS NULL OR a.id>$1)
-  AND (
+-- Bound inspected bindings, not merely matched anomalies. Healthy/unfinished
+-- candidates advance the same durable cursor without running settlement writes.
+WITH candidates AS MATERIALIZED (
+    SELECT t.attempt_id AS id,a.organization_id,a.project_id,a.execution,a.usage_confidence
+    FROM customer_attempt_tariffs t
+    JOIN attempts a ON a.id=t.attempt_id
+    WHERE ($1::uuid IS NULL OR t.attempt_id>$1)
+    ORDER BY t.attempt_id
+    LIMIT 100
+)
+SELECT a.id,a.organization_id,a.project_id,
+  (a.execution='confirmed_completed' AND a.usage_confidence='provider_reported'
+   AND (
     c.attempt_id IS NULL
     OR EXISTS (
       SELECT 1 FROM customer_attempt_balance_accounts b
@@ -23,6 +27,7 @@ WHERE a.execution='confirmed_completed' AND a.usage_confidence='provider_reporte
           ))
         )
     )
-  )
+  )) AS needs_recovery
+FROM candidates a
+LEFT JOIN customer_charges c ON c.attempt_id=a.id
 ORDER BY a.id
-LIMIT 100

@@ -23,7 +23,9 @@ confirmed nonexecution retains its existing release behavior.
 
 Financial recovery now finds prepaid-bound text charges with missing debits or
 unreleased reservations, as well as attempts that have no charge yet. It keeps
-existing bounded, claimed traversal and per-attempt savepoints. Invoice-only
+existing claimed traversal and per-attempt savepoints. Text recovery now
+[limits inspected bindings to 100 per page](financial-backlog-restart-live.md#bounded-inspection-of-settled-history--2026-10-11),
+including healthy rows when advancing its cursor. Invoice-only
 legacy charges without a prepaid account binding are not converted into prepaid
 debits. A conflicting mismatched posting remains unresolved rather than being
 treated as success or rewriting immutable history.

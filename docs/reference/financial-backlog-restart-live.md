@@ -221,3 +221,35 @@ It does not qualify media/Supplier settlement, received merchant funding, client
 retry of a new generation, or sustained capacity. The separate admission-loss
 case still retains unknown execution and its liability; a successful settlement
 commit must not be generalized to that earlier dispatch boundary.
+
+
+## Bounded inspection of settled history — 2026-10-11
+
+Text charge recovery now pages at most 100 attempt-tariff bindings before checking
+whether each needs settlement. Previously the limit applied to matching anomalies,
+so finding an empty backlog could inspect the entire settled history every tick.
+The materialized candidate page uses stable attempt ordering. Every inspected
+binding advances the durable cursor, including healthy or unfinished entries;
+only candidates requiring recovery enter the settlement savepoint. An unfinished
+request can be reconsidered on a later wrap after its usage becomes known.
+
+An actual native worker run used an isolated copy of the retained 112-request
+completion database. The current SQL returned candidate pages of 100 and 12,
+covering every binding exactly once, with no settlement needed. Its saved
+PostgreSQL execution plan showed the materialized candidate limit producing 100
+rows. The worker persisted the first page's cursor. An external advisory claim
+held that checkpoint across gateway restart; releasing it let the worker finish
+the remaining page and wrap. All original ledger rows remained unchanged.
+
+Independent reopening matched both page identities against every saved binding,
+checked the execution-plan bound, complete ledger fingerprint, 112 attempts and
+charges, and absence of open customer holds. The actual pre-fix missing-debit
+upgrade workflow was also rerun under this implementation: the worker appended
+only the missing debit and preserved refund replay, exact totals and restart
+behavior, with independent final-state checks.
+
+This bounds inspected text billing candidates and avoids settlement writes for
+healthy rows. It does not change the separate Supplier/media recovery queries,
+prove constant total sweep duration, or qualify sustained foreground throughput.
+Larger histories require more bounded ticks; the existing per-stage claim,
+transaction deadlines and cursor wrap remain in force.

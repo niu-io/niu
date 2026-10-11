@@ -113,17 +113,31 @@ impl Store {
                 .await?
             }
         };
-        let rows: Vec<(Uuid, Uuid, Uuid)> = sqlx::query_as(stage.query())
-            .bind(after)
-            .fetch_all(&mut **tx)
-            .await?;
+        let rows: Vec<(Uuid, Uuid, Uuid, bool)> = match stage {
+            FinancialStage::CustomerCharge => {
+                sqlx::query_as(stage.query())
+                    .bind(after)
+                    .fetch_all(&mut **tx)
+                    .await?
+            }
+            _ => sqlx::query_as::<_, (Uuid, Uuid, Uuid)>(stage.query())
+                .bind(after)
+                .fetch_all(&mut **tx)
+                .await?
+                .into_iter()
+                .map(|(attempt, organization, project)| (attempt, organization, project, true))
+                .collect(),
+        };
         let next = if rows.len() == 100 {
             rows.last().map(|row| row.0)
         } else {
             None
         };
         let mut failed = 0;
-        for (attempt, organization_id, project_id) in rows {
+        for (attempt, organization_id, project_id, needs_recovery) in rows {
+            if !needs_recovery {
+                continue;
+            }
             let scope = TenantScope {
                 organization_id,
                 project_id,
