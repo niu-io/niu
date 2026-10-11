@@ -240,3 +240,37 @@ This checks cancellation liability, rotation and restart for the exercised Chat
 path. It does not establish recovery of missing upstream usage or authorize
 release of uncertain liabilities. Merchant funding and commercial supply were
 not part of this run.
+
+
+## Key caps across recovered completion — 2026-10-11
+
+A fresh actual native Messages stream returned a unique requested marker and its
+terminal event while an isolated database fault rejected the local completion
+write. Execution and usage remained uncertain, with one outstanding customer
+reservation and no charge. Explicit internal prices and approved verification
+credit were used; no merchant funding or commercial Supplier agreement was
+fabricated.
+
+The key cap was set to the exact reservation. Secret rotation preserved the cap
+and committed amount. Four concurrent requests through the replacement secret
+received 402 `key_spending_limit_exceeded` before creating another attempt.
+Lowering the cap below the liability also returned 402, without a policy revision.
+Restart preserved identical allowance reads through the old and replacement key.
+
+After a tenfold tariff edit and replacement-key revocation, canonical generation
+reconciliation under the still-active database fault rolled back atomically.
+Removing that fault allowed eight concurrent reconciliation calls to produce one
+immutable terminal receipt. Existing recovery settled exactly one charge/debit
+using the request's original tariff and released its reservation. Both key records
+then reported that actual charge as committed spending, with remaining allowance
+equal to the original cap minus the charge. Reducing the cap to the charge
+succeeded; reducing it one nanounit further was refused. Restart and receipt
+replay did not add another charge.
+
+Independent reopening compared the saved actual SSE quantities and marker with
+the receipt, retained original uncertainty and exact pinned-price debit. It also
+confirmed two revoked keys sharing one spending identity, exactly two accepted
+policy-history revisions, no open customer hold and unchanged encrypted Supplier
+credential. This exercises the completion-write-failure recovery branch, not
+successful settlement of cancelled upstream work. Customer-funded media and
+other providers are outside this checkpoint. No fixture outcome is evidence.
