@@ -1,6 +1,42 @@
 # Two-gateway priced text load checkpoint
 
-## Current twelve-request/second checkpoint — 2026-10-12
+## Current sixteen-request/second checkpoint — 2026-10-12
+
+Clean digest-verified `a5f2f3b`, including the combined-tool structured-output
+validator, ran 1,600 real structured OpenRouter streams on fresh native PostgreSQL
+17/schema 278. Two Gateways each used two configured admission connections and
+one dedicated maintenance connection. Eight workspace keys each traversed both
+processes: 200 requests per key and 800 per Gateway. Thirty-two client workers
+offered 16 requests/second without inference retries.
+
+Every stream returned its fresh requested marker, native usage and `[DONE]`.
+Elapsed time including final drain was **101.35 seconds**, achieved throughput
+**15.787 requests/second**. End-to-end p50/p95 were **1,322.64/1,790.03 ms**,
+maximum **4,551.81 ms**. First-content p50/p95 were **1,135.26/1,489.06 ms**.
+Maximum scheduled-start lag was **528.18 ms**; the finite client worker pool did
+not dispatch every request exactly at its scheduled instant. These measurements
+include upstream/transport waiting and do not isolate gateway processing time.
+
+Across 386 coarse process samples, maximum RSS was **35,040/33,440 KiB** and
+maximum sampled `ps` CPU **11.3/10.5 percent**. PostgreSQL/whole-host resource
+usage, CPU profiles and memory-leak qualification are outside this sampling.
+
+After restart, independent reopening hashed and parsed all 1,600 retained streams,
+checked native usage, terminal events, key/process associations and complete
+timing records, and recalculated every original-rate customer charge/debit:
+**26,879,148 USD nanounits**. No request-failure record, customer/procurement hold
+or funding receipt remained; temporary keys were revoked. Personal upstream
+access and approved internal verification credit are not commercial qualification.
+
+This qualifies the observed workload on this implementation, not maximum
+capacity, overload behavior, a production SLO, media/tool-workflow throughput or
+a matched New API baseline. Earlier runs used other implementation revisions
+and upstream observations; their timing differences are not a causal benchmark.
+Customer export qualification below belongs to its explicitly named earlier
+datasets and is not asserted for this new dataset.
+
+
+## Twelve-request/second checkpoint — 2026-10-12
 
 Digest-verified clean implementation `268c25d` ran 1,600 actual structured
 OpenRouter Chat streams against fresh native PostgreSQL 17, schema 278. Two

@@ -13,7 +13,7 @@ independent saved-artifact/database checks define the verified boundaries.
 | Balance and charging | Exact original-rate debits using approved internal credit, insufficient-capacity refusal, reservations, invoice settlement, refunds and reconciliation | Positive externally funded top-ups and customer-paid media have separate unverified scope; supported payment inventory does not require every merchant to activate |
 | Logs and usage | Populated customer pagination, concurrent admissions during time-ordered pagination, key filters, full-range totals, CSV, error/timing records and confidential procurement isolation | Mutable-sort pagination, broader tenant scale and frontend presentation |
 | Video | Actual personal generation, idempotent submission, durable saved intents, restart/query recovery, authorized decoded results and deletion that survives refresh | Positive customer-funded settlement, natural expiry, inspected reference inputs and model-specific controls need their own evidence |
-| Performance | Two-Gateway actual text workloads, including 1,600 streams at offered 12 requests/second with exact post-restart accounting | Maximum capacity, overload, production SLOs, media capacity and a measured New API baseline |
+| Performance | Two-Gateway actual text workloads, including 1,600 streams at offered 16 requests/second with exact post-restart accounting | Maximum capacity, overload, production SLOs, media capacity and a measured New API baseline |
 
 ## Evidence to inspect
 
