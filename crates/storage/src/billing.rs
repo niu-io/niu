@@ -69,10 +69,8 @@ SELECT jsonb_build_object(
         name: &str,
         currency: &str,
     ) -> Result<Uuid, StoreError> {
-        let mut tx = self.pool.begin().await?;
-        let organization = Self::create_prepaid_organization_in_tx(&mut tx, name, currency).await?;
-        tx.commit().await?;
-        Ok(organization)
+        self.create_prepaid_organization_with_key(name, currency, None)
+            .await
     }
 
     pub(crate) async fn create_prepaid_organization_in_tx(

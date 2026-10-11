@@ -170,6 +170,25 @@ async fn authorize_operator_management(
         Err(ApiError::not_found())
     }
 }
+/// Shared creation header policy; never persist the caller's raw key.
+fn creation_idempotency_key(headers: &HeaderMap) -> Result<Option<Vec<u8>>, ApiError> {
+    use sha2::{Digest, Sha256};
+    let mut keys = headers.get_all("idempotency-key").iter();
+    let Some(key) = keys.next() else {
+        return Ok(None);
+    };
+    if keys.next().is_some()
+        || key.as_bytes().is_empty()
+        || key.as_bytes().len() > 128
+        || !key.as_bytes().iter().all(u8::is_ascii_graphic)
+    {
+        return Err(ApiError::invalid_request(
+            "Use one Idempotency-Key containing 1 to 128 visible ASCII characters",
+        ));
+    }
+    Ok(Some(Sha256::digest(key.as_bytes()).to_vec()))
+}
+
 fn validate_name(name: &str) -> Result<(), ApiError> {
     if name.trim().is_empty() || name.len() > 200 {
         return Err(ApiError::invalid_request(
@@ -918,25 +937,11 @@ pub async fn create_workspace(
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
     let authorization = authorize(&state, &headers, AdminPermission::Write).await?;
     validate_name(&input.name)?;
-    let mut keys = headers.get_all("idempotency-key").iter();
-    let creation_key = if let Some(key) = keys.next() {
-        use sha2::{Digest, Sha256};
-        if keys.next().is_some()
-            || key.as_bytes().is_empty()
-            || key.as_bytes().len() > 128
-            || !key.as_bytes().iter().all(u8::is_ascii_graphic)
-        {
-            return Err(ApiError::invalid_request(
-                "Use one Idempotency-Key containing 1 to 128 visible ASCII characters",
-            ));
-        }
-        Some(niu_storage::WorkspaceCreationKey {
+    let creation_key =
+        creation_idempotency_key(&headers)?.map(|key_sha256| niu_storage::WorkspaceCreationKey {
             actor: audit_actor(authorization),
-            key_sha256: Sha256::digest(key.as_bytes()).to_vec(),
-        })
-    } else {
-        None
-    };
+            key_sha256,
+        });
 
     let organization_id = match authorization {
         crate::state::AdminAuthorization::Installation => input.organization_id,
@@ -982,7 +987,7 @@ pub async fn create_workspace(
 ///   "operation": {
 ///     "operationId": "createOrganization",
 ///     "summary": "Create a company and its initial zero-funded account",
-///     "description": "Installation administrator only. Atomically creates the company and an initial account in the requested currency (USD by default), with zero funding and zero approved credit. No payment or funding receipt is recorded. Paid admission still requires permitted capacity and customer pricing. Name is validated but preserved without trimming. Additional currencies need explicit account setup; no currency conversion is implied. This endpoint does not implement creation idempotency: repeated successful calls create distinct companies. An uncertain response must not be blindly retried as a new creation.",
+///     "description": "Installation administrator only. Atomically creates the company and an initial account in the requested currency (USD by default), with zero funding and zero approved credit. No payment or funding receipt is recorded. Paid admission still requires permitted capacity and customer pricing. Name is validated but preserved without trimming. Additional currencies need explicit account setup; no currency conversion is implied. Optional Idempotency-Key is durable in one installation-wide namespace, separate from workspace creation. Repeating the same name and resolved currency returns the original company identity and current name with 201; different input returns 409. A deleted company returns 404 without recreation. Without the header each successful call creates a company. On uncertain outcomes retry the same key and input.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1046,7 +1051,7 @@ pub async fn create_workspace(
 ///         }
 ///       },
 ///       "400": {
-///         "description": "Invalid name/currency or malformed JSON syntax."
+///         "description": "Invalid name/currency, malformed JSON syntax, or invalid/repeated Idempotency-Key header."
 ///       },
 ///       "401": {
 ///         "description": "Missing, invalid, expired or revoked management credential."
@@ -1059,8 +1064,28 @@ pub async fn create_workspace(
 ///       },
 ///       "503": {
 ///         "description": "Storage unavailable; creation outcome may be uncertain."
+///       },
+///       "404": {
+///         "description": "The company from the original idempotent creation was deleted."
+///       },
+///       "409": {
+///         "description": "Idempotency-Key was already used with a different name or currency."
 ///       }
-///     }
+///     },
+///     "parameters": [
+///       {
+///         "in": "header",
+///         "name": "Idempotency-Key",
+///         "required": false,
+///         "schema": {
+///           "type": "string",
+///           "minLength": 1,
+///           "maxLength": 128,
+///           "pattern": "^[!-~]+$"
+///         },
+///         "description": "Exactly one visible-ASCII identity; preserve it with the original input when retrying."
+///       }
+///     ]
 ///   }
 /// }
 /// ```
@@ -1081,38 +1106,21 @@ pub async fn organization(
             "Currency must be a three-letter uppercase code",
         ));
     }
+    let creation_key = creation_idempotency_key(&headers)?;
     let id = state
         .store
-        .create_prepaid_organization(&input.name, &input.currency)
+        .create_prepaid_organization_with_key(&input.name, &input.currency, creation_key.as_deref())
         .await
         .map_err(ApiError::from_store)?;
-    Ok((
-        StatusCode::CREATED,
-        Json(json!({"id": id, "name": input.name, "currency": input.currency})),
-    ))
-}
-
-pub async fn project(
-    State(state): State<AppState>,
-    Path(organization_id): Path<Uuid>,
-    headers: HeaderMap,
-    Json(input): Json<Name>,
-) -> Result<(StatusCode, Json<Value>), ApiError> {
-    let authorization = authorize(&state, &headers, AdminPermission::Write).await?;
-    if !authorization.permits_project_creation(organization_id) {
-        return Err(ApiError::not_found());
-    }
-    validate_name(&input.name)?;
-    let scope = state
+    let name = state
         .store
-        .create_project(organization_id, &input.name)
+        .organization_name(id)
         .await
-        .map_err(ApiError::from_store)?;
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
     Ok((
         StatusCode::CREATED,
-        Json(
-            json!({"id": scope.project_id, "organization_id": organization_id, "name": input.name}),
-        ),
+        Json(json!({"id": id, "name": name, "currency": input.currency})),
     ))
 }
 

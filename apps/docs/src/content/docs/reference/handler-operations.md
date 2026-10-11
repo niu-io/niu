@@ -3184,7 +3184,7 @@ HTTP 503: Storage unavailable; the outcome may be uncertain. Retry with the same
 
 `POST /admin/v1/organizations`
 
-Installation administrator only. Atomically creates the company and an initial account in the requested currency (USD by default), with zero funding and zero approved credit. No payment or funding receipt is recorded. Paid admission still requires permitted capacity and customer pricing. Name is validated but preserved without trimming. Additional currencies need explicit account setup; no currency conversion is implied. This endpoint does not implement creation idempotency: repeated successful calls create distinct companies. An uncertain response must not be blindly retried as a new creation.
+Installation administrator only. Atomically creates the company and an initial account in the requested currency (USD by default), with zero funding and zero approved credit. No payment or funding receipt is recorded. Paid admission still requires permitted capacity and customer pricing. Name is validated but preserved without trimming. Additional currencies need explicit account setup; no currency conversion is implied. Optional Idempotency-Key is durable in one installation-wide namespace, separate from workspace creation. Repeating the same name and resolved currency returns the original company identity and current name with 201; different input returns 409. A deleted company returns 404 without recreation. Without the header each successful call creates a company. On uncertain outcomes retry the same key and input.
 
 Implementation: `implemented`. Operation: `createOrganization`.
 
@@ -3198,6 +3198,21 @@ Each array entry is an alternative; schemes within one entry are required togeth
     "bearerAuth": []
   }
 ]
+```
+
+### Parameters
+
+`Idempotency-Key` (header, optional)
+
+Exactly one visible-ASCII identity; preserve it with the original input when retrying.
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 128,
+  "pattern": "^[!-~]+$"
+}
 ```
 
 ### Request body
@@ -3259,7 +3274,7 @@ Content type: `application/json`.
 }
 ```
 
-HTTP 400: Invalid name/currency or malformed JSON syntax.
+HTTP 400: Invalid name/currency, malformed JSON syntax, or invalid/repeated Idempotency-Key header.
 
 HTTP 401: Missing, invalid, expired or revoked management credential.
 
@@ -3268,6 +3283,10 @@ HTTP 403: Installation administrator required; company/workspace members cannot 
 HTTP 422: Missing required field, unknown field, or invalid JSON field type.
 
 HTTP 503: Storage unavailable; creation outcome may be uncertain.
+
+HTTP 404: The company from the original idempotent creation was deleted.
+
+HTTP 409: Idempotency-Key was already used with a different name or currency.
 
 ## Issue a workspace API key and return its secret once
 

@@ -3048,7 +3048,7 @@
       "post": {
         "operationId": "createOrganization",
         "summary": "Create a company and its initial zero-funded account",
-        "description": "Installation administrator only. Atomically creates the company and an initial account in the requested currency (USD by default), with zero funding and zero approved credit. No payment or funding receipt is recorded. Paid admission still requires permitted capacity and customer pricing. Name is validated but preserved without trimming. Additional currencies need explicit account setup; no currency conversion is implied. This endpoint does not implement creation idempotency: repeated successful calls create distinct companies. An uncertain response must not be blindly retried as a new creation.",
+        "description": "Installation administrator only. Atomically creates the company and an initial account in the requested currency (USD by default), with zero funding and zero approved credit. No payment or funding receipt is recorded. Paid admission still requires permitted capacity and customer pricing. Name is validated but preserved without trimming. Additional currencies need explicit account setup; no currency conversion is implied. Optional Idempotency-Key is durable in one installation-wide namespace, separate from workspace creation. Repeating the same name and resolved currency returns the original company identity and current name with 201; different input returns 409. A deleted company returns 404 without recreation. Without the header each successful call creates a company. On uncertain outcomes retry the same key and input.",
         "security": [
           {
             "bearerAuth": []
@@ -3112,7 +3112,7 @@
             }
           },
           "400": {
-            "description": "Invalid name/currency or malformed JSON syntax."
+            "description": "Invalid name/currency, malformed JSON syntax, or invalid/repeated Idempotency-Key header."
           },
           "401": {
             "description": "Missing, invalid, expired or revoked management credential."
@@ -3125,8 +3125,28 @@
           },
           "503": {
             "description": "Storage unavailable; creation outcome may be uncertain."
+          },
+          "404": {
+            "description": "The company from the original idempotent creation was deleted."
+          },
+          "409": {
+            "description": "Idempotency-Key was already used with a different name or currency."
           }
-        }
+        },
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[!-~]+$"
+            },
+            "description": "Exactly one visible-ASCII identity; preserve it with the original input when retrying."
+          }
+        ]
       },
       "get": {
         "operationId": "listOrganizations",
