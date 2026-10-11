@@ -25,23 +25,8 @@ paths:
     get:
       $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1topups~1{order}/get'
   /admin/v1/organizations/{organization}/billing/topups/{order}/reconcile:
-    parameters:
-      - $ref: '#/components/parameters/Organization'
-      - $ref: '#/components/parameters/TopupOrder'
     post:
-      operationId: reconcileCustomerTopup
-      summary: Independently reconcile a saved payment
-      description: Installation administrator with write permission only. Queries the original configured merchant under shared query spacing. Exact paid evidence funds atomically once; verified closed evidence records immutable closure without funding. Pending, failed or contradictory evidence remains unresolved. Never creates a new checkout. A successful response reports resulting durable status, which may be closed rather than paid.
-      responses:
-        '200': { $ref: '#/components/responses/TopupStatus' }
-        '400': { description: Invalid identifier or incompatible saved merchant configuration }
-        '401': { description: Authentication required }
-        '403': { description: Installation administrator required }
-        '404': { description: Saved order missing }
-        '409': { description: Conflicting immutable identity or terminal evidence }
-        '501': { description: Saved adapter does not support query recovery; EPay remains notification-driven }
-        '502': { description: "Integration unavailable, pending payment, unresolved evidence or query admission busy/rate limited" }
-        '503': { description: Durable storage unavailable }
+      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1topups~1{order}~1reconcile/post'
   /payments/epay/notify:
     $ref: './generated/handler-operations.json#/paths/~1payments~1epay~1notify'
   /payments/zhifux/notify:

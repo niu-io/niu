@@ -9367,6 +9367,127 @@ HTTP 404: Order missing or company billing access not granted
 
 HTTP 503: Durable storage unavailable
 
+## Independently reconcile a saved payment
+
+`POST /admin/v1/organizations/{organization}/billing/topups/{order}/reconcile`
+
+Installation administrator only. Queries the original configured merchant under bounded query admission. Exact verified paid evidence funds atomically once; verified closed evidence records closure without funding. Never creates a checkout or automatically retries. A successful response reports durable status, not necessarily paid. EPay query recovery is unsupported (501); signed notifications remain available. Merchant activation and received-cash funding require separate deployment evidence.
+
+Implementation: `implemented`. Operation: `reconcileCustomerTopup`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`order` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Saved top-up status; checkout and pending status confer no spending capacity
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "currency",
+        "amount_nanos",
+        "payment_method",
+        "status",
+        "checkout_url"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Internal API routing reference; never display as a product label."
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$",
+          "description": "Immutable saved account currency; no implicit conversion."
+        },
+        "amount_nanos": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "payment_method": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "reconciliation_required",
+            "pending",
+            "paid",
+            "closed"
+          ]
+        },
+        "checkout_url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri",
+          "description": "Validated HTTPS checkout for pending orders only; null for paid and closed orders."
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 400: Invalid route identifier
+
+HTTP 401: Authentication required
+
+HTTP 404: Saved order missing
+
+HTTP 503: Durable storage unavailable
+
+HTTP 403: Installation administrator required
+
+HTTP 409: Conflicting immutable identity or terminal evidence
+
+HTTP 501: Saved adapter does not support query recovery
+
+HTTP 502: Integration unavailable, unresolved payment evidence or query admission busy/rate limited
+
 ## Receive a signed Stripe checkout notification
 
 `POST /payments/stripe/notify`
