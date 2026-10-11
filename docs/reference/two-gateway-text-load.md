@@ -1,6 +1,44 @@
 # Two-gateway priced text load checkpoint
 
-## Current committed 8-request/second stream checkpoint — 2026-10-12
+## Current sustained stream checkpoint — 2026-10-12
+
+Digest-verified clean implementation `28bd9d04014ad817bda2f62a8aa0071071a418b1`
+ran two Gateway processes against fresh native PostgreSQL 17 on schema 278. Each
+Gateway had two configured admission connections plus its dedicated maintenance
+connection. Eight workspace keys each traversed both processes, with 200 requests
+per key and 800 per Gateway. Thirty-two client workers scheduled 1,600 actual
+structured Chat streams at eight requests/second using personal OpenRouter access
+and fresh output markers, without inference retries.
+
+All streams returned their marker, native usage and `[DONE]`. Including final
+response drain, the workload took **201.59 seconds** and completed **7.937
+requests/second**. End-to-end elapsed p50/p95 were **1,311.68/1,806.74 ms**;
+maximum elapsed was **4,393.07 ms**. First-content p50/p95 were
+**1,130.28/1,560.81 ms**, measured at the client and including transport and
+upstream waiting. Maximum scheduled-start lag was **15.49 ms**.
+
+Across 774 coarse process samples, maximum Gateway RSS was **34,368/33,072 KiB**
+and maximum sampled `ps` CPU was **7.0/7.4 percent**. These are process samples,
+not CPU profiles or PostgreSQL/whole-host accounting. No maximum-capacity or
+memory-leak conclusion follows from them.
+
+After restart, independent database reopening hashed and parsed every retained
+SSE response, matched all request/key/model associations and completed timing
+records, and recomputed each charge using pinned internal customer rates. Exactly
+**26,685,801 USD nanounits** of customer charges matched original-account debits.
+Customer and procurement reservations were released, no request-failure record or
+funding receipt was present, and all temporary keys were revoked. Customer streams
+contained no procurement-cost or encrypted-credential fields.
+
+This extends sustained text streaming/accounting evidence beyond the earlier
+30-second workload. It does not establish an eight-completion/second minimum,
+maximum capacity, overload behavior, production SLOs, multi-company scale, media
+performance or superiority to New API. Personal self-funded access and approved
+internal verification credit are not commercial supply or external payments.
+Original databases, configuration and encrypted identity were unchanged; no
+fixture outcome is evidence.
+
+## Earlier committed 8-request/second stream checkpoint — 2026-10-12
 
 Digest-verified clean committed Gateway
 `1b209f7fb1472b914a7ce69c2a47951b7fb83c0b` ran two processes against one
