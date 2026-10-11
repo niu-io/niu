@@ -1530,3 +1530,25 @@ original generation submission and no customer financial entries. All eight
 saved files were rehashed and decoded independently. This exercises per-process
 four-download admission for a small real file; it does not qualify large-file
 memory pressure, slow-client handling, replica-wide limits or sustained capacity.
+
+## Result response buffer lifetime — 2026-10-11
+
+The download semaphore permit now moves into the response body's stream instead
+of dropping when the handler returns. The stream owns the bounded media buffer
+and copies at most 64 KiB into each delivery chunk. This prevents a final frame
+from retaining the entire backing file after the stream releases its permit.
+Body cancellation drops the owned buffer and permit. The exact Content-Length,
+content type, attachment and no-cache headers remain available. Upstream retrieval
+timing still does not claim client delivery completion.
+
+The changed binary repeated two waves of eight actual downloads of the saved
+90,767-byte video. Eight completed and eight returned the explicit busy response;
+every successful response's Content-Length matched the downloaded byte count.
+Independent reopening and file inspection decoded and hashed all eight files,
+matched the persisted timing records across restart, and found only the original
+generation with no customer financial entries. Observed successful request times
+were 528.1–2,180.0 ms; sampled maximum RSS was 22,576 KiB. These small-file results
+do not establish a performance improvement, large-file memory ceiling or actual
+slow-client cancellation behavior. Large allocations are held through body
+consumption by construction; network-stack buffering and slow-client capacity
+still require dedicated measurement.

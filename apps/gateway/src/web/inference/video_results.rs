@@ -2,6 +2,7 @@
 use crate::{error::ApiError, state::AppState};
 use axum::{
     Json,
+    body::{Body, Bytes},
     extract::{Path, State},
     http::{HeaderMap, header},
     response::{IntoResponse, Response},
@@ -78,7 +79,7 @@ pub(super) async fn retrieve_as(
     let url = cipher
         .open_media_result(scope, id, kind, &encrypted)
         .map_err(|_| ApiError::unavailable())?;
-    let _permit = DOWNLOADS
+    let permit = DOWNLOADS
         .clone()
         .try_acquire_owned()
         .map_err(|_| ApiError::media_result_busy())?;
@@ -152,16 +153,39 @@ pub(super) async fn retrieve_as(
         "image/png" => "attachment; filename=last-frame.png",
         _ => "attachment; filename=last-frame.jpg",
     };
-    Ok((
+    let length = media.bytes.len();
+    // Keep the bounded download slot while HTTP consumes the buffered result.
+    // Copy small chunks so a final in-flight frame cannot retain the entire file
+    // after the stream releases its buffer and permit. Dropping the body cancels
+    // delivery and releases both without creating another generation.
+    let chunks = futures_util::stream::unfold(
+        (media.bytes, 0, permit),
+        |(bytes, offset, permit)| async move {
+            if offset == bytes.len() {
+                return None;
+            }
+            let end = (offset + 64 * 1024).min(bytes.len());
+            let chunk = Bytes::copy_from_slice(&bytes[offset..end]);
+            Some((
+                Ok::<_, std::convert::Infallible>(chunk),
+                (bytes, end, permit),
+            ))
+        },
+    );
+    let mut response = (
         [
             (header::CONTENT_TYPE, media.content_type),
             (header::CONTENT_DISPOSITION, filename),
             (header::CACHE_CONTROL, "private, no-store"),
             (header::X_CONTENT_TYPE_OPTIONS, "nosniff"),
         ],
-        media.bytes,
+        Body::from_stream(chunks),
     )
-        .into_response())
+        .into_response();
+    response
+        .headers_mut()
+        .insert(header::CONTENT_LENGTH, length.into());
+    Ok(response)
 }
 pub(super) async fn delete_as(
     state: &AppState,
