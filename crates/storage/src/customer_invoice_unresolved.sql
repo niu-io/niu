@@ -13,26 +13,14 @@ SELECT EXISTS (
             (r.currency=$3 AND c.attempt_id IS NULL)
             OR (m.snapshot->'tariff'->>'currency'=$3 AND (
                 mc.attempt_id IS NULL
-                -- Known media overrun may await funding. Do not issue a
-                -- receivable that recovery could subsequently debit again.
-                OR (mc.amount_nanos>0 AND NOT EXISTS (
-                    SELECT 1 FROM customer_balance_entries d
-                    JOIN customer_attempt_balance_accounts b
-                        ON b.attempt_id=d.attempt_id AND b.account_id=d.account_id
-                    WHERE d.attempt_id=a.id AND d.kind='charge'
-                        AND d.organization_id=$1 AND d.project_id=$2
-                        AND d.currency=$3 AND d.amount_nanos=-mc.amount_nanos
-                ))
-                -- Zero media charges are settled only after their original
-                -- account reservation is released, as in customer reporting.
-                OR (mc.amount_nanos=0 AND NOT EXISTS (
-                    SELECT 1 FROM customer_balance_reservations d
-                    JOIN customer_attempt_balance_accounts b
-                        ON b.attempt_id=d.attempt_id AND b.account_id=d.account_id
-                    WHERE d.attempt_id=a.id AND d.organization_id=$1
-                        AND b.organization_id=$1 AND b.project_id=$2
-                        AND b.currency=$3 AND d.released_at IS NOT NULL
-                ))
+                -- Reporting, recovery and issuance share the exact original-
+                -- account debit/released-reservation predicate.
+                OR NOT EXISTS (
+                    SELECT 1 FROM customer_activity_charges posted
+                    WHERE posted.attempt_id=a.id AND posted.organization_id=$1
+                        AND posted.project_id=$2 AND posted.currency=$3
+                        AND posted.amount_nanos=mc.amount_nanos
+                )
             ))
         )
 )
