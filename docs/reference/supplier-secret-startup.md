@@ -47,6 +47,22 @@ customer debit and no personal-route charge or open customer reservation. Restar
 preserved the records. This is internal-credit and personal self-funded evidence,
 not a received merchant payment or commercial Supplier qualification.
 
+## Registry presence without loading the list
+
+The missing-key guard now uses `SELECT EXISTS (SELECT 1 FROM vendors)` instead
+of fetching and sorting the compatibility configuration list. It still rejects
+a missing key when any vendor exists, including a disabled or revoked one.
+Credential authentication continues through the separate bounded scans.
+
+The changed binary was exercised with a fresh API-created 101-revision asset
+history. Missing-key, mixed-key, truncated-second-page and wrong-revision startup
+attempts exited before readiness; restoring the matching key restored startup.
+Explicit API revocation and erasure retained the revision identities. Independent
+reopening confirmed the retained metadata, restored triggers, no asset ciphertext
+after explicit erasure, and no inference attempt or balance entry. This is
+startup-behavior evidence, not large-registry performance qualification or
+master-key rotation support.
+
 ## Operational boundary
 
 Back up the database and retain its deployment key separately. A readiness

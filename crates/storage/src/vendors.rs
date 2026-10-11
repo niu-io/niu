@@ -245,6 +245,14 @@ impl Store {
         .await?)
     }
 
+    /// Startup requires a master key even if saved credentials were revoked.
+    /// Check registry presence without loading or sorting all configurations.
+    pub async fn has_registered_vendors(&self) -> Result<bool, StoreError> {
+        Ok(sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM vendors)")
+            .fetch_one(&self.pool)
+            .await?)
+    }
+
     /// Compatibility list without pagination: never silently omit saved configurations.
     pub async fn vendors(&self) -> Result<Vec<VendorView>, StoreError> {
         let query = format!("SELECT {VENDOR_COLUMNS} FROM vendors ORDER BY name,id");

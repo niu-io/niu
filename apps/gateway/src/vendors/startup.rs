@@ -7,11 +7,10 @@ pub(crate) async fn validate_saved_credentials(
     cipher: Option<&CredentialCipher>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if cipher.is_none()
-        && !store
-            .vendors()
+        && store
+            .has_registered_vendors()
             .await
             .map_err(|_| "Cannot read vendor registry")?
-            .is_empty()
     {
         // Revoked inference credentials can coexist with other encrypted
         // Supplier data; retain the existing missing-key startup guard.
