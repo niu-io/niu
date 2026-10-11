@@ -1447,3 +1447,15 @@ Compilation and PostgreSQL planning separately checked the changed query's synta
 and bounded locking plan. The actual single-job run does not establish 100-row
 batch behavior, fairness or multi-instance contention performance. Full paid media
 settlement and decoded-result verification are separate from this recovery check.
+
+A further current-input run held a row lock on the stopped schedule for a newly
+accepted real video while the polling gateway ran. Two resumption statements
+completed without waiting for that row; the schedule remained stopped and no
+upstream query occurred while the lock was held. After releasing the transaction,
+normal recovery queried the original generation to success. Independent log
+inspection located the lock holder's acquisition and commit and confirmed the
+two completed resumption statements between them. Independent database reopening
+again found one actual submission, successful queried completion, preserved key
+lineage and no customer financial entries. This establishes nonblocking behavior
+against a competing row-lock holder for one real job; it does not establish
+multi-gateway throughput, batch saturation or starvation freedom.
