@@ -59,3 +59,30 @@ They are not a maximum-throughput estimate, sustained service-level guarantee,
 long-duration memory check or qualification of inference/media/write workloads.
 Larger histories, concurrent mutations and longer runs require separate evidence.
 No fixture outcome supports this checkpoint.
+
+## Follow-up: pending upstream-cost lookup
+
+A separate current execution-plan inspection reopened the isolated database with
+112 real, already-settled upstream-cost reservations. Before migration 0265, the
+upstream-cost recovery query sequentially examined and filtered out all 112 rows
+while returning no work. Its overall plan hit 12 shared blocks.
+
+Migration 0265 adds an attempt-ordered partial index restricted to `state='held'`.
+Applying the migration SQL to that isolated database changed the same query to an
+index-only scan of the empty pending index: zero heap fetches and one shared block
+for the overall plan. No query predicate, recovery cursor or settlement operation
+changed. An independent process reopened the database, checked that the index was
+valid and ready with the intended predicate, and compared complete reservation
+and customer-ledger fingerprints with their pre-change values; both were unchanged.
+The before/after JSON execution plans and fingerprints were retained privately.
+
+This verifies exclusion of settled history for the observed empty-pending case.
+It does not establish throughput for a nonempty pending queue, migration lock time
+on a large installation, or deployment to the original native service. The index
+uses the existing transactional migration mechanism and takes the usual index
+creation lock; no concurrent online migration is claimed.
+
+The same inspection found Supplier-earning recovery scanning 112 completed
+attempts even with no bound offers. That query still requires separate bounded
+candidate traversal work. The other inspected media/release queues were empty;
+their empty plans do not qualify nonempty recovery or large-history performance.
