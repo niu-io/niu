@@ -685,3 +685,16 @@ existing EPay order, 403 for a company owner, and 404 for a missing order. Reads
 before and after matched. Independent database reopening confirmed the original
 pending checkout and no settlement, closure, funding receipt or balance entry.
 This checks SDK wiring and refusal behavior, not successful merchant recovery.
+
+Company-scoped workspace and checkout creation now share the internal
+`authorize_company_writer_in_tx` storage helper. Each caller retains its own
+business-lock order and explicit installation/internal path. The shared helper
+locks current member/session rows, checks company-wide owner/admin scope and
+revocation, then checks expiry using wall-clock time after lock acquisition.
+This avoids maintaining divergent copies of the same transactional policy.
+
+After extraction, actual native runs repeated revoked-member workspace replay,
+checkout expiry during a company-row wait, and an authorized waiting checkout.
+Independent database reopening confirmed the two denials preserved records and
+receipts, while the authorized request produced one pending order without funding.
+Compilation and Clippy completed separately; fixture outcomes are not evidence.

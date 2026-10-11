@@ -335,30 +335,7 @@ impl Store {
             .ok_or(StoreError::Conflict)?;
         let account:Uuid=sqlx::query_scalar("SELECT id FROM customer_balance_accounts WHERE organization_id=$1 AND currency=$2 FOR UPDATE").bind(organization).bind(input.currency).fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
         if let Some(member) = member {
-            let access: Option<(bool, i64)> = sqlx::query_as(
-                "SELECT o.revoked_at IS NULL AND s.revoked_at IS NULL \
-                 AND o.role IN ('owner','admin') AND o.project_id IS NULL \
-                 AND o.organization_id=$3, s.expires_at_unix \
-                 FROM admin_operators o JOIN admin_sessions s ON s.operator_id=o.id \
-                 WHERE o.id=$1 AND s.id=$2 FOR SHARE OF o,s",
-            )
-            .bind(member.id)
-            .bind(member.session_id)
-            .bind(organization)
-            .fetch_optional(&mut *tx)
-            .await?;
-            let Some((true, expires_at)) = access else {
-                return Err(StoreError::Unauthorized);
-            };
-            let unexpired: bool = sqlx::query_scalar(
-                "SELECT $1::bigint > extract(epoch FROM clock_timestamp())::bigint",
-            )
-            .bind(expires_at)
-            .fetch_one(&mut *tx)
-            .await?;
-            if !unexpired {
-                return Err(StoreError::Unauthorized);
-            }
+            Self::authorize_company_writer_in_tx(&mut tx, organization, member).await?;
         }
         let prior:Option<TopupOrder>=sqlx::query_as("SELECT id,organization_id,account_id,currency,amount_nanos,aggregator,merchant,payment_method,idempotency_key FROM customer_topup_orders WHERE organization_id=$1 AND idempotency_key=$2").bind(organization).bind(input.idempotency_key).fetch_optional(&mut *tx).await?;
         if let Some(prior) = prior {

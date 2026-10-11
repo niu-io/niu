@@ -47,34 +47,13 @@ impl Store {
             sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('niu-workspace-create:'||$1::text||':'||$2::uuid::text||':'||encode($3::bytea,'hex'),0))")
                 .bind(kind).bind(actor).bind(hash).execute(&mut *tx).await?;
         }
-        // Lock current member and session rows after any idempotency wait, so
-        // revocation or scope changes cannot race the receipt/business commit.
-        // The separate clock query also evaluates expiry after row-lock waits.
         if let Some(member) = member {
-            let access: Option<(bool, i64)> = sqlx::query_as(
-                "SELECT o.revoked_at IS NULL AND s.revoked_at IS NULL \
-                 AND o.role IN ('owner','admin') AND o.project_id IS NULL \
-                 AND o.organization_id=$3, s.expires_at_unix \
-                 FROM admin_operators o JOIN admin_sessions s ON s.operator_id=o.id \
-                 WHERE o.id=$1 AND s.id=$2 FOR SHARE OF o,s",
+            Self::authorize_company_writer_in_tx(
+                &mut tx,
+                organization_id.ok_or(StoreError::Unauthorized)?,
+                member,
             )
-            .bind(member.id)
-            .bind(member.session_id)
-            .bind(organization_id)
-            .fetch_optional(&mut *tx)
             .await?;
-            let Some((true, expires_at)) = access else {
-                return Err(StoreError::Unauthorized);
-            };
-            let unexpired: bool = sqlx::query_scalar(
-                "SELECT $1::bigint > extract(epoch FROM clock_timestamp())::bigint",
-            )
-            .bind(expires_at)
-            .fetch_one(&mut *tx)
-            .await?;
-            if !unexpired {
-                return Err(StoreError::Unauthorized);
-            }
         }
         if let Some((kind, actor, hash)) = &identity {
             let saved: Option<(Vec<u8>, Uuid, Uuid)> = sqlx::query_as("SELECT request_sha256,organization_id,project_id FROM workspace_creation_receipts WHERE actor_kind=$1 AND actor_id=$2 AND key_sha256=$3")
