@@ -301,3 +301,20 @@ and no charge for the incomplete native response. There were two inference
 attempts, one debit and no funding entry. This is current-input failure/recovery
 evidence, not simulated upstream usage or evidence that the missing native usage
 has been reconciled. No release or repair operation was added.
+
+## Recheck after encryption-inspection startup refactoring
+
+A fresh isolated native run exercised actual nonstreaming and streaming Chat,
+canonical authentication refusal with one successful successor, an in-flight
+customer price edit, partial balance refund and service restart. Each completed
+operation produced exactly one debit using its pinned rate; the later operation
+used the new rate. Refused attempts produced no charges. Refund replay retained
+one refund, while charge reconciliation continued to describe original gross
+debits. The statement contained exactly the two successful charges.
+
+Independent reopening recomputed both charges from the recorded usage and the
+old/new rates, checked the two ledger debits and partial refund, and reconciled
+net balance, statement entries and released reservations. There was no funding
+entry. This rechecks the supported internal-credit text path on the updated
+startup implementation; it does not establish received funding, funding reversal,
+external refunds or customer-funded media settlement.
