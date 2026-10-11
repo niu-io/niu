@@ -79,3 +79,11 @@ still returned 401 during this storage fault. Restoring the table restored HTTP
 released. Independent reopening verified the recorded failure, exact release,
 revoked key and unchanged customer ledger. This is a targeted missing-relation
 failure check, not a qualification of every database outage mode.
+
+## Rendered documentation check
+
+The served operation page was inspected in the browser at 1440px and 390px widths.
+The endpoint, privilege boundary and last-page semantics rendered without document
+horizontal overflow. Its downloadable OpenAPI JSON returned HTTP 200 and included
+`getFinancialRecoveryDiagnostics`. This verifies local generated documentation;
+it is not a hosted deployment claim.
