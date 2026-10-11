@@ -141,3 +141,23 @@ retained bytes at startup; they do not provide an atomic audit across concurrent
 writers, continuous corruption detection, or a rotation writer fence. The rotation
 command, rewrapping, trigger changes and crash-resume procedure remain unimplemented.
 Issue #9 therefore remains open. No fixture outcome supports these conclusions.
+
+## Cross-identity credential startup check — 2026-10-11
+
+A fresh isolated native run created two disabled configurations through the
+administration API using the saved personal upstream credential. With the Gateway
+stopped, one configuration's authenticated ciphertext was copied to the other
+configuration in that isolated database. Startup exited unsuccessfully, without
+changing either stored representation or revision. Its captured diagnostic output
+contained neither the upstream credential nor the master key. Restoring both
+original ciphertexts restored readiness and association reads.
+
+A separate verifier reopened the persisted database and authenticated both records
+with an independent AES-GCM implementation. Each decoded to the saved input only
+under its original vendor identity; substituting the other identity failed
+authentication even though both inputs contained the same upstream key. Original
+ciphertext fingerprints and revisions were preserved and no inference attempt was
+created. The original development database and encryption identity were untouched.
+This establishes current identity binding and startup failure containment. It does
+not implement rotation, prove interrupted re-encryption recovery, or establish
+post-rotation upstream dispatch.
