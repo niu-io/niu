@@ -23,39 +23,12 @@ pub(super) async fn models_as(
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::forbidden)?;
     let mut data = Vec::new();
-    for alias in crate::vendors::scoped_models(state, scope.organization_id)
-        .await?
-        .keys()
-    {
+    for route in crate::vendors::scoped_managed_catalog(state, scope.organization_id).await? {
+        let alias = &route.model.alias;
         if !principal.allows_model(alias) {
             continue;
         }
-        let personal = state
-            .store
-            .personal_vendor_route(scope.organization_id, alias)
-            .await
-            .map_err(ApiError::from_store)?;
-        let owner_funded = personal.is_some();
-        let route = if let Some(route) = personal {
-            Some(route)
-        } else {
-            if !state
-                .store
-                .supplier_model_available(alias)
-                .await
-                .map_err(ApiError::from_store)?
-            {
-                continue;
-            }
-            state
-                .store
-                .vendor_route(alias)
-                .await
-                .map_err(ApiError::from_store)?
-        };
-        let Some(route) = route else {
-            continue;
-        };
+        let owner_funded = route.personal_organization_id.is_some();
         let text_permitted =
             super::video::policy_permits_video(&snapshot, alias, &route.vendor.adapter);
         let image_limits = super::video::policy_permits_video_with_images(

@@ -1405,3 +1405,21 @@ from inserting a previously absent result. Verification resumed against the same
 deleted database with that corrected expectation, without recreating a result or
 submitting a generation. This qualifies the exercised deletion/refresh/restart
 path, not every concurrent download or upstream-retention policy.
+
+### Video directory snapshot consistency — 2026-10-11
+
+Video discovery now consumes scoped managed metadata from the same repeatable-read
+snapshot used to compile visible aliases. It no longer resolves each alias again
+through personal/shared credential loaders after determining visibility. This
+removes a mixed-read boundary and avoids loading encrypted credentials for model
+discovery. Submission still performs live admission and credential checks.
+
+An actual isolated administration run configured a personal video model, paused a
+video-directory read after its route snapshot was acquired, and disabled the
+credential through the management API. The pending read returned its original
+complete model projection; subsequent reads and a restarted Gateway returned no
+model. A different organization's wildcard key could not discover the personal
+model. An independent verifier reopened the database and checked the saved
+responses, personal ownership and disabled configuration revision, with no
+attempt, media job or financial entry created. This verifies directory consistency
+and scope, not video generation or a published inference registry generation.

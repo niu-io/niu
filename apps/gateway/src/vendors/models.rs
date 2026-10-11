@@ -319,6 +319,34 @@ pub(crate) async fn scoped_models(
     catalog_models(state, Some(organization_id)).await
 }
 
+/// Return scoped managed metadata from the same snapshot used for visibility.
+/// Consumers must not re-read ownership after computing the visible aliases.
+pub(crate) async fn scoped_managed_catalog(
+    state: &AppState,
+    organization_id: uuid::Uuid,
+) -> Result<Vec<niu_storage::VendorCatalogRoute>, ApiError> {
+    let inputs = state
+        .store
+        .vendor_catalog_inputs()
+        .await
+        .map_err(ApiError::from_store)?;
+    let visible = super::catalog_compiler::compile_catalog(
+        &state.config.models,
+        &inputs,
+        Some(organization_id),
+    )?;
+    Ok(inputs
+        .routes
+        .into_iter()
+        .filter(|route| {
+            visible.contains_key(&route.model.alias)
+                && route
+                    .personal_organization_id
+                    .is_none_or(|owner| owner == organization_id)
+        })
+        .collect())
+}
+
 /// Compose all catalog layers from one database snapshot. Discovery does not
 /// decrypt credentials or select routes through the live inference resolver.
 /// Actual admission must still recheck current ownership and revocation.
