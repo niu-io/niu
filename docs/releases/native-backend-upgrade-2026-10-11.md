@@ -151,3 +151,21 @@ organization, workspace, video-job and balance-entry counts were unchanged.
 Readiness, workspace directory and six-stage financial-recovery reads returned
 HTTP 200. The existing database, encryption identity and listener were preserved.
 These checks qualify this native refresh, not complete release acceptance.
+
+## Asset request cleanup runtime integration
+
+Clean committed `b3bc074900595f2e12e77dbee0442d977d48a93a` upgraded an isolated
+copy of a fresh native backup from schema 274 to 275. Independent reopening
+confirmed all six complete business-table fingerprints, both route indexes and
+unchanged encryption identity. Workspace reads survived restart. The same binary
+also served a separate stopped copy containing four actual local asset requests:
+three unexpired bodies and one explicit deletion remained identical across restart
+and independent database inspection. No dispatch authorization or upstream asset
+success was asserted for those requests.
+
+After binary-hash verification and graceful replacement, the native service
+reached schema 275 on its existing listener. Configuration hashes, encrypted vendor
+bytes/revisions and durable business counts were unchanged. Readiness, workspace
+directory and all six financial-recovery stages returned HTTP 200. This establishes
+upgrade and runtime integration; expired asset poison-row recovery still awaits
+the original retention deadline and is not qualified by these checks.
