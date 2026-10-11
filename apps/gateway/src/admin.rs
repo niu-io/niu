@@ -953,11 +953,11 @@ pub async fn create_workspace(
     let organization_id = match authorization {
         crate::state::AdminAuthorization::Installation => input.organization_id,
         crate::state::AdminAuthorization::Operator(operator) => {
-            if operator.scope.project_id.is_some()
-                || input
+            if !authorization.permits_project_creation(
+                input
                     .organization_id
-                    .is_some_and(|organization| organization != operator.scope.organization_id)
-            {
+                    .unwrap_or(operator.scope.organization_id),
+            ) {
                 return Err(ApiError::not_found());
             }
             Some(operator.scope.organization_id)
@@ -1131,27 +1131,30 @@ pub async fn organization(
     ))
 }
 
+/// Compatibility entry point: share workspace creation authorization and durable
+/// retry identity while preserving the legacy response fields.
 pub async fn project(
     State(state): State<AppState>,
     Path(organization_id): Path<Uuid>,
     headers: HeaderMap,
     Json(input): Json<Name>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
-    let authorization = authorize(&state, &headers, AdminPermission::Write).await?;
-    if !authorization.permits_project_creation(organization_id) {
-        return Err(ApiError::not_found());
-    }
-    validate_name(&input.name)?;
-    let scope = state
-        .store
-        .create_project(organization_id, &input.name)
-        .await
-        .map_err(ApiError::from_store)?;
+    let (status, Json(workspace)) = create_workspace(
+        State(state),
+        headers,
+        Json(WorkspaceInput {
+            name: input.name,
+            organization_id: Some(organization_id),
+        }),
+    )
+    .await?;
     Ok((
-        StatusCode::CREATED,
-        Json(
-            json!({"id": scope.project_id, "organization_id": organization_id, "name": input.name}),
-        ),
+        status,
+        Json(json!({
+            "id": workspace["id"],
+            "organization_id": workspace["organization_id"],
+            "name": workspace["name"],
+        })),
     ))
 }
 
