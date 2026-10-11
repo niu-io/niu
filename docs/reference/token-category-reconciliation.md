@@ -236,3 +236,34 @@ This exercises the actual inference-to-recovery flow with concurrent production
 storage SQL. It does not exercise two category-observation HTTP handlers, establish
 every possible lock interleaving, or qualify an impossible cache-read/cache-write
 partition. Those distinctions must remain explicit when assessing API coverage.
+
+## Current diagnostic-version successful recovery (2026-10-12)
+
+Committed gateway `3235c493f263579a32dc0c4afea469a48d7c0239`, verified against
+its retained binary digest, repeated the unknown-aggregate recovery path in a
+fresh native PostgreSQL database through schema 278. An actual Messages request
+to explicit model `openai/gpt-4.1-mini-2025-04-14` returned the requested marker.
+Its incomplete native usage retained unknown aggregate state and one reservation.
+No missing quantities were fabricated.
+
+Actual captured-reference reconciliation obtained matching non-cancelled terminal
+metadata and restored 14 input and 6 output tokens. A customer tariff published
+after dispatch increased both rates tenfold; settlement still used the original
+bound tariff, producing exactly **7,655 USD nanounits** of customer charge and one
+matching debit in the original account. Eight concurrent POST replays returned the
+same receipt. Revocation and restart preserved it and released the reservation.
+No inference retry, funding receipt or external payment was involved.
+
+Independent reopening matched the saved actual response, original unknown state,
+final quantities, pinned original rate, exact debit, preserved completion timestamp
+and encrypted credential fingerprint. Exactly one attempt, generation reference,
+`openrouter-native-generation-v2` receipt, charge and balance entry remained. The
+receipt retained `stop` and `upstream_cancelled=false`. An initial verifier used an
+incorrect source-version literal; it was corrected against the implementation and
+receipt, then rerun on the same stopped database without repeating inference.
+
+This validates successful recovery alongside the new identity-mismatch diagnosis,
+not successful recovery of cancelled evidence, every model alias, customer-paid
+media or received merchant funding. The owner's personal OpenRouter credential and
+approved internal credit do not establish commercial Supplier rights. No fixture
+outcome is evidence; original development data and encrypted identity were unchanged.
