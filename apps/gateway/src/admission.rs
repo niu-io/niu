@@ -72,6 +72,7 @@ pub(crate) struct UnpricedAdmissionRequest<'a> {
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum AdmissionError {
     ManagedRouteChanged,
+    GuardrailAdmissionConflict,
     RequestRateExceeded,
     RequestRateDisabled,
     VendorRequestRateDisabled,
@@ -448,6 +449,7 @@ async fn persist_admission_batch(store: &Store, batch: Vec<PendingAdmission>) {
         }
         Err(
             niu_storage::StoreError::ManagedRouteChanged
+            | niu_storage::StoreError::GuardrailAdmissionConflict
             | niu_storage::StoreError::VendorRequestRateExceeded
             | niu_storage::StoreError::KeyRequestRateExceeded
             | niu_storage::StoreError::KeyRequestRateDisabled
@@ -461,6 +463,9 @@ async fn persist_admission_batch(store: &Store, batch: Vec<PendingAdmission>) {
             for (record, reply) in records.into_iter().zip(replies) {
                 let result = match store.admit_unpriced_gateway_batch(vec![record]).await {
                     Ok(mut statuses) if statuses.len() == 1 => Ok(statuses.remove(0)),
+                    Err(niu_storage::StoreError::GuardrailAdmissionConflict) => {
+                        Err(AdmissionError::GuardrailAdmissionConflict)
+                    }
                     Err(niu_storage::StoreError::ManagedRouteChanged) => {
                         Err(AdmissionError::ManagedRouteChanged)
                     }

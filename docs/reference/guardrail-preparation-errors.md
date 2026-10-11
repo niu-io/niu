@@ -162,3 +162,38 @@ also contained the unmodified delivered marker. Observation therefore does not
 provide redaction or content-withholding guarantees. This checks successful
 observation persistence for two non-streaming textual calls; observation-storage
 failure, streaming and other envelope types remain separately unverified.
+
+## Policy conflict at unpriced dispatch admission
+
+A legacy unpriced request can finish inspection just before an administrator
+activates another workspace policy. Dispatch rechecks the saved inspection
+binding against the current policy. A rejected admission now returns HTTP 409
+with `guardrail_admission_conflict`, rather than misreporting healthy storage as
+unavailable. Native Messages keeps its protocol error envelope and exposes this
+reason through `x-niu-error-code`. A client can submit a new request for inspection
+under the current policy; the rejected request is not sent upstream.
+
+Storage emits this distinct conflict only after rollback and successful durable
+rejection auditing. The queue can isolate records after this known rollback;
+unknown database failures still do not authorize replay. This change does not
+broaden retries for generic conflicts or bypass inspection. An initial batch
+refusal and individual admission refusals can each retain an audit record; they
+must not be interpreted as additional upstream attempts.
+
+### Current-input checkpoint — 2026-10-11
+
+An isolated legacy organization without a prepaid account exercised the unpriced
+path. A database lock paused an actual HTTP request at inspection-binding insert;
+management HTTP activated a new policy, then the lock was released. The previous
+binary returned 503 `storage_error` despite retaining a `policy_changed` rejection
+and dispatching no attempt. With the change, separate Chat and Messages runs
+returned the explicit 409. Restart retained the audit records. A fresh Chat
+request in each run then completed against the personal upstream under the new
+policy, returning its unique requested marker.
+
+Independent reopening matched the sole attempt in each database to its actual
+response usage and credential binding, and confirmed the revision-one policy
+rejection records and absence of customer charges, debits or reservations. No
+existing installation data was removed. This verifies a workspace-policy race
+for the two exercised unpriced protocols; it does not establish a mixed-record
+batch, key-policy race, paid dispatch behavior or commercial settlement.

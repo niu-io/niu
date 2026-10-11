@@ -602,6 +602,9 @@ pub(super) async fn begin_retry_attempt(
                 crate::admission::AdmissionError::ManagedRouteChanged => {
                     ApiError::from_store(niu_storage::StoreError::ManagedRouteChanged)
                 }
+                crate::admission::AdmissionError::GuardrailAdmissionConflict => {
+                    ApiError::from_store(niu_storage::StoreError::GuardrailAdmissionConflict)
+                }
                 crate::admission::AdmissionError::Conflict => {
                     ApiError::from_store(niu_storage::StoreError::Conflict)
                 }

@@ -313,6 +313,8 @@ pub enum StoreError {
     KeySpendingLimitExceeded,
     #[error("request source is not allowed by API key policy")]
     KeyIpDenied,
+    #[error("guardrail dispatch admission rejected and rolled back")]
+    GuardrailAdmissionConflict,
     #[error("API key request rate exhausted")]
     KeyRequestRateExceeded,
     #[error("API key request dispatch is disabled by its rate policy")]
@@ -729,7 +731,7 @@ impl Store {
                                     .bind(metadata["key_policy_revision"].as_i64())
                                     .bind(metadata["key_assignment_revision"].as_i64())
                                     .execute(&self.pool).await?;
-                                return Err(StoreError::Conflict);
+                                return Err(StoreError::GuardrailAdmissionConflict);
                             }
                         }
                     }

@@ -39,6 +39,12 @@ impl ApiError {
                 kind: "budget_exceeded",
                 message: "Insufficient available funds for this request",
             },
+            niu_storage::StoreError::GuardrailAdmissionConflict => Self {
+                failure: None,
+                status: StatusCode::CONFLICT,
+                kind: "guardrail_admission_conflict",
+                message: "Guardrail policy rejected dispatch after request inspection; submit a new request under the current policy",
+            },
             niu_storage::StoreError::KeyRequestRateDisabled => Self {
                 failure: None,
                 status: StatusCode::TOO_MANY_REQUESTS,
