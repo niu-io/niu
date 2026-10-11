@@ -32,8 +32,21 @@ This extends the observed workload to offered 12 requests/second. The earlier
 eight-request run used another implementation revision and upstream observations;
 the pair does not isolate the cause of timing differences. Neither establishes
 maximum capacity, production SLOs, overload behavior, media capacity or a matched
-New API baseline. Customer export verification below belongs to the earlier
-eight-request dataset and is not asserted for this new dataset.
+New API baseline.
+
+A separate stopped-database copy of this twelve-request dataset was served by
+this same clean implementation. An ordinary workspace viewer traversed all
+16 request pages, two pages for each of eight key filters, full-range summaries
+and CSV. Independent reopening parsed all original streams again and matched
+all customer rows, native quantities, exact charges and exported records to the
+1,600 actual attempts and debits. Totals were 26,759,399 USD nanounits. Customer
+responses and export headers contained no procurement rates, costs, margins or
+credentials; procurement access returned 403 and foreign-workspace request/export
+access was denied. Restart preserved the summary and byte-identical CSV. Readers
+were revoked; attempt and financial-entry counts were unchanged. The source
+workload evidence and original development database were preserved. This extends
+customer reporting qualification to the current dataset; it is not frontend
+rendering, concurrent reporting-load capacity or a multi-company stress test.
 
 
 ## Eight-request/second sustained checkpoint — 2026-10-12

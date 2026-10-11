@@ -26,9 +26,14 @@ every original-rate customer charge to its debit: 26,759,399 USD nanounits.
 Restart retained all attempts; no customer/procurement hold or request failure
 remained, and temporary keys were revoked.
 
-The earlier eight-request dataset separately verified customer pagination, key
-filters, full-range summaries, CSV and access isolation. Those export checks
-are not asserted for the new twelve-request dataset.
+An ordinary workspace viewer separately traversed all 16 request pages and both
+pages for every key filter on this current dataset. Full-range summaries and CSV
+matched every original usage and charge. Independent reopening re-parsed all
+streams and reconciled the customer rows and export against PostgreSQL. Restart
+preserved the summary and byte-identical CSV. Procurement access returned 403;
+foreign-workspace request/export access was denied. Readers were revoked, with
+no added attempt or financial entry. This verifies reporting and isolation for
+the dataset, not frontend presentation or reporting throughput under load.
 
 Personal upstream access and approved internal verification credit do not imply
 merchant funding or commercial Supplier qualification. Neither measurement
