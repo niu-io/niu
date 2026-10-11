@@ -135,3 +135,26 @@ This extends the earlier short concurrent phases to approximately five minutes
 of paced multi-instance traffic. It establishes the stated text-accounting run,
 not a long soak, maximum throughput, production SLO, streaming/media capacity or
 performance superiority over New API. No fixture result supports this evidence.
+
+### Customer reporting beyond 1,000 actual records
+
+A stopped copy of the 1,600-request database was served by the same clean
+`22d3780` binary with a workspace-scoped viewer. Sixteen 100-entry request pages
+contained every original attempt exactly once. Each page returned the same
+full-range counts, reported tokens and exact 26,740,990 USD-nanounit customer
+total. Filtering each of the eight keys and traversing both pages returned its
+own 200 attempts and corresponding full filtered count.
+
+The customer CSV contained all 1,600 records. Its token/charge rows matched the
+saved HTTP responses and database, and the export remained byte-identical after
+restart. The checked procurement and credential fields were absent from customer
+rows, summaries and CSV headings; the procurement-cost endpoint returned 403.
+Revoking the viewer made subsequent reads return 401. Independent reopening
+reconciled the saved pages and CSV against every original reported usage, key,
+pinned charge and debit. Reporting left attempts and financial totals unchanged.
+
+The first verifier requested a 1,000-entry filtered page and received the correct
+400 because the request-list maximum is 100. The verifier was corrected to follow
+100-entry cursors; no new inference was required. This is evidence for the
+observed API/export boundary beyond 1,000 real rows, not browser qualification,
+concurrent pagination mutation semantics or reporting capacity at arbitrary scale.
