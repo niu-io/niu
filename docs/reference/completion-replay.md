@@ -8,8 +8,11 @@ successful persistence without checking the contradictory record.
 
 The batch completion transaction accepts already-completed records only when
 scope, usage confidence, aggregate token counts and normalized provider model
-match the supplied evidence. Supplied token categories must agree with existing
-values; missing categories can be recorded without changing the terminal attempt.
+match the supplied evidence. Supplied known token categories must agree with existing known
+values. Later evidence can fill unknown fields; a partial replay cannot erase
+already known quantities. The merged input partition must remain within the
+reported aggregate input. Categories can be supplemented without changing the
+terminal attempt.
 A conflicting category or completion rolls back the transaction. Exact replay
 preserves the original completion timestamp. Completion replay does not resubmit
 inference. Priced and unpriced fallback no longer treat an unverified conflict as
@@ -86,3 +89,35 @@ This is an induced scheduling fault over real completed records, not simulated
 upstream usage. It verifies the category-lock correction through the current
 storage caller. It does not qualify concurrent first-completion lock ordering,
 all possible storage deadlocks or deployment to the original running gateway.
+
+
+## Supplementing unknown category fields — 2026-10-11
+
+Completion batching and standalone category persistence now share one scoped,
+transactional write. Previously, an existing partial category row rejected a
+later observation that filled one of its null fields. The shared write keeps
+known quantities, fills only unknown fields and rejects known-value conflicts.
+It validates both the incoming observation and the combined cache-read/write
+partition against the completed attempt's input total. Concurrent observations
+serialize on the category row; batch writes retain their stable lock order.
+Existing customer charges are not repriced by adding category evidence.
+
+A current storage caller used an isolated copy of 114 retained real paid
+completions. An isolated missing-field fault removed one saved cache-write value;
+the independently retained pre-fault category record supplied its actual value
+for recovery. Concurrent batch and standalone supplementation succeeded. A later
+partial observation preserved the newly known value, while a contradictory
+quantity and a foreign-company write were rejected. The fault did not alter the
+original source database or invent an upstream category.
+
+After recovery and gateway restart, independent reopening matched all original
+attempt, category, customer-charge, balance-entry, customer-reservation and
+upstream-reservation table fingerprints. All 114 charges still had one exact
+scoped debit, with no open holds. Caller source and observations remain private.
+Formatting and Clippy completed separately.
+
+This verifies restoring retained known evidence through the current storage
+entrypoints. It does not establish an upstream correction feed, a public manual
+correction API, first settlement of a previously unpriced request, concurrent
+complementary nonzero partitions, or deployment to the original running gateway.
+Those paths still require their own current-input verification.

@@ -984,7 +984,7 @@ impl Store {
                     return Err(StoreError::InvalidUsage);
                 };
                 details.validate_totals(prompt, output)?;
-                categories.push((completion.attempt_id, details));
+                categories.push((completion.attempt_id, completion.scope, details));
             }
             organization_ids.push(completion.scope.organization_id);
             project_ids.push(completion.scope.project_id);
@@ -1065,14 +1065,9 @@ impl Store {
         }
         // Concurrent retries may carry the same completed attempts in different
         // batch orders. Acquire category-row locks in one stable order.
-        categories.sort_unstable_by_key(|(attempt, _)| *attempt);
-        for (attempt, details) in categories {
-            let saved = sqlx::query("INSERT INTO request_token_categories (attempt_id,cached_input_tokens,reasoning_output_tokens,cache_write_input_tokens) VALUES ($1,$2,$3,$4) ON CONFLICT(attempt_id) DO UPDATE SET attempt_id=EXCLUDED.attempt_id WHERE request_token_categories.cached_input_tokens IS NOT DISTINCT FROM EXCLUDED.cached_input_tokens AND request_token_categories.reasoning_output_tokens IS NOT DISTINCT FROM EXCLUDED.reasoning_output_tokens AND request_token_categories.cache_write_input_tokens IS NOT DISTINCT FROM EXCLUDED.cache_write_input_tokens")
-                .bind(attempt).bind(details.cached_input_tokens).bind(details.reasoning_output_tokens).bind(details.cache_write_input_tokens)
-                .execute(&mut *tx).await?;
-            if saved.rows_affected() != 1 {
-                return Err(StoreError::Conflict);
-            }
+        categories.sort_unstable_by_key(|(attempt, _, _)| *attempt);
+        for (attempt, scope, details) in categories {
+            Self::save_request_token_categories_in_tx(&mut tx, scope, attempt, details).await?;
         }
         tx.commit().await?;
         Ok(())
