@@ -122,3 +122,20 @@ liability preservation and subsequent actual streaming/accounting. Nonempty
 image/asset-result and legacy credential domains, populated Supplier qualification
 preservation and large-inventory capacity still need independent current-input
 evidence; it does not qualify the complete rotation issue.
+
+## Clean committed retained-video and Billing checkpoint
+
+A further current-input run on the same clean `ab6f2ff` binary rotated a separate
+isolated database containing an actual generated, unexpired personal video.
+Destination-only startup, authorized result retrieval and restart preserved its
+original URL, identity and retention metadata. Independent AES-GCM authentication,
+original artifact hashes, full FFmpeg decoding and reopened PostgreSQL checked
+the result. No generation or polling was repeated and no customer charge, funding
+receipt, invoice payment or reservation was introduced. Scoped Billing remained
+explicitly owner-funded with no invented settlement quantity; foreign access and
+revoked credentials were denied. The detailed
+[video checkpoint](../releases/video-settlement-quantity-verification.md#current-committed-retained-video-checkpoint)
+records the exact projection, client correction and remaining customer-paid
+settlement limits. Original source databases and deployment identity were not changed.
+This strengthens retained-video evidence with clean committed provenance; it does
+not fill the separate image/asset-result or commercial qualification gaps.
