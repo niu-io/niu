@@ -115,3 +115,34 @@ Supplier earning. Tested SDK source hashes matched the staged additions, built
 separately from unrelated shared-worktree edits. No fixture outcome is evidence.
 This covers the exercised membership lifecycle and boundaries; it does not
 qualify every concurrent grant/revocation race or rendered frontend behavior.
+
+
+## Atomic membership recording under contention
+
+Reviewed 2026-10-12 on clean committed `039960a`. Member grants, role changes and
+revocation now use the existing bounded recording transaction. Individual lock
+waits are limited to 250 ms and individual statements to 2 seconds; pool
+acquisition and whole HTTP duration are not bounded by this helper. Supplier and
+operator row locks, role validation and the membership/audit commit remain in
+the existing caller.
+
+An isolated current-input API run held a Supplier row lock while attempting a
+viewer grant to an actual company operator. Previously the request remained
+pending until the lock was released after 1.6 seconds. With the committed change,
+it returned HTTP 503 in about 264 ms while the lock remained held. Neither a
+membership nor its audit record was inserted. Release and retry created the
+viewer grant and exactly one audit event.
+
+A temporary database trigger then delayed only the membership audit insert,
+after the membership update executed. The statement timeout returned HTTP 503
+and rolled back the attempted manager/inactive change; the viewer grant stayed
+active with its original audit count. Removing the fault and retrying succeeded.
+Restart retained the inactive manager record. Independent database reopening
+matched its role/state and exactly the two successful member-change audits,
+confirmed both timeout diagnostics and removal of the fault, and checked the
+temporary operator's revocation. Existing customer charges remained present;
+no Supplier earning or funding was fabricated. No fixture outcome is evidence.
+
+Membership updates are ordinary writes, not idempotency-key operations: another
+accepted repeat write can add another audit event. This checkpoint does not
+qualify every concurrent grant/revocation race or uncertain commit outcome.
