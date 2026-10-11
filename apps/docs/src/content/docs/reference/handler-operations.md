@@ -5328,7 +5328,7 @@ HTTP 403: Installation write access required.
 
 HTTP 404: Scope unavailable.
 
-HTTP 409: Ineligible completion, changed route, conflicting evidence or model/reference mismatch.
+HTTP 409: Ineligible completion, changed route, conflicting evidence or model/reference mismatch. usage_reconciliation_incomplete means matching provider metadata does not confirm a non-cancelled terminal generation; usage and charges remain unresolved.
 
 HTTP 502: Upstream metadata unavailable, refused, malformed, oversized or timed out.
 

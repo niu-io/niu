@@ -86,3 +86,25 @@ received SSE prefix: one customer hold remained, the two earlier exact debits we
 unchanged, and the incomplete cancellation was excluded from completed latency
 samples. No completion, zero usage or refund was invented for the interrupted
 request. Its eventual upstream settlement remains unresolved by this run.
+
+### Reconciliation refusal for cancelled upstream metadata
+
+For a matching stored generation reference and model, metadata that does not
+confirm a non-cancelled terminal generation now returns HTTP 409 with
+`usage_reconciliation_incomplete`. Route eligibility, reference/model mismatch
+and conflicting evidence retain their separate existing conflict handling.
+The new error does not relax the trusted-usage or completion requirements and
+does not resubmit inference. Token quantities alone do not satisfy this recovery
+path's completion contract.
+
+An actual reconciliation of the retained cancelled native Messages request
+previously returned the generic `conflict_error`. An independent upstream lookup
+confirmed the matching reference/model, `cancelled: true`, null finish reason and
+present native token counts. With the change, the same workflow returned the
+explicit incomplete-reconciliation reason. Independent database reopening
+confirmed the attempt remained `may_have_executed` with unknown usage, no new
+receipt or charge, one unreleased customer hold and two unchanged prior charges.
+Full-row fingerprints for attempts, charges, balance entries/reservations and
+usage receipts were unchanged through the refused reconciliation and restart.
+The isolated copy and original saved database remained separate. Eventual
+settlement of cancelled executions is not qualified by this refusal checkpoint.

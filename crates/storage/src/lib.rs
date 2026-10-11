@@ -329,6 +329,8 @@ pub enum StoreError {
     KeyTokenRateExceeded,
     #[error("Token admission requires bounded supported input and resolved prior usage")]
     KeyTokenBoundRequired,
+    #[error("provider metadata does not confirm completed generation")]
+    UnconfirmedGeneration,
     #[error("usage or execution remains unresolved")]
     Unresolved,
     #[error("invalid account or quota observation")]

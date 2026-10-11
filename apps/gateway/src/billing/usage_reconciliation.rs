@@ -185,7 +185,7 @@ pub(crate) struct ReconcileInput {}
 ///         "description": "Scope unavailable."
 ///       },
 ///       "409": {
-///         "description": "Ineligible completion, changed route, conflicting evidence or model/reference mismatch."
+///         "description": "Ineligible completion, changed route, conflicting evidence or model/reference mismatch. usage_reconciliation_incomplete means matching provider metadata does not confirm a non-cancelled terminal generation; usage and charges remain unresolved."
 ///       },
 ///       "502": {
 ///         "description": "Upstream metadata unavailable, refused, malformed, oversized or timed out."

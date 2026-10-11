@@ -30,13 +30,16 @@ impl OpenRouterUsageObservation {
         let data = &body["data"];
         if data["id"].as_str() != Some(context.generation_id.as_str())
             || data["model"].as_str() != Some(context.upstream_model.as_str())
-            || data["cancelled"].as_bool() != Some(false)
+        {
+            return Err(StoreError::Conflict);
+        }
+        if data["cancelled"].as_bool() != Some(false)
             || !matches!(
                 data["finish_reason"].as_str(),
                 Some("stop" | "length" | "tool_calls")
             )
         {
-            return Err(StoreError::Conflict);
+            return Err(StoreError::UnconfirmedGeneration);
         }
         let prompt = data["native_tokens_prompt"]
             .as_i64()

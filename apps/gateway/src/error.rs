@@ -39,6 +39,12 @@ impl ApiError {
                 kind: "budget_exceeded",
                 message: "Insufficient available funds for this request",
             },
+            niu_storage::StoreError::UnconfirmedGeneration => Self {
+                failure: None,
+                status: StatusCode::CONFLICT,
+                kind: "usage_reconciliation_incomplete",
+                message: "Provider metadata does not confirm a completed generation; usage and charges remain unresolved",
+            },
             niu_storage::StoreError::GuardrailAdmissionConflict => Self {
                 failure: None,
                 status: StatusCode::CONFLICT,
