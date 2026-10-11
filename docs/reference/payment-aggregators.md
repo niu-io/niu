@@ -836,3 +836,19 @@ possible commit boundary. Clients must retain the original idempotency key and
 input after connection loss: absence of an HTTP response never proves that an
 order was not committed. The server may return an already saved order on replay.
 No external payment was initiated and no fixture outcome was used.
+
+### Revocation while checkout waits
+
+On clean `b6ec01f`, an actual company-owner checkout acquired the shared payment
+configuration lock and waited on a separately held company row lock. The
+installation administrator revoked that owner through HTTP before the row lock
+was released. Checkout then returned 401 without an intent, checkout link or
+balance entry. Restart continued to reject the revoked token. Independent
+reopening confirmed the revoked owner, unchanged configuration audit count and
+zero top-up, settlement, funding or balance records.
+
+The verification initially used a row lock that also blocked the revocation audit's
+foreign-key check. That run did not establish the intended ordering. It was
+replaced with `FOR NO KEY UPDATE`, which still blocked checkout's `FOR UPDATE`
+while allowing the revocation audit to commit. The successful run explicitly
+observed guarded admission before revocation; no fixture outcome is evidence.
