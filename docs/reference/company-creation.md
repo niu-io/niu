@@ -65,8 +65,7 @@ trigger was absent. No original database or encryption identity was replaced.
 Formatting, gateway Clippy, optimized compilation, SDK checks/build and generated
 contract checks completed separately; no fixture result supports these claims.
 
-A native upgrade of the original development service to migration 0266 remains
-unverified.
+The subsequent native upgrade through migration 0267 is recorded below.
 
 
 ## Directory traversal verification — 2026-10-11
@@ -106,3 +105,27 @@ The account had zero credit and no funding or ledger entries; the original
 customer-ledger fingerprint was unchanged. This verifies recovery from a lost
 commit acknowledgement for this endpoint, without introducing funds or changing
 the original development database.
+
+
+## Native development upgrade — 2026-10-11
+
+The development gateway now runs the verified native binary corresponding to
+`3bb165b`, including company creation receipts, company-directory pagination and
+shared legacy/canonical workspace creation. Its database advanced from migration
+0265 through 0267 without replacing the original database or encryption identity.
+
+Before replacement, a fresh private PostgreSQL archive was restored into an empty
+isolated database. Independent reopening matched full-row fingerprints for
+companies, workspaces, encrypted Supplier credentials, customer ledger entries,
+video jobs and video transport timings. A separate copy then applied the new
+migrations, preserved those fingerprints across gateway restart, and passed
+workspace page/route reads and offline encryption inspection. Another independent
+reopening checked the upgraded database's persisted fingerprints and migration.
+
+The original service was drained and restarted with its existing environment.
+Configuration files, encrypted credential revisions/ciphertexts and durable record
+counts remained unchanged. Authorized reads returned company and workspace pages
+and resolved the existing workspace route. The company-directory index was valid
+and ready, and offline encryption inspection completed. No funding, company or
+workspace was created in the original database for this upgrade check. This is a
+native development upgrade checkpoint, not container or complete-release acceptance.
