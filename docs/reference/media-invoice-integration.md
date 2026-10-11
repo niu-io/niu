@@ -469,3 +469,20 @@ identities remained unchanged, as did organization, workspace, video-job and
 financial-entry counts on schema 277. Readiness and authenticated published-routing
 status were accessible after refresh. This does not requalify the historical
 performance workloads or claim every financial write path has bounded waits.
+
+
+## Zero-media reservation release guard — 2026-10-12
+
+Invoice issuance now also blocks a zero customer media charge until a released
+reservation exists for the attempt's original balance account, currency and
+workspace. Positive media charges retain their existing exact-debit requirement.
+This keeps issuance from treating a zero liability as settled while its original
+reservation is still held. It changes neither an issued invoice nor financial
+entries, and does not implement retrospective invoice supplements.
+
+Storage compilation completed from a clean committed archive. The changed query
+was prepared and executed read-only against current PostgreSQL records. Neither
+check exercises a populated zero-priced commercial media charge. That branch's
+release/retry, recovery and invoice acceptance remain unverified; no paid media
+record or qualification was fabricated. The native integration runtime remains
+on `cefd284` until this later change is built and verified for deployment.
