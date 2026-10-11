@@ -670,3 +670,18 @@ receipts and balance entries. The expiry run crosses the deadline while the
 transaction is open; it does not rely on a transaction-start timestamp or merely
 submit an already-expired credential. These controlled changes affected isolated
 databases only.
+
+### JavaScript SDK query recovery
+
+`admin.reconcileCustomerTopup(companyId, orderId)` calls the installation-only
+saved-order reconciliation endpoint. Unlike `getCustomerTopup`, it may query the
+original merchant. It never creates a checkout or automatically retries. Handle
+unsupported recovery (501), unavailable/unresolved evidence (502), and permissions
+explicitly; a successful response describes durable status, not necessarily a
+paid order. EPay remains notification-driven and returns 501.
+
+A current-input SDK run against an isolated native gateway returned 501 for an
+existing EPay order, 403 for a company owner, and 404 for a missing order. Reads
+before and after matched. Independent database reopening confirmed the original
+pending checkout and no settlement, closure, funding receipt or balance entry.
+This checks SDK wiring and refusal behavior, not successful merchant recovery.

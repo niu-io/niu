@@ -1029,6 +1029,12 @@ export class NiuAdminClient {
   getCustomerTopup(organizationId: string, orderId: string, options?: RequestOptions): Promise<{ data: CustomerTopup }> {
     return this.request(`/organizations/${uuid(organizationId)}/billing/topups/${uuid(orderId)}`, undefined, options);
   }
+  /** Installation-only original-merchant query recovery. May perform an upstream query;
+   * never creates a checkout or automatically retries. EPay returns unsupported. */
+  reconcileCustomerTopup(organizationId: string, orderId: string, options?: RequestOptions): Promise<{ data: CustomerTopup }> {
+    return this.request(`/organizations/${uuid(organizationId)}/billing/topups/${uuid(orderId)}/reconcile`, {}, options, 'POST');
+  }
+
   getCustomerPaymentMethods(organizationId: string, options?: RequestOptions & { currency?: string; payment_gateway?: CustomerTopupInput['payment_gateway'] }): Promise<{ data: CustomerPaymentMethods }> {
     const { currency, payment_gateway, ...transport } = options ?? {};
     if (payment_gateway !== undefined && !['epay', 'stripe', 'zhifux'].includes(payment_gateway)) throw new Error('Choose a supported payment gateway');
