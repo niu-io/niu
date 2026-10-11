@@ -12940,17 +12940,17 @@ Content type: `application/json`.
 }
 ```
 
-## Create a native nonstreaming text Message
+## Create a native text Message, optionally streamed
 
 `POST /v1/messages`
 
-Requires supports_messages on an OpenRouter or Anthropic route. Uses Niu bearer or x-niu-api-key credentials, workspace grants, source policy, limits, guardrails and billing. Requests are limited to 64 KiB and conservative configured pricing bounds. No Chat translation. Tools, media, beta headers, unsupported fields and streaming are rejected before dispatch. Only version 2023-06-01 is supported (also used when omitted). Native input_tokens excludes cache reads/writes; total input accounting requires all three input categories plus output_tokens. Missing or null categories leave usage unresolved and reservations retained. Separate reasoning rates in the bound base price or a reachable context tier are rejected atomically before dispatch with 422 and x-niu-error-code unsupported_token_pricing; this adapter cannot report reasoning usage. Returned usage is not proof of a settled charge. Upstream commercial metadata is never forwarded. Native SDK and Claude Code compatibility are unverified.
+Requires supports_messages on an OpenRouter or Anthropic route. Uses Niu bearer or x-niu-api-key credentials, workspace grants, source policy, limits, guardrails and billing. Requests are limited to 64 KiB and conservative configured pricing bounds. No Chat translation. Tools, media, beta headers, unsupported fields are rejected before dispatch. Only version 2023-06-01 is supported (also used when omitted). Native input_tokens excludes cache reads/writes; total input accounting requires all three input categories plus output_tokens. Missing or null categories leave usage unresolved and reservations retained. Separate reasoning rates in the bound base price or a reachable context tier are rejected atomically before dispatch with 422 and x-niu-error-code unsupported_token_pricing; this adapter cannot report reasoning usage. Returned usage is not proof of a settled charge. Upstream commercial metadata is never forwarded. Native SDK and Claude Code compatibility are unverified. Streaming additionally requires supports_messages_streaming. Native SSE validates ordered text events and projects customer-safe fields with a 64 KiB per-event limit. Completion requires message_stop; missing terminal evidence, upstream interruption and client cancellation retain uncertainty and reservations. Cumulative usage updates replace earlier counts; never sum deltas or infer missing categories. HTTP 200 alone is not completed usage. No credential switch or inference retry after headers. Required output inspection rejects streaming before dispatch. SDK messages.stream() stops at message_stop; an upstream extra [DONE] is not forwarded.
 
 Implementation: `implemented`. Operation: `createMessage`.
 
 ### Supported scope
 
-Native nonstreaming Messages text only; streaming, tools and media remain unsupported. GenerateContent is a separate operation.
+Native buffered and explicitly opted-in streaming text Messages; tools, media and extended thinking remain unsupported.
 
 ### Authentication
 
@@ -13061,9 +13061,7 @@ Content type: `application/json`.
     },
     "stream": {
       "type": "boolean",
-      "enum": [
-        false
-      ]
+      "default": false
     },
     "temperature": {
       "type": "number",
@@ -13281,6 +13279,15 @@ Content type: `application/json`.
       }
     }
   }
+}
+```
+
+Content type: `text/event-stream`.
+
+```json
+{
+  "type": "string",
+  "description": "Native message_start, text content block events, cumulative message_delta and message_stop. Sanitized error events terminate failed streams."
 }
 ```
 
@@ -17604,6 +17611,11 @@ Local `#/components/schemas/…` references resolve to these definitions.
       "type": "boolean",
       "default": false,
       "description": "Native GenerateContent opt-in for static or managed gemini routes; does not imply streaming, tools or media support."
+    },
+    "supports_messages_streaming": {
+      "type": "boolean",
+      "default": false,
+      "description": "Explicit native text SSE opt-in; requires supports_messages."
     },
     "supports_messages": {
       "type": "boolean",

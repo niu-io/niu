@@ -24,6 +24,7 @@ export type MessagesRequest = {
   top_p?: number;
   stop_sequences?: string[];
 };
+export type MessagesStreamRequest = Omit<MessagesRequest, 'stream'>;
 export type MessagesText = string | Array<{ type: 'text'; text: string; cache_control?: { type: 'ephemeral'; ttl?: '5m' | '1h' } }>;
 export type MessagesResponse = {
   id: string; type: 'message'; role: 'assistant'; model: string;
@@ -358,7 +359,7 @@ export class NiuClient {
   readonly models: { list: (options?: RequestOptions) => Promise<ModelList> };
   readonly embeddings: { create: (request: EmbeddingRequest, options?: RequestOptions) => Promise<EmbeddingResponse> };
   readonly generateContent: (model: string, request: GenerateContentRequest, options?: RequestOptions) => Promise<GenerateContentResponse>;
-  readonly messages: { create: (request: MessagesRequest, options?: RequestOptions) => Promise<MessagesResponse> };
+  readonly messages: { create: (request: MessagesRequest, options?: RequestOptions) => Promise<MessagesResponse>; stream: (request: MessagesStreamRequest, options?: RequestOptions) => AsyncGenerator<unknown> };
   readonly responses: { create: (request: ResponsesRequest, options?: RequestOptions) => Promise<ResponsesResponse>; stream: (request: ResponsesRequest, options?: RequestOptions) => AsyncGenerator<unknown> };
   readonly chat: {
     completions: (request: ChatCompletionRequest, options?: RequestOptions) => Promise<ChatCompletionResponse>;
@@ -454,7 +455,13 @@ export class NiuClient {
       create: (request, requestOptions) => this.request('/embeddings', request, requestOptions),
     };
     this.generateContent = (model, request, options) => this.request(`/models/${encodeURIComponent(model)}:generateContent`, request, options, true);
-    this.messages = { create: (request, requestOptions) => this.request('/messages', request, requestOptions) };
+    this.messages = {
+      create: (request, requestOptions) => {
+        if ((request as { stream?: boolean }).stream === true) throw new Error('Use messages.stream() for streaming requests');
+        return this.request('/messages', request, requestOptions);
+      },
+      stream: (request, requestOptions) => this.streamMessages(request, requestOptions),
+    };
     this.responses = {
       create: (request, requestOptions) => {
         if ((request as { stream?: boolean }).stream === true) throw new Error('Use responses.stream() for streaming requests');
@@ -483,13 +490,22 @@ export class NiuClient {
     return await readPayload(response) as T;
   }
 
+  private async *streamMessages(request: MessagesStreamRequest, options: RequestOptions = {}): AsyncGenerator<unknown> {
+    const response = await this.send('/messages', { ...request, stream: true }, options, 'text/event-stream');
+    if (response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() !== 'text/event-stream' || !response.body) {
+      await response.body?.cancel();
+      throw new Error('Expected an event-stream response');
+    }
+    yield* parseChatStream(response.body, options.signal, 'messages');
+  }
+
   private async *streamResponses(request: ResponsesRequest, options: RequestOptions = {}): AsyncGenerator<unknown> {
     const response = await this.send('/responses', { ...request, stream: true }, options, 'text/event-stream');
     if (response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() !== 'text/event-stream' || !response.body) {
       await response.body?.cancel();
       throw new Error('Expected an event-stream response');
     }
-    yield* parseChatStream(response.body, options.signal, true);
+    yield* parseChatStream(response.body, options.signal, 'responses');
   }
 
   private async *streamChat(request: ChatStreamRequest, options: RequestOptions = {}): AsyncGenerator<unknown> {
@@ -568,7 +584,8 @@ async function readPayload(response: Response): Promise<unknown> {
   try { return text ? JSON.parse(text) : undefined; } catch { return text; }
 }
 
-async function* parseChatStream(body: ReadableStream<Uint8Array>, signal?: AbortSignal, responses = false): AsyncGenerator<unknown> {
+async function* parseChatStream(body: ReadableStream<Uint8Array>, signal?: AbortSignal, protocol: 'chat' | 'responses' | 'messages' = 'chat'): AsyncGenerator<unknown> {
+  const responses = protocol === 'responses';
   const reader = body.getReader();
   const abort = () => { void reader.cancel(signal?.reason).catch(() => {}); };
   signal?.addEventListener('abort', abort, { once: true });
@@ -600,7 +617,7 @@ async function* parseChatStream(body: ReadableStream<Uint8Array>, signal?: Abort
             const event = data.slice(0, -1);
             data = '';
             if (event === '[DONE]') {
-              if (responses) throw new Error('Responses stream ended without a terminal response');
+              if (protocol !== 'chat') throw new Error('Stream ended without its protocol terminal event');
               return;
             }
             const value: unknown = JSON.parse(event);
@@ -608,6 +625,7 @@ async function* parseChatStream(body: ReadableStream<Uint8Array>, signal?: Abort
             if ('error' in value) throw new Error(errorMessage(value, 200));
             if (responses && 'type' in value && value.type === 'response.failed') throw new Error('Upstream response failed');
             yield value;
+            if (protocol === 'messages' && 'type' in value && value.type === 'message_stop') return;
             if (responses && 'type' in value && (value.type === 'response.completed' || value.type === 'response.incomplete')) return;
           }
           errorEvent = false;

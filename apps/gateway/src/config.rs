@@ -100,6 +100,8 @@ pub struct ModelConfig {
     #[serde(default)]
     pub supports_messages: bool,
     #[serde(default)]
+    pub supports_messages_streaming: bool,
+    #[serde(default)]
     pub supports_generate_content: bool,
     #[serde(default)]
     pub api_base: Option<String>,
@@ -277,6 +279,11 @@ impl AppConfig {
             if model.supports_generate_content && model.provider != "gemini" {
                 return Err(ConfigError::Invalid(format!(
                     "GenerateContent capability on route {name} requires a gemini adapter"
+                )));
+            }
+            if model.supports_messages_streaming && !model.supports_messages {
+                return Err(ConfigError::Invalid(format!(
+                    "Streaming Messages on route {name} requires supports_messages"
                 )));
             }
             if model.supports_messages

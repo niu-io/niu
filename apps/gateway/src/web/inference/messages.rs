@@ -18,9 +18,9 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///   "operation": {
 ///     "operationId": "createMessage",
 ///     "x-niu-implementation": "implemented",
-///     "x-niu-status": "Native nonstreaming Messages text only; streaming, tools and media remain unsupported. GenerateContent is a separate operation.",
-///     "summary": "Create a native nonstreaming text Message",
-///     "description": "Requires supports_messages on an OpenRouter or Anthropic route. Uses Niu bearer or x-niu-api-key credentials, workspace grants, source policy, limits, guardrails and billing. Requests are limited to 64 KiB and conservative configured pricing bounds. No Chat translation. Tools, media, beta headers, unsupported fields and streaming are rejected before dispatch. Only version 2023-06-01 is supported (also used when omitted). Native input_tokens excludes cache reads/writes; total input accounting requires all three input categories plus output_tokens. Missing or null categories leave usage unresolved and reservations retained. Separate reasoning rates in the bound base price or a reachable context tier are rejected atomically before dispatch with 422 and x-niu-error-code unsupported_token_pricing; this adapter cannot report reasoning usage. Returned usage is not proof of a settled charge. Upstream commercial metadata is never forwarded. Native SDK and Claude Code compatibility are unverified.",
+///     "x-niu-status": "Native buffered and explicitly opted-in streaming text Messages; tools, media and extended thinking remain unsupported.",
+///     "summary": "Create a native text Message, optionally streamed",
+///     "description": "Requires supports_messages on an OpenRouter or Anthropic route. Uses Niu bearer or x-niu-api-key credentials, workspace grants, source policy, limits, guardrails and billing. Requests are limited to 64 KiB and conservative configured pricing bounds. No Chat translation. Tools, media, beta headers, unsupported fields are rejected before dispatch. Only version 2023-06-01 is supported (also used when omitted). Native input_tokens excludes cache reads/writes; total input accounting requires all three input categories plus output_tokens. Missing or null categories leave usage unresolved and reservations retained. Separate reasoning rates in the bound base price or a reachable context tier are rejected atomically before dispatch with 422 and x-niu-error-code unsupported_token_pricing; this adapter cannot report reasoning usage. Returned usage is not proof of a settled charge. Upstream commercial metadata is never forwarded. Native SDK and Claude Code compatibility are unverified. Streaming additionally requires supports_messages_streaming. Native SSE validates ordered text events and projects customer-safe fields with a 64 KiB per-event limit. Completion requires message_stop; missing terminal evidence, upstream interruption and client cancellation retain uncertainty and reservations. Cumulative usage updates replace earlier counts; never sum deltas or infer missing categories. HTTP 200 alone is not completed usage. No credential switch or inference retry after headers. Required output inspection rejects streaming before dispatch. SDK messages.stream() stops at message_stop; an upstream extra [DONE] is not forwarded.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -119,9 +119,7 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///               },
 ///               "stream": {
 ///                 "type": "boolean",
-///                 "enum": [
-///                   false
-///                 ]
+///                 "default": false
 ///               },
 ///               "temperature": {
 ///                 "type": "number",
@@ -339,6 +337,12 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///                 }
 ///               }
 ///             }
+///           },
+///           "text/event-stream": {
+///             "schema": {
+///               "type": "string",
+///               "description": "Native message_start, text content block events, cumulative message_delta and message_stop. Sanitized error events terminate failed streams."
+///             }
 ///           }
 ///         }
 ///       },
@@ -401,7 +405,12 @@ use std::{sync::atomic::Ordering, time::Duration};
 ///         "description": "Bound pricing requires unsupported token usage categories. No upstream dispatch or balance reservation is committed.",
 ///         "headers": {
 ///           "x-niu-error-code": {
-///             "schema": { "type": "string", "enum": ["unsupported_token_pricing"] }
+///             "schema": {
+///               "type": "string",
+///               "enum": [
+///                 "unsupported_token_pricing"
+///               ]
+///             }
 ///           }
 ///         }
 ///       },
@@ -518,6 +527,7 @@ async fn execute(
         ));
     }
     let bound = validate(&body)?;
+    let streaming = body.get("stream").and_then(Value::as_bool) == Some(true);
     let public_model = body["model"].as_str().unwrap().to_owned();
     if !principal.allows_model(&public_model) {
         return Err(ApiError::not_found());
@@ -534,6 +544,11 @@ async fn execute(
     if !model.supports_messages || !matches!(model.provider.as_str(), "openrouter" | "anthropic") {
         return Err(ApiError::unsupported_message(
             "This route does not declare native Messages support",
+        ));
+    }
+    if streaming && !model.supports_messages_streaming {
+        return Err(ApiError::unsupported_message(
+            "This route does not declare streaming Messages support",
         ));
     }
     let snapshot = inspect_request_input(
@@ -590,7 +605,15 @@ async fn execute(
     let request = client
         .post(endpoint)
         .timeout(timeout)
-        .header("anthropic-version", "2023-06-01");
+        .header("anthropic-version", "2023-06-01")
+        .header(
+            "accept",
+            if streaming {
+                "text/event-stream"
+            } else {
+                "application/json"
+            },
+        );
     let request = if model.provider == "anthropic" {
         request.header("x-api-key", &resolved.api_key)
     } else {
@@ -627,6 +650,22 @@ async fn execute(
         if !response.status().is_success() {
             return Err(provider_rejection(response).await);
         }
+        if streaming {
+            if response.headers().get("content-type").and_then(|v| v.to_str().ok())
+                .and_then(|v| v.split(';').next()).is_none_or(|v| !v.trim().eq_ignore_ascii_case("text/event-stream")) {
+                return Err(ApiError::upstream_invalid_response());
+            }
+            let mut response = Response::new(crate::streaming::tracked_messages_body(
+                response.bytes_stream(), crate::streaming::StreamAttempt {
+                    store:state.store.clone(), gateway_writes:state.gateway_writes.clone(),
+                    diagnostic_writes:state.diagnostic_writes.clone(), scope:dispatch.scope, id:dispatch.attempt,
+                    priced:dispatch.priced, usage:usage_attempt, failures:state.failures.clone(),
+                }, public_model.clone(),
+            ));
+            response.headers_mut().insert("content-type", "text/event-stream".parse().unwrap());
+            response.headers_mut().insert("cache-control", "no-store".parse().unwrap());
+            return Ok(ProviderResponse {response,completed:false,usage:None,token_categories:None,provider_model:None,finish_reasons:None});
+        }
         let value = provider_json(response)
             .await
             .map_err(|_| ApiError::upstream_invalid_response())?;
@@ -661,10 +700,8 @@ fn validate(body: &Value) -> Result<i64, ApiError> {
     }) {
         return Err(invalid());
     }
-    if body.get("stream").is_some_and(|v| v != false) {
-        return Err(ApiError::unsupported_message(
-            "Streaming Messages are not supported",
-        ));
+    if body.get("stream").is_some_and(|v| !v.is_boolean()) {
+        return Err(invalid());
     }
     let model = body
         .get("model")

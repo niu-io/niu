@@ -1,7 +1,9 @@
-//! Bounded Chat and Responses SSE inspection; customer output excludes supplier commercial metadata.
+//! Bounded protocol-specific SSE inspection; customer output excludes supplier commercial metadata.
+mod messages;
 use crate::{admission::GatewayWrites, usage::UsageAttempt};
 use axum::body::{Body, Bytes};
 use futures_util::{Stream, StreamExt};
+pub use messages::tracked_messages_body;
 use niu_storage::TenantScope;
 use serde_json::{Value, json};
 use std::{
@@ -358,12 +360,38 @@ pub struct StreamAttempt {
     pub failures: Arc<AtomicU64>,
 }
 
+struct StreamCompletion {
+    usage: Option<(u64, u64)>,
+    provider_model: Option<String>,
+    token_categories: Option<niu_storage::RequestTokenCategories>,
+    finish_reasons: Option<Vec<niu_storage::RequestChoiceFinish>>,
+    invalid_output: bool,
+}
+
 impl StreamAttempt {
     /// Protocol inspection supplies evidence; this boundary owns durable completion.
     async fn complete(self, evidence: &ChatEvidence) {
-        let usage = evidence.usage();
-        let provider_model = evidence.provider_model().map(str::to_owned);
-        let token_categories = evidence.token_categories();
+        let observation = StreamCompletion {
+            usage: evidence.usage(),
+            provider_model: evidence.provider_model().map(str::to_owned),
+            token_categories: evidence.token_categories(),
+            finish_reasons: evidence.finish_reasons(),
+            invalid_output: evidence
+                .structured
+                .as_ref()
+                .is_some_and(|output| !output.valid()),
+        };
+        self.complete_observation(observation).await;
+    }
+
+    async fn complete_observation(self, observation: StreamCompletion) {
+        let StreamCompletion {
+            usage,
+            provider_model,
+            token_categories,
+            finish_reasons,
+            invalid_output,
+        } = observation;
         let result = if self.priced {
             self.gateway_writes
                 .complete_priced(crate::admission::PricedGatewayCompletion {
@@ -389,7 +417,7 @@ impl StreamAttempt {
             tracing::error!(attempt_id = %self.id, priced = self.priced,
                 "stream completion writer is unavailable; durable execution and reservations remain unresolved");
         }
-        if let Some(choices) = evidence.finish_reasons()
+        if let Some(choices) = finish_reasons
             && self
                 .store
                 .save_request_finish_reasons(self.scope, self.id, choices)
@@ -398,11 +426,7 @@ impl StreamAttempt {
         {
             tracing::error!(attempt_id = %self.id, "stream finish-reason observation could not be saved");
         }
-        if evidence
-            .structured
-            .as_ref()
-            .is_some_and(|output| !output.valid())
-        {
+        if invalid_output {
             self.failures.fetch_add(1, Ordering::Relaxed);
             if self
                 .store

@@ -1,9 +1,9 @@
 # Native inference protocol integration
 
-Status: partial. `POST /v1/messages` implements native nonstreaming text on
-explicitly opted-in OpenRouter and Anthropic routes. Buffered GenerateContent
-text is implemented for static and managed Gemini routes. Native streaming, tools
-and media remain unimplemented. Existing Anthropic/Bedrock
+Status: partial. `POST /v1/messages` implements native buffered text and separately
+opted-in text SSE on OpenRouter and Anthropic routes. Buffered GenerateContent
+text is implemented for static and managed Gemini routes. Native tools, media,
+extended thinking and Gemini streaming remain unimplemented. Existing Anthropic/Bedrock
 conversion behind Chat is separate from this native public operation.
 
 ## Integration boundary
@@ -79,10 +79,11 @@ authentication and Claude Code compatibility are not declared.
 
 The supported document contains `model`, a positive integer `max_tokens`, user
 and assistant `messages`, optional `system`, `temperature`, `top_p`, up to four
-`stop_sequences`, and omitted or false `stream`. Text may be a string or text
+`stop_sequences`, and a boolean `stream` (default false). Streaming additionally
+requires `supports_messages_streaming: true`. Text may be a string or text
 blocks. The JSON body is limited to 64 KiB; configured conservative priced input
 and output bounds also apply. Version `2023-06-01` is fixed, and beta headers,
-unknown fields, tools, media and streaming fail before dispatch. Workspace key
+unknown fields, tools, media and undeclared streaming fail before dispatch. Workspace key
 model grants and the existing admission, billing and inspection mechanisms apply.
 
 The SDK exposes `client.messages.create(request)`. The handler annotation is the
@@ -269,7 +270,8 @@ paths. Successful direct Anthropic generation, its successful catalog responses,
 large/malformed catalog handling and native SDK compatibility remain unverified
 with current real inputs. Existing actual OpenRouter Messages evidence does not
 substitute for direct Anthropic qualification. GenerateContent is a separate operation described below; native
-streaming/tools/media remain outside the implemented Messages subset. No fixture
+streaming/tools/media were outside that Messages checkpoint. The later text SSE
+implementation is described below. No fixture
 outcome was used as evidence.
 
 
@@ -489,8 +491,8 @@ The metadata fetch has a ten-second total deadline and a 256 KiB body limit. Mis
 or refused metadata returns a sanitized 502 without changing accounting. Mismatched
 model/reference, changed configuration and ineligible completion return 409.
 Normalized token counts, upstream costs and inferred alias equivalence are never
-billing inputs. Periodic automatic lookup, streaming and other protocol correlation
-remain outside this implementation.
+billing inputs. Periodic automatic lookup and other protocol correlation remain outside this
+implementation. Opted-in Messages streaming now retains the same private header.
 
 
 A current-input Gateway run saved the real canonical response header despite a
@@ -559,3 +561,65 @@ unknown completion refused supplementation after rotation/disablement and retain
 its original unknown usage, reservation and zero financial entries through restart.
 Invalid upstream quantity classification is implemented but an actual malformed
 upstream metadata response has not been observed in these runs.
+
+
+## Native Messages text streaming
+
+Set both `supports_messages` and `supports_messages_streaming` on the managed
+mapping or static route. The streaming flag defaults to false and cannot be
+configured without Messages support. `stream: true` retains the same bounded
+text request, authorization, inspection, admission and pricing rules. Required
+output inspection rejects this mode before dispatch. There is no provider switch
+or inference retry after response headers. The SDK exposes `messages.stream()`;
+`messages.create()` remains buffered and rejects a true stream flag.
+
+The protocol state machine follows the documented
+[Messages SSE event lifecycle](https://platform.claude.com/docs/en/build-with-claude/streaming).
+It checks start/block/finish order and projects only supported text event fields.
+Each upstream event is limited to 64 KiB, with at most 128 sequential text blocks.
+Unsupported block kinds, malformed data, premature EOF and upstream failures emit
+a sanitized native error event and retain durable execution uncertainty. Arbitrary
+upstream fields, including commercial metadata inside final usage, are discarded.
+The public model alias replaces the upstream model in the customer start event.
+
+Cumulative usage updates replace earlier reported values; they are not summed
+across events. Aggregate input requires ordinary input, cache-read and cache-write
+quantities, and output requires its reported count. Missing categories stay
+unknown. Only `message_stop` confirms completion. OpenRouter's observed extra
+`[DONE]` is neither forwarded nor used as additional evidence. Shared completion
+writers, cancellation diagnostics and financial recovery remain the accounting
+boundary; text SSE has no separate ledger or settlement engine.
+
+### Current-input checkpoint
+
+A direct canonical OpenRouter observation returned native start, text block,
+delta and stop events, followed by an extra `[DONE]`. Its final usage included
+upstream cost metadata and lacked cache-write usage. This observation established
+the actual wire shape; it did not by itself verify Niu.
+
+Subsequent isolated Gateway requests exercised the explicit dated
+`openai/gpt-4.1-mini-2025-04-14` mapping under internal verification rates and
+approved credit. A streaming request without the extra capability returned 501
+before any attempt. After opt-in, both the HTTP stream and JavaScript SDK returned
+the fresh requested text and native terminal event with customer-safe fields.
+The retained payload remained readable. Missing cache-write usage left completion
+known but aggregate usage unknown. Canonical supplemental metadata reconciled one
+request, posting one independently calculated debit and releasing only its hold.
+
+A real long generation was disconnected after its first text delta. Its attempt
+remained `may_have_executed` with unknown usage, a cancellation diagnostic and an
+open reservation; supplementation correctly refused that uncertain execution.
+Restart preserved all three attempts, the single charge/debit and two open holds.
+Independent reopening compared the recorded streams, SDK events, terminal timing,
+original unknown evidence, exact charge and encrypted credential identity.
+Fresh structured Chat streams and buffered/streamed Responses were also exercised
+against the actual personal upstream after the shared completion refactor.
+Independent reopening matched their stored response hashes, usage, exact charges
+and debits. Required output inspection, unsupported tools, an invalid streaming-
+only capability and a revoked key were refused without adding attempts or
+financial records.
+
+This does not qualify direct Anthropic streaming, nonzero native cache pricing,
+malformed upstream event delivery, streaming tools/media/thinking, native SDKs
+other than the Niu SDK, or production capacity. No commercial Supplier agreement,
+funding receipt or fixture outcome was used to establish this checkpoint.

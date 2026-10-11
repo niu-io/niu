@@ -685,6 +685,7 @@ async fn catalog_models(State(state): State<AppState>) -> Result<Json<Value>, Ap
                     "streaming": model.protocol().supports_streaming(),
                     "embeddings": model.supports_embeddings,
                     "messages": model.supports_messages,
+                    "messages_streaming": model.supports_messages_streaming,
                     "generate_content": model.supports_generate_content,
                     "responses": model.supports_responses
                 }
@@ -766,6 +767,7 @@ async fn admin_models(
                 "supports_streaming_tool_calls": model.supports_streaming_tool_calls,
                 "supports_structured_output": model.supports_structured_output,
                 "supports_messages": model.supports_messages,
+                "supports_messages_streaming": model.supports_messages_streaming,
                 "supports_generate_content": model.supports_generate_content,
                 "supports_responses": model.supports_responses
             });
@@ -784,6 +786,7 @@ async fn admin_models(
                     "supports_streaming_tool_calls": model.supports_streaming_tool_calls,
                     "supports_structured_output": model.supports_structured_output,
                     "supports_messages": model.supports_messages,
+                "supports_messages_streaming": model.supports_messages_streaming,
                 "supports_generate_content": model.supports_generate_content,
                     "supports_responses": model.supports_responses
                 })

@@ -815,6 +815,11 @@ pub async fn update(
 ///           "default": false,
 ///           "description": "Native GenerateContent opt-in for static or managed gemini routes; does not imply streaming, tools or media support."
 ///         },
+///         "supports_messages_streaming": {
+///           "type": "boolean",
+///           "default": false,
+///           "description": "Explicit native text SSE opt-in; requires supports_messages."
+///         },
 ///         "supports_messages": {
 ///           "type": "boolean",
 ///           "default": false,
