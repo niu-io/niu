@@ -47,3 +47,33 @@ and `usage.cost`, but no duration or reported billable quantity. That upstream
 expense is not a customer charge and does not establish seconds-based customer
 settlement. This checkpoint verifies current result unavailability and financial
 isolation, not a new video generation, decoded result or customer media debit.
+
+## Bounded deletion checkpoint — 2026-10-12
+
+Implementation `feae5a7` uses the shared bounded recording transaction for result
+deletion. Both retained kinds commit together. Existing deletion markers, expiry
+and nonresurrection rules are unchanged. An unavailable write is not a completed
+deletion: callers must retry and confirm state after resolving contention.
+
+An actual HTTP run copied a stopped database containing a genuinely generated
+personal OpenRouter video. With the result row locked, the preceding immutable
+binary's deletion was still pending after 1.6 seconds. The updated immutable
+binary returned 503 after approximately 258 ms while the lock remained held.
+Complete record fingerprints and result availability remained unchanged after
+this failure. After release, deletion succeeded; repeated deletion, actual
+upstream refresh and Gateway restart did not restore the encrypted reference or
+download access. The succeeded job and owner-funded billing response were
+unchanged, including after restart.
+
+Independent PostgreSQL reopening checked erased references, durable deletion
+markers, the retained completed attempt, restart fingerprints and temporary-key
+revocation. Server logs identified the deletion statement's lock timeout. No new
+generation, customer charge, funding or payment was introduced. This does not
+qualify natural expiry, customer-funded media settlement or deletion throughput.
+The bounds apply to individual transactional statements, not preflight reads,
+pool admission or the whole HTTP request. No fixture outcome is evidence.
+
+A fresh native backup was restored and checked before updating the existing
+installation. Exact binary digests were checked; original configuration,
+encrypted identity and durable counts remained intact on schema 278. Readiness
+and persisted routing agreement were confirmed.
