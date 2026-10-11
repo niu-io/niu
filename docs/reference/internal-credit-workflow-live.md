@@ -650,3 +650,35 @@ one original attempt and no funding receipt or open hold. This is an internal
 balance credit, not an external bank/processor refund or received-money funding.
 Callers must retain the original reversal idempotency key after an uncertain
 response rather than inventing a new refund identity.
+
+
+## Customer warning-policy contention — 2026-10-12
+
+A company owner can change its balance warning threshold, but cannot change the
+installation-approved credit limit. Current-input verification used that actual
+owner session against a copied database containing real model-request charges.
+The approved-credit endpoint rejected the owner with HTTP 403. The warning
+endpoint accepted its current policy revision, but previously waited indefinitely
+on a held organization row lock until it was released after 1.6 seconds.
+
+Warning updates now use the existing financial transaction helper: individual
+lock waits are limited to 250 ms and individual statements to 2 seconds. Pool
+acquisition and the complete HTTP operation are not bounded by this helper. In
+the changed actual run, contention returned HTTP 503 in approximately 257 ms.
+A database read before releasing the lock confirmed the credit amount, warning
+threshold, policy revision and immutable history count were all unchanged.
+Retry after release changed the warning threshold and created one immutable
+policy revision while retaining approved credit. The stale expected revision
+returned HTTP 409 before and after Gateway restart.
+
+Independent reopening matched the exact final policy revision, retained invoice
+and billing-audit counts, original credit amount and a subsequent actual model
+call's saved response usage, charge and debit. No funding receipt or active
+reservation was introduced. The temporary company owner was revoked after the
+run. These observations cover the exercised authorization and contention path;
+they do not qualify every policy/admission race or uncertain commit outcome.
+No fixture result is evidence for this checkpoint.
+
+Clean committed `a2fd658` repeated the actual owner authorization, held-lock,
+retry, restart and subsequent model-call run with independent final database and
+response checks. Its contention response took approximately 258 ms.
