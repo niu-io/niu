@@ -69,6 +69,13 @@ impl AppState {
             niu_storage::Store::connect_with_max_connections(&database_url, max_connections)
                 .await
                 .map_err(|_| "Cannot initialize gateway database")?;
+        if store
+            .encryption_rotation_active()
+            .await
+            .map_err(|_| "Cannot inspect encryption maintenance state")?
+        {
+            return Err("Encryption rotation is incomplete; finish offline maintenance before starting the Gateway".into());
+        }
         let vendor_cipher = env::var("NIU_VENDOR_ENCRYPTION_KEY")
             .ok()
             .map(|key| crate::vendors::crypto::CredentialCipher::new(&key))

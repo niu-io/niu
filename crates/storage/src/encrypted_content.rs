@@ -34,6 +34,16 @@ pub struct EncryptedContent {
 }
 
 impl Store {
+    /// Startup protection for offline maintenance. This does not fence already
+    /// running writers; operators must stop every Gateway before rotation.
+    pub async fn encryption_rotation_active(&self) -> Result<bool, StoreError> {
+        Ok(sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM encryption_rotation_operations WHERE completed_at IS NULL)",
+        )
+        .fetch_one(&self.pool)
+        .await?)
+    }
+
     /// Keyset pages cap binary-source memory at eight retained objects. Do not
     /// filter by expiry, enabled routes, adapter, or current user authorization:
     /// those predicates would hide content needed by a complete key audit.

@@ -252,3 +252,26 @@ the migration source files, matched the restored migration inventory and confirm
 unchanged credential fingerprints, revisions and financial entries. The original
 development database was not modified. This closes an inspection boundary only;
 rotation writing, writer coordination and crash-resume remain unimplemented.
+
+## Offline maintenance startup guard
+
+Migration 270 adds a durable operation history with at most one unfinished
+rotation. Normal Gateway startup refuses an unfinished operation before Supplier
+seeding, listeners or background workers. Completed records cannot be reopened,
+rewritten or deleted through ordinary table mutations. The standalone read-only
+encryption inspector remains available during maintenance.
+
+This is startup protection, not a fence against already running Gateways. All
+writers must still be stopped before the future rotation command begins. No
+rotation command is exposed, no ciphertext is rewritten, and completion of an
+operation must eventually be owned by the complete destination-key scan described
+above. Key-transition binding and progress writes remain to be implemented.
+
+An isolated copy containing actual uncertain admissions exercised two refused
+native startups under an unfinished control record. Read-only inspection still
+succeeded. Completing that isolated control record restored startup without
+performing cryptographic rotation. Independent database reopening verified the
+completed history and unchanged Supplier ciphertext/revisions, attempts, customer
+reservations/ledger and procurement reservations. The binary included shared
+working-tree changes. The original database and deployment key were untouched.
+This verifies the guard only; it does not close issue #9 or qualify key rotation.
