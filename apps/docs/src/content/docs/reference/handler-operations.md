@@ -2870,6 +2870,89 @@ HTTP 403: Credential lacks read permission.
 
 HTTP 404: No authorized workspace matches the reference.
 
+## List an authorized page of workspaces
+
+`GET /admin/v1/workspaces`
+
+Requires installation or member read authorization. Member company/workspace scope is enforced server-side. Stable company/workspace creation order; renaming does not move entries. Follow next_cursor as after with unchanged credentials until null. Pages reflect live state, not a snapshot; restart traversal if a cursor workspace is deleted. UUIDs are routing identifiers, not display labels.
+
+Implementation: `implemented`. Operation: `listWorkspaces`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`after` (query, optional)
+
+Last next_cursor from this authorized traversal.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 1000,
+  "default": 1000
+}
+```
+
+### Responses
+
+HTTP 200: Authorized workspace page, with null next_cursor at the current end.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "next_cursor"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "$ref": "#/components/schemas/WorkspaceDirectoryEntry"
+      }
+    },
+    "next_cursor": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid page size, malformed cursor, or unknown query parameter.
+
+HTTP 401: Missing, invalid, expired or revoked management credential.
+
+HTTP 403: Credential lacks management read access.
+
+HTTP 409: Cursor is missing, deleted or outside the authorized scope. Restart traversal.
+
 ## Rename a workspace
 
 `PATCH /admin/v1/organizations/{organization}/projects/{project}`
@@ -19667,6 +19750,96 @@ Local `#/components/schemas/…` references resolve to these definitions.
         }
       },
       "description": "Complete whole-request schedules; highest inclusive input threshold wins. Null category rates do not inherit the base schedule. Empty array clears tiers; omitting existing tiers conflicts."
+    }
+  }
+}
+```
+
+### WorkspaceDirectoryEntry
+
+```json
+{
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "route_slug",
+    "organization_id",
+    "organization_name",
+    "is_default",
+    "created_at_ms",
+    "active_key_count",
+    "requests_30d",
+    "requests_by_day",
+    "last_request_at_ms"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "name": {
+      "type": "string"
+    },
+    "route_slug": {
+      "type": "string",
+      "maxLength": 81,
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Immutable routing reference; never a display label or authorization grant."
+    },
+    "organization_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "organization_name": {
+      "type": "string"
+    },
+    "is_default": {
+      "type": "boolean"
+    },
+    "created_at_ms": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "active_key_count": {
+      "type": "integer",
+      "format": "int64",
+      "minimum": 0
+    },
+    "requests_30d": {
+      "type": "integer",
+      "format": "int64",
+      "minimum": 0,
+      "description": "Request operations created in the last 30 days; retries count once."
+    },
+    "requests_by_day": {
+      "type": "array",
+      "description": "UTC daily counts for today and the preceding 29 days, including zero days.",
+      "items": {
+        "type": "object",
+        "required": [
+          "start_ms",
+          "request_count"
+        ],
+        "properties": {
+          "start_ms": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "request_count": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "last_request_at_ms": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "int64"
     }
   }
 }

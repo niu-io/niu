@@ -374,6 +374,174 @@ pub struct WorkspacePageQuery {
 /// Bounded current-scope directory in stable company/workspace creation order.
 /// Follow next_cursor as after; missing or foreign cursors return 409.
 /// Concurrent deletion of the cursor requires restarting directory traversal.
+/// ```openapi
+/// {
+///   "path": "/admin/v1/workspaces",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listWorkspaces",
+///     "summary": "List an authorized page of workspaces",
+///     "description": "Requires installation or member read authorization. Member company/workspace scope is enforced server-side. Stable company/workspace creation order; renaming does not move entries. Follow next_cursor as after with unchanged credentials until null. Pages reflect live state, not a snapshot; restart traversal if a cursor workspace is deleted. UUIDs are routing identifiers, not display labels.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "x-niu-implementation": "implemented",
+///     "parameters": [
+///       {
+///         "name": "after",
+///         "in": "query",
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "description": "Last next_cursor from this authorized traversal."
+///       },
+///       {
+///         "name": "limit",
+///         "in": "query",
+///         "schema": {
+///           "type": "integer",
+///           "minimum": 1,
+///           "maximum": 1000,
+///           "default": 1000
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Authorized workspace page, with null next_cursor at the current end.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data",
+///                 "next_cursor"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "items": {
+///                     "$ref": "#/components/schemas/WorkspaceDirectoryEntry"
+///                   }
+///                 },
+///                 "next_cursor": {
+///                   "type": [
+///                     "string",
+///                     "null"
+///                   ],
+///                   "format": "uuid"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid page size, malformed cursor, or unknown query parameter."
+///       },
+///       "401": {
+///         "description": "Missing, invalid, expired or revoked management credential."
+///       },
+///       "403": {
+///         "description": "Credential lacks management read access."
+///       },
+///       "409": {
+///         "description": "Cursor is missing, deleted or outside the authorized scope. Restart traversal."
+///       }
+///     }
+///   },
+///   "schemas": {
+///     "WorkspaceDirectoryEntry": {
+///       "type": "object",
+///       "required": [
+///         "id",
+///         "name",
+///         "route_slug",
+///         "organization_id",
+///         "organization_name",
+///         "is_default",
+///         "created_at_ms",
+///         "active_key_count",
+///         "requests_30d",
+///         "requests_by_day",
+///         "last_request_at_ms"
+///       ],
+///       "properties": {
+///         "id": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "name": {
+///           "type": "string"
+///         },
+///         "route_slug": {
+///           "type": "string",
+///           "maxLength": 81,
+///           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+///           "description": "Immutable routing reference; never a display label or authorization grant."
+///         },
+///         "organization_id": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "organization_name": {
+///           "type": "string"
+///         },
+///         "is_default": {
+///           "type": "boolean"
+///         },
+///         "created_at_ms": {
+///           "type": "integer",
+///           "format": "int64"
+///         },
+///         "active_key_count": {
+///           "type": "integer",
+///           "format": "int64",
+///           "minimum": 0
+///         },
+///         "requests_30d": {
+///           "type": "integer",
+///           "format": "int64",
+///           "minimum": 0,
+///           "description": "Request operations created in the last 30 days; retries count once."
+///         },
+///         "requests_by_day": {
+///           "type": "array",
+///           "description": "UTC daily counts for today and the preceding 29 days, including zero days.",
+///           "items": {
+///             "type": "object",
+///             "required": [
+///               "start_ms",
+///               "request_count"
+///             ],
+///             "properties": {
+///               "start_ms": {
+///                 "type": "integer",
+///                 "format": "int64"
+///               },
+///               "request_count": {
+///                 "type": "integer",
+///                 "format": "int64",
+///                 "minimum": 0
+///               }
+///             }
+///           }
+///         },
+///         "last_request_at_ms": {
+///           "type": [
+///             "integer",
+///             "null"
+///           ],
+///           "format": "int64"
+///         }
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub async fn workspaces(
     State(state): State<AppState>,
     headers: HeaderMap,
