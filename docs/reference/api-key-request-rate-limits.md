@@ -197,3 +197,19 @@ usage against exactly one customer charge and debit at the configured internal
 rates, one attempt, one admission in each policy ledger, and no unreleased
 customer hold. No commercial Supplier or payment activation is asserted. This
 run uses a fresh schema; populated upgrade validation is separate.
+
+A subsequent populated upgrade check copied a stopped version-259 database with
+two actual completed tool turns and customer debits, then started the current
+Gateway to apply 0260. Full-row fingerprints for attempts, charges, balance
+entries/reservations, encrypted configurations, models, rate policies/history,
+admissions and reconciliation receipts were unchanged through another restart.
+An independent verifier reopened the upgraded database and reconciled the original
+response quantities to the two exact charges. Earlier migration checksums stayed
+unchanged. A second stopped version-259 copy retained its already configured zero
+key policy and history through upgrade, with no attempt or charge created.
+
+The development runtime was then backed up and updated to the committed binary.
+Readiness returned 200 at migration 0260; configuration-file hashes, vendor
+ciphertext/revisions and organization, workspace, media-job and financial-entry
+counts were unchanged. The backup archive inventory was readable; this is not a
+claim that the backup itself was restored or that all release gates are complete.
