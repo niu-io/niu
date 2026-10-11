@@ -490,3 +490,33 @@ transitions, not every protocol, unknown-disconnect recovery or maximum capacity
 Personal access and internal credit/rates are not commercial supply or externally
 funded payments. Original deployment data and encrypted identity were unchanged.
 No fixture outcome supports this checkpoint.
+
+
+### Shared Chat and Messages spending identity — 2026-10-12
+
+Clean committed `3a3f02c` used one workspace key for an actual native Messages
+stream and an actual structured Chat completion through the saved personal
+OpenRouter credential. Explicit dated model identity, internal verification
+tariffs and approved credit were used; no commercial agreement or paid top-up
+was implied. Both responses contained their fresh requested markers.
+
+The Messages stream initially retained unknown billable usage. Canonical metadata
+for that same completed generation supplied its native input/output counts,
+matching the terminal stream observation, and enabled original-rate settlement.
+Chat reported native usage directly. Independent reopening parsed the retained
+raw responses and supplemental receipt, checked the original unknown state, and
+recomputed both exact charges and negative balance entries: 25,310 USD nanounits
+in total, attached to the same key.
+
+Setting the lifetime key limit to that total left zero remaining capacity. Both
+Messages and Chat returned 402 without another attempt. After restart, the saved
+limit/commitment response stayed identical and both protocols were refused again.
+Exactly two attempts, two charges and two balance entries remained; there were
+no open customer reservations or funding receipts. The verification key was
+revoked after the run.
+
+This verifies shared settled spending across these two supported protocol shapes
+and persistent denial. It does not verify concurrent cross-protocol reservations,
+rotation during a native Messages hold, Google GenerateContent success, direct
+Anthropic access or customer-funded media. Unknown usage still requires genuine
+terminal evidence rather than an invented zero or inferred quantity.
