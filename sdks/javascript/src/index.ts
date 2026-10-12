@@ -702,6 +702,7 @@ async function* parseChatStream(body: ReadableStream<Uint8Array>, signal?: Abort
 }
 
 export { NiuAdminClient, NiuCollectorClient, chatBranchMessages } from './admin.js';
+export type { ChatDraftPayload, ChatDraftState } from './admin.js';
 export type { OrdinaryAssetGroupDeletionConsentInput, OrdinaryAssetGroupDeletionConsentStatus, AssetManagementConfiguration, AssetManagementConfigurationInput, AssetOperationAuthorizationInput, AssetOperationAuthorization, OrdinaryAssetGroupInput, OrdinaryAssetGroupUpdateInput, OrdinaryAssetGroupUpdatePreparation, OrdinaryAssetGroupUpdateAudit, OrdinaryAssetGroupReadInput, OrdinaryAssetListingInput, OrdinaryAssetListing, OrdinaryAssetListingAudit, OrdinaryAssetLookupInput, OrdinaryAssetLookupAudit, OrdinaryAssetLookupResult } from './admin.js';
 export type { ContextPriceTier, CustomerInvoiceInput, CustomerInvoiceLine } from './admin.js';
 export type { WorkspaceSpendingAccount, WorkspaceSpendingLimit, WorkspaceSpendingLimitRevision } from './admin.js';
