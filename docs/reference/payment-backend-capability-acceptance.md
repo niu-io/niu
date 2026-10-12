@@ -1,6 +1,6 @@
 # Current payment backend capability acceptance
 
-This records actual posted-charge refund evidence toward S06-3. Funding/callback closure is unverified pending nonfixture evidence. Its fixed criterion is unchanged:
+This records actual posted-charge refund and genuine saved-intent negative-protection evidence toward S06-3. Its fixed criterion is unchanged:
 
 > Establish supported funding/refund transitions and negative callback/idempotency protections from actual evidence; merchant activation is not a completion prerequisite.
 
@@ -18,7 +18,7 @@ The real posted-charge refund is independently verified against actual native re
 
 ## Excluded fixture merchant workflow
 
-The unpaid EPay command was executed. Its merchant configuration uses a reserved `.invalid` checkout URL. Its fixture outcomes, including HTTP responses, counts, replay and persistence, are disregarded for diagnosis, correctness, prioritization and readiness. They do not contribute S06-3 acceptance evidence. Nonfixture funding/callback evidence remains to be established from genuine saved configuration and order state.
+The unpaid EPay command was executed. Its merchant configuration uses a reserved `.invalid` checkout URL. Its fixture outcomes, including HTTP responses, counts, replay and persistence, are disregarded for diagnosis, correctness, prioritization and readiness. They do not contribute S06-3 acceptance evidence. The genuine saved-configuration run below supplies a separate nonfixture scope; no fixture outcome contributes to it.
 
 ## Refund of an existing actual charge
 
@@ -30,10 +30,41 @@ Independent reopening confirms exactly one new positive `refund` entry linked to
 
 The resulting credit is an internal ledger refund, not a cash return or payment-processor refund.
 
+## Genuine saved Zhifux intent and disabled automatic queries
+
+A separate run uses Gateway `8bfdef10003eebe9402401247aa52cd69d3a398f`,
+binary SHA-256 `6f5290d182c9bf51de1f2bb8d469067351c9f9771150235adc2917b1d39c6900`,
+and compiled SDK `ce97f3b0116570dfd2a487b802d2d2de18efbf39`. It restores a
+stopped native copy containing an actual uncertain Zhifux intent. The merchant,
+secret, API root and checkout origins exactly match the user's saved real merchant
+configuration. No reserved fixture merchant endpoint is substituted.
+
+`NIU_PAYMENT_POLLING=false` suppresses automatic merchant queries. No explicit
+merchant reconciliation, checkout resubmission or processor call is performed.
+An actual native startup with an invalid flag refuses initialization with a
+sanitized error before database/payment runtime loading. The default enabled
+behavior and callbacks/manual reconciliation contracts are preserved.
+
+Twelve actual HTTP exchanges cover truthful integration inventory and payment
+methods; saved uncertain detail and history; identical creation replay; changed
+amount refusal (409); unsupported currency and sub-minor-unit refusal (400);
+two unsigned nonpaid callback refusals (400); and unchanged detail/replay after
+Gateway restart. Replay returns the saved uncertain intent, not a new checkout
+or paid state. The sub-minor-unit case uses raw HTTP because the current SDK
+rejects that amount locally; the local guard is not server-execution evidence.
+
+Independent reopening checks all response digests and nineteen complete native
+table fingerprints. Financial/request tables, the original order and its single
+creation claim, checkout/provider bindings, notifications, settlements, closures,
+configuration/events, query limits and vendor/model rows remain unchanged.
+No funding receipt, balance credit, payment query claim or generation is added.
+Both Gateway and PostgreSQL are stopped after verification. Original database,
+configuration and encryption identity remain untouched.
+
 ## Scope and remaining evidence
 
 The genuine current run verifies an installation-only refund of an actual posted charge, exact arithmetic, immutable original entries, idempotency, over-refund protection, permission refusal and restart. It does not verify funding-entry reversal or a payment processor refund.
 
-The supported inventory remains EPay, Stripe and native Zhifux, with external refund initiation explicitly unsupported. Merchant activation or a successful external payment is not a backend-readiness prerequisite. That policy does not turn fixture merchant input into acceptance evidence: the current funding/callback closure still requires nonfixture current-input verification.
+The supported inventory remains EPay, Stripe and native Zhifux, with external refund initiation explicitly unsupported. Merchant activation or a successful external payment is not a backend-readiness prerequisite. The genuine saved-intent run verifies unpaid-state preservation, replay and unsigned callback refusal under the supported merchant configuration. Fixture merchant outcomes remain excluded.
 
-No paid callback, received-cash settlement or funding receipt is fabricated. The S06-3 identifier and criterion are unchanged, and the checkpoint remains unverified beyond the genuine posted-charge refund scope documented here.
+No paid callback, received-cash settlement or funding receipt is fabricated. The S06-3 identifier and criterion are unchanged, and the evidence is limited to the genuine posted-charge refund and saved-intent negative scopes documented here. Positive paid/closed settlement, funding-entry reversal and external processor refunds remain unverified or unsupported as specified; successful merchant activation is not imposed as a readiness prerequisite.
