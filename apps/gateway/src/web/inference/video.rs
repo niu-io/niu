@@ -1868,19 +1868,30 @@ pub(super) async fn create_as(
         timeout,
     )
     .await;
+    let upstream_http_status = match &result {
+        Err(
+            niu_media::submission::SubmissionError::UncertainHttpStatus(status)
+            | niu_media::submission::SubmissionError::UncertainHttpResponse { status, .. },
+        ) => Some(i32::from(*status)),
+        _ => None,
+    };
+    let diagnostic = match &result {
+        Err(niu_media::submission::SubmissionError::UncertainHttpResponse {
+            diagnostic, ..
+        }) => Some(niu_storage::MediaTransportDiagnostic {
+            upstream_error_code: diagnostic.error_code.clone(),
+            upstream_request_id: diagnostic.request_id.clone(),
+        }),
+        _ => None,
+    };
     clock
-        .save(
+        .save_with_diagnostics(
             &state,
             scope,
             attempt,
             "submission",
             result.is_ok(),
-            match &result {
-                Err(niu_media::submission::SubmissionError::UncertainHttpStatus(status)) => {
-                    Some(i32::from(*status))
-                }
-                _ => None,
-            },
+            (upstream_http_status, diagnostic.as_ref()),
         )
         .await;
     let bound = match result {
@@ -1895,7 +1906,14 @@ pub(super) async fn create_as(
             .await
             .is_ok(),
         Err(error) => {
-            if let niu_media::submission::SubmissionError::UncertainHttpStatus(status) = error {
+            let status = match error {
+                niu_media::submission::SubmissionError::UncertainHttpStatus(status)
+                | niu_media::submission::SubmissionError::UncertainHttpResponse {
+                    status, ..
+                } => Some(status),
+                _ => None,
+            };
+            if let Some(status) = status {
                 // Persist only a bounded status/classification, never the
                 // upstream body, URL or credential. The pinned media route
                 // excludes text nonexecution/retry classification in storage.
@@ -2159,6 +2177,26 @@ impl TransportClock {
         received: bool,
         upstream_http_status: Option<i32>,
     ) {
+        self.save_with_diagnostics(
+            state,
+            scope,
+            id,
+            phase,
+            received,
+            (upstream_http_status, None),
+        )
+        .await;
+    }
+    async fn save_with_diagnostics(
+        self,
+        state: &AppState,
+        scope: niu_storage::TenantScope,
+        id: Uuid,
+        phase: &'static str,
+        received: bool,
+        response: (Option<i32>, Option<&niu_storage::MediaTransportDiagnostic>),
+    ) {
+        let (upstream_http_status, diagnostic) = response;
         let Some(started_unix_ms) = self.unix_ms else {
             return;
         };
@@ -2175,7 +2213,7 @@ impl TransportClock {
         };
         if state
             .store
-            .record_media_transport_timing(scope, id, &timing)
+            .record_media_transport_timing_with_diagnostics(scope, id, &timing, diagnostic)
             .await
             .is_err()
         {
