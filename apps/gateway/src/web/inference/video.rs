@@ -1286,7 +1286,7 @@ pub(super) async fn estimate_as(
 ///         "description": "Current key request/concurrency limit exceeded."
 ///       },
 ///       "501": {
-///         "description": "Unsupported channel, billing, reference-input or callback contract."
+///         "description": "Unsupported video channel, notification contract, mixed inline/ingested inputs or image idempotency; no upstream dispatch."
 ///       },
 ///       "503": {
 ///         "description": "Qualified offer, original route or storage unavailable."

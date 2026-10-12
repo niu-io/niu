@@ -33,7 +33,8 @@ The IDs must come from the saved ingestion and its latest readiness observation.
 They are routing references, not display names. Missing/false consent, malformed
 IDs and extra fields are refused. Client-supplied Provider `asset://` URIs are
 never accepted. Mixing inline images and ingested references is currently
-unsupported. Image submission with an idempotency key remains unsupported; do
+unsupported and returns 501. Non-Ark reference channels also return 501. Image
+submission with an idempotency key remains unsupported; do
 not interpret that restriction as permission to retry an uncertain generation.
 
 ## Authorization and task lifetime

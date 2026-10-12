@@ -19278,7 +19278,7 @@ HTTP 409: Changed idempotent input or conflicting route/key/policy/offer revisio
 
 HTTP 429: Current key request/concurrency limit exceeded.
 
-HTTP 501: Unsupported channel, billing, reference-input or callback contract.
+HTTP 501: Unsupported video channel, notification contract, mixed inline/ingested inputs or image idempotency; no upstream dispatch.
 
 HTTP 503: Qualified offer, original route or storage unavailable.
 
