@@ -32,3 +32,15 @@ A source comparison from `268c25d` to consolidation baseline `5591a02dd70d7655e5
 Independent charge/debit cardinality and released-hold checks establish the final ledger for each listed scenario. They do not, by themselves, establish every duplicate race. Actual repeated supplementation, replay and restart scopes are described in [completion replay](completion-replay.md); customer refunds and invoice preservation retain their separately exercised scopes. Unknown usage retains liability rather than an invented zero charge. Genuine missing upstream quantities and injected persistence omissions are separate cases.
 
 No retained slice here demonstrates one response with simultaneous nonzero cache read, cache write, reasoning, a context tier and a fixed fee. That combined behavior is unverified. Supplier earning/settlement and paid customer media belong to S05-3; actual received cash and payment callbacks belong to S06-3. This consolidation neither fabricates those outcomes nor makes external account activation a prerequisite for implemented backend capability.
+
+## Current Messages uncertainty and exactly-once supplement
+
+The [current protocol run](inference-protocol-acceptance-matrix.md) independently
+qualifies the missing-aggregate to canonical-receipt recovery at pinned native
+`1212ea3b`, schema 284. Two actual Messages generations initially retain unknown
+usage and one priced hold each. Reconciliation and identical replay obtain the
+original canonical generation metrics; final native records have one charge,
+one debit and one receipt per attempt, no open holds and unchanged other rows.
+Missing cache-write quantity remains null. This adds current recovery evidence;
+it does not replace the separate fee/tier/concurrency slices or promote their
+missing executable identities to verified current-runtime tests.

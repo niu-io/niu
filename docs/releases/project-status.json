@@ -11,8 +11,8 @@
     "S10-2",
     "S03-2",
     "S04-3",
-    "S07-2",
-    "S07-3"
+    "S03-3",
+    "S12-2"
   ],
   "subsystems": [
     {
@@ -140,13 +140,15 @@
           "id": "S03-2",
           "status": "active",
           "acceptance": "Publish a finite supported Chat/Responses/Embeddings/Messages/GenerateContent matrix; qualify declared working combinations and explicit rejection of unsupported ones.",
-          "evidence": [],
-          "evidence_revision": null,
-          "note": ""
+          "evidence": [
+            "docs/reference/inference-protocol-acceptance-matrix.md"
+          ],
+          "evidence_revision": "1212ea3b",
+          "note": "Eight current personal OpenRouter modes, disabled capabilities and native GenerateContent refusals verified; direct Anthropic/Gemini positive execution remains unverified, implementation and external activation distinguished."
         },
         {
           "id": "S03-3",
-          "status": "open",
+          "status": "active",
           "acceptance": "Close material timeout/cancellation/uncertainty and bounded fallback gaps on supported paths; preserve model, credential and financial identity.",
           "evidence": [],
           "evidence_revision": null,
@@ -195,9 +197,11 @@
           "id": "S04-3",
           "status": "active",
           "acceptance": "Document and verify applicable F09 local/external input and output coverage, consent, preview/revision/rollback and fail-closed failure behavior.",
-          "evidence": [],
-          "evidence_revision": null,
-          "note": ""
+          "evidence": [
+            "docs/reference/guardrails-acceptance-matrix.md"
+          ],
+          "evidence_revision": "1212ea3b",
+          "note": "Current local input/preview/revision/rollback/bounded read failure verified. Configured external failure paths and current pinned output enforcement remain unverified; historical output pins absent."
         }
       ]
     },
@@ -297,7 +301,7 @@
       "id": "S07",
       "name": "Request diagnostics and usage reports",
       "lane": "C",
-      "status": "active",
+      "status": "done",
       "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
       "paths": [
         "apps/gateway/src/request_timings.rs",
@@ -322,23 +326,25 @@
         },
         {
           "id": "S07-2",
-          "status": "active",
+          "status": "done",
           "acceptance": "Close one request-to-Logs-to-usage-to-billing/export journey including full-range totals, pagination and unknown/error/timing states on supported protocols.",
           "evidence": [
-            "docs/reference/reporting-acceptance-matrix.md"
+            "docs/reference/reporting-acceptance-matrix.md",
+            "docs/reference/inference-protocol-acceptance-matrix.md"
           ],
           "evidence_revision": "1212ea3b",
-          "note": "Current full-range 19-page/1840 real-request dataset, totals, CSV, restart and customer confidentiality independently verified. Supported mixed-protocol/new-media projection coverage remains explicitly tracked; task stays active until supported matrix consolidation."
+          "note": "Current full-range 19-page real-request matrix plus eight actual mixed-protocol requests/unknown-to-reconciled states; exact native/CSV/totals and customer confidentiality verified. Unqualified new execution belongs to its separate subsystem."
         },
         {
           "id": "S07-3",
-          "status": "active",
+          "status": "done",
           "acceptance": "Verify ordinary customer visibility and procurement confidentiality in all required serialized reports/exports; classify unsupported diagnostic fields.",
           "evidence": [
-            "docs/reference/reporting-acceptance-matrix.md"
+            "docs/reference/reporting-acceptance-matrix.md",
+            "docs/reference/inference-protocol-acceptance-matrix.md"
           ],
           "evidence_revision": "1212ea3b",
-          "note": "Current full-range 19-page/1840 real-request dataset, totals, CSV, restart and customer confidentiality independently verified. Supported mixed-protocol/new-media projection coverage remains explicitly tracked; task stays active until supported matrix consolidation."
+          "note": "Current full-range 19-page real-request matrix plus eight actual mixed-protocol requests/unknown-to-reconciled states; exact native/CSV/totals and customer confidentiality verified. Unqualified new execution belongs to its separate subsystem."
         }
       ]
     },
@@ -536,7 +542,7 @@
       "id": "S12",
       "name": "Runtime operations, recovery and performance",
       "lane": "I",
-      "status": "open",
+      "status": "active",
       "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
       "paths": [
         "apps/gateway/src/main.rs",
@@ -564,7 +570,7 @@
         },
         {
           "id": "S12-2",
-          "status": "open",
+          "status": "active",
           "acceptance": "Consolidate supported restart/drain/migration/backup/recovery and explicit operational connection/deadline limits without container scope expansion.",
           "evidence": [],
           "evidence_revision": null,

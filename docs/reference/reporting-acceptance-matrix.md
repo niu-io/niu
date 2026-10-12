@@ -41,3 +41,21 @@ This supports reuse of the fresh native reporting checkpoint for those unchanged
 The evidence supports the enumerated customer text/category, known-error, unknown-timeout and personal-video reporting paths. The fresh `1212ea3b` checkpoint now closes the previous current-native multi-page evidence gap: all 19 pages and full-range summaries/CSV match independently reopened native accounting. It reuses real saved inference; it does not rerun the historical inference load or qualify new protocol/media execution. Receipt metadata, cancellation-specific timing and other supported protocol details retain their separate evidence in [request failure diagnostics](request-failure-diagnostics.md), [interrupted stream reporting](interrupted-stream-reporting.md), [category reconciliation](customer-charge-reconciliation.md) and [current mixed load](current-authentication-mixed-load.md).
 
 These boundaries must be retained when deciding whether S07-2/S07-3's declared supported matrix is complete. Paid-video charge serialization, new ingested-input positive paths and unexercised diagnostic combinations cannot be inferred from the personal-video or two-row checks. Frontend rendering remains separate ownership. No customer-facing response may expose procurement information even to an installation administrator using a customer workspace report.
+
+## Current mixed-protocol report supplement
+
+The [protocol checkpoint](inference-protocol-acceptance-matrix.md) adds eight real
+current-native Chat, Responses, embeddings and Messages requests. All eight are
+read back through Logs/detail with their exact operation IDs, full-range summary
+and CSV. Independently reopened native records match reported quantities,
+original frozen tariffs, charges and debits; recursive projections exclude
+procurement and margin fields. Genuine initial Messages unknown usage and held
+capacity are preserved, then canonical receipt recovery produces one exact
+charge/debit each and releases the holds without rewriting missing cache-write
+quantity to zero. No generation is repeated for recovery.
+
+Together with current complete pagination, this closes S07-2/S07-3 for the
+supported customer reporting matrix. Unqualified direct-provider execution,
+positive paid media and new ingested-image dispatch retain separate S03/S05/S08
+acceptance; their positive outcomes are not inferred from these report checks.
+New report fields must retain the same backend confidentiality enforcement.
