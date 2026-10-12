@@ -3791,6 +3791,113 @@ HTTP 404: The company from the original idempotent creation was deleted.
 
 HTTP 409: Idempotency-Key was already used with a different name or currency.
 
+## Create a workspace in the selected company
+
+`POST /admin/v1/organizations/{organization}/projects`
+
+Legacy workspace-compatible endpoint. Uses the same company creation authorization and actor-scoped durable Idempotency-Key identity as canonical workspace creation. Returns only id, organization_id and name. Identical retries preserve one workspace; changed retry documents conflict. Workspace members cannot create sibling workspaces. New workspaces do not create funding or credit. Request fields other than name are ignored by the legacy parser.
+
+Implementation: `implemented`. Operation: `createOrganizationWorkspace`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`Idempotency-Key` (header, optional)
+
+Visible ASCII durable retry identity, scoped to the actor.
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 128
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 401: Authentication required.
+
+HTTP 404: Company absent or outside authorized scope.
+
+HTTP 503: Storage unavailable.
+
+HTTP 201: Created workspace or durable replay of its current identity.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "id",
+    "organization_id",
+    "name"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "name": {
+      "type": "string"
+    },
+    "organization_id": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid name or idempotency header.
+
+HTTP 403: Workspace creation denied.
+
+HTTP 409: Conflicting idempotency document.
+
+HTTP 422: Missing or type-invalid name in JSON body.
+
 ## Issue a workspace API key and return its secret once
 
 `POST /admin/v1/organizations/{organization}/projects/{project}/keys`
@@ -4267,6 +4374,79 @@ HTTP 403: Credential lacks management read access.
 HTTP 400: Invalid page size, cursor syntax or unknown query parameter.
 
 HTTP 409: Cursor is missing, deleted or outside current company scope.
+
+## List scoped company workspaces
+
+`GET /admin/v1/organizations/{organization}/projects`
+
+Legacy workspace-compatible endpoint. Installation authority sees up to 1000 company workspaces in creation order; member results are restricted to their authorized scope. Returns id/name only; use canonical workspace listing for richer metadata. Foreign company scope is concealed with 404.
+
+Implementation: `implemented`. Operation: `listOrganizationWorkspaces`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 401: Authentication required.
+
+HTTP 404: Company absent or outside authorized scope.
+
+HTTP 503: Storage unavailable.
+
+HTTP 200: Authorized workspace names.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
+```
 
 ## List saved workspace API-key metadata
 

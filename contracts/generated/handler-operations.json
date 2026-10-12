@@ -3717,6 +3717,177 @@
         ]
       }
     },
+    "/admin/v1/organizations/{organization}/projects": {
+      "post": {
+        "operationId": "createOrganizationWorkspace",
+        "summary": "Create a workspace in the selected company",
+        "description": "Legacy workspace-compatible endpoint. Uses the same company creation authorization and actor-scoped durable Idempotency-Key identity as canonical workspace creation. Returns only id, organization_id and name. Identical retries preserve one workspace; changed retry documents conflict. Workspace members cannot create sibling workspaces. New workspaces do not create funding or credit. Request fields other than name are ignored by the legacy parser.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "description": "Visible ASCII durable retry identity, scoped to the actor."
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Authentication required."
+          },
+          "404": {
+            "description": "Company absent or outside authorized scope."
+          },
+          "503": {
+            "description": "Storage unavailable."
+          },
+          "201": {
+            "description": "Created workspace or durable replay of its current identity.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "organization_id",
+                    "name"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "organization_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid name or idempotency header."
+          },
+          "403": {
+            "description": "Workspace creation denied."
+          },
+          "409": {
+            "description": "Conflicting idempotency document."
+          },
+          "422": {
+            "description": "Missing or type-invalid name in JSON body."
+          }
+        },
+        "x-niu-implementation": "implemented",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listOrganizationWorkspaces",
+        "summary": "List scoped company workspaces",
+        "description": "Legacy workspace-compatible endpoint. Installation authority sees up to 1000 company workspaces in creation order; member results are restricted to their authorized scope. Returns id/name only; use canonical workspace listing for richer metadata. Foreign company scope is concealed with 404.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Authentication required."
+          },
+          "404": {
+            "description": "Company absent or outside authorized scope."
+          },
+          "503": {
+            "description": "Storage unavailable."
+          },
+          "200": {
+            "description": "Authorized workspace names.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "name"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-niu-implementation": "implemented"
+      }
+    },
     "/admin/v1/organizations/{organization}/projects/{project}/keys": {
       "post": {
         "operationId": "issueKey",
