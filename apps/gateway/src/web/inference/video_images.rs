@@ -28,6 +28,10 @@ fn requirements(snapshot: &GuardrailSnapshot) -> Result<BTreeMap<String, Consent
     Ok(bindings)
 }
 
+pub(super) fn inspection_required(snapshot: &GuardrailSnapshot) -> Result<bool, ApiError> {
+    Ok(!requirements(snapshot)?.is_empty())
+}
+
 pub(super) fn permitted(
     state: &AppState,
     snapshot: &GuardrailSnapshot,
@@ -90,6 +94,11 @@ pub(in crate::web) async fn inspect<'a>(
     snapshot: &GuardrailSnapshot,
     body: &mut Value,
 ) -> Result<Vec<InspectedImage<'a>>, ApiError> {
+    // Ordinary schema-approved URLs and inline images are upstream inputs.
+    // Local inspection is required only by an explicit current policy.
+    if !inspection_required(snapshot)? {
+        return Ok(Vec::new());
+    }
     let references: Vec<(usize, String)> = body["content"]
         .as_array()
         .ok_or_else(ApiError::forbidden)?

@@ -851,21 +851,26 @@ pub(super) async fn validate_admission(
             items.iter().enumerate().any(|(position, item)| {
                 !matches!(
                     item.get("type").and_then(Value::as_str),
-                    Some("text" | "image_url")
+                    Some("text" | "image_url" | "audio_url" | "video_url")
                 ) || item["type"] == "image_url"
                     && !item["image_url"]["url"].as_str().is_some_and(|url| {
-                        url.starts_with("data:image/")
+                        url.starts_with("https://")
+                            || url.starts_with("data:image/")
                             || placeholders
                                 .iter()
                                 .any(|(approved_position, approved_uri)| {
                                     *approved_position == position && *approved_uri == url
                                 })
                     })
+                    || matches!(item["type"].as_str(), Some("audio_url" | "video_url"))
+                        && !item[item["type"].as_str().unwrap()]["url"]
+                            .as_str()
+                            .is_some_and(|url| url.starts_with("https://"))
             })
         })
     {
         return Err(ApiError::unsupported_message(
-            "Media-reference video input requires qualified media inspection",
+            "This video channel does not support the requested reference form",
         ));
     }
     let selling = if owner_funded {
@@ -917,7 +922,9 @@ pub(super) async fn validate_admission(
         .ok_or_else(ApiError::forbidden)?;
     let images = has_images(body);
     if !policy_permits_video_with_images(&snapshot, model, &route.vendor.adapter, images)
-        || images && !super::video_images::permitted(state, &snapshot, principal)
+        || images
+            && super::video_images::inspection_required(&snapshot)?
+            && !super::video_images::permitted(state, &snapshot, principal)
     {
         return Err(ApiError::forbidden());
     }
@@ -1067,7 +1074,7 @@ pub(super) async fn estimate_as(
 ///   "operation": {
 ///     "operationId": "createOwnerFundedVideoJob",
 ///     "summary": "Submit a schema-validated video job",
-///     "description": "Personal routes support configured ark-direct-v1 or openrouter-video-v1 channels. Customer-funded video currently requires a qualified ark-direct-v1 route and video_tokens pricing; OpenRouter remains personal-only. Shared routes with a legacy procurement budget are unsupported, while personal routes retain ordinary authorization and key limits. Exactly one upstream submission follows durable dispatch intent. HTTP or transport errors retain submission_unknown and any unresolved liability. Observed non-success HTTP statuses are saved as upstream_http_error in scoped request diagnostics, without upstream bodies or credentials; they do not prove nonexecution or authorize a retry. Fresh creation responses include x-niu-attempt-id. Logs retain the inspected Niu request and delivered Niu creation response for up to 24 hours by default; x-niu-log-payloads: false opts out. Requests larger than the 1 MiB capture bound are not retained. This is not an upstream transport-body capture, and replay does not recreate deleted or expired payloads. Optional workspace-scoped Idempotency-Key supports text-only creation: identical replay returns the original reference and current saved status, including after restart. Changed input conflicts. Unkeyed requests are not idempotent. Configured controls, reference inputs and required inspection remain subject to the selected schema and supported channel. Short-lived ordinary ingested_image references accept Niu ingestion/readiness IDs with explicit consent_to_reuse. Provider asset URIs remain private and are resolved only for the exact selected Ark route. This does not grant durable library or portrait rights; expired, erased, revoked or unavailable bindings fail closed before dispatch. Durable workspace image references do not reuse Provider readiness or old inspection receipts; they undergo fresh current inspection and atomic local-content authorization.",
+///     "description": "Personal routes support configured ark-direct-v1 or openrouter-video-v1 channels. Customer-funded video currently requires a qualified ark-direct-v1 route and video_tokens pricing; OpenRouter remains personal-only. Shared routes with a legacy procurement budget are unsupported, while personal routes retain ordinary authorization and key limits. Exactly one upstream submission follows durable dispatch intent. HTTP or transport errors retain submission_unknown and any unresolved liability. Observed non-success HTTP statuses are saved as upstream_http_error in scoped request diagnostics, without upstream bodies or credentials; they do not prove nonexecution or authorize a retry. Fresh creation responses include x-niu-attempt-id. Logs retain the inspected Niu request and delivered Niu creation response for up to 24 hours by default; x-niu-log-payloads: false opts out. Requests larger than the 1 MiB capture bound are not retained. This is not an upstream transport-body capture, and replay does not recreate deleted or expired payloads. Optional workspace-scoped Idempotency-Key supports text and schema-approved upstream URL creation: identical replay returns the original reference and current saved status, including after restart. Changed input conflicts. Unkeyed requests are not idempotent. Configured controls, reference inputs and required inspection remain subject to the selected schema and supported channel. Ordinary public HTTPS image/audio/video URLs are forwarded only when the exact selected upstream schema supports them. Inline image data follows the configured schema. Explicit required image policies still enforce local inspection; unsupported remote inspection fails closed. Short-lived ordinary ingested_image references accept Niu ingestion/readiness IDs with explicit consent_to_reuse. Provider asset URIs remain private and are resolved only for the exact selected Ark route. This does not grant durable library or portrait rights; expired, erased, revoked or unavailable bindings fail closed before dispatch. Durable workspace image references do not reuse Provider readiness or old inspection receipts; they undergo fresh current inspection and atomic local-content authorization.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1163,7 +1170,69 @@ pub(super) async fn estimate_as(
 ///                           "properties": {
 ///                             "url": {
 ///                               "type": "string",
-///                               "pattern": "^data:image/(png|jpeg|webp);base64,"
+///                               "pattern": "^(https://|data:image/(png|jpeg|webp);base64,)"
+///                             }
+///                           },
+///                           "additionalProperties": false
+///                         },
+///                         "role": {
+///                           "type": "string",
+///                           "description": "Only roles explicitly supported by the selected schema are accepted."
+///                         }
+///                       },
+///                       "additionalProperties": false
+///                     },
+///                     {
+///                       "type": "object",
+///                       "required": [
+///                         "type",
+///                         "audio_url"
+///                       ],
+///                       "properties": {
+///                         "type": {
+///                           "const": "audio_url"
+///                         },
+///                         "audio_url": {
+///                           "type": "object",
+///                           "required": [
+///                             "url"
+///                           ],
+///                           "properties": {
+///                             "url": {
+///                               "type": "string",
+///                               "pattern": "^https://",
+///                               "description": "Public HTTPS input, accepted only when the selected upstream channel and exact model schema support this kind."
+///                             }
+///                           },
+///                           "additionalProperties": false
+///                         },
+///                         "role": {
+///                           "type": "string",
+///                           "description": "Only roles explicitly supported by the selected schema are accepted."
+///                         }
+///                       },
+///                       "additionalProperties": false
+///                     },
+///                     {
+///                       "type": "object",
+///                       "required": [
+///                         "type",
+///                         "video_url"
+///                       ],
+///                       "properties": {
+///                         "type": {
+///                           "const": "video_url"
+///                         },
+///                         "video_url": {
+///                           "type": "object",
+///                           "required": [
+///                             "url"
+///                           ],
+///                           "properties": {
+///                             "url": {
+///                               "type": "string",
+///                               "pattern": "^https://",
+///                               "description": "Public HTTPS input, accepted only when the selected upstream channel and exact model schema support this kind."
 ///                             }
 ///                           },
 ///                           "additionalProperties": false
@@ -1250,7 +1319,7 @@ pub(super) async fn estimate_as(
 ///                     }
 ///                   ]
 ///                 },
-///                 "description": "Ordered configured text/inline-image inputs or Niu ingested_image IDs. Ingested references require current original-account Active observation, retained inspected content and unexpired original grants/consent; dispatch rechecks all bindings atomically. Ark direct only; mixed inline/ingested input and image idempotency are unsupported. Client asset:// URIs are never accepted. Workspace image-library references require explicit processing consent, current workspace ownership and fresh configured inspection. Local bytes are resolved privately and deletion/content identity is rechecked atomically before dispatch. Stored audio/video, mixed ingested/library input and reference idempotency remain unsupported."
+///                 "description": "Ordered model-supported text, image data, public HTTPS image/audio/video URLs or Niu ingested_image IDs. Ingested references require current original-account Active observation, retained inspected content and unexpired original grants/consent; dispatch rechecks all bindings atomically. Ordinary URL inputs require direct Ark and exact schema support; OpenRouter remains text-only. Mixed inline/ingested input and idempotency for locally processed references are unsupported. Client asset:// URIs are never accepted. Workspace image-library references require explicit processing consent, current workspace ownership and fresh configured inspection. Local bytes are resolved privately and deletion/content identity is rechecked atomically before dispatch. Stored audio/video and mixed ingested/library input remain unsupported; canonical idempotency supports ordinary upstream URL requests."
 ///               }
 ///             },
 ///             "additionalProperties": true
@@ -1436,9 +1505,25 @@ pub(super) async fn create_as(
         return replay_submission(&state, &principal, attempt, model).await;
     }
     if identity.is_some() && has_images(&body) {
-        return Err(ApiError::unsupported_message(
-            "Idempotent video submission currently supports text input only",
-        ));
+        let managed_reference = body["content"].as_array().is_some_and(|items| {
+            items.iter().any(|item| {
+                matches!(
+                    item["type"].as_str(),
+                    Some("ingested_image" | "workspace_asset")
+                )
+            })
+        });
+        let snapshot = state
+            .store
+            .guardrail_snapshot(scope, principal.key_id())
+            .await
+            .map_err(ApiError::from_store)?
+            .ok_or_else(ApiError::forbidden)?;
+        if managed_reference || super::video_images::inspection_required(&snapshot)? {
+            return Err(ApiError::unsupported_message(
+                "Idempotent video submission does not support locally processed references",
+            ));
+        }
     }
     let VideoAdmission {
         route,
@@ -1451,6 +1536,9 @@ pub(super) async fn create_as(
         return Err(ApiError::from_store(niu_storage::StoreError::Conflict));
     }
     let images_present = has_images(&body);
+    let references_present = body["content"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| item["type"] != "text"));
     let mut text_body = body.clone();
     let text_positions: Vec<usize> = body["content"]
         .as_array()
@@ -1460,10 +1548,18 @@ pub(super) async fn create_as(
         .filter(|(_, item)| item["type"] == "text")
         .map(|(position, _)| position)
         .collect();
-    if images_present {
-        if text_positions.is_empty() {
+    if references_present {
+        let managed_reference = body["content"].as_array().is_some_and(|items| {
+            items.iter().any(|item| {
+                matches!(
+                    item["type"].as_str(),
+                    Some("ingested_image" | "workspace_asset")
+                )
+            })
+        });
+        if text_positions.is_empty() && managed_reference {
             return Err(ApiError::unsupported_message(
-                "Reference video requires a text prompt",
+                "Locally managed reference video requires a text prompt",
             ));
         }
         text_body["content"] = Value::Array(
@@ -1483,7 +1579,7 @@ pub(super) async fn create_as(
         images_present,
     )
     .await?;
-    if images_present {
+    if references_present {
         for (index, position) in text_positions.iter().enumerate() {
             body["content"][*position] = text_body["content"][index].clone();
         }
