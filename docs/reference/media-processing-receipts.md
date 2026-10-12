@@ -48,3 +48,34 @@ migrations, the immutable receipt trigger and saved response digests. No approva
 model generation or external inspection request was created. An empty receipt
 table is a preservation observation, not positive receipt acceptance. This
 qualifies the exercised migration and refusal boundary, not media enforcement.
+
+## Prepared request bindings and coordinator integration
+
+Migration 289 adds immutable request identity and receipt-to-request bindings.
+Scoped foreign keys, unique approval identity and preparation triggers constrain
+scope, position, policy epochs, schema and the still-undispatched attempt. A
+receipt cannot be reused for a second request. Native revision
+`daf09e6a4299e0e7a3b1e2bc1b0803c7e3afdb82` applied this migration to a stopped
+copy of the preceding actual saved-state run. Actual policy reads/refusals and
+restart preserved the complete original financial, Supplier, model and policy
+records; a separate native reader independently reopened both databases. No
+approval or successful binding was invented to exercise this migration.
+
+The registered coordinator and storage facilities at `3a0fff05` pass clean-tree
+Gateway static checks. The coordinator bounds input positions, reserves required
+detector capacity, checks complete original bytes and supported presentation
+facts before any disclosure, and rechecks current key/model/policy/source access
+before each real detector call. Actual approvals become scoped receipts. Source
+loading must still be bounded by its caller; this does not establish a global
+memory or delivery bound.
+
+`Store::bind_media_request` currently prepares text plus inspected inline WAV/MP3
+audio only. It revalidates the exact body against the current pinned direct Ark
+schema, checks current key/model and route identity, requires all parent/key
+audio detector receipts and binds the exact bytes, body hash and schema. Mixed
+image/video paths and arbitrary remote URLs are rejected by this incremental
+entry point. Final dispatch remains internal and unconnected. The Gateway
+coordinator is compiled but has no active request caller yet. Real positive
+inspection, receipt insertion, request binding, Provider delivery and complete
+mixed-media dispatch remain unverified or unfinished; policy activation stays
+disabled. These facilities do not close S08-2 or qualify Ark service success.
