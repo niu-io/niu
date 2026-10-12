@@ -1,6 +1,6 @@
 # Backend workflow verification status
 
-Reviewed 2026-10-12 against implementation `7234a4ef`; native implementation `7234a4ef`.
+Reviewed 2026-10-12 against implementation `0fe8a71f`; native implementation `0fe8a71f`.
 This is an index of scoped evidence, not a declaration that the complete release
 or New API comparison is qualified. Linked runs identify their own implementation
 revisions. Fixture outcomes provide no evidence. Current-input runs and
@@ -344,3 +344,11 @@ reproduces a real lost turn and verifies atomic revision checks, one concurrent
 winner, persistent opt-in, legacy bypass/resurrection refusal, explicit recreation,
 SDK confirmation and preserved migration/accounting artifacts. Untouched legacy
 resources need frontend adoption; whole Chat/release acceptance remains open.
+
+## Content-free guard scope cleanup
+
+[Current empty-workspace evidence](../reference/chat-guard-scope-cleanup.md)
+verifies removal of only a deleted empty scope's guard identities. Saved content
+and actual request/accounting scopes remain protected; sibling guards and
+complete financial fingerprints are preserved. Broader workspace/frontend
+acceptance remains open.

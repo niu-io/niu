@@ -358,3 +358,10 @@ confirm the mode; stale and compatibility writes cannot overwrite enabled
 resources or resurrect their deleted content. Reconcile 409 rather than retry
 an old body blindly. Actual two-turn, concurrent, restart, migration and SDK
 artifacts were independently checked; untouched legacy resources require adoption.
+
+
+[Content-free guard cleanup](https://github.com/niu-io/niu/blob/main/docs/reference/chat-guard-scope-cleanup.md)
+allows deleting an otherwise empty workspace after conversation erasure. Only
+its write-protection identities cascade; saved content and request/accounting
+records retain their restrictions. Actual API and independent database checks
+confirmed sibling isolation and unchanged financial data.

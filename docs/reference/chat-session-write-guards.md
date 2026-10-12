@@ -62,6 +62,9 @@ Deletion removes the conversation body. A content-free guard identity remains,
 so an old compatibility autosave cannot resurrect it. Explicit null guarded
 creation may recreate that reference with a fresh revision. The retained identity
 contains scope/owner/reference only, with no prompt, response or attachment.
+When an otherwise empty workspace is explicitly deleted, these identities are
+removed with it; [current cleanup evidence](chat-guard-scope-cleanup.md) checks
+that content/request/accounting records retain their deletion restrictions.
 Archive/delete APIs retain their explicit action semantics; they are not newly
 guarded archive/delete operations.
 
