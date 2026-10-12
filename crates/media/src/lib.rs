@@ -311,6 +311,57 @@ impl VideoSchema {
         {
             return Err(ValidationError::InvalidContent);
         }
+        let references: Vec<_> = references
+            .iter()
+            .map(|(position, uri)| (*position, "image_url", *uri))
+            .collect();
+        self.validate_request_with_trusted_asset_references(bytes, &references)
+    }
+
+    /// Gateway-only validation after resolving ACTIVE workspace-owned Provider
+    /// assets. Tuples are the exact content position, declared wire kind and
+    /// private URI returned by storage; never build them from HTTP input.
+    /// This grants no authorization: the Gateway must revalidate the same
+    /// scoped bindings atomically with its final dispatch claim.
+    pub fn validate_request_with_provider_assets(
+        &self,
+        bytes: &[u8],
+        references: &[(usize, &str, &str)],
+    ) -> Result<ValidatedVideoRequest, ValidationError> {
+        self.validate()?;
+        if !references.is_empty()
+            && (self.channel != "ark-direct-v1"
+                || references.len() > self.maximum_content_items
+                || references
+                    .iter()
+                    .enumerate()
+                    .any(|(index, (position, kind, uri))| {
+                        *position >= self.maximum_content_items
+                            || !matches!(*kind, "image_url" | "video_url" | "audio_url")
+                            || references[..index]
+                                .iter()
+                                .any(|(other, _, _)| other == position)
+                            || !uri.strip_prefix("asset://").is_some_and(|id| {
+                                !id.is_empty()
+                                    && id.len() <= 256
+                                    && id.bytes().all(|byte| {
+                                        byte.is_ascii_alphanumeric() || b"_-.:".contains(&byte)
+                                    })
+                            })
+                    }))
+        {
+            return Err(ValidationError::InvalidContent);
+        }
+        self.validate_request_with_trusted_asset_references(bytes, references)
+    }
+
+    // Share parsing, schema roles/counts, ordinary URL rules and effective
+    // controls. Only the closed, exact trusted tuple check permits asset URIs.
+    fn validate_request_with_trusted_asset_references(
+        &self,
+        bytes: &[u8],
+        references: &[(usize, &str, &str)],
+    ) -> Result<ValidatedVideoRequest, ValidationError> {
         if bytes.len() > self.maximum_body_bytes {
             return Err(ValidationError::BodyTooLarge);
         }
@@ -382,22 +433,25 @@ impl VideoSchema {
                     .get("url")
                     .and_then(Value::as_str)
                     .ok_or(ValidationError::InvalidContent)?;
-                let ingested = kind == "image_url"
-                    && url.len() <= rule.maximum_bytes
-                    && references.iter().any(|(approved_position, approved_uri)| {
-                        *approved_position == position && *approved_uri == url
-                    });
+                let trusted = url.len() <= rule.maximum_bytes
+                    && references
+                        .iter()
+                        .any(|(approved_position, approved_kind, approved_uri)| {
+                            *approved_position == position
+                                && *approved_kind == kind
+                                && *approved_uri == url
+                        });
                 if !(rule.https && public_https(url, rule.maximum_bytes))
                     && !valid_data_url(url, rule, kind)
-                    && !ingested
+                    && !trusted
                 {
                     return Err(ValidationError::InvalidContent);
                 }
             }
         }
-        if references.iter().any(|(position, uri)| {
+        if references.iter().any(|(position, kind, uri)| {
             content.get(*position).is_none_or(|item| {
-                item["type"] != "image_url" || item["image_url"]["url"].as_str() != Some(*uri)
+                item["type"] != *kind || item[*kind]["url"].as_str() != Some(*uri)
             })
         }) {
             return Err(ValidationError::InvalidContent);
