@@ -1,8 +1,8 @@
 {
   "version": 1,
   "updated": "2026-10-12",
-  "source_commit": "ef33c5c659a0187f311971cdf24df6c6228de367",
-  "runtime_commit": "45395e7e01917e0691acc9c6b2f303128390bf6b",
+  "source_commit": "748774de938589905520920e649c9f52dfc3409d",
+  "runtime_commit": "4c3def6381e839d1206d5dd13b3b42632b0ef036",
   "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
   "active_implementation_tasks": [
     "S02-3",
@@ -406,10 +406,11 @@
             "docs/reference/workspace-material-video-reference-acceptance.md",
             "docs/reference/video-saved-task-current-acceptance.md",
             "docs/reference/media-reference-facts.md",
-            "docs/reference/media-inspection-contract.md"
+            "docs/reference/media-inspection-contract.md",
+            "docs/reference/media-detector-discovery-acceptance.md"
           ],
           "evidence_revision": "ab33ee17",
-          "note": "Durable library, scoped SDK lifecycle, caps, rotation and current saved real-job matrix are verified. Bounded reference facts and shared ImageV2/MediaV3 exact-content transport implemented; genuine full-byte preparation independently checked without creating approvals. Saved-image atomic coordinator is implemented. Audio/video runtime/consent/receipts/transport handoff/task bindings remain unimplemented, and genuine fresh-inspection/Ark dispatch/deletion race/Provider reuse remain unverified."
+          "note": "Durable library, scoped SDK lifecycle, caps, rotation and saved real-job matrix are verified. Reference facts, shared ImageV2/MediaV3 exact-content transport and kind-bound runtime consent/capacity implemented; current scoped configuration discovery HTTP/SDK/startup/restart independently checked without network or approvals. Saved-image atomic coordinator exists. Audio/video policy activation, durable receipts, Provider handoff and task bindings remain unimplemented; genuine fresh-inspection/Ark dispatch/deletion race/Provider reuse remain unverified."
         },
         {
           "id": "S08-3",
