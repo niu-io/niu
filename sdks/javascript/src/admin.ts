@@ -916,6 +916,16 @@ export class NiuAdminClient {
   }
 
   /** Renaming preserves the backend-assigned routing reference. */
+  /** Workspace-id alias; the legacy company/workspace method remains available. */
+  renameWorkspaceById(workspaceId: string, name: string, options?: RequestOptions): Promise<{ id: string; name: string }> {
+    return this.request(`/workspaces/${uuid(workspaceId)}`, { name }, options, 'PATCH');
+  }
+
+  /** Deletes only an empty workspace under the existing company-owner restrictions. */
+  deleteWorkspaceById(workspaceId: string, options?: RequestOptions): Promise<void> {
+    return this.request(`/workspaces/${uuid(workspaceId)}`, undefined, options, 'DELETE');
+  }
+
   renameWorkspace(scope: TenantScope, name: string, options?: RequestOptions): Promise<{ id: string; name: string }> {
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}`, { name }, options, 'PATCH');
   }
