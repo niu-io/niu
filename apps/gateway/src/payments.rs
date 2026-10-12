@@ -1398,6 +1398,8 @@ pub(crate) async fn topup_status(
 }
 
 /// Installation-only recovery endpoint, not a customer self-funding API.
+/// Already paid or closed orders return their durable status without querying
+/// an upstream merchant; authorization and organization scope still apply.
 /// ```openapi
 /// {
 ///   "path": "/admin/v1/organizations/{organization}/billing/topups/{order}/reconcile",
@@ -1405,7 +1407,7 @@ pub(crate) async fn topup_status(
 ///   "operation": {
 ///     "operationId": "reconcileCustomerTopup",
 ///     "summary": "Independently reconcile a saved payment",
-///     "description": "Installation administrator only. Queries the original configured merchant under bounded query admission. Exact verified paid evidence funds atomically once; verified closed evidence records closure without funding. Never creates a checkout or automatically retries. A successful response reports durable status, not necessarily paid. EPay query recovery is unsupported (501); signed notifications remain available. Merchant activation and received-cash funding require separate deployment evidence.",
+///     "description": "Installation administrator only. Queries the original configured merchant under bounded query admission. Exact verified paid evidence funds atomically once; verified closed evidence records closure without funding. Never creates a checkout or automatically retries. Already paid or closed orders return their durable status without requiring merchant configuration or an upstream query. A successful response reports durable status, not necessarily paid. EPay query recovery is unsupported (501); signed notifications remain available. Merchant activation and received-cash funding require separate deployment evidence.",
 ///     "responses": {
 ///       "200": {
 ///         "description": "Saved top-up status; checkout and pending status confer no spending capacity",
@@ -1541,6 +1543,25 @@ pub(crate) async fn reconcile(
         .await
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::not_found)?;
+    // Terminal status is durable local evidence. Replaying recovery must not
+    // require merchant credentials or reinterpret a later upstream response.
+    // The installation authorization and scoped order lookup above still gate
+    // this read; neither branch creates or reverses a funding entry.
+    if state
+        .store
+        .customer_topup_paid(organization, order)
+        .await
+        .map_err(ApiError::from_store)?
+        == Some(true)
+        || state
+            .store
+            .customer_topup_closed(organization, order)
+            .await
+            .map_err(ApiError::from_store)?
+            == Some(true)
+    {
+        return topup_response(&state, organization, order).await;
+    }
     match saved.aggregator.as_str() {
         "stripe" => return reconcile_stripe(&state, &saved).await,
         "zhifux" => {}
