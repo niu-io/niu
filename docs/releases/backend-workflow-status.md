@@ -1,6 +1,6 @@
 # Backend workflow verification status
 
-Reviewed 2026-10-12 against implementation `a78769f`; native implementation `a78769f`.
+Reviewed 2026-10-12 against implementation `8aba958`; native implementation `8aba958`.
 This is an index of scoped evidence, not a declaration that the complete release
 or New API comparison is qualified. Linked runs identify their own implementation
 revisions. Fixture outcomes provide no evidence. Current-input runs and
@@ -186,3 +186,12 @@ Missing/foreign cursors, bad limits, lock refusal, scope and restart were exerci
 and independently reopened against native metadata and unchanged accounting.
 The [page contract](../reference/workspace-key-directory.md#optional-bounded-pages--2026-10-12)
 records the separate concurrency, scale and browser verification boundaries.
+
+
+The latest [key page SQL checkpoint](../reference/workspace-key-directory.md#page-activity-lookup-cost--2026-10-12)
+selects each page before dispatch-activity lookup and independently checks
+page-sized activity probes on a retained real directory. Actual HTTP/SDK traversal,
+scoped refusals, lock recovery and restart preserve exact existing financial
+history. Key rows still scan/sort; arbitrary-directory capacity is unverified.
+Native refresh followed a fresh isolated backup restore and retained existing
+configuration, encrypted identities and durable counts.
