@@ -8,8 +8,11 @@ impl Store {
         &self,
         vendor: Uuid,
     ) -> Result<Option<Value>, StoreError> {
-        Ok(sqlx::query_scalar("SELECT jsonb_build_object('requests_per_minute',requests_per_minute,'revision',revision::text) FROM vendor_request_rate_limits WHERE vendor_id=$1")
-            .bind(vendor).fetch_optional(&self.pool).await?)
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        let result = sqlx::query_scalar("SELECT jsonb_build_object('requests_per_minute',requests_per_minute,'revision',revision::text) FROM vendor_request_rate_limits WHERE vendor_id=$1")
+            .bind(vendor).fetch_optional(&mut *snapshot).await?;
+        snapshot.commit().await?;
+        Ok(result)
     }
 
     pub async fn vendor_request_rate_history(
@@ -21,8 +24,11 @@ impl Store {
         if !(1..=100).contains(&limit) || before.is_some_and(|n| n <= 0) {
             return Err(StoreError::InvalidKey);
         }
-        Ok(sqlx::query_scalar("SELECT jsonb_build_object('requests_per_minute',requests_per_minute,'revision',revision::text,'recorded_at',recorded_at,'actor_kind',CASE WHEN actor_operator_id IS NULL THEN 'installation' ELSE 'member' END,'actor_name',actor_name) FROM vendor_request_rate_history WHERE vendor_id=$1 AND ($2::bigint IS NULL OR revision<$2) ORDER BY revision DESC LIMIT $3")
-            .bind(vendor).bind(before).bind(limit).fetch_all(&self.pool).await?)
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        let result = sqlx::query_scalar("SELECT jsonb_build_object('requests_per_minute',requests_per_minute,'revision',revision::text,'recorded_at',recorded_at,'actor_kind',CASE WHEN actor_operator_id IS NULL THEN 'installation' ELSE 'member' END,'actor_name',actor_name) FROM vendor_request_rate_history WHERE vendor_id=$1 AND ($2::bigint IS NULL OR revision<$2) ORDER BY revision DESC LIMIT $3")
+            .bind(vendor).bind(before).bind(limit).fetch_all(&mut *snapshot).await?;
+        snapshot.commit().await?;
+        Ok(result)
     }
 
     pub async fn set_vendor_request_rate_policy(
@@ -38,7 +44,7 @@ impl Store {
         {
             return Err(StoreError::InvalidKey);
         }
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         let (actor_id, name) = match actor {
             OperatorAuditActor::Installation => (None, "Installation administrator".to_owned()),
             OperatorAuditActor::Operator(id) => {
