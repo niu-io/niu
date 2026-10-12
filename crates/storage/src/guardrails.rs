@@ -133,7 +133,10 @@ impl Store {
         scope: TenantScope,
         key: uuid::Uuid,
     ) -> Result<Option<GuardrailSnapshot>, StoreError> {
-        Self::guardrail_snapshot_using(&self.pool, scope, key).await
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        let result = Self::guardrail_snapshot_using(&mut *snapshot, scope, key).await?;
+        snapshot.commit().await?;
+        Ok(result)
     }
     pub(crate) async fn guardrail_snapshot_using<'e, E>(
         executor: E,
