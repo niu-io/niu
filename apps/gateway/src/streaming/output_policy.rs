@@ -270,7 +270,12 @@ impl Collector {
             .ok_or("invalid Responses output")?;
         let mut expected = BTreeMap::new();
         for (oi, item) in output.iter().enumerate() {
-            if item["type"] != "message" || item["role"] != "assistant" {
+            if item["type"] != "message"
+                || item["role"] != "assistant"
+                || item["id"]
+                    .as_str()
+                    .is_none_or(|id| id.trim().is_empty() || id.len() > 200)
+            {
                 return Err("unsupported Responses output item");
             }
             for (ci, part) in item["content"]
