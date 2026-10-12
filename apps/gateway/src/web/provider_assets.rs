@@ -1805,7 +1805,7 @@ pub(super) async fn get_group(
     if data.model != input.model
         || data.vendor_id() != route.vendor_id()
         || data.vendor_revision() != route.vendor_revision()
-        || data.model_revision() != route.model_revision()
+        || data.private_upstream_model() != route.upstream_model()
     {
         return Err(ApiError::not_found());
     }
@@ -1915,7 +1915,7 @@ pub(super) async fn get_asset(
     if data.model != input.model
         || data.vendor_id() != route.vendor_id()
         || data.vendor_revision() != route.vendor_revision()
-        || data.model_revision() != route.model_revision()
+        || data.private_upstream_model() != route.upstream_model()
     {
         return Err(ApiError::not_found());
     }
@@ -2025,7 +2025,7 @@ pub(super) async fn get_operation(
     if data.model != input.model
         || data.vendor_id() != route.vendor_id()
         || data.vendor_revision() != route.vendor_revision()
-        || data.model_revision() != route.model_revision()
+        || data.private_upstream_model() != route.upstream_model()
     {
         return Err(ApiError::not_found());
     }
@@ -2141,7 +2141,7 @@ pub(super) async fn refresh_group(
     if saved.model != input.model
         || saved.vendor_id() != route.vendor_id()
         || saved.vendor_revision() != route.vendor_revision()
-        || saved.model_revision() != route.model_revision()
+        || saved.private_upstream_model() != route.upstream_model()
     {
         return Err(ApiError::not_found());
     }
@@ -2281,7 +2281,7 @@ pub(super) async fn refresh_asset(
     if saved.model != input.model
         || saved.vendor_id() != route.vendor_id()
         || saved.vendor_revision() != route.vendor_revision()
-        || saved.model_revision() != route.model_revision()
+        || saved.private_upstream_model() != route.upstream_model()
     {
         return Err(ApiError::not_found());
     }
