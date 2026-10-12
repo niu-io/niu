@@ -2136,7 +2136,7 @@ pub async fn projects(
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "listKeys",
-///     "summary": "List workspace API-key metadata (up to 1000 records)",
+///     "summary": "List saved workspace API-key metadata",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -2175,7 +2175,6 @@ pub async fn projects(
 ///               "properties": {
 ///                 "data": {
 ///                   "type": "array",
-///                   "maxItems": 1000,
 ///                   "items": {
 ///                     "$ref": "#/components/schemas/WorkspaceKey"
 ///                   }
@@ -2207,7 +2206,7 @@ pub async fn projects(
 ///       }
 ///     },
 ///     "x-niu-implementation": "implemented",
-///     "description": "Requires workspace read access. Workspace API keys do not authorize these management operations."
+///     "description": "Requires workspace read access. Workspace API keys do not authorize these management operations. Returns the complete saved directory in creation-time/routing-reference order; this compatibility response has no continuation cursor. Storage reads use transaction-local 250 ms lock and 2 s statement limits. Timeout returns sanitized 503, never empty or truncated success; pool admission and the complete HTTP deadline are separate. Internal IDs are API routing references, not product labels."
 ///   },
 ///   "schemas": {
 ///     "WorkspaceKey": {

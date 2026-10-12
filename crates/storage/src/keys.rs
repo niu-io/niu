@@ -129,8 +129,11 @@ impl Store {
     }
 
     pub async fn list_keys(&self, scope: TenantScope) -> Result<Vec<KeyView>, StoreError> {
-        Ok(sqlx::query_as("SELECT k.id,k.revision,k.name,k.allowed_models,floor(extract(epoch FROM k.expires_at)*1000)::bigint AS expires_at_ms,floor(extract(epoch FROM activity.dispatched_at)*1000)::bigint AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= clock_timestamp() AS expired FROM api_keys k LEFT JOIN LATERAL (SELECT a.dispatched_at FROM attempts a WHERE a.organization_id=k.organization_id AND a.project_id=k.project_id AND a.api_key_id=k.id AND a.dispatched_at IS NOT NULL ORDER BY a.dispatched_at DESC LIMIT 1) activity ON true WHERE k.organization_id=$1 AND k.project_id=$2 ORDER BY k.created_at,k.id LIMIT 1000")
-            .bind(scope.organization_id).bind(scope.project_id).fetch_all(&self.pool).await?)
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        let keys = sqlx::query_as("SELECT k.id,k.revision,k.name,k.allowed_models,floor(extract(epoch FROM k.expires_at)*1000)::bigint AS expires_at_ms,floor(extract(epoch FROM activity.dispatched_at)*1000)::bigint AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= clock_timestamp() AS expired FROM api_keys k LEFT JOIN LATERAL (SELECT a.dispatched_at FROM attempts a WHERE a.organization_id=k.organization_id AND a.project_id=k.project_id AND a.api_key_id=k.id AND a.dispatched_at IS NOT NULL ORDER BY a.dispatched_at DESC LIMIT 1) activity ON true WHERE k.organization_id=$1 AND k.project_id=$2 ORDER BY k.created_at,k.id")
+            .bind(scope.organization_id).bind(scope.project_id).fetch_all(&mut *snapshot).await?;
+        snapshot.commit().await?;
+        Ok(keys)
     }
 
     /// Edit metadata without replacing the secret or extending its expiration.

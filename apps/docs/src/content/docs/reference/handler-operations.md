@@ -3765,11 +3765,11 @@ HTTP 400: Invalid page size, cursor syntax or unknown query parameter.
 
 HTTP 409: Cursor is missing, deleted or outside current company scope.
 
-## List workspace API-key metadata (up to 1000 records)
+## List saved workspace API-key metadata
 
 `GET /admin/v1/organizations/{organization}/projects/{project}/keys`
 
-Requires workspace read access. Workspace API keys do not authorize these management operations.
+Requires workspace read access. Workspace API keys do not authorize these management operations. Returns the complete saved directory in creation-time/routing-reference order; this compatibility response has no continuation cursor. Storage reads use transaction-local 250 ms lock and 2 s statement limits. Timeout returns sanitized 503, never empty or truncated success; pool admission and the complete HTTP deadline are separate. Internal IDs are API routing references, not product labels.
 
 Implementation: `implemented`. Operation: `listKeys`.
 
@@ -3820,7 +3820,6 @@ Content type: `application/json`.
   "properties": {
     "data": {
       "type": "array",
-      "maxItems": 1000,
       "items": {
         "$ref": "#/components/schemas/WorkspaceKey"
       }
