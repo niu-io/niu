@@ -1,6 +1,6 @@
 # Backend workflow verification status
 
-Reviewed 2026-10-12 against implementation `0fe8a71f`; native implementation `0fe8a71f`.
+Reviewed 2026-10-12 against implementation `d6304757`; native implementation `d6304757`.
 This is an index of scoped evidence, not a declaration that the complete release
 or New API comparison is qualified. Linked runs identify their own implementation
 revisions. Fixture outcomes provide no evidence. Current-input runs and
@@ -352,3 +352,10 @@ verifies removal of only a deleted empty scope's guard identities. Saved content
 and actual request/accounting scopes remain protected; sibling guards and
 complete financial fingerprints are preserved. Broader workspace/frontend
 acceptance remains open.
+
+## Supplier credential RPM controls
+
+[Current credential-limit evidence](../reference/supplier-credential-rate-controls.md)
+verifies bounded policy/history/update failure, audit-insert rollback, independent
+local windows and two actual correctly debited generations. This is personal
+upstream testing, not distinct external accounts or commercial qualification.
