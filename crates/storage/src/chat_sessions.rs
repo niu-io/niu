@@ -356,7 +356,7 @@ impl Store {
         }
         let mut tx = self.begin_bounded_recording().await?;
         let revision = match condition {
-            ChatWriteCondition::Any => sqlx::query_scalar("INSERT INTO chat_sessions (id,organization_id,project_id,owner,payload) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (organization_id,project_id,owner,id) DO UPDATE SET payload=EXCLUDED.payload,updated_at=clock_timestamp(),write_revision=nextval('chat_session_write_revisions') WHERE NOT chat_sessions.guarded_writes RETURNING write_revision")
+            ChatWriteCondition::Any => sqlx::query_scalar("INSERT INTO chat_sessions (id,organization_id,project_id,owner,payload) SELECT $1,$2,$3,$4,$5 WHERE NOT EXISTS(SELECT 1 FROM chat_session_guarded_keys WHERE organization_id=$2 AND project_id=$3 AND owner=$4 AND session_id=$1) ON CONFLICT (organization_id,project_id,owner,id) DO UPDATE SET payload=EXCLUDED.payload,updated_at=clock_timestamp(),write_revision=nextval('chat_session_write_revisions') WHERE NOT chat_sessions.guarded_writes RETURNING write_revision")
                 .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(payload)
                 .fetch_optional(&mut *tx).await?,
             ChatWriteCondition::Missing => sqlx::query_scalar("INSERT INTO chat_sessions (id,organization_id,project_id,owner,payload,guarded_writes) VALUES ($1,$2,$3,$4,$5,true) ON CONFLICT (organization_id,project_id,owner,id) DO NOTHING RETURNING write_revision")
@@ -367,6 +367,11 @@ impl Store {
                 .fetch_optional(&mut *tx).await?,
         };
         let revision = revision.ok_or(StoreError::Conflict)?;
+        if !matches!(condition, ChatWriteCondition::Any) {
+            sqlx::query("INSERT INTO chat_session_guarded_keys (organization_id,project_id,owner,session_id) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING")
+                .bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(id)
+                .execute(&mut *tx).await?;
+        }
         tx.commit().await?;
         Ok(revision)
     }
