@@ -3,14 +3,14 @@
 Baseline v1; updated 2026-10-12.
 Committed audit source `4a459338`; native implementation `186662c5`.
 
-**Backend acceptance checkpoints: 16/36 recorded complete at their evidence pins.**
+**Backend acceptance checkpoints: 17/36 recorded complete at their evidence pins.**
 **Whole backend subsystems closed: 0/12.**
 These are acceptance-checkpoint counts, not coding percentage, fresh execution of every path or release readiness.
 Existing scoped evidence is carried forward explicitly. Missing evidence remains open; fixture outcomes have zero signal.
 
 Source of truth: [project-status.json](project-status.json). Scope changes require a versioned reason; they cannot silently change the denominator.
 Status meanings: open = unfinished; active = explicitly assigned current work; blocked = identified dependency prevents progress; done = every stated criterion has evidence; delegated/deferred = separate ownership or excluded scope.
-Active implementation: S01-3, S02-3, S08-2, S05-2, S06-2, S10-2. Assignments use stable task IDs.
+Active implementation: S01-3, S02-3, S08-2, S05-2, S10-2. Assignments use stable task IDs.
 
 | Subsystem | Owner lane | Status | Completed checks | Dependencies |
 | --- | --- | --- | ---: | --- |
@@ -19,7 +19,7 @@ Active implementation: S01-3, S02-3, S08-2, S05-2, S06-2, S10-2. Assignments use
 | S03 Inference protocols and route coordination | B | open | 1/3 | S02, S04, S05 |
 | S04 Key controls and Guardrails | A | open | 2/3 | S01 |
 | S05 Pricing, balance, charging and reconciliation | B | active | 1/3 | S01 |
-| S06 Payment integration capability | B | active | 1/3 | S05 |
+| S06 Payment integration capability | B | open | 2/3 | S05 |
 | S07 Request diagnostics and usage reports | C | open | 1/3 | S03, S05 |
 | S08 Video jobs, results and assets | C | active | 1/3 | S02, S04, S05 |
 | S09 Durable Chat | C | open | 1/3 | S01, S03, S07 |
@@ -76,7 +76,7 @@ Active implementation: S01-3, S02-3, S08-2, S05-2, S06-2, S10-2. Assignments use
 | ID | Status | Acceptance | Evidence pin |
 | --- | --- | --- | --- |
 | S06-1 | done | An administrator can read the truthful supported integration inventory independently of checkout activation. | [record](../../docs/reference/payment-aggregators.md) (`3fdc669c`) |
-| S06-2 | active | Publish the supported checkout, signed notification/query, duplicate, currency/amount verification and recovery inventory with exact interfaces. | Missing / not yet accepted |
+| S06-2 | done | Publish the supported checkout, signed notification/query, duplicate, currency/amount verification and recovery inventory with exact interfaces. | [record](../../docs/reference/payment-capability-matrix.md) (`af34b6a3`) |
 | S06-3 | open | Establish supported funding/refund transitions and negative callback/idempotency protections from actual evidence; merchant activation is not a completion prerequisite. | Missing / not yet accepted |
 
 ### S07 — Request diagnostics and usage reports

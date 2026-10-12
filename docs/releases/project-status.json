@@ -9,7 +9,6 @@
     "S02-3",
     "S08-2",
     "S05-2",
-    "S06-2",
     "S10-2"
   ],
   "subsystems": [
@@ -244,7 +243,7 @@
       "id": "S06",
       "name": "Payment integration capability",
       "lane": "B",
-      "status": "active",
+      "status": "open",
       "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
       "paths": [
         "apps/gateway/src/payments.rs",
@@ -268,11 +267,13 @@
         },
         {
           "id": "S06-2",
-          "status": "active",
+          "status": "done",
           "acceptance": "Publish the supported checkout, signed notification/query, duplicate, currency/amount verification and recovery inventory with exact interfaces.",
-          "evidence": [],
-          "evidence_revision": null,
-          "note": ""
+          "evidence": [
+            "docs/reference/payment-capability-matrix.md"
+          ],
+          "evidence_revision": "af34b6a3",
+          "note": "Finite source/contract capability inventory; actual funding and refund evidence is S06-3, external activation is not a capability gate."
         },
         {
           "id": "S06-3",
