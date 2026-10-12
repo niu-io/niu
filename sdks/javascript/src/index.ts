@@ -2,6 +2,8 @@ import { videoObservationQuery, type VideoQueryObservationPage, type VideoQueryO
 import type { ContextPriceTier } from './admin.js';
 import { waitForVideoJob, type VideoWaitOptions } from './video-wait.js';
 export type { VideoWaitOptions } from './video-wait.js';
+import { normalizeVideoGeneration, type NiuVideoGenerationInput } from './video-generation.js';
+export type { NiuVideoGenerationInput } from './video-generation.js';
 /** Buffered native Gemini text. Requires an explicitly declared static or managed gemini route. */
 export type GenerateContentRequest = {
   contents: Array<{ role?: 'user' | 'model'; parts: Array<{ text: string }> }>;
@@ -389,7 +391,7 @@ export class NiuClient {
     retrieve: (id: string, options?: RequestOptions) => Promise<{ data: ImageIngestionConsentStatus }>;
     revoke: (id: string, options?: RequestOptions) => Promise<void>;
   };
-  readonly video: { models: { list: (options?: RequestOptions) => Promise<VideoModelList> }; estimate: (request: VideoCreateRequest, options?: RequestOptions) => Promise<VideoEstimate>; jobs: { wait: (id: string, options?: VideoWaitOptions) => Promise<VideoJobState>; results: { status: (id: string, options?: RequestOptions) => Promise<VideoResultAvailability>; retrieve: (id: string, kind: 'video' | 'last_frame', options?: RequestOptions) => Promise<Response>; delete: (id: string, options?: RequestOptions) => Promise<{ deleted: true }> }; list: (query?: VideoJobHistoryQuery, options?: RequestOptions) => Promise<VideoJobHistory>; billing: (id: string, options?: RequestOptions) => Promise<VideoJobBilling>; timings: (id: string, options?: RequestOptions) => Promise<VideoTransportTimings>; observations: (id: string, query?: VideoQueryObservationQuery, options?: RequestOptions) => Promise<VideoQueryObservationPage>; refresh: (id: string, options?: RequestOptions) => Promise<VideoJobState>; create: (request: VideoCreateRequest, options?: VideoCreateOptions) => Promise<VideoJobState>; retrieve: (id: string, options?: RequestOptions) => Promise<VideoJobState> } };
+  readonly video: { generate: (input: NiuVideoGenerationInput, options?: VideoCreateOptions) => Promise<VideoJobState>; models: { list: (options?: RequestOptions) => Promise<VideoModelList> }; estimate: (request: VideoCreateRequest, options?: RequestOptions) => Promise<VideoEstimate>; jobs: { wait: (id: string, options?: VideoWaitOptions) => Promise<VideoJobState>; results: { status: (id: string, options?: RequestOptions) => Promise<VideoResultAvailability>; retrieve: (id: string, kind: 'video' | 'last_frame', options?: RequestOptions) => Promise<Response>; delete: (id: string, options?: RequestOptions) => Promise<{ deleted: true }> }; list: (query?: VideoJobHistoryQuery, options?: RequestOptions) => Promise<VideoJobHistory>; billing: (id: string, options?: RequestOptions) => Promise<VideoJobBilling>; timings: (id: string, options?: RequestOptions) => Promise<VideoTransportTimings>; observations: (id: string, query?: VideoQueryObservationQuery, options?: RequestOptions) => Promise<VideoQueryObservationPage>; refresh: (id: string, options?: RequestOptions) => Promise<VideoJobState>; create: (request: VideoCreateRequest, options?: VideoCreateOptions) => Promise<VideoJobState>; retrieve: (id: string, options?: RequestOptions) => Promise<VideoJobState> } };
   readonly models: { list: (options?: RequestOptions) => Promise<ModelList> };
   readonly embeddings: { create: (request: EmbeddingRequest, options?: RequestOptions) => Promise<EmbeddingResponse> };
   readonly generateContent: (model: string, request: GenerateContentRequest, options?: RequestOptions) => Promise<GenerateContentResponse>;
@@ -414,7 +416,7 @@ export class NiuClient {
     this.requestFetch = options.fetch ?? globalThis.fetch.bind(globalThis);
     this.defaultHeaders = options.defaultHeaders ?? {};
 
-    this.video = { models: { list: (requestOptions) => this.request('/video/models', undefined, requestOptions) }, estimate: (request, requestOptions) => this.request('/video/estimate', request, requestOptions), jobs: { wait: (id, requestOptions) => waitForVideoJob(this.video.jobs, id, requestOptions), results: { status: (id, requestOptions) => {
+    this.video = { generate: (input, requestOptions) => this.video.jobs.create(normalizeVideoGeneration(input), requestOptions), models: { list: (requestOptions) => this.request('/video/models', undefined, requestOptions) }, estimate: (request, requestOptions) => this.request('/video/estimate', request, requestOptions), jobs: { wait: (id, requestOptions) => waitForVideoJob(this.video.jobs, id, requestOptions), results: { status: (id, requestOptions) => {
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new TypeError('A Niu video job reference is required');
       return this.request(`/video/jobs/${encodeURIComponent(id)}/results`,undefined,requestOptions);
     }, retrieve: (id, kind, requestOptions = {}) => {
