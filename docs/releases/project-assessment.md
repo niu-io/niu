@@ -18,10 +18,18 @@ A rewrite or new microservice/extension framework is not justified by this audit
 The [fixed status board](project-status.md) is the delivery authority for this
 baseline. It defines 14 subsystems: 12 backend/integration subsystems, one delegated
 frontend/catalog/Help subsystem and one separate/deferred packaging/legacy scope.
-There are 36 fixed backend acceptance checkpoints; 11 carry existing bounded
-actual evidence, 25 remain open. No whole backend subsystem is closed. These
-counts describe the accepted checklist, not the amount of implemented code or a
-claim that every endpoint was freshly exercised.
+The original assessment carried 11 of 36 fixed backend checkpoints. The current
+status board records 24 accepted checkpoints and 12 remaining, with three of 12
+backend subsystems closed (S01, S07 and S11). These counts describe scoped
+acceptance, not the amount of implemented code or complete release readiness.
+
+At source revision `9634c70e`, FastRouter has an encrypted personal-test Supplier
+credential and four disabled Seedance mappings. One actual mini-model SDK
+submission received HTTP 400; its unknown state, replay and restart were checked
+independently. Successful FastRouter generation, normalized asset/identity
+endpoints and paid media settlement remain open. The original runtime remains
+`17b7370a`, schema 290; a retained build of the new diagnostics implementation is
+not evidence that its schema-291 behavior is deployed or accepted.
 
 ## Architecture and ownership
 
