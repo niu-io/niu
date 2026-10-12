@@ -2,6 +2,7 @@
 //! Codec names are container declarations, not decoded-content safety proofs.
 //! Ratios retain exact integer timebases; API boundaries must serialize large
 //! integers safely. MP3 encoded duration does not establish trimmed playback.
+//! These reference constraints are never evidence of a billable media quantity.
 use crate::workspace_asset_validation::{MAX_ASSET_BYTES, mp4, mpeg, wav};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

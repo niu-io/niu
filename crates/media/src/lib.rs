@@ -11,6 +11,7 @@ pub mod asset_transport;
 pub mod image_detector;
 pub mod image_input;
 pub mod image_inspection;
+pub mod media_reference_facts;
 pub mod openrouter;
 pub mod output;
 pub mod query;
