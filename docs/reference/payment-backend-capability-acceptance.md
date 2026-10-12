@@ -1,6 +1,6 @@
 # Current payment backend capability acceptance
 
-This records the current actual S06-3 capability checkpoint. Its fixed criterion is unchanged:
+This records actual posted-charge refund evidence toward S06-3. Funding/callback closure is unverified pending nonfixture evidence. Its fixed criterion is unchanged:
 
 > Establish supported funding/refund transitions and negative callback/idempotency protections from actual evidence; merchant activation is not a completion prerequisite.
 
@@ -14,26 +14,11 @@ Both runs use retained Gateway `ef29c2929ceba22bc590faa8787946dbb78b62b5`, binar
 
 The runs use separate stopped native database copies. The unpaid-order copy migrates schema 287 to 293; the existing-charge copy migrates schema 284 to 293. Original databases, deployment configuration and encryption identity are untouched. Payment handlers, configuration, top-up storage and adapter source remain unchanged from the earlier `4c3def63` checkpoint to this exercised revision; no missing payment facility or backend defect is inferred from absent merchant activation.
 
-Twenty-two recorded current SDK/HTTP requests exercise the following paths. There are no merchant calls, external refunds, paid callbacks, invented funding receipts or new generations. Verification uses actual native Gateway responses and independent reopening of each final PostgreSQL database. Fixture outcomes provide no evidence.
+The real posted-charge refund is independently verified against actual native responses and reopened final PostgreSQL records. It makes no merchant request or external refund and creates no cash receipt.
 
-## Existing unpaid EPay checkout
+## Excluded fixture merchant workflow
 
-The source contains a genuine uncertain Zhifux intent and a previously API-saved, explicitly unactivated EPay checkout. Its reserved `.invalid` checkout URL is never followed.
-
-| Current actual path | Observed result |
-| --- | --- |
-| Administrator integration inventory | Three supported integrations; all external refund-initiation flags are false. |
-| Configured company payment methods | Existing CNY EPay checkout methods are discoverable; this describes local configuration, not merchant approval. |
-| Saved order and history | HTTP 200 with the original pending order. No merchant contact or funding occurs. |
-| Identical SDK creation replay | Original order and checkout projection remain identical. |
-| Changed amount under the same identity | HTTP 409. |
-| EPay reconciliation | HTTP 501, faithfully reflecting the unsupported query mechanism. |
-| Two unsigned nonpaid callbacks | HTTP 400, never a successful payment acknowledgement. |
-| Restart and replay | Original order remains pending; replay is stable and reconciliation remains 501. |
-
-Independent final reopening confirms exactly two orders, one original creation claim and one local checkout. Provider-order identities, notifications, settlements, closures and funding receipts remain zero. Complete payment/configuration fingerprints and seven whole financial/request fingerprints remain unchanged. Customer projections omit merchant credentials, internal provider identities and procurement fields.
-
-This verifies pending recovery and funding-admission refusal. It does not exercise successful received-money settlement or manufacture a paid/closed state.
+The unpaid EPay command was executed. Its merchant configuration uses a reserved `.invalid` checkout URL. Its fixture outcomes, including HTTP responses, counts, replay and persistence, are disregarded for diagnosis, correctness, prioritization and readiness. They do not contribute S06-3 acceptance evidence. Nonfixture funding/callback evidence remains to be established from genuine saved configuration and order state.
 
 ## Refund of an existing actual charge
 
@@ -45,12 +30,10 @@ Independent reopening confirms exactly one new positive `refund` entry linked to
 
 The resulting credit is an internal ledger refund, not a cash return or payment-processor refund.
 
-## Closure assessment and explicit exclusions
+## Scope and remaining evidence
 
-The current evidence establishes the exercised supported integration inventory, locally configured checkout, immutable unpaid-order recovery, rejection of unsigned funding claims, installation-only ledger refund, exact idempotency, over-refund protection and restart persistence. Source inspection found no concrete implementation gap requiring another payment channel, external refund API or merchant activation.
+The genuine current run verifies an installation-only refund of an actual posted charge, exact arithmetic, immutable original entries, idempotency, over-refund protection, permission refusal and restart. It does not verify funding-entry reversal or a payment processor refund.
 
-Positive received-cash funding, paid/closed reconciliation samples and successful merchant notifications remain externally unverified. They are not claimed by these responses and are not prerequisites for the supported capability-readiness boundary. Stripe session creation and native Zhifux merchant success retain their separately declared evidence limits; this run does not pretend to have activated every integration.
+The supported inventory remains EPay, Stripe and native Zhifux, with external refund initiation explicitly unsupported. Merchant activation or a successful external payment is not a backend-readiness prerequisite. That policy does not turn fixture merchant input into acceptance evidence: the current funding/callback closure still requires nonfixture current-input verification.
 
-External refund initiation remains unsupported in the public inventory. Funding-entry reversal also requires a legitimate original funding entry; this run supplies none. It proves the actual posted-charge refund branch and preserves the distinction between those ledger transitions and external cash movement.
-
-The fixed S06-3 identifier and criterion are unchanged. This is a scoped backend-capability closure assessment for release review, not a claim that a live payment or every external operator has been qualified.
+No paid callback, received-cash settlement or funding receipt is fabricated. The S06-3 identifier and criterion are unchanged, and the checkpoint remains unverified beyond the genuine posted-charge refund scope documented here.
