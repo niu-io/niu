@@ -247,20 +247,26 @@ impl Store {
     /// Rebuild scheduling from durable jobs after a crash between receipt and
     /// enqueue. Only existing owner-funded direct jobs enter this initial queue.
     pub async fn enqueue_pending_personal_media_queries(&self) -> Result<u64, StoreError> {
-        Ok(sqlx::query("INSERT INTO media_query_schedule(attempt_id) SELECT a.id FROM attempts a JOIN media_jobs j ON j.attempt_id=a.id JOIN media_recovery_routes r ON r.attempt_id=a.id JOIN media_recovery_protocols protocol ON protocol.attempt_id=r.attempt_id JOIN personal_attempt_routes p ON p.attempt_id=a.id JOIN vendor_models m ON m.alias=a.resource_id AND m.vendor_id=r.vendor_id WHERE a.execution='may_have_executed' AND a.api_key_id IS NOT NULL AND protocol.channel IN ('ark-direct-v1','openrouter-video-v1') AND NOT EXISTS(SELECT 1 FROM media_query_schedule existing WHERE existing.attempt_id=a.id) ORDER BY a.id LIMIT 100 ON CONFLICT(attempt_id) DO NOTHING").execute(&self.pool).await?.rows_affected())
+        let mut tx = self.begin_bounded_recording().await?;
+        let changed = sqlx::query("INSERT INTO media_query_schedule(attempt_id) SELECT a.id FROM attempts a JOIN media_jobs j ON j.attempt_id=a.id JOIN media_recovery_routes r ON r.attempt_id=a.id JOIN media_recovery_protocols protocol ON protocol.attempt_id=r.attempt_id JOIN personal_attempt_routes p ON p.attempt_id=a.id JOIN vendor_models m ON m.alias=a.resource_id AND m.vendor_id=r.vendor_id WHERE a.execution='may_have_executed' AND a.api_key_id IS NOT NULL AND protocol.channel IN ('ark-direct-v1','openrouter-video-v1') AND NOT EXISTS(SELECT 1 FROM media_query_schedule existing WHERE existing.attempt_id=a.id) ORDER BY a.id LIMIT 100 ON CONFLICT(attempt_id) DO NOTHING").execute(&mut *tx).await?.rows_affected();
+        tx.commit().await?;
+        Ok(changed)
     }
 
     /// Reconstruct direct-channel polling from original jobs and accounting
     /// bindings. Completed customer jobs with unposted liability remain eligible
     /// after a crash; a terminal generation label is not settlement evidence.
     pub async fn enqueue_pending_media_queries(&self) -> Result<u64, StoreError> {
+        let mut tx = self.begin_bounded_recording().await?;
         // A rotated original secret may have stopped polling before its replacement
         // was resolved. Resume queries only for nonterminal jobs in that same lineage.
         sqlx::query(include_str!("resume_media_queries.sql"))
-            .execute(&self.pool)
+            .execute(&mut *tx)
             .await?;
 
-        Ok(sqlx::query("INSERT INTO media_query_schedule(attempt_id) SELECT a.id FROM attempts a JOIN media_jobs j ON j.attempt_id=a.id JOIN media_recovery_routes r ON r.attempt_id=a.id JOIN media_recovery_protocols protocol ON protocol.attempt_id=r.attempt_id JOIN vendor_models m ON m.alias=a.resource_id AND m.vendor_id=r.vendor_id WHERE a.api_key_id IS NOT NULL AND protocol.channel IN ('ark-direct-v1','openrouter-video-v1') AND (EXISTS(SELECT 1 FROM personal_attempt_routes p WHERE p.attempt_id=a.id) OR (EXISTS(SELECT 1 FROM customer_media_attempt_pricing p WHERE p.attempt_id=a.id) AND EXISTS(SELECT 1 FROM provider_attempt_offers o WHERE o.attempt_id=a.id) AND EXISTS(SELECT 1 FROM customer_media_liability_bounds b WHERE b.attempt_id=a.id))) AND (a.execution='may_have_executed' OR (a.execution='confirmed_completed' AND EXISTS(SELECT 1 FROM customer_media_attempt_pricing p WHERE p.attempt_id=a.id) AND NOT EXISTS(SELECT 1 FROM customer_media_charges c JOIN customer_activity_charges posted ON posted.attempt_id=c.attempt_id AND posted.organization_id=c.organization_id AND posted.project_id=c.project_id AND posted.currency=c.currency AND posted.amount_nanos=c.amount_nanos WHERE c.attempt_id=a.id))) AND NOT EXISTS(SELECT 1 FROM media_query_schedule existing WHERE existing.attempt_id=a.id) ORDER BY a.id LIMIT 100 ON CONFLICT(attempt_id) DO NOTHING").execute(&self.pool).await?.rows_affected())
+        let changed = sqlx::query("INSERT INTO media_query_schedule(attempt_id) SELECT a.id FROM attempts a JOIN media_jobs j ON j.attempt_id=a.id JOIN media_recovery_routes r ON r.attempt_id=a.id JOIN media_recovery_protocols protocol ON protocol.attempt_id=r.attempt_id JOIN vendor_models m ON m.alias=a.resource_id AND m.vendor_id=r.vendor_id WHERE a.api_key_id IS NOT NULL AND protocol.channel IN ('ark-direct-v1','openrouter-video-v1') AND (EXISTS(SELECT 1 FROM personal_attempt_routes p WHERE p.attempt_id=a.id) OR (EXISTS(SELECT 1 FROM customer_media_attempt_pricing p WHERE p.attempt_id=a.id) AND EXISTS(SELECT 1 FROM provider_attempt_offers o WHERE o.attempt_id=a.id) AND EXISTS(SELECT 1 FROM customer_media_liability_bounds b WHERE b.attempt_id=a.id))) AND (a.execution='may_have_executed' OR (a.execution='confirmed_completed' AND EXISTS(SELECT 1 FROM customer_media_attempt_pricing p WHERE p.attempt_id=a.id) AND NOT EXISTS(SELECT 1 FROM customer_media_charges c JOIN customer_activity_charges posted ON posted.attempt_id=c.attempt_id AND posted.organization_id=c.organization_id AND posted.project_id=c.project_id AND posted.currency=c.currency AND posted.amount_nanos=c.amount_nanos WHERE c.attempt_id=a.id))) AND NOT EXISTS(SELECT 1 FROM media_query_schedule existing WHERE existing.attempt_id=a.id) ORDER BY a.id LIMIT 100 ON CONFLICT(attempt_id) DO NOTHING").execute(&mut *tx).await?.rows_affected();
+        tx.commit().await?;
+        Ok(changed)
     }
 
     /// Stop only on generation failure/conflict or successfully reconciled
@@ -312,7 +318,7 @@ impl Store {
         &self,
         owner: Uuid,
     ) -> Result<Option<MediaQueryLease>, StoreError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.begin_bounded_recording().await?;
         let row:Option<(Uuid,Uuid,Uuid,Uuid)>=sqlx::query_as("SELECT s.attempt_id,a.organization_id,a.project_id,a.api_key_id FROM media_query_schedule s JOIN attempts a ON a.id=s.attempt_id WHERE NOT s.stopped AND s.next_poll_at<=now() AND (s.lease_until IS NULL OR s.lease_until<=now()) ORDER BY s.next_poll_at,s.attempt_id LIMIT 1 FOR UPDATE OF s SKIP LOCKED").fetch_optional(&mut *tx).await?;
         let Some((attempt_id, organization_id, project_id, key_id)) = row else {
             return Ok(None);
@@ -339,11 +345,13 @@ impl Store {
         failed: bool,
         stop: bool,
     ) -> Result<(), StoreError> {
+        let mut tx = self.begin_bounded_recording().await?;
         let changed=sqlx::query("UPDATE media_query_schedule SET failures=CASE WHEN $3 THEN LEAST(failures+1,16) ELSE 0 END,next_poll_at=now()+make_interval(secs=>CASE WHEN $3 THEN LEAST(300,10*power(2,LEAST(failures+1,5)))::double precision ELSE 10::double precision END),stopped=$4,lease_owner=NULL,lease_until=NULL WHERE attempt_id=$1 AND lease_owner=$2 AND lease_until>now()")
-            .bind(lease.attempt_id).bind(lease.owner).bind(failed).bind(stop).execute(&self.pool).await?.rows_affected();
+            .bind(lease.attempt_id).bind(lease.owner).bind(failed).bind(stop).execute(&mut *tx).await?.rows_affected();
         if changed != 1 {
             return Err(StoreError::Conflict);
         }
+        tx.commit().await?;
         Ok(())
     }
 
