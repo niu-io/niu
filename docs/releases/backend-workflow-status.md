@@ -373,3 +373,30 @@ not qualify saturation, every protocol or commercial supply.
 adds bounded, fail-closed snapshot reads for the exercised video and text paths,
 with independent original-row and exact charge checks. It does not qualify every
 policy operation or protocol combination.
+
+## Native integration refresh — 2026-10-12
+
+The original native service now runs retained executable `1212ea3b`, schema 284.
+The replacement executable was checked against its separately retained SHA-256
+before launch. The exact existing runtime environment was retained privately;
+configuration files and encryption identities were not regenerated.
+
+Before refresh, a fresh native archive of schema 283 was restored into a separate
+PostgreSQL database. Independent full-row fingerprints matched organizations,
+workspaces, encrypted Supplier credentials, customer ledger entries, video jobs,
+transport timings and saved conversations. That isolated restoration was stopped.
+
+The original Gateway drained before replacement. Ready returned 200; original
+configuration file digests, encrypted Supplier identities/revisions and durable
+company/workspace/video/financial counts matched the pre-refresh values. The
+authenticated routing registry reports that local static configuration matches.
+Migration 284 adds private video-reference bindings and deadline enforcement;
+it does not replace existing product records or encryption identity.
+
+Separately, the current executable's actual malformed/unsupported/key video
+refusals and retained real-video read were independently checked on a migrated
+copy, including unchanged financial/job/configuration fingerprints and another
+restored backup. These are safe-refusal and preservation checks, not positive
+Ark asset reuse acceptance. The [input record](../reference/ingested-image-video-input.md)
+retains that boundary. The original service's readiness is not whole-release
+acceptance or a performance measurement.
