@@ -107,45 +107,19 @@ impl InlineInspectionBatch<'_> {
 }
 impl Config {
     pub fn fingerprint(&self) -> String {
-        let bytes = serde_json::to_vec(&("niu-required-image-processing-v2", self))
-            .expect("serializable image detector settings");
-        format!("{:x}", Sha256::digest(bytes))
+        fingerprint_processing_config("niu-required-image-processing-v2", self)
     }
     pub fn validate(&self) -> Result<(), InvalidConfiguration> {
-        let url = url::Url::parse(&self.endpoint).map_err(|_| InvalidConfiguration)?;
-        let host = url.host_str().ok_or(InvalidConfiguration)?;
-        let loopback = host.eq_ignore_ascii_case("localhost")
-            || host
-                .trim_matches(['[', ']'])
-                .parse::<std::net::IpAddr>()
-                .is_ok_and(|ip| ip.is_loopback());
-        if (url.scheme() != "https" && !(url.scheme() == "http" && loopback))
-            || !url.username().is_empty()
-            || url.password().is_some()
-            || url.query().is_some()
-            || url.fragment().is_some()
-            || [
-                &self.detector_revision,
-                &self.recipient,
-                &self.region,
-                &self.retention,
-            ]
-            .iter()
-            .any(|v| v.trim().is_empty() || v.len() > 256 || v.chars().any(char::is_control))
-            || self.api_key_env.is_empty()
-            || self.api_key_env.len() > 256
-            || !self
-                .api_key_env
-                .bytes()
-                .all(|b| b.is_ascii_alphanumeric() || b == b'_')
-            || self.authorized_workspaces.len() > 1000
-            || self.authorized_workspaces.iter().any(|v| {
-                !uuid::Uuid::parse_str(v).is_ok_and(|id| !id.is_nil() && id.to_string() == *v)
-            })
-            || !(1..=30_000).contains(&self.timeout_ms)
-        {
-            return Err(InvalidConfiguration);
-        }
+        validate_common_processing_config(CommonProcessingConfigRef {
+            endpoint: &self.endpoint,
+            api_key_env: &self.api_key_env,
+            detector_revision: &self.detector_revision,
+            recipient: &self.recipient,
+            region: &self.region,
+            retention: &self.retention,
+            authorized_workspaces: &self.authorized_workspaces,
+            timeout_ms: self.timeout_ms,
+        })?;
         DecodeService::new(self.limits(), self.concurrency)
             .map(|_| ())
             .map_err(|_| InvalidConfiguration)
@@ -206,15 +180,16 @@ impl Runtime {
             "declared_unmetered":self.config.declared_unmetered,"policy_activation":false})
     }
     pub fn permits(&self, workspace: &str, consent: &Consent) -> bool {
-        self.config.declared_unmetered
-            && consent.consent_to_image_processing
-            && consent.configuration_fingerprint == self.fingerprint
-            && self
-                .config
-                .authorized_workspaces
-                .iter()
-                .any(|v| v == workspace)
+        processing_permitted(
+            self.config.declared_unmetered,
+            &self.config.authorized_workspaces,
+            &self.fingerprint,
+            workspace,
+            &consent.configuration_fingerprint,
+            consent.consent_to_image_processing,
+        )
     }
+
     /// Called only after the gateway establishes current workspace/key access.
     /// This extra processing grant cannot substitute for that access check.
     pub async fn inspect_inline(
@@ -304,6 +279,76 @@ impl Runtime {
         .await
         .map_err(|_| RuntimeError::Inspection(InspectionError::Timeout))?
     }
+}
+
+/// Common configuration shape only; legacy serialized configs stay unchanged.
+pub(crate) struct CommonProcessingConfigRef<'a> {
+    pub endpoint: &'a str,
+    pub api_key_env: &'a str,
+    pub detector_revision: &'a str,
+    pub recipient: &'a str,
+    pub region: &'a str,
+    pub retention: &'a str,
+    pub authorized_workspaces: &'a [String],
+    pub timeout_ms: u64,
+}
+pub(crate) fn validate_common_processing_config(
+    config: CommonProcessingConfigRef<'_>,
+) -> Result<(), InvalidConfiguration> {
+    let url = url::Url::parse(config.endpoint).map_err(|_| InvalidConfiguration)?;
+    let host = url.host_str().ok_or(InvalidConfiguration)?;
+    let loopback = host.eq_ignore_ascii_case("localhost")
+        || host
+            .trim_matches(['[', ']'])
+            .parse::<std::net::IpAddr>()
+            .is_ok_and(|ip| ip.is_loopback());
+    if (url.scheme() != "https" && !(url.scheme() == "http" && loopback))
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.query().is_some()
+        || url.fragment().is_some()
+        || [
+            config.detector_revision,
+            config.recipient,
+            config.region,
+            config.retention,
+        ]
+        .iter()
+        .any(|v| v.trim().is_empty() || v.len() > 256 || v.chars().any(char::is_control))
+        || config.api_key_env.is_empty()
+        || config.api_key_env.len() > 256
+        || !config
+            .api_key_env
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'_')
+        || config.authorized_workspaces.len() > 1000
+        || config
+            .authorized_workspaces
+            .iter()
+            .any(|v| !uuid::Uuid::parse_str(v).is_ok_and(|id| !id.is_nil() && id.to_string() == *v))
+        || !(1..=30000).contains(&config.timeout_ms)
+    {
+        return Err(InvalidConfiguration);
+    }
+    Ok(())
+}
+pub(crate) fn fingerprint_processing_config(domain: &str, config: &impl Serialize) -> String {
+    let bytes =
+        serde_json::to_vec(&(domain, config)).expect("serializable processing detector settings");
+    format!("{:x}", Sha256::digest(bytes))
+}
+pub(crate) fn processing_permitted(
+    unmetered: bool,
+    allowed: &[String],
+    fingerprint: &str,
+    workspace: &str,
+    consent_fingerprint: &str,
+    consented: bool,
+) -> bool {
+    unmetered
+        && consented
+        && fingerprint == consent_fingerprint
+        && allowed.iter().any(|value| value == workspace)
 }
 
 #[cfg(test)]
