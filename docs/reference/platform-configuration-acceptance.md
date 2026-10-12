@@ -8,31 +8,33 @@ read/write. Theme is part of branding settings, not a separate endpoint.
 Commit `4fd3e479` publishes four missing handler contracts and root references;
 all eleven methods now have published operation schemas. Commit `4a459338` adds
 SDK authentication discovery, public branding and EPay configuration helpers.
-The SDK compiles from committed source. A separate current-input native run of
-the four new helpers verifies public discovery/branding, EPay read and disabled
-revision-checked save, stale 409 and restart retrieval. Independently reopened
-records match the saved responses, payment revision/audit and retained encrypted
-configuration; original financial rows remain unchanged. No merchant activation
-or received funding is claimed.
+The SDK helpers and all eleven operation schemas are committed interface
+inventory and implementation findings. Actual current-input helper evidence
+qualifies public authentication discovery and public branding only; it does not
+establish actual execution of all eleven methods.
+
+The EPay fixture-phase command was executed. All its outcomes are disregarded,
+including local contract/permission, response, secret-preservation, revision,
+audit, persistence and restart results. They supply no acceptance signal. No
+merchant activation or received funding is claimed.
 
 ## Current-input native evidence
 
 Native implementation `186662c5`, schema 283, was exercised through actual HTTP
 against a preserved database copy. Independent PostgreSQL reopening checked
-saved raw-response digests, exact snapshots/revisions/audit rows and original
+genuine saved raw-response digests, branding snapshots/revisions/audit rows and original
 financial full-row fingerprints.
 
 - Public discovery exposes only password-login capability. Public branding
   exposes display/theme settings, with no credentials or procurement data.
-- Installation administration can read/save branding and disabled EPay drafts.
+- Installation administration can read/save branding.
   Six ordinary company/workspace owner, administrator and viewer roles receive
   403 for platform reads and writes. Member roles do not inherit platform access.
 - Branding revisions persist across restart. Stale writes return 409 and SVG
   input is refused; no arbitrary executable branding is accepted.
-- Disabled EPay configuration saves an encrypted snapshot and audit revision.
-  An empty key retains the previously configured secret. Responses omit the
-  secret. The three-integration inventory omits merchant credentials/endpoints;
-  configured support does not prove external merchant activation.
+- The genuine integration inventory exposes supported capabilities without
+  merchant credentials/endpoints. Inventory is distinct from merchant activation;
+  it does not qualify EPay fixture saves or reads.
 - Six members independently save profile revision zero to one and reject stale
   updates or unsafe avatar inputs. Saved preferences override the branding
   default and survive restart. Installation tokens cannot act as member profile
