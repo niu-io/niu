@@ -177,31 +177,22 @@ impl Store {
         }
         let mut satisfied = BTreeSet::new();
         for entry in approvals {
-            let row = sqlx::query("SELECT detector_name,content_position,kind,content_type,byte_length,content_sha256,configuration_fingerprint,detector_revision,workspace_revision,key_policy_revision,key_assignment_revision FROM media_processing_approvals WHERE id=$1 AND organization_id=$2 AND project_id=$3 AND key_id=$4")
+            let position: i32 = sqlx::query_scalar("SELECT content_position FROM media_processing_approvals WHERE id=$1 AND organization_id=$2 AND project_id=$3 AND key_id=$4")
                 .bind(entry.receipt_id).bind(scope.organization_id).bind(scope.project_id).bind(principal.key_id())
                 .fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
-            let position: i32 = row.get("content_position");
-            let detector: String = row.get("detector_name");
+            let detector = Self::verify_media_processing_approval_using(
+                tx, principal, snapshot, entry, position,
+            )
+            .await?;
             let (mime, byte_length, content_hash, encoded) =
                 media.get(&position).ok_or(StoreError::Conflict)?;
             if !satisfied.insert((position, detector.clone()))
                 || required.get(&detector).map(String::as_str)
                     != Some(entry.approval.configuration_fingerprint())
-                || row.get::<String, _>("kind") != "audio"
-                || row.get::<String, _>("content_type") != *mime
                 || entry.approval.content_type() != *mime
                 || STANDARD.encode(entry.approval.encoded_bytes()) != *encoded
-                || row.get::<i64, _>("byte_length") != *byte_length
                 || entry.approval.encoded_bytes().len() as i64 != *byte_length
-                || row.get::<String, _>("content_sha256") != *content_hash
-                || row.get::<String, _>("content_sha256") != entry.approval.content_sha256()
-                || row.get::<String, _>("configuration_fingerprint")
-                    != entry.approval.configuration_fingerprint()
-                || row.get::<String, _>("detector_revision") != entry.approval.detector_revision()
-                || row.get::<Option<i64>, _>("workspace_revision") != snapshot.workspace_revision
-                || row.get::<Option<i64>, _>("key_policy_revision") != snapshot.key_policy_revision
-                || row.get::<Option<i64>, _>("key_assignment_revision")
-                    != snapshot.key_assignment_revision
+                || entry.approval.content_sha256() != content_hash
             {
                 return Err(StoreError::Conflict);
             }
@@ -262,11 +253,69 @@ impl Store {
         }
         Ok(())
     }
+    /// Shared scoped receipt verification for a trusted handoff coordinator.
+    /// No caller URL, declared verdict, model authorization or billing claim is
+    /// accepted here; callers own the same-transaction wire/route/dispatch gates.
+    pub(crate) async fn verify_media_processing_approval_using(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        principal: &Principal,
+        snapshot: &GuardrailSnapshot,
+        entry: &MediaRequestApproval<'_>,
+        expected_position: i32,
+    ) -> Result<String, StoreError> {
+        if !(0..=255).contains(&expected_position) {
+            return Err(StoreError::InvalidObservation);
+        }
+        let scope = principal.scope();
+        if !entry.runtime.approval_current(
+            &scope.project_id.to_string(),
+            entry.consent,
+            entry.approval,
+        ) {
+            return Err(StoreError::Unauthorized);
+        }
+        Self::authorize_media_processing_using(tx, principal, snapshot).await?;
+        let required = required_media_detectors(snapshot, entry.approval.kind())?;
+        let row = sqlx::query("SELECT detector_name,content_position,kind,content_type,byte_length,content_sha256,configuration_fingerprint,detector_revision,workspace_revision,key_policy_revision,key_assignment_revision FROM media_processing_approvals WHERE id=$1 AND organization_id=$2 AND project_id=$3 AND key_id=$4")
+            .bind(entry.receipt_id).bind(scope.organization_id).bind(scope.project_id).bind(principal.key_id())
+            .fetch_optional(&mut **tx).await?.ok_or(StoreError::Conflict)?;
+        let detector: String = row.get("detector_name");
+        let kind = match entry.approval.kind() {
+            MediaKind::Audio => "audio",
+            MediaKind::Video => "video",
+        };
+        if row.get::<i32, _>("content_position") != expected_position
+            || row.get::<String, _>("kind") != kind
+            || required.get(&detector).map(String::as_str)
+                != Some(entry.approval.configuration_fingerprint())
+            || row.get::<String, _>("content_type") != entry.approval.content_type()
+            || row.get::<i64, _>("byte_length") != entry.approval.encoded_bytes().len() as i64
+            || row.get::<String, _>("content_sha256") != entry.approval.content_sha256()
+            || row.get::<String, _>("content_sha256")
+                != format!("{:x}", Sha256::digest(entry.approval.encoded_bytes()))
+            || row.get::<String, _>("configuration_fingerprint")
+                != entry.approval.configuration_fingerprint()
+            || row.get::<String, _>("detector_revision") != entry.approval.detector_revision()
+            || row.get::<Option<i64>, _>("workspace_revision") != snapshot.workspace_revision
+            || row.get::<Option<i64>, _>("key_policy_revision") != snapshot.key_policy_revision
+            || row.get::<Option<i64>, _>("key_assignment_revision")
+                != snapshot.key_assignment_revision
+        {
+            return Err(StoreError::Conflict);
+        }
+        Ok(detector)
+    }
 }
 fn required_audio_detectors(
     snapshot: &GuardrailSnapshot,
 ) -> Result<BTreeMap<String, String>, StoreError> {
-    let mut required = BTreeMap::new();
+    required_media_detectors(snapshot, MediaKind::Audio)
+}
+fn required_media_detectors(
+    snapshot: &GuardrailSnapshot,
+    selected_kind: MediaKind,
+) -> Result<BTreeMap<String, String>, StoreError> {
+    let mut required: BTreeMap<String, (MediaKind, String)> = BTreeMap::new();
     for policy in [&snapshot.workspace_policy, &snapshot.key_policy]
         .into_iter()
         .flatten()
@@ -277,9 +326,6 @@ fn required_audio_detectors(
         for binding in bindings.as_array().ok_or(StoreError::InvalidObservation)? {
             let kind: MediaKind = serde_json::from_value(binding["kind"].clone())
                 .map_err(|_| StoreError::InvalidObservation)?;
-            if kind != MediaKind::Audio {
-                continue;
-            }
             let detector = binding["detector"]
                 .as_str()
                 .ok_or(StoreError::InvalidObservation)?;
@@ -289,12 +335,16 @@ fn required_audio_detectors(
             if binding["consent_to_media_processing"].as_bool() != Some(true) {
                 return Err(StoreError::Unauthorized);
             }
-            if let Some(previous) = required.insert(detector.into(), fingerprint.into())
-                && previous != fingerprint
+            if let Some((previous_kind, previous_fp)) =
+                required.insert(detector.into(), (kind, fingerprint.into()))
+                && (previous_kind != kind || previous_fp != fingerprint)
             {
                 return Err(StoreError::Unauthorized);
             }
         }
     }
-    Ok(required)
+    Ok(required
+        .into_iter()
+        .filter_map(|(name, (kind, fp))| (kind == selected_kind).then_some((name, fp)))
+        .collect())
 }
