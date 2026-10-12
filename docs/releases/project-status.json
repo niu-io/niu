@@ -413,7 +413,7 @@
             "docs/reference/media-processing-receipts.md"
           ],
           "evidence_revision": "ab33ee17",
-          "note": "Durable library, scoped SDK lifecycle, caps, rotation and saved real-job matrix are verified. Reference facts, shared ImageV2/MediaV3 exact-content transport and kind-bound runtime consent/capacity implemented; current scoped configuration discovery HTTP/SDK/startup/restart independently checked without network or approvals. Saved-image atomic coordinator exists. Audio/video policy activation, Provider handoff and task bindings remain unfinished; genuine fresh-inspection/Ark dispatch/deletion race/Provider reuse remain unverified. Kind-bound policy composition and immutable metadata receipts now implemented; actual schema-288 migration/restart and activation refusals preserve saved records. Receipt creation and audio/video Provider handoff/task binding remain unverified or unfinished; policy activation stays disabled."
+          "note": "Durable library and saved real-job lifecycle evidence are retained. Current priority is the configured upstream video API: supported URL/asset-ID inputs and controls, durable async submission/query/recovery, authorized results and no duplicate submission. Custom detector coordination, approval binding and private Provider delivery are removed from this implementation track following owner scope correction; unconnected Rust coordinator/binder removed, applied migrations preserved. Extra custom inspection/Provider asset-management success is not a release prerequisite. Current actual supported API matrix and final artifacts still require qualification; explicit optional Guardrails requirements must not be silently bypassed."
         },
         {
           "id": "S08-3",
@@ -708,6 +708,11 @@
       "version": 1,
       "date": "2026-10-12",
       "reason": "Establish a fixed top-down subsystem and acceptance baseline after fragmented delivery; existing bounded evidence is explicitly carried forward."
+    },
+    {
+      "version": 1,
+      "date": "2026-10-13",
+      "reason": "Owner corrected overexpanded video implementation: prioritize upstream API integration and async lifecycle; custom inspection/delivery coordination is not a video release prerequisite. Fixed 36 checkpoints and recorded acceptance counts remain unchanged; preserve applied schemas and data."
     }
   ]
 }

@@ -1,5 +1,13 @@
 # Exact-content media processing receipts
 
+**Disposition, 2026-10-13:** Custom media inspection, approval coordination and
+Provider delivery are outside the current video API delivery work. The unconnected
+Gateway coordinator and request-binding Rust APIs described below were removed.
+Applied migrations and retained data remain intact. This document preserves the
+historical implementation/evidence boundary; these facilities are not video
+release prerequisites. Supported upstream inputs use the configured Provider
+contract. Existing explicit Guardrails requirements remain enforced.
+
 `Store::record_media_processing_approval` records metadata from an opaque
 `niu_media::media_detector::ProcessingApproval`. Only an actual compatible
 MediaV3 Clear response can create that approval; local parsing, configuration
@@ -69,7 +77,7 @@ before each real detector call. Actual approvals become scoped receipts. Source
 loading must still be bounded by its caller; this does not establish a global
 memory or delivery bound.
 
-`Store::bind_media_request` currently prepares text plus inspected inline WAV/MP3
+At revision `3a0fff05`, `Store::bind_media_request` prepared text plus inspected inline WAV/MP3
 audio only. It revalidates the exact body against the current pinned direct Ark
 schema, checks current key/model and route identity, requires all parent/key
 audio detector receipts and binds the exact bytes, body hash and schema. Mixed

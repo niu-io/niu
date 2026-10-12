@@ -70,8 +70,6 @@ mod guardrails;
 mod image_processing;
 mod media_processing;
 pub use media_processing::MediaApprovalRecord;
-mod media_request_bindings;
-pub use media_request_bindings::MediaRequestApproval;
 mod inspected_image_sources;
 pub use guardrails::GuardrailSnapshot;
 pub use image_processing::{ImageApprovalRecord, ImageRequestApproval};
