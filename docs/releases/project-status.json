@@ -1,11 +1,10 @@
 {
   "version": 1,
   "updated": "2026-10-13",
-  "source_commit": "b5371293",
+  "source_commit": "63ea2281",
   "runtime_commit": "8bfdef10003eebe9402401247aa52cd69d3a398f",
   "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
   "active_implementation_tasks": [
-    "S08-2",
     "S10-2",
     "S04-3",
     "S05-3",
@@ -400,7 +399,7 @@
         },
         {
           "id": "S08-2",
-          "status": "active",
+          "status": "done",
           "acceptance": "Close the supported input/control/job/result/retention/asset authorization matrix and recovery without duplicate submission.",
           "evidence": [
             "docs/reference/ingested-image-video-input.md",
@@ -423,10 +422,11 @@
             "docs/reference/provider-verification-local-acceptance.md",
             "docs/reference/provider-verification-session-create-acceptance.md",
             "docs/reference/provider-asset-video-current-acceptance.md",
-            "docs/reference/original-personal-video-configuration-acceptance.md"
+            "docs/reference/original-personal-video-configuration-acceptance.md",
+            "docs/reference/video-integration-acceptance-matrix.md"
           ],
-          "evidence_revision": "ab33ee17",
-          "note": "Priority remains configured upstream API integration and async lifecycle; custom detectors, approval coordination and private delivery are not video acceptance prerequisites. Preserve durable-library and saved-job evidence and explicit optional Guardrails. Genuine Seedance 2.5 generation, exact-task Gateway refresh, encrypted result retrieval/full decode and restart are independently verified; reported video_tokens 257277 remain distinct from unknown pricing and owner-funded charges. Personal SDK model discovery exposes finite configured controls with output null and scope isolation. Genuine group creation and owned video-asset upload, refresh to Active, idempotency, scope, restart and original financial/configuration preservation are verified. Empty Provider GroupId uses the acknowledged scoped parent context, not Provider-reported identity. Genuine verification-session creation and authenticated link retrieval verify nonempty encrypted token/H5 persistence and exact AAD; no human completion occurred. Niu asset-ID generation and model-configured reference controls are implemented with atomic current authorization/account checks; actual asset-ID submission now reaches FastRouter once and receives HTTP403 permission_denied. The predispatch creator-binding defect is fixed; native diagnostics, safe submission_unknown, exact replay/no resend, changed409, scope, restart and private-URI capture boundaries are independently verified. Successful reference generation remains unverified; no entitlement cause, meter or charge is invented. Other versions, additional asset mutations, human-completion recovery and priced media remain open. Historical mini HTTP400 submission_unknown evidence is preserved without invented diagnostics or resend; Current safe-error persistence is exercised by that genuine403 response. Original native now enables only the verified Seedance2.5 personal text preset under the existing OpenRouter personal owner, without prices/public listing; SDK discovery, stale/scope refusals and original-data preservation are independently verified. Other3models remain disabled drafts; this is not full-control acceptance."
+          "evidence_revision": "63ea2281",
+          "note": "Finite configured Seedance2.5 text/API lifecycle accepted: actual schema/refusal controls, genuine creation/owned query/full result decode/restart/retention, acknowledged Active assets and scoped final dispatch, identical replay without resubmission. Current8bf/SDKce97 four unsupported preparation requests preserve whole task/financial fingerprints. Owned reference actual upstream403 remains safe unknown/no resend, not successful generation. Optional URL/inline/reference outputs, other model controls and human completion remain unqualified external combinations; priced media staysS08-3."
         },
         {
           "id": "S08-3",

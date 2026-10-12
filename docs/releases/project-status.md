@@ -1,16 +1,16 @@
 # Project delivery status
 
 Baseline v1; updated 2026-10-13.
-Committed audit source `b5371293`; native implementation `8bfdef10`.
+Committed audit source `63ea2281`; native implementation `8bfdef10`.
 
-**Backend acceptance checkpoints: 29/36 recorded complete at their evidence pins.**
+**Backend acceptance checkpoints: 30/36 recorded complete at their evidence pins.**
 **Whole backend subsystems closed: 6/12.**
 These are acceptance-checkpoint counts, not coding percentage, fresh execution of every path or release readiness.
 Existing scoped evidence is carried forward explicitly. Missing evidence remains open; fixture outcomes have zero signal.
 
 Source of truth: [project-status.json](project-status.json). Scope changes require a versioned reason; they cannot silently change the denominator.
 Status meanings: open = unfinished; active = explicitly assigned current work; blocked = identified dependency prevents progress; done = every stated criterion has evidence; delegated/deferred = separate ownership or excluded scope.
-Active implementation: S08-2, S10-2, S04-3, S05-3, S06-3. Assignments use stable task IDs.
+Active implementation: S10-2, S04-3, S05-3, S06-3. Assignments use stable task IDs.
 
 | Subsystem | Owner lane | Status | Completed checks | Dependencies |
 | --- | --- | --- | ---: | --- |
@@ -21,7 +21,7 @@ Active implementation: S08-2, S10-2, S04-3, S05-3, S06-3. Assignments use stable
 | S05 Pricing, balance, charging and reconciliation | B | active | 2/3 | S01 |
 | S06 Payment integration capability | B | active | 2/3 | S05 |
 | S07 Request diagnostics and usage reports | C | done | 3/3 | S03, S05 |
-| S08 Video jobs, results and assets | C | active | 1/3 | S02, S04, S05 |
+| S08 Video jobs, results and assets | C | active | 2/3 | S02, S04, S05 |
 | S09 Durable Chat | C | done | 3/3 | S01, S03, S07 |
 | S10 Platform configuration and security facilities | A | active | 2/3 | S01 |
 | S11 Contracts, SDK and documentation | I | done | 3/3 | None |
@@ -92,7 +92,7 @@ Active implementation: S08-2, S10-2, S04-3, S05-3, S06-3. Assignments use stable
 | ID | Status | Acceptance | Evidence pin |
 | --- | --- | --- | --- |
 | S08-1 | done | Actual personal video submission, key rotation, saved-job restart recovery, idempotent replay and independently decoded result are exercised. | [record](../../docs/reference/current-video-submission-restart.md) (`e704955`) |
-| S08-2 | active | Close the supported input/control/job/result/retention/asset authorization matrix and recovery without duplicate submission. | [record](../../docs/reference/ingested-image-video-input.md), [record](../../docs/reference/workspace-material-library.md), [record](../../docs/reference/workspace-material-sdk-acceptance.md), [record](../../docs/reference/workspace-material-format-acceptance.md), [record](../../docs/reference/workspace-material-storage-acceptance.md), [record](../../docs/reference/workspace-material-video-reference-acceptance.md), [record](../../docs/reference/video-saved-task-current-acceptance.md), [record](../../docs/reference/media-reference-facts.md), [record](../../docs/reference/media-inspection-contract.md), [record](../../docs/reference/media-detector-discovery-acceptance.md), [record](../../docs/reference/media-processing-receipts.md), [record](../../docs/reference/fastrouter-video-integration.md), [record](../../docs/reference/fastrouter-personal-video-submission-acceptance.md), [record](../../docs/reference/fastrouter-documented-video-acceptance.md), [record](../../docs/reference/personal-video-discovery-acceptance.md), [record](../../docs/reference/provider-asset-group-acceptance.md), [record](../../docs/reference/provider-video-asset-acceptance.md), [record](../../docs/reference/provider-verification-local-acceptance.md), [record](../../docs/reference/provider-verification-session-create-acceptance.md), [record](../../docs/reference/provider-asset-video-current-acceptance.md), [record](../../docs/reference/original-personal-video-configuration-acceptance.md) (`ab33ee17`) |
+| S08-2 | done | Close the supported input/control/job/result/retention/asset authorization matrix and recovery without duplicate submission. | [record](../../docs/reference/ingested-image-video-input.md), [record](../../docs/reference/workspace-material-library.md), [record](../../docs/reference/workspace-material-sdk-acceptance.md), [record](../../docs/reference/workspace-material-format-acceptance.md), [record](../../docs/reference/workspace-material-storage-acceptance.md), [record](../../docs/reference/workspace-material-video-reference-acceptance.md), [record](../../docs/reference/video-saved-task-current-acceptance.md), [record](../../docs/reference/media-reference-facts.md), [record](../../docs/reference/media-inspection-contract.md), [record](../../docs/reference/media-detector-discovery-acceptance.md), [record](../../docs/reference/media-processing-receipts.md), [record](../../docs/reference/fastrouter-video-integration.md), [record](../../docs/reference/fastrouter-personal-video-submission-acceptance.md), [record](../../docs/reference/fastrouter-documented-video-acceptance.md), [record](../../docs/reference/personal-video-discovery-acceptance.md), [record](../../docs/reference/provider-asset-group-acceptance.md), [record](../../docs/reference/provider-video-asset-acceptance.md), [record](../../docs/reference/provider-verification-local-acceptance.md), [record](../../docs/reference/provider-verification-session-create-acceptance.md), [record](../../docs/reference/provider-asset-video-current-acceptance.md), [record](../../docs/reference/original-personal-video-configuration-acceptance.md), [record](../../docs/reference/video-integration-acceptance-matrix.md) (`63ea2281`) |
 | S08-3 | open | Implement or verify supported reported media meters, bounded liability and exact settlement; missing quantity remains explicit and never inferred from file duration. | [record](../../docs/reference/reported-media-meter-acceptance.md) (`5789bb21`) |
 
 ### S09 — Durable Chat
