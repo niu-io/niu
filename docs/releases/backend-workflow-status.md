@@ -165,3 +165,13 @@ reproduced ten omitted saved rows; the current complete directory, first/last
 new key calls, dispatch timestamps, exact debits, lock refusal, restart and
 revocation were independently checked. The [directory contract](../reference/workspace-key-directory.md)
 keeps unpaged scale and browser/key-policy qualification limits explicit.
+
+
+## Paced complete-key metadata reads
+
+Clean `e274aab` completed 1,200 ordinary-viewer directory reads at an offered
+20/second over the actual 1,010-key history. Every response matched the complete
+native directory; independent reopening checked dispatch fields, exact response
+hashes, unchanged financial/key records and measured latency/resource samples.
+The [paced-read checkpoint](../reference/workspace-key-directory.md#paced-complete-directory-reads--2026-10-12)
+keeps warmed local scale, scheduling, process sampling and SLO limits explicit.

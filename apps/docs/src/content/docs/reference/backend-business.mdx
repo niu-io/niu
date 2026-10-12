@@ -171,3 +171,10 @@ Storage contention returns sanitized 503; preserve known data instead of showing
 zero keys. Actual 1,010-row reads, first/last key inference, dispatch metadata,
 exact charges, restart and revocation were independently checked. The unpaged
 contract has separate scale limits; internal references are not product labels.
+
+
+The [complete-directory read measurement](https://github.com/niu-io/niu/blob/main/docs/reference/workspace-key-directory.md#paced-complete-directory-reads--2026-10-12)
+ran 1,200 ordinary-viewer reads at an offered 20/second on clean `e274aab`, each
+returning all 1,010 records. Independent reopening checked response hashes,
+dispatch fields, unchanged records and measured p95 of 12.14 ms. This is a warmed
+local read checkpoint, not maximum capacity or arbitrary unpaged-directory scale.

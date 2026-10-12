@@ -58,3 +58,41 @@ commercial supply or merchant funding. No fixture outcome is evidence. Static
 clippy and annotation checks completed separately. A fresh backup restore and
 native upgrade preserved the original configuration, encrypted identity and
 business records; isolated verification did not alter the source dataset.
+
+
+## Paced complete-directory reads — 2026-10-12
+
+The same digest-verified clean `e274aab` executable served a further stopped copy
+of the actual 1,010-key/1,842-request history. One isolated Gateway configured
+two admission database connections. Eight client workers scheduled 1,200 ordinary
+workspace-viewer reads at 20 requests/second. Every HTTP response contained the
+complete directory: 221,012 bytes, all with HTTP 200/no-store and the same retained
+reference hash. This read run generated no upstream model call or new key.
+
+| Observation | Result |
+| --- | ---: |
+| Measured phase duration | 59.966 seconds |
+| Completed reads/second | 20.011 |
+| Client nearest-rank p50 / p95 / p99 | 10.33 / 12.14 / 13.04 ms |
+| Maximum client duration / scheduling lag | 14.95 / 11.02 ms |
+| Resource samples, approximately 500 ms intervals | 119 |
+| Maximum sampled Gateway RSS | 20,816 KiB |
+| Maximum sampled Gateway CPU from macOS ps | 12.8 percent |
+
+Independent PostgreSQL reopening matched every field/order in the reference to
+all saved keys and their latest dispatch timestamps, checked every retained
+response digest/length, and recalculated the latency/resource observations.
+Complete key-row fingerprints, attempts, charges and ledger counts/sums were
+unchanged. Original first/last-key response artifacts and exact debits remained
+consistent. Restart returned the same response bytes; the temporary reader was
+revoked and subsequent access returned 401. No outstanding hold or funding
+receipt appeared.
+
+This qualifies the stated paced, warmed, local read workload on this small
+retained directory, not saturation, arbitrary directory size, production SLOs,
+concurrent mutations or long-duration stability. Eight worker slots do not imply
+eight simultaneous active requests throughout the schedule. Client timing
+includes loopback transport and response transfer. Resource samples cover only
+the Gateway process, excluding PostgreSQL/host totals and unobserved peaks;
+they do not prove absence of memory leaks. Original installation, identity and
+source evidence were preserved. No fixture result supports these conclusions.
