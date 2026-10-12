@@ -1,6 +1,6 @@
 # Backend workflow verification status
 
-Reviewed 2026-10-12 against implementation `73d0c46`; native implementation `73d0c46`.
+Reviewed 2026-10-12 against implementation `7d7df96`; native implementation `7d7df96`.
 This is an index of scoped evidence, not a declaration that the complete release
 or New API comparison is qualified. Linked runs identify their own implementation
 revisions. Fixture outcomes provide no evidence. Current-input runs and
@@ -133,3 +133,14 @@ reopening checked all 1,840 responses, final report/filter/CSV totals and single
 debits; restart retained reports/exports and identities were revoked. The
 [mixed workload checkpoint](../reference/two-gateway-text-load.md#current-mixed-streaming-and-customer-reports--2026-10-12)
 records current timings and the limits of short one-Gateway evidence.
+
+
+## Customer top-up recovery reads
+
+Clean `7d7df96` bounds customer history/detail reads and keeps a history cursor
+and page on one read-only snapshot. Actual HTTP requests over a retained real
+uncertain intent refused database locks, recovered after release/restart and
+kept exact amounts and all financial records unchanged. Saved reads remained
+available with all merchant checkouts disabled. The [payment checkpoint](../reference/payment-aggregators.md#saved-customer-top-up-reads-under-contention--2026-10-12)
+separates recovery/support readiness from external merchant activation and
+positive funding, without requiring every integration to activate.

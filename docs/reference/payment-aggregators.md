@@ -1047,3 +1047,54 @@ Zhifux's shared query-admission refusal, not positive paid-order verification or
 Stripe query behavior. The original native runtime was updated with configuration,
 encrypted identities and durable business counts unchanged; a fresh backup restored
 with matching full-row business fingerprints before replacement.
+
+
+## Saved customer top-up reads under contention — 2026-10-12
+
+Clean `7d7df96` uses the shared bounded read-only transaction initializer for
+customer top-up history and detail. A history cursor lookup and its page share
+one repeatable-read snapshot. Transaction-local lock/statement limits are
+250 ms/2 s; they do not replace pool admission or a complete HTTP deadline.
+Timeout returns sanitized 503 without partial or empty-success data. Detail
+preserves its existing shape; history additionally includes `created_at`.
+Handler annotations and generated OpenAPI record these boundaries.
+
+An isolated stopped copy retained one actual uncertain merchant-creation intent
+from the earlier creation-claim workflow. The read deployment had no enabled
+checkout integration: the platform inventory still listed EPay, Stripe and
+Zhifux with checkout disabled and empty enabled-method lists. An ordinary company
+owner could recover the existing history and detail without merchant activation
+or an upstream query. The saved state remained `reconciliation_required`, with
+no checkout URL, rather than paid or empty history.
+
+A separate native PostgreSQL session held an exclusive order-table lock for each
+HTTP read. Clean `73d0c46` was observed waiting on the history, detail and cursor
+queries; each remained pending through approximately 1.6 seconds and returned
+only after release. Clean `7d7df96` returned 503 while each lock remained held:
+266.60 ms for history, 258.83 ms for detail and 254.97 ms for cursor continuation.
+PostgreSQL independently recorded the three lock-timeout cancellations.
+
+After each lock release and Gateway restart, original history/detail returned
+unchanged. Continuing after the sole saved order returned the legitimate empty
+older page; a missing cursor returned 409. Foreign-company owners and ordinary
+company viewers could not read the target history/detail. Revoked-owner detail
+returned 401. Those refusals did not disclose the saved order reference.
+
+Independent reopening matched customer currency, exact amount and method to the
+saved order, checked complete order/creation-claim row fingerprints, and verified
+that the original single intent and claim remained. No Provider binding,
+checkout, settlement, closure, customer balance entry or funding receipt was
+created. Customer projections excluded merchant/aggregator identity, internal
+account/idempotency fields and procurement information. Temporary actors were
+revoked. An initial verifier assumed list/detail equality without accounting for
+the documented creation timestamp; it was corrected before qualification and
+supplies no product-defect evidence.
+
+This qualifies the exercised saved-intent lock refusal, recovery and access
+boundary. It does not qualify large-history performance, concurrent paid/closed
+transitions, every callback/write deadline or positive funding. External merchant
+activation is deployment qualification, not a prerequisite for the support
+inventory or recovery-read capability. No paid receipt was fabricated. Static
+clippy and annotation checks completed separately; fixture outcomes are not
+evidence. The native upgrade followed a fresh isolated backup restore/comparison,
+preserving original configuration, encrypted identity and business record counts.

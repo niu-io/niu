@@ -138,3 +138,14 @@ actual succeeded video after lock release and restart, with one original
 submission and no new billing. Its retrieved MP4 matched the retained result and
 fully decoded. This checkpoint covers existing-job recovery; new generation,
 intent-submit/browser restoration and paid media have separate verification scope.
+
+
+## Recover saved top-ups when checkout is unavailable
+
+Saved company top-up history and detail remain readable without an active
+merchant checkout. Storage contention returns sanitized 503 rather than empty
+history or paid status; history cursor/page reads share one bounded read-only
+snapshot. The [current recovery-read checkpoint](https://github.com/niu-io/niu/blob/main/docs/reference/payment-aggregators.md#saved-customer-top-up-reads-under-contention--2026-10-12)
+records actual lock refusal/recovery, ordinary-role authorization, unchanged
+uncertain status and absent funding. Supported integration readiness and external
+merchant activation are separate. Preserve known data when reads are unavailable.
