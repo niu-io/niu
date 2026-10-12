@@ -229,6 +229,7 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/v1/video/jobs", get(super::inference::video::history).post(super::inference::video::create).layer(DefaultBodyLimit::max(16 * 1024 * 1024)))
         .route("/v1/video/jobs/{id}/timings", get(super::inference::video::timings))
         .route("/v1/video/jobs/{id}/billing", get(super::inference::video::billing))
+        .route("/v1/video/jobs/{id}/observations", get(super::inference::video_observations::observations))
         .route("/v1/video/jobs/{id}/refresh", axum::routing::post(super::inference::video::refresh))
         .route("/v1/video/jobs/{id}/results/{kind}", get(super::inference::video_results::retrieve))
         .route("/v1/video/jobs/{id}/results", get(super::inference::video_results::availability).delete(super::inference::video_results::delete))

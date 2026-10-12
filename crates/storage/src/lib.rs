@@ -158,6 +158,7 @@ pub use niu_metered_cost::Dimensions as MediaBillingDimensions;
 pub use supplier_media::SupplierMediaRateCard;
 pub use supplier_media_offers::SupplierMediaOfferInput;
 mod media_jobs;
+mod media_query_reports;
 mod media_results;
 mod video_intents;
 pub use media_jobs::{

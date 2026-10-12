@@ -27,3 +27,4 @@ pub(super) use responses::{responses_usage, valid_responses_response, validate_r
 pub(super) mod video_models;
 
 pub(super) mod video_results;
+pub(super) mod video_observations;
