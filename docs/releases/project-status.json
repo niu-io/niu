@@ -1,8 +1,8 @@
 {
   "version": 1,
   "updated": "2026-10-12",
-  "source_commit": "bf3e87d3cab81af13687df0c85f81ddc5b10723f",
-  "runtime_commit": "4a2f956cbad72eda0a240ef627b9d04f259036a9",
+  "source_commit": "95195f50a56540f8ea7e6d6e435ea28e32cbe0cd",
+  "runtime_commit": "13952e57ddde7c8aad3d16c4ddf8361191fda97a",
   "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
   "active_implementation_tasks": [
     "S02-3",
@@ -400,10 +400,11 @@
             "docs/reference/workspace-material-sdk-acceptance.md",
             "docs/reference/workspace-material-format-acceptance.md",
             "docs/reference/workspace-material-storage-acceptance.md",
-            "docs/reference/workspace-material-video-reference-acceptance.md"
+            "docs/reference/workspace-material-video-reference-acceptance.md",
+            "docs/reference/video-saved-task-current-acceptance.md"
           ],
           "evidence_revision": "ab33ee17",
-          "note": "Durable three-kind/eight-format library, scoped SDK lifecycle, exact byte/object caps and nonempty rotation independently verified. Saved-image task coordinator and atomic binding implemented; strict unsupported-channel refusals verified and original deployment/data preserved. Qualified fresh-inspection/Ark dispatch, deletion race during dispatch and durable Provider reuse remain unverified."
+          "note": "Durable three-kind/eight-format library, scoped SDK lifecycle, byte/object caps and nonempty rotation independently verified. Current saved real job status/replay/auth/expiry/restart checked without new generation or upstream query. Saved-image atomic coordinator is implemented; genuine fresh-inspection/Ark dispatch, its deletion race and Provider asset reuse remain unverified; audio/video material task references remain unsupported."
         },
         {
           "id": "S08-3",
@@ -496,7 +497,7 @@
             "docs/reference/encryption-configuration-acceptance.md"
           ],
           "evidence_revision": "186662c5",
-          "note": "Actual offline transition of 89 populated envelopes plus rechecked historical interrupted/asset/video transitions; empty supported domains remain unverified, task stays active."
+          "note": "Five of eleven supported encrypted domains have scoped nonempty actual transition evidence, including the new workspace-material domain with 256 independently reopened envelopes. Six domains remain unverified with exact legitimate data prerequisites recorded; empty inventories and deferred legacy activation do not close them."
         },
         {
           "id": "S10-3",
