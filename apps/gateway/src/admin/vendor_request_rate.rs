@@ -44,7 +44,7 @@ pub struct History {
 ///   "operation": {
 ///     "operationId": "getVendorRequestRateLimit",
 ///     "summary": "Read upstream credential request limit",
-///     "description": "Platform administration only. Applies to mapped inference dispatches pinned to this saved credential across workspaces and gateway instances, independent of customer key RPM. Null is unlimited; zero denies dispatch. Revision starts at string 0 and survives credential edits. Rolling 60-second admissions count dispatch, including upstream failures and uncertain outcomes; polling and connection checks are not inference dispatch. Unlimited dispatches also count when a cap is subsequently enabled. No automatic route substitution or replay. Duplicated credentials saved under different vendor IDs have independent windows.",
+///     "description": "Platform administration only. Applies to mapped inference dispatches pinned to this saved credential across workspaces and gateway instances, independent of customer key RPM. Null is unlimited; zero denies dispatch. Revision starts at string 0 and survives credential edits. Rolling 60-second admissions count dispatch, including upstream failures and uncertain outcomes; polling and connection checks are not inference dispatch. Unlimited dispatches also count when a cap is subsequently enabled. No automatic route substitution or replay. Duplicated credentials saved under different vendor IDs have independent windows. Storage operations use bounded transactions: read-only snapshots for reads and a recording transaction for updates, with transaction-local 250 ms lock and 2 s statement limits. Exceeded waits return sanitized 503; failed updates do not advance policy/history. These bounds exclude authorization and pool acquisition.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -94,6 +94,9 @@ pub struct History {
 ///       },
 ///       "409": {
 ///         "description": "Stale revision on policy update."
+///       },
+///       "503": {
+///         "description": "Storage unavailable or bounded storage wait exceeded; no empty-success policy/history fallback."
 ///       }
 ///     },
 ///     "x-niu-implementation": "implemented"
@@ -184,7 +187,7 @@ pub async fn read(
 ///   "operation": {
 ///     "operationId": "setVendorRequestRateLimit",
 ///     "summary": "Set upstream credential request limit",
-///     "description": "Platform administration only. Applies to mapped inference dispatches pinned to this saved credential across workspaces and gateway instances, independent of customer key RPM. Null is unlimited; zero denies dispatch. Revision starts at string 0 and survives credential edits. Rolling 60-second admissions count dispatch, including upstream failures and uncertain outcomes; polling and connection checks are not inference dispatch. Unlimited dispatches also count when a cap is subsequently enabled. No automatic route substitution or replay. Duplicated credentials saved under different vendor IDs have independent windows.",
+///     "description": "Platform administration only. Applies to mapped inference dispatches pinned to this saved credential across workspaces and gateway instances, independent of customer key RPM. Null is unlimited; zero denies dispatch. Revision starts at string 0 and survives credential edits. Rolling 60-second admissions count dispatch, including upstream failures and uncertain outcomes; polling and connection checks are not inference dispatch. Unlimited dispatches also count when a cap is subsequently enabled. No automatic route substitution or replay. Duplicated credentials saved under different vendor IDs have independent windows. Storage operations use bounded transactions: read-only snapshots for reads and a recording transaction for updates, with transaction-local 250 ms lock and 2 s statement limits. Exceeded waits return sanitized 503; failed updates do not advance policy/history. These bounds exclude authorization and pool acquisition.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -234,6 +237,9 @@ pub async fn read(
 ///       },
 ///       "409": {
 ///         "description": "Stale revision on policy update."
+///       },
+///       "503": {
+///         "description": "Storage unavailable or bounded storage wait exceeded; no empty-success policy/history fallback."
 ///       }
 ///     },
 ///     "x-niu-implementation": "implemented",
@@ -304,7 +310,7 @@ pub async fn write(
 ///   "operation": {
 ///     "operationId": "listVendorRequestRateLimitHistory",
 ///     "summary": "Read credential request-limit history",
-///     "description": "Platform administration only. Applies to mapped inference dispatches pinned to this saved credential across workspaces and gateway instances, independent of customer key RPM. Null is unlimited; zero denies dispatch. Revision starts at string 0 and survives credential edits. Rolling 60-second admissions count dispatch, including upstream failures and uncertain outcomes; polling and connection checks are not inference dispatch. Unlimited dispatches also count when a cap is subsequently enabled. No automatic route substitution or replay. Duplicated credentials saved under different vendor IDs have independent windows.",
+///     "description": "Platform administration only. Applies to mapped inference dispatches pinned to this saved credential across workspaces and gateway instances, independent of customer key RPM. Null is unlimited; zero denies dispatch. Revision starts at string 0 and survives credential edits. Rolling 60-second admissions count dispatch, including upstream failures and uncertain outcomes; polling and connection checks are not inference dispatch. Unlimited dispatches also count when a cap is subsequently enabled. No automatic route substitution or replay. Duplicated credentials saved under different vendor IDs have independent windows. Storage operations use bounded transactions: read-only snapshots for reads and a recording transaction for updates, with transaction-local 250 ms lock and 2 s statement limits. Exceeded waits return sanitized 503; failed updates do not advance policy/history. These bounds exclude authorization and pool acquisition.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -376,6 +382,9 @@ pub async fn write(
 ///       },
 ///       "409": {
 ///         "description": "Stale revision on policy update."
+///       },
+///       "503": {
+///         "description": "Storage unavailable or bounded storage wait exceeded; no empty-success policy/history fallback."
 ///       }
 ///     },
 ///     "x-niu-implementation": "implemented"
