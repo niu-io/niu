@@ -1,7 +1,7 @@
 # Project delivery status
 
 Baseline v1; updated 2026-10-12.
-Committed audit source `a8f9e68f`; native implementation `a8f9e68f`.
+Committed audit source `ab33ee17`; native implementation `ab33ee17`.
 
 **Backend acceptance checkpoints: 24/36 recorded complete at their evidence pins.**
 **Whole backend subsystems closed: 3/12.**
@@ -68,7 +68,7 @@ Active implementation: S02-3, S08-2, S05-2, S10-2, S03-2, S04-3, S03-3, S05-3, S
 | ID | Status | Acceptance | Evidence pin |
 | --- | --- | --- | --- |
 | S05-1 | done | The exercised approved-credit text workflow has immutable-price debits, released holds, refund/reconciliation and restart without invented cash funding. | [record](../../docs/reference/internal-credit-workflow-live.md) (`b1223c0`) |
-| S05-2 | active | Consolidate exact category/tier/fee, insufficient-capacity, concurrent liability, uncertainty and exactly-once recovery checks for the supported charging matrix. | [record](../../docs/reference/accounting-matrix-acceptance.md) (`5591a02d`) |
+| S05-2 | active | Consolidate exact category/tier/fee, insufficient-capacity, concurrent liability, uncertainty and exactly-once recovery checks for the supported charging matrix. | [record](../../docs/reference/accounting-matrix-acceptance.md), [record](../../docs/reference/current-tier-fee-acceptance.md) (`5591a02d`) |
 | S05-3 | active | Verify supported customer media, invoice and Supplier earning/settlement serialization and accounting mechanisms; track unavailable positive evidence separately from external activation. | [record](../../docs/reference/invoice-payment-boundary-acceptance.md) (`c24e75b7`) |
 
 ### S06 — Payment integration capability
@@ -92,7 +92,7 @@ Active implementation: S02-3, S08-2, S05-2, S10-2, S03-2, S04-3, S03-3, S05-3, S
 | ID | Status | Acceptance | Evidence pin |
 | --- | --- | --- | --- |
 | S08-1 | done | Actual personal video submission, key rotation, saved-job restart recovery, idempotent replay and independently decoded result are exercised. | [record](../../docs/reference/current-video-submission-restart.md) (`e704955`) |
-| S08-2 | active | Close the supported input/control/job/result/retention/asset authorization matrix and recovery without duplicate submission. | [record](../../docs/reference/ingested-image-video-input.md), [record](../../docs/reference/workspace-material-library.md), [record](../../docs/reference/workspace-material-sdk-acceptance.md), [record](../../docs/reference/workspace-material-format-acceptance.md) (`a8f9e68f`) |
+| S08-2 | active | Close the supported input/control/job/result/retention/asset authorization matrix and recovery without duplicate submission. | [record](../../docs/reference/ingested-image-video-input.md), [record](../../docs/reference/workspace-material-library.md), [record](../../docs/reference/workspace-material-sdk-acceptance.md), [record](../../docs/reference/workspace-material-format-acceptance.md), [record](../../docs/reference/workspace-material-storage-acceptance.md), [record](../../docs/reference/workspace-material-video-reference-acceptance.md) (`ab33ee17`) |
 | S08-3 | open | Implement or verify supported reported media meters, bounded liability and exact settlement; missing quantity remains explicit and never inferred from file duration. | Missing / not yet accepted |
 
 ### S09 — Durable Chat

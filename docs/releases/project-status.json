@@ -1,8 +1,8 @@
 {
   "version": 1,
   "updated": "2026-10-12",
-  "source_commit": "a8f9e68fb7e221f612a1e415db7a763bf9162720",
-  "runtime_commit": "a8f9e68fb7e221f612a1e415db7a763bf9162720",
+  "source_commit": "ab33ee172fbff52357bdd5375dcc3d5e80676244",
+  "runtime_commit": "ab33ee172fbff52357bdd5375dcc3d5e80676244",
   "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
   "active_implementation_tasks": [
     "S02-3",
@@ -242,10 +242,11 @@
           "status": "active",
           "acceptance": "Consolidate exact category/tier/fee, insufficient-capacity, concurrent liability, uncertainty and exactly-once recovery checks for the supported charging matrix.",
           "evidence": [
-            "docs/reference/accounting-matrix-acceptance.md"
+            "docs/reference/accounting-matrix-acceptance.md",
+            "docs/reference/current-tier-fee-acceptance.md"
           ],
           "evidence_revision": "5591a02d",
-          "note": "Twelve actual response/native-state slices independently reopened; some historical executable pins are missing. Current runtime matrix equivalence and bounded duplicate/recovery gaps remain to verify; active, not accepted complete."
+          "note": "Current pinned additive fee matches real native Provider usage, charge/debit/CSV and canonical receipt. Above-tier attempt hit an actual connection timeout with no upstream response and retains its exact frozen uncertain liability. No retry or invented category; current positive above-tier/category matrix remains unverified."
         },
         {
           "id": "S05-3",
@@ -395,10 +396,12 @@
             "docs/reference/ingested-image-video-input.md",
             "docs/reference/workspace-material-library.md",
             "docs/reference/workspace-material-sdk-acceptance.md",
-            "docs/reference/workspace-material-format-acceptance.md"
+            "docs/reference/workspace-material-format-acceptance.md",
+            "docs/reference/workspace-material-storage-acceptance.md",
+            "docs/reference/workspace-material-video-reference-acceptance.md"
           ],
-          "evidence_revision": "a8f9e68f",
-          "note": "Durable three-kind workspace library and SDK lifecycle plus eight real-format upload/refusal/download/decryption matrix independently verified; original runtime refreshed with preserved identities/data and restored schema-285 backup. Library-to-task references, byte-quota exhaustion, real Ark asset reuse and durable Provider grants remain open. This does not close the full video checkpoint."
+          "evidence_revision": "ab33ee17",
+          "note": "Durable three-kind/eight-format library, scoped SDK lifecycle, exact byte/object caps and nonempty rotation independently verified. Saved-image task coordinator and atomic binding implemented; strict unsupported-channel refusals verified and original deployment/data preserved. Qualified fresh-inspection/Ark dispatch, deletion race during dispatch and durable Provider reuse remain unverified."
         },
         {
           "id": "S08-3",
