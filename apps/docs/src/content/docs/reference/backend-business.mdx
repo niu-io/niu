@@ -300,3 +300,11 @@ The client performs saved-state GETs only; three worker queries complete the
 original submission and stop its schedule. Native records and the final decoded
 video were independently verified. This does not establish paid settlement,
 multi-instance contention, connection isolation or production capacity.
+
+
+Video transport spans and lifecycle now share one bounded read-only snapshot
+after job authorization. The [actual timing checkpoint](https://github.com/niu-io/niu/blob/main/docs/reference/video-timing-read-snapshot.md)
+verifies public and workspace-viewer reads, sanitized 503 under a held table
+lock, recovery and restart against independent native records. Fields and
+ordering remain unchanged; pool acquisition and complete request deadlines
+are separate boundaries.

@@ -1,6 +1,6 @@
 # Backend workflow verification status
 
-Reviewed 2026-10-12 against implementation `e704955`; native implementation `e704955`.
+Reviewed 2026-10-12 against implementation `e1d4325`; native implementation `e1d4325`.
 This is an index of scoped evidence, not a declaration that the complete release
 or New API comparison is qualified. Linked runs identify their own implementation
 revisions. Fixture outcomes provide no evidence. Current-input runs and
@@ -288,3 +288,10 @@ key rotation. Independent native/artifact checks verify three worker queries,
 completed stopped schedule, decoded result and no extra submission/financial
 entry. Paid settlement, multi-instance contention, connection isolation and
 natural result expiry remain separately unverified.
+
+## Video timing read snapshot
+
+The [current timing checkpoint](../reference/video-timing-read-snapshot.md)
+verifies public and ordinary-viewer reads of actual saved transport/lifecycle
+records, bounded lock refusal, recovery, restart and revocation. Native data
+remained unchanged. This does not qualify every video read or a global deadline.
