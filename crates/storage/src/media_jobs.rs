@@ -378,6 +378,7 @@ impl Store {
     }
 
     /// Last 100 measured spans, ordered chronologically with explicit truncation.
+    /// Transport spans and lifecycle share one bounded read-only snapshot.
     /// The response contains no internal timing IDs, upstream identities, URLs or response bodies.
     pub async fn media_transport_timings_for_key(
         &self,
@@ -392,8 +393,9 @@ impl Store {
             return Ok(None);
         }
         let scope = principal.scope();
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
         let mut rows: Vec<serde_json::Value> = sqlx::query_scalar("SELECT jsonb_build_object('phase',phase,'started_unix_ms',started_unix_ms,'elapsed_ms',elapsed_ms,'outcome',outcome,'upstream_http_status',upstream_http_status) FROM media_transport_timings WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3 ORDER BY started_unix_ms DESC,id DESC LIMIT 101")
-            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_all(&self.pool).await?;
+            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_all(&mut *snapshot).await?;
         let has_more = rows.len() > 100;
         rows.truncate(100);
         rows.reverse();
@@ -401,7 +403,8 @@ impl Store {
         // gateway observation times, never claimed as exact Supplier transitions.
         let lifecycle: serde_json::Value = sqlx::query_scalar(
             "SELECT jsonb_build_object('source','gateway_observation','submitted_unix_ms',floor(extract(epoch FROM a.dispatched_at)*1000)::bigint,'observations',COALESCE((SELECT jsonb_agg(jsonb_build_object('status',o.status,'observed_unix_ms',floor(extract(epoch FROM o.created_at)*1000)::bigint) ORDER BY o.created_at,o.status) FROM media_job_observations o WHERE o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.attempt_id=a.id),'[]'::jsonb),'conflicting_terminal',EXISTS(SELECT 1 FROM media_job_observations o WHERE o.attempt_id=a.id AND o.status='succeeded') AND EXISTS(SELECT 1 FROM media_job_observations o WHERE o.attempt_id=a.id AND o.status='failed')) FROM attempts a WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=$3",
-        ).bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_one(&self.pool).await?;
+        ).bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_one(&mut *snapshot).await?;
+        snapshot.commit().await?;
         Ok(Some(
             serde_json::json!({"data":rows,"has_more":has_more,"lifecycle":lifecycle}),
         ))
