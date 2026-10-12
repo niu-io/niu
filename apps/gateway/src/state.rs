@@ -27,6 +27,7 @@ pub struct AppState {
     pub config: Arc<AppConfig>,
     pub(crate) detectors: Arc<HashMap<String, crate::guardrails::detector::Runtime>>,
     pub(crate) image_detectors: Arc<HashMap<String, niu_media::image_detector::Runtime>>,
+    pub(crate) media_detectors: Arc<HashMap<String, niu_media::media_detector::Runtime>>,
     pub(crate) vendor_cipher: Option<Arc<crate::vendors::crypto::CredentialCipher>>,
     pub enterprise: Option<Arc<crate::enterprise::EnterpriseRuntime>>,
     provider_keys: Arc<HashMap<String, String>>,
@@ -180,10 +181,20 @@ impl AppState {
                     .map(|runtime| (name.clone(), runtime))
             })
             .collect();
+        let media_detectors = config
+            .media_detectors
+            .iter()
+            .filter_map(|(name, config)| {
+                niu_media::media_detector::Runtime::new(config.clone())
+                    .ok()
+                    .map(|runtime| (name.clone(), runtime))
+            })
+            .collect();
         Self {
             route_registry: Arc::new(tokio::sync::RwLock::new(None)),
             trusted_proxies: Arc::new(Vec::new()),
             image_detectors: Arc::new(image_detectors),
+            media_detectors: Arc::new(media_detectors),
             password_auth: None,
             detectors: Arc::new(detectors),
             payments: None,

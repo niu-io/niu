@@ -8,6 +8,7 @@ pub mod key_ip;
 pub(crate) mod key_request_rate;
 pub mod key_spending;
 pub(crate) mod key_token_rate;
+pub mod media_detectors;
 mod operator_audit;
 pub mod passwords;
 pub mod preferences;

@@ -379,6 +379,13 @@ export type GuardrailDetectorDescription = Omit<WorkspaceDetectorDescription, 'd
 export type GuardrailDetectorPreviewInput = { configuration_fingerprint: string; text: string; consent_to_external_processing: true };
 export type GuardrailDetectorPreviewResult = { outcome: 'clear' | 'matched' | 'indeterminate'; reason: string; synthetic: true; enforcement: false };
 
+export type WorkspaceMediaDetectorDescription = {
+  detector: string; schema_version: 3; kind: 'audio' | 'video'; detector_revision: string;
+  configuration_fingerprint: string; recipient: string; region: string; retention: string;
+  content_sent: 'exact_encoded_media_with_embedded_tracks'; processing_guarantees: 'declared_unverified';
+  timeout_ms: number; maximum_encoded_bytes: number; concurrency: number; declared_unmetered: boolean;
+  policy_activation: false; requires_supported_presentation_facts: true;
+};
 export type WorkspaceImageDetectorDescription = {
   detector: string; schema_version: 2; detector_revision: string; configuration_fingerprint: string;
   recipient: string; region: string; retention: string; processing_guarantees: 'declared_unverified';
@@ -2324,6 +2331,11 @@ export class NiuAdminClient {
   /** Declared processing conditions for deployment-authorized workspace detectors. */
   listWorkspaceDetectors(scope: TenantScope, options?: RequestOptions): Promise<{ data: WorkspaceDetectorDescription[] }> {
     return this.request(`${this.guardrailsPath(scope)}/detectors`, undefined, options);
+  }
+
+  /** Declared audio/video processing conditions only; performs no inspection or activation. */
+  listWorkspaceMediaDetectors(scope: TenantScope, options?: RequestOptions): Promise<{ data: WorkspaceMediaDetectorDescription[] }> {
+    return this.request(`${this.guardrailsPath(scope)}/media-detectors`, undefined, options);
   }
 
   /** Image disclosure is separate from text consent; policy activation remains unavailable. */

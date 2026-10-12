@@ -3641,6 +3641,170 @@ HTTP 403: Workspace access denied
 
 HTTP 404: Workspace is outside operator scope, or key is absent from authorized workspace
 
+## List workspace-authorized media inspection configurations
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/guardrails/media-detectors`
+
+Returns only deployment-authorized audio/video configuration metadata for the requested workspace. Declared conditions and a fingerprint do not establish successful inspection or consent; policy activation and media task references remain unavailable. No service endpoint, credential, environment variable or foreign workspace configuration is exposed. This operation performs no external inspection.
+
+Implementation: `implemented`. Operation: `listWorkspaceMediaDetectors`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Declared workspace media processing conditions
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "detector",
+          "detector_revision",
+          "configuration_fingerprint",
+          "recipient",
+          "region",
+          "retention",
+          "schema_version",
+          "kind",
+          "content_sent",
+          "processing_guarantees",
+          "timeout_ms",
+          "maximum_encoded_bytes",
+          "concurrency",
+          "declared_unmetered",
+          "policy_activation",
+          "requires_supported_presentation_facts"
+        ],
+        "properties": {
+          "detector": {
+            "type": "string"
+          },
+          "detector_revision": {
+            "type": "string"
+          },
+          "configuration_fingerprint": {
+            "type": "string"
+          },
+          "recipient": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string"
+          },
+          "retention": {
+            "type": "string"
+          },
+          "schema_version": {
+            "type": "integer",
+            "enum": [
+              3
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "audio",
+              "video"
+            ]
+          },
+          "content_sent": {
+            "type": "string",
+            "enum": [
+              "exact_encoded_media_with_embedded_tracks"
+            ]
+          },
+          "processing_guarantees": {
+            "type": "string",
+            "enum": [
+              "declared_unverified"
+            ]
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30000
+          },
+          "maximum_encoded_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 8388608
+          },
+          "concurrency": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4
+          },
+          "declared_unmetered": {
+            "type": "boolean"
+          },
+          "policy_activation": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "requires_supported_presentation_facts": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Invalid management credential; inference keys cannot access this operation
+
+HTTP 403: Insufficient workspace permission
+
+HTTP 404: Workspace not found
+
+HTTP 503: Authorization or storage unavailable
+
 ## Discover password sign-in availability
 
 `GET /admin/v1/auth/config`

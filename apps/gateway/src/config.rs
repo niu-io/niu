@@ -13,6 +13,9 @@ pub struct AppConfig {
     pub detectors: BTreeMap<String, crate::guardrails::detector::Config>,
     #[serde(default)]
     pub image_detectors: BTreeMap<String, niu_media::image_detector::Config>,
+    /// Separate kind-bound consent; image consent never authorizes audio/video.
+    #[serde(default)]
+    pub media_detectors: BTreeMap<String, niu_media::media_detector::Config>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -278,6 +281,19 @@ impl AppConfig {
             detector
                 .validate()
                 .map_err(|_| ConfigError::Invalid("Invalid image detector configuration".into()))?;
+        }
+        for (name, detector) in &self.media_detectors {
+            if name.is_empty()
+                || name.len() > 200
+                || !name
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b"_-".contains(&b))
+            {
+                return Err(ConfigError::Invalid("Invalid media detector name".into()));
+            }
+            detector
+                .validate()
+                .map_err(|_| ConfigError::Invalid("Invalid media detector configuration".into()))?;
         }
         for detector in self.detectors.values() {
             detector.validate().map_err(|_| {

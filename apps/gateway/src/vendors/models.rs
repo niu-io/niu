@@ -278,6 +278,7 @@ pub(super) fn validate_model(alias: &str, model: ModelConfig) -> Result<(), ApiE
         server: ServerConfig::default(),
         detectors: BTreeMap::new(),
         image_detectors: BTreeMap::new(),
+        media_detectors: BTreeMap::new(),
         models: BTreeMap::from([(alias.to_owned(), model)]),
     };
     config.validate().map_err(|_| {
