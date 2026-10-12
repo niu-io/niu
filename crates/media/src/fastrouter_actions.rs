@@ -183,7 +183,10 @@ impl FastRouterActionClient {
         let deadline = tokio::time::Instant::now() + limits.http_timeout;
         let client = tokio::time::timeout_at(
             deadline,
-            niu_upstream::client_for_endpoint_with_timeouts(endpoint.as_str(), timeouts),
+            // Authorize the configured origin without operation query fields.
+            // The Action URL above is derived from that same immutable origin;
+            // shared endpoint validation intentionally rejects caller queries.
+            niu_upstream::client_for_endpoint_with_timeouts(self.endpoint.as_str(), timeouts),
         )
         .await
         .map_err(|_| FastRouterActionError::EndpointUnavailable)?
