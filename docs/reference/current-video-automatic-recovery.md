@@ -62,3 +62,26 @@ reference images, natural result expiry, multi-instance worker contention,
 connection isolation or production capacity. No CPU/RSS profile was collected.
 Personal upstream charges are separate from absent Niu customer/Supplier entries;
 this is not a claim that the generated video was free.
+
+## Bounded scheduling waits
+
+A separate current-input checkpoint exercised clean backend `d104367` against
+a stopped copy of the actual completed video history. With automatic polling
+enabled and one admission connection, an independent session held an exclusive
+lock on the schedule table. The previous executable left a saved-job GET pending
+until lock release (1,614.50 ms in this observation). The revised worker released
+its connection after the transaction-local lock timeout; the GET returned the
+same authorized saved job while the table lock remained held, in 236.08 ms.
+This is a contention observation, not a throughput or latency SLO.
+
+Schedule reconstruction, lease claim and lease completion now use the existing
+bounded transaction helper. Access resumption and insertion are committed
+atomically. Candidate selection, lease conditions and retry policy are unchanged;
+no upstream request runs inside these transactions. Financial recovery logic
+and database pool sizes are unchanged.
+
+Independent reopening confirmed unchanged full attempt, job and schedule rows,
+transport and ledger counts, exactly one original submission, stopped scheduling
+with cleared leases, restart visibility and denied revoked-key access. This
+qualifies the exercised schedule-table contention only; it does not establish
+global worker connection isolation or every background task's deadline.
