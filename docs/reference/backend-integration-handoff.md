@@ -67,9 +67,10 @@ signals. Rendered documentation and embedded Help remain unverified here.
 The public SDK at `ce97f3b0` adds the exact Chat draft helpers and exported
 payload/state types. Its actual save/conflict/reload/clear/restart evidence is
 recorded in [the Chat frontend handoff](chat-sdk-frontend-handoff.md). The
-original installation now runs native `8ddf1dc8`, schema 293; its preserved-data
+original installation now runs native `8bfdef10`, schema 293; its preserved-data
 upgrade and finite personal FastRouter configuration are recorded separately
 in [native upgrade acceptance](native-schema-290-293-upgrade-acceptance.md) and
 [personal video configuration](original-personal-video-configuration-acceptance.md).
-The compiled `8bfdef10` payment-polling change is used by isolated acceptance
-copies and has not yet replaced that original running executable.
+The `8bfdef10` payment-polling change has also been independently checked in
+isolated acceptance copies. The original refresh retains default polling,
+configuration, encrypted identities and business records.

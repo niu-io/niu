@@ -1,8 +1,8 @@
 {
   "version": 1,
   "updated": "2026-10-13",
-  "source_commit": "3ffd1531",
-  "runtime_commit": "8ddf1dc8851dad085930467067f580ae3ca5f177",
+  "source_commit": "4c971696",
+  "runtime_commit": "8bfdef10003eebe9402401247aa52cd69d3a398f",
   "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
   "active_implementation_tasks": [
     "S02-3",

@@ -1,7 +1,7 @@
 # Project delivery status
 
 Baseline v1; updated 2026-10-13.
-Committed audit source `3ffd1531`; native implementation `8ddf1dc8`.
+Committed audit source `4c971696`; native implementation `8bfdef10`.
 
 **Backend acceptance checkpoints: 26/36 recorded complete at their evidence pins.**
 **Whole backend subsystems closed: 4/12.**

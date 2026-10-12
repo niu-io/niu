@@ -25,7 +25,7 @@ counts, not coding percentage or complete release readiness. Chat closure covers
 the backend SDK/contract handoff; frontend adoption and browser acceptance remain
 separately delegated under S13.
 
-The original native runtime is `8ddf1dc8`, schema 293. The isolated migration and
+The original native runtime is `8bfdef10`, schema 293. The isolated migration and
 original upgrade preserve existing identities, configuration and business rows;
 only operational recovery timestamps change. FastRouter now has an enabled,
 unpriced personal Seedance 2.5 text preset under the existing personal owner.

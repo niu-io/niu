@@ -29,3 +29,27 @@ After the protected original upgrade, an independent read-only verifier compared
 The active process, ready endpoint (HTTP 200) and installed binary hash matched the retained runtime. The original configuration, encrypted credential identities and durable counts were preserved by the protected refresh. The original encryption audit completed successfully. The restored copy and live database each retained their own pre-upgrade baseline; no backup model row was restored over newer live data to force a cross-snapshot comparison.
 
 Copied services were stopped. The verifier made no original write, upstream call or encryption rotation. This is native upgrade and preservation evidence, not a performance qualification or acceptance of a newly created Provider business flow.
+
+## Same-schema payment-polling runtime refresh — 2026-10-13
+
+The original service was subsequently updated from `8ddf1dc8` to
+`8bfdef10003eebe9402401247aa52cd69d3a398f`, executable SHA-256
+`6f5290d182c9bf51de1f2bb8d469067351c9f9771150235adc2917b1d39c6900`.
+A fresh archive was restored independently before the update, with seven
+full-table projections matching the original source. No schema migration or
+restoration into the original database occurred.
+
+A separate read-only verifier checked the live process and launch provenance,
+HTTP readiness, schema 293 and all 229 current relation projections. The 228
+non-progress relations match before, after and current reads exactly. Recovery
+progress retains all non-timestamp columns; only `updated_at` and `last_step_at`
+advance. The fresh backup and pre-refresh capture are separate points in time,
+so their operational timestamps are not asserted identical. Root's protected
+refresh also checked original configuration files and encrypted identities.
+
+Default payment polling remains enabled; no opt-out was added to the original
+environment. FastRouter retains one enabled personal Seedance 2.5 model and
+three disabled models, with no prices or public publication. The four new
+Provider domain tables remain empty. Independent verification performs no
+original writes, restart, merchant call or key rotation. This is runtime
+preservation evidence, not positive received-cash or priced-video acceptance.
