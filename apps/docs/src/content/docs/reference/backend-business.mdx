@@ -261,3 +261,15 @@ Actual downloaded MP4 bytes and full decode match the original persisted video;
 IP denial, foreign scope, finite peer expiry and revocation block access. No new
 generation or charge occurs. New video dispatch and customer-paid media remain
 outside this read checkpoint.
+
+
+## Saved video usage observations
+
+Read `/v1/video/jobs/{id}/observations`, or the selected-key dashboard bridge,
+to diagnose saved query status and missing/invalid/reported quantity. Both support
+bounded `limit`/`after` pages and return no-store. The SDK exposes
+`video.jobs.observations` and `getDashboardVideoObservations`. Preserve known data
+on unavailable reads; a missing quantity is not zero usage. Keep customer billing
+and measured transport timing separate. The [current receipt checkpoint](https://github.com/niu-io/niu/blob/main/docs/reference/video-query-observations.md)
+records actual SDK/HTTP/native reconciliation and unchanged financial state.
+Private upstream costs, identities and URLs are excluded.

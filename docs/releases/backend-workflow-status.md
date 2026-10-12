@@ -1,6 +1,6 @@
 # Backend workflow verification status
 
-Reviewed 2026-10-12 against implementation `67b0ed2`; native implementation `67b0ed2`.
+Reviewed 2026-10-12 against implementation `0f6319b`; native implementation `0f6319b`.
 This is an index of scoped evidence, not a declaration that the complete release
 or New API comparison is qualified. Linked runs identify their own implementation
 revisions. Fixture outcomes provide no evidence. Current-input runs and
@@ -248,3 +248,11 @@ independently verifies identical decoded artifacts through original and rotated
 keys after restart, natural finite peer expiry, source/scope refusal and revocation.
 Original generation and financial records remain unchanged. This is result-read
 evidence; new video dispatch and paid media settlement remain separately unverified.
+
+
+[Saved video query observations](../reference/video-query-observations.md)
+add key and dashboard read interfaces plus SDK methods. Actual missing-quantity
+receipts, two-row pagination, scoped refusal, bounded receipt-table locks and
+restart were independently reconciled without changing any business/financial
+record. Current direct OpenRouter metadata still supplies no usable quantity for
+the seconds tariff; expenses and estimates are not customer billing evidence.
