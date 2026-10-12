@@ -5,6 +5,7 @@ mod image_sources;
 mod inference;
 mod routes;
 mod static_site;
+mod workspace_assets;
 
 #[cfg(test)]
 mod tests;

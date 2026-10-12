@@ -11,16 +11,18 @@ pub enum EncryptedContentDomain {
     AssetRead,
     AssetPatch,
     InspectedImage,
+    WorkspaceAsset,
 }
 
 impl EncryptedContentDomain {
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 7] = [
         Self::MediaResult,
         Self::AssetListing,
         Self::AssetLookup,
         Self::AssetRead,
         Self::AssetPatch,
         Self::InspectedImage,
+        Self::WorkspaceAsset,
     ];
 }
 
@@ -53,6 +55,9 @@ impl Store {
         after: Option<(Uuid, String)>,
     ) -> Result<Vec<EncryptedContent>, StoreError> {
         let source = match domain {
+            EncryptedContentDomain::WorkspaceAsset => {
+                "SELECT a.organization_id,a.project_id,a.id,''::text AS discriminator,NULL::uuid AS key_id,c.ciphertext FROM workspace_asset_library_content c JOIN workspace_asset_library a ON a.id=c.asset_id"
+            }
             EncryptedContentDomain::MediaResult => {
                 "SELECT organization_id,project_id,attempt_id AS id,kind AS discriminator,NULL::uuid AS key_id,ciphertext FROM media_result_references WHERE ciphertext IS NOT NULL"
             }

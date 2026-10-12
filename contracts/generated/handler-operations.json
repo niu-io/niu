@@ -19303,6 +19303,928 @@
         },
         "x-niu-implementation": "implemented"
       }
+    },
+    "/admin/v1/organizations/{organization}/projects/{project}/assets": {
+      "get": {
+        "operationId": "listWorkspaceAssets",
+        "summary": "List saved workspace materials",
+        "description": "Member Read permission required. Scope is the selected workspace, not the creating actor. Lists active objects with metadata only, ordered by creation time then identity. limit defaults to 50 and must be 1\u2013100. after must be an active asset in the same workspace and kind filter or conflicts. Follow next_cursor; separate pages are not a frozen snapshot. No ciphertext, actor identifier, Provider URI, procurement or dispatch approval is returned.",
+        "x-niu-implementation": "implemented",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "image",
+                "video",
+                "audio"
+              ]
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Malformed query/body, unsupported type, invalid media bytes, name, page size or revision."
+          },
+          "401": {
+            "description": "Missing/invalid member administrator authentication; inference keys do not manage materials."
+          },
+          "403": {
+            "description": "Authenticated principal lacks workspace scope or required Read/Write permission."
+          },
+          "404": {
+            "description": "Workspace or scoped active asset not found."
+          },
+          "409": {
+            "description": "Stale revision, unavailable cursor or serialized workspace quota exceeded."
+          },
+          "503": {
+            "description": "Bounded processing capacity, encryption or storage unavailable; no successful write is confirmed."
+          },
+          "200": {
+            "description": "Scoped asset metadata; no private ciphertext or actor identifier.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "next_cursor"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "maxItems": 100,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "name",
+                          "media_kind",
+                          "content_type",
+                          "content_sha256",
+                          "byte_length",
+                          "revision",
+                          "created_at_ms",
+                          "updated_at_ms"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "description": "Internal routing reference; never display as a user label."
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200,
+                            "description": "Trimmed display name, at most 200 UTF-8 bytes, without control characters."
+                          },
+                          "media_kind": {
+                            "type": "string",
+                            "enum": [
+                              "image",
+                              "video",
+                              "audio"
+                            ]
+                          },
+                          "content_type": {
+                            "type": "string",
+                            "enum": [
+                              "image/png",
+                              "image/jpeg",
+                              "image/webp",
+                              "video/mp4",
+                              "video/webm",
+                              "audio/wav",
+                              "audio/mpeg",
+                              "audio/ogg"
+                            ]
+                          },
+                          "content_sha256": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{64}$",
+                            "description": "SHA-256 of the immutable original bytes."
+                          },
+                          "byte_length": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 8388608
+                          },
+                          "revision": {
+                            "type": "string",
+                            "pattern": "^[1-9][0-9]*$",
+                            "description": "Canonical positive signed-64-bit integer; use for rename/delete concurrency checks."
+                          },
+                          "created_at_ms": {
+                            "type": "integer",
+                            "format": "int64"
+                          },
+                          "updated_at_ms": {
+                            "type": "integer",
+                            "format": "int64"
+                          }
+                        }
+                      }
+                    },
+                    "next_cursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "uploadWorkspaceAsset",
+        "summary": "Save a workspace material",
+        "description": "Member Write permission required. Raw binary body with exact supported Content-Type and required name query; no multipart or base64 envelope. Authentication and a bounded upload slot precede body collection. Original bytes are immutable, encrypted with workspace/asset identity binding, limited to 8 MiB each and 256 MiB/256 active objects per workspace. Images undergo bounded pixel decoding; audio/video undergo local frame/container structural validation. This is not content-inspection approval, Provider upload, licensing evidence or inference authorization. Repeated uploads create distinct objects; uncertain clients should reconcile the library before repeating.",
+        "x-niu-implementation": "implemented",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "description": "Trimmed nonblank name; at most 200 UTF-8 bytes after trimming; no control characters."
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Malformed query/body, unsupported type, invalid media bytes, name, page size or revision."
+          },
+          "401": {
+            "description": "Missing/invalid member administrator authentication; inference keys do not manage materials."
+          },
+          "403": {
+            "description": "Authenticated principal lacks workspace scope or required Read/Write permission."
+          },
+          "404": {
+            "description": "Workspace or scoped active asset not found."
+          },
+          "409": {
+            "description": "Stale revision, unavailable cursor or serialized workspace quota exceeded."
+          },
+          "503": {
+            "description": "Bounded processing capacity, encryption or storage unavailable; no successful write is confirmed."
+          },
+          "201": {
+            "description": "Scoped asset metadata; no private ciphertext or actor identifier.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "name",
+                        "media_kind",
+                        "content_type",
+                        "content_sha256",
+                        "byte_length",
+                        "revision",
+                        "created_at_ms",
+                        "updated_at_ms"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "description": "Internal routing reference; never display as a user label."
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200,
+                          "description": "Trimmed display name, at most 200 UTF-8 bytes, without control characters."
+                        },
+                        "media_kind": {
+                          "type": "string",
+                          "enum": [
+                            "image",
+                            "video",
+                            "audio"
+                          ]
+                        },
+                        "content_type": {
+                          "type": "string",
+                          "enum": [
+                            "image/png",
+                            "image/jpeg",
+                            "image/webp",
+                            "video/mp4",
+                            "video/webm",
+                            "audio/wav",
+                            "audio/mpeg",
+                            "audio/ogg"
+                          ]
+                        },
+                        "content_sha256": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$",
+                          "description": "SHA-256 of the immutable original bytes."
+                        },
+                        "byte_length": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 8388608
+                        },
+                        "revision": {
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]*$",
+                          "description": "Canonical positive signed-64-bit integer; use for rename/delete concurrency checks."
+                        },
+                        "created_at_ms": {
+                          "type": "integer",
+                          "format": "int64"
+                        },
+                        "updated_at_ms": {
+                          "type": "integer",
+                          "format": "int64"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Raw body exceeds 8 MiB."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "image/png": {
+              "schema": {
+                "type": "string",
+                "format": "binary",
+                "minLength": 1,
+                "maxLength": 8388608
+              }
+            },
+            "image/jpeg": {
+              "schema": {
+                "type": "string",
+                "format": "binary",
+                "minLength": 1,
+                "maxLength": 8388608
+              }
+            },
+            "image/webp": {
+              "schema": {
+                "type": "string",
+                "format": "binary",
+                "minLength": 1,
+                "maxLength": 8388608
+              }
+            },
+            "video/mp4": {
+              "schema": {
+                "type": "string",
+                "format": "binary",
+                "minLength": 1,
+                "maxLength": 8388608
+              }
+            },
+            "video/webm": {
+              "schema": {
+                "type": "string",
+                "format": "binary",
+                "minLength": 1,
+                "maxLength": 8388608
+              }
+            },
+            "audio/wav": {
+              "schema": {
+                "type": "string",
+                "format": "binary",
+                "minLength": 1,
+                "maxLength": 8388608
+              }
+            },
+            "audio/mpeg": {
+              "schema": {
+                "type": "string",
+                "format": "binary",
+                "minLength": 1,
+                "maxLength": 8388608
+              }
+            },
+            "audio/ogg": {
+              "schema": {
+                "type": "string",
+                "format": "binary",
+                "minLength": 1,
+                "maxLength": 8388608
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/v1/organizations/{organization}/projects/{project}/assets/{asset}": {
+      "get": {
+        "operationId": "getWorkspaceAsset",
+        "summary": "Read workspace material metadata",
+        "description": "Member Read permission required. Returns one active scoped asset without ciphertext or internal actor information. Unknown, deleted or foreign-workspace asset is 404.",
+        "x-niu-implementation": "implemented",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "asset",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Malformed query/body, unsupported type, invalid media bytes, name, page size or revision."
+          },
+          "401": {
+            "description": "Missing/invalid member administrator authentication; inference keys do not manage materials."
+          },
+          "403": {
+            "description": "Authenticated principal lacks workspace scope or required Read/Write permission."
+          },
+          "404": {
+            "description": "Workspace or scoped active asset not found."
+          },
+          "409": {
+            "description": "Stale revision, unavailable cursor or serialized workspace quota exceeded."
+          },
+          "503": {
+            "description": "Bounded processing capacity, encryption or storage unavailable; no successful write is confirmed."
+          },
+          "200": {
+            "description": "Scoped asset metadata; no private ciphertext or actor identifier.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "name",
+                        "media_kind",
+                        "content_type",
+                        "content_sha256",
+                        "byte_length",
+                        "revision",
+                        "created_at_ms",
+                        "updated_at_ms"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "description": "Internal routing reference; never display as a user label."
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200,
+                          "description": "Trimmed display name, at most 200 UTF-8 bytes, without control characters."
+                        },
+                        "media_kind": {
+                          "type": "string",
+                          "enum": [
+                            "image",
+                            "video",
+                            "audio"
+                          ]
+                        },
+                        "content_type": {
+                          "type": "string",
+                          "enum": [
+                            "image/png",
+                            "image/jpeg",
+                            "image/webp",
+                            "video/mp4",
+                            "video/webm",
+                            "audio/wav",
+                            "audio/mpeg",
+                            "audio/ogg"
+                          ]
+                        },
+                        "content_sha256": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$",
+                          "description": "SHA-256 of the immutable original bytes."
+                        },
+                        "byte_length": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 8388608
+                        },
+                        "revision": {
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]*$",
+                          "description": "Canonical positive signed-64-bit integer; use for rename/delete concurrency checks."
+                        },
+                        "created_at_ms": {
+                          "type": "integer",
+                          "format": "int64"
+                        },
+                        "updated_at_ms": {
+                          "type": "integer",
+                          "format": "int64"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "renameWorkspaceAsset",
+        "summary": "Rename a saved workspace material",
+        "description": "Member Write permission required. Requires the exact current revision as a canonical positive decimal string. Renaming changes display metadata and increments revision, never bytes, content hash or Provider authorization. Stale revision returns 409. A missing scoped asset is 404; a concurrent deletion may conflict.",
+        "x-niu-implementation": "implemented",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "asset",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Malformed query/body, unsupported type, invalid media bytes, name, page size or revision."
+          },
+          "401": {
+            "description": "Missing/invalid member administrator authentication; inference keys do not manage materials."
+          },
+          "403": {
+            "description": "Authenticated principal lacks workspace scope or required Read/Write permission."
+          },
+          "404": {
+            "description": "Workspace or scoped active asset not found."
+          },
+          "409": {
+            "description": "Stale revision, unavailable cursor or serialized workspace quota exceeded."
+          },
+          "503": {
+            "description": "Bounded processing capacity, encryption or storage unavailable; no successful write is confirmed."
+          },
+          "200": {
+            "description": "Scoped asset metadata; no private ciphertext or actor identifier.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "name",
+                        "media_kind",
+                        "content_type",
+                        "content_sha256",
+                        "byte_length",
+                        "revision",
+                        "created_at_ms",
+                        "updated_at_ms"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "description": "Internal routing reference; never display as a user label."
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200,
+                          "description": "Trimmed display name, at most 200 UTF-8 bytes, without control characters."
+                        },
+                        "media_kind": {
+                          "type": "string",
+                          "enum": [
+                            "image",
+                            "video",
+                            "audio"
+                          ]
+                        },
+                        "content_type": {
+                          "type": "string",
+                          "enum": [
+                            "image/png",
+                            "image/jpeg",
+                            "image/webp",
+                            "video/mp4",
+                            "video/webm",
+                            "audio/wav",
+                            "audio/mpeg",
+                            "audio/ogg"
+                          ]
+                        },
+                        "content_sha256": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$",
+                          "description": "SHA-256 of the immutable original bytes."
+                        },
+                        "byte_length": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 8388608
+                        },
+                        "revision": {
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]*$",
+                          "description": "Canonical positive signed-64-bit integer; use for rename/delete concurrency checks."
+                        },
+                        "created_at_ms": {
+                          "type": "integer",
+                          "format": "int64"
+                        },
+                        "updated_at_ms": {
+                          "type": "integer",
+                          "format": "int64"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "expected_revision"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "Trimmed display name, at most 200 UTF-8 bytes, without control characters."
+                  },
+                  "expected_revision": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$",
+                    "description": "Canonical positive signed-64-bit integer; use for rename/delete concurrency checks."
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteWorkspaceAsset",
+        "summary": "Delete a saved workspace material",
+        "description": "Member Write permission required. Optional expected_revision protects against deleting a newly renamed active object. Deletion marks metadata inactive, erases ciphertext and releases quota atomically. Repeat deletion of the same scoped deleted asset is idempotent 204. Unknown or foreign asset is 404. No upstream asset or existing inference job is deleted.",
+        "x-niu-implementation": "implemented",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "asset",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "expected_revision",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            },
+            "description": "Optional canonical positive i64 revision of the active asset."
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Malformed query/body, unsupported type, invalid media bytes, name, page size or revision."
+          },
+          "401": {
+            "description": "Missing/invalid member administrator authentication; inference keys do not manage materials."
+          },
+          "403": {
+            "description": "Authenticated principal lacks workspace scope or required Read/Write permission."
+          },
+          "404": {
+            "description": "Workspace or scoped active asset not found."
+          },
+          "409": {
+            "description": "Stale revision, unavailable cursor or serialized workspace quota exceeded."
+          },
+          "503": {
+            "description": "Bounded processing capacity, encryption or storage unavailable; no successful write is confirmed."
+          },
+          "204": {
+            "description": "Scoped deletion committed or already deleted; no response body."
+          }
+        }
+      }
+    },
+    "/admin/v1/organizations/{organization}/projects/{project}/assets/{asset}/content": {
+      "get": {
+        "operationId": "downloadWorkspaceAsset",
+        "summary": "Download saved workspace material bytes",
+        "description": "Member Read permission required. Authenticates encrypted identity binding and checks byte length and SHA-256 before returning the original bytes. Safe fixed attachment filename, exact supported Content-Type, Cache-Control:no-store and X-Content-Type-Options:nosniff. Unknown/deleted/foreign asset is 404; decryption/integrity failure is a safe unavailable response. Does not make content approved for Provider processing.",
+        "x-niu-implementation": "implemented",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "asset",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Malformed query/body, unsupported type, invalid media bytes, name, page size or revision."
+          },
+          "401": {
+            "description": "Missing/invalid member administrator authentication; inference keys do not manage materials."
+          },
+          "403": {
+            "description": "Authenticated principal lacks workspace scope or required Read/Write permission."
+          },
+          "404": {
+            "description": "Workspace or scoped active asset not found."
+          },
+          "409": {
+            "description": "Stale revision, unavailable cursor or serialized workspace quota exceeded."
+          },
+          "503": {
+            "description": "Bounded processing capacity, encryption or storage unavailable; no successful write is confirmed."
+          },
+          "200": {
+            "description": "Exact retained bytes with no-store/nosniff and safe attachment disposition.",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary",
+                  "maxLength": 8388608
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary",
+                  "maxLength": 8388608
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary",
+                  "maxLength": 8388608
+                }
+              },
+              "video/mp4": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary",
+                  "maxLength": 8388608
+                }
+              },
+              "video/webm": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary",
+                  "maxLength": 8388608
+                }
+              },
+              "audio/wav": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary",
+                  "maxLength": 8388608
+                }
+              },
+              "audio/mpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary",
+                  "maxLength": 8388608
+                }
+              },
+              "audio/ogg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary",
+                  "maxLength": 8388608
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {

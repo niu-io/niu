@@ -20077,6 +20077,990 @@ HTTP 403: Current credential access policy denies the request.
 
 HTTP 503: Storage or route configuration unavailable.
 
+## List saved workspace materials
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/assets`
+
+Member Read permission required. Scope is the selected workspace, not the creating actor. Lists active objects with metadata only, ordered by creation time then identity. limit defaults to 50 and must be 1–100. after must be an active asset in the same workspace and kind filter or conflicts. Follow next_cursor; separate pages are not a frozen snapshot. No ciphertext, actor identifier, Provider URI, procurement or dispatch approval is returned.
+
+Implementation: `implemented`. Operation: `listWorkspaceAssets`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`kind` (query, optional)
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "image",
+    "video",
+    "audio"
+  ]
+}
+```
+
+`after` (query, optional)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 400: Malformed query/body, unsupported type, invalid media bytes, name, page size or revision.
+
+HTTP 401: Missing/invalid member administrator authentication; inference keys do not manage materials.
+
+HTTP 403: Authenticated principal lacks workspace scope or required Read/Write permission.
+
+HTTP 404: Workspace or scoped active asset not found.
+
+HTTP 409: Stale revision, unavailable cursor or serialized workspace quota exceeded.
+
+HTTP 503: Bounded processing capacity, encryption or storage unavailable; no successful write is confirmed.
+
+HTTP 200: Scoped asset metadata; no private ciphertext or actor identifier.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "next_cursor"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "media_kind",
+          "content_type",
+          "content_sha256",
+          "byte_length",
+          "revision",
+          "created_at_ms",
+          "updated_at_ms"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Internal routing reference; never display as a user label."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Trimmed display name, at most 200 UTF-8 bytes, without control characters."
+          },
+          "media_kind": {
+            "type": "string",
+            "enum": [
+              "image",
+              "video",
+              "audio"
+            ]
+          },
+          "content_type": {
+            "type": "string",
+            "enum": [
+              "image/png",
+              "image/jpeg",
+              "image/webp",
+              "video/mp4",
+              "video/webm",
+              "audio/wav",
+              "audio/mpeg",
+              "audio/ogg"
+            ]
+          },
+          "content_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "SHA-256 of the immutable original bytes."
+          },
+          "byte_length": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 8388608
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Canonical positive signed-64-bit integer; use for rename/delete concurrency checks."
+          },
+          "created_at_ms": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "updated_at_ms": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      }
+    },
+    "next_cursor": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    }
+  }
+}
+```
+
+## Save a workspace material
+
+`POST /admin/v1/organizations/{organization}/projects/{project}/assets`
+
+Member Write permission required. Raw binary body with exact supported Content-Type and required name query; no multipart or base64 envelope. Authentication and a bounded upload slot precede body collection. Original bytes are immutable, encrypted with workspace/asset identity binding, limited to 8 MiB each and 256 MiB/256 active objects per workspace. Images undergo bounded pixel decoding; audio/video undergo local frame/container structural validation. This is not content-inspection approval, Provider upload, licensing evidence or inference authorization. Repeated uploads create distinct objects; uncertain clients should reconcile the library before repeating.
+
+Implementation: `implemented`. Operation: `uploadWorkspaceAsset`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`name` (query, required)
+
+Trimmed nonblank name; at most 200 UTF-8 bytes after trimming; no control characters.
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 200
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `image/png`.
+
+```json
+{
+  "type": "string",
+  "format": "binary",
+  "minLength": 1,
+  "maxLength": 8388608
+}
+```
+
+Content type: `image/jpeg`.
+
+```json
+{
+  "type": "string",
+  "format": "binary",
+  "minLength": 1,
+  "maxLength": 8388608
+}
+```
+
+Content type: `image/webp`.
+
+```json
+{
+  "type": "string",
+  "format": "binary",
+  "minLength": 1,
+  "maxLength": 8388608
+}
+```
+
+Content type: `video/mp4`.
+
+```json
+{
+  "type": "string",
+  "format": "binary",
+  "minLength": 1,
+  "maxLength": 8388608
+}
+```
+
+Content type: `video/webm`.
+
+```json
+{
+  "type": "string",
+  "format": "binary",
+  "minLength": 1,
+  "maxLength": 8388608
+}
+```
+
+Content type: `audio/wav`.
+
+```json
+{
+  "type": "string",
+  "format": "binary",
+  "minLength": 1,
+  "maxLength": 8388608
+}
+```
+
+Content type: `audio/mpeg`.
+
+```json
+{
+  "type": "string",
+  "format": "binary",
+  "minLength": 1,
+  "maxLength": 8388608
+}
+```
+
+Content type: `audio/ogg`.
+
+```json
+{
+  "type": "string",
+  "format": "binary",
+  "minLength": 1,
+  "maxLength": 8388608
+}
+```
+
+### Responses
+
+HTTP 400: Malformed query/body, unsupported type, invalid media bytes, name, page size or revision.
+
+HTTP 401: Missing/invalid member administrator authentication; inference keys do not manage materials.
+
+HTTP 403: Authenticated principal lacks workspace scope or required Read/Write permission.
+
+HTTP 404: Workspace or scoped active asset not found.
+
+HTTP 409: Stale revision, unavailable cursor or serialized workspace quota exceeded.
+
+HTTP 503: Bounded processing capacity, encryption or storage unavailable; no successful write is confirmed.
+
+HTTP 201: Scoped asset metadata; no private ciphertext or actor identifier.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "media_kind",
+        "content_type",
+        "content_sha256",
+        "byte_length",
+        "revision",
+        "created_at_ms",
+        "updated_at_ms"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Internal routing reference; never display as a user label."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Trimmed display name, at most 200 UTF-8 bytes, without control characters."
+        },
+        "media_kind": {
+          "type": "string",
+          "enum": [
+            "image",
+            "video",
+            "audio"
+          ]
+        },
+        "content_type": {
+          "type": "string",
+          "enum": [
+            "image/png",
+            "image/jpeg",
+            "image/webp",
+            "video/mp4",
+            "video/webm",
+            "audio/wav",
+            "audio/mpeg",
+            "audio/ogg"
+          ]
+        },
+        "content_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "SHA-256 of the immutable original bytes."
+        },
+        "byte_length": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8388608
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$",
+          "description": "Canonical positive signed-64-bit integer; use for rename/delete concurrency checks."
+        },
+        "created_at_ms": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "updated_at_ms": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 413: Raw body exceeds 8 MiB.
+
+## Read workspace material metadata
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/assets/{asset}`
+
+Member Read permission required. Returns one active scoped asset without ciphertext or internal actor information. Unknown, deleted or foreign-workspace asset is 404.
+
+Implementation: `implemented`. Operation: `getWorkspaceAsset`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`asset` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 400: Malformed query/body, unsupported type, invalid media bytes, name, page size or revision.
+
+HTTP 401: Missing/invalid member administrator authentication; inference keys do not manage materials.
+
+HTTP 403: Authenticated principal lacks workspace scope or required Read/Write permission.
+
+HTTP 404: Workspace or scoped active asset not found.
+
+HTTP 409: Stale revision, unavailable cursor or serialized workspace quota exceeded.
+
+HTTP 503: Bounded processing capacity, encryption or storage unavailable; no successful write is confirmed.
+
+HTTP 200: Scoped asset metadata; no private ciphertext or actor identifier.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "media_kind",
+        "content_type",
+        "content_sha256",
+        "byte_length",
+        "revision",
+        "created_at_ms",
+        "updated_at_ms"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Internal routing reference; never display as a user label."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Trimmed display name, at most 200 UTF-8 bytes, without control characters."
+        },
+        "media_kind": {
+          "type": "string",
+          "enum": [
+            "image",
+            "video",
+            "audio"
+          ]
+        },
+        "content_type": {
+          "type": "string",
+          "enum": [
+            "image/png",
+            "image/jpeg",
+            "image/webp",
+            "video/mp4",
+            "video/webm",
+            "audio/wav",
+            "audio/mpeg",
+            "audio/ogg"
+          ]
+        },
+        "content_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "SHA-256 of the immutable original bytes."
+        },
+        "byte_length": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8388608
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$",
+          "description": "Canonical positive signed-64-bit integer; use for rename/delete concurrency checks."
+        },
+        "created_at_ms": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "updated_at_ms": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    }
+  }
+}
+```
+
+## Rename a saved workspace material
+
+`PATCH /admin/v1/organizations/{organization}/projects/{project}/assets/{asset}`
+
+Member Write permission required. Requires the exact current revision as a canonical positive decimal string. Renaming changes display metadata and increments revision, never bytes, content hash or Provider authorization. Stale revision returns 409. A missing scoped asset is 404; a concurrent deletion may conflict.
+
+Implementation: `implemented`. Operation: `renameWorkspaceAsset`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`asset` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "expected_revision"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Trimmed display name, at most 200 UTF-8 bytes, without control characters."
+    },
+    "expected_revision": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$",
+      "description": "Canonical positive signed-64-bit integer; use for rename/delete concurrency checks."
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 400: Malformed query/body, unsupported type, invalid media bytes, name, page size or revision.
+
+HTTP 401: Missing/invalid member administrator authentication; inference keys do not manage materials.
+
+HTTP 403: Authenticated principal lacks workspace scope or required Read/Write permission.
+
+HTTP 404: Workspace or scoped active asset not found.
+
+HTTP 409: Stale revision, unavailable cursor or serialized workspace quota exceeded.
+
+HTTP 503: Bounded processing capacity, encryption or storage unavailable; no successful write is confirmed.
+
+HTTP 200: Scoped asset metadata; no private ciphertext or actor identifier.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "media_kind",
+        "content_type",
+        "content_sha256",
+        "byte_length",
+        "revision",
+        "created_at_ms",
+        "updated_at_ms"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Internal routing reference; never display as a user label."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Trimmed display name, at most 200 UTF-8 bytes, without control characters."
+        },
+        "media_kind": {
+          "type": "string",
+          "enum": [
+            "image",
+            "video",
+            "audio"
+          ]
+        },
+        "content_type": {
+          "type": "string",
+          "enum": [
+            "image/png",
+            "image/jpeg",
+            "image/webp",
+            "video/mp4",
+            "video/webm",
+            "audio/wav",
+            "audio/mpeg",
+            "audio/ogg"
+          ]
+        },
+        "content_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "SHA-256 of the immutable original bytes."
+        },
+        "byte_length": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8388608
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$",
+          "description": "Canonical positive signed-64-bit integer; use for rename/delete concurrency checks."
+        },
+        "created_at_ms": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "updated_at_ms": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    }
+  }
+}
+```
+
+## Delete a saved workspace material
+
+`DELETE /admin/v1/organizations/{organization}/projects/{project}/assets/{asset}`
+
+Member Write permission required. Optional expected_revision protects against deleting a newly renamed active object. Deletion marks metadata inactive, erases ciphertext and releases quota atomically. Repeat deletion of the same scoped deleted asset is idempotent 204. Unknown or foreign asset is 404. No upstream asset or existing inference job is deleted.
+
+Implementation: `implemented`. Operation: `deleteWorkspaceAsset`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`asset` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`expected_revision` (query, optional)
+
+Optional canonical positive i64 revision of the active asset.
+
+```json
+{
+  "type": "string",
+  "pattern": "^[1-9][0-9]*$"
+}
+```
+
+### Responses
+
+HTTP 400: Malformed query/body, unsupported type, invalid media bytes, name, page size or revision.
+
+HTTP 401: Missing/invalid member administrator authentication; inference keys do not manage materials.
+
+HTTP 403: Authenticated principal lacks workspace scope or required Read/Write permission.
+
+HTTP 404: Workspace or scoped active asset not found.
+
+HTTP 409: Stale revision, unavailable cursor or serialized workspace quota exceeded.
+
+HTTP 503: Bounded processing capacity, encryption or storage unavailable; no successful write is confirmed.
+
+HTTP 204: Scoped deletion committed or already deleted; no response body.
+
+## Download saved workspace material bytes
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/assets/{asset}/content`
+
+Member Read permission required. Authenticates encrypted identity binding and checks byte length and SHA-256 before returning the original bytes. Safe fixed attachment filename, exact supported Content-Type, Cache-Control:no-store and X-Content-Type-Options:nosniff. Unknown/deleted/foreign asset is 404; decryption/integrity failure is a safe unavailable response. Does not make content approved for Provider processing.
+
+Implementation: `implemented`. Operation: `downloadWorkspaceAsset`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`asset` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 400: Malformed query/body, unsupported type, invalid media bytes, name, page size or revision.
+
+HTTP 401: Missing/invalid member administrator authentication; inference keys do not manage materials.
+
+HTTP 403: Authenticated principal lacks workspace scope or required Read/Write permission.
+
+HTTP 404: Workspace or scoped active asset not found.
+
+HTTP 409: Stale revision, unavailable cursor or serialized workspace quota exceeded.
+
+HTTP 503: Bounded processing capacity, encryption or storage unavailable; no successful write is confirmed.
+
+HTTP 200: Exact retained bytes with no-store/nosniff and safe attachment disposition.
+
+Content type: `image/png`.
+
+```json
+{
+  "type": "string",
+  "format": "binary",
+  "maxLength": 8388608
+}
+```
+
+Content type: `image/jpeg`.
+
+```json
+{
+  "type": "string",
+  "format": "binary",
+  "maxLength": 8388608
+}
+```
+
+Content type: `image/webp`.
+
+```json
+{
+  "type": "string",
+  "format": "binary",
+  "maxLength": 8388608
+}
+```
+
+Content type: `video/mp4`.
+
+```json
+{
+  "type": "string",
+  "format": "binary",
+  "maxLength": 8388608
+}
+```
+
+Content type: `video/webm`.
+
+```json
+{
+  "type": "string",
+  "format": "binary",
+  "maxLength": 8388608
+}
+```
+
+Content type: `audio/wav`.
+
+```json
+{
+  "type": "string",
+  "format": "binary",
+  "maxLength": 8388608
+}
+```
+
+Content type: `audio/mpeg`.
+
+```json
+{
+  "type": "string",
+  "format": "binary",
+  "maxLength": 8388608
+}
+```
+
+Content type: `audio/ogg`.
+
+```json
+{
+  "type": "string",
+  "format": "binary",
+  "maxLength": 8388608
+}
+```
+
 ## Shared schemas
 
 Local `#/components/schemas/…` references resolve to these definitions.

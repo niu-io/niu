@@ -32,6 +32,9 @@ async fn password_response_headers(request: axum::http::Request<Body>, next: Nex
 pub(crate) fn router(state: AppState) -> Router {
     let enterprise_enabled = state.enterprise.is_some();
     let app = Router::new()
+        .route("/admin/v1/organizations/{organization}/projects/{project}/assets", get(super::workspace_assets::list).post(super::workspace_assets::upload).layer(DefaultBodyLimit::max(8 * 1024 * 1024)))
+        .route("/admin/v1/organizations/{organization}/projects/{project}/assets/{asset}", get(super::workspace_assets::get).patch(super::workspace_assets::rename).delete(super::workspace_assets::delete).layer(DefaultBodyLimit::max(1024)))
+        .route("/admin/v1/organizations/{organization}/projects/{project}/assets/{asset}/content", get(super::workspace_assets::content))
         .route("/admin/v1/organizations/{organization}/projects/{project}/video-intents", get(super::inference::video_intents::list))
         .route("/admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}", get(super::inference::video_intents::get).put(super::inference::video_intents::save).delete(super::inference::video_intents::delete).layer(DefaultBodyLimit::max(64 * 1024)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}/submit", post(super::inference::video_intents::submit))

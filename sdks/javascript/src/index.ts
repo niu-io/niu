@@ -727,3 +727,5 @@ export type { MemberProfile, MemberProfileUpdate, MemberPreferences } from './ad
 export type { GuardrailDetectorDescription, GuardrailDetectorPreviewInput, GuardrailDetectorPreviewResult } from './admin.js';
 
 export type { EPayConfiguration, EPayConfigurationInput } from './admin.js';
+
+export type { WorkspaceAsset, WorkspaceAssetKind, WorkspaceAssetPage, WorkspaceAssetPageOptions } from './workspace-assets.js';

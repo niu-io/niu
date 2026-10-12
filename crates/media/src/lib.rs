@@ -17,6 +17,7 @@ pub mod query;
 pub mod result;
 pub mod submission;
 pub mod transport;
+pub mod workspace_asset_validation;
 use base64::Engine;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};

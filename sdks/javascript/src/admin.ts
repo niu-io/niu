@@ -1,3 +1,4 @@
+import { assetBinaryRequest, type WorkspaceAsset, type WorkspaceAssetPage, type WorkspaceAssetPageOptions } from './workspace-assets.js';
 import { videoObservationQuery, type VideoQueryObservationPage, type VideoQueryObservationQuery } from './video-query-observations.js';
 /** Last committed worker page, not settlement or backlog status. */
 export interface FinancialRecoveryDiagnostics {
@@ -2410,6 +2411,48 @@ export class NiuAdminClient {
       if (!Number.isSafeInteger(value) || value < 0) throw new Error('Quota timestamps must be nonnegative safe-integer milliseconds');
     }
     return this.request(`${this.accountsPath(scope)}/${uuid(accountId)}/quota`, observation, options);
+  }
+
+  private workspaceAssetsPath(scope: TenantScope): string {
+    return `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/assets`;
+  }
+
+  /** Lists durable local materials, not qualified Provider assets. */
+  listWorkspaceAssets(scope: TenantScope, page: WorkspaceAssetPageOptions = {}, options?: RequestOptions): Promise<WorkspaceAssetPage> {
+    const query = new URLSearchParams();
+    if (page.kind !== undefined) query.set('kind', page.kind);
+    if (page.after !== undefined) query.set('after', uuid(page.after));
+    if (page.limit !== undefined) {
+      if (!Number.isInteger(page.limit) || page.limit < 1 || page.limit > 100) throw new RangeError('Asset page limit must be between 1 and 100');
+      query.set('limit', String(page.limit));
+    }
+    return this.request(`${this.workspaceAssetsPath(scope)}?${query}`, undefined, options);
+  }
+
+  getWorkspaceAsset(scope: TenantScope, assetId: string, options?: RequestOptions): Promise<{ data: WorkspaceAsset }> {
+    return this.request(`${this.workspaceAssetsPath(scope)}/${uuid(assetId)}`, undefined, options);
+  }
+
+  /** Upload does not authorize inspection, Provider ingestion or generation. */
+  async uploadWorkspaceAsset(scope: TenantScope, input: { name: string; contentType: string; bytes: Uint8Array }, options: RequestOptions = {}): Promise<{ data: WorkspaceAsset }> {
+    const query = new URLSearchParams({ name: input.name });
+    const response = await assetBinaryRequest(this.requestFetch, this.base, this.token, `${this.workspaceAssetsPath(scope)}?${query}`, options, input);
+    return response.json() as Promise<{ data: WorkspaceAsset }>;
+  }
+
+  renameWorkspaceAsset(scope: TenantScope, assetId: string, input: { name: string; expected_revision: string }, options?: RequestOptions): Promise<{ data: WorkspaceAsset }> {
+    return this.request(`${this.workspaceAssetsPath(scope)}/${uuid(assetId)}`, input, options, 'PATCH');
+  }
+
+  deleteWorkspaceAsset(scope: TenantScope, assetId: string, expectedRevision?: string, options?: RequestOptions): Promise<void> {
+    const query = new URLSearchParams();
+    if (expectedRevision !== undefined) query.set('expected_revision', expectedRevision);
+    return this.request(`${this.workspaceAssetsPath(scope)}/${uuid(assetId)}?${query}`, undefined, options, 'DELETE');
+  }
+
+  async downloadWorkspaceAsset(scope: TenantScope, assetId: string, options: RequestOptions = {}): Promise<ArrayBuffer> {
+    const response = await assetBinaryRequest(this.requestFetch, this.base, this.token, `${this.workspaceAssetsPath(scope)}/${uuid(assetId)}/content`, options);
+    return response.arrayBuffer();
   }
 
   private accountsPath(scope: TenantScope): string {

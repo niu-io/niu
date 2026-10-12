@@ -1,6 +1,11 @@
 //! Durable tenant ownership and attempt intent. Credentials, prompts and outputs
 //! do not belong in accounting records. Chat content has separate storage.
 //! Authorization remains a caller obligation.
+mod workspace_asset_library;
+pub use workspace_asset_library::{
+    AssetLibraryAsset, AssetLibraryContent, AssetLibraryCreate, AssetLibraryKind,
+    AssetLibraryLimits, AssetLibraryPage, workspace_asset_content_aad,
+};
 mod ingested_video_dispatch;
 pub use ingested_video_dispatch::{IngestedVideoDispatch, IngestedVideoImage};
 mod ingested_image_references;
@@ -383,6 +388,8 @@ pub enum StoreError {
     AccountUnavailable,
     #[error("encrypted image source storage is at capacity")]
     ImageSourceCapacityExceeded,
+    #[error("workspace material storage is at capacity")]
+    AssetLibraryCapacityExceeded,
     #[error("aggregate exceeds the supported numeric range")]
     AggregateOverflow,
     #[error("invalid operator name, role, or session lifetime")]

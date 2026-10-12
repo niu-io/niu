@@ -6,6 +6,12 @@ info:
 servers:
   - url: /
 paths:
+  /admin/v1/organizations/{organization}/projects/{project}/assets:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1assets'
+  /admin/v1/organizations/{organization}/projects/{project}/assets/{asset}:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1assets~1{asset}'
+  /admin/v1/organizations/{organization}/projects/{project}/assets/{asset}/content:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1assets~1{asset}~1content'
   /admin/v1/workspaces/{workspace}:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1workspaces~1{workspace}'
   /admin/v1/organizations/{organization}/projects/{project}/guardrails/dispatch-denials:

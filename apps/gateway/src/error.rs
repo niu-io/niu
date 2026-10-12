@@ -127,6 +127,12 @@ impl ApiError {
             niu_storage::StoreError::InvalidAccount => {
                 Self::invalid_request("Invalid account or quota configuration")
             }
+            niu_storage::StoreError::AssetLibraryCapacityExceeded => Self {
+                failure: None,
+                status: StatusCode::CONFLICT,
+                kind: "asset_library_capacity_exceeded",
+                message: "Workspace material storage is full; delete retained materials before uploading",
+            },
             niu_storage::StoreError::ImageSourceCapacityExceeded => Self {
                 failure: None,
                 status: StatusCode::SERVICE_UNAVAILABLE,

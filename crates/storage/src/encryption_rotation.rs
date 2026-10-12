@@ -53,11 +53,18 @@ pub enum EncryptionRewrapTarget {
     AssetRead(Uuid),
     AssetPatch(Uuid),
     InspectedImage(Uuid),
+    WorkspaceAsset(Uuid),
 }
 
 impl EncryptionRewrapTarget {
     fn binding(&self) -> (&'static str, &'static str, &'static str, Value) {
         match self {
+            Self::WorkspaceAsset(id) => (
+                "workspace_asset_library_content",
+                "ciphertext",
+                "asset_id=($1->>'id')::uuid",
+                json!({"id":id}),
+            ),
             Self::Vendor(id) => (
                 "vendors",
                 "credential_ciphertext",

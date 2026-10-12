@@ -93,6 +93,12 @@ pub(crate) async fn validate_retained_content(
                             .open_media_result(content.scope, content.id, kind, &content.ciphertext)
                             .map(|_| ())
                     }
+                    Domain::WorkspaceAsset => cipher
+                        .open_bytes_with_aad(
+                            &niu_storage::workspace_asset_content_aad(content.scope, content.id),
+                            &content.ciphertext,
+                        )
+                        .map(|_| ()),
                     Domain::AssetListing => cipher
                         .open_asset_listing_result(content.scope, content.id, &content.ciphertext)
                         .map(|_| ()),

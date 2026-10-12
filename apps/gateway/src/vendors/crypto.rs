@@ -293,6 +293,9 @@ impl CredentialCipher {
                 };
                 Self::media_aad(content.scope, content.id, kind)
             }
+            Domain::WorkspaceAsset => {
+                niu_storage::workspace_asset_content_aad(content.scope, content.id)
+            }
             Domain::AssetListing => Self::asset_listing_aad(content.scope, content.id),
             Domain::AssetLookup => Self::asset_lookup_aad(content.scope, content.id),
             Domain::AssetRead => Self::asset_read_aad(content.scope, content.id),
