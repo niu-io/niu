@@ -123,7 +123,9 @@ impl Store {
 
     /// Seek over recent saved conversations within one personal owner and archive.
     /// The cursor fingerprints its update time; a changed/deleted cursor returns
-    /// conflict rather than silently seeking from a different position.
+    /// conflict rather than silently seeking from a different position. New
+    /// fingerprints use epoch values, independent of session time zone. Accept
+    /// the previous UTC-text fingerprints so existing pages can still continue.
     pub async fn chat_session_page(
         &self,
         scope: TenantScope,
@@ -149,7 +151,7 @@ impl Store {
             .transpose()?;
         let mut snapshot = self.begin_bounded_read_snapshot().await?;
         let cursor: Option<(Uuid, String)> = if let Some((id, revision)) = parsed {
-            let timestamp: String = sqlx::query_scalar("SELECT updated_at::text FROM chat_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND archived=$4 AND id=$5 AND encode(sha256(convert_to(updated_at::text,'UTF8')),'hex')=$6")
+            let timestamp: String = sqlx::query_scalar("SELECT updated_at::text FROM chat_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND archived=$4 AND id=$5 AND (encode(sha256(convert_to(extract(epoch FROM updated_at)::text,'UTF8')),'hex')=$6 OR encode(sha256(convert_to((updated_at AT TIME ZONE 'UTC')::text||'+00','UTF8')),'hex')=$6)")
                 .bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(archived).bind(id).bind(revision)
                 .fetch_optional(&mut *snapshot).await?.ok_or(StoreError::Conflict)?;
             Some((id, timestamp))
@@ -157,7 +159,7 @@ impl Store {
             None
         };
         let mut query = sqlx::QueryBuilder::<sqlx::Postgres>::new(
-            "SELECT id,encode(sha256(convert_to(updated_at::text,'UTF8')),'hex') AS revision,octet_length(payload::text)::bigint AS bytes FROM chat_sessions WHERE organization_id=",
+            "SELECT id,encode(sha256(convert_to(extract(epoch FROM updated_at)::text,'UTF8')),'hex') AS revision,octet_length(payload::text)::bigint AS bytes FROM chat_sessions WHERE organization_id=",
         );
         query
             .push_bind(scope.organization_id)
