@@ -99,8 +99,11 @@ impl Store {
             return Err(StoreError::Unauthorized);
         }
         let hash = Sha256::digest(token.as_bytes()).to_vec();
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
         let row = sqlx::query("SELECT id, organization_id, project_id, allowed_models FROM api_keys WHERE token_hash = $1 AND revoked_at IS NULL AND expires_at > clock_timestamp()")
-            .bind(hash).fetch_optional(&self.pool).await?.ok_or(StoreError::Unauthorized)?;
+            .bind(hash).fetch_optional(&mut *snapshot).await?;
+        snapshot.commit().await?;
+        let row = row.ok_or(StoreError::Unauthorized)?;
         Ok(Principal {
             allowed_models: row.get("allowed_models"),
             key_id: row.get("id"),
@@ -119,9 +122,12 @@ impl Store {
         scope: TenantScope,
         id: Uuid,
     ) -> Result<Principal, StoreError> {
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
         let row = sqlx::query("SELECT allowed_models FROM api_keys WHERE organization_id=$1 AND project_id=$2 AND id=$3 AND revoked_at IS NULL AND expires_at > clock_timestamp()")
             .bind(scope.organization_id).bind(scope.project_id).bind(id)
-            .fetch_optional(&self.pool).await?.ok_or(StoreError::Unauthorized)?;
+            .fetch_optional(&mut *snapshot).await?;
+        snapshot.commit().await?;
+        let row = row.ok_or(StoreError::Unauthorized)?;
         Ok(Principal {
             key_id: id,
             scope,
