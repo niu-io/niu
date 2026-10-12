@@ -82,6 +82,7 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/results", get(super::inference::dashboard_video::results_status).delete(super::inference::dashboard_video::delete_results))
         .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/billing", get(super::inference::dashboard_video::billing))
         .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/timings", get(super::inference::dashboard_video::timings))
+        .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/observations", get(super::inference::dashboard_video::observations))
         .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/refresh", axum::routing::post(super::inference::dashboard_video::refresh))
         .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/chat/completions", axum::routing::post(super::inference::dashboard_chat))
         .route("/admin/v1/organizations/{organization}/billing/transactions", get(crate::billing::balance_transactions))

@@ -11,9 +11,30 @@ use uuid::Uuid;
 #[derive(Deserialize, Default)]
 #[serde(deny_unknown_fields)]
 pub(super) struct ObservationQuery {
-    after: Option<String>,
-    limit: Option<u16>,
+    pub(super) after: Option<String>,
+    pub(super) limit: Option<u16>,
 }
+impl ObservationQuery {
+    pub(super) fn parse(
+        input: Result<Query<Self>, axum::extract::rejection::QueryRejection>,
+    ) -> Result<Self, ApiError> {
+        let Query(query) = input
+            .map_err(|_| ApiError::invalid_request("Invalid observation cursor or page size"))?;
+        let limit = query.limit.unwrap_or(50);
+        if !(1..=100).contains(&limit)
+            || query
+                .after
+                .as_ref()
+                .is_some_and(|s| s.len() != 64 || !s.bytes().all(|b| b.is_ascii_hexdigit()))
+        {
+            return Err(ApiError::invalid_request(
+                "Invalid observation cursor or page size",
+            ));
+        }
+        Ok(query)
+    }
+}
+
 /// ```openapi
 /// {
 ///   "path": "/v1/video/jobs/{id}/observations",
@@ -234,19 +255,8 @@ pub(in crate::web) async fn observations(
     query: Result<Query<ObservationQuery>, axum::extract::rejection::QueryRejection>,
 ) -> Result<([(String, String); 1], Json<Value>), ApiError> {
     let principal = state.authorize_api_headers(&headers).await?;
-    let Query(query) =
-        query.map_err(|_| ApiError::invalid_request("Invalid observation cursor or page size"))?;
+    let query = ObservationQuery::parse(query)?;
     let limit = query.limit.unwrap_or(50);
-    if !(1..=100).contains(&limit)
-        || query
-            .after
-            .as_ref()
-            .is_some_and(|s| s.len() != 64 || !s.bytes().all(|b| b.is_ascii_hexdigit()))
-    {
-        return Err(ApiError::invalid_request(
-            "Invalid observation cursor or page size",
-        ));
-    }
     let result = state
         .store
         .media_query_observations_for_key(&principal, id, query.after.as_deref(), limit)

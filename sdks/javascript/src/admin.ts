@@ -1,3 +1,4 @@
+import { videoObservationQuery, type VideoQueryObservationPage, type VideoQueryObservationQuery } from './video-query-observations.js';
 /** Last committed worker page, not settlement or backlog status. */
 export interface FinancialRecoveryDiagnostics {
   observed_at: string;
@@ -993,6 +994,11 @@ export class NiuAdminClient {
 
   getDashboardVideoBilling(scope: TenantScope, keyId: string, jobId: string, options?: RequestOptions): Promise<VideoJobBilling> {
     return this.request(`${this.dashboardVideoPath(scope, keyId)}/jobs/${uuid(jobId)}/billing`, undefined, options);
+  }
+
+  /** Saved safe query receipts; no polling or financial mutation. */
+  getDashboardVideoObservations(scope: TenantScope, keyId: string, jobId: string, query: VideoQueryObservationQuery = {}, options?: RequestOptions): Promise<VideoQueryObservationPage> {
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/video/jobs/${uuid(jobId)}/observations${videoObservationQuery(query)}`, undefined, options);
   }
 
   getDashboardVideoTimings(scope: TenantScope, keyId: string, jobId: string, options?: RequestOptions): Promise<VideoTransportTimings> {
