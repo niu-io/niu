@@ -9,6 +9,7 @@ pub mod asset_read;
 pub mod asset_signing;
 pub mod asset_transport;
 pub mod fastrouter_actions;
+pub mod fastrouter_domain;
 pub mod image_detector;
 pub mod image_input;
 pub mod image_inspection;
