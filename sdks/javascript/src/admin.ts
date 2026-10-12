@@ -114,6 +114,18 @@ export type BrandingSettings = {
   dark: Partial<Record<BrandingColorToken, string>>;
 };
 export type BrandingColorToken = 'background' | 'foreground' | 'primary' | 'primary-foreground' | 'sidebar' | 'sidebar-foreground' | 'accent' | 'accent-foreground';
+/** Platform-only metadata; the merchant secret is write-only. */
+export type EPayConfiguration = {
+  revision: string; enabled: boolean; merchant_id: string; has_key: boolean;
+  endpoint: string; notify_url: string; return_url: string; methods: string[];
+};
+export type EPayConfigurationInput = {
+  expected_revision: string; enabled: boolean; merchant_id: string;
+  /** An empty string preserves the existing merchant key. */
+  key: string; endpoint: string; notify_url: string; return_url: string;
+  methods: Array<'alipay' | 'wxpay'>;
+};
+
 export type BrandingConfiguration = { data: { revision: string; settings: BrandingSettings } };
 
 export type ModelRoutePoolCandidate = { alias: string; priority: number; weight: number; enabled: boolean };
@@ -956,6 +968,15 @@ export class NiuAdminClient {
   }
 
   /** Platform administrator read. Public display settings also exist at GET /v1/branding. */
+  getPlatformEPayConfiguration(options?: RequestOptions): Promise<{ data: EPayConfiguration }> {
+    return this.request('/platform/payments/epay', undefined, options);
+  }
+
+  /** Revision checked; no implicit retry or merchant activation claim. */
+  savePlatformEPayConfiguration(input: EPayConfigurationInput, options?: RequestOptions): Promise<{ data: EPayConfiguration }> {
+    return this.request('/platform/payments/epay', input, options, 'PUT');
+  }
+
   getBranding(options?: RequestOptions): Promise<BrandingConfiguration> {
     return this.request('/platform/branding', undefined, options);
   }

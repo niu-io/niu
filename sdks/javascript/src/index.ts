@@ -352,6 +352,11 @@ export type VideoJobHistory = {
 export type VideoJobHistoryQuery = { before?: string; limit?: number };
 
 export class NiuClient {
+  /** Public branding projection; the regular client credential does not expand it. */
+  getPublicBranding(options?: RequestOptions): Promise<import('./admin.js').BrandingConfiguration> {
+    return this.request('/branding', undefined, options);
+  }
+
   readonly imageSources: {
     prepare: (input: { image: string; valid_for_seconds: number }, options?: RequestOptions) => Promise<{ data: { source_id: string; retained: true; retention_seconds: number } }>;
     erase: (id: string, options?: RequestOptions) => Promise<void>;
@@ -714,3 +719,5 @@ export type { VideoReportedQuantity, VideoProviderTimes, VideoQueryObservation, 
 export type { MemberProfile, MemberProfileUpdate, MemberPreferences } from './admin.js';
 
 export type { GuardrailDetectorDescription, GuardrailDetectorPreviewInput, GuardrailDetectorPreviewResult } from './admin.js';
+
+export type { EPayConfiguration, EPayConfigurationInput } from './admin.js';

@@ -26,6 +26,11 @@ export class NiuAuthClient {
     this.#fetch = options.fetch ?? globalThis.fetch.bind(globalThis);
   }
 
+  /** Public capability discovery, independent of sign-in success. */
+  getMemberAuthenticationConfiguration(options: RequestOptions = {}): Promise<{ password_login: boolean }> {
+    return this.#request('/auth/config', { method: 'GET', headers: { accept: 'application/json' } }, options) as Promise<{ password_login: boolean }>;
+  }
+
   signIn(input: { email: string; password: string }, options: RequestOptions = {}): Promise<MemberSignIn> {
     if (typeof input.email !== 'string' || new TextEncoder().encode(input.email).length > 254
       || typeof input.password !== 'string' || new TextEncoder().encode(input.password).length > 1024) {
