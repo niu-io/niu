@@ -2,13 +2,13 @@
 
 This records current evidence toward the fixed S10-2 backend criterion for supported secret/configuration persistence, revisions, audit and offline encryption transition. It does not qualify every encrypted-content domain, a production maintenance window, or rendered settings screens.
 
-## Current verification boundary
+## Historical schema-283 verification boundary
 
-The current run uses Gateway `186662c5346ec911e2bc19e59bb6b8a51c32500c`, PostgreSQL schema 283 and a stopped copy of the retained native database. The original database, deployment configuration and encryption identity remain unchanged. There are no upstream inference or merchant requests.
+The recorded schema-283 run uses Gateway `186662c5346ec911e2bc19e59bb6b8a51c32500c`, PostgreSQL schema 283 and a stopped copy of the retained native database. The original database, deployment configuration and encryption identity remain unchanged. There are no upstream inference or merchant requests.
 
 Encryption inspection, transition, credential cipher and configuration persistence source remains unchanged between the exercised Gateway revision and the integration checkpoint `5591a02d`. Handler annotations and SDK additions do not change this behavior.
 
-The historical checkpoint below covers the ten encrypted domains registered at its recorded pin. The current inventory additionally includes durable workspace-material content, with a separate authenticated-data domain, retained-content startup scan and offline rotation target. Its nonempty rotation acceptance is tracked with the [workspace material library](workspace-material-library.md); adding the domain does not retroactively verify it. Counts below describe actual retained envelopes, not fixture outcomes or a claim that an empty scan verifies a domain.
+The historical checkpoint below covers the ten encrypted domains registered at its recorded pin. The current inventory additionally includes durable workspace-material content and Provider verification sessions, each with separate identity-bound content, startup scanning and offline rotation targets. Its nonempty rotation acceptance is tracked with the [workspace material library](workspace-material-library.md); adding the domain does not retroactively verify it. Counts below describe actual retained envelopes, not fixture outcomes or a claim that an empty scan verifies a domain.
 
 | Domain | Retained envelopes in the current run | Evidence scope |
 | --- | ---: | --- |
@@ -61,9 +61,9 @@ Existing evidence is reused only after reopening its stopped native database and
 
 Encryption inspection, transition and cipher source at the historical real-video revision remains unchanged at the current integration checkpoint. Historical data schemas and exercised domains remain explicitly distinct from the current schema-283 run.
 
-## Current eleven-domain coverage and executable prerequisites
+## Current twelve-domain coverage and executable prerequisites
 
-The supported maintenance inventory now contains **eleven domains**: four credential/configuration domains and seven retained-content domains. Five domains have nonempty actual transition evidence; six remain unverified. The historical 89-envelope transition covered Supplier credentials and EPay configuration, not all domains. An empty scan cannot close any of the remaining six.
+The supported maintenance inventory now contains **twelve domains**: four credential/configuration domains and eight retained-content domains. Six domains have nonempty actual transition evidence; six remain unverified. The historical 89-envelope transition covered Supplier credentials and EPay configuration, not all domains. An empty scan cannot close any of the remaining six.
 
 | Domain | Nonempty actual transition evidence | Current coverage and genuine data path |
 | --- | --- | --- |
@@ -72,6 +72,7 @@ The supported maintenance inventory now contains **eleven domains**: four creden
 | Asset-management credentials | Two independently rechecked saved revisions | `PUT /admin/v1/vendors/{id}/asset-management` saves declared configuration inputs. This can produce nonempty encrypted data without dispatch or externally qualifying that credential. |
 | Media result references | Retained reference from an actual generated video, independently rechecked | Use an existing real encrypted reference in a stopped copy; an erased reference must not be reconstructed or revived to fill the domain. New retention otherwise requires a real successful supported media result. |
 | Workspace material content | 256 actual uploaded objects, independently reopened again | Actual image/audio/video uploads populate this domain without a Provider request. The new domain is separate from Provider assets and inspection approval. |
+| Provider verification sessions | One genuine naturally expired session, rotated and independently authenticated | [Current schema-293 rotation](provider-verification-encryption-rotation-acceptance.md) preserves the actual token/H5 envelope, original AAD, expiry and authorized link refusal across restart. No human completion is inferred. |
 | Asset-listing results | **Unverified** | `POST /admin/v1/vendors/{id}/asset-management/listings` requires an original successful ordinary Ark group, its exact credential/project binding and a current reviewed operation grant. Only a real successful parsed Provider listing is encrypted. |
 | Asset-lookup results | **Unverified** | `POST /admin/v1/vendors/{id}/asset-management/lookups` requires a genuine saved listing and an authorized lookup of its original Provider asset. Only a real parsed result is encrypted. |
 | Asset-group read results | **Unverified** | `POST /admin/v1/vendors/{id}/asset-management/group-reads` requires the successful original group and current GetAssetGroup authorization; the actual successful read supplies the saved encrypted result. |
@@ -93,4 +94,4 @@ New legacy product activation is deferred, while any retained encrypted record r
 
 ## Completion status
 
-S10-2 remains active. The populated credential/configuration domains and historical interrupted-transition and asset/video cases have the evidence documented above. Six of the current eleven domains still lack nonempty actual transition verification as listed above; empty inventory scans and deferred activation do not close them. Production maintenance orchestration, browser/UI acceptance and merchant activation are outside this fixed backend criterion.
+S10-2 remains active. The populated credential/configuration domains and historical interrupted-transition and asset/video cases have the evidence documented above. Six of the current twelve domains still lack nonempty actual transition verification as listed above; empty inventory scans and deferred activation do not close them. Production maintenance orchestration, browser/UI acceptance and merchant activation are outside this fixed backend criterion.

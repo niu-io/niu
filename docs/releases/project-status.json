@@ -1,8 +1,8 @@
 {
   "version": 1,
   "updated": "2026-10-13",
-  "source_commit": "ef29c2929ceba22bc590faa8787946dbb78b62b5",
-  "runtime_commit": "17b7370af24611bc49a89461c81e7f290860d5cd",
+  "source_commit": "8e59059fdd61c9b41038921dc8e5cc76d73153d1",
+  "runtime_commit": "ef29c2929ceba22bc590faa8787946dbb78b62b5",
   "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
   "active_implementation_tasks": [
     "S02-3",
@@ -421,10 +421,11 @@
             "docs/reference/provider-asset-group-acceptance.md",
             "docs/reference/provider-video-asset-acceptance.md",
             "docs/reference/provider-verification-local-acceptance.md",
-            "docs/reference/provider-verification-session-create-acceptance.md"
+            "docs/reference/provider-verification-session-create-acceptance.md",
+            "docs/reference/provider-asset-video-current-acceptance.md"
           ],
           "evidence_revision": "ab33ee17",
-          "note": "Priority remains configured upstream API integration and async lifecycle; custom detectors, approval coordination and private delivery are not video acceptance prerequisites. Preserve durable-library and saved-job evidence and explicit optional Guardrails. Genuine Seedance 2.5 generation, exact-task Gateway refresh, encrypted result retrieval/full decode and restart are independently verified; reported video_tokens 257277 remain distinct from unknown pricing and owner-funded charges. Personal SDK model discovery exposes finite configured controls with output null and scope isolation. Genuine group creation and owned video-asset upload, refresh to Active, idempotency, scope, restart and original financial/configuration preservation are verified. Empty Provider GroupId uses the acknowledged scoped parent context, not Provider-reported identity. Genuine verification-session creation and authenticated link retrieval verify nonempty encrypted token/H5 persistence and exact AAD; no human completion occurred. Niu asset-ID generation and model-configured reference controls are implemented with atomic current authorization/account checks; actual asset-ID generation remains unverified. Other versions, additional asset mutations, human-completion recovery and priced media remain open. Historical mini HTTP400 submission_unknown evidence is preserved without invented diagnostics or resend; current safe-error persistence still needs a genuine failure exercise."
+          "note": "Priority remains configured upstream API integration and async lifecycle; custom detectors, approval coordination and private delivery are not video acceptance prerequisites. Preserve durable-library and saved-job evidence and explicit optional Guardrails. Genuine Seedance 2.5 generation, exact-task Gateway refresh, encrypted result retrieval/full decode and restart are independently verified; reported video_tokens 257277 remain distinct from unknown pricing and owner-funded charges. Personal SDK model discovery exposes finite configured controls with output null and scope isolation. Genuine group creation and owned video-asset upload, refresh to Active, idempotency, scope, restart and original financial/configuration preservation are verified. Empty Provider GroupId uses the acknowledged scoped parent context, not Provider-reported identity. Genuine verification-session creation and authenticated link retrieval verify nonempty encrypted token/H5 persistence and exact AAD; no human completion occurred. Niu asset-ID generation and model-configured reference controls are implemented with atomic current authorization/account checks; actual asset-ID submission now reaches FastRouter once and receives HTTP403 permission_denied. The predispatch creator-binding defect is fixed; native diagnostics, safe submission_unknown, exact replay/no resend, changed409, scope, restart and private-URI capture boundaries are independently verified. Successful reference generation remains unverified; no entitlement cause, meter or charge is invented. Other versions, additional asset mutations, human-completion recovery and priced media remain open. Historical mini HTTP400 submission_unknown evidence is preserved without invented diagnostics or resend; Current safe-error persistence is exercised by that genuine403 response."
         },
         {
           "id": "S08-3",
@@ -516,10 +517,11 @@
           "evidence": [
             "docs/reference/encryption-configuration-acceptance.md",
             "docs/reference/provider-verification-local-acceptance.md",
-            "docs/reference/provider-verification-session-create-acceptance.md"
+            "docs/reference/provider-verification-session-create-acceptance.md",
+            "docs/reference/provider-verification-encryption-rotation-acceptance.md"
           ],
           "evidence_revision": "186662c5",
-          "note": "Five of eleven supported encrypted domains have scoped nonempty actual transition evidence, including the new workspace-material domain with 256 independently reopened envelopes. Six domains remain unverified with exact legitimate data prerequisites recorded; empty inventories and deferred legacy activation do not close them. Verification sessions add a twelfth supported encryption domain: startup inventory and rotation target are integrated, and actual schema-293 checks cover its empty inventory. The five previously verified nonempty domains are unchanged; seven current domains lack the required nonempty transition evidence. A genuine nonempty ProviderVerification envelope is now independently authenticated/decrypted with its exact saved AAD; startup encryption checking succeeds. This proves persistence, not its rotation transition, which remains open."
+          "note": "Six of twelve supported encrypted domains have scoped nonempty actual transition evidence: preserve the five previously verified domains and add the genuine ProviderVerification session. The current schema-293 isolated offline run rotates 91 actual envelopes including the naturally expired session; independent AES-GCM/AAD, plaintext equivalence, audit/HMAC, target-key startup and restart verify the transition without reviving the session or changing source identities/finances. Six other domains remain unverified with legitimate data prerequisites recorded. Empty inventories, deferred legacy activation and persistence alone do not close those transitions. Original native deployment retains its encryption identity."
         },
         {
           "id": "S10-3",
@@ -604,20 +606,22 @@
           "acceptance": "Existing native runtime is ready with preserved identity, retained executable hash, matching registry and independently restored backup evidence.",
           "evidence": [
             "docs/releases/backend-workflow-status.md",
-            "docs/reference/native-runtime-operations.md"
+            "docs/reference/native-runtime-operations.md",
+            "docs/reference/native-schema-290-293-upgrade-acceptance.md"
           ],
           "evidence_revision": "c24e75b7",
-          "note": "Original native service updated after isolated current-input lock/CRUD/scoping verification; ready/registry/config/cipher/durable records preserved, original schema-284 archive independently restored."
+          "note": "Original native service updated after isolated current-input lock/CRUD/scoping verification; ready/registry/config/cipher/durable records preserved, original schema-284 archive independently restored. Current native ef29/schema293 deployment is independently verified against all225 prior relation projections; only two operational progress timestamps change. Original identities, business data and configuration remain preserved; fresh schema293 backup restoration is verified."
         },
         {
           "id": "S12-2",
           "status": "done",
           "acceptance": "Consolidate supported restart/drain/migration/backup/recovery and explicit operational connection/deadline limits without container scope expansion.",
           "evidence": [
-            "docs/reference/native-runtime-operations.md"
+            "docs/reference/native-runtime-operations.md",
+            "docs/reference/native-schema-290-293-upgrade-acceptance.md"
           ],
           "evidence_revision": "c24e75b7",
-          "note": "Finite native operations inventory includes bounded storage waits, graceful drain, configuration/restart and independently restored backups. Current schema-290 native deployment preserves configuration, encrypted credential identities and retained business data; its fresh backup was independently restored. No global shutdown SLA or arbitrary failure/interleaving qualification."
+          "note": "Finite native operations inventory includes bounded storage waits, graceful drain, configuration/restart and independently restored backups. Current schema-290 native deployment preserves configuration, encrypted credential identities and retained business data; its fresh backup was independently restored. No global shutdown SLA or arbitrary failure/interleaving qualification. Current native ef29/schema293 deployment is independently verified against all225 prior relation projections; only two operational progress timestamps change. Original identities, business data and configuration remain preserved; fresh schema293 backup restoration is verified."
         },
         {
           "id": "S12-3",
