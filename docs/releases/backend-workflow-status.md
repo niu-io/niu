@@ -9,7 +9,7 @@ independent saved-artifact/database checks define the verified boundaries.
 | User priority | Implemented and exercised scope | Remaining verification boundary |
 | --- | --- | --- |
 | Supplier configuration | Business identity, independent credential configurations, rotation/disable isolation, model and price binding, scoped configuration traffic | Nonempty agreed commercial earnings and settlement; complete Supplier frontend journey |
-| Workspace API keys | Scoped actual model calls, spending/RPM/TPM/concurrency/IP policies, immutable policy history, rotation lineage, revocation and restart | Broader cross-protocol combinations and unknown-disconnect occupancy; new video dispatch/recovery with no-expiration keys remains unverified |
+| Workspace API keys | Scoped actual model calls, spending/RPM/TPM/concurrency/IP policies, immutable policy history, rotation lineage, revocation and restart | Broader cross-protocol combinations and unknown-disconnect occupancy; broader mixed-protocol admission and permission races remain unverified |
 | Balance and charging | Exact original-rate debits using approved internal credit, insufficient-capacity refusal, reservations, invoice settlement, refunds and reconciliation | Positive externally funded top-ups and customer-paid media have separate unverified scope; supported payment inventory does not require every merchant to activate |
 | Logs and usage | Populated customer pagination, concurrent admissions during time-ordered pagination, key filters, full-range totals, CSV, error/timing records and confidential procurement isolation | Mutable-sort pagination, broader tenant scale and frontend presentation |
 | Video | Actual personal generation, idempotent submission, durable saved intents, restart/query recovery, authorized decoded results and deletion that survives refresh | Positive customer-funded settlement, natural expiry, inspected reference inputs and model-specific controls need their own evidence |
@@ -272,3 +272,11 @@ raw-stream/native reconciliation verifies four accurately charged validation
 errors, complete report/export totals, restart and no open hold. Read p95 was
 26.00 ms for this offered local workload. Maximum capacity, broader protocols,
 resource profiling and production SLOs remain unverified.
+
+
+[Current video submission/restart](../reference/current-video-submission-restart.md)
+records one actual new personal video using a no-expiration key, rotation/restart
+before refresh, seven original-identity queries, independently decoded result,
+idempotent replay/conflict and revocation. No customer/Supplier financial entry
+was fabricated. Paid media quantities/settlement, automatic polling and natural
+result expiry remain separate unverified boundaries.
