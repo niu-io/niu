@@ -48,35 +48,11 @@ completed live database rotation does not re-encrypt historical backups. A full
 completed-operation rerun can record an additional zero-replacement operation;
 completion history alone is not proof of upstream service health.
 
-## Nonempty asset-management credential revisions
+## Excluded locally generated asset-management records
 
-A current-input native run on 2026-10-11 created a disabled direct-Ark
-configuration and saved two successive asset-management credential revisions
-through the administrator HTTP API. The fresh local credential values exercise
-storage and cryptographic lifecycle only; they are not claimed issued or
-validated by an external asset service. Both responses kept dispatch unavailable.
-No upstream inference or asset operation was sent.
+The earlier asset-management run saved two successive revisions with locally generated random access/secret values for a local verification project. Their provenance does not establish real user-saved or externally issued credentials. Its authentication, rotation, startup and revision outcomes are excluded from genuine business acceptance; they cannot qualify the asset-management credential domain or substitute for missing actual asset-result data. Retained command history does not change this exclusion.
 
-With the Gateway stopped, the offline rotation command re-encrypted the vendor
-and both historical asset-management envelopes. Destination-only encryption
-inspection, startup, configuration reads and another restart succeeded. Inspection
-with only the old master key failed. Revision, project and creation metadata
-remained identical; the management API still exposed no credential values.
-Captured Gateway and CLI outputs contained neither supplied credential values
-nor either master secret.
-
-Independent reopening used a separate AES-GCM implementation with the documented
-master-secret derivation and envelope layout. Both revisions decrypted to their
-exact original submitted values under the destination key and original
-vendor/revision/project associated data. The source key, changed vendor identity
-and changed project binding failed authentication. Metadata matched the retained
-pre-rotation record and there were zero inference attempts. The verifier initially
-used raw hexadecimal key bytes rather than Niu's SHA-256 master-secret derivation;
-that verifier error was corrected before assessing the result.
-
-This covers nonempty asset-management credentials, including superseded revisions.
-It does not qualify upstream asset authorization or the separate encrypted asset
-lookup/list/read/update result domains.
+See [encryption and configuration acceptance](encryption-configuration-acceptance.md) for the corrected inventory and genuine-domain evidence. The closed implementation still supports this optional configuration target; no unused domain needs a fabricated record or external activation merely to raise a coverage count.
 
 ## Clean committed rotation with a real unresolved stream — 2026-10-12
 
@@ -119,9 +95,11 @@ commercial Supplier supply or discounts.
 
 This adds clean committed evidence for credential rotation, genuine unresolved
 liability preservation and subsequent actual streaming/accounting. Nonempty
-image/asset-result and legacy credential domains, populated Supplier qualification
-preservation and large-inventory capacity still need independent current-input
-evidence; it does not qualify the complete rotation issue.
+image/asset-result and legacy credential transitions, populated Supplier qualification
+preservation and large-inventory capacity remain unverified. They are separate
+optional/provenance states, not requirements to activate unused products. The finite
+current backend capability boundary is recorded in the linked encryption acceptance;
+this historical genuine stream checkpoint does not establish production capacity.
 
 ## Clean committed retained-video and Billing checkpoint
 
