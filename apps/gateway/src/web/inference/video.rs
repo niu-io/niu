@@ -669,6 +669,7 @@ pub(super) struct VideoAdmission {
     selling: Option<niu_storage::SelectedCustomerMediaRate>,
     pub(super) owner_funded: bool,
     route_generation: Option<i64>,
+    provider_assets: Option<super::video_provider_assets::ResolvedProviderAssets>,
 }
 
 /// Direct-channel submission with separate personal and prepaid admission.
@@ -680,7 +681,8 @@ pub(super) async fn validate_admission(
     body: &Value,
     model: &str,
 ) -> Result<VideoAdmission, ApiError> {
-    let workspace = super::video_workspace_assets::prepare(body)?;
+    let provider_prepared = super::video_provider_assets::prepare(body)?;
+    let workspace = super::video_workspace_assets::prepare(provider_prepared.original_body())?;
     let prepared = super::video_ingested_images::prepare(workspace.admission_body())?;
     let body = prepared.admission_body();
     let placeholders = prepared.trusted_placeholders();
@@ -818,15 +820,45 @@ pub(super) async fn validate_admission(
             "OpenRouter video requires a personal route; customer billing is not qualified",
         ));
     }
-    let request = schema
-        .validate_request_with_ingested_images(
-            &serde_json::to_vec(&body)
-                .map_err(|_| ApiError::invalid_request("Invalid video request"))?,
-            &placeholders,
+    let provider_assets = if provider_prepared.has_references() {
+        let snapshot = state
+            .store
+            .guardrail_snapshot(scope, principal.key_id())
+            .await
+            .map_err(ApiError::from_store)?
+            .ok_or_else(ApiError::forbidden)?;
+        Some(
+            super::video_provider_assets::resolve(
+                state,
+                principal,
+                &snapshot,
+                &route,
+                &schema,
+                &provider_prepared,
+            )
+            .await?,
         )
-        .map_err(|_| {
-            ApiError::invalid_request("The request does not match this model's video schema")
-        })?;
+    } else {
+        None
+    };
+    let body = provider_assets
+        .as_ref()
+        .map(|resolved| resolved.body())
+        .unwrap_or(body);
+    let bytes =
+        serde_json::to_vec(body).map_err(|_| ApiError::invalid_request("Invalid video request"))?;
+    let provider_references = provider_assets
+        .as_ref()
+        .map(|resolved| resolved.trusted_references())
+        .unwrap_or_default();
+    let request = if provider_assets.is_some() {
+        schema.validate_request_with_provider_assets(&bytes, &provider_references)
+    } else {
+        schema.validate_request_with_ingested_images(&bytes, &placeholders)
+    }
+    .map_err(|_| {
+        ApiError::invalid_request("The request does not match this model's video schema")
+    })?;
     if openrouter {
         niu_media::openrouter::submission_body(&request).map_err(|_| {
             ApiError::unsupported_message("This OpenRouter video control or input is not supported")
@@ -861,11 +893,21 @@ pub(super) async fn validate_admission(
                                 .any(|(approved_position, approved_uri)| {
                                     *approved_position == position && *approved_uri == url
                                 })
+                            || provider_references.iter().any(|(p, kind, uri)| {
+                                *p == position && *kind == "image_url" && *uri == url
+                            })
                     })
                     || matches!(item["type"].as_str(), Some("audio_url" | "video_url"))
                         && !item[item["type"].as_str().unwrap()]["url"]
                             .as_str()
-                            .is_some_and(|url| url.starts_with("https://"))
+                            .is_some_and(|url| {
+                                url.starts_with("https://")
+                                    || provider_references.iter().any(|(p, kind, uri)| {
+                                        *p == position
+                                            && *kind == item["type"].as_str().unwrap()
+                                            && *uri == url
+                                    })
+                            })
             })
         })
     {
@@ -889,7 +931,12 @@ pub(super) async fn validate_admission(
             model: model.into(),
             channel: schema.channel.clone(),
             resolution: resolution.into(),
-            reference_video: false,
+            reference_video: provider_assets
+                .as_ref()
+                .is_some_and(|assets| assets.has_video())
+                || provider_prepared.original_body()["content"]
+                    .as_array()
+                    .is_some_and(|items| items.iter().any(|item| item["type"] == "video_url")),
         };
         let at = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -920,6 +967,11 @@ pub(super) async fn validate_admission(
         .await
         .map_err(ApiError::from_store)?
         .ok_or_else(ApiError::forbidden)?;
+    if provider_assets.is_some() && super::video_images::inspection_required(&snapshot)? {
+        return Err(ApiError::unsupported_message(
+            "Required image inspection cannot inspect remote Provider assets",
+        ));
+    }
     let images = has_images(body);
     if !policy_permits_video_with_images(&snapshot, model, &route.vendor.adapter, images)
         || images
@@ -934,6 +986,7 @@ pub(super) async fn validate_admission(
         selling,
         owner_funded,
         route_generation,
+        provider_assets,
     })
 }
 
@@ -1074,7 +1127,7 @@ pub(super) async fn estimate_as(
 ///   "operation": {
 ///     "operationId": "createOwnerFundedVideoJob",
 ///     "summary": "Submit a schema-validated video job",
-///     "description": "Personal routes support configured ark-direct-v1 or openrouter-video-v1 channels. Customer-funded video currently requires a qualified ark-direct-v1 route and video_tokens pricing; OpenRouter remains personal-only. Shared routes with a legacy procurement budget are unsupported, while personal routes retain ordinary authorization and key limits. Exactly one upstream submission follows durable dispatch intent. HTTP or transport errors retain submission_unknown and any unresolved liability. Observed non-success HTTP statuses are saved as upstream_http_error in scoped request diagnostics, without upstream bodies or credentials; they do not prove nonexecution or authorize a retry. Fresh creation responses include x-niu-attempt-id. Logs retain the inspected Niu request and delivered Niu creation response for up to 24 hours by default; x-niu-log-payloads: false opts out. Requests larger than the 1 MiB capture bound are not retained. This is not an upstream transport-body capture, and replay does not recreate deleted or expired payloads. Optional workspace-scoped Idempotency-Key supports text and schema-approved upstream URL creation: identical replay returns the original reference and current saved status, including after restart. Changed input conflicts. Unkeyed requests are not idempotent. Configured controls, reference inputs and required inspection remain subject to the selected schema and supported channel. Ordinary public HTTPS image/audio/video URLs are forwarded only when the exact selected upstream schema supports them. Inline image data follows the configured schema. Explicit required image policies still enforce local inspection; unsupported remote inspection fails closed. Short-lived ordinary ingested_image references accept Niu ingestion/readiness IDs with explicit consent_to_reuse. Provider asset URIs remain private and are resolved only for the exact selected Ark route. This does not grant durable library or portrait rights; expired, erased, revoked or unavailable bindings fail closed before dispatch. Durable workspace image references do not reuse Provider readiness or old inspection receipts; they undergo fresh current inspection and atomic local-content authorization.",
+///     "description": "Personal routes support configured ark-direct-v1 or openrouter-video-v1 channels. Customer-funded video currently requires a qualified ark-direct-v1 route and video_tokens pricing; OpenRouter remains personal-only. Shared routes with a legacy procurement budget are unsupported, while personal routes retain ordinary authorization and key limits. Exactly one upstream submission follows durable dispatch intent. HTTP or transport errors retain submission_unknown and any unresolved liability. Observed non-success HTTP statuses are saved as upstream_http_error in scoped request diagnostics, without upstream bodies or credentials; they do not prove nonexecution or authorize a retry. Fresh creation responses include x-niu-attempt-id. Logs retain the inspected Niu request and delivered Niu creation response for up to 24 hours by default; x-niu-log-payloads: false opts out. Requests larger than the 1 MiB capture bound are not retained. This is not an upstream transport-body capture, and replay does not recreate deleted or expired payloads. Optional workspace-scoped Idempotency-Key supports text and schema-approved upstream URL creation: identical replay returns the original reference and current saved status, including after restart. Changed input conflicts. Unkeyed requests are not idempotent. Configured controls, reference inputs and required inspection remain subject to the selected schema and supported channel. Ordinary public HTTPS image/audio/video URLs are forwarded only when the exact selected upstream schema supports them. Inline image data follows the configured schema. Explicit required image policies still enforce local inspection; unsupported remote inspection fails closed. Short-lived ordinary ingested_image references accept Niu ingestion/readiness IDs with explicit consent_to_reuse. Provider asset URIs remain private and are resolved only for the exact selected Ark route. This does not grant durable library or portrait rights; expired, erased, revoked or unavailable bindings fail closed before dispatch. Durable workspace image references do not reuse Provider readiness or old inspection receipts; they undergo fresh current inspection and atomic local-content authorization. Owned Provider references use content.type provider_asset with provider_asset.id identifying a Niu workspace asset, not a raw upstream URI. Current scope, model, account, acknowledged creation and Active asset state are checked; the same live binding is checked atomically with dispatch. Source model revision is retained as history, while current selected model/schema and tariffs govern the request. Kind, roles and input limits follow backend metadata and the selected schema. Explicit required image inspection refuses these remote assets; ordinary default policy adds no detector. Mixing these references with ingested/workspace material or inline image data is currently unsupported. On creation, idempotency and request captures retain Niu IDs and inspected text, never the resolved asset URI.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1316,6 +1369,36 @@ pub(super) async fn estimate_as(
 ///                           }
 ///                         }
 ///                       }
+///                     },
+///                     {
+///                       "type": "object",
+///                       "additionalProperties": false,
+///                       "required": [
+///                         "type",
+///                         "provider_asset"
+///                       ],
+///                       "properties": {
+///                         "type": {
+///                           "type": "string",
+///                           "const": "provider_asset"
+///                         },
+///                         "provider_asset": {
+///                           "type": "object",
+///                           "additionalProperties": false,
+///                           "required": [
+///                             "id"
+///                           ],
+///                           "properties": {
+///                             "id": {
+///                               "type": "string",
+///                               "format": "uuid"
+///                             }
+///                           }
+///                         },
+///                         "role": {
+///                           "type": "string"
+///                         }
+///                       }
 ///                     }
 ///                   ]
 ///                 },
@@ -1530,12 +1613,16 @@ pub(super) async fn create_as(
         selling,
         owner_funded,
         route_generation,
+        provider_assets,
         ..
     } = validate_admission(&state, &principal, &body, model).await?;
     if expected_owner_funded.is_some_and(|expected| expected != owner_funded) {
         return Err(ApiError::from_store(niu_storage::StoreError::Conflict));
     }
-    let images_present = has_images(&body);
+    let images_present = has_images(&body)
+        || provider_assets
+            .as_ref()
+            .is_some_and(|assets| assets.has_images());
     let references_present = body["content"]
         .as_array()
         .is_some_and(|items| items.iter().any(|item| item["type"] != "text"));
@@ -1589,6 +1676,12 @@ pub(super) async fn create_as(
     if !policy_permits_video_with_images(&snapshot, model, &route.vendor.adapter, images_present) {
         return Err(ApiError::forbidden());
     }
+    if provider_assets.is_some() && super::video_images::inspection_required(&snapshot)? {
+        return Err(ApiError::unsupported_message(
+            "Required image inspection cannot inspect remote Provider assets",
+        ));
+    }
+    let provider_log_body = provider_assets.as_ref().map(|_| body.clone());
     let workspace_prepared = super::video_workspace_assets::prepare(&body)?;
     let workspace_log_body = workspace_prepared.has_references().then(|| body.clone());
     let workspace_resolved = if workspace_prepared.has_references() {
@@ -1615,22 +1708,36 @@ pub(super) async fn create_as(
     } else {
         None
     };
-    let ordinary_request =
-        if resolved.is_none() {
-            Some(
-                schema
-                    .validate_request(&serde_json::to_vec(&body).map_err(|_| {
-                        ApiError::invalid_request("Invalid inspected video request")
-                    })?)
-                    .map_err(|_| {
-                        ApiError::invalid_request(
-                            "The inspected request does not match this model's video schema",
-                        )
-                    })?,
-            )
-        } else {
-            None
-        };
+    if let Some(provider) = &provider_assets {
+        let mut transport = provider.body().clone();
+        for position in &text_positions {
+            transport["content"][*position] = body["content"][*position].clone();
+        }
+        body = transport;
+    }
+    let ordinary_request = if resolved.is_none() {
+        Some(
+            {
+                let bytes = serde_json::to_vec(&body)
+                    .map_err(|_| ApiError::invalid_request("Invalid inspected video request"))?;
+                if let Some(provider) = &provider_assets {
+                    schema.validate_request_with_provider_assets(
+                        &bytes,
+                        &provider.trusted_references(),
+                    )
+                } else {
+                    schema.validate_request(&bytes)
+                }
+            }
+            .map_err(|_| {
+                ApiError::invalid_request(
+                    "The inspected request does not match this model's video schema",
+                )
+            })?,
+        )
+    } else {
+        None
+    };
     let request = resolved
         .as_ref()
         .map(|value| &value.request)
@@ -1779,7 +1886,22 @@ pub(super) async fn create_as(
             .await
             .map_err(ApiError::from_store)?;
     }
-    let dispatch = if let Some(workspace) = &workspace_resolved {
+    let dispatch = if let Some(provider) = &provider_assets {
+        let assets = provider.dispatch_references();
+        state
+            .store
+            .mark_workspace_provider_assets_video_dispatched(
+                &principal,
+                attempt,
+                niu_storage::WorkspaceProviderAssetVideoDispatch {
+                    snapshot: &snapshot,
+                    route: &route,
+                    request,
+                    assets: &assets,
+                },
+            )
+            .await
+    } else if let Some(workspace) = &workspace_resolved {
         let references: Vec<_> = workspace
             .references
             .iter()
@@ -1968,7 +2090,7 @@ pub(super) async fn create_as(
     // Replays return above and cannot replace the original capture or its expiry.
     // Keep the inspected prompt and original library references; never duplicate
     // privately resolved material bytes into the customer request capture.
-    if let Some(original) = workspace_log_body {
+    if let Some(original) = provider_log_body.or(workspace_log_body) {
         body = original;
     }
     crate::request_payloads::remove_credentials(&mut body);
