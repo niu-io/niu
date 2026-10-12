@@ -22,7 +22,7 @@ video channel remains text-only.
 
 Use `client.video.generate` with Niu's `prompt`, `references`, `durationSeconds`
 and `aspectRatio` parameters; the SDK performs protocol conversion internally.
-References use `{kind, url, role?}` rather than Provider-specific nested blocks.
+References use `{kind, url, role?}` for ordinary URLs or `{assetId, role?}` for a saved Niu Provider asset. The backend resolves asset kind and private transport reference; callers cannot supply an upstream asset URI. The model must declare support for that reference kind. Saved assets require Active status and an acknowledged creation in the same workspace and upstream account. Current authorization and route identity are checked again atomically before dispatch.
 The existing `video.jobs.create` method remains available for compatibility.
 Use `video.jobs.retrieve`, `refresh`, `wait` and `results.retrieve` for Niu tasks.
 `wait` starts from saved state. An initial `unknown` gets one explicit refresh
@@ -37,9 +37,12 @@ The [asset](https://fastrouter-docs.wecitytech.com/docs/video/assets) and
 [identity verification](https://fastrouter-docs.wecitytech.com/docs/video/face-verification)
 operations use a separate Bearer Action transport. The internal adapter implements
 the finite documented operations, model routing and bounded response handling.
-It does not expose an arbitrary Action endpoint as the Niu SDK contract. Stable
-workspace-scoped group, asset and verification APIs remain unfinished; no human
-verification or asset readiness is inferred from an HTTP success or ID prefix.
+It does not expose an arbitrary Action endpoint as the Niu SDK contract. Workspace-scoped APIs are exposed through `client.media.groups`, `assets`,
+`operations` and `verification`. Mutations retain a durable operation and accept a
+canonical UUID idempotency key; replay does not resend the mutation. Verification
+links are explicit authenticated reads. No human verification or asset readiness
+is inferred from HTTP success or an ID prefix. Provider asset generation cannot
+currently be mixed with ingestion or workspace-library reference inputs.
 
 ## Actual evidence and unfinished scope
 
@@ -58,6 +61,10 @@ acceptance remains delegated. One [actual documented generation](fastrouter-docu
 retained an upstream receipt and produced an independently decoded video through
 an official exact-task query/download. A subsequent zero-generation run also verifies Niu Gateway polling, terminal
 persistence, result retrieval and restart for that saved task. Reported quantity
-is retained without inventing an output tariff. Customer media settlement,
-asset operations, identity verification and other versions remain unqualified. Model-list access and stored keys
-alone do not establish business acceptance.
+is retained without inventing an output tariff. Actual [group creation](provider-asset-group-acceptance.md) and
+[video asset creation, Active refresh and restart](provider-video-asset-acceptance.md)
+have separate scoped evidence. Local verification authorization and persistence
+checks are recorded in [verification acceptance](provider-verification-local-acceptance.md).
+Customer media settlement, generation from Niu asset IDs, completed human
+verification, additional asset operations and other model versions remain
+unverified. Model-list access and stored keys alone do not establish business acceptance.
