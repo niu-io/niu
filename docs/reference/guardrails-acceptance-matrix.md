@@ -101,3 +101,53 @@ paths; protocol/mode coverage outside the exercised matrix; and a retained binar
 pin for any newly qualified output enforcement. Do not declare complete F09 or
 S04-3 acceptance from this partial matrix. Deployment may leave an external
 integration disabled; enabling one must not imply its unverified guarantees.
+
+## Current local-policy execution — 2026-10-13
+
+A stopped genuine database containing retained personal-upstream completions was
+copied and run on Gateway `8bfdef10003eebe9402401247aa52cd69d3a398f`, SHA-256
+`6f5290d182c9bf51de1f2bb8d469067351c9f9771150235adc2917b1d39c6900`, with
+compiled SDK `ce97f3b0116570dfd2a487b802d2d2de18efbf39`. Automatic payment
+polling is explicitly disabled. No model, merchant or external detector call is
+made; no fake checker response supplies evidence.
+
+Actual management APIs create a new workspace, scoped key and fresh local block
+rule. Chat, Responses, embeddings and Messages requests containing that rule
+are blocked before dispatch. Independent native preparation records establish
+`input_blocked` for these paths at the activated revision. Messages uses its
+native 403 `permission_error` envelope with the explicit configured-guardrails
+message; the OpenAI-style paths use `guardrail_denied`. An unsupported image
+input is separately recorded as `input_unsupported`.
+
+GenerateContent's local preview extracts and blocks textual parts, but actual
+execution on this saved Chat Provider route returns 501 before policy execution.
+That response does not qualify GenerateContent enforcement. Preview responses
+for all five textual protocols, and block/redact/observe previews using a retained
+actual upstream response, explicitly remain synthetic and non-enforcing with
+`Cache-Control: no-store`; they are preview-contract checks only.
+
+Activation, stale-revision 409, immutable revisions 1 and 2, rollback into new
+revision 3, invalid-target refusal and restart are re-exercised. Scoped reader
+writes and installation-only discovery are refused; inference credentials cannot
+read policy management. Current SDK preparation-denial reads match the five
+records present at that point. Missing external consent returns 400;
+unconfigured activation/lookup remain safely refused without contacting a
+service. Well-shaped audio and video processing declarations both return 501
+on activation: declaration/discovery is not enabled processing. Optional external
+inspection is not made a universal media-generation prerequisite.
+
+An independently observed policy-table exclusive lock causes the current
+protected request to return safe 503 within its lock bound. After explicit lock
+release, ordinary policy refusal returns; restart preserves it. Independently
+reopened source/final PostgreSQL verifies all response digests, six blocked
+preparation records plus the separate unsupported-input record, their revisions,
+immutable history and restored policy, revoked temporary reader/key, and unchanged
+eight whole request/financial table fingerprints. No upstream attempt or charge
+is added. All copied processes are stopped.
+
+This adds pinned-current local workflow, Messages extraction, unsupported media
+activation and fail-closed persistence evidence. It does not qualify configured
+external success, transport timeout/mismatch, native GenerateContent enforcement
+on a compatible Provider, or any new output-generation path. Previously pinned
+actual output execution retains its separate scope. The full S04-3 status remains
+owned by the release checkpoint; fixture outcomes provide no evidence.
