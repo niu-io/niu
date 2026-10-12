@@ -68,7 +68,7 @@ Active implementation: S01-3, S02-3, S08-2, S05-2, S10-2. Assignments use stable
 | ID | Status | Acceptance | Evidence pin |
 | --- | --- | --- | --- |
 | S05-1 | done | The exercised approved-credit text workflow has immutable-price debits, released holds, refund/reconciliation and restart without invented cash funding. | [record](../../docs/reference/internal-credit-workflow-live.md) (`b1223c0`) |
-| S05-2 | active | Consolidate exact category/tier/fee, insufficient-capacity, concurrent liability, uncertainty and exactly-once recovery checks for the supported charging matrix. | Missing / not yet accepted |
+| S05-2 | active | Consolidate exact category/tier/fee, insufficient-capacity, concurrent liability, uncertainty and exactly-once recovery checks for the supported charging matrix. | [record](../../docs/reference/accounting-matrix-acceptance.md) (`5591a02d`) |
 | S05-3 | open | Verify supported customer media, invoice and Supplier earning/settlement serialization and accounting mechanisms; track unavailable positive evidence separately from external activation. | Missing / not yet accepted |
 
 ### S06 — Payment integration capability

@@ -225,9 +225,11 @@
           "id": "S05-2",
           "status": "active",
           "acceptance": "Consolidate exact category/tier/fee, insufficient-capacity, concurrent liability, uncertainty and exactly-once recovery checks for the supported charging matrix.",
-          "evidence": [],
-          "evidence_revision": null,
-          "note": ""
+          "evidence": [
+            "docs/reference/accounting-matrix-acceptance.md"
+          ],
+          "evidence_revision": "5591a02d",
+          "note": "Twelve actual response/native-state slices independently reopened; some historical executable pins are missing. Current runtime matrix equivalence and bounded duplicate/recovery gaps remain to verify; active, not accepted complete."
         },
         {
           "id": "S05-3",
