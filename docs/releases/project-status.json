@@ -1,7 +1,7 @@
 {
   "version": 1,
   "updated": "2026-10-13",
-  "source_commit": "b32f1639a4bf5d436b7450c4de26d370f61adb26",
+  "source_commit": "b3e9af801af01befd5cbfb4cf3df22cf8dafa2be",
   "runtime_commit": "8ddf1dc8851dad085930467067f580ae3ca5f177",
   "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
   "active_implementation_tasks": [
@@ -442,7 +442,7 @@
       "id": "S09",
       "name": "Durable Chat",
       "lane": "C",
-      "status": "open",
+      "status": "done",
       "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
       "paths": [
         "apps/gateway/src/admin/chat_sessions.rs",
@@ -476,11 +476,13 @@
         },
         {
           "id": "S09-3",
-          "status": "open",
+          "status": "done",
           "acceptance": "Deliver SDK adoption and conflict/reload handling to frontend ownership; mark browser/UI acceptance separately.",
-          "evidence": [],
-          "evidence_revision": null,
-          "note": ""
+          "evidence": [
+            "docs/reference/chat-sdk-frontend-handoff.md"
+          ],
+          "evidence_revision": "b3e9af801af01befd5cbfb4cf3df22cf8dafa2be",
+          "note": "Backend SDK/contract adoption handoff is delivered through committed public methods/types, exact draft OpenAPI and the conflict/reload guide. Current public-entry SDK ce97 on native8bf independently verifies genuine saved turns/report, guarded writes, revision-preserving draft clear/conflict/restart and original data preservation. Browser/UI adoption remains delegated under S13; no frontend completion claim."
         }
       ]
     },

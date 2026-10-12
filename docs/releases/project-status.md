@@ -1,10 +1,10 @@
 # Project delivery status
 
 Baseline v1; updated 2026-10-13.
-Committed audit source `16342ee6`; native implementation `17b7370a`.
+Committed audit source `b3e9af80`; native implementation `8ddf1dc8`.
 
-**Backend acceptance checkpoints: 24/36 recorded complete at their evidence pins.**
-**Whole backend subsystems closed: 3/12.**
+**Backend acceptance checkpoints: 25/36 recorded complete at their evidence pins.**
+**Whole backend subsystems closed: 4/12.**
 These are acceptance-checkpoint counts, not coding percentage, fresh execution of every path or release readiness.
 Existing scoped evidence is carried forward explicitly. Missing evidence remains open; fixture outcomes have zero signal.
 
@@ -22,7 +22,7 @@ Active implementation: S02-3, S08-2, S05-2, S10-2, S03-2, S04-3, S03-3, S05-3, S
 | S06 Payment integration capability | B | active | 2/3 | S05 |
 | S07 Request diagnostics and usage reports | C | done | 3/3 | S03, S05 |
 | S08 Video jobs, results and assets | C | active | 1/3 | S02, S04, S05 |
-| S09 Durable Chat | C | open | 2/3 | S01, S03, S07 |
+| S09 Durable Chat | C | done | 3/3 | S01, S03, S07 |
 | S10 Platform configuration and security facilities | A | active | 2/3 | S01 |
 | S11 Contracts, SDK and documentation | I | done | 3/3 | None |
 | S12 Runtime operations, recovery and performance | I | open | 2/3 | S03, S05, S07, S08 |
@@ -92,7 +92,7 @@ Active implementation: S02-3, S08-2, S05-2, S10-2, S03-2, S04-3, S03-3, S05-3, S
 | ID | Status | Acceptance | Evidence pin |
 | --- | --- | --- | --- |
 | S08-1 | done | Actual personal video submission, key rotation, saved-job restart recovery, idempotent replay and independently decoded result are exercised. | [record](../../docs/reference/current-video-submission-restart.md) (`e704955`) |
-| S08-2 | active | Close the supported input/control/job/result/retention/asset authorization matrix and recovery without duplicate submission. | [record](../../docs/reference/ingested-image-video-input.md), [record](../../docs/reference/workspace-material-library.md), [record](../../docs/reference/workspace-material-sdk-acceptance.md), [record](../../docs/reference/workspace-material-format-acceptance.md), [record](../../docs/reference/workspace-material-storage-acceptance.md), [record](../../docs/reference/workspace-material-video-reference-acceptance.md), [record](../../docs/reference/video-saved-task-current-acceptance.md), [record](../../docs/reference/media-reference-facts.md), [record](../../docs/reference/media-inspection-contract.md), [record](../../docs/reference/media-detector-discovery-acceptance.md), [record](../../docs/reference/media-processing-receipts.md), [record](../../docs/reference/fastrouter-video-integration.md) (`ab33ee17`) |
+| S08-2 | active | Close the supported input/control/job/result/retention/asset authorization matrix and recovery without duplicate submission. | [record](../../docs/reference/ingested-image-video-input.md), [record](../../docs/reference/workspace-material-library.md), [record](../../docs/reference/workspace-material-sdk-acceptance.md), [record](../../docs/reference/workspace-material-format-acceptance.md), [record](../../docs/reference/workspace-material-storage-acceptance.md), [record](../../docs/reference/workspace-material-video-reference-acceptance.md), [record](../../docs/reference/video-saved-task-current-acceptance.md), [record](../../docs/reference/media-reference-facts.md), [record](../../docs/reference/media-inspection-contract.md), [record](../../docs/reference/media-detector-discovery-acceptance.md), [record](../../docs/reference/media-processing-receipts.md), [record](../../docs/reference/fastrouter-video-integration.md), [record](../../docs/reference/fastrouter-personal-video-submission-acceptance.md), [record](../../docs/reference/fastrouter-documented-video-acceptance.md), [record](../../docs/reference/personal-video-discovery-acceptance.md), [record](../../docs/reference/provider-asset-group-acceptance.md), [record](../../docs/reference/provider-video-asset-acceptance.md), [record](../../docs/reference/provider-verification-local-acceptance.md), [record](../../docs/reference/provider-verification-session-create-acceptance.md), [record](../../docs/reference/provider-asset-video-current-acceptance.md), [record](../../docs/reference/original-personal-video-configuration-acceptance.md) (`ab33ee17`) |
 | S08-3 | open | Implement or verify supported reported media meters, bounded liability and exact settlement; missing quantity remains explicit and never inferred from file duration. | Missing / not yet accepted |
 
 ### S09 — Durable Chat
@@ -101,14 +101,14 @@ Active implementation: S02-3, S08-2, S05-2, S10-2, S03-2, S04-3, S03-3, S05-3, S
 | --- | --- | --- | --- |
 | S09-1 | done | Guarded saved sessions reject stale/legacy resurrection, preserve durable revision state and retain actual source conversation content in the exercised run. | [record](../../docs/reference/chat-session-write-guards.md) (`7234a4ef`) |
 | S09-2 | done | Close backend multi-turn history/detail/draft/settings/attachment persistence and deletion semantics for the declared Chat workflows. | [record](../../docs/reference/chat-backend-acceptance.md) (`1212ea3b`) |
-| S09-3 | open | Deliver SDK adoption and conflict/reload handling to frontend ownership; mark browser/UI acceptance separately. | Missing / not yet accepted |
+| S09-3 | done | Deliver SDK adoption and conflict/reload handling to frontend ownership; mark browser/UI acceptance separately. | [record](../../docs/reference/chat-sdk-frontend-handoff.md) (`b3e9af80`) |
 
 ### S10 — Platform configuration and security facilities
 
 | ID | Status | Acceptance | Evidence pin |
 | --- | --- | --- | --- |
 | S10-1 | done | Inventory and publish platform authentication/branding/theme/payment configuration and member profile/preferences contracts with correct authority. | [record](../../docs/reference/platform-configuration-acceptance.md) (`4a459338`) |
-| S10-2 | active | Verify supported secret/config persistence, audit/revisions and encryption-key rotation without changing existing identities or exposing secrets. | [record](../../docs/reference/encryption-configuration-acceptance.md) (`186662c5`) |
+| S10-2 | active | Verify supported secret/config persistence, audit/revisions and encryption-key rotation without changing existing identities or exposing secrets. | [record](../../docs/reference/encryption-configuration-acceptance.md), [record](../../docs/reference/provider-verification-local-acceptance.md), [record](../../docs/reference/provider-verification-session-create-acceptance.md), [record](../../docs/reference/provider-verification-encryption-rotation-acceptance.md) (`186662c5`) |
 | S10-3 | done | Coordinate configuration changes, current permission checks and supported public-safe projections; reject arbitrary executable branding/config content. | [record](../../docs/reference/platform-safe-projection-acceptance.md) (`186662c5`) |
 
 ### S11 — Contracts, SDK and documentation
@@ -123,8 +123,8 @@ Active implementation: S02-3, S08-2, S05-2, S10-2, S03-2, S04-3, S03-3, S05-3, S
 
 | ID | Status | Acceptance | Evidence pin |
 | --- | --- | --- | --- |
-| S12-1 | done | Existing native runtime is ready with preserved identity, retained executable hash, matching registry and independently restored backup evidence. | [record](../../docs/releases/backend-workflow-status.md), [record](../../docs/reference/native-runtime-operations.md) (`c24e75b7`) |
-| S12-2 | done | Consolidate supported restart/drain/migration/backup/recovery and explicit operational connection/deadline limits without container scope expansion. | [record](../../docs/reference/native-runtime-operations.md) (`c24e75b7`) |
+| S12-1 | done | Existing native runtime is ready with preserved identity, retained executable hash, matching registry and independently restored backup evidence. | [record](../../docs/releases/backend-workflow-status.md), [record](../../docs/reference/native-runtime-operations.md), [record](../../docs/reference/native-schema-290-293-upgrade-acceptance.md) (`c24e75b7`) |
+| S12-2 | done | Consolidate supported restart/drain/migration/backup/recovery and explicit operational connection/deadline limits without container scope expansion. | [record](../../docs/reference/native-runtime-operations.md), [record](../../docs/reference/native-schema-290-293-upgrade-acceptance.md) (`c24e75b7`) |
 | S12-3 | open | After business acceptance, measure increasing/mixed load, overload recovery, resources and exact post-run accounting; make only measured capacity/comparison claims. | Missing / not yet accepted |
 
 ### S13 — Dashboard, public catalog and rendered Help

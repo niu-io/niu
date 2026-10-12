@@ -19,20 +19,34 @@ The [fixed status board](project-status.md) is the delivery authority for this
 baseline. It defines 14 subsystems: 12 backend/integration subsystems, one delegated
 frontend/catalog/Help subsystem and one separate/deferred packaging/legacy scope.
 The original assessment carried 11 of 36 fixed backend checkpoints. The current
-status board records 24 accepted checkpoints and 12 remaining, with three of 12
-backend subsystems closed (S01, S07 and S11). These counts describe scoped
-acceptance, not the amount of implemented code or complete release readiness.
+status board records 25 accepted checkpoints and 11 remaining, with four of 12
+backend subsystems closed (S01, S07, S09 and S11). These are scoped acceptance
+counts, not coding percentage or complete release readiness. Chat closure covers
+the backend SDK/contract handoff; frontend adoption and browser acceptance remain
+separately delegated under S13.
 
-At source revision `9634c70e`, FastRouter has an encrypted personal-test Supplier
-credential and four disabled Seedance mappings. One actual mini-model SDK
-submission received HTTP 400; its unknown state, replay and restart were checked
-independently. A separate documented Seedance 2.5 request subsequently produced a real video,
-verified by an official exact-task query and independent hash/full decode.
-Niu Gateway terminal recovery/result retrieval, normalized asset/identity
-endpoints and paid media settlement remain open. See the
-[scoped FastRouter evidence](../reference/fastrouter-documented-video-acceptance.md). The original runtime remains
-`17b7370a`, schema 290; a retained build of the new diagnostics implementation is
-not evidence that its schema-291 behavior is deployed or accepted.
+The original native runtime is `8ddf1dc8`, schema 293. The isolated migration and
+original upgrade preserve existing identities, configuration and business rows;
+only operational recovery timestamps change. FastRouter now has an enabled,
+unpriced personal Seedance 2.5 text preset under the existing personal owner.
+The other three Seedance mappings remain disabled drafts. This is a personal
+integration configuration, not commercial qualification or the complete model
+control matrix.
+
+A genuine documented Seedance 2.5 task has independently verified Gateway
+recovery, result retrieval/full decode and restart. Genuine group and video
+asset creation, Active refresh and verification-session encrypted persistence
+also have bounded evidence. The corrected Niu asset-ID dispatch reaches
+FastRouter once and records HTTP403 `permission_denied`, safe unknown state and
+no-resend replay. Successful reference generation and priced media settlement
+remain unverified; missing external entitlement is not invented as a platform
+capability prerequisite. See [video reference evidence](../reference/provider-asset-video-current-acceptance.md).
+
+The current public Chat SDK and exact draft contracts are handed off with actual
+genuine-conversation save/conflict/reload/clear/restart evidence. Payment review
+retains actual posted-charge refund evidence and explicitly discards fixture
+merchant outcomes; genuine funding/callback verification remains open. No
+fixture result contributes to a completion claim.
 
 ## Architecture and ownership
 
