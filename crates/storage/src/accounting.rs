@@ -375,7 +375,7 @@ impl Store {
              (SELECT cached_input_tokens::text FROM request_token_categories WHERE attempt_id=a.id) AS cached_input_tokens, \
              (SELECT reasoning_output_tokens::text FROM request_token_categories WHERE attempt_id=a.id) AS reasoning_output_tokens, \
              (SELECT choices FROM request_finish_reasons WHERE attempt_id=a.id) AS finish_reasons, \
-             (SELECT jsonb_build_object('kind',f.kind,'upstream_http_status',f.upstream_http_status) FROM request_failures f WHERE f.attempt_id=a.id) AS failure \
+             (SELECT jsonb_build_object('kind',f.kind,'upstream_http_status',f.upstream_http_status,'transport_phase',f.transport_phase) FROM request_failures f WHERE f.attempt_id=a.id) AS failure \
              FROM attempts a JOIN operations o ON o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.id=a.operation_id \
              LEFT JOIN api_keys k ON k.organization_id=a.organization_id AND k.project_id=a.project_id AND k.id=a.api_key_id \
              LEFT JOIN request_timings t ON t.attempt_id=a.id \
@@ -483,7 +483,7 @@ impl Store {
              (SELECT cached_input_tokens::text FROM request_token_categories WHERE attempt_id=a.id) AS cached_input_tokens, \
              (SELECT reasoning_output_tokens::text FROM request_token_categories WHERE attempt_id=a.id) AS reasoning_output_tokens, \
              (SELECT choices FROM request_finish_reasons WHERE attempt_id=a.id) AS finish_reasons, \
-             (SELECT jsonb_build_object('kind',f.kind,'upstream_http_status',f.upstream_http_status) FROM request_failures f WHERE f.attempt_id=a.id) AS failure, \
+             (SELECT jsonb_build_object('kind',f.kind,'upstream_http_status',f.upstream_http_status,'transport_phase',f.transport_phase) FROM request_failures f WHERE f.attempt_id=a.id) AS failure, \
              (SELECT decision.outcome FROM output_guardrail_decisions decision WHERE decision.organization_id=a.organization_id AND decision.project_id=a.project_id AND decision.attempt_id=a.id) AS output_guardrail_outcome, \
              customer_charge.currency AS customer_charge_currency, customer_charge.amount_nanos::text AS customer_charge_nanos, \
              CASE WHEN customer_charge.attempt_id IS NOT NULL THEN 'charged' \

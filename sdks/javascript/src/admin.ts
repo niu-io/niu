@@ -582,6 +582,7 @@ export type RequestFailure = {
   kind: 'upstream_http_error' | 'upstream_region_unavailable' | 'upstream_timeout'
     | 'upstream_connection_error' | 'upstream_transport_error' | 'upstream_invalid_response' | 'response_stream_cancelled';
   upstream_http_status: number | null;
+  transport_phase?: 'connection' | 'request' | null;
 };
 export type RequestTiming = {
   dispatch_ms: number | null; headers_ms: number | null; first_output_ms: number | null;

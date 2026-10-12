@@ -1544,25 +1544,27 @@ async fn read_catalog(
         .map_err(|_| ApiError::unavailable())?;
     let endpoint = format!("{}/models", vendor.api_base.trim_end_matches('/'));
     let timeout = Duration::from_secs(state.config.server.request_timeout_seconds.clamp(1, 5));
-    let client = match crate::upstream::client_for_endpoint(&endpoint, timeout).await {
-        Ok(client) => client,
-        Err(crate::upstream::EndpointError::PrivateAddress) => {
-            return Err(ApiError::upstream_message(
-                "The provider endpoint resolves to a private address and was blocked.",
-            ));
-        }
-        Err(crate::upstream::EndpointError::InvalidUrl) => {
-            return Err(ApiError::upstream_message(
-                "The provider endpoint URL is invalid.",
-            ));
-        }
-        Err(crate::upstream::EndpointError::ResolutionFailed)
-        | Err(crate::upstream::EndpointError::ClientConfiguration) => {
-            return Err(ApiError::upstream_message(
-                "The provider model catalog could not be reached.",
-            ));
-        }
-    };
+    let client =
+        match crate::upstream::configured_client_for_endpoint(state, &endpoint, timeout).await {
+            Ok(client) => client,
+            Err(crate::upstream::EndpointError::PrivateAddress) => {
+                return Err(ApiError::upstream_message(
+                    "The provider endpoint resolves to a private address and was blocked.",
+                ));
+            }
+            Err(crate::upstream::EndpointError::InvalidUrl) => {
+                return Err(ApiError::upstream_message(
+                    "The provider endpoint URL is invalid.",
+                ));
+            }
+            Err(crate::upstream::EndpointError::ResolutionFailed)
+            | Err(crate::upstream::EndpointError::ClientConfiguration)
+            | Err(crate::upstream::EndpointError::InvalidTimeout) => {
+                return Err(ApiError::upstream_message(
+                    "The provider model catalog could not be reached.",
+                ));
+            }
+        };
     let mut response = model_catalog_request(&client, &endpoint, &vendor.adapter, &api_key)
         .send()
         .await
@@ -1810,29 +1812,31 @@ pub async fn check_model(
     let timeout = Duration::from_secs(state.config.server.request_timeout_seconds.clamp(1, 5));
     let started = Instant::now();
 
-    let client = match crate::upstream::client_for_endpoint(&endpoint, timeout).await {
-        Ok(client) => client,
-        Err(crate::upstream::EndpointError::PrivateAddress) => {
-            return Ok(check_response(
-                "private_endpoint_blocked",
-                "unknown",
-                None,
-                started,
-            ));
-        }
-        Err(crate::upstream::EndpointError::InvalidUrl) => {
-            return Ok(check_response("invalid_endpoint", "unknown", None, started));
-        }
-        Err(crate::upstream::EndpointError::ResolutionFailed)
-        | Err(crate::upstream::EndpointError::ClientConfiguration) => {
-            return Ok(check_response(
-                "endpoint_unavailable",
-                "unknown",
-                None,
-                started,
-            ));
-        }
-    };
+    let client =
+        match crate::upstream::configured_client_for_endpoint(&state, &endpoint, timeout).await {
+            Ok(client) => client,
+            Err(crate::upstream::EndpointError::PrivateAddress) => {
+                return Ok(check_response(
+                    "private_endpoint_blocked",
+                    "unknown",
+                    None,
+                    started,
+                ));
+            }
+            Err(crate::upstream::EndpointError::InvalidUrl) => {
+                return Ok(check_response("invalid_endpoint", "unknown", None, started));
+            }
+            Err(crate::upstream::EndpointError::ResolutionFailed)
+            | Err(crate::upstream::EndpointError::ClientConfiguration)
+            | Err(crate::upstream::EndpointError::InvalidTimeout) => {
+                return Ok(check_response(
+                    "endpoint_unavailable",
+                    "unknown",
+                    None,
+                    started,
+                ));
+            }
+        };
     let mut response =
         match model_catalog_request(&client, &endpoint, &route.vendor.adapter, &api_key)
             .send()

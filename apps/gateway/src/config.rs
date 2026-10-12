@@ -22,6 +22,11 @@ pub struct ServerConfig {
     pub image_source_origin: Option<String>,
     #[serde(default = "default_timeout")]
     pub request_timeout_seconds: u64,
+    /// Direct text inference and Supplier connectivity; media keeps its own budget.
+    #[serde(default = "default_endpoint_timeout")]
+    pub provider_connect_timeout_seconds: u64,
+    #[serde(default = "default_endpoint_timeout")]
+    pub provider_dns_timeout_seconds: u64,
 }
 
 impl ServerConfig {
@@ -70,6 +75,8 @@ impl Default for ServerConfig {
         Self {
             image_source_origin: None,
             request_timeout_seconds: default_timeout(),
+            provider_connect_timeout_seconds: default_endpoint_timeout(),
+            provider_dns_timeout_seconds: default_endpoint_timeout(),
         }
     }
 }
@@ -244,6 +251,16 @@ impl AppConfig {
             return Err(ConfigError::Invalid(
                 "request_timeout_seconds must be between 1 and 3600".into(),
             ));
+        }
+        for seconds in [
+            self.server.provider_connect_timeout_seconds,
+            self.server.provider_dns_timeout_seconds,
+        ] {
+            if !(1..=3600).contains(&seconds) {
+                return Err(ConfigError::Invalid(
+                    "Provider connection and DNS budgets must be between 1 and 3600 seconds".into(),
+                ));
+            }
         }
         if self.server.image_source_origin.is_some() {
             self.server
@@ -637,4 +654,8 @@ fn image_source_origin_is_fixed_public_https_without_request_overrides() {
             .image_source_url("../secret")
             .is_err()
     );
+}
+
+fn default_endpoint_timeout() -> u64 {
+    3
 }

@@ -755,7 +755,7 @@ async fn execute(
             .ok_or_else(ApiError::unavailable)?
             .trim_end_matches('/')
     );
-    let client = crate::upstream::client_for_endpoint(&endpoint, timeout)
+    let client = crate::upstream::configured_client_for_endpoint(state, &endpoint, timeout)
         .await
         .map_err(ApiError::from_endpoint)?;
     let task_id = request_task_id(headers)?;

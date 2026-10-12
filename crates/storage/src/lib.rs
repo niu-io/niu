@@ -53,7 +53,7 @@ mod personal_admission;
 pub use gateway_retry::{GatewayRetryAdmission, GatewayRetryProtocol};
 mod priced_admission;
 mod request_failures;
-pub use request_failures::{RequestFailure, RequestFailureKind};
+pub use request_failures::{RequestFailure, RequestFailureKind, RequestTransportPhase};
 mod request_finish_reasons;
 mod upstream_references;
 mod usage_reconciliation;

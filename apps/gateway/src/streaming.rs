@@ -436,6 +436,7 @@ impl StreamAttempt {
                     niu_storage::RequestFailure {
                         kind: niu_storage::RequestFailureKind::UpstreamInvalidResponse,
                         upstream_http_status: None,
+                        transport_phase: None,
                     },
                 )
                 .await
@@ -483,6 +484,7 @@ async fn persist_stream_failure(context: StreamAttempt, kind: niu_storage::Reque
             niu_storage::RequestFailure {
                 kind,
                 upstream_http_status: None,
+                transport_phase: None,
             },
         )
         .await

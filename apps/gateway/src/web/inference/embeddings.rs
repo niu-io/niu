@@ -301,7 +301,7 @@ pub(in crate::web) async fn embeddings(
     let task_id = request_task_id(&headers)?;
     let base = model.endpoint_base().ok_or_else(ApiError::unavailable)?;
     let endpoint = format!("{}/embeddings", base.trim_end_matches('/'));
-    let client = crate::upstream::client_for_endpoint(&endpoint, timeout)
+    let client = crate::upstream::configured_client_for_endpoint(&state, &endpoint, timeout)
         .await
         .map_err(ApiError::from_endpoint)?;
     state.requests.fetch_add(1, Ordering::Relaxed);

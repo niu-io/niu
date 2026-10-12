@@ -17,9 +17,53 @@ const MAX_CACHED_CLIENTS: usize = 64;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EndpointError {
     InvalidUrl,
+    InvalidTimeout,
     ResolutionFailed,
     PrivateAddress,
     ClientConfiguration,
+}
+
+/// Validated independent endpoint budgets. Resolution occurs before HTTP send;
+/// `overall` bounds the HTTP request, not the combined factory-and-send duration.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct EndpointTimeouts {
+    overall: Duration,
+    connect: Duration,
+    resolution: Duration,
+}
+impl EndpointTimeouts {
+    pub fn new(
+        overall: Duration,
+        connect: Duration,
+        resolution: Duration,
+    ) -> Result<Self, EndpointError> {
+        if overall.is_zero()
+            || connect.is_zero()
+            || resolution.is_zero()
+            || connect > overall
+            || resolution > overall
+        {
+            return Err(EndpointError::InvalidTimeout);
+        }
+        Ok(Self {
+            overall,
+            connect,
+            resolution,
+        })
+    }
+    pub const fn overall(self) -> Duration {
+        self.overall
+    }
+    pub const fn connect(self) -> Duration {
+        self.connect
+    }
+    pub const fn resolution(self) -> Duration {
+        self.resolution
+    }
+    fn legacy(overall: Duration) -> Result<Self, EndpointError> {
+        let component = overall.min(Duration::from_secs(3));
+        Self::new(overall, component, component)
+    }
 }
 
 #[derive(Clone, Eq, Hash, PartialEq)]
@@ -28,6 +72,8 @@ struct ClientKey {
     host: String,
     port: u16,
     timeout_nanos: u128,
+    connect_timeout_nanos: u128,
+    resolution_timeout_nanos: u128,
 }
 
 struct Endpoint {
@@ -96,12 +142,22 @@ impl ClientPool {
         entry
     }
 
+    #[cfg(test)]
     async fn client_for_endpoint(
         &self,
         endpoint: &str,
         timeout: Duration,
     ) -> Result<reqwest::Client, EndpointError> {
-        let endpoint = parse_endpoint(endpoint, timeout)?;
+        self.client_for_endpoint_with_timeouts(endpoint, EndpointTimeouts::legacy(timeout)?)
+            .await
+    }
+
+    async fn client_for_endpoint_with_timeouts(
+        &self,
+        endpoint: &str,
+        timeouts: EndpointTimeouts,
+    ) -> Result<reqwest::Client, EndpointError> {
+        let endpoint = parse_endpoint(endpoint, timeouts)?;
         let entry = self.entry(endpoint.key.clone());
         if let Some(client) = cached_client(&entry) {
             return Ok(client);
@@ -117,7 +173,7 @@ impl ClientPool {
             return Err(error);
         }
 
-        let client = match build_client_for_endpoint(&endpoint, timeout).await {
+        let client = match build_client_for_endpoint(&endpoint, timeouts).await {
             Ok(client) => client,
             Err(error) => {
                 *entry
@@ -178,13 +234,22 @@ pub async fn client_for_endpoint(
     endpoint: &str,
     timeout: Duration,
 ) -> Result<reqwest::Client, EndpointError> {
+    client_for_endpoint_with_timeouts(endpoint, EndpointTimeouts::legacy(timeout)?).await
+}
+
+/// Configure resolution and connection budgets without changing transport
+/// authorization, redirect handling, retry policy or legacy defaults.
+pub async fn client_for_endpoint_with_timeouts(
+    endpoint: &str,
+    timeouts: EndpointTimeouts,
+) -> Result<reqwest::Client, EndpointError> {
     static POOL: OnceLock<ClientPool> = OnceLock::new();
     POOL.get_or_init(ClientPool::default)
-        .client_for_endpoint(endpoint, timeout)
+        .client_for_endpoint_with_timeouts(endpoint, timeouts)
         .await
 }
 
-fn parse_endpoint(endpoint: &str, timeout: Duration) -> Result<Endpoint, EndpointError> {
+fn parse_endpoint(endpoint: &str, timeouts: EndpointTimeouts) -> Result<Endpoint, EndpointError> {
     let url = url::Url::parse(endpoint).map_err(|_| EndpointError::InvalidUrl)?;
     let host = url
         .host_str()
@@ -213,7 +278,9 @@ fn parse_endpoint(endpoint: &str, timeout: Duration) -> Result<Endpoint, Endpoin
             scheme: url.scheme().to_owned(),
             host: normalized_host.to_ascii_lowercase(),
             port,
-            timeout_nanos: timeout.as_nanos(),
+            timeout_nanos: timeouts.overall.as_nanos(),
+            connect_timeout_nanos: timeouts.connect.as_nanos(),
+            resolution_timeout_nanos: timeouts.resolution.as_nanos(),
         },
         host: normalized_host.to_owned(),
         port,
@@ -224,7 +291,7 @@ fn parse_endpoint(endpoint: &str, timeout: Duration) -> Result<Endpoint, Endpoin
 
 async fn build_client_for_endpoint(
     endpoint: &Endpoint,
-    timeout: Duration,
+    timeouts: EndpointTimeouts,
 ) -> Result<reqwest::Client, EndpointError> {
     let Endpoint {
         host,
@@ -237,7 +304,7 @@ async fn build_client_for_endpoint(
         vec![std::net::SocketAddr::new(*address, *port)]
     } else {
         tokio::time::timeout(
-            timeout.min(Duration::from_secs(3)),
+            timeouts.resolution,
             tokio::net::lookup_host((host.as_str(), *port)),
         )
         .await
@@ -260,8 +327,8 @@ async fn build_client_for_endpoint(
     }
 
     let mut builder = reqwest::Client::builder()
-        .connect_timeout(timeout.min(Duration::from_secs(3)))
-        .timeout(timeout)
+        .connect_timeout(timeouts.connect)
+        .timeout(timeouts.overall)
         // A recorded dispatch must not silently become multiple HTTP requests.
         // Retry/failover belongs to the caller's durable attempt lifecycle,
         // including for protocol-level nacks that reqwest retries by default.

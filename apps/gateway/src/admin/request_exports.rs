@@ -43,7 +43,7 @@ pub async fn csv(
         return Err(ApiError::export_too_large());
     }
     let mut csv = String::from(
-        "Time (UTC),Model,API key,Delivery HTTP status,Provider status,Usage confidence,Input tokens,Output tokens,Customer charge status,Customer currency,Customer charge nanounits,Observed duration ms,Timing complete,Cached input tokens,Cache-write input tokens,Reasoning output tokens,Finish reasons,Failure kind,Upstream HTTP status\r\n",
+        "Time (UTC),Model,API key,Delivery HTTP status,Provider status,Usage confidence,Input tokens,Output tokens,Customer charge status,Customer currency,Customer charge nanounits,Observed duration ms,Timing complete,Cached input tokens,Cache-write input tokens,Reasoning output tokens,Finish reasons,Failure kind,Upstream HTTP status,Transport phase\r\n",
     );
     for row in rows {
         let values = [
@@ -77,6 +77,10 @@ pub async fn csv(
             row.failure
                 .and_then(|failure| failure.upstream_http_status)
                 .map(|status| status.to_string())
+                .unwrap_or_default(),
+            row.failure
+                .and_then(|failure| failure.transport_phase)
+                .map(|phase| phase.as_str().to_owned())
                 .unwrap_or_default(),
         ];
         for (index, value) in values.iter().enumerate() {

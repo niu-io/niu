@@ -3068,15 +3068,38 @@ pub(super) fn gateway_activity_filter(
 ///           "format": "uuid"
 ///         },
 ///         "retry": {
-///           "type": ["object", "null"],
+///           "type": [
+///             "object",
+///             "null"
+///           ],
 ///           "description": "Durable bounded retry policy and chain position; null for requests outside this policy. Internal correlation identifiers must not be displayed in product UI.",
 ///           "properties": {
-///             "ordinal": {"type": "integer", "minimum": 1, "maximum": 2},
-///             "predecessor_attempt_id": {"type": ["string", "null"], "format": "uuid"},
-///             "maximum_attempts": {"type": "integer", "const": 2},
-///             "policy_revision": {"type": "string"}
+///             "ordinal": {
+///               "type": "integer",
+///               "minimum": 1,
+///               "maximum": 2
+///             },
+///             "predecessor_attempt_id": {
+///               "type": [
+///                 "string",
+///                 "null"
+///               ],
+///               "format": "uuid"
+///             },
+///             "maximum_attempts": {
+///               "type": "integer",
+///               "const": 2
+///             },
+///             "policy_revision": {
+///               "type": "string"
+///             }
 ///           },
-///           "required": ["ordinal", "predecessor_attempt_id", "maximum_attempts", "policy_revision"]
+///           "required": [
+///             "ordinal",
+///             "predecessor_attempt_id",
+///             "maximum_attempts",
+///             "policy_revision"
+///           ]
 ///         },
 ///         "api_key_id": {
 ///           "type": [
@@ -3264,6 +3287,18 @@ pub(super) fn gateway_activity_filter(
 ///                 "integer",
 ///                 "null"
 ///               ]
+///             },
+///             "transport_phase": {
+///               "type": [
+///                 "string",
+///                 "null"
+///               ],
+///               "enum": [
+///                 "connection",
+///                 "request",
+///                 null
+///               ],
+///               "description": "Observed transport stage, not execution certainty. Connection does not distinguish DNS/TCP/TLS; historical unknown stays null."
 ///             }
 ///           }
 ///         },
@@ -3429,7 +3464,10 @@ pub async fn gateway_request(
 ///         "name": "operation_id",
 ///         "in": "query",
 ///         "description": "Restrict attempts and summaries to one operation within the authorized workspace. Unknown or foreign operations yield an empty result; this does not authorize cross-workspace reads.",
-///         "schema": { "type": "string", "format": "uuid" }
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
 ///       },
 ///       {
 ///         "name": "key_id",
@@ -4003,15 +4041,38 @@ pub async fn gateway_request(
 ///           "format": "uuid"
 ///         },
 ///         "retry": {
-///           "type": ["object", "null"],
+///           "type": [
+///             "object",
+///             "null"
+///           ],
 ///           "description": "Durable bounded retry policy and chain position; null for requests outside this policy. Internal correlation identifiers must not be displayed in product UI.",
 ///           "properties": {
-///             "ordinal": {"type": "integer", "minimum": 1, "maximum": 2},
-///             "predecessor_attempt_id": {"type": ["string", "null"], "format": "uuid"},
-///             "maximum_attempts": {"type": "integer", "const": 2},
-///             "policy_revision": {"type": "string"}
+///             "ordinal": {
+///               "type": "integer",
+///               "minimum": 1,
+///               "maximum": 2
+///             },
+///             "predecessor_attempt_id": {
+///               "type": [
+///                 "string",
+///                 "null"
+///               ],
+///               "format": "uuid"
+///             },
+///             "maximum_attempts": {
+///               "type": "integer",
+///               "const": 2
+///             },
+///             "policy_revision": {
+///               "type": "string"
+///             }
 ///           },
-///           "required": ["ordinal", "predecessor_attempt_id", "maximum_attempts", "policy_revision"]
+///           "required": [
+///             "ordinal",
+///             "predecessor_attempt_id",
+///             "maximum_attempts",
+///             "policy_revision"
+///           ]
 ///         },
 ///         "api_key_id": {
 ///           "type": [
@@ -4238,6 +4299,18 @@ pub async fn gateway_request(
 ///                   "minimum": 100,
 ///                   "maximum": 599,
 ///                   "description": "Recorded upstream non-success status. Null for transport, invalid-response or response-cancellation classifications. This is independent of the HTTP status delivered by Niu."
+///                 },
+///                 "transport_phase": {
+///                   "type": [
+///                     "string",
+///                     "null"
+///                   ],
+///                   "enum": [
+///                     "connection",
+///                     "request",
+///                     null
+///                   ],
+///                   "description": "Observed transport stage, not execution certainty. Connection does not distinguish DNS/TCP/TLS; historical unknown stays null."
 ///                 }
 ///               }
 ///             }

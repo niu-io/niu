@@ -68,6 +68,10 @@ components:
           minimum: 100
           maximum: 599
           description: Recorded upstream non-success status. Null for transport, invalid-response or response-cancellation classifications. This is independent of the HTTP status delivered by Niu.
+        transport_phase:
+          type: [string, 'null']
+          enum: [connection, request, null]
+          description: Safe observed transport stage; null retains unknown historical observations.
     CustomerChargeBreakdown:
       type: object
       description: Full-range customer ledger totals grouped separately by currency; missing amounts stay null. Coverage counts partition each row's requests. Supplier expenses are excluded.

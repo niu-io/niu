@@ -821,7 +821,7 @@ pub(super) async fn execute_chat_attempt(
         let base = model.endpoint_base().ok_or_else(ApiError::unavailable)?;
         let endpoint = format!("{}/chat/completions", base.trim_end_matches('/'));
         Some(
-            crate::upstream::client_for_endpoint(&endpoint, timeout)
+            crate::upstream::configured_client_for_endpoint(state, &endpoint, timeout)
                 .await
                 .map_err(ApiError::from_endpoint)?,
         )

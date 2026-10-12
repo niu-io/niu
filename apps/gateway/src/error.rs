@@ -339,6 +339,7 @@ impl ApiError {
     pub(crate) fn from_endpoint(error: crate::upstream::EndpointError) -> Self {
         use crate::upstream::EndpointError;
         let message = match error {
+            EndpointError::InvalidTimeout => "The configured provider timeout budget is invalid",
             EndpointError::InvalidUrl => "The configured provider endpoint URL is invalid",
             EndpointError::ResolutionFailed => {
                 "The provider hostname could not be resolved. Check the gateway DNS connection"
@@ -446,6 +447,7 @@ impl ApiError {
                     RequestFailureKind::UpstreamHttpError
                 },
                 upstream_http_status: Some(status.as_u16()),
+                transport_phase: None,
             }),
         }
     }
@@ -460,9 +462,17 @@ impl ApiError {
             RequestFailureKind::UpstreamTransportError
         };
         let mut result = Self::upstream();
+        let transport_phase = if error.is_connect() {
+            Some(niu_storage::RequestTransportPhase::Connection)
+        } else if error.is_timeout() {
+            Some(niu_storage::RequestTransportPhase::Request)
+        } else {
+            None
+        };
         result.failure = Some(niu_storage::RequestFailure {
             kind,
             upstream_http_status: None,
+            transport_phase,
         });
         result
     }
@@ -472,6 +482,7 @@ impl ApiError {
         result.failure = Some(niu_storage::RequestFailure {
             kind: niu_storage::RequestFailureKind::UpstreamInvalidResponse,
             upstream_http_status: None,
+            transport_phase: None,
         });
         result
     }

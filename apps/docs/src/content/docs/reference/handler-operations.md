@@ -22206,6 +22206,18 @@ Local `#/components/schemas/…` references resolve to these definitions.
               "minimum": 100,
               "maximum": 599,
               "description": "Recorded upstream non-success status. Null for transport, invalid-response or response-cancellation classifications. This is independent of the HTTP status delivered by Niu."
+            },
+            "transport_phase": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "connection",
+                "request",
+                null
+              ],
+              "description": "Observed transport stage, not execution certainty. Connection does not distinguish DNS/TCP/TLS; historical unknown stays null."
             }
           }
         }
@@ -22596,6 +22608,18 @@ Local `#/components/schemas/…` references resolve to these definitions.
             "integer",
             "null"
           ]
+        },
+        "transport_phase": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "connection",
+            "request",
+            null
+          ],
+          "description": "Observed transport stage, not execution certainty. Connection does not distinguish DNS/TCP/TLS; historical unknown stays null."
         }
       }
     },

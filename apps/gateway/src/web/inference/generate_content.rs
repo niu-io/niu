@@ -792,7 +792,7 @@ async fn execute(
             .trim_end_matches('/'),
         model.upstream_model
     );
-    let client = crate::upstream::client_for_endpoint(&endpoint, timeout)
+    let client = crate::upstream::configured_client_for_endpoint(state, &endpoint, timeout)
         .await
         .map_err(ApiError::from_endpoint)?;
     let task_id = request_task_id(headers)?;

@@ -29,11 +29,30 @@ impl RequestFailureKind {
     }
 }
 
+/// Observed transport phase, not a claim that the upstream did not execute.
+/// Missing historical observations remain unknown and must not be inferred.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RequestTransportPhase {
+    Connection,
+    Request,
+}
+impl RequestTransportPhase {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Connection => "connection",
+            Self::Request => "request",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RequestFailure {
     pub kind: RequestFailureKind,
     pub upstream_http_status: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transport_phase: Option<RequestTransportPhase>,
 }
 
 impl Store {
@@ -56,7 +75,14 @@ impl Store {
             }),
             _ => failure.upstream_http_status.is_none(),
         };
-        if !valid {
+        let valid_phase = match failure.kind {
+            UpstreamTimeout => true,
+            UpstreamConnectionError => failure
+                .transport_phase
+                .is_none_or(|phase| phase == RequestTransportPhase::Connection),
+            _ => failure.transport_phase.is_none(),
+        };
+        if !valid || !valid_phase {
             return Err(StoreError::InvalidObservation);
         }
         let mut tx = self.begin_bounded_recording().await?;
@@ -64,19 +90,21 @@ impl Store {
             .bind(attempt).bind(scope.organization_id).bind(scope.project_id)
             .fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?;
         let result = sqlx::query(
-            "INSERT INTO request_failures (attempt_id,kind,upstream_http_status) \
-             SELECT a.id,$4,$5 FROM attempts a \
+            "INSERT INTO request_failures (attempt_id,kind,upstream_http_status,transport_phase) \
+             SELECT a.id,$4,$5,$6 FROM attempts a \
              WHERE a.id=$1 AND a.organization_id=$2 AND a.project_id=$3 \
              AND a.dispatched_at IS NOT NULL \
              ON CONFLICT (attempt_id) DO UPDATE SET attempt_id=EXCLUDED.attempt_id \
              WHERE request_failures.kind=EXCLUDED.kind \
-             AND request_failures.upstream_http_status IS NOT DISTINCT FROM EXCLUDED.upstream_http_status",
+             AND request_failures.upstream_http_status IS NOT DISTINCT FROM EXCLUDED.upstream_http_status \
+             AND request_failures.transport_phase IS NOT DISTINCT FROM EXCLUDED.transport_phase",
         )
         .bind(attempt)
         .bind(scope.organization_id)
         .bind(scope.project_id)
         .bind(failure.kind.as_str())
         .bind(failure.upstream_http_status.map(|status| status as i16))
+        .bind(failure.transport_phase.map(RequestTransportPhase::as_str))
         .execute(&mut *tx)
         .await?;
         if result.rows_affected() != 1 {

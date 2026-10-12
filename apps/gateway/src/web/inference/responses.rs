@@ -428,7 +428,7 @@ pub(super) async fn execute_responses_attempt(
     let task_id = request_task_id(headers)?;
     let base = model.endpoint_base().ok_or_else(ApiError::unavailable)?;
     let endpoint = format!("{}/responses", base.trim_end_matches('/'));
-    let client = crate::upstream::client_for_endpoint(&endpoint, timeout)
+    let client = crate::upstream::configured_client_for_endpoint(state, &endpoint, timeout)
         .await
         .map_err(ApiError::from_endpoint)?;
     let dispatch = begin_retry_attempt(

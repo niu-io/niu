@@ -1805,6 +1805,7 @@ pub(super) async fn create_as(
                 let failure = niu_storage::RequestFailure {
                     kind: niu_storage::RequestFailureKind::UpstreamHttpError,
                     upstream_http_status: Some(status),
+                    transport_phase: None,
                 };
                 if state
                     .store
