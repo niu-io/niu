@@ -625,13 +625,16 @@ where
             if evidence.done {
                 let context = pending.take().expect("active buffered stream context");
                 context.complete(&evidence).await;
-                break collector.complete().map_err(|reason| {
-                    if reason.contains("limit exceeded") {
-                        crate::guardrails::input::InspectionError::ResourceLimit
-                    } else {
-                        crate::guardrails::input::InspectionError::UnsupportedContent
-                    }
-                });
+                break customer
+                    .finish_terminal_with_observer(&mut |value| collector.observe(value))
+                    .and_then(|_| collector.complete())
+                    .map_err(|reason| {
+                        if reason.contains("limit exceeded") {
+                            crate::guardrails::input::InspectionError::ResourceLimit
+                        } else {
+                            crate::guardrails::input::InspectionError::UnsupportedContent
+                        }
+                    });
             }
         };
         // Keep the permit until inspection and event construction finish.

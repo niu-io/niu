@@ -240,8 +240,14 @@ impl CustomerSse {
     /// Evidence recognizes a blank CR line immediately. Complete its optional LF
     /// before the tracked body stops, rather than losing the terminal event.
     pub fn finish_terminal(&mut self) -> Result<Vec<u8>, &'static str> {
+        self.finish_terminal_with_observer(&mut |_| Ok(()))
+    }
+    pub(crate) fn finish_terminal_with_observer(
+        &mut self,
+        observer: &mut impl FnMut(&Value) -> Result<(), &'static str>,
+    ) -> Result<Vec<u8>, &'static str> {
         if !self.done && self.pending.last() == Some(&b'\r') {
-            self.feed(b"\n")
+            self.feed_with_observer(b"\n", observer)
         } else {
             Ok(Vec::new())
         }

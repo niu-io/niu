@@ -316,10 +316,16 @@ fn index(v: &Value, field: &str) -> Result<usize, &'static str> {
         .ok_or("unsupported output index")
 }
 fn event(out: &mut Vec<u8>, value: Value, responses: bool) -> Result<(), &'static str> {
-    let mut writer = LimitedWriter {
-        output: out,
-        limit: EVENT_LIMIT,
+    let limit = if responses {
+        EVENT_LIMIT
+    } else {
+        EVENT_LIMIT.min(
+            out.len()
+                .checked_add(65_536)
+                .ok_or("filtered output limit exceeded")?,
+        )
     };
+    let mut writer = LimitedWriter { output: out, limit };
     if responses {
         writer
             .write_all(b"event: ")
