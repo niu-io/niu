@@ -443,6 +443,15 @@ export type ChatResult = {
   customerChargeNanos?: string | null; customerChargeCurrency?: string | null;
   customerChargeStatus?: 'charged' | 'owner_funded' | 'pending' | 'unpriced' | 'not_charged' | 'unknown';
 };
+/** Workspace draft persisted by the backend for the current authenticated owner. */
+export type ChatDraftPayload = {
+  sessionId: string | null;
+  prompt: string;
+  models: string[];
+  attachments: Array<{ name: string; type: 'image' | 'text'; content: string }>;
+  settings: { systemPrompt: string; maxTokens: number; temperature: number; logPayloads: boolean };
+};
+export type ChatDraftState = { data: { payload: ChatDraftPayload | null; revision: number } };
 export type ChatSessionPage = { data: ChatSession[]; next_cursor: string | null };
 export type ChatSessionPageQuery = { archived?: boolean; limit?: number; after?: string };
 export type ChatAttachment = { name: string; type: string; content: string };
@@ -1949,6 +1958,17 @@ export class NiuAdminClient {
 
   private guardrailsPath(scope: TenantScope): string {
     return `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/guardrails`;
+  }
+
+  /** Load the saved workspace draft; browser storage is only a disposable cache. */
+  getChatDraft(scope: TenantScope, options?: RequestOptions): Promise<ChatDraftState> {
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chat-draft`, undefined, options);
+  }
+
+  /** Save or clear at the last read revision; conflicts require explicit reload and reconciliation. */
+  saveChatDraft(scope: TenantScope, payload: ChatDraftPayload | null, expectedRevision: number, options?: RequestOptions): Promise<ChatDraftState> {
+    if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0) throw new TypeError('Invalid Chat draft revision');
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chat-draft`, { expected_revision: expectedRevision, payload }, options, 'PUT');
   }
 
   listChatSessions(scope: TenantScope, options?: RequestOptions): Promise<{ data: ChatSession[] }> {
