@@ -468,6 +468,18 @@ fn group(value: &Value) -> Result<FastRouterGroup, FastRouterDomainError> {
     })
 }
 fn asset(value: &Value) -> Result<FastRouterAsset, FastRouterDomainError> {
+    asset_with_owned_parent(value, None)
+}
+fn asset_with_owned_parent(
+    value: &Value,
+    owned_parent: Option<&FastRouterProviderReference>,
+) -> Result<FastRouterAsset, FastRouterDomainError> {
+    let omitted_parent =
+        value.get("GroupId").is_none() || value.get("GroupId").and_then(Value::as_str) == Some("");
+    let group_reference = match owned_parent {
+        Some(parent) if omitted_parent => FastRouterProviderReference::parse(parent.private_ref())?,
+        _ => reference(value, "GroupId")?,
+    };
     let kind = match value["AssetType"].as_str() {
         Some("Image") => FastRouterAssetKind::Image,
         Some("Video") => FastRouterAssetKind::Video,
@@ -482,7 +494,7 @@ fn asset(value: &Value) -> Result<FastRouterAsset, FastRouterDomainError> {
     };
     Ok(FastRouterAsset {
         reference: reference(value, "Id")?,
-        group_reference: reference(value, "GroupId")?,
+        group_reference,
         name: optional_text(value, "Name", 64)?,
         kind,
         status,
@@ -509,6 +521,27 @@ pub fn decode_asset(
 ) -> Result<FastRouterAsset, FastRouterDomainError> {
     asset(result(response, FastRouterAction::GetAsset)?)
 }
+/// Decode only an already-owned GetAsset response. The caller must first
+/// verify an acknowledged create operation and immutable, scoped asset/parent
+/// and route bindings. Missing/empty GroupId uses that saved parent context;
+/// it is not evidence that the Provider reported a group identity. A nonempty
+/// group identity must match, and the returned asset identity always must match.
+pub fn decode_owned_asset_read(
+    response: &FastRouterActionResponse,
+    expected_asset: &FastRouterProviderReference,
+    expected_group: &FastRouterProviderReference,
+) -> Result<FastRouterAsset, FastRouterDomainError> {
+    let value = result(response, FastRouterAction::GetAsset)?;
+    if value.get("Id").and_then(Value::as_str) != Some(expected_asset.private_ref()) {
+        return Err(FastRouterDomainError::InvalidResponse);
+    }
+    let observed = asset_with_owned_parent(value, Some(expected_group))?;
+    if observed.group_reference.private_ref() != expected_group.private_ref() {
+        return Err(FastRouterDomainError::InvalidResponse);
+    }
+    Ok(observed)
+}
+
 fn page<T: Serialize>(
     value: &Value,
     decode: fn(&Value) -> Result<T, FastRouterDomainError>,
