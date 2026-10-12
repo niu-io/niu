@@ -93,6 +93,12 @@ pub(crate) async fn validate_retained_content(
                             .open_media_result(content.scope, content.id, kind, &content.ciphertext)
                             .map(|_| ())
                     }
+                    Domain::ProviderVerification => cipher
+                        .open_bytes_with_aad(
+                            &CredentialCipher::retained_content_aad(domain, &content)?,
+                            &content.ciphertext,
+                        )
+                        .map(|_| ()),
                     Domain::WorkspaceAsset => cipher
                         .open_bytes_with_aad(
                             &niu_storage::workspace_asset_content_aad(content.scope, content.id),

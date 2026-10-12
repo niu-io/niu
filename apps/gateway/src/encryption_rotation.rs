@@ -160,6 +160,7 @@ impl Inventory<'_> {
                                 _ => return Err("Invalid retained media result binding".into()),
                             },
                         },
+                        Domain::ProviderVerification => Target::ProviderVerification(content.id),
                         Domain::WorkspaceAsset => Target::WorkspaceAsset(content.id),
                         Domain::AssetListing => Target::AssetListing(content.id),
                         Domain::AssetLookup => Target::AssetLookup(content.id),

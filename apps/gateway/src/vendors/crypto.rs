@@ -293,6 +293,13 @@ impl CredentialCipher {
                 };
                 Self::media_aad(content.scope, content.id, kind)
             }
+            Domain::ProviderVerification => niu_storage::workspace_provider_verification_aad(
+                content.scope,
+                content
+                    .key_id
+                    .ok_or("Invalid retained Provider verification binding")?,
+                content.id,
+            ),
             Domain::WorkspaceAsset => {
                 niu_storage::workspace_asset_content_aad(content.scope, content.id)
             }
