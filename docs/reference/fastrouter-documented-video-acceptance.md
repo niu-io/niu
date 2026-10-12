@@ -37,3 +37,21 @@ This run exposed the SDK's initial-unknown wait behavior. The subsequent SDK fix
 ## Historical rejection migration
 
 A separate zero-upstream-call run copied the earlier HTTP 400 unknown database and migrated it from schema 290 to 291 using the same retained Gateway. Independent reopened native fingerprints verified that attempts, failures, existing timing fields, financial records, Supplier configuration, models and media records were unchanged. New error-code and correlation-ID columns remained NULL; historical values were not guessed or backfilled. Request detail and payload reads succeeded, and restart preserved the unknown state. The executed SDK timing GET for the original revoked key returned 401, preserving active-key authorization; positive SDK timing retrieval was not claimed.
+
+## Existing-task Gateway query verification
+
+A further separate copy exercised SDK `a1010ce8` against the same saved task,
+using a new legitimate key in its existing workspace with the required model
+grant. The original key remained revoked. The saved-job GET returned HTTP 200;
+`wait` performed exactly one refresh and propagated its HTTP 502. One unavailable
+query timing was persisted, and restart retained the original unknown state.
+Independent reopening confirmed unchanged original financial, Supplier, model
+and media rows, with no new generation submission. Both test keys were revoked
+and the copied processes were stopped.
+
+This confirms that the initial-unknown SDK fix reaches the Gateway query path;
+it does not establish a successful refresh. The actual official response reports
+`doubao-seedance-2.5`, while the direct query decoder requires the requested
+version `doubao-seedance-2-5-260628`. Compatibility for this finite Provider
+identity remains implementation work; arbitrary model or task mismatches must
+continue to be rejected.
