@@ -1,6 +1,6 @@
 # Backend workflow verification status
 
-Reviewed 2026-10-12 against implementation `a56cfe0d`; native implementation `a56cfe0d`.
+Reviewed 2026-10-12 against implementation `3fdc669c`; native implementation `3fdc669c`.
 This is an index of scoped evidence, not a declaration that the complete release
 or New API comparison is qualified. Linked runs identify their own implementation
 revisions. Fixture outcomes provide no evidence. Current-input runs and
@@ -366,3 +366,10 @@ upstream testing, not distinct external accounts or commercial qualification.
 verifies one winner for simultaneous requests sharing a one-RPM credential,
 sibling configuration independence and exact original-rate debits. This does
 not qualify saturation, every protocol or commercial supply.
+
+## Guardrails snapshot wait follow-up
+
+[Actual policy-lock and recovery evidence](../reference/guardrail-snapshot-storage-waits.md)
+adds bounded, fail-closed snapshot reads for the exercised video and text paths,
+with independent original-row and exact charge checks. It does not qualify every
+policy operation or protocol combination.
