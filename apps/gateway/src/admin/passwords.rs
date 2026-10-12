@@ -390,6 +390,47 @@ pub async fn logout(
 }
 
 /// Public capability discovery; never disclose configured identities or credentials.
+/// ```openapi
+/// {
+///   "path": "/admin/v1/auth/config",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "getMemberAuthenticationConfiguration",
+///     "summary": "Discover password sign-in availability",
+///     "description": "Public capability discovery only. password_login reflects whether the Gateway has a configured password-authentication runtime. It does not disclose identities, credentials or upstream merchant status, and is not proof of deployed HTTPS/browser acceptance. Response carries Cache-Control: no-store.",
+///     "security": [],
+///     "x-niu-implementation": "implemented",
+///     "responses": {
+///       "200": {
+///         "description": "Local password sign-in capability.",
+///         "headers": {
+///           "Cache-Control": {
+///             "schema": {
+///               "type": "string",
+///               "const": "no-store"
+///             }
+///           }
+///         },
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "password_login"
+///               ],
+///               "properties": {
+///                 "password_login": {
+///                   "type": "boolean"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub async fn configuration(State(state): State<AppState>) -> Json<Value> {
     Json(json!({"password_login":state.password_auth.is_some()}))
 }

@@ -87,7 +87,7 @@ paths:
   /admin/v1/auth/password:
     $ref: './password-sessions.openapi.yaml#/paths/~1admin~1v1~1auth~1password'
   /admin/v1/auth/config:
-    $ref: './password-sessions.openapi.yaml#/paths/~1admin~1v1~1auth~1config'
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1auth~1config'
   /admin/v1/auth/browser/login:
     $ref: './password-sessions.openapi.yaml#/paths/~1admin~1v1~1auth~1browser~1login'
   /admin/v1/auth/browser/logout:
@@ -317,58 +317,9 @@ paths:
             Retry-After:
               schema: { type: integer, const: 1 }
   /v1/branding:
-    get:
-      operationId: getPublicBranding
-      security: []
-      summary: Read deployment display settings
-      description: Public display settings only. No audit actors, credentials or commercial configuration. Responses are not cached.
-      responses:
-        '200':
-          description: Current display settings
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/BrandingConfiguration' }
+    $ref: './generated/handler-operations.json#/paths/~1v1~1branding'
   /admin/v1/platform/branding:
-    get:
-      operationId: getBranding
-      security: [{ bearerAuth: [] }]
-      summary: Read branding as a platform administrator
-      responses:
-        '200':
-          description: Current display settings
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/BrandingConfiguration' }
-        '401': { description: Authentication required }
-        '403': { description: Platform administration required }
-    put:
-      operationId: saveBranding
-      security: [{ bearerAuth: [] }]
-      summary: Save revision-checked deployment display settings
-      description: Platform administration required. Settings and immutable audit snapshot commit atomically. Empty palettes inherit NIU.IO defaults. Effective background/foreground, primary/primary-foreground, sidebar/sidebar-foreground and accent/accent-foreground pairs must each meet a 4.5-to-1 text contrast ratio in both appearances. Logo and favicon accept bounded static PNG data URLs, re-encoded before persistence. Null resets an asset to the NIU.IO default. Body limit is 450000 bytes.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              required: [expected_revision, settings]
-              properties:
-                expected_revision: { type: string, pattern: '^(0|[1-9][0-9]*)$', description: Current signed 64-bit nonnegative revision }
-                settings: { $ref: '#/components/schemas/BrandingSettings' }
-      responses:
-        '200':
-          description: Saved display settings and new revision
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/BrandingConfiguration' }
-        '400': { description: Invalid settings or revision }
-        '401': { description: Authentication required }
-        '403': { description: Platform administration required }
-        '409': { description: Revision changed; read current settings before editing again }
-        '413': { description: Body exceeds limit }
-        '422': { description: Malformed JSON fields }
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1platform~1branding'
   /v1/video/models:
     get:
       operationId: listVideoModels

@@ -3641,6 +3641,47 @@ HTTP 403: Workspace access denied
 
 HTTP 404: Workspace is outside operator scope, or key is absent from authorized workspace
 
+## Discover password sign-in availability
+
+`GET /admin/v1/auth/config`
+
+Public capability discovery only. password_login reflects whether the Gateway has a configured password-authentication runtime. It does not disclose identities, credentials or upstream merchant status, and is not proof of deployed HTTPS/browser acceptance. Response carries Cache-Control: no-store.
+
+Implementation: `implemented`. Operation: `getMemberAuthenticationConfiguration`.
+
+### Authentication
+
+No OpenAPI security scheme is required. Signature and other request validation still apply as described above.
+
+### Responses
+
+HTTP 200: Local password sign-in capability.
+
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "password_login"
+  ],
+  "properties": {
+    "password_login": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
 ## Read current member appearance preference
 
 `GET /admin/v1/auth/preferences`
@@ -10926,6 +10967,144 @@ HTTP 409: Cursor does not belong to this workspace/model history.
 HTTP 503: Storage unavailable.
 
 HTTP 403: Platform administration required
+
+## Read public branding and theme defaults
+
+`GET /v1/branding`
+
+Public safe projection only; no authentication required. Returns display name, normalized logo/favicon PNG data URLs, default appearance and light/dark token maps; excludes actors, credentials and commercial settings. When no saved configuration exists, returns revision string 0 and NIU.IO defaults. Theme fields are part of settings; there is no separate theme endpoint.
+
+Implementation: `implemented`. Operation: `getPublicBranding`.
+
+### Authentication
+
+No OpenAPI security scheme is required. Signature and other request validation still apply as described above.
+
+### Responses
+
+HTTP 200: Branding revision and settings in data.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/BrandingConfiguration"
+}
+```
+
+HTTP 503: Durable storage unavailable.
+
+## Read platform branding and theme configuration
+
+`GET /admin/v1/platform/branding`
+
+Installation credentials or an explicit platform-administrator grant required; company owner/admin role alone does not grant platform administration. Returns the same public-safe branding/theme shape. When no saved configuration exists, returns revision string 0 and NIU.IO defaults. Theme fields are part of settings; there is no separate theme endpoint.
+
+Implementation: `implemented`. Operation: `getBranding`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Responses
+
+HTTP 200: Branding revision and settings in data.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/BrandingConfiguration"
+}
+```
+
+HTTP 503: Durable storage unavailable.
+
+HTTP 401: Authentication required.
+
+HTTP 403: Platform administration required.
+
+## Save platform branding and theme configuration
+
+`PUT /admin/v1/platform/branding`
+
+Installation credentials or an explicit platform-administrator grant required; company owner/admin role alone does not grant platform administration. Returns the same public-safe branding/theme shape. Canonical nonnegative decimal expected_revision string controls atomic snapshot and audit save. Valid display name is nonempty, already trimmed and at most 80 Unicode characters without controls. Palette maps only accept eight supported tokens with six-digit hex colors and readable contrast; empty maps inherit NIU.IO defaults. No arbitrary CSS or executable branding is accepted. Optional null/omitted images reset to defaults. PNG images are decoded and re-encoded before persistence. Route JSON body limit is 450000 bytes. Successful save returns the exact committed snapshot and incremented string revision.
+
+Implementation: `implemented`. Operation: `saveBranding`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "expected_revision",
+    "settings"
+  ],
+  "properties": {
+    "expected_revision": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)$"
+    },
+    "settings": {
+      "$ref": "#/components/schemas/BrandingSettings"
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Branding revision and settings in data.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/BrandingConfiguration"
+}
+```
+
+HTTP 503: Durable storage unavailable.
+
+HTTP 401: Authentication required.
+
+HTTP 403: Platform administration required.
+
+HTTP 400: Invalid revision, name, palette, contrast or image.
+
+HTTP 409: Stale revision, exhausted revision or image normalization capacity exceeded; no accepted overwrite.
+
+HTTP 413: JSON body exceeds route size limit.
+
+HTTP 415: JSON content type required.
+
+HTTP 422: Invalid JSON body shape.
 
 ## Read committed financial recovery progress
 
@@ -19895,6 +20074,115 @@ Local `#/components/schemas/…` references resolve to these definitions.
           "description": "HTTP status code, not a separate application error number."
         }
       }
+    }
+  }
+}
+```
+
+### BrandingConfiguration
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "revision",
+        "settings"
+      ],
+      "properties": {
+        "revision": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "settings": {
+          "$ref": "#/components/schemas/BrandingSettings"
+        }
+      }
+    }
+  }
+}
+```
+
+### BrandingPalette
+
+```json
+{
+  "type": "object",
+  "maxProperties": 8,
+  "propertyNames": {
+    "enum": [
+      "background",
+      "foreground",
+      "primary",
+      "primary-foreground",
+      "sidebar",
+      "sidebar-foreground",
+      "accent",
+      "accent-foreground"
+    ]
+  },
+  "additionalProperties": {
+    "type": "string",
+    "pattern": "^#[0-9a-fA-F]{6}$"
+  }
+}
+```
+
+### BrandingSettings
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "display_name",
+    "default_appearance",
+    "light",
+    "dark"
+  ],
+  "properties": {
+    "display_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "description": "Trimmed nonempty text without control characters"
+    },
+    "default_appearance": {
+      "type": "string",
+      "enum": [
+        "system",
+        "light",
+        "dark"
+      ]
+    },
+    "logo_data_url": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 349550,
+      "pattern": "^data:image/png;base64,[A-Za-z0-9+/=]+$",
+      "description": "Static PNG up to 256 KiB, at most 1024 by 512 pixels. Re-encoded from decoded pixels before saving. Missing or null resets to default."
+    },
+    "favicon_data_url": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 43714,
+      "pattern": "^data:image/png;base64,[A-Za-z0-9+/=]+$",
+      "description": "Square static PNG up to 32 KiB, at most 256 by 256 pixels. Missing or null resets to default."
+    },
+    "light": {
+      "$ref": "#/components/schemas/BrandingPalette"
+    },
+    "dark": {
+      "$ref": "#/components/schemas/BrandingPalette"
     }
   }
 }
