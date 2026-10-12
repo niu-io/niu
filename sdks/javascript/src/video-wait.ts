@@ -14,7 +14,10 @@ export type VideoWaitOptions = RequestOptions & {
 
 /**
  * Read saved state, then refresh queued/running jobs until completion or deadline.
- * Unknown submission and reconciliation states return for explicit caller action.
+ * Initial unknown state receives exactly one refresh to resolve a bound receipt.
+ * If it remains unknown, return it; subsequent unknown states also return.
+ * Submission-unknown and reconciliation states never refresh automatically.
+ * The server requires a bound receipt before querying upstream.
  * Transport errors propagate immediately; no automatic retry or resubmission.
  * Cancellation aborts local waiting and requests, not the upstream video job.
  */
@@ -51,6 +54,10 @@ export async function waitForVideoJob(
     check();
     let state = await jobs.retrieve(id, requestOptions);
     check();
+    if (state.status === 'unknown') {
+      state = await jobs.refresh(id, requestOptions);
+      check();
+    }
     while (state.status === 'queued' || state.status === 'running') {
       await delay(Math.min(intervalMs, Math.max(0, deadline - performance.now())), controller.signal);
       check();
