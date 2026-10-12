@@ -710,3 +710,7 @@ export type { RoutingRegistryStatus } from './admin.js';
 export type { WorkspaceKeyCreateInput, WorkspaceKeyMetadataInput, IssuedWorkspaceKey } from './admin.js';
 
 export type { VideoReportedQuantity, VideoProviderTimes, VideoQueryObservation, VideoQueryObservationPage, VideoQueryObservationQuery } from './video-query-observations.js';
+
+export type { MemberProfile, MemberProfileUpdate, MemberPreferences } from './admin.js';
+
+export type { GuardrailDetectorDescription, GuardrailDetectorPreviewInput, GuardrailDetectorPreviewResult } from './admin.js';

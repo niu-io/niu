@@ -15,7 +15,7 @@ This assessment assigns no new implementation task as active. The next implement
 | Subsystem | Owner lane | Status | Completed checks | Dependencies |
 | --- | --- | --- | ---: | --- |
 | S01 Identity and workspaces | A | open | 1/3 | None |
-| S02 Supplier configuration and model catalog | A | open | 1/3 | S01 |
+| S02 Supplier configuration and model catalog | A | active | 1/3 | S01 |
 | S03 Inference protocols and route coordination | B | open | 1/3 | S02, S04, S05 |
 | S04 Key controls and Guardrails | A | open | 1/3 | S01 |
 | S05 Pricing, balance, charging and reconciliation | B | open | 1/3 | S01 |
@@ -23,8 +23,8 @@ This assessment assigns no new implementation task as active. The next implement
 | S07 Request diagnostics and usage reports | C | open | 1/3 | S03, S05 |
 | S08 Video jobs, results and assets | C | open | 1/3 | S02, S04, S05 |
 | S09 Durable Chat | C | open | 1/3 | S01, S03, S07 |
-| S10 Platform configuration and security facilities | A | open | 0/3 | S01 |
-| S11 Contracts, SDK and documentation | I | open | 1/3 | None |
+| S10 Platform configuration and security facilities | A | active | 0/3 | S01 |
+| S11 Contracts, SDK and documentation | I | active | 1/3 | None |
 | S12 Runtime operations, recovery and performance | I | open | 1/3 | S03, S05, S07, S08 |
 | S13 Dashboard, public catalog and rendered Help | Frontend | delegated | 0/3 | S01, S02, S07, S09, S11 |
 | S14 Packaging, extensions and legacy surfaces | Separate ownership | deferred | 0/3 | None |
@@ -44,7 +44,7 @@ This assessment assigns no new implementation task as active. The next implement
 | ID | Status | Acceptance | Evidence pin |
 | --- | --- | --- | --- |
 | S02-1 | done | One Supplier with independent credential mappings preserves the other mapping during local replacement/disable and supports actual calls. | [record](../../docs/reference/supplier-key-isolation-live.md) (`59922df`) |
-| S02-2 | open | All required management, membership, catalog and qualification operations have exact published contracts and ordinary-role isolation. | Missing / not yet accepted |
+| S02-2 | active | All required management, membership, catalog and qualification operations have exact published contracts and ordinary-role isolation. | Missing / not yet accepted |
 | S02-3 | open | Complete configured-model, customer-price and eligibility publication journey, including stale revision and safe unavailable-capability states. | Missing / not yet accepted |
 
 ### S03 — Inference protocols and route coordination
@@ -107,7 +107,7 @@ This assessment assigns no new implementation task as active. The next implement
 
 | ID | Status | Acceptance | Evidence pin |
 | --- | --- | --- | --- |
-| S10-1 | open | Inventory and publish platform authentication/branding/theme/payment configuration and member profile/preferences contracts with correct authority. | Missing / not yet accepted |
+| S10-1 | active | Inventory and publish platform authentication/branding/theme/payment configuration and member profile/preferences contracts with correct authority. | Missing / not yet accepted |
 | S10-2 | open | Verify supported secret/config persistence, audit/revisions and encryption-key rotation without changing existing identities or exposing secrets. | Missing / not yet accepted |
 | S10-3 | open | Coordinate configuration changes, current permission checks and supported public-safe projections; reject arbitrary executable branding/config content. | Missing / not yet accepted |
 
@@ -116,7 +116,7 @@ This assessment assigns no new implementation task as active. The next implement
 | ID | Status | Acceptance | Evidence pin |
 | --- | --- | --- | --- |
 | S11-1 | done | A committed 236-method interface index resolves source operations and explicitly lists 20 root method gaps. | [record](../../docs/releases/backend-interface-gaps.md) (`d6904064`) |
-| S11-2 | open | Close core root/handler schema gaps and manually map actual SDK methods; explicitly classify excluded/non-JSON/HEAD operations. | Missing / not yet accepted |
+| S11-2 | active | Close core root/handler schema gaps and manually map actual SDK methods; explicitly classify excluded/non-JSON/HEAD operations. | Missing / not yet accepted |
 | S11-3 | open | Validate the frozen frontend integration baseline and documentation HTTP/spec resources; delegate rendered browser acceptance when unavailable. | Missing / not yet accepted |
 
 ### S12 — Runtime operations, recovery and performance

@@ -730,6 +730,173 @@ pub async fn preparation_denials(
     ))
 }
 
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/guardrails/dispatch-denials",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listGuardrailDispatchDenials",
+///     "summary": "Read latest 100 workspace dispatch policy exceptions",
+///     "description": "Workspace read access required. Metadata only, newest first, combining dispatch and batch-admission policy rejections. Eligibility/status denials are outside this coverage. No request content, credentials or internal event identifiers. Latest 100 only; not a complete audit export. Cache-Control: no-store.",
+///     "x-niu-implementation": "implemented",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Declared metadata or synthetic result; Cache-Control: no-store",
+///         "headers": {
+///           "Cache-Control": {
+///             "schema": {
+///               "type": "string"
+///             },
+///             "description": "no-store"
+///           }
+///         },
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data",
+///                 "coverage"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "items": {
+///                     "type": "object",
+///                     "required": [
+///                       "stage",
+///                       "outcome",
+///                       "coverage",
+///                       "reason",
+///                       "key_name",
+///                       "workspace_policy_name",
+///                       "key_policy_name",
+///                       "workspace_revision",
+///                       "key_policy_revision",
+///                       "key_assignment_revision",
+///                       "recorded_at"
+///                     ],
+///                     "properties": {
+///                       "stage": {
+///                         "type": "string",
+///                         "enum": [
+///                           "dispatch",
+///                           "batch_admission"
+///                         ]
+///                       },
+///                       "outcome": {
+///                         "type": "string",
+///                         "enum": [
+///                           "blocked"
+///                         ]
+///                       },
+///                       "coverage": {
+///                         "type": "string",
+///                         "enum": [
+///                           "model_provider_access",
+///                           "policy_binding"
+///                         ]
+///                       },
+///                       "reason": {
+///                         "type": "string",
+///                         "enum": [
+///                           "access_denied",
+///                           "input_binding_missing",
+///                           "policy_changed"
+///                         ]
+///                       },
+///                       "key_name": {
+///                         "type": "string"
+///                       },
+///                       "workspace_policy_name": {
+///                         "type": [
+///                           "string",
+///                           "null"
+///                         ]
+///                       },
+///                       "key_policy_name": {
+///                         "type": [
+///                           "string",
+///                           "null"
+///                         ]
+///                       },
+///                       "workspace_revision": {
+///                         "type": [
+///                           "integer",
+///                           "null"
+///                         ]
+///                       },
+///                       "key_policy_revision": {
+///                         "type": [
+///                           "integer",
+///                           "null"
+///                         ]
+///                       },
+///                       "key_assignment_revision": {
+///                         "type": [
+///                           "integer",
+///                           "null"
+///                         ]
+///                       },
+///                       "recorded_at": {
+///                         "type": "string",
+///                         "format": "date-time"
+///                       }
+///                     }
+///                   }
+///                 },
+///                 "coverage": {
+///                   "type": "string",
+///                   "enum": [
+///                     "latest_100_dispatch_policy_exceptions"
+///                   ]
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Invalid management credential; inference credentials cannot access management endpoints"
+///       },
+///       "403": {
+///         "description": "Insufficient workspace permission or installation administrator authorization"
+///       },
+///       "503": {
+///         "description": "Authorization/storage unavailable"
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub async fn dispatch_denials(
     State(state): State<AppState>,
     Path((organization_id, project_id)): Path<(Uuid, Uuid)>,
@@ -760,6 +927,129 @@ pub struct DetectorPreview {
 }
 
 /// Installation-only synthetic transport check; does not activate a detector.
+/// ```openapi
+/// {
+///   "path": "/admin/v1/guardrails/detectors/{detector}/preview",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "previewGuardrailDetector",
+///     "summary": "Preview installation text detector transport",
+///     "description": "Installation administrator only. Explicit consent and the current configuration fingerprint are required before supplied synthetic text is sent to the configured external detector. Does not activate a detector or enforce a policy; no customer billing integration. A detector-unavailable result is a 200 indeterminate outcome, not proof of successful inspection. Cache-Control: no-store.",
+///     "x-niu-implementation": "implemented",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "detector",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Declared metadata or synthetic result; Cache-Control: no-store",
+///         "headers": {
+///           "Cache-Control": {
+///             "schema": {
+///               "type": "string"
+///             },
+///             "description": "no-store"
+///           }
+///         },
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "outcome",
+///                 "reason",
+///                 "synthetic",
+///                 "enforcement"
+///               ],
+///               "properties": {
+///                 "outcome": {
+///                   "type": "string",
+///                   "enum": [
+///                     "clear",
+///                     "matched",
+///                     "indeterminate"
+///                   ]
+///                 },
+///                 "reason": {
+///                   "type": "string"
+///                 },
+///                 "synthetic": {
+///                   "type": "boolean",
+///                   "enum": [
+///                     true
+///                   ]
+///                 },
+///                 "enforcement": {
+///                   "type": "boolean",
+///                   "enum": [
+///                     false
+///                   ]
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Invalid management credential; inference credentials cannot access management endpoints"
+///       },
+///       "403": {
+///         "description": "Insufficient workspace permission or installation administrator authorization"
+///       },
+///       "503": {
+///         "description": "Authorization/storage unavailable"
+///       },
+///       "404": {
+///         "description": "Configured detector not found"
+///       },
+///       "400": {
+///         "description": "Malformed JSON, unknown fields, invalid content or missing/stale explicit consent"
+///       }
+///     },
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "configuration_fingerprint",
+///               "text",
+///               "consent_to_external_processing"
+///             ],
+///             "properties": {
+///               "configuration_fingerprint": {
+///                 "type": "string"
+///               },
+///               "text": {
+///                 "type": "string"
+///               },
+///               "consent_to_external_processing": {
+///                 "type": "boolean"
+///               }
+///             }
+///           }
+///         }
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub async fn detector_preview(
     State(state): State<AppState>,
     Path(detector): Path<String>,
@@ -797,6 +1087,158 @@ pub async fn detector_preview(
 }
 
 /// Declared processing conditions for explicit synthetic-test consent.
+/// ```openapi
+/// {
+///   "path": "/admin/v1/guardrails/detectors/{detector}",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "getGuardrailDetectorDescription",
+///     "summary": "Read installation text detector processing declaration",
+///     "description": "Installation administrator only; workspace-scoped management credentials are forbidden. Returns declared processing conditions for reviewing explicit synthetic-test consent. Does not send content. Declarations are not verified processing guarantees. Cache-Control: no-store.",
+///     "x-niu-implementation": "implemented",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "detector",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Declared metadata or synthetic result; Cache-Control: no-store",
+///         "headers": {
+///           "Cache-Control": {
+///             "schema": {
+///               "type": "string"
+///             },
+///             "description": "no-store"
+///           }
+///         },
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "schema_version",
+///                 "detector_revision",
+///                 "configuration_fingerprint",
+///                 "recipient",
+///                 "region",
+///                 "retention",
+///                 "processing_guarantees",
+///                 "content_sent",
+///                 "credential_source",
+///                 "timeout_ms",
+///                 "concurrency",
+///                 "max_text_bytes",
+///                 "max_response_bytes",
+///                 "external_charge",
+///                 "customer_billing",
+///                 "policy_activation"
+///               ],
+///               "properties": {
+///                 "schema_version": {
+///                   "type": "integer",
+///                   "enum": [
+///                     1
+///                   ]
+///                 },
+///                 "detector_revision": {
+///                   "type": "string"
+///                 },
+///                 "configuration_fingerprint": {
+///                   "type": "string"
+///                 },
+///                 "recipient": {
+///                   "type": "string"
+///                 },
+///                 "region": {
+///                   "type": "string"
+///                 },
+///                 "retention": {
+///                   "type": "string"
+///                 },
+///                 "processing_guarantees": {
+///                   "type": "string",
+///                   "enum": [
+///                     "declared_unverified"
+///                   ]
+///                 },
+///                 "content_sent": {
+///                   "type": "string",
+///                   "enum": [
+///                     "synthetic_text"
+///                   ]
+///                 },
+///                 "credential_source": {
+///                   "type": "string",
+///                   "enum": [
+///                     "server_environment"
+///                   ]
+///                 },
+///                 "timeout_ms": {
+///                   "type": "integer"
+///                 },
+///                 "concurrency": {
+///                   "type": "integer"
+///                 },
+///                 "max_text_bytes": {
+///                   "type": "integer"
+///                 },
+///                 "max_response_bytes": {
+///                   "type": "integer",
+///                   "enum": [
+///                     4096
+///                   ]
+///                 },
+///                 "external_charge": {
+///                   "type": "string",
+///                   "enum": [
+///                     "unknown",
+///                     "declared_unmetered"
+///                   ]
+///                 },
+///                 "customer_billing": {
+///                   "type": "string",
+///                   "enum": [
+///                     "not_integrated"
+///                   ]
+///                 },
+///                 "policy_activation": {
+///                   "type": "boolean"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Invalid management credential; inference credentials cannot access management endpoints"
+///       },
+///       "403": {
+///         "description": "Insufficient workspace permission or installation administrator authorization"
+///       },
+///       "503": {
+///         "description": "Authorization/storage unavailable"
+///       },
+///       "404": {
+///         "description": "Configured detector not found"
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub async fn detector_description(
     State(state): State<AppState>,
     Path(detector): Path<String>,
@@ -816,6 +1258,173 @@ pub async fn detector_description(
 }
 
 /// Metadata-only audit for authorized workspace readers, including pre-admission denials.
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/guardrails/detector-decisions",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listInputDetectorDecisions",
+///     "summary": "Read latest 100 workspace input detector decisions",
+///     "description": "Workspace read access required. Metadata only, newest first, including pre-admission decisions. No request text, detector response bodies, credentials or internal event identifiers. Latest 100 only; not a complete audit export. Cache-Control: no-store.",
+///     "x-niu-implementation": "implemented",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Declared metadata or synthetic result; Cache-Control: no-store",
+///         "headers": {
+///           "Cache-Control": {
+///             "schema": {
+///               "type": "string"
+///             },
+///             "description": "no-store"
+///           }
+///         },
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data",
+///                 "coverage"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "items": {
+///                     "type": "object",
+///                     "required": [
+///                       "detector",
+///                       "configuration_fingerprint",
+///                       "stage",
+///                       "coverage",
+///                       "enforcer_version",
+///                       "outcome",
+///                       "reason",
+///                       "elapsed_ms",
+///                       "key_name",
+///                       "workspace_revision",
+///                       "key_policy_revision",
+///                       "key_assignment_revision",
+///                       "recorded_at"
+///                     ],
+///                     "properties": {
+///                       "detector": {
+///                         "type": "string"
+///                       },
+///                       "configuration_fingerprint": {
+///                         "type": "string"
+///                       },
+///                       "stage": {
+///                         "type": "string",
+///                         "enum": [
+///                           "input"
+///                         ]
+///                       },
+///                       "coverage": {
+///                         "type": "string",
+///                         "enum": [
+///                           "local_text"
+///                         ]
+///                       },
+///                       "enforcer_version": {
+///                         "type": "string",
+///                         "enum": [
+///                           "external-input-v1"
+///                         ]
+///                       },
+///                       "outcome": {
+///                         "type": "string",
+///                         "enum": [
+///                           "clear",
+///                           "matched",
+///                           "indeterminate"
+///                         ]
+///                       },
+///                       "reason": {
+///                         "type": "string"
+///                       },
+///                       "elapsed_ms": {
+///                         "type": "number"
+///                       },
+///                       "key_name": {
+///                         "type": "string"
+///                       },
+///                       "workspace_revision": {
+///                         "type": [
+///                           "integer",
+///                           "null"
+///                         ]
+///                       },
+///                       "key_policy_revision": {
+///                         "type": [
+///                           "integer",
+///                           "null"
+///                         ]
+///                       },
+///                       "key_assignment_revision": {
+///                         "type": [
+///                           "integer",
+///                           "null"
+///                         ]
+///                       },
+///                       "recorded_at": {
+///                         "type": "string",
+///                         "format": "date-time"
+///                       }
+///                     }
+///                   }
+///                 },
+///                 "coverage": {
+///                   "type": "string",
+///                   "enum": [
+///                     "latest_100_input_detector_decisions"
+///                   ]
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Invalid management credential; inference credentials cannot access management endpoints"
+///       },
+///       "403": {
+///         "description": "Insufficient workspace permission or installation administrator authorization"
+///       },
+///       "503": {
+///         "description": "Authorization/storage unavailable"
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub async fn detector_decisions(
     State(state): State<AppState>,
     Path((organization_id, project_id)): Path<(Uuid, Uuid)>,
@@ -838,6 +1447,183 @@ pub async fn detector_decisions(
 }
 
 /// Processing declarations visible only within explicitly authorized workspaces.
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/guardrails/detectors",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listWorkspaceDetectors",
+///     "summary": "List authorized workspace text detector declarations",
+///     "description": "Workspace read access required. Sorted by detector name; only deployment-authorized workspace detectors are returned. Declared processing conditions are not verified guarantees. No content is dispatched and no policy is activated. Cache-Control: no-store.",
+///     "x-niu-implementation": "implemented",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Declared metadata or synthetic result; Cache-Control: no-store",
+///         "headers": {
+///           "Cache-Control": {
+///             "schema": {
+///               "type": "string"
+///             },
+///             "description": "no-store"
+///           }
+///         },
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "items": {
+///                     "type": "object",
+///                     "required": [
+///                       "schema_version",
+///                       "detector_revision",
+///                       "configuration_fingerprint",
+///                       "recipient",
+///                       "region",
+///                       "retention",
+///                       "processing_guarantees",
+///                       "content_sent",
+///                       "credential_source",
+///                       "timeout_ms",
+///                       "concurrency",
+///                       "max_text_bytes",
+///                       "max_response_bytes",
+///                       "external_charge",
+///                       "customer_billing",
+///                       "policy_activation",
+///                       "detector"
+///                     ],
+///                     "properties": {
+///                       "schema_version": {
+///                         "type": "integer",
+///                         "enum": [
+///                           1
+///                         ]
+///                       },
+///                       "detector_revision": {
+///                         "type": "string"
+///                       },
+///                       "configuration_fingerprint": {
+///                         "type": "string"
+///                       },
+///                       "recipient": {
+///                         "type": "string"
+///                       },
+///                       "region": {
+///                         "type": "string"
+///                       },
+///                       "retention": {
+///                         "type": "string"
+///                       },
+///                       "processing_guarantees": {
+///                         "type": "string",
+///                         "enum": [
+///                           "declared_unverified"
+///                         ]
+///                       },
+///                       "content_sent": {
+///                         "type": "string",
+///                         "enum": [
+///                           "request_text_after_local_redaction"
+///                         ]
+///                       },
+///                       "credential_source": {
+///                         "type": "string",
+///                         "enum": [
+///                           "server_environment"
+///                         ]
+///                       },
+///                       "timeout_ms": {
+///                         "type": "integer"
+///                       },
+///                       "concurrency": {
+///                         "type": "integer"
+///                       },
+///                       "max_text_bytes": {
+///                         "type": "integer"
+///                       },
+///                       "max_response_bytes": {
+///                         "type": "integer",
+///                         "enum": [
+///                           4096
+///                         ]
+///                       },
+///                       "external_charge": {
+///                         "type": "string",
+///                         "enum": [
+///                           "unknown",
+///                           "declared_unmetered"
+///                         ]
+///                       },
+///                       "customer_billing": {
+///                         "type": "string",
+///                         "enum": [
+///                           "not_integrated"
+///                         ]
+///                       },
+///                       "policy_activation": {
+///                         "type": "boolean"
+///                       },
+///                       "detector": {
+///                         "type": "string"
+///                       }
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Invalid management credential; inference credentials cannot access management endpoints"
+///       },
+///       "403": {
+///         "description": "Insufficient workspace permission or installation administrator authorization"
+///       },
+///       "503": {
+///         "description": "Authorization/storage unavailable"
+///       },
+///       "404": {
+///         "description": "Workspace or configured detector not found"
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub async fn workspace_detectors(
     State(state): State<AppState>,
     Path((organization_id, project_id)): Path<(Uuid, Uuid)>,
@@ -873,6 +1659,173 @@ pub async fn workspace_detectors(
 }
 
 /// Separate image-processing discovery; no policy activation or content dispatch.
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listWorkspaceImageDetectors",
+///     "summary": "List authorized workspace image detector declarations",
+///     "description": "Workspace read access required. Separate image processing discovery, sorted by detector name. Declared processing conditions are not verified guarantees. No image dispatch or policy activation. Cache-Control: no-store.",
+///     "x-niu-implementation": "implemented",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Declared metadata or synthetic result; Cache-Control: no-store",
+///         "headers": {
+///           "Cache-Control": {
+///             "schema": {
+///               "type": "string"
+///             },
+///             "description": "no-store"
+///           }
+///         },
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "items": {
+///                     "type": "object",
+///                     "required": [
+///                       "detector",
+///                       "schema_version",
+///                       "detector_revision",
+///                       "configuration_fingerprint",
+///                       "recipient",
+///                       "region",
+///                       "retention",
+///                       "content_sent",
+///                       "processing_guarantees",
+///                       "timeout_ms",
+///                       "maximum_encoded_bytes",
+///                       "maximum_width",
+///                       "maximum_height",
+///                       "maximum_decoded_bytes",
+///                       "concurrency",
+///                       "declared_unmetered",
+///                       "policy_activation"
+///                     ],
+///                     "properties": {
+///                       "detector": {
+///                         "type": "string"
+///                       },
+///                       "schema_version": {
+///                         "type": "integer",
+///                         "enum": [
+///                           2
+///                         ]
+///                       },
+///                       "detector_revision": {
+///                         "type": "string"
+///                       },
+///                       "configuration_fingerprint": {
+///                         "type": "string"
+///                       },
+///                       "recipient": {
+///                         "type": "string"
+///                       },
+///                       "region": {
+///                         "type": "string"
+///                       },
+///                       "retention": {
+///                         "type": "string"
+///                       },
+///                       "content_sent": {
+///                         "type": "string",
+///                         "enum": [
+///                           "exact_encoded_image"
+///                         ]
+///                       },
+///                       "processing_guarantees": {
+///                         "type": "string",
+///                         "enum": [
+///                           "declared_unverified"
+///                         ]
+///                       },
+///                       "timeout_ms": {
+///                         "type": "integer"
+///                       },
+///                       "maximum_encoded_bytes": {
+///                         "type": "integer"
+///                       },
+///                       "maximum_width": {
+///                         "type": "integer"
+///                       },
+///                       "maximum_height": {
+///                         "type": "integer"
+///                       },
+///                       "maximum_decoded_bytes": {
+///                         "type": "integer"
+///                       },
+///                       "concurrency": {
+///                         "type": "integer"
+///                       },
+///                       "declared_unmetered": {
+///                         "type": "boolean"
+///                       },
+///                       "policy_activation": {
+///                         "type": "boolean",
+///                         "enum": [
+///                           false
+///                         ]
+///                       }
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Invalid management credential; inference credentials cannot access management endpoints"
+///       },
+///       "403": {
+///         "description": "Insufficient workspace permission or installation administrator authorization"
+///       },
+///       "503": {
+///         "description": "Authorization/storage unavailable"
+///       },
+///       "404": {
+///         "description": "Workspace or configured detector not found"
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub async fn workspace_image_detectors(
     State(state): State<AppState>,
     Path((organization_id, project_id)): Path<(Uuid, Uuid)>,
@@ -914,6 +1867,169 @@ pub struct ImageDetectorPreview {
 }
 
 /// Explicitly consented synthetic image processing. Never grants dispatch access.
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors/{detector}/preview",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "previewWorkspaceImageDetector",
+///     "summary": "Preview explicitly consented workspace image processing",
+///     "description": "Workspace write access required. Sends the supplied inline PNG, JPEG or WebP image to a deployment-configured image detector only after workspace authorization, current explicit consent and declared-unmetered checks. Route request body limit is 2 MiB. Decode errors are 400; decode-worker busy/failure is 503. Inspection unavailability is a 200 indeterminate outcome. Does not save or activate a policy, grant dispatch access or integrate customer billing. Cache-Control: no-store.",
+///     "x-niu-implementation": "implemented",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       },
+///       {
+///         "niuApiKeyAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "detector",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Declared metadata or synthetic result; Cache-Control: no-store",
+///         "headers": {
+///           "Cache-Control": {
+///             "schema": {
+///               "type": "string"
+///             },
+///             "description": "no-store"
+///           }
+///         },
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "outcome",
+///                 "reason",
+///                 "synthetic",
+///                 "enforcement",
+///                 "policy_activation"
+///               ],
+///               "properties": {
+///                 "outcome": {
+///                   "type": "string",
+///                   "enum": [
+///                     "clear",
+///                     "matched",
+///                     "indeterminate"
+///                   ]
+///                 },
+///                 "reason": {
+///                   "type": "string",
+///                   "enum": [
+///                     "inspected_image",
+///                     "image_match",
+///                     "inspection_unavailable"
+///                   ]
+///                 },
+///                 "synthetic": {
+///                   "type": "boolean",
+///                   "enum": [
+///                     true
+///                   ]
+///                 },
+///                 "enforcement": {
+///                   "type": "boolean",
+///                   "enum": [
+///                     false
+///                   ]
+///                 },
+///                 "policy_activation": {
+///                   "type": "boolean",
+///                   "enum": [
+///                     false
+///                   ]
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Invalid management credential; inference credentials cannot access management endpoints"
+///       },
+///       "403": {
+///         "description": "Insufficient workspace permission or installation administrator authorization"
+///       },
+///       "503": {
+///         "description": "Authorization/storage unavailable or image decode workers unavailable"
+///       },
+///       "404": {
+///         "description": "Workspace or configured detector not found"
+///       },
+///       "400": {
+///         "description": "Malformed JSON, unknown fields, invalid content, oversized body or missing/stale explicit consent"
+///       }
+///     },
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "consent",
+///               "image"
+///             ],
+///             "properties": {
+///               "consent": {
+///                 "type": "object",
+///                 "additionalProperties": false,
+///                 "required": [
+///                   "configuration_fingerprint",
+///                   "consent_to_image_processing"
+///                 ],
+///                 "properties": {
+///                   "configuration_fingerprint": {
+///                     "type": "string"
+///                   },
+///                   "consent_to_image_processing": {
+///                     "type": "boolean"
+///                   }
+///                 }
+///               },
+///               "image": {
+///                 "type": "string",
+///                 "description": "Inline data:image reference; bounded PNG, JPEG or WebP decoding."
+///               }
+///             }
+///           }
+///         }
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub async fn image_detector_preview(
     State(state): State<AppState>,
     Path((organization_id, project_id, detector)): Path<(Uuid, Uuid, String)>,

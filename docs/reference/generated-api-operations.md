@@ -673,6 +673,1133 @@ HTTP 403: Workspace outside authorized scope
 
 HTTP 503: Durable storage unavailable
 
+## Read latest 100 workspace dispatch policy exceptions
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/guardrails/dispatch-denials`
+
+Workspace read access required. Metadata only, newest first, combining dispatch and batch-admission policy rejections. Eligibility/status denials are outside this coverage. No request content, credentials or internal event identifiers. Latest 100 only; not a complete audit export. Cache-Control: no-store.
+
+Implementation: `implemented`. Operation: `listGuardrailDispatchDenials`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Declared metadata or synthetic result; Cache-Control: no-store
+
+Response header: `Cache-Control`.
+
+no-store
+
+```json
+{
+  "type": "string"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "coverage"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "stage",
+          "outcome",
+          "coverage",
+          "reason",
+          "key_name",
+          "workspace_policy_name",
+          "key_policy_name",
+          "workspace_revision",
+          "key_policy_revision",
+          "key_assignment_revision",
+          "recorded_at"
+        ],
+        "properties": {
+          "stage": {
+            "type": "string",
+            "enum": [
+              "dispatch",
+              "batch_admission"
+            ]
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "blocked"
+            ]
+          },
+          "coverage": {
+            "type": "string",
+            "enum": [
+              "model_provider_access",
+              "policy_binding"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "access_denied",
+              "input_binding_missing",
+              "policy_changed"
+            ]
+          },
+          "key_name": {
+            "type": "string"
+          },
+          "workspace_policy_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "key_policy_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "workspace_revision": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "key_policy_revision": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "key_assignment_revision": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "coverage": {
+      "type": "string",
+      "enum": [
+        "latest_100_dispatch_policy_exceptions"
+      ]
+    }
+  }
+}
+```
+
+HTTP 401: Invalid management credential; inference credentials cannot access management endpoints
+
+HTTP 403: Insufficient workspace permission or installation administrator authorization
+
+HTTP 503: Authorization/storage unavailable
+
+## Preview installation text detector transport
+
+`POST /admin/v1/guardrails/detectors/{detector}/preview`
+
+Installation administrator only. Explicit consent and the current configuration fingerprint are required before supplied synthetic text is sent to the configured external detector. Does not activate a detector or enforce a policy; no customer billing integration. A detector-unavailable result is a 200 indeterminate outcome, not proof of successful inspection. Cache-Control: no-store.
+
+Implementation: `implemented`. Operation: `previewGuardrailDetector`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
+  }
+]
+```
+
+### Parameters
+
+`detector` (path, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "configuration_fingerprint",
+    "text",
+    "consent_to_external_processing"
+  ],
+  "properties": {
+    "configuration_fingerprint": {
+      "type": "string"
+    },
+    "text": {
+      "type": "string"
+    },
+    "consent_to_external_processing": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Declared metadata or synthetic result; Cache-Control: no-store
+
+Response header: `Cache-Control`.
+
+no-store
+
+```json
+{
+  "type": "string"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "outcome",
+    "reason",
+    "synthetic",
+    "enforcement"
+  ],
+  "properties": {
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "clear",
+        "matched",
+        "indeterminate"
+      ]
+    },
+    "reason": {
+      "type": "string"
+    },
+    "synthetic": {
+      "type": "boolean",
+      "enum": [
+        true
+      ]
+    },
+    "enforcement": {
+      "type": "boolean",
+      "enum": [
+        false
+      ]
+    }
+  }
+}
+```
+
+HTTP 401: Invalid management credential; inference credentials cannot access management endpoints
+
+HTTP 403: Insufficient workspace permission or installation administrator authorization
+
+HTTP 503: Authorization/storage unavailable
+
+HTTP 404: Configured detector not found
+
+HTTP 400: Malformed JSON, unknown fields, invalid content or missing/stale explicit consent
+
+## Read installation text detector processing declaration
+
+`GET /admin/v1/guardrails/detectors/{detector}`
+
+Installation administrator only; workspace-scoped management credentials are forbidden. Returns declared processing conditions for reviewing explicit synthetic-test consent. Does not send content. Declarations are not verified processing guarantees. Cache-Control: no-store.
+
+Implementation: `implemented`. Operation: `getGuardrailDetectorDescription`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
+  }
+]
+```
+
+### Parameters
+
+`detector` (path, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+### Responses
+
+HTTP 200: Declared metadata or synthetic result; Cache-Control: no-store
+
+Response header: `Cache-Control`.
+
+no-store
+
+```json
+{
+  "type": "string"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "detector_revision",
+    "configuration_fingerprint",
+    "recipient",
+    "region",
+    "retention",
+    "processing_guarantees",
+    "content_sent",
+    "credential_source",
+    "timeout_ms",
+    "concurrency",
+    "max_text_bytes",
+    "max_response_bytes",
+    "external_charge",
+    "customer_billing",
+    "policy_activation"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "enum": [
+        1
+      ]
+    },
+    "detector_revision": {
+      "type": "string"
+    },
+    "configuration_fingerprint": {
+      "type": "string"
+    },
+    "recipient": {
+      "type": "string"
+    },
+    "region": {
+      "type": "string"
+    },
+    "retention": {
+      "type": "string"
+    },
+    "processing_guarantees": {
+      "type": "string",
+      "enum": [
+        "declared_unverified"
+      ]
+    },
+    "content_sent": {
+      "type": "string",
+      "enum": [
+        "synthetic_text"
+      ]
+    },
+    "credential_source": {
+      "type": "string",
+      "enum": [
+        "server_environment"
+      ]
+    },
+    "timeout_ms": {
+      "type": "integer"
+    },
+    "concurrency": {
+      "type": "integer"
+    },
+    "max_text_bytes": {
+      "type": "integer"
+    },
+    "max_response_bytes": {
+      "type": "integer",
+      "enum": [
+        4096
+      ]
+    },
+    "external_charge": {
+      "type": "string",
+      "enum": [
+        "unknown",
+        "declared_unmetered"
+      ]
+    },
+    "customer_billing": {
+      "type": "string",
+      "enum": [
+        "not_integrated"
+      ]
+    },
+    "policy_activation": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+HTTP 401: Invalid management credential; inference credentials cannot access management endpoints
+
+HTTP 403: Insufficient workspace permission or installation administrator authorization
+
+HTTP 503: Authorization/storage unavailable
+
+HTTP 404: Configured detector not found
+
+## Read latest 100 workspace input detector decisions
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/guardrails/detector-decisions`
+
+Workspace read access required. Metadata only, newest first, including pre-admission decisions. No request text, detector response bodies, credentials or internal event identifiers. Latest 100 only; not a complete audit export. Cache-Control: no-store.
+
+Implementation: `implemented`. Operation: `listInputDetectorDecisions`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Declared metadata or synthetic result; Cache-Control: no-store
+
+Response header: `Cache-Control`.
+
+no-store
+
+```json
+{
+  "type": "string"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "coverage"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "detector",
+          "configuration_fingerprint",
+          "stage",
+          "coverage",
+          "enforcer_version",
+          "outcome",
+          "reason",
+          "elapsed_ms",
+          "key_name",
+          "workspace_revision",
+          "key_policy_revision",
+          "key_assignment_revision",
+          "recorded_at"
+        ],
+        "properties": {
+          "detector": {
+            "type": "string"
+          },
+          "configuration_fingerprint": {
+            "type": "string"
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "input"
+            ]
+          },
+          "coverage": {
+            "type": "string",
+            "enum": [
+              "local_text"
+            ]
+          },
+          "enforcer_version": {
+            "type": "string",
+            "enum": [
+              "external-input-v1"
+            ]
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "clear",
+              "matched",
+              "indeterminate"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "elapsed_ms": {
+            "type": "number"
+          },
+          "key_name": {
+            "type": "string"
+          },
+          "workspace_revision": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "key_policy_revision": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "key_assignment_revision": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "coverage": {
+      "type": "string",
+      "enum": [
+        "latest_100_input_detector_decisions"
+      ]
+    }
+  }
+}
+```
+
+HTTP 401: Invalid management credential; inference credentials cannot access management endpoints
+
+HTTP 403: Insufficient workspace permission or installation administrator authorization
+
+HTTP 503: Authorization/storage unavailable
+
+## List authorized workspace text detector declarations
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/guardrails/detectors`
+
+Workspace read access required. Sorted by detector name; only deployment-authorized workspace detectors are returned. Declared processing conditions are not verified guarantees. No content is dispatched and no policy is activated. Cache-Control: no-store.
+
+Implementation: `implemented`. Operation: `listWorkspaceDetectors`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Declared metadata or synthetic result; Cache-Control: no-store
+
+Response header: `Cache-Control`.
+
+no-store
+
+```json
+{
+  "type": "string"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "schema_version",
+          "detector_revision",
+          "configuration_fingerprint",
+          "recipient",
+          "region",
+          "retention",
+          "processing_guarantees",
+          "content_sent",
+          "credential_source",
+          "timeout_ms",
+          "concurrency",
+          "max_text_bytes",
+          "max_response_bytes",
+          "external_charge",
+          "customer_billing",
+          "policy_activation",
+          "detector"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "enum": [
+              1
+            ]
+          },
+          "detector_revision": {
+            "type": "string"
+          },
+          "configuration_fingerprint": {
+            "type": "string"
+          },
+          "recipient": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string"
+          },
+          "retention": {
+            "type": "string"
+          },
+          "processing_guarantees": {
+            "type": "string",
+            "enum": [
+              "declared_unverified"
+            ]
+          },
+          "content_sent": {
+            "type": "string",
+            "enum": [
+              "request_text_after_local_redaction"
+            ]
+          },
+          "credential_source": {
+            "type": "string",
+            "enum": [
+              "server_environment"
+            ]
+          },
+          "timeout_ms": {
+            "type": "integer"
+          },
+          "concurrency": {
+            "type": "integer"
+          },
+          "max_text_bytes": {
+            "type": "integer"
+          },
+          "max_response_bytes": {
+            "type": "integer",
+            "enum": [
+              4096
+            ]
+          },
+          "external_charge": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "declared_unmetered"
+            ]
+          },
+          "customer_billing": {
+            "type": "string",
+            "enum": [
+              "not_integrated"
+            ]
+          },
+          "policy_activation": {
+            "type": "boolean"
+          },
+          "detector": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Invalid management credential; inference credentials cannot access management endpoints
+
+HTTP 403: Insufficient workspace permission or installation administrator authorization
+
+HTTP 503: Authorization/storage unavailable
+
+HTTP 404: Workspace or configured detector not found
+
+## List authorized workspace image detector declarations
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors`
+
+Workspace read access required. Separate image processing discovery, sorted by detector name. Declared processing conditions are not verified guarantees. No image dispatch or policy activation. Cache-Control: no-store.
+
+Implementation: `implemented`. Operation: `listWorkspaceImageDetectors`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Declared metadata or synthetic result; Cache-Control: no-store
+
+Response header: `Cache-Control`.
+
+no-store
+
+```json
+{
+  "type": "string"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "detector",
+          "schema_version",
+          "detector_revision",
+          "configuration_fingerprint",
+          "recipient",
+          "region",
+          "retention",
+          "content_sent",
+          "processing_guarantees",
+          "timeout_ms",
+          "maximum_encoded_bytes",
+          "maximum_width",
+          "maximum_height",
+          "maximum_decoded_bytes",
+          "concurrency",
+          "declared_unmetered",
+          "policy_activation"
+        ],
+        "properties": {
+          "detector": {
+            "type": "string"
+          },
+          "schema_version": {
+            "type": "integer",
+            "enum": [
+              2
+            ]
+          },
+          "detector_revision": {
+            "type": "string"
+          },
+          "configuration_fingerprint": {
+            "type": "string"
+          },
+          "recipient": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string"
+          },
+          "retention": {
+            "type": "string"
+          },
+          "content_sent": {
+            "type": "string",
+            "enum": [
+              "exact_encoded_image"
+            ]
+          },
+          "processing_guarantees": {
+            "type": "string",
+            "enum": [
+              "declared_unverified"
+            ]
+          },
+          "timeout_ms": {
+            "type": "integer"
+          },
+          "maximum_encoded_bytes": {
+            "type": "integer"
+          },
+          "maximum_width": {
+            "type": "integer"
+          },
+          "maximum_height": {
+            "type": "integer"
+          },
+          "maximum_decoded_bytes": {
+            "type": "integer"
+          },
+          "concurrency": {
+            "type": "integer"
+          },
+          "declared_unmetered": {
+            "type": "boolean"
+          },
+          "policy_activation": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Invalid management credential; inference credentials cannot access management endpoints
+
+HTTP 403: Insufficient workspace permission or installation administrator authorization
+
+HTTP 503: Authorization/storage unavailable
+
+HTTP 404: Workspace or configured detector not found
+
+## Preview explicitly consented workspace image processing
+
+`POST /admin/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors/{detector}/preview`
+
+Workspace write access required. Sends the supplied inline PNG, JPEG or WebP image to a deployment-configured image detector only after workspace authorization, current explicit consent and declared-unmetered checks. Route request body limit is 2 MiB. Decode errors are 400; decode-worker busy/failure is 503. Inspection unavailability is a 200 indeterminate outcome. Does not save or activate a policy, grant dispatch access or integrate customer billing. Cache-Control: no-store.
+
+Implementation: `implemented`. Operation: `previewWorkspaceImageDetector`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  },
+  {
+    "niuApiKeyAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`detector` (path, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "consent",
+    "image"
+  ],
+  "properties": {
+    "consent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "configuration_fingerprint",
+        "consent_to_image_processing"
+      ],
+      "properties": {
+        "configuration_fingerprint": {
+          "type": "string"
+        },
+        "consent_to_image_processing": {
+          "type": "boolean"
+        }
+      }
+    },
+    "image": {
+      "type": "string",
+      "description": "Inline data:image reference; bounded PNG, JPEG or WebP decoding."
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Declared metadata or synthetic result; Cache-Control: no-store
+
+Response header: `Cache-Control`.
+
+no-store
+
+```json
+{
+  "type": "string"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "outcome",
+    "reason",
+    "synthetic",
+    "enforcement",
+    "policy_activation"
+  ],
+  "properties": {
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "clear",
+        "matched",
+        "indeterminate"
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "enum": [
+        "inspected_image",
+        "image_match",
+        "inspection_unavailable"
+      ]
+    },
+    "synthetic": {
+      "type": "boolean",
+      "enum": [
+        true
+      ]
+    },
+    "enforcement": {
+      "type": "boolean",
+      "enum": [
+        false
+      ]
+    },
+    "policy_activation": {
+      "type": "boolean",
+      "enum": [
+        false
+      ]
+    }
+  }
+}
+```
+
+HTTP 401: Invalid management credential; inference credentials cannot access management endpoints
+
+HTTP 403: Insufficient workspace permission or installation administrator authorization
+
+HTTP 503: Authorization/storage unavailable or image decode workers unavailable
+
+HTTP 404: Workspace or configured detector not found
+
+HTTP 400: Malformed JSON, unknown fields, invalid content, oversized body or missing/stale explicit consent
+
 ## Read API key concurrency policy
 
 `GET /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit`
@@ -2513,6 +3640,380 @@ HTTP 401: Authentication required
 HTTP 403: Workspace access denied
 
 HTTP 404: Workspace is outside operator scope, or key is absent from authorized workspace
+
+## Read current member appearance preference
+
+`GET /admin/v1/auth/preferences`
+
+Current authenticated member only; the target member is derived from authentication, never supplied by the caller. Requires an operator/member session with Read permission; installation bearer credentials are rejected. Browser member-cookie sessions are also supported by the existing authentication middleware. All responses carry Cache-Control: no-store. Returns the saved color mode; when no member preference exists, returns the installation branding default appearance. No revision field is exposed.
+
+Implementation: `implemented`. Operation: `getMemberPreferences`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Responses
+
+HTTP 200: Current saved member data.
+
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "color_mode"
+      ],
+      "properties": {
+        "color_mode": {
+          "type": "string",
+          "enum": [
+            "system",
+            "light",
+            "dark"
+          ]
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Missing, invalid or revoked member authentication.
+
+HTTP 403: Read permission required; installation credentials cannot access member data, or a write failed origin/cookie checks.
+
+HTTP 503: Durable storage unavailable.
+
+## Save current member appearance preference
+
+`PUT /admin/v1/auth/preferences`
+
+Current authenticated member only; the target member is derived from authentication, never supplied by the caller. Requires an operator/member session with Read permission; installation bearer credentials are rejected. Browser member-cookie sessions are also supported by the existing authentication middleware. All responses carry Cache-Control: no-store. When password authentication is configured, cookie/browser writes require a valid Origin and cookie-request checks; bearer writes validate Origin when supplied. Saves one of system, light or dark. This endpoint has no revision precondition; subsequent accepted writes replace the saved mode. Route body limit is 1024 bytes; rejected bodies are mapped to JSON invalid-request errors.
+
+Implementation: `implemented`. Operation: `updateMemberPreferences`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "color_mode"
+  ],
+  "properties": {
+    "color_mode": {
+      "type": "string",
+      "enum": [
+        "system",
+        "light",
+        "dark"
+      ]
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Current saved member data.
+
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "color_mode"
+      ],
+      "properties": {
+        "color_mode": {
+          "type": "string",
+          "enum": [
+            "system",
+            "light",
+            "dark"
+          ]
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Missing, invalid or revoked member authentication.
+
+HTTP 403: Read permission required; installation credentials cannot access member data, or a write failed origin/cookie checks.
+
+HTTP 503: Durable storage unavailable.
+
+HTTP 400: Invalid JSON, unknown fields or invalid input.
+
+## Read current member profile
+
+`GET /admin/v1/auth/profile`
+
+Current authenticated member only; the target member is derived from authentication, never supplied by the caller. Requires an operator/member session with Read permission; installation bearer credentials are rejected. Browser member-cookie sessions are also supported by the existing authentication middleware. All responses carry Cache-Control: no-store. Returns the saved name, nullable password-login email, nullable avatar and numeric profile revision.
+
+Implementation: `implemented`. Operation: `getMemberProfile`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Responses
+
+HTTP 200: Current saved member data.
+
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "name",
+        "email",
+        "avatar_data_url",
+        "revision"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "email": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "avatar_data_url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Normalized PNG data URL, or null when no avatar is saved."
+        },
+        "revision": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Missing, invalid or revoked member authentication.
+
+HTTP 403: Read permission required; installation credentials cannot access member data, or a write failed origin/cookie checks.
+
+HTTP 503: Durable storage unavailable.
+
+## Update current member profile
+
+`PUT /admin/v1/auth/profile`
+
+Current authenticated member only; the target member is derived from authentication, never supplied by the caller. Requires an operator/member session with Read permission; installation bearer credentials are rejected. Browser member-cookie sessions are also supported by the existing authentication middleware. All responses carry Cache-Control: no-store. When password authentication is configured, cookie/browser writes require a valid Origin and cookie-request checks; bearer writes validate Origin when supplied. Atomically updates name and avatar with optimistic revision checking. Email is read-only. Null or omitted avatar_data_url clears the avatar. Route body limit is 180000 bytes; rejected bodies are mapped to JSON invalid-request errors.
+
+Implementation: `implemented`. Operation: `updateMemberProfile`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "expected_revision"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "Trimmed before saving; must contain 1 to 100 Unicode characters and no control characters."
+    },
+    "avatar_data_url": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 175000,
+      "description": "Optional PNG data URL. Null or omission removes the existing avatar. Decoded and normalized PNG must each be at most 131072 bytes and dimensions at most 256 by 256 pixels."
+    },
+    "expected_revision": {
+      "type": "integer",
+      "format": "int64",
+      "minimum": 0,
+      "description": "Numeric revision returned by GET; a profile with no saved customization starts at zero. Successful update increments it."
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Current saved member data.
+
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "name",
+        "email",
+        "avatar_data_url",
+        "revision"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "email": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "avatar_data_url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Normalized PNG data URL, or null when no avatar is saved."
+        },
+        "revision": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
+```
+
+HTTP 401: Missing, invalid or revoked member authentication.
+
+HTTP 403: Read permission required; installation credentials cannot access member data, or a write failed origin/cookie checks.
+
+HTTP 503: Durable storage unavailable.
+
+HTTP 400: Invalid JSON, unknown fields or invalid input.
+
+HTTP 409: expected_revision does not match the saved profile; reload before retrying.
 
 ## Read credential safe-failure cooldown
 
@@ -11444,6 +12945,491 @@ HTTP 401: Management authentication required.
 HTTP 404: Supplier membership denied or quote identity not found.
 
 HTTP 503: Storage unavailable.
+
+## Record a Supplier business qualification review
+
+`PUT /admin/v1/providers/{provider}/qualification`
+
+Platform administration required; Supplier membership does not grant this write. Records a new immutable review and audit with caller-supplied evidence digests, then selects that review. The server validates digest syntax and expiry, not the truth of supply rights, capability or data-handling evidence. No upstream check, commercial agreement, funds transfer or offer activation is performed. Missing or deleted Supplier conflicts.
+
+Implementation: `implemented`. Operation: `qualifySupplierBusiness`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`provider` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "supply_rights_sha256",
+    "supply_capability_sha256",
+    "data_handling_sha256",
+    "valid_until_ms"
+  ],
+  "properties": {
+    "supply_rights_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
+    },
+    "supply_capability_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
+    },
+    "data_handling_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
+    },
+    "valid_until_ms": {
+      "type": "integer",
+      "format": "int64",
+      "maximum": 253402300799999,
+      "description": "Unix epoch milliseconds; must be strictly later than server time."
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 400: Invalid path UUID, malformed JSON, evidence digest, expiry or review metadata.
+
+HTTP 401: Missing or invalid administrator authentication.
+
+HTTP 403: Authenticated principal lacks platform management permission.
+
+HTTP 409: Missing resource or qualification/revision prerequisites no longer hold.
+
+HTTP 415: Request is not JSON.
+
+HTTP 422: JSON has missing, unknown or incorrectly typed fields.
+
+HTTP 500: Unexpected internal persistence failure.
+
+HTTP 503: Persistence temporarily unavailable; no successful qualification is confirmed.
+
+HTTP 200: Qualification transaction committed.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "qualification_status"
+      ],
+      "properties": {
+        "qualification_status": {
+          "type": "string",
+          "enum": [
+            "qualified"
+          ]
+        }
+      }
+    }
+  }
+}
+```
+
+## Record a Supplier offer qualification review
+
+`PUT /admin/v1/providers/{provider}/offers/{offer}/qualification`
+
+Platform administration required. Requires current Supplier business qualification, matching current rate_revision and a current media offer binding where applicable; otherwise 409. Records a new immutable review and audit, then selects that review. Evidence digests must represent independently reviewed facts; this operation does not validate their content, negotiate rates, call upstream or activate the offer.
+
+Implementation: `implemented`. Operation: `qualifySupplierOffer`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`provider` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`offer` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "rate_revision",
+    "model_identity_sha256",
+    "protocol_matrix_sha256",
+    "data_handling_sha256",
+    "availability_sha256",
+    "agreed_rates_sha256",
+    "protocol_matrix_version",
+    "valid_until_ms"
+  ],
+  "properties": {
+    "rate_revision": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Must equal the current immutable offer rate revision."
+    },
+    "model_identity_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
+    },
+    "protocol_matrix_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
+    },
+    "data_handling_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
+    },
+    "availability_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
+    },
+    "agreed_rates_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
+    },
+    "protocol_matrix_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "description": "Nonblank after trimming; at most 100 UTF-8 bytes before trimming; no control characters. Saved trimmed."
+    },
+    "valid_until_ms": {
+      "type": "integer",
+      "format": "int64",
+      "maximum": 253402300799999,
+      "description": "Unix epoch milliseconds; must be strictly later than server time."
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 400: Invalid path UUID, malformed JSON, evidence digest, expiry or review metadata.
+
+HTTP 401: Missing or invalid administrator authentication.
+
+HTTP 403: Authenticated principal lacks platform management permission.
+
+HTTP 409: Missing resource or qualification/revision prerequisites no longer hold.
+
+HTTP 415: Request is not JSON.
+
+HTTP 422: JSON has missing, unknown or incorrectly typed fields.
+
+HTTP 500: Unexpected internal persistence failure.
+
+HTTP 503: Persistence temporarily unavailable; no successful qualification is confirmed.
+
+HTTP 200: Qualification transaction committed.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "qualification_status"
+      ],
+      "properties": {
+        "qualification_status": {
+          "type": "string",
+          "enum": [
+            "qualified"
+          ]
+        }
+      }
+    }
+  }
+}
+```
+
+## Revoke the current Supplier business qualification
+
+`POST /admin/v1/providers/{provider}/qualification/revoke`
+
+Platform administration required. Appends an immutable reason digest and audit, clears the current business review, and pauses all Supplier offers while clearing their current reviews atomically. Missing/deleted Supplier or absence of a current review conflicts, including repeated revocation. Does not erase historical reviews or change existing request charges or earnings.
+
+Implementation: `implemented`. Operation: `revokeSupplierBusinessQualification`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`provider` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "reason_sha256"
+  ],
+  "properties": {
+    "reason_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 400: Invalid path UUID, malformed JSON, evidence digest, expiry or review metadata.
+
+HTTP 401: Missing or invalid administrator authentication.
+
+HTTP 403: Authenticated principal lacks platform management permission.
+
+HTTP 409: Missing resource or qualification/revision prerequisites no longer hold.
+
+HTTP 415: Request is not JSON.
+
+HTTP 422: JSON has missing, unknown or incorrectly typed fields.
+
+HTTP 500: Unexpected internal persistence failure.
+
+HTTP 503: Persistence temporarily unavailable; no successful qualification is confirmed.
+
+HTTP 200: Qualification transaction committed.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "qualification_status"
+      ],
+      "properties": {
+        "qualification_status": {
+          "type": "string",
+          "enum": [
+            "revoked"
+          ]
+        }
+      }
+    }
+  }
+}
+```
+
+## Revoke the current Supplier offer qualification
+
+`POST /admin/v1/providers/{provider}/offers/{offer}/qualification/revoke`
+
+Platform administration required. Appends an immutable reason digest and audit, clears the current offer review and pauses that offer atomically. Missing/deleted Supplier, missing offer or absence of a current review conflicts, including repeated revocation. Other offers and historical request charges or earnings are unchanged.
+
+Implementation: `implemented`. Operation: `revokeSupplierOfferQualification`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`provider` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`offer` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "reason_sha256"
+  ],
+  "properties": {
+    "reason_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 400: Invalid path UUID, malformed JSON, evidence digest, expiry or review metadata.
+
+HTTP 401: Missing or invalid administrator authentication.
+
+HTTP 403: Authenticated principal lacks platform management permission.
+
+HTTP 409: Missing resource or qualification/revision prerequisites no longer hold.
+
+HTTP 415: Request is not JSON.
+
+HTTP 422: JSON has missing, unknown or incorrectly typed fields.
+
+HTTP 500: Unexpected internal persistence failure.
+
+HTTP 503: Persistence temporarily unavailable; no successful qualification is confirmed.
+
+HTTP 200: Qualification transaction committed.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "qualification_status"
+      ],
+      "properties": {
+        "qualification_status": {
+          "type": "string",
+          "enum": [
+            "revoked"
+          ]
+        }
+      }
+    }
+  }
+}
+```
 
 ## Record an already completed external Supplier payment
 

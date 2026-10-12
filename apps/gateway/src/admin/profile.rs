@@ -32,6 +32,89 @@ pub(super) async fn current_member(
     }
 }
 
+/// ```openapi
+/// {
+///   "path": "/admin/v1/auth/profile",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "getMemberProfile",
+///     "summary": "Read current member profile",
+///     "description": "Current authenticated member only; the target member is derived from authentication, never supplied by the caller. Requires an operator/member session with Read permission; installation bearer credentials are rejected. Browser member-cookie sessions are also supported by the existing authentication middleware. All responses carry Cache-Control: no-store. Returns the saved name, nullable password-login email, nullable avatar and numeric profile revision.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "x-niu-implementation": "implemented",
+///     "responses": {
+///       "200": {
+///         "description": "Current saved member data.",
+///         "headers": {
+///           "Cache-Control": {
+///             "schema": {
+///               "type": "string",
+///               "const": "no-store"
+///             }
+///           }
+///         },
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "required": [
+///                     "name",
+///                     "email",
+///                     "avatar_data_url",
+///                     "revision"
+///                   ],
+///                   "properties": {
+///                     "name": {
+///                       "type": "string"
+///                     },
+///                     "email": {
+///                       "type": [
+///                         "string",
+///                         "null"
+///                       ]
+///                     },
+///                     "avatar_data_url": {
+///                       "type": [
+///                         "string",
+///                         "null"
+///                       ],
+///                       "description": "Normalized PNG data URL, or null when no avatar is saved."
+///                     },
+///                     "revision": {
+///                       "type": "integer",
+///                       "format": "int64",
+///                       "minimum": 0
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Missing, invalid or revoked member authentication."
+///       },
+///       "403": {
+///         "description": "Read permission required; installation credentials cannot access member data, or a write failed origin/cookie checks."
+///       },
+///       "503": {
+///         "description": "Durable storage unavailable."
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub async fn profile(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -79,6 +162,131 @@ fn normalize_avatar(value: &str) -> Result<String, ApiError> {
     ))
 }
 
+/// ```openapi
+/// {
+///   "path": "/admin/v1/auth/profile",
+///   "method": "put",
+///   "operation": {
+///     "operationId": "updateMemberProfile",
+///     "summary": "Update current member profile",
+///     "description": "Current authenticated member only; the target member is derived from authentication, never supplied by the caller. Requires an operator/member session with Read permission; installation bearer credentials are rejected. Browser member-cookie sessions are also supported by the existing authentication middleware. All responses carry Cache-Control: no-store. When password authentication is configured, cookie/browser writes require a valid Origin and cookie-request checks; bearer writes validate Origin when supplied. Atomically updates name and avatar with optimistic revision checking. Email is read-only. Null or omitted avatar_data_url clears the avatar. Route body limit is 180000 bytes; rejected bodies are mapped to JSON invalid-request errors.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "x-niu-implementation": "implemented",
+///     "responses": {
+///       "200": {
+///         "description": "Current saved member data.",
+///         "headers": {
+///           "Cache-Control": {
+///             "schema": {
+///               "type": "string",
+///               "const": "no-store"
+///             }
+///           }
+///         },
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "required": [
+///                     "name",
+///                     "email",
+///                     "avatar_data_url",
+///                     "revision"
+///                   ],
+///                   "properties": {
+///                     "name": {
+///                       "type": "string"
+///                     },
+///                     "email": {
+///                       "type": [
+///                         "string",
+///                         "null"
+///                       ]
+///                     },
+///                     "avatar_data_url": {
+///                       "type": [
+///                         "string",
+///                         "null"
+///                       ],
+///                       "description": "Normalized PNG data URL, or null when no avatar is saved."
+///                     },
+///                     "revision": {
+///                       "type": "integer",
+///                       "format": "int64",
+///                       "minimum": 0
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Missing, invalid or revoked member authentication."
+///       },
+///       "403": {
+///         "description": "Read permission required; installation credentials cannot access member data, or a write failed origin/cookie checks."
+///       },
+///       "503": {
+///         "description": "Durable storage unavailable."
+///       },
+///       "400": {
+///         "description": "Invalid JSON, unknown fields or invalid input."
+///       },
+///       "409": {
+///         "description": "expected_revision does not match the saved profile; reload before retrying."
+///       }
+///     },
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "name",
+///               "expected_revision"
+///             ],
+///             "properties": {
+///               "name": {
+///                 "type": "string",
+///                 "maxLength": 100,
+///                 "description": "Trimmed before saving; must contain 1 to 100 Unicode characters and no control characters."
+///               },
+///               "avatar_data_url": {
+///                 "type": [
+///                   "string",
+///                   "null"
+///                 ],
+///                 "maxLength": 175000,
+///                 "description": "Optional PNG data URL. Null or omission removes the existing avatar. Decoded and normalized PNG must each be at most 131072 bytes and dimensions at most 256 by 256 pixels."
+///               },
+///               "expected_revision": {
+///                 "type": "integer",
+///                 "format": "int64",
+///                 "minimum": 0,
+///                 "description": "Numeric revision returned by GET; a profile with no saved customization starts at zero. Successful update increments it."
+///               }
+///             }
+///           }
+///         }
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub async fn update_profile(
     State(state): State<AppState>,
     headers: HeaderMap,

@@ -1283,6 +1283,129 @@ pub async fn offer_revision(
     Ok(Json(json!({"data":data})))
 }
 
+/// ```openapi
+/// {
+///   "path": "/admin/v1/providers/{provider}/qualification",
+///   "method": "put",
+///   "operation": {
+///     "operationId": "qualifySupplierBusiness",
+///     "x-niu-implementation": "implemented",
+///     "summary": "Record a Supplier business qualification review",
+///     "description": "Platform administration required; Supplier membership does not grant this write. Records a new immutable review and audit with caller-supplied evidence digests, then selects that review. The server validates digest syntax and expiry, not the truth of supply rights, capability or data-handling evidence. No upstream check, commercial agreement, funds transfer or offer activation is performed. Missing or deleted Supplier conflicts.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "provider",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "supply_rights_sha256",
+///               "supply_capability_sha256",
+///               "data_handling_sha256",
+///               "valid_until_ms"
+///             ],
+///             "properties": {
+///               "supply_rights_sha256": {
+///                 "type": "string",
+///                 "pattern": "^[0-9a-f]{64}$",
+///                 "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
+///               },
+///               "supply_capability_sha256": {
+///                 "type": "string",
+///                 "pattern": "^[0-9a-f]{64}$",
+///                 "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
+///               },
+///               "data_handling_sha256": {
+///                 "type": "string",
+///                 "pattern": "^[0-9a-f]{64}$",
+///                 "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
+///               },
+///               "valid_until_ms": {
+///                 "type": "integer",
+///                 "format": "int64",
+///                 "maximum": 253402300799999,
+///                 "description": "Unix epoch milliseconds; must be strictly later than server time."
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "400": {
+///         "description": "Invalid path UUID, malformed JSON, evidence digest, expiry or review metadata."
+///       },
+///       "401": {
+///         "description": "Missing or invalid administrator authentication."
+///       },
+///       "403": {
+///         "description": "Authenticated principal lacks platform management permission."
+///       },
+///       "409": {
+///         "description": "Missing resource or qualification/revision prerequisites no longer hold."
+///       },
+///       "415": {
+///         "description": "Request is not JSON."
+///       },
+///       "422": {
+///         "description": "JSON has missing, unknown or incorrectly typed fields."
+///       },
+///       "500": {
+///         "description": "Unexpected internal persistence failure."
+///       },
+///       "503": {
+///         "description": "Persistence temporarily unavailable; no successful qualification is confirmed."
+///       },
+///       "200": {
+///         "description": "Qualification transaction committed.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "required": [
+///                     "qualification_status"
+///                   ],
+///                   "properties": {
+///                     "qualification_status": {
+///                       "type": "string",
+///                       "enum": [
+///                         "qualified"
+///                       ]
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub async fn qualify_business(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -1298,6 +1421,163 @@ pub async fn qualify_business(
     Ok(Json(json!({"data":{"qualification_status":"qualified"}})))
 }
 
+/// ```openapi
+/// {
+///   "path": "/admin/v1/providers/{provider}/offers/{offer}/qualification",
+///   "method": "put",
+///   "operation": {
+///     "operationId": "qualifySupplierOffer",
+///     "x-niu-implementation": "implemented",
+///     "summary": "Record a Supplier offer qualification review",
+///     "description": "Platform administration required. Requires current Supplier business qualification, matching current rate_revision and a current media offer binding where applicable; otherwise 409. Records a new immutable review and audit, then selects that review. Evidence digests must represent independently reviewed facts; this operation does not validate their content, negotiate rates, call upstream or activate the offer.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "provider",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "offer",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "rate_revision",
+///               "model_identity_sha256",
+///               "protocol_matrix_sha256",
+///               "data_handling_sha256",
+///               "availability_sha256",
+///               "agreed_rates_sha256",
+///               "protocol_matrix_version",
+///               "valid_until_ms"
+///             ],
+///             "properties": {
+///               "rate_revision": {
+///                 "type": "string",
+///                 "format": "uuid",
+///                 "description": "Must equal the current immutable offer rate revision."
+///               },
+///               "model_identity_sha256": {
+///                 "type": "string",
+///                 "pattern": "^[0-9a-f]{64}$",
+///                 "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
+///               },
+///               "protocol_matrix_sha256": {
+///                 "type": "string",
+///                 "pattern": "^[0-9a-f]{64}$",
+///                 "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
+///               },
+///               "data_handling_sha256": {
+///                 "type": "string",
+///                 "pattern": "^[0-9a-f]{64}$",
+///                 "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
+///               },
+///               "availability_sha256": {
+///                 "type": "string",
+///                 "pattern": "^[0-9a-f]{64}$",
+///                 "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
+///               },
+///               "agreed_rates_sha256": {
+///                 "type": "string",
+///                 "pattern": "^[0-9a-f]{64}$",
+///                 "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
+///               },
+///               "protocol_matrix_version": {
+///                 "type": "string",
+///                 "minLength": 1,
+///                 "maxLength": 100,
+///                 "description": "Nonblank after trimming; at most 100 UTF-8 bytes before trimming; no control characters. Saved trimmed."
+///               },
+///               "valid_until_ms": {
+///                 "type": "integer",
+///                 "format": "int64",
+///                 "maximum": 253402300799999,
+///                 "description": "Unix epoch milliseconds; must be strictly later than server time."
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "400": {
+///         "description": "Invalid path UUID, malformed JSON, evidence digest, expiry or review metadata."
+///       },
+///       "401": {
+///         "description": "Missing or invalid administrator authentication."
+///       },
+///       "403": {
+///         "description": "Authenticated principal lacks platform management permission."
+///       },
+///       "409": {
+///         "description": "Missing resource or qualification/revision prerequisites no longer hold."
+///       },
+///       "415": {
+///         "description": "Request is not JSON."
+///       },
+///       "422": {
+///         "description": "JSON has missing, unknown or incorrectly typed fields."
+///       },
+///       "500": {
+///         "description": "Unexpected internal persistence failure."
+///       },
+///       "503": {
+///         "description": "Persistence temporarily unavailable; no successful qualification is confirmed."
+///       },
+///       "200": {
+///         "description": "Qualification transaction committed.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "required": [
+///                     "qualification_status"
+///                   ],
+///                   "properties": {
+///                     "qualification_status": {
+///                       "type": "string",
+///                       "enum": [
+///                         "qualified"
+///                       ]
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub async fn qualify_offer(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -1313,6 +1593,110 @@ pub async fn qualify_offer(
     Ok(Json(json!({"data":{"qualification_status":"qualified"}})))
 }
 
+/// ```openapi
+/// {
+///   "path": "/admin/v1/providers/{provider}/qualification/revoke",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "revokeSupplierBusinessQualification",
+///     "x-niu-implementation": "implemented",
+///     "summary": "Revoke the current Supplier business qualification",
+///     "description": "Platform administration required. Appends an immutable reason digest and audit, clears the current business review, and pauses all Supplier offers while clearing their current reviews atomically. Missing/deleted Supplier or absence of a current review conflicts, including repeated revocation. Does not erase historical reviews or change existing request charges or earnings.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "provider",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "reason_sha256"
+///             ],
+///             "properties": {
+///               "reason_sha256": {
+///                 "type": "string",
+///                 "pattern": "^[0-9a-f]{64}$",
+///                 "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "400": {
+///         "description": "Invalid path UUID, malformed JSON, evidence digest, expiry or review metadata."
+///       },
+///       "401": {
+///         "description": "Missing or invalid administrator authentication."
+///       },
+///       "403": {
+///         "description": "Authenticated principal lacks platform management permission."
+///       },
+///       "409": {
+///         "description": "Missing resource or qualification/revision prerequisites no longer hold."
+///       },
+///       "415": {
+///         "description": "Request is not JSON."
+///       },
+///       "422": {
+///         "description": "JSON has missing, unknown or incorrectly typed fields."
+///       },
+///       "500": {
+///         "description": "Unexpected internal persistence failure."
+///       },
+///       "503": {
+///         "description": "Persistence temporarily unavailable; no successful qualification is confirmed."
+///       },
+///       "200": {
+///         "description": "Qualification transaction committed.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "required": [
+///                     "qualification_status"
+///                   ],
+///                   "properties": {
+///                     "qualification_status": {
+///                       "type": "string",
+///                       "enum": [
+///                         "revoked"
+///                       ]
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub async fn revoke_business_qualification(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -1328,6 +1712,119 @@ pub async fn revoke_business_qualification(
     Ok(Json(json!({"data":{"qualification_status":"revoked"}})))
 }
 
+/// ```openapi
+/// {
+///   "path": "/admin/v1/providers/{provider}/offers/{offer}/qualification/revoke",
+///   "method": "post",
+///   "operation": {
+///     "operationId": "revokeSupplierOfferQualification",
+///     "x-niu-implementation": "implemented",
+///     "summary": "Revoke the current Supplier offer qualification",
+///     "description": "Platform administration required. Appends an immutable reason digest and audit, clears the current offer review and pauses that offer atomically. Missing/deleted Supplier, missing offer or absence of a current review conflicts, including repeated revocation. Other offers and historical request charges or earnings are unchanged.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "provider",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "offer",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "reason_sha256"
+///             ],
+///             "properties": {
+///               "reason_sha256": {
+///                 "type": "string",
+///                 "pattern": "^[0-9a-f]{64}$",
+///                 "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "400": {
+///         "description": "Invalid path UUID, malformed JSON, evidence digest, expiry or review metadata."
+///       },
+///       "401": {
+///         "description": "Missing or invalid administrator authentication."
+///       },
+///       "403": {
+///         "description": "Authenticated principal lacks platform management permission."
+///       },
+///       "409": {
+///         "description": "Missing resource or qualification/revision prerequisites no longer hold."
+///       },
+///       "415": {
+///         "description": "Request is not JSON."
+///       },
+///       "422": {
+///         "description": "JSON has missing, unknown or incorrectly typed fields."
+///       },
+///       "500": {
+///         "description": "Unexpected internal persistence failure."
+///       },
+///       "503": {
+///         "description": "Persistence temporarily unavailable; no successful qualification is confirmed."
+///       },
+///       "200": {
+///         "description": "Qualification transaction committed.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object",
+///                   "required": [
+///                     "qualification_status"
+///                   ],
+///                   "properties": {
+///                     "qualification_status": {
+///                       "type": "string",
+///                       "enum": [
+///                         "revoked"
+///                       ]
+///                     }
+///                   }
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub async fn revoke_offer_qualification(
     State(state): State<AppState>,
     headers: HeaderMap,

@@ -4,7 +4,11 @@
   "source_commit": "33ce4a5910e2fa41634d01173f4cdbfaa2c3cef9",
   "runtime_commit": "3fdc669c60a74038e138cf03eaca0e0a4964750d",
   "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
-  "active_implementation_tasks": [],
+  "active_implementation_tasks": [
+    "S02-2",
+    "S10-1",
+    "S11-2"
+  ],
   "subsystems": [
     {
       "id": "S01",
@@ -52,7 +56,7 @@
       "id": "S02",
       "name": "Supplier configuration and model catalog",
       "lane": "A",
-      "status": "open",
+      "status": "active",
       "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
       "paths": [
         "apps/gateway/src/providers.rs",
@@ -76,7 +80,7 @@
         },
         {
           "id": "S02-2",
-          "status": "open",
+          "status": "active",
           "acceptance": "All required management, membership, catalog and qualification operations have exact published contracts and ordinary-role isolation.",
           "evidence": [],
           "evidence_revision": null,
@@ -411,7 +415,7 @@
       "id": "S10",
       "name": "Platform configuration and security facilities",
       "lane": "A",
-      "status": "open",
+      "status": "active",
       "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
       "paths": [
         "apps/gateway/src/branding.rs",
@@ -426,7 +430,7 @@
       "tasks": [
         {
           "id": "S10-1",
-          "status": "open",
+          "status": "active",
           "acceptance": "Inventory and publish platform authentication/branding/theme/payment configuration and member profile/preferences contracts with correct authority.",
           "evidence": [],
           "evidence_revision": null,
@@ -454,7 +458,7 @@
       "id": "S11",
       "name": "Contracts, SDK and documentation",
       "lane": "I",
-      "status": "open",
+      "status": "active",
       "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
       "paths": [
         "contracts",
@@ -476,7 +480,7 @@
         },
         {
           "id": "S11-2",
-          "status": "open",
+          "status": "active",
           "acceptance": "Close core root/handler schema gaps and manually map actual SDK methods; explicitly classify excluded/non-JSON/HEAD operations.",
           "evidence": [],
           "evidence_revision": null,

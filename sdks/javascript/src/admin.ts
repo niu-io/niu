@@ -19,6 +19,11 @@ export type Workspace = WorkspaceRoute & {
   requests_by_day: Array<{ start_ms: number; request_count: number }>;
   last_request_at_ms: number | null;
 };
+/** Current authenticated member only; installation tokens have no member profile. */
+export type MemberProfile = { name: string; email: string | null; avatar_data_url: string | null; revision: number };
+export type MemberProfileUpdate = { name: string; avatar_data_url?: string | null; expected_revision: number };
+export type MemberPreferences = { color_mode: 'system' | 'light' | 'dark' };
+
 export type WorkspaceInput = { name: string; organization_id?: string | null };
 export type WorkspaceCreateOptions = RequestOptions & { idempotencyKey?: string };
 export type CompanyMetadata = { id: string; name: string };
@@ -357,6 +362,10 @@ export type WorkspaceDetectorDescription = {
   concurrency: number; max_text_bytes: number; max_response_bytes: 4096;
   external_charge: 'unknown' | 'declared_unmetered'; customer_billing: 'not_integrated'; policy_activation: boolean;
 };
+export type GuardrailDetectorDescription = Omit<WorkspaceDetectorDescription, 'detector' | 'content_sent'> & { content_sent: 'synthetic_text' };
+export type GuardrailDetectorPreviewInput = { configuration_fingerprint: string; text: string; consent_to_external_processing: true };
+export type GuardrailDetectorPreviewResult = { outcome: 'clear' | 'matched' | 'indeterminate'; reason: string; synthetic: true; enforcement: false };
+
 export type WorkspaceImageDetectorDescription = {
   detector: string; schema_version: 2; detector_revision: string; configuration_fingerprint: string;
   recipient: string; region: string; retention: string; processing_guarantees: 'declared_unverified';
@@ -781,6 +790,27 @@ export interface RoutingRegistryStatus {
 }
 
 export class NiuAdminClient {
+  /** Read the current member; this never selects a caller-supplied operator ID. */
+  getMemberProfile(options?: RequestOptions): Promise<{ data: MemberProfile }> {
+    return this.request('/auth/profile', undefined, options);
+  }
+
+  /** Omitted/null avatar clears it. Stale revision returns 409; reload before retry. */
+  updateMemberProfile(input: MemberProfileUpdate, options?: RequestOptions): Promise<{ data: MemberProfile }> {
+    return this.request('/auth/profile', input, options, 'PUT');
+  }
+
+  /** A missing saved preference resolves to the deployment default appearance. */
+  getMemberPreferences(options?: RequestOptions): Promise<{ data: MemberPreferences }> {
+    return this.request('/auth/preferences', undefined, options);
+  }
+
+  /** Saves the current member's preference in backend storage. */
+  updateMemberPreferences(input: MemberPreferences, options?: RequestOptions): Promise<{ data: MemberPreferences }> {
+    return this.request('/auth/preferences', input, options, 'PUT');
+  }
+
+
   /** Platform-only membership history, including inactive and revoked members. */
   listSupplierMembers(supplierId: string, options?: RequestOptions): Promise<{ data: SupplierMember[] }> {
     return this.request(`/providers/${uuid(supplierId)}/members`, undefined, options);
@@ -2241,6 +2271,18 @@ export class NiuAdminClient {
   /** Missing historical/denied attribution stays null; this does not claim content inspection. */
   getRequestGuardrailDecision(scope: TenantScope, attemptId: string, options?: RequestOptions): Promise<{data: RequestGuardrailDecision | null}> {
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/requests/${uuid(attemptId)}/guardrails`, undefined, options);
+  }
+
+  /** Installation-only disclosure; declarations are not verified processing guarantees. */
+  getGuardrailDetectorDescription(detector: string, options?: RequestOptions): Promise<GuardrailDetectorDescription> {
+    if (!/^[A-Za-z0-9_-]{1,200}$/.test(detector)) throw new TypeError('Invalid detector name');
+    return this.request(`/guardrails/detectors/${detector}`, undefined, options);
+  }
+
+  /** Explicit external processing consent; no policy activation or customer billing. */
+  previewGuardrailDetector(detector: string, input: GuardrailDetectorPreviewInput, options?: RequestOptions): Promise<GuardrailDetectorPreviewResult> {
+    if (!/^[A-Za-z0-9_-]{1,200}$/.test(detector)) throw new TypeError('Invalid detector name');
+    return this.request(`/guardrails/detectors/${detector}/preview`, input, options, 'POST');
   }
 
   /** Declared processing conditions for deployment-authorized workspace detectors. */
