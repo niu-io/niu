@@ -33,6 +33,8 @@ pub struct WorkspaceProviderAssetGroup {
     vendor_revision: i64,
     #[serde(skip)]
     model_revision: i64,
+    #[serde(skip)]
+    upstream_model: String,
 }
 impl WorkspaceProviderAssetGroup {
     pub fn private_reference(&self) -> Option<&str> {
@@ -44,6 +46,10 @@ impl WorkspaceProviderAssetGroup {
     pub fn vendor_revision(&self) -> i64 {
         self.vendor_revision
     }
+    pub fn private_upstream_model(&self) -> &str {
+        &self.upstream_model
+    }
+    /// Model revision at creation, retained as immutable history.
     pub fn model_revision(&self) -> i64 {
         self.model_revision
     }
@@ -71,6 +77,8 @@ pub struct WorkspaceProviderAsset {
     vendor_revision: i64,
     #[serde(skip)]
     model_revision: i64,
+    #[serde(skip)]
+    upstream_model: String,
 }
 impl WorkspaceProviderAsset {
     pub fn has_acknowledged_creation(&self) -> bool {
@@ -88,6 +96,10 @@ impl WorkspaceProviderAsset {
     pub fn vendor_revision(&self) -> i64 {
         self.vendor_revision
     }
+    pub fn private_upstream_model(&self) -> &str {
+        &self.upstream_model
+    }
+    /// Model revision at creation, retained as immutable history.
     pub fn model_revision(&self) -> i64 {
         self.model_revision
     }
@@ -110,6 +122,8 @@ pub struct WorkspaceProviderAssetOperation {
     vendor_revision: i64,
     #[serde(skip)]
     model_revision: i64,
+    #[serde(skip)]
+    upstream_model: String,
 }
 impl WorkspaceProviderAssetOperation {
     pub fn vendor_id(&self) -> Uuid {
@@ -118,6 +132,10 @@ impl WorkspaceProviderAssetOperation {
     pub fn vendor_revision(&self) -> i64 {
         self.vendor_revision
     }
+    pub fn private_upstream_model(&self) -> &str {
+        &self.upstream_model
+    }
+    /// Model revision at creation, retained as immutable history.
     pub fn model_revision(&self) -> i64 {
         self.model_revision
     }
@@ -231,9 +249,9 @@ pub enum WorkspaceProviderAssetOutcome {
     /// Only a proven failure before HTTP dispatch; no HTTP refusal implies this.
     NotDispatched,
 }
-const GROUP_COLUMNS: &str = "g.id,g.model_alias AS model,g.name,g.description,g.kind,g.status,g.revision::text AS revision,floor(extract(epoch FROM g.created_at)*1000)::bigint AS created_at_ms,floor(extract(epoch FROM g.updated_at)*1000)::bigint AS updated_at_ms,g.provider_ref,g.vendor_id,g.vendor_revision,g.model_revision";
-const ASSET_COLUMNS: &str = "a.id,a.group_id,g.model_alias AS model,a.name,a.kind,CASE WHEN g.status='unknown' THEN 'unknown' ELSE a.status END AS status,a.revision::text AS revision,floor(extract(epoch FROM a.created_at)*1000)::bigint AS created_at_ms,floor(extract(epoch FROM a.updated_at)*1000)::bigint AS updated_at_ms,a.provider_ref,g.provider_ref AS group_provider_ref,g.vendor_id,g.vendor_revision,g.model_revision,EXISTS(SELECT 1 FROM workspace_provider_asset_operations created WHERE created.organization_id=a.organization_id AND created.project_id=a.project_id AND created.group_id=a.group_id AND created.asset_id=a.id AND created.action='create_asset' AND created.status='acknowledged') AS create_acknowledged";
-const OP_COLUMNS: &str = "o.id,o.group_id,o.asset_id,g.model_alias AS model,o.action,o.status,o.http_status,o.request_id,floor(extract(epoch FROM o.created_at)*1000)::bigint AS created_at_ms,floor(extract(epoch FROM o.updated_at)*1000)::bigint AS updated_at_ms,g.vendor_id,g.vendor_revision,g.model_revision";
+const GROUP_COLUMNS: &str = "g.id,g.model_alias AS model,g.name,g.description,g.kind,g.status,g.revision::text AS revision,floor(extract(epoch FROM g.created_at)*1000)::bigint AS created_at_ms,floor(extract(epoch FROM g.updated_at)*1000)::bigint AS updated_at_ms,g.provider_ref,g.vendor_id,g.vendor_revision,g.model_revision,g.upstream_model";
+const ASSET_COLUMNS: &str = "a.id,a.group_id,g.model_alias AS model,a.name,a.kind,CASE WHEN g.status='unknown' THEN 'unknown' ELSE a.status END AS status,a.revision::text AS revision,floor(extract(epoch FROM a.created_at)*1000)::bigint AS created_at_ms,floor(extract(epoch FROM a.updated_at)*1000)::bigint AS updated_at_ms,a.provider_ref,g.provider_ref AS group_provider_ref,g.vendor_id,g.vendor_revision,g.model_revision,g.upstream_model,EXISTS(SELECT 1 FROM workspace_provider_asset_operations created WHERE created.organization_id=a.organization_id AND created.project_id=a.project_id AND created.group_id=a.group_id AND created.asset_id=a.id AND created.action='create_asset' AND created.status='acknowledged') AS create_acknowledged";
+const OP_COLUMNS: &str = "o.id,o.group_id,o.asset_id,g.model_alias AS model,o.action,o.status,o.http_status,o.request_id,floor(extract(epoch FROM o.created_at)*1000)::bigint AS created_at_ms,floor(extract(epoch FROM o.updated_at)*1000)::bigint AS updated_at_ms,g.vendor_id,g.vendor_revision,g.model_revision,g.upstream_model";
 #[derive(Serialize)]
 pub struct WorkspaceProviderAssetPage<T: Serialize> {
     pub data: Vec<T>,
@@ -534,7 +552,7 @@ fn provider_group_binding(
     if g.model != r.model_alias
         || g.vendor_id != r.vendor_id
         || g.vendor_revision != r.vendor_revision
-        || g.model_revision != r.model_revision
+        || g.upstream_model != r.upstream_model
     {
         Err(StoreError::Conflict)
     } else {
