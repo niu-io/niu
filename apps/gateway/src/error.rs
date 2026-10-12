@@ -462,6 +462,14 @@ impl ApiError {
             RequestFailureKind::UpstreamTransportError
         };
         let mut result = Self::upstream();
+        result.message = match (error.is_timeout(), error.is_connect()) {
+            (true, true) => {
+                "The provider connection timed out. Check upstream connectivity and the configured connection budget"
+            }
+            (true, false) => "The provider request timed out before completion",
+            (false, true) => "The provider connection failed. Check upstream connectivity",
+            _ => result.message,
+        };
         let transport_phase = if error.is_connect() {
             Some(niu_storage::RequestTransportPhase::Connection)
         } else if error.is_timeout() {
