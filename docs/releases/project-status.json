@@ -4,9 +4,7 @@
   "source_commit": "38443589",
   "runtime_commit": "8bfdef10003eebe9402401247aa52cd69d3a398f",
   "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
-  "active_implementation_tasks": [
-    "S10-2"
-  ],
+  "active_implementation_tasks": [],
   "subsystems": [
     {
       "id": "S01",
@@ -510,7 +508,7 @@
             "docs/reference/platform-configuration-acceptance.md"
           ],
           "evidence_revision": "4a459338",
-          "note": "Eleven published contracts with independently verified native authority/persistence and actual new SDK helper execution; external activation and broader security checks remain separate."
+          "note": "Eleven platform/member contracts inventoried and published; helper implementations are static contract evidence. Genuine SDK discovery/branding/member-preference/configuration-authority workflows retain their independent actual scopes. EPay fixture phase outcomes, including local contract/permission/persistence/restart, are entirely excluded; no claim that all eleven methods were genuinely executed."
         },
         {
           "id": "S10-2",
@@ -533,7 +531,7 @@
             "docs/reference/platform-safe-projection-acceptance.md"
           ],
           "evidence_revision": "186662c5",
-          "note": "Current HTTP input refusals, two-Gateway revision races, permission revocation and safe projections independently verified; broader encryption-domain acceptance remains S10-2."
+          "note": "Actual branding input refusals, two-Gateway branding revision races, current permission revocation, safe branding/public projections and restart independently verified. Every EPay fixture outcome (including race/secret/persistence/authority) is excluded; payment contract source inventory is not merchant or configured-secret acceptance. Broader genuine rotation remains separately qualified underS10-2."
         }
       ]
     },
