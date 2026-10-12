@@ -26,8 +26,11 @@ acceptance, not the amount of implemented code or complete release readiness.
 At source revision `9634c70e`, FastRouter has an encrypted personal-test Supplier
 credential and four disabled Seedance mappings. One actual mini-model SDK
 submission received HTTP 400; its unknown state, replay and restart were checked
-independently. Successful FastRouter generation, normalized asset/identity
-endpoints and paid media settlement remain open. The original runtime remains
+independently. A separate documented Seedance 2.5 request subsequently produced a real video,
+verified by an official exact-task query and independent hash/full decode.
+Niu Gateway terminal recovery/result retrieval, normalized asset/identity
+endpoints and paid media settlement remain open. See the
+[scoped FastRouter evidence](../reference/fastrouter-documented-video-acceptance.md). The original runtime remains
 `17b7370a`, schema 290; a retained build of the new diagnostics implementation is
 not evidence that its schema-291 behavior is deployed or accepted.
 
