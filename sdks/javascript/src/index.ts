@@ -281,6 +281,7 @@ export type VideoModel = {
   object: 'video.model'; id: string; mode: 'owner_funded' | 'customer';
   input_types: ['text'] | ['text', 'image_url']; text: { maximum_items: number; maximum_bytes: number };
   requires_image?: boolean;
+  workspace_asset?: { media_kind: 'image'; requires_consent: true; requires_current_inspection: true; maximum_items: number; requires_text: true };
   image_url?: {
     maximum_items: number; maximum_bytes: number; https: false;
     data_mime_types: Array<'image/png' | 'image/jpeg' | 'image/webp'>;
@@ -303,9 +304,15 @@ export type IngestedVideoImageInput = {
   ingested_image: { ingestion_id: string; readiness_id: string; consent_to_reuse: true };
 };
 
+/** Saved workspace images undergo fresh inspection before generation. */
+export type WorkspaceAssetVideoImageInput = {
+  type: 'workspace_asset'; role?: string;
+  workspace_asset: { asset_id: string; consent_to_process: true };
+};
+
 export type VideoCreateRequest = {
   model: string;
-  content: Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string }; role?: string } | IngestedVideoImageInput>;
+  content: Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string }; role?: string } | IngestedVideoImageInput | WorkspaceAssetVideoImageInput>;
   [control: string]: unknown;
 };
 

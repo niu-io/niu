@@ -172,6 +172,7 @@ fn projection_with_images(
                 "https":false,"data_mime_types":types,"roles":rule.roles,"role_required":rule.role_required,
                 "maximum_width":width,"maximum_height":height,"maximum_decoded_bytes":decoded,
                 "requires_text":true});
+            value["workspace_asset"] = json!({"media_kind":"image","requires_consent":true,"requires_current_inspection":true,"maximum_items":count,"requires_text":true});
             value["requires_image"] = json!(!text_permitted);
             return Some(value);
         }

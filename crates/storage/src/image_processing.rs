@@ -157,7 +157,7 @@ impl Store {
         }
     }
 
-    async fn bind_image_request_using(
+    pub(crate) async fn bind_image_request_using(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         principal: &Principal,
         attempt: Uuid,

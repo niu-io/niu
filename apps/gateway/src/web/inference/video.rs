@@ -680,7 +680,8 @@ pub(super) async fn validate_admission(
     body: &Value,
     model: &str,
 ) -> Result<VideoAdmission, ApiError> {
-    let prepared = super::video_ingested_images::prepare(body)?;
+    let workspace = super::video_workspace_assets::prepare(body)?;
+    let prepared = super::video_ingested_images::prepare(workspace.admission_body())?;
     let body = prepared.admission_body();
     let placeholders = prepared.trusted_placeholders();
     let scope = principal.scope();
@@ -936,9 +937,12 @@ pub(super) fn policy_permits_video(
 
 fn has_images(body: &Value) -> bool {
     body["content"].as_array().is_some_and(|items| {
-        items
-            .iter()
-            .any(|item| matches!(item["type"].as_str(), Some("image_url" | "ingested_image")))
+        items.iter().any(|item| {
+            matches!(
+                item["type"].as_str(),
+                Some("image_url" | "ingested_image" | "workspace_asset")
+            )
+        })
     })
 }
 
@@ -1057,7 +1061,7 @@ pub(super) async fn estimate_as(
 ///   "operation": {
 ///     "operationId": "createOwnerFundedVideoJob",
 ///     "summary": "Submit a schema-validated video job",
-///     "description": "Personal routes support configured ark-direct-v1 or openrouter-video-v1 channels. Customer-funded video currently requires a qualified ark-direct-v1 route and video_tokens pricing; OpenRouter remains personal-only. Shared routes with a legacy procurement budget are unsupported, while personal routes retain ordinary authorization and key limits. Exactly one upstream submission follows durable dispatch intent. HTTP or transport errors retain submission_unknown and any unresolved liability. Observed non-success HTTP statuses are saved as upstream_http_error in scoped request diagnostics, without upstream bodies or credentials; they do not prove nonexecution or authorize a retry. Fresh creation responses include x-niu-attempt-id. Logs retain the inspected Niu request and delivered Niu creation response for up to 24 hours by default; x-niu-log-payloads: false opts out. Requests larger than the 1 MiB capture bound are not retained. This is not an upstream transport-body capture, and replay does not recreate deleted or expired payloads. Optional workspace-scoped Idempotency-Key supports text-only creation: identical replay returns the original reference and current saved status, including after restart. Changed input conflicts. Unkeyed requests are not idempotent. Configured controls, reference inputs and required inspection remain subject to the selected schema and supported channel. Short-lived ordinary ingested_image references accept Niu ingestion/readiness IDs with explicit consent_to_reuse. Provider asset URIs remain private and are resolved only for the exact selected Ark route. This does not grant durable library or portrait rights; expired, erased, revoked or unavailable bindings fail closed before dispatch.",
+///     "description": "Personal routes support configured ark-direct-v1 or openrouter-video-v1 channels. Customer-funded video currently requires a qualified ark-direct-v1 route and video_tokens pricing; OpenRouter remains personal-only. Shared routes with a legacy procurement budget are unsupported, while personal routes retain ordinary authorization and key limits. Exactly one upstream submission follows durable dispatch intent. HTTP or transport errors retain submission_unknown and any unresolved liability. Observed non-success HTTP statuses are saved as upstream_http_error in scoped request diagnostics, without upstream bodies or credentials; they do not prove nonexecution or authorize a retry. Fresh creation responses include x-niu-attempt-id. Logs retain the inspected Niu request and delivered Niu creation response for up to 24 hours by default; x-niu-log-payloads: false opts out. Requests larger than the 1 MiB capture bound are not retained. This is not an upstream transport-body capture, and replay does not recreate deleted or expired payloads. Optional workspace-scoped Idempotency-Key supports text-only creation: identical replay returns the original reference and current saved status, including after restart. Changed input conflicts. Unkeyed requests are not idempotent. Configured controls, reference inputs and required inspection remain subject to the selected schema and supported channel. Short-lived ordinary ingested_image references accept Niu ingestion/readiness IDs with explicit consent_to_reuse. Provider asset URIs remain private and are resolved only for the exact selected Ark route. This does not grant durable library or portrait rights; expired, erased, revoked or unavailable bindings fail closed before dispatch. Durable workspace image references do not reuse Provider readiness or old inspection receipts; they undergo fresh current inspection and atomic local-content authorization.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1203,10 +1207,44 @@ pub(super) async fn estimate_as(
 ///                           }
 ///                         }
 ///                       }
+///                     },
+///                     {
+///                       "type": "object",
+///                       "additionalProperties": false,
+///                       "required": [
+///                         "type",
+///                         "workspace_asset"
+///                       ],
+///                       "properties": {
+///                         "type": {
+///                           "const": "workspace_asset"
+///                         },
+///                         "role": {
+///                           "type": "string",
+///                           "minLength": 1
+///                         },
+///                         "workspace_asset": {
+///                           "type": "object",
+///                           "additionalProperties": false,
+///                           "required": [
+///                             "asset_id",
+///                             "consent_to_process"
+///                           ],
+///                           "properties": {
+///                             "asset_id": {
+///                               "type": "string",
+///                               "format": "uuid"
+///                             },
+///                             "consent_to_process": {
+///                               "const": true
+///                             }
+///                           }
+///                         }
+///                       }
 ///                     }
 ///                   ]
 ///                 },
-///                 "description": "Ordered configured text/inline-image inputs or Niu ingested_image IDs. Ingested references require current original-account Active observation, retained inspected content and unexpired original grants/consent; dispatch rechecks all bindings atomically. Ark direct only; mixed inline/ingested input and image idempotency are unsupported. Client asset:// URIs are never accepted."
+///                 "description": "Ordered configured text/inline-image inputs or Niu ingested_image IDs. Ingested references require current original-account Active observation, retained inspected content and unexpired original grants/consent; dispatch rechecks all bindings atomically. Ark direct only; mixed inline/ingested input and image idempotency are unsupported. Client asset:// URIs are never accepted. Workspace image-library references require explicit processing consent, current workspace ownership and fresh configured inspection. Local bytes are resolved privately and deletion/content identity is rechecked atomically before dispatch. Stored audio/video, mixed ingested/library input and reference idempotency remain unsupported."
 ///               }
 ///             },
 ///             "additionalProperties": true
@@ -1449,6 +1487,16 @@ pub(super) async fn create_as(
     if !policy_permits_video_with_images(&snapshot, model, &route.vendor.adapter, images_present) {
         return Err(ApiError::forbidden());
     }
+    let workspace_prepared = super::video_workspace_assets::prepare(&body)?;
+    let workspace_log_body = workspace_prepared.has_references().then(|| body.clone());
+    let workspace_resolved = if workspace_prepared.has_references() {
+        Some(super::video_workspace_assets::resolve(&state, &principal, &workspace_prepared).await?)
+    } else {
+        None
+    };
+    if let Some(resolved) = &workspace_resolved {
+        body = resolved.body().clone();
+    }
     // Redaction must still satisfy the exact schema selected before inspection.
     // Never select another route or tariff after transforming the prompt.
     let schema: niu_media::VideoSchema =
@@ -1629,7 +1677,31 @@ pub(super) async fn create_as(
             .await
             .map_err(ApiError::from_store)?;
     }
-    let dispatch = if let Some(resolved) = &resolved {
+    let dispatch = if let Some(workspace) = &workspace_resolved {
+        let references: Vec<_> = workspace
+            .references
+            .iter()
+            .map(|reference| niu_storage::WorkspaceAssetVideoReference {
+                position: reference.position,
+                asset_id: reference.asset_id,
+                content_sha256: reference.content_sha256.clone(),
+                observed_revision: reference.revision,
+            })
+            .collect();
+        state
+            .store
+            .mark_workspace_asset_video_dispatched(
+                &principal,
+                attempt,
+                niu_storage::WorkspaceAssetVideoDispatch {
+                    snapshot: &snapshot,
+                    request,
+                    approvals: &image_bindings,
+                    assets: &references,
+                },
+            )
+            .await
+    } else if let Some(resolved) = &resolved {
         let selected = niu_storage::IngestedImageRoute {
             vendor_id: route.vendor.id,
             vendor_revision: route.vendor.revision,
@@ -1773,6 +1845,11 @@ pub(super) async fn create_as(
     // Only the inspected customer request belongs in Logs. Upstream transport
     // bodies, credentials and result references have a different trust boundary.
     // Replays return above and cannot replace the original capture or its expiry.
+    // Keep the inspected prompt and original library references; never duplicate
+    // privately resolved material bytes into the customer request capture.
+    if let Some(original) = workspace_log_body {
+        body = original;
+    }
     crate::request_payloads::remove_credentials(&mut body);
     if serde_json::to_vec(&body).is_ok_and(|bytes| bytes.len() <= 1_048_576) {
         response
