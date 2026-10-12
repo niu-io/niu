@@ -570,3 +570,29 @@ This update corrects documented no-expiration behavior and indexes newer
 interfaces. It does not close the full M1 handler/schema/SDK/runtime inventory in
 [the delivery plan](backend-delivery-plan.md). Committed workspace rename/delete
 still uses `W`; uncommitted alternative routes are not a delivered contract.
+
+## Workspace mutation compatibility freeze — 2026-10-12
+
+The backend freezes both route families for continuous frontend integration.
+Current frontend workspace callbacks use the workspace-ID routes below; those
+exact requests and response shapes have current native HTTP acceptance. Browser
+interaction and frontend packaging remain separate ownership.
+
+| Operation | Current route | Preserved legacy route | Result |
+| --- | --- | --- | --- |
+| Rename | `PATCH /admin/v1/workspaces/{workspace}` | `PATCH W` | Exact `{id,name}` with the persisted trimmed name |
+| Delete | `DELETE /admin/v1/workspaces/{workspace}` | `DELETE W` | Empty 204; repeat is 404; retained dependent data returns 409 |
+
+SDK `ab60bba3` accepts a workspace ID or the existing `TenantScope` object in
+`renameWorkspace` and `deleteWorkspace`. The explicit `renameWorkspaceById` and
+`deleteWorkspaceById` methods also remain available. Legacy routes and scoped
+SDK callers are retained; frontend synchronization does not require deleting
+stored history or adopting a breaking argument change.
+
+Actual compiled SDK calls through both argument forms ran against native
+`1212ea3b`. Rename and empty deletion, six role/scope combinations, dependency
+refusals, restart, authentication before locked lookup and revoked credentials
+were exercised. Independent reopening matched raw artifacts, persisted names,
+revocations and unchanged original financial/configuration/business rows. No
+model calls or funding were introduced. UI adoption and visual acceptance are
+not inferred from backend compatibility.

@@ -1,11 +1,10 @@
 {
   "version": 1,
   "updated": "2026-10-12",
-  "source_commit": "1212ea3b68f934c22fff6c62696475d2f628fc6a",
+  "source_commit": "ab60bba3150b294932710db2fc3845cacc139bbf",
   "runtime_commit": "1212ea3b68f934c22fff6c62696475d2f628fc6a",
   "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
   "active_implementation_tasks": [
-    "S01-3",
     "S02-3",
     "S08-2",
     "S05-2",
@@ -20,7 +19,7 @@
       "id": "S01",
       "name": "Identity and workspaces",
       "lane": "A",
-      "status": "active",
+      "status": "done",
       "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
       "paths": [
         "apps/gateway/src/admin.rs",
@@ -52,11 +51,14 @@
         },
         {
           "id": "S01-3",
-          "status": "active",
+          "status": "done",
           "acceptance": "Freeze workspace route compatibility with the frontend owner; reject inconsistent updates/deletion without losing retained business data.",
-          "evidence": [],
-          "evidence_revision": null,
-          "note": ""
+          "evidence": [
+            "docs/releases/backend-integration-contract.md",
+            "docs/reference/parallel-core-backend-acceptance.md"
+          ],
+          "evidence_revision": "ab60bba3",
+          "note": "Frozen compatible route families match current frontend workspace callbacks; current native and actual SDK ID/scoped argument forms independently verified. UI adoption remains delegated."
         }
       ]
     },

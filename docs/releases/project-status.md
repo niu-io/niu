@@ -1,20 +1,20 @@
 # Project delivery status
 
 Baseline v1; updated 2026-10-12.
-Committed audit source `1212ea3b`; native implementation `1212ea3b`.
+Committed audit source `ab60bba3`; native implementation `1212ea3b`.
 
-**Backend acceptance checkpoints: 19/36 recorded complete at their evidence pins.**
-**Whole backend subsystems closed: 0/12.**
+**Backend acceptance checkpoints: 20/36 recorded complete at their evidence pins.**
+**Whole backend subsystems closed: 1/12.**
 These are acceptance-checkpoint counts, not coding percentage, fresh execution of every path or release readiness.
 Existing scoped evidence is carried forward explicitly. Missing evidence remains open; fixture outcomes have zero signal.
 
 Source of truth: [project-status.json](project-status.json). Scope changes require a versioned reason; they cannot silently change the denominator.
 Status meanings: open = unfinished; active = explicitly assigned current work; blocked = identified dependency prevents progress; done = every stated criterion has evidence; delegated/deferred = separate ownership or excluded scope.
-Active implementation: S01-3, S02-3, S08-2, S05-2, S10-2, S03-2, S04-3, S07-2, S07-3. Assignments use stable task IDs.
+Active implementation: S02-3, S08-2, S05-2, S10-2, S03-2, S04-3, S07-2, S07-3. Assignments use stable task IDs.
 
 | Subsystem | Owner lane | Status | Completed checks | Dependencies |
 | --- | --- | --- | ---: | --- |
-| S01 Identity and workspaces | A | active | 2/3 | None |
+| S01 Identity and workspaces | A | done | 3/3 | None |
 | S02 Supplier configuration and model catalog | A | active | 2/3 | S01 |
 | S03 Inference protocols and route coordination | B | active | 1/3 | S02, S04, S05 |
 | S04 Key controls and Guardrails | A | active | 2/3 | S01 |
@@ -37,7 +37,7 @@ Active implementation: S01-3, S02-3, S08-2, S05-2, S10-2, S03-2, S04-3, S07-2, S
 | --- | --- | --- | --- |
 | S01-1 | done | Workspace creation/list scoped access, durable identical retry, changed retry refusal and restart for the exercised legacy workflow. | [record](../../docs/releases/backend-interface-gaps.md) (`3fdc669c`) |
 | S01-2 | done | Member authentication, expiry/sign-out, company/workspace roles and cross-scope administration match the declared backend contract. | [record](../../docs/reference/parallel-core-backend-acceptance.md) (`fb21b52a`) |
-| S01-3 | active | Freeze workspace route compatibility with the frontend owner; reject inconsistent updates/deletion without losing retained business data. | Missing / not yet accepted |
+| S01-3 | done | Freeze workspace route compatibility with the frontend owner; reject inconsistent updates/deletion without losing retained business data. | [record](../../docs/releases/backend-integration-contract.md), [record](../../docs/reference/parallel-core-backend-acceptance.md) (`ab60bba3`) |
 
 ### S02 — Supplier configuration and model catalog
 
