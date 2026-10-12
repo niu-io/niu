@@ -2,7 +2,6 @@
 //! explicit processing consent and a qualified unmetered detector before use.
 //! No configuration declaration establishes these permissions or live coverage.
 use crate::image_input::{DecodeError, DecodedImage};
-use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::time::Duration;
 
@@ -39,21 +38,6 @@ impl ApprovedImage {
         self.image.inline_reference(maximum_bytes)
     }
 }
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Response {
-    schema_version: u32,
-    detector_revision: String,
-    content_sha256: String,
-    verdict: Verdict,
-}
-#[derive(Deserialize)]
-#[serde(rename_all = "snake_case")]
-enum Verdict {
-    Clear,
-    Matched,
-}
-
 /// One POST, bounded total deadline and response, no retries or redirects. Only
 /// an exact revision/content echo with Clear produces an approval. The contract
 /// is Niu's versioned adapter interface, not a claim of existing vendor support.
@@ -80,58 +64,27 @@ pub async fn inspect(
         .inline_reference(contract.maximum_inline_bytes)
         .map_err(InspectionError::Image)?;
     let content_sha256 = format!("{:x}", Sha256::digest(image.encoded_bytes()));
-    let operation = async {
-        let client = niu_upstream::client_for_endpoint(endpoint, timeout)
-            .await
-            .map_err(|_| InspectionError::Transport)?;
-        let mut response = client
-            .post(endpoint)
-            .bearer_auth(credential)
-            .json(&serde_json::json!({
-                "schema_version":2, "detector_revision":contract.detector_revision,
-                "content_sha256":content_sha256, "image":reference
-            }))
-            .send()
-            .await
-            .map_err(transport_error)?;
-        if !response.status().is_success() {
-            return Err(InspectionError::ServiceFailure);
-        }
-        if response.content_length().is_some_and(|size| size > 4096) {
-            return Err(InspectionError::ResponseLimit);
-        }
-        let mut body = Vec::new();
-        while let Some(chunk) = response.chunk().await.map_err(transport_error)? {
-            if chunk.len() > 4096usize.saturating_sub(body.len()) {
-                return Err(InspectionError::ResponseLimit);
-            }
-            body.extend_from_slice(&chunk);
-        }
-        let response: Response =
-            serde_json::from_slice(&body).map_err(|_| InspectionError::InvalidResponse)?;
-        if response.schema_version != 2
-            || response.detector_revision != contract.detector_revision
-            || response.content_sha256 != content_sha256
-        {
-            return Err(InspectionError::InvalidResponse);
-        }
-        match response.verdict {
-            Verdict::Matched => Err(InspectionError::Matched),
-            Verdict::Clear => Ok(ApprovedImage {
-                image,
-                content_sha256,
-                detector_revision: contract.detector_revision.clone(),
-            }),
-        }
-    };
-    tokio::time::timeout(timeout, operation)
-        .await
-        .map_err(|_| InspectionError::Timeout)?
+    crate::media_inspection::inspect_exact(
+        endpoint, credential,
+        serde_json::json!({"schema_version":2,"detector_revision":contract.detector_revision,"content_sha256":content_sha256,"image":reference}),
+        crate::media_inspection::ExpectedEcho::ImageV2{revision:&contract.detector_revision,sha256:&content_sha256},
+        timeout,
+    ).await.map_err(inspection_error)?;
+    Ok(ApprovedImage {
+        image,
+        content_sha256,
+        detector_revision: contract.detector_revision.clone(),
+    })
 }
-fn transport_error(error: reqwest::Error) -> InspectionError {
-    if error.is_timeout() {
-        InspectionError::Timeout
-    } else {
-        InspectionError::Transport
+fn inspection_error(error: crate::media_inspection::TransportError) -> InspectionError {
+    use crate::media_inspection::TransportError;
+    match error {
+        TransportError::InvalidConfiguration => InspectionError::InvalidConfiguration,
+        TransportError::Transport => InspectionError::Transport,
+        TransportError::Timeout => InspectionError::Timeout,
+        TransportError::ServiceFailure => InspectionError::ServiceFailure,
+        TransportError::InvalidResponse => InspectionError::InvalidResponse,
+        TransportError::ResponseLimit => InspectionError::ResponseLimit,
+        TransportError::Matched => InspectionError::Matched,
     }
 }
