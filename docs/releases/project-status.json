@@ -1,8 +1,8 @@
 {
   "version": 1,
   "updated": "2026-10-12",
-  "source_commit": "4a2f956cbad72eda0a240ef627b9d04f259036a9",
-  "runtime_commit": "a25b0d41f10aef285c90172821d084818a2f86a2",
+  "source_commit": "bf3e87d3cab81af13687df0c85f81ddc5b10723f",
+  "runtime_commit": "4a2f956cbad72eda0a240ef627b9d04f259036a9",
   "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
   "active_implementation_tasks": [
     "S02-3",
@@ -248,7 +248,7 @@
             "docs/reference/current-tier-fee-acceptance.md"
           ],
           "evidence_revision": "5591a02d",
-          "note": "Current pinned additive fee matches real native Provider usage, charge/debit/CSV and canonical receipt. Above-tier attempt hit an actual connection timeout with no upstream response and retains its exact frozen uncertain liability. No retry or invented category; current positive above-tier/category matrix remains unverified."
+          "note": "Current pinned below-tier and above-tier additive fees match actual reported usage, independently reopened charges/debits and customer CSV. The earlier connection timeout retains its frozen uncertain liability without retry or invented quantity. Current category/concurrency/recovery consolidation remains open."
         },
         {
           "id": "S05-3",

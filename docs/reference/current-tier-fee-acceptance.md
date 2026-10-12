@@ -61,3 +61,36 @@ The two-generation budget is exhausted; no generation retry occurred. This run
 qualifies the current below-tier additive fee and the actual connect-timeout
 uncertainty handling. A successful above-tier charge, simultaneous nonzero token
 categories and the complete S05-2 matrix remain unverified by this run.
+
+## Current above-tier execution — 2026-10-12
+
+A separate finite run used retained native executable
+`4a2f956cbad72eda0a240ef627b9d04f259036a9`, with its SHA-256 checked,
+and a stopped PostgreSQL copy migrated from schema 284 to 287. It made exactly
+one new personal OpenRouter Chat generation; it did not retry the earlier
+uncertain attempt. The copy used an explicit ten-second connection budget and
+five-second DNS budget, with a sixty-second request budget. This successful
+request does not establish the cause of the earlier connection timeout or prove
+that changing the budget caused success. The original installation's budgets
+were unchanged.
+
+The actual response reported 216 input tokens, seven output tokens and explicit
+zero cache-read/cache-write quantities. Its frozen schedule selected the
+64-input-token tier: input and output rates were twice the original base rates.
+Upward-rounded token charges were 67,161 nanounits; the 12,345-nanounit fixed fee
+produced an exact customer charge of 79,506 nanounits.
+
+An independent reader reopened the original stopped source and the final stopped
+copy. It verified the retained response digest and executable hash, selected
+tier and tariff revision, one charge and one debit for exactly 79,506 nanounits,
+confirmed completion, and no unreleased reservation for the request. The actual
+customer CSV matched quantities and amount. Original attempt, financial,
+credential and model-table fingerprints matched after excluding this one new
+request. The scoped tariff was restored and the temporary key revoked. No cash
+funding, Supplier qualification or procurement figure was introduced.
+
+No canonical Provider generation lookup was requested in this run; these are
+reported-response and independently persisted accounting quantities. This closes
+the previously missing current positive above-tier additive-fee slice. The
+broader category/concurrency/recovery matrix and simultaneous nonzero categories
+remain separately scoped by [the accounting matrix](accounting-matrix-acceptance.md).
