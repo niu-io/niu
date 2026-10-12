@@ -1,22 +1,22 @@
 # Project delivery status
 
 Baseline v1; updated 2026-10-13.
-Committed audit source `4c971696`; native implementation `8bfdef10`.
+Committed audit source `d2abe411`; native implementation `8bfdef10`.
 
-**Backend acceptance checkpoints: 26/36 recorded complete at their evidence pins.**
+**Backend acceptance checkpoints: 27/36 recorded complete at their evidence pins.**
 **Whole backend subsystems closed: 4/12.**
 These are acceptance-checkpoint counts, not coding percentage, fresh execution of every path or release readiness.
 Existing scoped evidence is carried forward explicitly. Missing evidence remains open; fixture outcomes have zero signal.
 
 Source of truth: [project-status.json](project-status.json). Scope changes require a versioned reason; they cannot silently change the denominator.
 Status meanings: open = unfinished; active = explicitly assigned current work; blocked = identified dependency prevents progress; done = every stated criterion has evidence; delegated/deferred = separate ownership or excluded scope.
-Active implementation: S02-3, S08-2, S10-2, S03-2, S04-3, S03-3, S05-3, S06-3. Assignments use stable task IDs.
+Active implementation: S02-3, S08-2, S10-2, S04-3, S03-3, S05-3, S06-3. Assignments use stable task IDs.
 
 | Subsystem | Owner lane | Status | Completed checks | Dependencies |
 | --- | --- | --- | ---: | --- |
 | S01 Identity and workspaces | A | done | 3/3 | None |
 | S02 Supplier configuration and model catalog | A | active | 2/3 | S01 |
-| S03 Inference protocols and route coordination | B | active | 1/3 | S02, S04, S05 |
+| S03 Inference protocols and route coordination | B | active | 2/3 | S02, S04, S05 |
 | S04 Key controls and Guardrails | A | active | 2/3 | S01 |
 | S05 Pricing, balance, charging and reconciliation | B | active | 2/3 | S01 |
 | S06 Payment integration capability | B | active | 2/3 | S05 |
@@ -52,7 +52,7 @@ Active implementation: S02-3, S08-2, S10-2, S03-2, S04-3, S03-3, S05-3, S06-3. A
 | ID | Status | Acceptance | Evidence pin |
 | --- | --- | --- | --- |
 | S03-1 | done | The exercised actual text/tool-result streams retain reported usage, finish state and independently checked charges. | [record](../../docs/reference/key-controlled-tool-streaming.md) (`a9de7c8`) |
-| S03-2 | active | Publish a finite supported Chat/Responses/Embeddings/Messages/GenerateContent matrix; qualify declared working combinations and explicit rejection of unsupported ones. | [record](../../docs/reference/inference-protocol-acceptance-matrix.md) (`1212ea3b`) |
+| S03-2 | done | Publish a finite supported Chat/Responses/Embeddings/Messages/GenerateContent matrix; qualify declared working combinations and explicit rejection of unsupported ones. | [record](../../docs/reference/inference-protocol-acceptance-matrix.md), [record](../../docs/reference/inference-protocol-support-boundary.md), [record](../../docs/reference/current-protocol-refusals.md) (`d2abe411`) |
 | S03-3 | active | Close material timeout/cancellation/uncertainty and bounded fallback gaps on supported paths; preserve model, credential and financial identity. | [record](../../docs/reference/inference-failure-acceptance.md), [record](../../docs/reference/provider-timeout-configuration-acceptance.md), [record](../../docs/reference/request-transport-phase-acceptance.md), [record](../../docs/reference/stream-body-timeout-observation.md) (`1212ea3b`) |
 
 ### S04 — Key controls and Guardrails

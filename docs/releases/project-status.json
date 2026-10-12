@@ -1,14 +1,13 @@
 {
   "version": 1,
   "updated": "2026-10-13",
-  "source_commit": "4c971696",
+  "source_commit": "d2abe411",
   "runtime_commit": "8bfdef10003eebe9402401247aa52cd69d3a398f",
   "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
   "active_implementation_tasks": [
     "S02-3",
     "S08-2",
     "S10-2",
-    "S03-2",
     "S04-3",
     "S03-3",
     "S05-3",
@@ -140,13 +139,15 @@
         },
         {
           "id": "S03-2",
-          "status": "active",
+          "status": "done",
           "acceptance": "Publish a finite supported Chat/Responses/Embeddings/Messages/GenerateContent matrix; qualify declared working combinations and explicit rejection of unsupported ones.",
           "evidence": [
-            "docs/reference/inference-protocol-acceptance-matrix.md"
+            "docs/reference/inference-protocol-acceptance-matrix.md",
+            "docs/reference/inference-protocol-support-boundary.md",
+            "docs/reference/current-protocol-refusals.md"
           ],
-          "evidence_revision": "1212ea3b",
-          "note": "Eight current personal OpenRouter modes, disabled capabilities and native GenerateContent refusals verified; direct Anthropic/Gemini positive execution remains unverified, implementation and external activation distinguished."
+          "evidence_revision": "d2abe411",
+          "note": "Finite declared protocol matrix published: eight genuine scoped OpenRouter buffered/streaming and embedding combinations independently retained; current8bf/compiledSDKce97 disabled-capability and correctnative-action refusals independently prove zero new attempts/dispatch/holds/charges, including actual SDK /v1beta selection and restart. Direct Anthropic/Gemini positive execution and optional combinations remain explicitly unverified, not external activation gates or claims of universal conformance. Historical positives are not relabeled as current execution."
         },
         {
           "id": "S03-3",
