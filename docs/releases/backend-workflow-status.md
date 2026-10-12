@@ -1,6 +1,6 @@
 # Backend workflow verification status
 
-Reviewed 2026-10-12 against implementation `c1eee14`; native implementation `c1eee14`.
+Reviewed 2026-10-12 against implementation `a9de7c8`; native implementation `a9de7c8`.
 This is an index of scoped evidence, not a declaration that the complete release
 or New API comparison is qualified. Linked runs identify their own implementation
 revisions. Fixture outcomes provide no evidence. Current-input runs and
@@ -210,3 +210,11 @@ The same indexed executable's [paced first-page reads](../reference/workspace-ke
 record 1,200 actual viewer requests at 20/second and independent response/native
 checks, including restart and unchanged financial history. This measures the
 stated local first-page workload, not deep-page saturation or a production SLO.
+
+
+The [bounded source-policy read checkpoint](../reference/api-key-ip-policies.md#bounded-source-policy-reads--2026-10-12)
+checks unavailable key-source verification before dispatch, actual recovery
+inference with exact charging, deny-all enforcement across restart and revocation.
+Storage timeout does not bypass an IP policy. Independent native reopening
+preserves earlier financial history plus the sole accurately debited recovery call.
+Broader admission races, proxy configuration and performance remain unverified.

@@ -211,3 +211,13 @@ independently checks 1,200 actual 100-record reads at an offered 20/second,
 restart/revocation and unchanged financial history. Local client p95 was 4.35 ms;
 this is a first-page workload observation, not maximum capacity or a production
 latency guarantee.
+
+
+## Key source-policy availability
+
+Source-policy checks, policy and history reads use transaction-local storage
+wait limits. A sanitized 503 means unavailable verification, never unrestricted
+access or empty policy/history. Preserve known policy data. The [actual recovery
+checkpoint](https://github.com/niu-io/niu/blob/main/docs/reference/api-key-ip-policies.md#bounded-source-policy-reads--2026-10-12)
+checks no dispatch on timeout, one accurately charged recovery call, deny-all
+across restart and revocation. Dispatch-time revalidation remains in place.

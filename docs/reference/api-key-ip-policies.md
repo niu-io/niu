@@ -88,3 +88,50 @@ Independent SQL inspection confirmed one successful member-attributed history ro
 for this verification key, matching its HTTP history. Responses contained the
 actor name and kind without an internal operator identifier. Temporary keys and
 operators were revoked. This does not verify permission revocation racing a write.
+
+
+## Bounded source-policy reads — 2026-10-12
+
+Clean `a9de7c8` uses the shared bounded read-only snapshot for request-source
+checking, policy reads and history reads: transaction-local lock timeout 250 ms,
+statement timeout 2 s. Storage failure returns sanitized 503 and does not mean
+unrestricted access, an absent policy or an empty history. Reads commit before
+any upstream work; existing dispatch-time policy revalidation remains unchanged.
+
+An actual isolated run copied the stopped 1,842-request database and created a
+normal scoped key with a loopback allowlist. On the preceding `c1eee14` executable,
+native locks kept authenticated model-list, owner policy and history reads pending
+for at least 1.6 seconds; each returned 200 only after lock release. Those reads
+created no request or financial record.
+
+With the committed fix, an exclusive policy/history-table lock produced:
+
+| Actual HTTP path | Status while lock held | Client elapsed |
+| --- | --- | --- |
+| Authenticated model list | 503 | 259.97 ms |
+| Scoped owner policy read | 503 | 255.44 ms |
+| Scoped owner history read | 503 | 255.51 ms |
+| Chat admission with allowed source | 503 | 255.51 ms |
+
+Native lock observations confirmed each wait and retained lock at failure.
+No attempt was created by any of these unavailable reads/admissions. After
+release, one actual strict-marker model response completed and reported tokens
+produced 19,260 USD nanounits of customer charge and an equal debit under the
+retained internal tariff. Setting the allowlist to `[]` then returned 403
+`key_ip_not_allowed` without another attempt, including after restart. Restoring
+the loopback allowlist recovered the identical model-list response; key revocation
+returned 401.
+
+Independent PostgreSQL reopening checked all saved error artifacts, native
+allow/deny/allow revisions, retained revocations, response hash/content/usage and
+exact charge/debit arithmetic. Final attempts/charges/ledger rows total 1,843;
+charge/debit total is 34,693,955 USD nanounits. No funding or outstanding hold
+appeared. Native replacement followed a fresh isolated backup restore and
+preserved original configuration, encrypted credentials and durable counts.
+
+This qualifies the exercised lock failures, allowed actual call, deny-all recovery
+and revocation. It does not prove every concurrent policy change/admission race,
+trusted-proxy configuration, pool-acquisition deadline, sustained admission
+capacity, or execution of the separate 2-second statement limit. Personal upstream
+testing does not establish commercial Supplier qualification. Fixture outcomes
+provide no evidence.
