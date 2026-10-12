@@ -9,9 +9,13 @@ impl Store {
         key_digest: &[u8],
         request_digest: &[u8],
     ) -> Result<Option<Uuid>, StoreError> {
+        // Restoring an existing submission must not wait indefinitely or turn
+        // unavailable identity storage into permission for another dispatch.
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
         let row: Option<(Uuid, Vec<u8>)> = sqlx::query_as("SELECT attempt_id,request_digest FROM media_submission_keys WHERE organization_id=$1 AND project_id=$2 AND key_digest=$3")
             .bind(scope.organization_id).bind(scope.project_id).bind(key_digest)
-            .fetch_optional(&self.pool).await?;
+            .fetch_optional(&mut *snapshot).await?;
+        snapshot.commit().await?;
         match row {
             Some((attempt, saved)) if saved == request_digest => Ok(Some(attempt)),
             Some(_) => Err(StoreError::Conflict),
