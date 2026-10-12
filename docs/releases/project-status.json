@@ -1,15 +1,13 @@
 {
   "version": 1,
   "updated": "2026-10-13",
-  "source_commit": "29670e8b",
+  "source_commit": "b5371293",
   "runtime_commit": "8bfdef10003eebe9402401247aa52cd69d3a398f",
   "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
   "active_implementation_tasks": [
-    "S02-3",
     "S08-2",
     "S10-2",
     "S04-3",
-    "S03-3",
     "S05-3",
     "S06-3"
   ],
@@ -65,7 +63,7 @@
       "id": "S02",
       "name": "Supplier configuration and model catalog",
       "lane": "A",
-      "status": "active",
+      "status": "done",
       "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
       "paths": [
         "apps/gateway/src/providers.rs",
@@ -99,13 +97,13 @@
         },
         {
           "id": "S02-3",
-          "status": "active",
+          "status": "done",
           "acceptance": "Complete configured-model, customer-price and eligibility publication journey, including stale revision and safe unavailable-capability states.",
           "evidence": [
             "docs/reference/platform-customer-pricing.md"
           ],
-          "evidence_revision": "606f863e",
-          "note": "Draft offer followed by customer tariff publication, stale/history/restart and disabled shared/personal/unknown alias boundaries independently verified on current native runtime. Tariff preparation does not change catalog, key grants or dispatch eligibility. Genuine reviewed commercial eligibility positive evidence remains unverified."
+          "evidence_revision": "3a370b03",
+          "note": "Finite configured-model/customer-price/eligibility journey accepted: genuine historical internal-credit completion and exact debit/paid statement retained; current8bf/SDKce97 draft-first tariff publication, stale revision/history/restart/owner refusal, disabled/shared preparation, personal/unknown refusal and unqualified catalog/key/dispatch fail-closed independently verified. Current populated price/invoice reads preserve eleven whole financial tables. Historical positive is not relabeled as current generation; actual commercial qualification remains separate and unverified, not an external activation prerequisite."
         }
       ]
     },
@@ -113,7 +111,7 @@
       "id": "S03",
       "name": "Inference protocols and route coordination",
       "lane": "B",
-      "status": "active",
+      "status": "done",
       "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
       "paths": [
         "apps/gateway/src/web/inference",
@@ -151,16 +149,17 @@
         },
         {
           "id": "S03-3",
-          "status": "active",
+          "status": "done",
           "acceptance": "Close material timeout/cancellation/uncertainty and bounded fallback gaps on supported paths; preserve model, credential and financial identity.",
           "evidence": [
             "docs/reference/inference-failure-acceptance.md",
             "docs/reference/provider-timeout-configuration-acceptance.md",
             "docs/reference/request-transport-phase-acceptance.md",
-            "docs/reference/stream-body-timeout-observation.md"
+            "docs/reference/stream-body-timeout-observation.md",
+            "docs/reference/current-chat-messages-cancellation.md"
           ],
-          "evidence_revision": "1212ea3b",
-          "note": "Actual Responses auth fallback, cancellation and deadline preserve pinned identities and bounded unknown holds. Current native connection failure persists its observed phase through Logs, CSV, SDK and restart; historical unknown phases remain unknown. Default/explicit/clamped text connection and DNS budgets verified without generation. Cross-protocol request-phase, cancellation and bounded fallback coverage remains open. Bounded two-request actual run verifies send-stage request-phase uncertainty and a normal exact-charge stream; response-body timeout itself was not reproduced and remains unverified."
+          "evidence_revision": "b5371293",
+          "note": "Finite failure scope accepted: retained actual Responses authentication-refusal bounded fallback/cancel/request-timeout evidence plus current8bf/SDKce97 actual first-text Chat and Messages cancellation. Independently two single dispatched attempts, exact frozen model/key/guard/tariff identity, unknown usage and one316050-nanounit hold each, no charge/debit/alternate or retry, equal restart details. Procurement reserved counter advances exactly by two legitimate held liabilities. Response-body idle timeout and full optional protocol cross-products remain explicitly unverified, not silently tested."
         }
       ]
     },
