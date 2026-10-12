@@ -33,3 +33,15 @@ Stored raw HTTP response hashes agree with the captured SDK observations. Four t
 ## Explicit limits
 
 This closes the exercised compiled-SDK local material lifecycle and persistence boundary. It does not claim successful Provider processing, inspection approval or material-to-generation dispatch. Observing `redirect: error` in real fetch calls does not verify an actual redirect response, and the pre-aborted upload does not qualify cancellation midway through a transfer. Concurrent quota exhaustion, all invalid-media boundaries and key rotation of this newly populated domain require their own evidence when included in a broader criterion. No browser or UI acceptance is claimed.
+
+## Actual byte-quota boundary
+
+A separate current-input run pins retained Gateway revision `f6967dadae7effff19227a4e56c586a07fc7eaea`. Its stopped source has maximum applied migration 285 and the final copy has maximum 286, independently reopened with successful migration records. This subsection exercises the raw upload API byte limit; it does not infer performance, inspection or generation readiness.
+
+The run extracts real PCM samples from an already retained actual generated video's audio track using FFmpeg, repeats those samples and writes a valid WAV of exactly 8,388,608 bytes. Independent extraction reproduces the same original samples; the WAV contains the expected repeated samples and fully decodes. It is a newly constructed valid current-input file, without fabricated Provider behavior.
+
+Thirty-one successful uploads occupy 248 MiB. Two Gateway processes sharing the copied database concurrently upload another 8 MiB each: exactly one returns 201 and the other returns 409, `asset_library_capacity_exceeded`. The successful upload fills the exact 256 MiB hard cap with only 32 objects, far below the separate 256-object cap. A subsequent valid small PNG also returns the same 409. Deleting one 8 MiB object permits the PNG upload to return 201. There are 35 upload requests in total.
+
+After Gateway restart, the workspace retains 32 active objects totaling 260,046,951 bytes: 31 WAV files plus the 103-byte PNG. A separate native reader checks complete scoped metadata and success-response identities, decrypts each active envelope with its exact AAD, compares its bytes and SHA-256 against the source, and fully decodes each decrypted file using FFmpeg. Processing occurs one object at a time; one reusable temporary decode file is removed afterward. The deleted WAV has a revision-2 tombstone and no remaining ciphertext. No competing or rejected upload creates an extra object.
+
+All seven complete financial-table fingerprints remain equal to the stopped source. There are no new Provider requests, and both Gateway processes and all copied PostgreSQL processes are stopped. This supplies actual byte-quota, concurrent-capacity and release-after-delete evidence; it does not replace separate object-cap, resource-limit, load or SLA acceptance.

@@ -798,6 +798,11 @@ pub(super) async fn validate_admission(
     )
     .map_err(|_| ApiError::unsupported())?;
     let openrouter = schema.channel == niu_media::openrouter::REVISION;
+    if workspace.has_references() && schema.channel != "ark-direct-v1" {
+        return Err(ApiError::unsupported_message(
+            "This video channel does not support workspace image references",
+        ));
+    }
     if prepared.has_references() && schema.channel != "ark-direct-v1" {
         return Err(ApiError::unsupported_message(
             "This video channel does not support ingested image references",
