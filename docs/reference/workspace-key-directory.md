@@ -222,3 +222,36 @@ It does not establish arbitrary directory size, production SLOs, sustained page
 load, every concurrent mutation combination, or browser presentation. A separate
 query-plan experiment does not measure whole-API workload latency. Fixture
 outcomes provide no evidence.
+
+
+## Paced indexed first-page reads — 2026-10-12
+
+Clean `c1eee14` served 1,200 actual ordinary-viewer first-page reads at an offered
+20/second on a stopped copy of the retained 1,010-key/1,842-request database.
+One Gateway used two configured admission connections and eight worker slots.
+Each response contained 100 records and a continuation cursor, returned 200 with
+no-store, and matched the retained 21,683-byte reference digest.
+
+| Observation | Value |
+| --- | --- |
+| Measured duration / completed reads per second | 59.958 s / 20.014 |
+| Client nearest-rank p50 / p95 / p99 | 1.61 / 4.35 / 5.60 ms |
+| Maximum client duration / scheduling lag | 9.10 / 10.45 ms |
+| Resource samples at approximately 500 ms intervals | 119 |
+| Maximum sampled Gateway RSS / CPU | 19,552 KiB / 6.3 percent |
+
+Independent PostgreSQL reopening verified all first-page fields/order, cursor,
+response digests/lengths, migration 0279 and native key-row fingerprints.
+Existing actual response usage and exact debits were rechecked; attempts,
+charges and ledger rows/totals remained unchanged. No funding or outstanding
+hold appeared. Restart returned identical response bytes; the reader was revoked
+and subsequent access returned 401.
+
+This measures a warmed, local, repeated first-page workload. It does not qualify
+saturation, deep-page traffic, concurrent mutations, arbitrary directory size,
+long-duration stability or production SLOs. Worker slots do not imply continuous
+simultaneous requests. Client durations include response transfer. Resource
+samples cover the Gateway only, excluding PostgreSQL/host totals and unobserved
+peaks. Earlier full-directory timings have a different executable and response
+size and do not establish a causal speedup comparison. Fixture outcomes provide
+no evidence; original data, configuration and identity were preserved.

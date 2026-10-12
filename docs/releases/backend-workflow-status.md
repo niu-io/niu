@@ -203,4 +203,10 @@ adds schema 0279's workspace/order index. Actual existing-data startup, HTTP/SDK
 traversal and independently reopened native plans show page-sized key selection
 and activity lookups without sorting on the retained directory. Financial counts
 and totals, configuration and encrypted identities remain unchanged. Broader
-scale and sustained paginated-read performance remain unverified.
+scale and sustained deep-page performance remain unverified.
+
+
+The same indexed executable's [paced first-page reads](../reference/workspace-key-directory.md#paced-indexed-first-page-reads--2026-10-12)
+record 1,200 actual viewer requests at 20/second and independent response/native
+checks, including restart and unchanged financial history. This measures the
+stated local first-page workload, not deep-page saturation or a production SLO.

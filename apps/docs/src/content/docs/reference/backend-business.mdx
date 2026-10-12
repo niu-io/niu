@@ -204,3 +204,10 @@ verifies actual existing-data upgrade and first/middle-cursor index use without
 sorting, together with complete HTTP/SDK traversal and scoped refusal/recovery.
 This narrows read work on the exercised directory; broader capacity remains
 unverified. Existing full-directory clients retain their compatibility response.
+
+
+A [paced first-page read checkpoint](https://github.com/niu-io/niu/blob/main/docs/reference/workspace-key-directory.md#paced-indexed-first-page-reads--2026-10-12)
+independently checks 1,200 actual 100-record reads at an offered 20/second,
+restart/revocation and unchanged financial history. Local client p95 was 4.35 ms;
+this is a first-page workload observation, not maximum capacity or a production
+latency guarantee.
