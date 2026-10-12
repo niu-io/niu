@@ -32,7 +32,11 @@ Backend authority remains the permission check and scoped storage query.
 Large compatibility responses return 413 instead of partial success; see the
 [materialization bound and current-input evidence](chat-history-size-bound.md).
 
-Malformed parameters return 400. A cursor that was updated, deleted, moved to
+Malformed parameters return 400. Cursor update fingerprints are session-time-zone independent from `8363ae3`;
+previous Gateway UTC-text cursors remain accepted. See the
+[upgrade and paced-read checkpoint](chat-history-read-load.md).
+
+A cursor that was updated, deleted, moved to
 another archive or does not belong to this owner/workspace returns 409; restart
 from the first page. The cursor fingerprints its update time. Paging is a live
 view, not a frozen cross-request snapshot: other conversations can change

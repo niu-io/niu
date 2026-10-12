@@ -333,3 +333,11 @@ select lightweight IDs/sizes before loading saved bodies. Paging respects a
 report attachments, complete continuation and unchanged accounting were checked
 independently. Derived fields can increase wire size; no process-memory SLO is
 claimed.
+
+
+The [current saved-Chat read checkpoint](https://github.com/niu-io/niu/blob/main/docs/reference/chat-history-read-load.md)
+completed 1,200 actual reads at offered 20/second, with independently reconstructed
+page contents and unchanged accounting. Cursor fingerprints now avoid session
+time-zone formatting and preserve previous Gateway UTC cursors across upgrade.
+This covers small-body local reads; large-attachment throughput, mixed inference
+and production SLOs remain separate.

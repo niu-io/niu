@@ -1,6 +1,6 @@
 # Backend workflow verification status
 
-Reviewed 2026-10-12 against implementation `2d385f7`; native implementation `2d385f7`.
+Reviewed 2026-10-12 against implementation `8363ae3`; native implementation `8363ae3`.
 This is an index of scoped evidence, not a declaration that the complete release
 or New API comparison is qualified. Linked runs identify their own implementation
 revisions. Fixture outcomes provide no evidence. Current-input runs and
@@ -320,3 +320,11 @@ The former 51.9 MB compatibility body is explicitly refused; byte-limited
 continuation preserves every saved body and exact customer charge. Small-content
 compatibility was independently rechecked. This is not CPU/RSS or capacity
 qualification, and frontend paging integration remains separate.
+
+## Paced saved-Chat reads and cursor upgrade
+
+[Current read evidence](../reference/chat-history-read-load.md) covers 1,200
+actual first/continuation reads at offered 20/second, exact native projections,
+unchanged accounting, restart and revocation. Session-time-zone-independent
+fingerprints preserve earlier UTC cursors across upgrade. This is small-body
+read qualification, not maximum capacity or whole-product performance.
