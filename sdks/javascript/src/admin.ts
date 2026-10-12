@@ -473,7 +473,8 @@ export type WorkspaceKey = {
   revision: number;
   name: string;
   allowed_models: string[];
-  expires_at_ms: number;
+  /** Null means no automatic expiration. */
+  expires_at_ms: number | null;
   /** Latest durable dispatch intent; null means no recorded dispatch, not no authentication. */
   last_used_at_ms: number | null;
   revoked: boolean;

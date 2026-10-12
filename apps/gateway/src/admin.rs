@@ -60,7 +60,15 @@ pub struct KeyInput {
     name: String,
     #[serde(default = "all_model_aliases")]
     allowed_models: Vec<String>,
-    ttl_seconds: i64,
+    #[serde(deserialize_with = "required_key_lifetime")]
+    ttl_seconds: Option<i64>,
+}
+
+// Keep the field required: omission must not silently create a permanent key.
+fn required_key_lifetime<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<i64>, D::Error> {
+    Option::<i64>::deserialize(deserializer)
 }
 
 #[derive(Deserialize)]
@@ -1268,7 +1276,7 @@ pub async fn project(
 ///       }
 ///     },
 ///     "x-niu-implementation": "implemented",
-///     "description": "Requires workspace write access. Workspace API keys do not authorize these management operations. Grants must be visible model aliases, or the wildcard * as the sole grant. The token is returned only in this response."
+///     "description": "Requires workspace write access. Workspace API keys do not authorize these management operations. Grants must be visible model aliases, or the wildcard * as the sole grant. The token is returned only in this response. ttl_seconds is required; explicit null opts into no automatic expiration. Finite integer lifetimes retain their existing range."
 ///   }
 /// }
 /// ```
@@ -1310,7 +1318,7 @@ pub async fn issue_key(
     }
     let issued = state
         .store
-        .issue_key(
+        .issue_key_with_expiry(
             TenantScope {
                 organization_id,
                 project_id,
@@ -2282,8 +2290,12 @@ pub struct KeyListQuery {
 ///           }
 ///         },
 ///         "expires_at_ms": {
-///           "type": "integer",
-///           "format": "int64"
+///           "type": [
+///             "integer",
+///             "null"
+///           ],
+///           "format": "int64",
+///           "description": "Unix milliseconds for finite expiration. Null means no automatic expiration, not an invalid or unknown timestamp. Rotation preserves this state."
 ///         },
 ///         "last_used_at_ms": {
 ///           "type": [
@@ -2327,9 +2339,13 @@ pub struct KeyListQuery {
 ///           }
 ///         },
 ///         "ttl_seconds": {
-///           "type": "integer",
+///           "type": [
+///             "integer",
+///             "null"
+///           ],
 ///           "minimum": 1,
-///           "maximum": 31536000
+///           "maximum": 31536000,
+///           "description": "Required. Integer 1 to 31536000 sets a finite lifetime; explicit null creates a key without automatic expiration. Missing, zero or negative values are rejected. Revocation and all lineage limits still apply."
 ///         }
 ///       }
 ///     },

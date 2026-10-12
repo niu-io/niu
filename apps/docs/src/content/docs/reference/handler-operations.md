@@ -3296,7 +3296,7 @@ HTTP 409: Idempotency-Key was already used with a different name or currency.
 
 `POST /admin/v1/organizations/{organization}/projects/{project}/keys`
 
-Requires workspace write access. Workspace API keys do not authorize these management operations. Grants must be visible model aliases, or the wildcard * as the sole grant. The token is returned only in this response.
+Requires workspace write access. Workspace API keys do not authorize these management operations. Grants must be visible model aliases, or the wildcard * as the sole grant. The token is returned only in this response. ttl_seconds is required; explicit null opts into no automatic expiration. Finite integer lifetimes retain their existing range.
 
 Implementation: `implemented`. Operation: `issueKey`.
 
@@ -18302,9 +18302,13 @@ Local `#/components/schemas/…` references resolve to these definitions.
       }
     },
     "ttl_seconds": {
-      "type": "integer",
+      "type": [
+        "integer",
+        "null"
+      ],
       "minimum": 1,
-      "maximum": 31536000
+      "maximum": 31536000,
+      "description": "Required. Integer 1 to 31536000 sets a finite lifetime; explicit null creates a key without automatic expiration. Missing, zero or negative values are rejected. Revocation and all lineage limits still apply."
     }
   }
 }
@@ -21083,8 +21087,12 @@ Local `#/components/schemas/…` references resolve to these definitions.
       }
     },
     "expires_at_ms": {
-      "type": "integer",
-      "format": "int64"
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "int64",
+      "description": "Unix milliseconds for finite expiration. Null means no automatic expiration, not an invalid or unknown timestamp. Rotation preserves this state."
     },
     "last_used_at_ms": {
       "type": [

@@ -10,7 +10,7 @@ pub struct KeyView {
     pub revision: i64,
     pub name: String,
     pub allowed_models: Vec<String>,
-    pub expires_at_ms: i64,
+    pub expires_at_ms: Option<i64>,
     /// Latest durable dispatch intent; absent does not establish that a key was never authenticated.
     pub last_used_at_ms: Option<i64>,
     pub revoked: bool,
@@ -55,12 +55,25 @@ impl Store {
         models: &[String],
         ttl_seconds: i64,
     ) -> Result<IssuedKey, StoreError> {
+        self.issue_key_with_expiry(scope, name, models, Some(ttl_seconds))
+            .await
+    }
+
+    /// An explicit absent lifetime means no automatic expiration. Revocation,
+    /// grants and shared lineage policies still apply to every request.
+    pub async fn issue_key_with_expiry(
+        &self,
+        scope: TenantScope,
+        name: &str,
+        models: &[String],
+        ttl_seconds: Option<i64>,
+    ) -> Result<IssuedKey, StoreError> {
         if name.trim().is_empty()
             || name.len() > 200
             || models.is_empty()
             || (models.iter().any(|m| m == "*") && models.len() != 1)
             || models.iter().any(|m| m.is_empty() || m.len() > 200)
-            || !(1..=31_536_000).contains(&ttl_seconds)
+            || ttl_seconds.is_some_and(|ttl| !(1..=31_536_000).contains(&ttl))
         {
             return Err(StoreError::InvalidKey);
         }
@@ -72,8 +85,8 @@ impl Store {
         // Issuance and its audit record commit together; bound contention on
         // either write so a failed request never leaves an undisclosed key.
         let mut tx = self.begin_bounded_recording().await?;
-        sqlx::query("INSERT INTO api_keys (id, organization_id, project_id, name, token_hash, allowed_models, expires_at) VALUES ($1,$2,$3,$4,$5,$6,clock_timestamp() + $7 * interval '1 second')")
-            .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(name).bind(hash).bind(models).bind(ttl_seconds as f64)
+        sqlx::query("INSERT INTO api_keys (id, organization_id, project_id, name, token_hash, allowed_models, expires_at) VALUES ($1,$2,$3,$4,$5,$6,CASE WHEN $7::double precision IS NULL THEN 'infinity'::timestamptz ELSE clock_timestamp() + $7 * interval '1 second' END)")
+            .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(name).bind(hash).bind(models).bind(ttl_seconds.map(|ttl| ttl as f64))
             .execute(&mut *tx).await?;
         sqlx::query("INSERT INTO key_audit_events (id,organization_id,project_id,key_id,action) VALUES ($1,$2,$3,$4,'issued')")
             .bind(Uuid::new_v4()).bind(scope.organization_id).bind(scope.project_id).bind(id).execute(&mut *tx).await?;
@@ -170,7 +183,7 @@ impl Store {
             None
         };
         let mut query = sqlx::QueryBuilder::<sqlx::Postgres>::new(
-            "SELECT k.id,k.revision,k.name,k.allowed_models,floor(extract(epoch FROM k.expires_at)*1000)::bigint AS expires_at_ms,floor(extract(epoch FROM activity.dispatched_at)*1000)::bigint AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= clock_timestamp() AS expired FROM (SELECT id,revision,name,allowed_models,expires_at,revoked_at,organization_id,project_id,created_at FROM api_keys k",
+            "SELECT k.id,k.revision,k.name,k.allowed_models,CASE WHEN isfinite(k.expires_at) THEN floor(extract(epoch FROM k.expires_at)*1000)::bigint END AS expires_at_ms,floor(extract(epoch FROM activity.dispatched_at)*1000)::bigint AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= clock_timestamp() AS expired FROM (SELECT id,revision,name,allowed_models,expires_at,revoked_at,organization_id,project_id,created_at FROM api_keys k",
         );
         query
             .push(" WHERE k.organization_id=")
