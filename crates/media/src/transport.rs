@@ -71,9 +71,23 @@ pub async fn query_job(
             }
             body.extend_from_slice(&chunk);
         }
-        protocol
-            .decode(&body, expected_job, expected_model)
-            .map_err(QueryTransportError::Decode)
+        let official_fastrouter_endpoint = url::Url::parse(endpoint).is_ok_and(|url| {
+            url.scheme() == "https"
+                && url.host_str() == Some("fastrouter.wecitytech.com")
+                && url.port_or_known_default() == Some(443)
+                && url.username().is_empty()
+                && url.password().is_none()
+                && url.query().is_none()
+                && url.fragment().is_none()
+                && url.path() == format!("/doubao/api/v3/contents/generations/tasks/{expected_job}")
+        });
+        let observation =
+            if official_fastrouter_endpoint && expected_model == "doubao-seedance-2-5-260628" {
+                protocol.decode_fastrouter_seedance_25(&body, expected_job, expected_model)
+            } else {
+                protocol.decode(&body, expected_job, expected_model)
+            };
+        observation.map_err(QueryTransportError::Decode)
     };
     tokio::time::timeout(timeout, work)
         .await

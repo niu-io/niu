@@ -152,6 +152,35 @@ impl DirectQueryProtocol {
         expected_job: &str,
         expected_model: &str,
     ) -> Result<QueryObservation, QueryError> {
+        self.decode_with_reported_model(body, expected_job, expected_model, None)
+    }
+
+    /// FastRouter's observed response uses a canonical family name for this
+    /// exact version. The transport must separately pin the official endpoint.
+    pub(crate) fn decode_fastrouter_seedance_25(
+        &self,
+        body: &[u8],
+        expected_job: &str,
+        expected_model: &str,
+    ) -> Result<QueryObservation, QueryError> {
+        if expected_model != "doubao-seedance-2-5-260628" {
+            return Err(QueryError::IdentityMismatch);
+        }
+        self.decode_with_reported_model(
+            body,
+            expected_job,
+            expected_model,
+            Some("doubao-seedance-2.5"),
+        )
+    }
+
+    fn decode_with_reported_model(
+        &self,
+        body: &[u8],
+        expected_job: &str,
+        expected_model: &str,
+        permitted_reported_model: Option<&str>,
+    ) -> Result<QueryObservation, QueryError> {
         self.validate_configuration(expected_job, expected_model)?;
         if body.len() > self.maximum_body_bytes {
             return Err(QueryError::TooLarge);
@@ -159,7 +188,12 @@ impl DirectQueryProtocol {
         let value: Value = serde_json::from_slice(body).map_err(|_| QueryError::InvalidResponse)?;
         let object = value.as_object().ok_or(QueryError::InvalidResponse)?;
         if object.get("id").and_then(Value::as_str) != Some(expected_job)
-            || object.get("model").and_then(Value::as_str) != Some(expected_model)
+            || !object
+                .get("model")
+                .and_then(Value::as_str)
+                .is_some_and(|model| {
+                    model == expected_model || Some(model) == permitted_reported_model
+                })
         {
             return Err(QueryError::IdentityMismatch);
         }
