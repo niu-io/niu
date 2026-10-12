@@ -1,6 +1,6 @@
 # Backend workflow verification status
 
-Reviewed 2026-10-12 against implementation `1025bf9`; native implementation `1025bf9`.
+Reviewed 2026-10-12 against implementation `2d385f7`; native implementation `2d385f7`.
 This is an index of scoped evidence, not a declaration that the complete release
 or New API comparison is qualified. Linked runs identify their own implementation
 revisions. Fixture outcomes provide no evidence. Current-input runs and
@@ -311,3 +311,12 @@ scoped recent-history pages and SDK support while preserving latest-100 callers.
 Actual saved responses beyond that boundary, charge hydration, cursor conflict,
 bounded storage refusal and restart were independently verified. Frontend
 integration and cross-page concurrent mutations remain separate.
+
+## Saved Chat body bound
+
+The [materialization checkpoint](../reference/chat-history-size-bound.md)
+verifies a current real request CSV attached to 101 actual response sessions.
+The former 51.9 MB compatibility body is explicitly refused; byte-limited
+continuation preserves every saved body and exact customer charge. Small-content
+compatibility was independently rechecked. This is not CPU/RSS or capacity
+qualification, and frontend paging integration remains separate.

@@ -1,17 +1,18 @@
 # Personal Chat history continuation
 
-Implemented backend/SDK contract on `1025bf9`, reviewed 2026-10-12.
+Continuation introduced on `1025bf9`; saved-body bound added on `2d385f7`, reviewed 2026-10-12.
 Fixture outcomes provide no evidence.
 
 ## HTTP and SDK contract
 
 `GET /admin/v1/organizations/{organization}/projects/{project}/chat-sessions`
-keeps its existing latest-100 `{data}` response when neither `limit` nor `after`
+keeps its existing latest-100 `{data}` response within the saved-body capacity when neither `limit` nor `after`
 is supplied. `archived=true` alone retains that compatibility behavior.
 
 Either paging parameter selects `{data, next_cursor}`. `limit` is 1–100 and
 defaults to 50. Pass the previous response's opaque `next_cursor` as `after`
-while retaining the archive selection. A null cursor ends the history. Results
+while retaining the archive selection. A null cursor ends the history. A page may contain fewer rows than requested
+because its saved-body budget is 32 MiB; follow the cursor. Results
 are ordered by update time and session ID descending; identifiers belong in
 routing contracts, not displayed labels. Each page belongs to the authenticated
 personal owner within the authorized workspace and selected archive.
@@ -28,6 +29,8 @@ do {
 Existing `listChatSessions` and `listArchivedChatSessions` retain their behavior.
 The new method validates page size, archive flag and cursor syntax before HTTP.
 Backend authority remains the permission check and scoped storage query.
+Large compatibility responses return 413 instead of partial success; see the
+[materialization bound and current-input evidence](chat-history-size-bound.md).
 
 Malformed parameters return 400. A cursor that was updated, deleted, moved to
 another archive or does not belong to this owner/workspace returns 409; restart

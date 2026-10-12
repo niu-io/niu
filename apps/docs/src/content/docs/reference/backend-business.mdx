@@ -324,3 +324,12 @@ An ordinary owner read 101 saved actual-response sessions through HTTP and
 the SDK with native charge hydration. Updated or inaccessible cursors return
 409; bounded storage waits return sanitized 503. Existing calls keep their
 latest-100 response, so complete frontend history requires integrating paging.
+
+
+[Saved Chat body bounds](https://github.com/niu-io/niu/blob/main/docs/reference/chat-history-size-bound.md)
+select lightweight IDs/sizes before loading saved bodies. Paging respects a
+32 MiB saved-JSON budget and can return fewer rows than requested; always follow
+`next_cursor`. Oversized latest-100 calls return actionable 413. Actual shared
+report attachments, complete continuation and unchanged accounting were checked
+independently. Derived fields can increase wire size; no process-memory SLO is
+claimed.
