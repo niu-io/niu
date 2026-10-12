@@ -170,7 +170,7 @@ impl Store {
             None
         };
         let mut query = sqlx::QueryBuilder::<sqlx::Postgres>::new(
-            "SELECT k.id,k.revision,k.name,k.allowed_models,floor(extract(epoch FROM k.expires_at)*1000)::bigint AS expires_at_ms,floor(extract(epoch FROM activity.dispatched_at)*1000)::bigint AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= clock_timestamp() AS expired FROM api_keys k LEFT JOIN LATERAL (SELECT a.dispatched_at FROM attempts a WHERE a.organization_id=k.organization_id AND a.project_id=k.project_id AND a.api_key_id=k.id AND a.dispatched_at IS NOT NULL ORDER BY a.dispatched_at DESC LIMIT 1) activity ON true",
+            "SELECT k.id,k.revision,k.name,k.allowed_models,floor(extract(epoch FROM k.expires_at)*1000)::bigint AS expires_at_ms,floor(extract(epoch FROM activity.dispatched_at)*1000)::bigint AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= clock_timestamp() AS expired FROM (SELECT id,revision,name,allowed_models,expires_at,revoked_at,organization_id,project_id,created_at FROM api_keys k",
         );
         query
             .push(" WHERE k.organization_id=")
@@ -189,6 +189,9 @@ impl Store {
         if let Some(limit) = limit {
             query.push(" LIMIT ").push_bind(limit);
         }
+        // Select the page before looking up dispatch activity. Otherwise PostgreSQL
+        // can probe attempts for every workspace key before the final sort/limit.
+        query.push(") k LEFT JOIN LATERAL (SELECT a.dispatched_at FROM attempts a WHERE a.organization_id=k.organization_id AND a.project_id=k.project_id AND a.api_key_id=k.id AND a.dispatched_at IS NOT NULL ORDER BY a.dispatched_at DESC LIMIT 1) activity ON true ORDER BY k.created_at,k.id");
         let rows = query.build_query_as().fetch_all(&mut *snapshot).await?;
         snapshot.commit().await?;
         Ok(rows)
