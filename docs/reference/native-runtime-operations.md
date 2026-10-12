@@ -22,6 +22,7 @@ evidence. Container and frontend acceptance are outside this record.
 | Financial/content background ownership | 250 ms connection wait; nonblocking transaction advisory ownership | A losing contender skips that domain. Financial stages retain one connection for the claimed transaction; contenders may briefly acquire connections. |
 | Background scheduling | 5-second interval, missed ticks skipped | Cadence is an implementation setting, not a recovery completion SLA. Ledger pages and retention domains have their own finite batch limits. |
 | Inference request configuration | `request_timeout_seconds`, 1–3600; default 300 | Absolute preparation/dispatch deadlines apply on supported inference paths. This setting does not currently impose a universal deadline on administration SQL reads. |
+| Text Provider connection and DNS budgets | `provider_connect_timeout_seconds` and `provider_dns_timeout_seconds`, each 1–3600; default 3 | Each is clamped to its caller's HTTP budget. Applies to the five direct text adapters and Supplier connection/catalog checks; existing media budgets remain separate. DNS resolution precedes the HTTP request budget, so these are not a universal end-to-end deadline. |
 | Admission/completion writer queues | 4,096 entries each, maximum batch 64; four in-flight batches per writer | Three writer queues share the main pool. Queue bounds do not establish saturated throughput or a total drain deadline. |
 | Diagnostic shutdown phase | At most 10 seconds after HTTP and writer drain | A timeout logs a sanitized pending-write warning. It is not a ten-second limit for the entire shutdown. |
 
@@ -145,3 +146,20 @@ S12-2 closes the fixed finite operations inventory and supported scoped evidence
 above. This does not establish a global shutdown deadline, every failure
 interleaving, production capacity or full release acceptance. Those observations
 must not be inferred from the specific read-lock fix or idle shutdown run.
+
+## Current diagnostic and payment runtime refresh
+
+Retained native `13952e57ddde7c8aad3d16c4ddf8361191fda97a` compiled from
+a clean committed archive and replaced the earlier retained executable after
+its binary digest and rollback availability were checked. The existing process
+environment, database, configuration and encryption identity were reused. Actual
+readiness returned HTTP 200; configuration digests, encrypted Supplier credential
+identities/revisions and retained organization, workspace, video-job and ledger
+counts were unchanged. Schema remains 287. This refresh does not qualify the
+new payment terminal-status branch with a genuine paid/closed HTTP example.
+
+The [actual connection-budget checks](provider-timeout-configuration-acceptance.md)
+and [durable transport-phase checks](request-transport-phase-acceptance.md) retain
+their own execution pins and scopes. Historical unknown phases are not backfilled.
+The original installation retains its default connection budgets; only isolated
+verification copies used explicitly longer budgets.
