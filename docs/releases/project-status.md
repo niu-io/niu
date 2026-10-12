@@ -1,30 +1,30 @@
 # Project delivery status
 
 Baseline v1; updated 2026-10-12.
-Committed audit source `33ce4a59`; native implementation `3fdc669c`.
+Committed audit source `fb21b52a`; native implementation `3fdc669c`.
 
-**Backend acceptance checkpoints: 11/36 recorded complete at their evidence pins.**
+**Backend acceptance checkpoints: 15/36 recorded complete at their evidence pins.**
 **Whole backend subsystems closed: 0/12.**
 These are acceptance-checkpoint counts, not coding percentage, fresh execution of every path or release readiness.
 Existing scoped evidence is carried forward explicitly. Missing evidence remains open; fixture outcomes have zero signal.
 
 Source of truth: [project-status.json](project-status.json). Scope changes require a versioned reason; they cannot silently change the denominator.
 Status meanings: open = unfinished; active = explicitly assigned current work; blocked = identified dependency prevents progress; done = every stated criterion has evidence; delegated/deferred = separate ownership or excluded scope.
-This assessment assigns no new implementation task as active. The next implementation assignment must record its stable task ID.
+Active implementation: S01-3, S02-3, S08-2, S10-1. Assignments use stable task IDs.
 
 | Subsystem | Owner lane | Status | Completed checks | Dependencies |
 | --- | --- | --- | ---: | --- |
-| S01 Identity and workspaces | A | open | 1/3 | None |
-| S02 Supplier configuration and model catalog | A | active | 1/3 | S01 |
+| S01 Identity and workspaces | A | active | 2/3 | None |
+| S02 Supplier configuration and model catalog | A | active | 2/3 | S01 |
 | S03 Inference protocols and route coordination | B | open | 1/3 | S02, S04, S05 |
-| S04 Key controls and Guardrails | A | open | 1/3 | S01 |
+| S04 Key controls and Guardrails | A | open | 2/3 | S01 |
 | S05 Pricing, balance, charging and reconciliation | B | open | 1/3 | S01 |
 | S06 Payment integration capability | B | open | 1/3 | S05 |
 | S07 Request diagnostics and usage reports | C | open | 1/3 | S03, S05 |
-| S08 Video jobs, results and assets | C | open | 1/3 | S02, S04, S05 |
+| S08 Video jobs, results and assets | C | active | 1/3 | S02, S04, S05 |
 | S09 Durable Chat | C | open | 1/3 | S01, S03, S07 |
 | S10 Platform configuration and security facilities | A | active | 0/3 | S01 |
-| S11 Contracts, SDK and documentation | I | active | 1/3 | None |
+| S11 Contracts, SDK and documentation | I | open | 2/3 | None |
 | S12 Runtime operations, recovery and performance | I | open | 1/3 | S03, S05, S07, S08 |
 | S13 Dashboard, public catalog and rendered Help | Frontend | delegated | 0/3 | S01, S02, S07, S09, S11 |
 | S14 Packaging, extensions and legacy surfaces | Separate ownership | deferred | 0/3 | None |
@@ -36,16 +36,16 @@ This assessment assigns no new implementation task as active. The next implement
 | ID | Status | Acceptance | Evidence pin |
 | --- | --- | --- | --- |
 | S01-1 | done | Workspace creation/list scoped access, durable identical retry, changed retry refusal and restart for the exercised legacy workflow. | [record](../../docs/releases/backend-interface-gaps.md) (`3fdc669c`) |
-| S01-2 | open | Member authentication, expiry/sign-out, company/workspace roles and cross-scope administration match the declared backend contract. | Missing / not yet accepted |
-| S01-3 | open | Freeze workspace route compatibility with the frontend owner; reject inconsistent updates/deletion without losing retained business data. | Missing / not yet accepted |
+| S01-2 | done | Member authentication, expiry/sign-out, company/workspace roles and cross-scope administration match the declared backend contract. | [record](../../docs/reference/parallel-core-backend-acceptance.md) (`fb21b52a`) |
+| S01-3 | active | Freeze workspace route compatibility with the frontend owner; reject inconsistent updates/deletion without losing retained business data. | Missing / not yet accepted |
 
 ### S02 — Supplier configuration and model catalog
 
 | ID | Status | Acceptance | Evidence pin |
 | --- | --- | --- | --- |
 | S02-1 | done | One Supplier with independent credential mappings preserves the other mapping during local replacement/disable and supports actual calls. | [record](../../docs/reference/supplier-key-isolation-live.md) (`59922df`) |
-| S02-2 | active | All required management, membership, catalog and qualification operations have exact published contracts and ordinary-role isolation. | Missing / not yet accepted |
-| S02-3 | open | Complete configured-model, customer-price and eligibility publication journey, including stale revision and safe unavailable-capability states. | Missing / not yet accepted |
+| S02-2 | done | All required management, membership, catalog and qualification operations have exact published contracts and ordinary-role isolation. | [record](../../docs/reference/parallel-core-backend-acceptance.md) (`fb21b52a`) |
+| S02-3 | active | Complete configured-model, customer-price and eligibility publication journey, including stale revision and safe unavailable-capability states. | Missing / not yet accepted |
 
 ### S03 — Inference protocols and route coordination
 
@@ -60,7 +60,7 @@ This assessment assigns no new implementation task as active. The next implement
 | ID | Status | Acceptance | Evidence pin |
 | --- | --- | --- | --- |
 | S04-1 | done | The exercised tool streams preserve key lineage, RPM and spending refusals across rotation/restart and revoke access. | [record](../../docs/reference/key-controlled-tool-streaming.md) (`a9de7c8`) |
-| S04-2 | open | Close the matrix for single-key spending/RPM/TPM/concurrency/IP controls and mandatory parent-child policy composition; concurrent denials create no unauthorized dispatch. | Missing / not yet accepted |
+| S04-2 | done | Close the matrix for single-key spending/RPM/TPM/concurrency/IP controls and mandatory parent-child policy composition; concurrent denials create no unauthorized dispatch. | [record](../../docs/reference/parallel-core-backend-acceptance.md) (`fb21b52a`) |
 | S04-3 | open | Document and verify applicable F09 local/external input and output coverage, consent, preview/revision/rollback and fail-closed failure behavior. | Missing / not yet accepted |
 
 ### S05 — Pricing, balance, charging and reconciliation
@@ -92,7 +92,7 @@ This assessment assigns no new implementation task as active. The next implement
 | ID | Status | Acceptance | Evidence pin |
 | --- | --- | --- | --- |
 | S08-1 | done | Actual personal video submission, key rotation, saved-job restart recovery, idempotent replay and independently decoded result are exercised. | [record](../../docs/reference/current-video-submission-restart.md) (`e704955`) |
-| S08-2 | open | Close the supported input/control/job/result/retention/asset authorization matrix and recovery without duplicate submission. | Missing / not yet accepted |
+| S08-2 | active | Close the supported input/control/job/result/retention/asset authorization matrix and recovery without duplicate submission. | Missing / not yet accepted |
 | S08-3 | open | Implement or verify supported reported media meters, bounded liability and exact settlement; missing quantity remains explicit and never inferred from file duration. | Missing / not yet accepted |
 
 ### S09 — Durable Chat
@@ -116,7 +116,7 @@ This assessment assigns no new implementation task as active. The next implement
 | ID | Status | Acceptance | Evidence pin |
 | --- | --- | --- | --- |
 | S11-1 | done | A committed 236-method interface index resolves source operations and explicitly lists 20 root method gaps. | [record](../../docs/releases/backend-interface-gaps.md) (`d6904064`) |
-| S11-2 | active | Close core root/handler schema gaps and manually map actual SDK methods; explicitly classify excluded/non-JSON/HEAD operations. | Missing / not yet accepted |
+| S11-2 | done | Close core root/handler schema gaps and manually map actual SDK methods; explicitly classify excluded/non-JSON/HEAD operations. | [record](../../docs/reference/parallel-core-backend-acceptance.md) (`fb21b52a`) |
 | S11-3 | open | Validate the frozen frontend integration baseline and documentation HTTP/spec resources; delegate rendered browser acceptance when unavailable. | Missing / not yet accepted |
 
 ### S12 — Runtime operations, recovery and performance

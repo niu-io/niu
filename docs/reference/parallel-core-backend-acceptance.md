@@ -1,0 +1,28 @@
+# Core backend integration acceptance
+
+Current-input native HTTP runs and independently reopened PostgreSQL records establish the bounded results below. Fixture outcomes are disregarded. This record does not qualify the whole release, rendered frontend, external activation or commercial supply.
+
+## Implemented integration contract
+
+Commits `54b57efc` and `f6c6e4a4` publish fifteen missing member, Supplier qualification and Guardrails operations plus the media-source HEAD rejection. Generated handler contracts contain 150 operations at that point. Member profile/preferences and global detector description/preview have six corresponding JavaScript SDK helpers, with the actual envelope shapes preserved. Supplier qualification review does not activate an offer.
+
+Commit `186662c5` adds compatible `PATCH` and `DELETE /admin/v1/workspaces/{workspace}` aliases while retaining legacy company/workspace routes. Commit `356f985e` adds `renameWorkspaceById` and `deleteWorkspaceById`; existing SDK methods remain available. The current static interface index contains 254 registered root methods with resolved handler mappings. Four exclusions remain: the browser authentication callback and three legacy Codex-connection methods. These exclusions are not core backend readiness claims. Media-source HEAD deliberately returns an empty 405 and requires no JSON SDK helper.
+
+Static inventory and compilation establish contract publication only. They do not establish operation or business correctness.
+
+## Independently verified business behavior
+
+Native revision `3fdc669c` was exercised against preserved database copies with current HTTP inputs. Saved response digests, final native records and retained binary hashes were checked independently.
+
+- **S01-2:** API-created members authenticate with native Argon2 password records. Incorrect credentials fail; bearer/cookie sessions survive restart; logout revokes access across restart. Expiry was observed after the unchanged natural deadline without adjusting the clock. Company/workspace owner, administrator and viewer permissions, foreign-scope refusals, owner-only member administration, scope-expansion refusals and child-session revocation were exercised. Browser HTTPS transport and password-reset workflows are outside this checkpoint.
+- **S02-2:** Supplier profile revisions, stale-update refusal, retained draft offer rates, membership-scoped catalog/history/dashboard reads, foreign-scope refusal and membership revocation survive restart. Ordinary members cannot perform installation qualification writes. Invalid installation qualification inputs are rejected without inventing approval. An unqualified offer remains unavailable. Empty Supplier deletion succeeds; a Supplier with retained business refuses deletion. Earnings remain installation-only; settlements use Supplier membership scope. Empty financial collections do not establish commercial settlement correctness.
+- **S04-2:** Mandatory model/Provider parent-child composition refuses unauthorized dispatch, including concurrent requests. Removing child rules cannot bypass parent denial; child denial survives rotation and restart. Native/raw artifacts for actual spending, RPM, IP and in-flight concurrency controls were independently reopened. A new two-Gateway TPM run admitted one real personal request, refused concurrent excess requests, retained refusal across rotation/restart and revoked both key generations. Its exact additional customer debit was 15,433 nanos, independently reconciled with one completed dispatch and released liability. This does not qualify every tokenizer, estimator overrun, media TPM or input/output detector combination.
+- **Member SDK:** Actual compiled SDK profile/preference reads and updates persist exact revisions and values across restart. Another member remains unchanged. Installation tokens cannot act as member profile tokens. Missing detector and missing external-processing consent fail before external processing; successful external detector execution is not claimed.
+
+Native revision `186662c5` and SDK revision `356f985e` separately establish alias/legacy mutation equivalence: trimmed rename persists across restart; empty workspace deletion returns an empty 204 then 404; retained key dependencies refuse deletion; six role cases and foreign scopes retain permissions. Unauthenticated mutation is rejected immediately while the workspace table is locked, demonstrating authentication precedes lookup. Both SDK route families were exercised. Frontend adoption and owner confirmation of the frozen integration contract remain separate handoff work.
+
+Original financial/configuration rows were independently compared before and after scoped runs; verification members and keys were revoked. No new cash funding, commercial qualification or external detector success was fabricated. The TPM request uses personal self-funded Provider access, not discounted commercial Supplier supply.
+
+## Remaining delivery boundaries
+
+Workspace alias implementation is verified, but S01-3 remains active until the frontend compatibility freeze is confirmed. S11-2 closes publication of core schema gaps, manually reviewed SDK mappings and explicit exclusions; it does not qualify every SDK workflow. S11-3 retains documentation HTTP and frontend handoff verification. Video asset reuse and reported-media settlement remain S08-2/S08-3; text-video lifecycle evidence cannot qualify those flows.

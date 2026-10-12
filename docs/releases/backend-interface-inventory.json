@@ -1,39 +1,23 @@
 {
-  "source_commit": "d6904064bcf7aa262255d9a0395458382ebfae19",
+  "source_commit": "fb21b52a472ac5ab70fe226d093e2c8178a6f698",
   "scope": "Registered root-contract operations grouped for the five core workflows plus access and saved Chat integration. Not a complete product inventory or runtime acceptance.",
-  "schema_ref_context": "Read input/output/error schemas at contract_source + contract_operation_pointer. This compact index does not duplicate or replace OpenAPI.",
+  "schema_ref_context": "Read exact schemas in contract_source via contract_operation_pointer. This index does not duplicate OpenAPI schemas.",
   "sdk_match_semantics": "Exact operation-name text match is a navigation hint, not SDK behavior verification. False can mean differently named SDK helpers.",
   "counts": {
-    "access_foundation": 36,
+    "access_foundation": 42,
     "billing": 37,
-    "keys_and_inference": 40,
+    "keys_and_inference": 45,
     "logs": 8,
     "saved_chat": 8,
-    "supplier": 68,
-    "video": 39
+    "supplier": 72,
+    "video": 42
   },
   "unresolved_method_handlers": [],
   "registered_methods_missing_from_inventory": [
-    "HEAD /v1/media/sources/{token}",
     "GET /auth/callback",
     "GET /admin/v1/organizations/{organization}/projects/{project}/codex-connections",
     "POST /admin/v1/organizations/{organization}/projects/{project}/codex-connections/sign-in",
-    "PATCH /admin/v1/organizations/{organization}/projects/{project}/codex-connections/{id}",
-    "GET /admin/v1/organizations/{organization}/projects/{project}/guardrails/detectors",
-    "GET /admin/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors",
-    "POST /admin/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors/{detector}/preview",
-    "GET /admin/v1/organizations/{organization}/projects/{project}/guardrails/detector-decisions",
-    "GET /admin/v1/guardrails/detectors/{detector}",
-    "POST /admin/v1/guardrails/detectors/{detector}/preview",
-    "GET /admin/v1/organizations/{organization}/projects/{project}/guardrails/dispatch-denials",
-    "PUT /admin/v1/providers/{provider}/qualification",
-    "POST /admin/v1/providers/{provider}/qualification/revoke",
-    "PUT /admin/v1/providers/{provider}/offers/{offer}/qualification",
-    "POST /admin/v1/providers/{provider}/offers/{offer}/qualification/revoke",
-    "GET /admin/v1/auth/profile",
-    "PUT /admin/v1/auth/profile",
-    "GET /admin/v1/auth/preferences",
-    "PUT /admin/v1/auth/preferences"
+    "PATCH /admin/v1/organizations/{organization}/projects/{project}/codex-connections/{id}"
   ],
   "operations": [
     {
@@ -48,7 +32,7 @@
       "security": [],
       "path_item_contract_source": "contracts/password-sessions.openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1auth~1browser~1login/post"
     },
     {
@@ -67,7 +51,7 @@
       ],
       "path_item_contract_source": "contracts/password-sessions.openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1auth~1browser~1logout/post"
     },
     {
@@ -82,7 +66,7 @@
       "security": [],
       "path_item_contract_source": "contracts/password-sessions.openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1auth~1config/get"
     },
     {
@@ -97,7 +81,7 @@
       "security": [],
       "path_item_contract_source": "contracts/password-sessions.openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1auth~1login/post"
     },
     {
@@ -116,7 +100,7 @@
       ],
       "path_item_contract_source": "contracts/password-sessions.openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1auth~1logout/post"
     },
     {
@@ -138,8 +122,84 @@
       ],
       "path_item_contract_source": "contracts/password-sessions.openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1auth~1password/put"
+    },
+    {
+      "area": "access_foundation",
+      "method": "GET",
+      "path": "/admin/v1/auth/preferences",
+      "handler": "crate::admin::preferences::preferences",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "getMemberPreferences",
+      "summary": "Read current member appearance preference",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1auth~1preferences/get"
+    },
+    {
+      "area": "access_foundation",
+      "method": "PUT",
+      "path": "/admin/v1/auth/preferences",
+      "handler": "crate::admin::preferences::update_preferences",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "updateMemberPreferences",
+      "summary": "Save current member appearance preference",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1auth~1preferences/put"
+    },
+    {
+      "area": "access_foundation",
+      "method": "GET",
+      "path": "/admin/v1/auth/profile",
+      "handler": "crate::admin::profile::profile",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "getMemberProfile",
+      "summary": "Read current member profile",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1auth~1profile/get"
+    },
+    {
+      "area": "access_foundation",
+      "method": "PUT",
+      "path": "/admin/v1/auth/profile",
+      "handler": "crate::admin::profile::update_profile",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "updateMemberProfile",
+      "summary": "Update current member profile",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1auth~1profile/put"
     },
     {
       "area": "access_foundation",
@@ -157,7 +217,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1operators~1{operator}~1sessions/get"
     },
     {
@@ -176,7 +236,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1operators~1{operator}~1sessions/post"
     },
     {
@@ -195,7 +255,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1operators~1{operator}~1sessions~1{session}/delete"
     },
     {
@@ -214,7 +274,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "Current-input HTTP and independent saved-response/native-database verification; see backend-interface-gaps.md legacy workspace checkpoint.",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects/get"
     },
     {
@@ -233,7 +293,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "Current-input HTTP and independent saved-response/native-database verification; see backend-interface-gaps.md legacy workspace checkpoint.",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects/post"
     },
     {
@@ -252,7 +312,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}/delete"
     },
     {
@@ -271,7 +331,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}/patch"
     },
     {
@@ -290,7 +350,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1accounts/get"
     },
     {
@@ -309,7 +369,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1accounts/post"
     },
     {
@@ -328,7 +388,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1accounts~1{account}~1executions/get"
     },
     {
@@ -347,7 +407,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1accounts~1{account}~1quota/delete"
     },
     {
@@ -366,7 +426,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1accounts~1{account}~1quota/get"
     },
     {
@@ -385,7 +445,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1accounts~1{account}~1quota/post"
     },
     {
@@ -404,7 +464,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1asset-group-intents/get"
     },
     {
@@ -423,7 +483,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1asset-group-intents~1{intent}~1request/delete"
     },
     {
@@ -442,7 +502,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1asset-group-intents~1{intent}~1request/get"
     },
     {
@@ -461,7 +521,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1budget/get"
     },
     {
@@ -480,7 +540,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1budget/post"
     },
     {
@@ -499,7 +559,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1collector-keys/get"
     },
     {
@@ -518,7 +578,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1collector-keys/post"
     },
     {
@@ -537,7 +597,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1collector-keys~1{id}/delete"
     },
     {
@@ -556,7 +616,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1costs/get"
     },
     {
@@ -575,7 +635,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1spending-limit/get"
     },
     {
@@ -594,7 +654,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1spending-limit~1{currency}/get"
     },
     {
@@ -613,7 +673,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1spending-limit~1{currency}/put"
     },
     {
@@ -632,7 +692,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1spending-limit~1{currency}~1history/get"
     },
     {
@@ -651,7 +711,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1session/get"
     },
     {
@@ -670,7 +730,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1workspaces/get"
     },
     {
@@ -689,7 +749,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1workspaces/post"
     },
     {
@@ -708,8 +768,46 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1workspaces~1by-route~1{route_slug}/get"
+    },
+    {
+      "area": "access_foundation",
+      "method": "DELETE",
+      "path": "/admin/v1/workspaces/{workspace}",
+      "handler": "crate::admin::workspace_aliases::delete",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "deleteWorkspaceById",
+      "summary": "Delete an empty workspace by identity",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1workspaces~1{workspace}/delete"
+    },
+    {
+      "area": "access_foundation",
+      "method": "PATCH",
+      "path": "/admin/v1/workspaces/{workspace}",
+      "handler": "crate::admin::workspace_aliases::rename",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "renameWorkspaceById",
+      "summary": "Rename a workspace by identity",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1workspaces~1{workspace}/patch"
     },
     {
       "area": "billing",
@@ -727,7 +825,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1policy/put"
     },
     {
@@ -746,7 +844,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1policy~1history/get"
     },
     {
@@ -765,7 +863,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1warning-threshold/put"
     },
     {
@@ -784,7 +882,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1balance/get"
     },
     {
@@ -803,7 +901,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1charge-reconciliation/get"
     },
     {
@@ -822,7 +920,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1entries~1{entry}~1reversal/post"
     },
     {
@@ -841,7 +939,7 @@
       ],
       "path_item_contract_source": "contracts/billing.openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1funding~1settled/post"
     },
     {
@@ -860,7 +958,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1media-rate-models/get"
     },
     {
@@ -879,7 +977,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1media-rates/get"
     },
     {
@@ -898,7 +996,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1media-rates/post"
     },
     {
@@ -917,7 +1015,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1media-rates~1replace/post"
     },
     {
@@ -936,7 +1034,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1media-rates~1{revision}~1retire/post"
     },
     {
@@ -955,7 +1053,7 @@
       ],
       "path_item_contract_source": "contracts/billing.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1payment-methods/get"
     },
     {
@@ -974,7 +1072,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1reservations/get"
     },
     {
@@ -993,7 +1091,7 @@
       ],
       "path_item_contract_source": "contracts/billing.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1topups/get"
     },
     {
@@ -1012,7 +1110,7 @@
       ],
       "path_item_contract_source": "contracts/billing.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1topups/post"
     },
     {
@@ -1031,7 +1129,7 @@
       ],
       "path_item_contract_source": "contracts/billing.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1topups~1{order}/get"
     },
     {
@@ -1050,7 +1148,7 @@
       ],
       "path_item_contract_source": "contracts/billing.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1topups~1{order}~1reconcile/post"
     },
     {
@@ -1069,7 +1167,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1transactions/get"
     },
     {
@@ -1088,7 +1186,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1billing/get"
     },
     {
@@ -1110,7 +1208,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1invoices/get"
     },
     {
@@ -1129,7 +1227,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1invoices/post"
     },
     {
@@ -1148,7 +1246,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1invoices~1{invoice}/get"
     },
     {
@@ -1167,7 +1265,7 @@
       ],
       "path_item_contract_source": "contracts/billing.openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1invoices~1{invoice}~1payment/post"
     },
     {
@@ -1186,7 +1284,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1tariffs/post"
     },
     {
@@ -1205,7 +1303,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1tariffs~1{model}~1history/get"
     },
     {
@@ -1224,7 +1322,7 @@
       ],
       "path_item_contract_source": "contracts/platform-configuration.openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1platform~1payments~1epay/get"
     },
     {
@@ -1243,7 +1341,7 @@
       ],
       "path_item_contract_source": "contracts/platform-configuration.openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1platform~1payments~1epay/put"
     },
     {
@@ -1262,7 +1360,7 @@
       ],
       "path_item_contract_source": "contracts/platform-configuration.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1platform~1payments~1integrations/get"
     },
     {
@@ -1281,7 +1379,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1pricing~1models/get"
     },
     {
@@ -1303,7 +1401,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1pricing~1organizations~1{organization}~1workspaces~1{project}~1tariffs/get"
     },
     {
@@ -1322,7 +1420,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1pricing~1organizations~1{organization}~1workspaces~1{project}~1tariffs~1{model}~1history/get"
     },
     {
@@ -1344,7 +1442,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1pricing~1targets/get"
     },
     {
@@ -1359,7 +1457,7 @@
       "security": [],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1payments~1epay~1notify/get"
     },
     {
@@ -1374,7 +1472,7 @@
       "security": [],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1payments~1epay~1notify/post"
     },
     {
@@ -1389,7 +1487,7 @@
       "security": [],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1payments~1stripe~1notify/post"
     },
     {
@@ -1404,8 +1502,52 @@
       "security": [],
       "path_item_contract_source": "contracts/billing.openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1payments~1zhifux~1notify/post"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "GET",
+      "path": "/admin/v1/guardrails/detectors/{detector}",
+      "handler": "crate::admin::guardrails::detector_description",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "getGuardrailDetectorDescription",
+      "summary": "Read installation text detector processing declaration",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1guardrails~1detectors~1{detector}/get"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "POST",
+      "path": "/admin/v1/guardrails/detectors/{detector}/preview",
+      "handler": "crate::admin::guardrails::detector_preview",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "previewGuardrailDetector",
+      "summary": "Preview installation text detector transport",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1guardrails~1detectors~1{detector}~1preview/post"
     },
     {
       "area": "keys_and_inference",
@@ -1423,7 +1565,7 @@
       ],
       "path_item_contract_source": "contracts/guardrails.openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails/get"
     },
     {
@@ -1442,7 +1584,7 @@
       ],
       "path_item_contract_source": "contracts/guardrails.openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails/put"
     },
     {
@@ -1464,8 +1606,74 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1denials/get"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/guardrails/detector-decisions",
+      "handler": "crate::admin::guardrails::detector_decisions",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listInputDetectorDecisions",
+      "summary": "Read latest 100 workspace input detector decisions",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1detector-decisions/get"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/guardrails/detectors",
+      "handler": "crate::admin::guardrails::workspace_detectors",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listWorkspaceDetectors",
+      "summary": "List authorized workspace text detector declarations",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1detectors/get"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/guardrails/dispatch-denials",
+      "handler": "crate::admin::guardrails::dispatch_denials",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listGuardrailDispatchDenials",
+      "summary": "Read latest 100 workspace dispatch policy exceptions",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1dispatch-denials/get"
     },
     {
       "area": "keys_and_inference",
@@ -1483,7 +1691,7 @@
       ],
       "path_item_contract_source": "contracts/guardrails.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1history/get"
     },
     {
@@ -1502,7 +1710,7 @@
       ],
       "path_item_contract_source": "contracts/guardrails.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1input-preview/post"
     },
     {
@@ -1521,7 +1729,7 @@
       ],
       "path_item_contract_source": "contracts/guardrails.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1output-preview/post"
     },
     {
@@ -1540,7 +1748,7 @@
       ],
       "path_item_contract_source": "contracts/guardrails.openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1preview/post"
     },
     {
@@ -1559,7 +1767,7 @@
       ],
       "path_item_contract_source": "contracts/guardrails.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1revisions~1{revision}/get"
     },
     {
@@ -1578,7 +1786,7 @@
       ],
       "path_item_contract_source": "contracts/guardrails.openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1rollback/post"
     },
     {
@@ -1597,7 +1805,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys/get"
     },
     {
@@ -1616,7 +1824,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys/post"
     },
     {
@@ -1635,7 +1843,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}/delete"
     },
     {
@@ -1654,7 +1862,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}/patch"
     },
     {
@@ -1673,7 +1881,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1chat~1completions/post"
     },
     {
@@ -1692,7 +1900,7 @@
       ],
       "path_item_contract_source": "contracts/key-concurrency.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1concurrency-limit/get"
     },
     {
@@ -1711,7 +1919,7 @@
       ],
       "path_item_contract_source": "contracts/key-concurrency.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1concurrency-limit/put"
     },
     {
@@ -1730,7 +1938,7 @@
       ],
       "path_item_contract_source": "contracts/key-concurrency.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1concurrency-limit~1history/get"
     },
     {
@@ -1749,7 +1957,7 @@
       ],
       "path_item_contract_source": "contracts/guardrails.openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1guardrail/get"
     },
     {
@@ -1768,7 +1976,7 @@
       ],
       "path_item_contract_source": "contracts/guardrails.openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1guardrail/put"
     },
     {
@@ -1787,7 +1995,7 @@
       ],
       "path_item_contract_source": "contracts/guardrails.openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1guardrail~1history/get"
     },
     {
@@ -1806,7 +2014,7 @@
       ],
       "path_item_contract_source": "contracts/key-ip.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1ip-policy/get"
     },
     {
@@ -1825,7 +2033,7 @@
       ],
       "path_item_contract_source": "contracts/key-ip.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1ip-policy/put"
     },
     {
@@ -1844,7 +2052,7 @@
       ],
       "path_item_contract_source": "contracts/key-ip.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1ip-policy~1history/get"
     },
     {
@@ -1863,7 +2071,7 @@
       ],
       "path_item_contract_source": "contracts/key-request-rate.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1request-rate-limit/get"
     },
     {
@@ -1882,7 +2090,7 @@
       ],
       "path_item_contract_source": "contracts/key-request-rate.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1request-rate-limit/put"
     },
     {
@@ -1901,7 +2109,7 @@
       ],
       "path_item_contract_source": "contracts/key-request-rate.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1request-rate-limit~1history/get"
     },
     {
@@ -1920,7 +2128,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1rotate/post"
     },
     {
@@ -1939,7 +2147,7 @@
       ],
       "path_item_contract_source": "contracts/key-spending.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1spending-limit/get"
     },
     {
@@ -1958,7 +2166,7 @@
       ],
       "path_item_contract_source": "contracts/key-spending.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1spending-limit~1{currency}/put"
     },
     {
@@ -1977,7 +2185,7 @@
       ],
       "path_item_contract_source": "contracts/key-spending.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1spending-limit~1{currency}~1history/get"
     },
     {
@@ -1996,7 +2204,7 @@
       ],
       "path_item_contract_source": "contracts/key-token-rate.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1token-rate-limit/get"
     },
     {
@@ -2015,7 +2223,7 @@
       ],
       "path_item_contract_source": "contracts/key-token-rate.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1token-rate-limit/put"
     },
     {
@@ -2034,7 +2242,7 @@
       ],
       "path_item_contract_source": "contracts/key-token-rate.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1token-rate-limit~1history/get"
     },
     {
@@ -2053,7 +2261,7 @@
       ],
       "path_item_contract_source": "contracts/key-request-rate.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1token-usage-window/get"
     },
     {
@@ -2068,7 +2276,7 @@
       "security": [],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1v1~1branding/get"
     },
     {
@@ -2090,7 +2298,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1v1~1chat~1completions/post"
     },
     {
@@ -2112,7 +2320,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1v1~1embeddings/post"
     },
     {
@@ -2134,7 +2342,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1v1~1messages/post"
     },
     {
@@ -2156,7 +2364,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1v1~1models/get"
     },
     {
@@ -2178,7 +2386,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1v1~1responses/post"
     },
     {
@@ -2197,7 +2405,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1requests/get"
     },
     {
@@ -2216,7 +2424,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1requests~1export/get"
     },
     {
@@ -2235,7 +2443,7 @@
       ],
       "path_item_contract_source": "contracts/request-observability.openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1requests~1{attempt}/get"
     },
     {
@@ -2254,7 +2462,7 @@
       ],
       "path_item_contract_source": "contracts/guardrails.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1requests~1{attempt}~1guardrails/get"
     },
     {
@@ -2273,7 +2481,7 @@
       ],
       "path_item_contract_source": "contracts/request-observability.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1requests~1{attempt}~1payloads/delete"
     },
     {
@@ -2292,7 +2500,7 @@
       ],
       "path_item_contract_source": "contracts/request-observability.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1requests~1{attempt}~1payloads/get"
     },
     {
@@ -2311,7 +2519,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1requests~1{attempt}~1usage-reconciliation/get"
     },
     {
@@ -2330,7 +2538,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1requests~1{attempt}~1usage-reconciliation/post"
     },
     {
@@ -2349,7 +2557,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1chat-draft/get"
     },
     {
@@ -2368,7 +2576,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1chat-draft/put"
     },
     {
@@ -2387,7 +2595,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1chat-sessions/get"
     },
     {
@@ -2406,7 +2614,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1chat-sessions~1{id}/delete"
     },
     {
@@ -2425,7 +2633,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1chat-sessions~1{id}/get"
     },
     {
@@ -2444,7 +2652,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1chat-sessions~1{id}/put"
     },
     {
@@ -2463,7 +2671,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1chat-sessions~1{id}~1archive/put"
     },
     {
@@ -2482,7 +2690,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1chat-sessions~1{id}~1export/get"
     },
     {
@@ -2501,7 +2709,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1providers/get"
     },
     {
@@ -2520,7 +2728,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1providers/post"
     },
     {
@@ -2539,7 +2747,7 @@
       ],
       "path_item_contract_source": "contracts/provider-business.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}/delete"
     },
     {
@@ -2558,7 +2766,7 @@
       ],
       "path_item_contract_source": "contracts/provider-business.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}/get"
     },
     {
@@ -2577,7 +2785,7 @@
       ],
       "path_item_contract_source": "contracts/provider-business.openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}/patch"
     },
     {
@@ -2596,7 +2804,7 @@
       ],
       "path_item_contract_source": "contracts/provider-business.openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1administration/get"
     },
     {
@@ -2615,7 +2823,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1configuration-usage/get"
     },
     {
@@ -2634,7 +2842,7 @@
       ],
       "path_item_contract_source": "contracts/provider-business.openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1dashboard/get"
     },
     {
@@ -2656,7 +2864,7 @@
       ],
       "path_item_contract_source": "contracts/provider-business.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1earnings/get"
     },
     {
@@ -2675,7 +2883,7 @@
       ],
       "path_item_contract_source": "contracts/provider-business.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1media-offer-models/get"
     },
     {
@@ -2694,7 +2902,7 @@
       ],
       "path_item_contract_source": "contracts/provider-business.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1media-offers/post"
     },
     {
@@ -2713,7 +2921,7 @@
       ],
       "path_item_contract_source": "contracts/provider-business.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1media-rate-models/get"
     },
     {
@@ -2732,7 +2940,7 @@
       ],
       "path_item_contract_source": "contracts/provider-business.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1media-rates/get"
     },
     {
@@ -2751,7 +2959,7 @@
       ],
       "path_item_contract_source": "contracts/provider-business.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1media-rates/post"
     },
     {
@@ -2770,7 +2978,7 @@
       ],
       "path_item_contract_source": "contracts/provider-business.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1media-rates~1replace/post"
     },
     {
@@ -2789,7 +2997,7 @@
       ],
       "path_item_contract_source": "contracts/provider-business.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1media-rates~1{revision}~1retire/post"
     },
     {
@@ -2808,7 +3016,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1members/get"
     },
     {
@@ -2827,7 +3035,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1members~1{operator}/put"
     },
     {
@@ -2849,7 +3057,7 @@
       ],
       "path_item_contract_source": "contracts/provider-business.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1offers/get"
     },
     {
@@ -2868,7 +3076,7 @@
       ],
       "path_item_contract_source": "contracts/provider-business.openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1offers/post"
     },
     {
@@ -2887,8 +3095,46 @@
       ],
       "path_item_contract_source": "contracts/provider-business.openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1offers~1{offer}/patch"
+    },
+    {
+      "area": "supplier",
+      "method": "PUT",
+      "path": "/admin/v1/providers/{provider}/offers/{offer}/qualification",
+      "handler": "crate::providers::qualify_offer",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "qualifySupplierOffer",
+      "summary": "Record a Supplier offer qualification review",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1offers~1{offer}~1qualification/put"
+    },
+    {
+      "area": "supplier",
+      "method": "POST",
+      "path": "/admin/v1/providers/{provider}/offers/{offer}/qualification/revoke",
+      "handler": "crate::providers::revoke_offer_qualification",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "revokeSupplierOfferQualification",
+      "summary": "Revoke the current Supplier offer qualification",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1offers~1{offer}~1qualification~1revoke/post"
     },
     {
       "area": "supplier",
@@ -2906,7 +3152,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1offers~1{offer}~1revisions/get"
     },
     {
@@ -2925,8 +3171,46 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1offers~1{offer}~1revisions~1{revision}/get"
+    },
+    {
+      "area": "supplier",
+      "method": "PUT",
+      "path": "/admin/v1/providers/{provider}/qualification",
+      "handler": "crate::providers::qualify_business",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "qualifySupplierBusiness",
+      "summary": "Record a Supplier business qualification review",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1qualification/put"
+    },
+    {
+      "area": "supplier",
+      "method": "POST",
+      "path": "/admin/v1/providers/{provider}/qualification/revoke",
+      "handler": "crate::providers::revoke_business_qualification",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "revokeSupplierBusinessQualification",
+      "summary": "Revoke the current Supplier business qualification",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1qualification~1revoke/post"
     },
     {
       "area": "supplier",
@@ -2947,7 +3231,7 @@
       ],
       "path_item_contract_source": "contracts/provider-business.openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1settlements/get"
     },
     {
@@ -2966,7 +3250,7 @@
       ],
       "path_item_contract_source": "contracts/provider-business.openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1settlements/post"
     },
     {
@@ -2985,7 +3269,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors/get"
     },
     {
@@ -3004,7 +3288,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors/post"
     },
     {
@@ -3023,7 +3307,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}/put"
     },
     {
@@ -3042,7 +3326,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management/delete"
     },
     {
@@ -3061,7 +3345,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management/get"
     },
     {
@@ -3080,7 +3364,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management/put"
     },
     {
@@ -3099,7 +3383,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1authorizations/get"
     },
     {
@@ -3118,7 +3402,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1authorizations/post"
     },
     {
@@ -3137,7 +3421,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1authorizations~1{authorization}/delete"
     },
     {
@@ -3156,7 +3440,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1group-deletion-consents/post"
     },
     {
@@ -3175,7 +3459,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1group-deletion-consents~1{consent}/delete"
     },
     {
@@ -3194,7 +3478,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1group-deletion-consents~1{consent}/get"
     },
     {
@@ -3213,7 +3497,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1group-deletion-consents~1{consent}~1dispatch/post"
     },
     {
@@ -3232,7 +3516,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1group-reads/get"
     },
     {
@@ -3251,7 +3535,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1group-reads/post"
     },
     {
@@ -3270,7 +3554,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1group-reads~1{read}/delete"
     },
     {
@@ -3289,7 +3573,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1group-reads~1{read}/get"
     },
     {
@@ -3308,7 +3592,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1group-updates/get"
     },
     {
@@ -3327,7 +3611,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1group-updates/post"
     },
     {
@@ -3346,7 +3630,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1group-updates~1{update}/delete"
     },
     {
@@ -3365,7 +3649,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1group-updates~1{update}~1dispatch/post"
     },
     {
@@ -3384,7 +3668,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1group-updates~1{update}~1reconcile/post"
     },
     {
@@ -3403,7 +3687,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1groups/post"
     },
     {
@@ -3422,7 +3706,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1listings/get"
     },
     {
@@ -3441,7 +3725,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1listings/post"
     },
     {
@@ -3460,7 +3744,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1listings~1{listing}/delete"
     },
     {
@@ -3479,7 +3763,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1listings~1{listing}/get"
     },
     {
@@ -3498,7 +3782,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1lookups/get"
     },
     {
@@ -3517,7 +3801,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1lookups/post"
     },
     {
@@ -3536,7 +3820,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1lookups~1{lookup}/delete"
     },
     {
@@ -3555,7 +3839,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1lookups~1{lookup}/get"
     },
     {
@@ -3574,7 +3858,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1catalog/get"
     },
     {
@@ -3593,7 +3877,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1catalog/post"
     },
     {
@@ -3612,7 +3896,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1check/post"
     },
     {
@@ -3631,7 +3915,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1models/get"
     },
     {
@@ -3650,7 +3934,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1models/post"
     },
     {
@@ -3669,7 +3953,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1personal-owner/put"
     },
     {
@@ -3688,7 +3972,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1supplier/get"
     },
     {
@@ -3707,7 +3991,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1supplier/put"
     },
     {
@@ -3729,7 +4013,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{vendor}~1cooldown/get"
     },
     {
@@ -3748,7 +4032,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{vendor}~1request-rate-limit/get"
     },
     {
@@ -3767,7 +4051,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{vendor}~1request-rate-limit/put"
     },
     {
@@ -3786,8 +4070,52 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{vendor}~1request-rate-limit~1history/get"
+    },
+    {
+      "area": "video",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors",
+      "handler": "crate::admin::guardrails::workspace_image_detectors",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listWorkspaceImageDetectors",
+      "summary": "List authorized workspace image detector declarations",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1image-detectors/get"
+    },
+    {
+      "area": "video",
+      "method": "POST",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors/{detector}/preview",
+      "handler": "crate::admin::guardrails::image_detector_preview",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "previewWorkspaceImageDetector",
+      "summary": "Preview explicitly consented workspace image processing",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1image-detectors~1{detector}~1preview/post"
     },
     {
       "area": "video",
@@ -3805,7 +4133,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1video~1estimate/post"
     },
     {
@@ -3824,7 +4152,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1video~1jobs/get"
     },
     {
@@ -3843,7 +4171,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1video~1jobs/post"
     },
     {
@@ -3862,7 +4190,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1video~1jobs~1{job}/get"
     },
     {
@@ -3881,7 +4209,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1video~1jobs~1{job}~1billing/get"
     },
     {
@@ -3900,7 +4228,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1video~1jobs~1{job}~1observations/get"
     },
     {
@@ -3919,7 +4247,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1video~1jobs~1{job}~1refresh/post"
     },
     {
@@ -3938,7 +4266,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1video~1jobs~1{job}~1results/delete"
     },
     {
@@ -3957,7 +4285,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1video~1jobs~1{job}~1results/get"
     },
     {
@@ -3976,7 +4304,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1video~1jobs~1{job}~1results~1{kind}/get"
     },
     {
@@ -3995,7 +4323,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1video~1jobs~1{job}~1timings/get"
     },
     {
@@ -4014,7 +4342,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": true,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1video~1models/get"
     },
     {
@@ -4036,7 +4364,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1video-intents/get"
     },
     {
@@ -4058,7 +4386,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1video-intents~1{intent}/delete"
     },
     {
@@ -4080,7 +4408,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1video-intents~1{intent}/get"
     },
     {
@@ -4102,7 +4430,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1video-intents~1{intent}/put"
     },
     {
@@ -4124,7 +4452,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1video-intents~1{intent}~1submit/post"
     },
     {
@@ -4143,7 +4471,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1v1~1media~1image-ingestions/get"
     },
     {
@@ -4162,7 +4490,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1v1~1media~1image-ingestions~1{id}/delete"
     },
     {
@@ -4181,7 +4509,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1v1~1media~1image-ingestions~1{id}/get"
     },
     {
@@ -4200,7 +4528,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1v1~1media~1image-ingestions~1{id}/put"
     },
     {
@@ -4219,7 +4547,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1v1~1media~1image-ingestions~1{id}~1dispatch/post"
     },
     {
@@ -4238,7 +4566,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1v1~1media~1image-ingestions~1{id}~1readiness~1{read_id}/get"
     },
     {
@@ -4257,7 +4585,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1v1~1media~1image-ingestions~1{id}~1readiness~1{read_id}/post"
     },
     {
@@ -4279,7 +4607,7 @@
       ],
       "path_item_contract_source": "contracts/generated/handler-operations.json",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1v1~1media~1image-sources/post"
     },
     {
@@ -4298,7 +4626,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1v1~1media~1image-sources~1{id}/delete"
     },
     {
@@ -4313,8 +4641,23 @@
       "security": [],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1v1~1media~1sources~1{token}/get"
+    },
+    {
+      "area": "video",
+      "method": "HEAD",
+      "path": "/v1/media/sources/{token}",
+      "handler": "super::image_sources::reject_head",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "rejectMediaSourceHead",
+      "summary": "Reject HEAD probes of image source capabilities",
+      "implementation_annotation": "implemented",
+      "security": [],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
+      "contract_operation_pointer": "#/paths/~1v1~1media~1sources~1{token}/head"
     },
     {
       "area": "video",
@@ -4335,7 +4678,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1v1~1video~1estimate/post"
     },
     {
@@ -4357,7 +4700,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1v1~1video~1jobs/get"
     },
     {
@@ -4379,7 +4722,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1v1~1video~1jobs/post"
     },
     {
@@ -4401,7 +4744,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1v1~1video~1jobs~1{id}/get"
     },
     {
@@ -4423,7 +4766,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1v1~1video~1jobs~1{id}~1billing/get"
     },
     {
@@ -4442,7 +4785,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1v1~1video~1jobs~1{id}~1observations/get"
     },
     {
@@ -4464,7 +4807,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1v1~1video~1jobs~1{id}~1refresh/post"
     },
     {
@@ -4486,7 +4829,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1v1~1video~1jobs~1{id}~1results/delete"
     },
     {
@@ -4508,7 +4851,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1v1~1video~1jobs~1{id}~1results/get"
     },
     {
@@ -4530,7 +4873,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1v1~1video~1jobs~1{id}~1results~1{kind}/get"
     },
     {
@@ -4552,7 +4895,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1v1~1video~1jobs~1{id}~1timings/get"
     },
     {
@@ -4574,7 +4917,7 @@
       ],
       "path_item_contract_source": "contracts/openapi.yaml",
       "sdk_operation_name_match": false,
-      "runtime_verification": "unverified_by_this_inventory",
+      "runtime_verification": "Not established by this static inventory; inspect linked current-input evidence before making a workflow claim.",
       "contract_operation_pointer": "#/paths/~1v1~1video~1models/get"
     }
   ]

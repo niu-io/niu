@@ -58,7 +58,7 @@ def render():
         'Existing scoped evidence is carried forward explicitly. Missing evidence remains open; fixture outcomes have zero signal.', '',
         'Source of truth: [project-status.json](project-status.json). Scope changes require a versioned reason; they cannot silently change the denominator.',
         'Status meanings: open = unfinished; active = explicitly assigned current work; blocked = identified dependency prevents progress; done = every stated criterion has evidence; delegated/deferred = separate ownership or excluded scope.',
-        'This assessment assigns no new implementation task as active. The next implementation assignment must record its stable task ID.', '',
+        'Active implementation: ' + (', '.join(data['active_implementation_tasks']) or 'None') + '. Assignments use stable task IDs.', '',
         '| Subsystem | Owner lane | Status | Completed checks | Dependencies |',
         '| --- | --- | --- | ---: | --- |',
     ]

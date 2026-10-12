@@ -1,20 +1,21 @@
 {
   "version": 1,
   "updated": "2026-10-12",
-  "source_commit": "33ce4a5910e2fa41634d01173f4cdbfaa2c3cef9",
+  "source_commit": "fb21b52a472ac5ab70fe226d093e2c8178a6f698",
   "runtime_commit": "3fdc669c60a74038e138cf03eaca0e0a4964750d",
   "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
   "active_implementation_tasks": [
-    "S02-2",
-    "S10-1",
-    "S11-2"
+    "S01-3",
+    "S02-3",
+    "S08-2",
+    "S10-1"
   ],
   "subsystems": [
     {
       "id": "S01",
       "name": "Identity and workspaces",
       "lane": "A",
-      "status": "open",
+      "status": "active",
       "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
       "paths": [
         "apps/gateway/src/admin.rs",
@@ -36,15 +37,17 @@
         },
         {
           "id": "S01-2",
-          "status": "open",
+          "status": "done",
           "acceptance": "Member authentication, expiry/sign-out, company/workspace roles and cross-scope administration match the declared backend contract.",
-          "evidence": [],
-          "evidence_revision": null,
-          "note": ""
+          "evidence": [
+            "docs/reference/parallel-core-backend-acceptance.md"
+          ],
+          "evidence_revision": "fb21b52a",
+          "note": "Bounded native and contract evidence; exclusions are explicit in the linked record."
         },
         {
           "id": "S01-3",
-          "status": "open",
+          "status": "active",
           "acceptance": "Freeze workspace route compatibility with the frontend owner; reject inconsistent updates/deletion without losing retained business data.",
           "evidence": [],
           "evidence_revision": null,
@@ -80,15 +83,17 @@
         },
         {
           "id": "S02-2",
-          "status": "active",
+          "status": "done",
           "acceptance": "All required management, membership, catalog and qualification operations have exact published contracts and ordinary-role isolation.",
-          "evidence": [],
-          "evidence_revision": null,
-          "note": ""
+          "evidence": [
+            "docs/reference/parallel-core-backend-acceptance.md"
+          ],
+          "evidence_revision": "fb21b52a",
+          "note": "Bounded native and contract evidence; exclusions are explicit in the linked record."
         },
         {
           "id": "S02-3",
-          "status": "open",
+          "status": "active",
           "acceptance": "Complete configured-model, customer-price and eligibility publication journey, including stale revision and safe unavailable-capability states.",
           "evidence": [],
           "evidence_revision": null,
@@ -171,11 +176,13 @@
         },
         {
           "id": "S04-2",
-          "status": "open",
+          "status": "done",
           "acceptance": "Close the matrix for single-key spending/RPM/TPM/concurrency/IP controls and mandatory parent-child policy composition; concurrent denials create no unauthorized dispatch.",
-          "evidence": [],
-          "evidence_revision": null,
-          "note": ""
+          "evidence": [
+            "docs/reference/parallel-core-backend-acceptance.md"
+          ],
+          "evidence_revision": "fb21b52a",
+          "note": "Bounded native and contract evidence; exclusions are explicit in the linked record."
         },
         {
           "id": "S04-3",
@@ -324,7 +331,7 @@
       "id": "S08",
       "name": "Video jobs, results and assets",
       "lane": "C",
-      "status": "open",
+      "status": "active",
       "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
       "paths": [
         "apps/gateway/src/web/inference/video.rs",
@@ -351,7 +358,7 @@
         },
         {
           "id": "S08-2",
-          "status": "open",
+          "status": "active",
           "acceptance": "Close the supported input/control/job/result/retention/asset authorization matrix and recovery without duplicate submission.",
           "evidence": [],
           "evidence_revision": null,
@@ -458,7 +465,7 @@
       "id": "S11",
       "name": "Contracts, SDK and documentation",
       "lane": "I",
-      "status": "active",
+      "status": "open",
       "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
       "paths": [
         "contracts",
@@ -480,11 +487,13 @@
         },
         {
           "id": "S11-2",
-          "status": "active",
+          "status": "done",
           "acceptance": "Close core root/handler schema gaps and manually map actual SDK methods; explicitly classify excluded/non-JSON/HEAD operations.",
-          "evidence": [],
-          "evidence_revision": null,
-          "note": ""
+          "evidence": [
+            "docs/reference/parallel-core-backend-acceptance.md"
+          ],
+          "evidence_revision": "fb21b52a",
+          "note": "Bounded native and contract evidence; exclusions are explicit in the linked record."
         },
         {
           "id": "S11-3",
