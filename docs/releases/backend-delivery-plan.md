@@ -11,8 +11,9 @@ serial endpoint-audit-first plan. Product scope remains governed by
 
 - 14 subsystems have fixed ownership, dependencies, acceptance IDs and states.
 - 12 backend/integration subsystems contain 36 acceptance checkpoints.
-- 11 checkpoints carry bounded actual evidence at their recorded revisions;
-  25 remain open. No whole backend subsystem is closed.
+- The initial baseline recorded 11 completed checkpoints and 25 open items.
+  Current completion and active assignments are generated in the fixed status
+  board; this plan does not maintain a second mutable progress counter.
 - Frontend/catalog/Help is delegated; packaging and legacy/extension work is
   separately assigned or deferred. These are not silently counted as complete.
 - Progress is acceptance coverage, not coding percentage or full release readiness.
