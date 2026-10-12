@@ -261,7 +261,8 @@ pub struct VendorFilter {
 ///             "openrouter",
 ///             "openai",
 ///             "anthropic",
-///             "gemini"
+///             "gemini",
+///             "ark"
 ///           ]
 ///         },
 ///         "api_base": {
@@ -327,7 +328,8 @@ pub struct VendorFilter {
 ///             "openrouter",
 ///             "openai",
 ///             "anthropic",
-///             "gemini"
+///             "gemini",
+///             "ark"
 ///           ]
 ///         },
 ///         "api_base": {

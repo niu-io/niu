@@ -153,6 +153,34 @@ fn projection_with_images(
         "exclusive_controls":exclusive,
         "output":{"specifications":output.specifications,"meter":output.estimator.meter(),"estimator":output.estimator}
     });
+    // Ordinary references follow the selected Provider schema; local inspection
+    // is an explicit customer policy, not a prerequisite for Provider URLs.
+    if !openrouter && text_permitted {
+        for kind in ["image_url", "audio_url", "video_url"] {
+            let Some(rule) = schema.inputs.get(kind) else {
+                continue;
+            };
+            let inline_types: Vec<_> = rule
+                .data_mime_types
+                .iter()
+                .filter(|mime| {
+                    kind == "image_url"
+                        && matches!(mime.as_str(), "image/png" | "image/jpeg" | "image/webp")
+                })
+                .collect();
+            if !rule.https && inline_types.is_empty() {
+                continue;
+            }
+            let count = rule.maximum_items.min(schema.maximum_content_items);
+            if count == 0 {
+                continue;
+            }
+            value["input_types"].as_array_mut()?.push(json!(kind));
+            value[kind] = json!({"maximum_items":count,"maximum_bytes":rule.maximum_bytes,
+                "https":rule.https,"data_mime_types":inline_types,"roles":rule.roles,
+                "role_required":rule.role_required,"requires_text":false});
+        }
+    }
     if !openrouter
         && let (Some(rule), Some((items, bytes, width, height, decoded))) =
             (schema.inputs.get("image_url"), image_limits)

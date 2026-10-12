@@ -3062,23 +3062,25 @@ components:
         object: { const: video.model }
         id: { type: string, description: Customer model alias }
         mode: { type: string, enum: [owner_funded, customer] }
-        input_types: { type: array, minItems: 1, maxItems: 2, uniqueItems: true, items: { enum: [text, image_url] } }
+        input_types: { type: array, minItems: 1, maxItems: 4, uniqueItems: true, items: { enum: [text, image_url, audio_url, video_url] } }
         requires_image: { type: boolean }
         image_url:
           type: object
           additionalProperties: false
-          required: [maximum_items, maximum_bytes, https, data_mime_types, roles, role_required, requires_text, maximum_width, maximum_height, maximum_decoded_bytes]
+          required: [maximum_items, maximum_bytes, https, data_mime_types, roles, role_required, requires_text]
           properties:
-            maximum_items: { type: integer, minimum: 1, maximum: 4 }
+            maximum_items: { type: integer, minimum: 1, maximum: 32 }
             maximum_bytes: { type: integer, minimum: 1 }
-            https: { const: false }
-            data_mime_types: { type: array, minItems: 1, uniqueItems: true, items: { enum: [image/png, image/jpeg, image/webp] } }
+            https: { type: boolean }
+            data_mime_types: { type: array, uniqueItems: true, items: { enum: [image/png, image/jpeg, image/webp] } }
             roles: { type: array, items: { type: string } }
             role_required: { type: boolean }
-            requires_text: { const: true }
+            requires_text: { type: boolean }
             maximum_width: { type: integer, minimum: 1 }
             maximum_height: { type: integer, minimum: 1 }
             maximum_decoded_bytes: { type: integer, minimum: 1 }
+        audio_url: { $ref: '#/components/schemas/VideoRemoteReferenceInput' }
+        video_url: { $ref: '#/components/schemas/VideoRemoteReferenceInput' }
         text:
           type: object
           additionalProperties: false
@@ -3111,6 +3113,18 @@ components:
       $ref: './generated/handler-operations.json#/components/schemas/VideoOutputSchema'
     VideoInputRule:
       $ref: './generated/handler-operations.json#/components/schemas/VideoInputRule'
+    VideoRemoteReferenceInput:
+      type: object
+      additionalProperties: false
+      required: [maximum_items, maximum_bytes, https, data_mime_types, roles, role_required, requires_text]
+      properties:
+        maximum_items: { type: integer, minimum: 1, maximum: 32 }
+        maximum_bytes: { type: integer, minimum: 1 }
+        https: { const: true }
+        data_mime_types: { type: array, maxItems: 0, items: { type: string } }
+        roles: { type: array, items: { type: string } }
+        role_required: { type: boolean }
+        requires_text: { const: false }
     VideoIntegerControl:
       $ref: './generated/handler-operations.json#/components/schemas/VideoIntegerControl'
     VideoChoiceControl:

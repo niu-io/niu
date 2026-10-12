@@ -279,15 +279,17 @@ export type VideoControl =
   | { kind: 'boolean'; default: boolean | null };
 export type VideoModel = {
   object: 'video.model'; id: string; mode: 'owner_funded' | 'customer';
-  input_types: ['text'] | ['text', 'image_url']; text: { maximum_items: number; maximum_bytes: number };
+  input_types: ['text', ...Array<'image_url' | 'audio_url' | 'video_url'>]; text: { maximum_items: number; maximum_bytes: number };
   requires_image?: boolean;
   workspace_asset?: { media_kind: 'image'; requires_consent: true; requires_current_inspection: true; maximum_items: number; requires_text: true };
   image_url?: {
-    maximum_items: number; maximum_bytes: number; https: false;
+    maximum_items: number; maximum_bytes: number; https: boolean;
     data_mime_types: Array<'image/png' | 'image/jpeg' | 'image/webp'>;
-    roles: string[]; role_required: boolean; requires_text: true;
-    maximum_width: number; maximum_height: number; maximum_decoded_bytes: number;
+    roles: string[]; role_required: boolean; requires_text: boolean;
+    maximum_width?: number; maximum_height?: number; maximum_decoded_bytes?: number;
   };
+  audio_url?: { maximum_items: number; maximum_bytes: number; https: true; data_mime_types: []; roles: string[]; role_required: boolean; requires_text: false };
+  video_url?: { maximum_items: number; maximum_bytes: number; https: true; data_mime_types: []; roles: string[]; role_required: boolean; requires_text: false };
   maximum_body_bytes: number; maximum_content_items: number;
   controls: Record<string, VideoControl>; required_controls: string[]; exclusive_controls: string[][];
   /** The meter follows the configured estimator; discovery is not a billing quote. */
@@ -312,7 +314,7 @@ export type WorkspaceAssetVideoImageInput = {
 
 export type VideoCreateRequest = {
   model: string;
-  content: Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string }; role?: string } | IngestedVideoImageInput | WorkspaceAssetVideoImageInput>;
+  content: Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string }; role?: string } | { type: 'audio_url'; audio_url: { url: string }; role?: string } | { type: 'video_url'; video_url: { url: string }; role?: string } | IngestedVideoImageInput | WorkspaceAssetVideoImageInput>;
   [control: string]: unknown;
 };
 

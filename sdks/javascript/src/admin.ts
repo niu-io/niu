@@ -56,7 +56,7 @@ export type SupplierCredential = {
 };
 /** Write-only secret input; creation does not establish upstream or commercial qualification. */
 export type SupplierCredentialCreateInput = {
-  name: string; adapter: 'openrouter' | 'openai' | 'anthropic' | 'gemini'; api_base: string; api_key: string;
+  name: string; adapter: 'openrouter' | 'openai' | 'anthropic' | 'gemini' | 'ark'; api_base: string; api_key: string;
   enabled?: boolean; create_supplier?: boolean; supplier_id?: string;
 };
 export type SupplierCredentialUpdateInput = {

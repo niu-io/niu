@@ -19204,7 +19204,7 @@ HTTP 404: Missing job, workspace mismatch or model access denied
 
 `POST /v1/video/jobs`
 
-Personal routes support configured ark-direct-v1 or openrouter-video-v1 channels. Customer-funded video currently requires a qualified ark-direct-v1 route and video_tokens pricing; OpenRouter remains personal-only. Shared routes with a legacy procurement budget are unsupported, while personal routes retain ordinary authorization and key limits. Exactly one upstream submission follows durable dispatch intent. HTTP or transport errors retain submission_unknown and any unresolved liability. Observed non-success HTTP statuses are saved as upstream_http_error in scoped request diagnostics, without upstream bodies or credentials; they do not prove nonexecution or authorize a retry. Fresh creation responses include x-niu-attempt-id. Logs retain the inspected Niu request and delivered Niu creation response for up to 24 hours by default; x-niu-log-payloads: false opts out. Requests larger than the 1 MiB capture bound are not retained. This is not an upstream transport-body capture, and replay does not recreate deleted or expired payloads. Optional workspace-scoped Idempotency-Key supports text-only creation: identical replay returns the original reference and current saved status, including after restart. Changed input conflicts. Unkeyed requests are not idempotent. Configured controls, reference inputs and required inspection remain subject to the selected schema and supported channel. Short-lived ordinary ingested_image references accept Niu ingestion/readiness IDs with explicit consent_to_reuse. Provider asset URIs remain private and are resolved only for the exact selected Ark route. This does not grant durable library or portrait rights; expired, erased, revoked or unavailable bindings fail closed before dispatch. Durable workspace image references do not reuse Provider readiness or old inspection receipts; they undergo fresh current inspection and atomic local-content authorization.
+Personal routes support configured ark-direct-v1 or openrouter-video-v1 channels. Customer-funded video currently requires a qualified ark-direct-v1 route and video_tokens pricing; OpenRouter remains personal-only. Shared routes with a legacy procurement budget are unsupported, while personal routes retain ordinary authorization and key limits. Exactly one upstream submission follows durable dispatch intent. HTTP or transport errors retain submission_unknown and any unresolved liability. Observed non-success HTTP statuses are saved as upstream_http_error in scoped request diagnostics, without upstream bodies or credentials; they do not prove nonexecution or authorize a retry. Fresh creation responses include x-niu-attempt-id. Logs retain the inspected Niu request and delivered Niu creation response for up to 24 hours by default; x-niu-log-payloads: false opts out. Requests larger than the 1 MiB capture bound are not retained. This is not an upstream transport-body capture, and replay does not recreate deleted or expired payloads. Optional workspace-scoped Idempotency-Key supports text and schema-approved upstream URL creation: identical replay returns the original reference and current saved status, including after restart. Changed input conflicts. Unkeyed requests are not idempotent. Configured controls, reference inputs and required inspection remain subject to the selected schema and supported channel. Ordinary public HTTPS image/audio/video URLs are forwarded only when the exact selected upstream schema supports them. Inline image data follows the configured schema. Explicit required image policies still enforce local inspection; unsupported remote inspection fails closed. Short-lived ordinary ingested_image references accept Niu ingestion/readiness IDs with explicit consent_to_reuse. Provider asset URIs remain private and are resolved only for the exact selected Ark route. This does not grant durable library or portrait rights; expired, erased, revoked or unavailable bindings fail closed before dispatch. Durable workspace image references do not reuse Provider readiness or old inspection receipts; they undergo fresh current inspection and atomic local-content authorization.
 
 Implementation: `implemented`. Operation: `createOwnerFundedVideoJob`.
 
@@ -19315,7 +19315,69 @@ Content type: `application/json`.
                 "properties": {
                   "url": {
                     "type": "string",
-                    "pattern": "^data:image/(png|jpeg|webp);base64,"
+                    "pattern": "^(https://|data:image/(png|jpeg|webp);base64,)"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "role": {
+                "type": "string",
+                "description": "Only roles explicitly supported by the selected schema are accepted."
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "audio_url"
+            ],
+            "properties": {
+              "type": {
+                "const": "audio_url"
+              },
+              "audio_url": {
+                "type": "object",
+                "required": [
+                  "url"
+                ],
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "pattern": "^https://",
+                    "description": "Public HTTPS input, accepted only when the selected upstream channel and exact model schema support this kind."
+                  }
+                },
+                "additionalProperties": false
+              },
+              "role": {
+                "type": "string",
+                "description": "Only roles explicitly supported by the selected schema are accepted."
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "video_url"
+            ],
+            "properties": {
+              "type": {
+                "const": "video_url"
+              },
+              "video_url": {
+                "type": "object",
+                "required": [
+                  "url"
+                ],
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "pattern": "^https://",
+                    "description": "Public HTTPS input, accepted only when the selected upstream channel and exact model schema support this kind."
                   }
                 },
                 "additionalProperties": false
@@ -19402,7 +19464,7 @@ Content type: `application/json`.
           }
         ]
       },
-      "description": "Ordered configured text/inline-image inputs or Niu ingested_image IDs. Ingested references require current original-account Active observation, retained inspected content and unexpired original grants/consent; dispatch rechecks all bindings atomically. Ark direct only; mixed inline/ingested input and image idempotency are unsupported. Client asset:// URIs are never accepted. Workspace image-library references require explicit processing consent, current workspace ownership and fresh configured inspection. Local bytes are resolved privately and deletion/content identity is rechecked atomically before dispatch. Stored audio/video, mixed ingested/library input and reference idempotency remain unsupported."
+      "description": "Ordered model-supported text, image data, public HTTPS image/audio/video URLs or Niu ingested_image IDs. Ingested references require current original-account Active observation, retained inspected content and unexpired original grants/consent; dispatch rechecks all bindings atomically. Ordinary URL inputs require direct Ark and exact schema support; OpenRouter remains text-only. Mixed inline/ingested input and idempotency for locally processed references are unsupported. Client asset:// URIs are never accepted. Workspace image-library references require explicit processing consent, current workspace ownership and fresh configured inspection. Local bytes are resolved privately and deletion/content identity is rechecked atomically before dispatch. Stored audio/video and mixed ingested/library input remain unsupported; canonical idempotency supports ordinary upstream URL requests."
     }
   },
   "additionalProperties": true
@@ -24019,7 +24081,8 @@ Local `#/components/schemas/…` references resolve to these definitions.
         "openrouter",
         "openai",
         "anthropic",
-        "gemini"
+        "gemini",
+        "ark"
       ]
     },
     "api_base": {
@@ -24160,7 +24223,8 @@ Local `#/components/schemas/…` references resolve to these definitions.
         "openrouter",
         "openai",
         "anthropic",
-        "gemini"
+        "gemini",
+        "ark"
       ]
     },
     "api_base": {
