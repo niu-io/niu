@@ -215,3 +215,55 @@ The customer catalog continued to hide the unqualified and disabled aliases. New
 This closes the demonstrated draft-configuration ordering blocker. S02-3's successful authorized commercial review → eligible activation → positive dispatch remains unverified and is not inferred from prepared pricing. Static-only registration follows the same source rule but was not separately exercised by HTTP in this checkpoint. No commercial qualification or rights were fabricated.
 
 The native Gateway was subsequently refreshed to `606f863e` on its existing database and listener. Readiness returned HTTP 200; the exact saved configuration, encrypted Supplier credential identities and revisions, and retained workspace, video and financial record counts were unchanged. This deployment preserves the verified draft-pricing behavior without qualifying commercial supply.
+
+## Current finite preparation and populated reads — 2026-10-13
+
+Two stopped genuine native database copies were run on retained Gateway
+`8bfdef10003eebe9402401247aa52cd69d3a398f`, SHA-256
+`6f5290d182c9bf51de1f2bb8d469067351c9f9771150235adc2917b1d39c6900`,
+with compiled JavaScript SDK `ce97f3b0116570dfd2a487b802d2d2de18efbf39`.
+Automatic payment polling is disabled. Original databases, configuration and
+master encryption identity are untouched. No inference or merchant request,
+new cash receipt or commercial qualification is created.
+
+The actual draft-first workflow again saves a Supplier draft offer before
+customer-price publication (200). Stale publication returns 409 and ordinary
+customer-owner publication returns 403. Current SDK price-history reads match
+HTTP history; both immutable prices remain identical after restart. Unknown
+aliases, personal models and personal pools remain refused (400). Disabled
+registered shared models and shared pools accept price preparation, independently
+of dispatch eligibility.
+
+The unreviewed draft remains inactive and unavailable. Customer catalogs continue
+to hide the alias; a new key grant is refused (400), and an existing allowed key's
+actual request receives safe pre-dispatch 503. Independent final PostgreSQL checks
+raw response digests, frozen prior/new rates, unavailable route state, absent
+personal tariffs and unchanged complete request/financial fingerprints. Four
+original actual requests and their total 74,324-nanounit charges remain unchanged.
+The temporary owner and key are revoked and copied processes stopped.
+
+A separate current read-only API workflow uses a copy of the genuine populated
+internal-credit pricing checkpoint. Current SDK current-price/history reads
+return the existing current revision and both immutable revisions. Invoice
+history and the actual invoice's line read return the genuine saved statement;
+request detail and billing remain identical after restart. Independent native
+reopening recomputes original reported usage against its frozen customer rates,
+checks the exact positive charge and matching negative debit, and confirms no
+open reservation. Eleven complete financial, tariff and invoice-table fingerprints
+remain unchanged. The statement's `paid` state means its existing customer
+balance debit settled it; it is not received cash or a processor receipt.
+
+This establishes current preparation, conflicts, history, publication/eligibility
+separation, authorization and populated read/restart behavior over genuine
+records. It does not re-execute the historical generation or manufacture a
+commercial review/activation. External Provider or merchant activation is not a
+backend-readiness prerequisite; missing lawful commercial rights are never
+substituted with fabricated eligibility. No new implementation gap is established
+by these finite workflows. The implemented configured-model/customer-price/eligibility journey is accepted
+within these finite scopes: separately documented historical actual internal-credit
+completion and exact debit/paid statement, plus the pinned-current preparation,
+conflict and unavailable-route protections. The historical generation is not
+assigned the current read executable pin, and this run does not claim a fresh
+positive generation. Lawful commercial qualification and every external channel
+remain unverified. S02-3 status remains owned by the fixed release checkpoint.
+Fixture outcomes provide no evidence.
