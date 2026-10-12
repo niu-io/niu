@@ -379,3 +379,16 @@ uses shared PostgreSQL and two actual simultaneous requests under a one-RPM
 credential. One succeeds and one is refused; another configuration succeeds
 independently, with all response/charge artifacts checked against native state.
 This is a scoped contention observation, not production capacity.
+
+## Naturally expired video result recovery
+
+The [natural-expiry worker checkpoint](https://github.com/niu-io/niu/blob/main/docs/reference/video-jobs.md#current-natural-expiry-worker-checkpoint--2026-10-12)
+started the committed Gateway against a stopped database copy containing a real
+personal video whose original deadline had elapsed. The background worker erased
+the remaining encrypted reference. Authorized result metadata stayed unavailable,
+download returned 404, and the successful job survived restart. Independent
+source/final database reopening confirmed unchanged creation/expiry timestamps,
+one original submission and unchanged financial rows. The original downloaded
+video digest and full FFmpeg decode were checked separately. This qualifies
+startup cleanup of an already expired result; continuous-service cleanup latency,
+customer-paid video settlement and frontend preview remain unverified.

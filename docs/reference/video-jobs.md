@@ -318,6 +318,33 @@ does not observe a downloadable reference crossing its deadline, measure cleanup
 lag, or independently attribute the earlier erasure to a particular worker.
 Paid video settlement remains outside this personal-result checkpoint.
 
+### Current natural-expiry worker checkpoint — 2026-10-12
+
+The clean committed `d630475` Gateway started against an isolated copy of a
+stopped database containing a real, successfully generated personal OpenRouter
+video. Before startup its original 24-hour deadline had naturally elapsed, but
+its encrypted result reference remained present and had no deletion timestamp.
+The background content worker cleared that ciphertext and recorded deletion
+at or after the original deadline. No clock, creation time or expiry time was
+changed, and no explicit deletion, refresh or new generation was requested.
+
+Authorized result metadata reported unavailable, download returned 404, and the
+job remained succeeded. Gateway restart preserved those results; revoking the
+verification key returned 401. Independent reopening of both source and final
+PostgreSQL databases confirmed the original source still held the expired
+ciphertext, the copy had erased it, and creation/expiry times were identical.
+The successful execution observation and single generation submission remained.
+Full financial-table fingerprints were unchanged, with no customer video charge
+or funding receipt introduced. The previously retrieved 90,729-byte video still
+matched its saved digest and fully decoded with FFmpeg; this verifies the source
+artifact, not successful retrieval after expiry.
+
+Cleanup was observed 0.144 seconds after Gateway launch. The source database
+was stopped across the deadline, so this is startup recovery evidence, not an
+expiry-to-cleanup latency guarantee for a continuously running deployment.
+Paid video quantity and settlement, upstream content deletion, and frontend
+preview remain outside this checkpoint.
+
 Use `await client.video.jobs.results.retrieve(job.id, 'video', { signal })` for
 an authenticated `Response` whose body can be streamed by the caller. Use
 `await client.video.jobs.results.delete(job.id)` for local deletion. Neither
