@@ -245,7 +245,7 @@ impl FastRouterActionClient {
                     None,
                 )));
             }
-            parse_response(action, status, &bytes)
+            parse_response(action, status, &bytes, secret)
         };
         tokio::time::timeout_at(deadline, work).await.map_err(|_| {
             FastRouterActionError::Transport(failure(action, observed_status, None, None))
@@ -302,8 +302,17 @@ fn parse_response(
     action: FastRouterAction,
     status: StatusCode,
     body: &[u8],
+    secret: &str,
 ) -> Result<FastRouterActionResponse, FastRouterActionError> {
     let unique = serde_json::from_slice::<UniqueValue>(body).map(|v| v.0);
+    let unique = unique.and_then(|value| {
+        if contains_secret(&value, secret) {
+            return Err(<serde_json::Error as serde::de::Error>::custom(
+                "private credential echo",
+            ));
+        }
+        Ok(value)
+    });
     let envelope = unique.and_then(serde_json::from_value::<Envelope>);
     let envelope = match envelope {
         Ok(value) => value,
@@ -358,6 +367,19 @@ fn parse_response(
         result,
     })
 }
+// Check decoded strings too: JSON Unicode escapes must not bypass the private
+// credential-echo guard. Neither values nor property names may disclose it.
+fn contains_secret(value: &Value, secret: &str) -> bool {
+    match value {
+        Value::String(text) => text.contains(secret),
+        Value::Array(items) => items.iter().any(|item| contains_secret(item, secret)),
+        Value::Object(items) => items
+            .iter()
+            .any(|(key, value)| key.contains(secret) || contains_secret(value, secret)),
+        _ => false,
+    }
+}
+
 /// Reject duplicate keys at every depth before typed identity/error decoding.
 struct UniqueValue(Value);
 impl<'de> Deserialize<'de> for UniqueValue {
