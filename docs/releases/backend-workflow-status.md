@@ -1,6 +1,6 @@
 # Backend workflow verification status
 
-Reviewed 2026-10-12 against implementation `9bc2105`; native implementation `9bc2105`.
+Reviewed 2026-10-12 against implementation `7fa886b`; native implementation `7fa886b`.
 This is an index of scoped evidence, not a declaration that the complete release
 or New API comparison is qualified. Linked runs identify their own implementation
 revisions. Fixture outcomes provide no evidence. Current-input runs and
@@ -100,3 +100,13 @@ locked, then recovered its complete directory and a real, exactly charged stream
 after release/restart. The [Supplier configuration evidence](../reference/supplier-key-isolation-live.md#bounded-published-catalog-eligibility-read--2026-10-12)
 records the old waiting request, current refusal, independent original-history
 and recovery checks, and the remaining whole-catalog/performance limits.
+
+
+## Recorded failures independent of HTTP headers
+
+Clean `7fa886b` adds `status=recorded_failure` to request list/summary and CSV,
+with the same SDK/OpenAPI value. Actual mixed success and HTTP-200 SSE failures
+verified selection, pagination, full-range totals, exact charges, SDK HTTP calls
+and restart. A separate real-refusal history verified that unrecorded uncertain
+execution remains outside the filter. See the [filter contract](../reference/recorded-request-failure-filter.md).
+Existing HTTP-error filtering and financial states retain their meanings.

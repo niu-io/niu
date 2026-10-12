@@ -117,3 +117,13 @@ remains locked, followed by complete catalog and real-stream recovery. Treat 503
 as unavailable, rather than empty setup or qualified cached supply. The exercised
 query has transaction-local lock/statement limits; other reads, pool admission
 and the complete HTTP deadline have separate scope.
+
+
+## Find persisted failures after HTTP 200 headers
+
+Use `status=recorded_failure` on request list and CSV export to select persisted
+failure observations, including terminal SSE errors under HTTP 200. The full-range
+summary uses the same selection. The SDK query supports this value. Existing
+`delivery_failed` selects HTTP 400–599; missing diagnostics or uncertain execution
+are not inferred as recorded failures. The [current filter contract and real verification](https://github.com/niu-io/niu/blob/main/docs/reference/recorded-request-failure-filter.md)
+cover pagination, mixed success, SDK requests, exact charges, scope and restart.
