@@ -203,3 +203,13 @@ revisions; the billing read returned the paid statement for the exact amount.
 This leaves populated backend data available for frontend integration without
 fabricating history or a payment. Browser history rendering, editing and conflict
 recovery still require frontend acceptance on that populated target.
+
+## Prepare prices after a draft Supplier offer — 2026-10-12
+
+On digest-pinned native runtime `606f863eee3fb87d0813d42b172748cf1f570f69`, actual HTTP now permits platform customer-price preparation after a registered shared model's draft/unqualified Supplier offer is created. The previous live-catalog-based price check returned 400 in that order. Registration is now checked independently of inference availability, while preserving pool → managed → static alias shadowing and personal ownership boundaries. This does not qualify supply or publish an unavailable route.
+
+An isolated stopped-database copy retained two credential/model configurations, four actual prior requests and 74,324 nanounits of customer charges. The current-input workflow created a draft offer first, then published a customer tariff (200), rejected stale revision (409) and ordinary-owner publication (403), retained two immutable history entries and identical history after restart. Disabled registered shared models and shared pools accepted price preparation; unknown aliases and same-owner/foreign personal models and pools returned 400.
+
+The customer catalog continued to hide the unqualified and disabled aliases. New key grants for the unqualified alias remained refused (400); an existing allowed key's actual inference attempt returned a safe pre-dispatch 503. No new upstream generation or debit occurred. Independent final PostgreSQL reopening checked saved response digests, executable SHA-256, old/new tariff rates, paused/unreviewed offer state, false route availability, absent personal tariffs and unchanged full attempt/financial fingerprints.
+
+This closes the demonstrated draft-configuration ordering blocker. S02-3's successful authorized commercial review → eligible activation → positive dispatch remains unverified and is not inferred from prepared pricing. Static-only registration follows the same source rule but was not separately exercised by HTTP in this checkpoint. No commercial qualification or rights were fabricated.
