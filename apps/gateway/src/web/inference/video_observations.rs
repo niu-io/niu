@@ -1,9 +1,9 @@
 //! Saved receipt diagnosis; no upstream work or financial mutation.
 use crate::{error::ApiError, state::AppState};
 use axum::{
+    Json,
     extract::{Path, Query, State},
     http::HeaderMap,
-    Json,
 };
 use serde::Deserialize;
 use serde_json::Value;

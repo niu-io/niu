@@ -1,6 +1,6 @@
 //! Scoped saved query receipts; observation is independent of customer settlement.
 use crate::{Principal, Store, StoreError};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sqlx::Row;
 use uuid::Uuid;
 
@@ -60,7 +60,9 @@ impl Store {
         } else {
             None
         };
-        let mut query = sqlx::QueryBuilder::<sqlx::Postgres>::new("SELECT encode(receipt_sha256,'hex') AS cursor,floor(extract(epoch FROM observed_at)*1000)::bigint AS observed_at_ms,metadata->>'meter' AS meter,metadata->>'status' AS status,metadata->'quantity' AS quantity,metadata->'provider_times' AS provider_times FROM media_query_evidence WHERE organization_id=");
+        let mut query = sqlx::QueryBuilder::<sqlx::Postgres>::new(
+            "SELECT encode(receipt_sha256,'hex') AS cursor,floor(extract(epoch FROM observed_at)*1000)::bigint AS observed_at_ms,metadata->>'meter' AS meter,metadata->>'status' AS status,metadata->'quantity' AS quantity,metadata->'provider_times' AS provider_times FROM media_query_evidence WHERE organization_id=",
+        );
         query
             .push_bind(scope.organization_id)
             .push(" AND project_id=")

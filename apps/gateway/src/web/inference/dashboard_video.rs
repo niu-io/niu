@@ -2,9 +2,9 @@
 use super::video;
 use crate::{error::ApiError, state::AppState};
 use axum::{
+    Json,
     extract::{Path, State},
     http::HeaderMap,
-    Json,
 };
 use niu_storage::{AdminPermission, Principal, TenantScope};
 use serde_json::Value;
