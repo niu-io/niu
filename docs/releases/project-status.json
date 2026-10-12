@@ -490,7 +490,7 @@
       "id": "S11",
       "name": "Contracts, SDK and documentation",
       "lane": "I",
-      "status": "open",
+      "status": "done",
       "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
       "paths": [
         "contracts",
@@ -522,11 +522,13 @@
         },
         {
           "id": "S11-3",
-          "status": "open",
+          "status": "done",
           "acceptance": "Validate the frozen frontend integration baseline and documentation HTTP/spec resources; delegate rendered browser acceptance when unavailable.",
-          "evidence": [],
-          "evidence_revision": null,
-          "note": ""
+          "evidence": [
+            "docs/reference/backend-integration-handoff.md"
+          ],
+          "evidence_revision": "dde36895",
+          "note": "Frozen compatible backend baseline, executed SDK calls and clean documentation HTTP/spec resources verified; rendered browser/Help acceptance delegated to S13."
         }
       ]
     },

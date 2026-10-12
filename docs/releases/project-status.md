@@ -3,8 +3,8 @@
 Baseline v1; updated 2026-10-12.
 Committed audit source `ab60bba3`; native implementation `1212ea3b`.
 
-**Backend acceptance checkpoints: 20/36 recorded complete at their evidence pins.**
-**Whole backend subsystems closed: 1/12.**
+**Backend acceptance checkpoints: 21/36 recorded complete at their evidence pins.**
+**Whole backend subsystems closed: 2/12.**
 These are acceptance-checkpoint counts, not coding percentage, fresh execution of every path or release readiness.
 Existing scoped evidence is carried forward explicitly. Missing evidence remains open; fixture outcomes have zero signal.
 
@@ -24,7 +24,7 @@ Active implementation: S02-3, S08-2, S05-2, S10-2, S03-2, S04-3, S07-2, S07-3. A
 | S08 Video jobs, results and assets | C | active | 1/3 | S02, S04, S05 |
 | S09 Durable Chat | C | open | 2/3 | S01, S03, S07 |
 | S10 Platform configuration and security facilities | A | active | 2/3 | S01 |
-| S11 Contracts, SDK and documentation | I | open | 2/3 | None |
+| S11 Contracts, SDK and documentation | I | done | 3/3 | None |
 | S12 Runtime operations, recovery and performance | I | open | 1/3 | S03, S05, S07, S08 |
 | S13 Dashboard, public catalog and rendered Help | Frontend | delegated | 0/3 | S01, S02, S07, S09, S11 |
 | S14 Packaging, extensions and legacy surfaces | Separate ownership | deferred | 0/3 | None |
@@ -117,7 +117,7 @@ Active implementation: S02-3, S08-2, S05-2, S10-2, S03-2, S04-3, S07-2, S07-3. A
 | --- | --- | --- | --- |
 | S11-1 | done | A committed 236-method interface index resolves source operations and explicitly lists 20 root method gaps. | [record](../../docs/releases/backend-interface-gaps.md) (`d6904064`) |
 | S11-2 | done | Close core root/handler schema gaps and manually map actual SDK methods; explicitly classify excluded/non-JSON/HEAD operations. | [record](../../docs/reference/parallel-core-backend-acceptance.md) (`fb21b52a`) |
-| S11-3 | open | Validate the frozen frontend integration baseline and documentation HTTP/spec resources; delegate rendered browser acceptance when unavailable. | Missing / not yet accepted |
+| S11-3 | done | Validate the frozen frontend integration baseline and documentation HTTP/spec resources; delegate rendered browser acceptance when unavailable. | [record](../../docs/reference/backend-integration-handoff.md) (`dde36895`) |
 
 ### S12 — Runtime operations, recovery and performance
 
