@@ -31,3 +31,46 @@ Source review found the following existing mechanisms, without a demonstrated de
 These inspected mechanisms are implemented contracts, not positive execution proof. Remaining positive evidence is nonempty Supplier text/media earning accrual and serialization, an already confirmed external-payment settlement recording/replay with genuine selected earnings, and a positive customer-media invoice with exact reported meter/charge/debit. No payment transfer is required to implement the recording interface, but a fabricated receipt cannot verify successful recording. [Reported media acceptance](reported-media-meter-acceptance.md) separately verifies genuine nonzero video-token metadata with unknown pricing, without treating it as a customer charge.
 
 S05-3's positive evidence boundary remains explicit. External account activation and human/partner approval are separate from interface capability. Fixture outcomes provide no evidence, and this checkpoint does not claim frontend rendering or complete accounting acceptance.
+
+## Fixed criterion and finite mechanism review
+
+The fixed S05-3 criterion is:
+
+> Verify supported customer media, invoice and Supplier earning/settlement serialization and accounting mechanisms; track unavailable positive evidence separately from external activation.
+
+It does not require a new bank transfer or nonempty partner payout as an
+interface-readiness gate. The unavailable positive operations above remain
+separate integrated qualification, rather than an invented prerequisite or an
+operation claimed successful from empty lists.
+
+The committed DTO/SDK/OpenAPI and SQL contracts agree on the inspected finite
+boundaries. Supplier earning pages expose immutable offer/revision attribution,
+model, currency, exact decimal-string amount and nullable token/category counts,
+meter, timestamp and accrued/paid status. Settlement pages expose currency,
+exact decimal-string amount, payment reference and timestamp; bounded cursor
+pages omit customer/request identities. Customer media invoice lines select only
+retail model/currency/charge, meter and tariff revision, rational measured/billable
+quantities, discount revisions and the bound-exceeded flag. They do not serialize
+the Supplier pricing snapshot, credentials, upstream expense or platform margin.
+
+Supplier earning history requires platform authority. Settlement history permits
+platform authority or current membership of that same Supplier; customer workspace
+roles confer neither. Settlement recording requires installation authority. Its
+bounded transaction locks the Supplier, canonicalizes a unique selection of
+1–1,000 earning entries, accepts only its unpaid entries, requires one currency,
+uses checked arithmetic and rejects zero totals. Identical idempotency/reference/
+selection returns the existing identity; changed reuse, missing/already-settled
+entries or duplicate payment reference conflict. Settlement, immutable selected
+links and audit event commit together. This records an already confirmed payment;
+it neither makes a bank transfer nor verifies a fabricated payment reference.
+
+These are mechanism and serialization review findings, mapped to the genuine
+invoice/customer-boundary, Supplier membership/revocation, storage-refusal and
+negative settlement executions linked above. No missing Niu-side implementation
+or contract mismatch is demonstrated by this finite review. Review is not actual
+positive execution: nonempty Supplier accrual/settlement serialization, priced
+customer media invoices and positive settlement races remain **unverified**.
+The available actual boundaries and implemented mechanisms support a finite
+backend-capability assessment without external activation or all-combination
+requirements. The release checkpoint owns the S05-3 completion decision; no new
+records, upstream calls or fixture outcomes are used by this audit.
