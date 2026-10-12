@@ -1,6 +1,6 @@
 # Backend workflow verification status
 
-Reviewed 2026-10-12 against implementation `e274aab`; native implementation `e274aab`.
+Reviewed 2026-10-12 against implementation `a78769f`; native implementation `a78769f`.
 This is an index of scoped evidence, not a declaration that the complete release
 or New API comparison is qualified. Linked runs identify their own implementation
 revisions. Fixture outcomes provide no evidence. Current-input runs and
@@ -175,3 +175,14 @@ native directory; independent reopening checked dispatch fields, exact response
 hashes, unchanged financial/key records and measured latency/resource samples.
 The [paced-read checkpoint](../reference/workspace-key-directory.md#paced-complete-directory-reads--2026-10-12)
 keeps warmed local scale, scheduling, process sampling and SLO limits explicit.
+
+
+## Optional workspace key pages
+
+Clean `a78769f` adds bounded keyset pages and SDK support while retaining the
+complete no-parameter compatibility response. Actual HTTP/SDK traversals covered
+1,010 stored keys exactly; a later normal creation appeared at the live tail.
+Missing/foreign cursors, bad limits, lock refusal, scope and restart were exercised
+and independently reopened against native metadata and unchanged accounting.
+The [page contract](../reference/workspace-key-directory.md#optional-bounded-pages--2026-10-12)
+records the separate concurrency, scale and browser verification boundaries.

@@ -178,3 +178,14 @@ ran 1,200 ordinary-viewer reads at an offered 20/second on clean `e274aab`, each
 returning all 1,010 records. Independent reopening checked response hashes,
 dispatch fields, unchanged records and measured p95 of 12.14 ms. This is a warmed
 local read checkpoint, not maximum capacity or arbitrary unpaged-directory scale.
+
+
+## Optional workspace key pagination
+
+Supply `limit` (1–100) and optional `after` on key metadata reads to receive
+`next_cursor`. Missing or foreign-workspace cursors return 409. With neither
+parameter the complete compatibility response is unchanged. The SDK's
+`listWorkspaceKeyPage` supports explicit pages; `listWorkspaceKeys` retains its
+full-directory behavior. Actual traversals, a later tail insertion, scoped cursor
+refusals and restart are recorded in the [bounded-page contract](https://github.com/niu-io/niu/blob/main/docs/reference/workspace-key-directory.md#optional-bounded-pages--2026-10-12).
+Cursor references are internal API values and must not become product labels.

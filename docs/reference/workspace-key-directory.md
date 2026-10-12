@@ -50,8 +50,7 @@ key fields, without secrets, hashes or procurement information.
 
 This corrects completeness at the exercised size and verifies bounded lock
 refusal/recovery. The compatibility response remains unpaged; it does not promise
-arbitrary directory size, maximum throughput or a whole-HTTP deadline. A future
-bounded page contract needs separate design and qualification. This run does not
+arbitrary directory size, maximum throughput or a whole-HTTP deadline. The later optional page contract below has its own scoped qualification. This run does not
 qualify browser rendering, every key-policy combination or permanent keys.
 Personal upstream access and approved internal credit/rates do not establish
 commercial supply or merchant funding. No fixture outcome is evidence. Static
@@ -96,3 +95,64 @@ includes loopback transport and response transfer. Resource samples cover only
 the Gateway process, excluding PostgreSQL/host totals and unobserved peaks;
 they do not prove absence of memory leaks. Original installation, identity and
 source evidence were preserved. No fixture result supports these conclusions.
+
+
+## Optional bounded pages — 2026-10-12
+
+Clean `a78769f` adds explicit keyset pagination on the same endpoint:
+
+- `?limit=100` returns up to 100 rows and `next_cursor`.
+- `?limit=100&after={next_cursor}` continues exclusively after that key.
+- `after` without `limit` uses page size 50.
+- With neither parameter, the full compatibility `{ "data": [...] }` response
+  remains unchanged and has no `next_cursor` property.
+
+Limits are integers from 1 to 100. A missing or foreign-workspace cursor returns
+409, not a reset to the first page. A page's scoped cursor lookup and rows share
+one bounded read-only snapshot. Separate pages remain a live view; later normal
+creation can appear at the tail. Revoked/expired keys remain metadata records.
+Ordering is the existing ascending creation-time/key-reference order. The
+projection/selection logic is shared with the complete-directory method, with
+an additional exclusive bound and one-row lookahead for pages.
+
+The SDK exports `WorkspaceKeyPage` and provides `listWorkspaceKeyPage`; existing
+`listWorkspaceKeys` still reads the full compatibility directory:
+
+```ts
+const first = await client.listWorkspaceKeyPage(scope, { limit: 100 });
+if (first.next_cursor !== null) {
+  const next = await client.listWorkspaceKeyPage(scope, {
+    limit: 100, after: first.next_cursor,
+  });
+}
+```
+
+An ordinary workspace viewer read the actual saved 1,010-key history through
+11 HTTP pages of at most 100 rows. A clean built SDK made actual HTTP requests
+through 14 pages of at most 73 rows and separately used its legacy method. Both
+traversals exactly matched the complete directory. Limits 0/101 returned 400;
+missing and foreign-key cursors returned 409. A later key created through the
+normal management API appeared alone after the prior tail cursor, yielding
+1,011 target-workspace rows. Foreign-scope page access was denied.
+
+An exclusive native key-table lock blocked the cursor lookup. The paginated
+request returned sanitized 503 in 278.77 ms while the lock remained held.
+After release/restart, the first page and complete saved response were identical.
+Temporary keys and read actors were revoked; revoked page access returned 401.
+
+Independent PostgreSQL reopening compared native ordering and all declared
+metadata fields, both page traversals, cursor boundaries, later tail creation,
+foreign key ownership and retained revocations. Attempts, charges and ledger
+records stayed at 1,842 and 34,674,695 USD nanounits; no inference or financial
+entry was created by this pagination run. No funding receipt or outstanding hold
+remained. Original source data and installation identity were preserved.
+
+This qualifies the exercised optional-page/SDK contract, scoped cursor refusals,
+lock recovery and one later insertion. It does not establish frozen cross-page
+history, every concurrent rotation/expiry transition, index/large-directory
+capacity, browser integration or a new performance SLO. Earlier full-directory
+measurements retain their `e274aab` executable revision and are not measurements
+of this new implementation. Static clippy, SDK type/build and annotation checks
+completed separately; fixture outcomes supply no evidence. Native replacement
+followed a fresh isolated backup restore/comparison and retained configuration,
+encrypted identities and durable business counts.
