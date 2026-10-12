@@ -93,7 +93,7 @@ expiry after 30 days. No frontend-only persistence is authorized as a substitute
 | Upstream credential RPM | `GET/PUT /admin/v1/vendors/{vendor}/request-rate-limit`; `GET .../history` | Platform administration only. Explicit null is unlimited, zero stops dispatch, exact revision string prevents stale writes. Shared credential window is independent of customer key RPM. See [contract](../reference/upstream-credential-request-limits.md). |
 | Models and configured prices | `GET/POST /admin/v1/vendors/{id}/models`; `GET/POST /admin/v1/vendors/{id}/catalog`; `POST /admin/v1/vendors/{id}/check` | Catalog/connection success does not prove generation. Keep upstream procurement rates separate from customer retail tariffs. |
 | Customer text prices | `POST W/billing/tariffs`; `GET W/billing`; `GET W/billing/tariffs/{model}/history`; `GET /v1/models` with a workspace inference key | Text publication remains installation-owned. Scoped billing readers can inspect exact retail amounts and immutable paginated history. Minimum and fixed fees are per-request nanounits; token rates are per-million-token nanounits. See [history](../reference/customer-tariff-history.md) and [fixed fees](../reference/text-request-fees.md). |
-| Workspace keys | `GET/POST W/keys`; `PATCH/DELETE K`; `POST K/rotate` | Create/rotate return a secret for the user to copy; never infer it from list data. Creation requires `ttl_seconds` (1–31,536,000) and model grants. Metadata PATCH uses an integer `expected_revision`, unlike decimal-string policy revisions. Rotation retains expiry and spending/rate/IP lineage. Revocation preserves historical billing. |
+| Workspace keys | `GET/POST W/keys`; `PATCH/DELETE K`; `POST K/rotate` | Create/rotate return a secret for the user to copy; never infer it from list data. Creation requires `ttl_seconds` and model grants: explicit null means no automatic expiration; a finite integer must be 1–31,536,000. Omission is rejected. Directory/page metadata uses `expires_at_ms: null` for non-expiring keys. Metadata PATCH uses an integer `expected_revision`, unlike decimal-string policy revisions. Rotation retains expiry and spending/rate/IP lineage. Revocation preserves historical billing. |
 | Key source restrictions | `GET/PUT K/ip-policy`; `GET K/ip-policy/history` | `allowed_cidrs: null` allows all sources; an empty list denies all. Networks are normalized and policy follows rotation. Only configured trusted proxies may supply forwarding identity. See [IP policy contract](../../contracts/key-ip.openapi.yaml). |
 | Key spending | `GET K/spending-limit`; `PUT K/spending-limit/{currency}`; `GET K/spending-limit/{currency}/history` | Decimal-string limit/revision. See [spending contract](../../contracts/key-spending.openapi.yaml). |
 | Key RPM, concurrency and TPM | `GET/PUT K/request-rate-limit`, `K/concurrency-limit`, `K/token-rate-limit`; each has `GET .../history` | Fields are respectively `requests_per_minute`, `max_concurrent_requests`, `tokens_per_minute`; explicit null removes the limit, zero denies admission. See [RPM](../../contracts/key-request-rate.openapi.yaml), [concurrency](../../contracts/key-concurrency.openapi.yaml), [TPM](../../contracts/key-token-rate.openapi.yaml). |
@@ -551,3 +551,22 @@ original ciphertext and key restored readiness and authenticated Supplier listin
 Independent checks retained every ciphertext hash and revision. A separate
 read-only cryptographic preflight verified the original development registry
 without printing credentials or changing rows.
+
+## Current integration additions — 2026-10-12
+
+The initial table above remains the route baseline. These implemented additions
+must be included in frontend integration; use their handler-generated OpenAPI
+schemas rather than treating the older table as a complete current inventory.
+
+| Interface | Contract and SDK | Required frontend behavior |
+| --- | --- | --- |
+| Workspace key pages: `GET W/keys?limit=...&after=...` | `listWorkspaceKeyPage`; [paging contract](../reference/workspace-key-directory.md) | Follow the scoped cursor; omission preserves the legacy full-list mode. Never treat the first page as all keys. |
+| Saved Chat pages: `GET W/chat-sessions?limit=...&after=...` | `listChatSessionPage`; [history paging](../reference/chat-history-pagination.md) | Follow next_cursor; body bounds can shorten a page below the requested row count. Preserve stale-cursor 409 and capacity 413. |
+| Saved Chat detail: `GET W/chat-sessions/{id}` | `getChatSession`; [detail contract](../reference/chat-session-detail.md) | Read a session directly even outside the latest list window. Archive state, revision and guardedWrites are server-owned. |
+| Guarded Chat save: `PUT W/chat-sessions/{id}` | `saveChatSessionIfCurrent`; [write guards](../reference/chat-session-write-guards.md) | Use null for create-only and the fetched revision for updates. Reconcile 409; legacy unguarded saves cannot overwrite protected sessions. An older server may save without confirming guards, so reload on an unconfirmed SDK response. |
+| Video observations: `GET /v1/video/jobs/{job}/observations`; `GET K/video/jobs/{job}/observations` | [observation contract](../reference/video-query-observations.md) and generated handler schemas | Preserve unknown billable quantity and customer charge. Observation availability does not establish paid settlement. |
+
+This update corrects documented no-expiration behavior and indexes newer
+interfaces. It does not close the full M1 handler/schema/SDK/runtime inventory in
+[the delivery plan](backend-delivery-plan.md). Committed workspace rename/delete
+still uses `W`; uncommitted alternative routes are not a delivered contract.
