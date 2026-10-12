@@ -3,6 +3,8 @@ import type { ContextPriceTier } from './admin.js';
 import { waitForVideoJob, type VideoWaitOptions } from './video-wait.js';
 export type { VideoWaitOptions } from './video-wait.js';
 import { normalizeVideoGeneration, type NiuVideoGenerationInput } from './video-generation.js';
+import { createMediaAssetsClient } from './media-assets.js';
+export type { MediaAsset, MediaAssetGroup, MediaAssetOperation, MediaAssetMutation, MediaAssetMutationOptions, MediaAssetPage } from './media-assets.js';
 export type { NiuVideoGenerationInput } from './video-generation.js';
 /** Buffered native Gemini text. Requires an explicitly declared static or managed gemini route. */
 export type GenerateContentRequest = {
@@ -391,6 +393,7 @@ export class NiuClient {
     retrieve: (id: string, options?: RequestOptions) => Promise<{ data: ImageIngestionConsentStatus }>;
     revoke: (id: string, options?: RequestOptions) => Promise<void>;
   };
+  readonly media: ReturnType<typeof createMediaAssetsClient>;
   readonly video: { generate: (input: NiuVideoGenerationInput, options?: VideoCreateOptions) => Promise<VideoJobState>; models: { list: (options?: RequestOptions) => Promise<VideoModelList> }; estimate: (request: VideoCreateRequest, options?: RequestOptions) => Promise<VideoEstimate>; jobs: { wait: (id: string, options?: VideoWaitOptions) => Promise<VideoJobState>; results: { status: (id: string, options?: RequestOptions) => Promise<VideoResultAvailability>; retrieve: (id: string, kind: 'video' | 'last_frame', options?: RequestOptions) => Promise<Response>; delete: (id: string, options?: RequestOptions) => Promise<{ deleted: true }> }; list: (query?: VideoJobHistoryQuery, options?: RequestOptions) => Promise<VideoJobHistory>; billing: (id: string, options?: RequestOptions) => Promise<VideoJobBilling>; timings: (id: string, options?: RequestOptions) => Promise<VideoTransportTimings>; observations: (id: string, query?: VideoQueryObservationQuery, options?: RequestOptions) => Promise<VideoQueryObservationPage>; refresh: (id: string, options?: RequestOptions) => Promise<VideoJobState>; create: (request: VideoCreateRequest, options?: VideoCreateOptions) => Promise<VideoJobState>; retrieve: (id: string, options?: RequestOptions) => Promise<VideoJobState> } };
   readonly models: { list: (options?: RequestOptions) => Promise<ModelList> };
   readonly embeddings: { create: (request: EmbeddingRequest, options?: RequestOptions) => Promise<EmbeddingResponse> };
@@ -416,6 +419,7 @@ export class NiuClient {
     this.requestFetch = options.fetch ?? globalThis.fetch.bind(globalThis);
     this.defaultHeaders = options.defaultHeaders ?? {};
 
+    this.media = createMediaAssetsClient(async <T>(path: string, method: 'GET' | 'POST' | 'PATCH' | 'DELETE', body: unknown, requestOptions = {}) => await readPayload(await this.send(path, body, requestOptions, 'application/json', method)) as T);
     this.video = { generate: (input, requestOptions) => this.video.jobs.create(normalizeVideoGeneration(input), requestOptions), models: { list: (requestOptions) => this.request('/video/models', undefined, requestOptions) }, estimate: (request, requestOptions) => this.request('/video/estimate', request, requestOptions), jobs: { wait: (id, requestOptions) => waitForVideoJob(this.video.jobs, id, requestOptions), results: { status: (id, requestOptions) => {
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new TypeError('A Niu video job reference is required');
       return this.request(`/video/jobs/${encodeURIComponent(id)}/results`,undefined,requestOptions);
@@ -560,11 +564,15 @@ export class NiuClient {
     yield* parseChatStream(response.body, options.signal);
   }
 
-  private async send(path: string, body: unknown, options: RequestOptions & { idempotencyKey?: string }, accept: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE' = body === undefined ? 'GET' : 'POST', nativeGemini = false): Promise<Response> {
+  private async send(path: string, body: unknown, options: RequestOptions & { idempotencyKey?: string }, accept: string, method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' = body === undefined ? 'GET' : 'POST', nativeGemini = false): Promise<Response> {
     const headers = new Headers(this.defaultHeaders);
     if (options.idempotencyKey !== undefined) {
-      if (path !== '/video/jobs' || method !== 'POST' || typeof options.idempotencyKey !== 'string' || !/^[\x21-\x7e]{1,128}$/.test(options.idempotencyKey)) {
-        throw new TypeError('idempotencyKey requires video creation and 1 to 128 visible ASCII characters');
+      const videoCreation = path === '/video/jobs' && method === 'POST';
+      const mediaMutation = /^\/media\/(?:asset-groups|assets)(?:\/[0-9a-f-]{36})?(?:\?[^#]*)?$/.test(path) && ['POST', 'PATCH', 'DELETE'].includes(method);
+      if (typeof options.idempotencyKey !== 'string' || (videoCreation
+        ? !/^[\x21-\x7e]{1,128}$/.test(options.idempotencyKey)
+        : !mediaMutation || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(options.idempotencyKey))) {
+        throw new TypeError('idempotencyKey requires video creation or a media mutation with a canonical UUID');
       }
       headers.set('idempotency-key', options.idempotencyKey);
     }
