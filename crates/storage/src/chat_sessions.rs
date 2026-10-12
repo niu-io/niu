@@ -98,9 +98,97 @@ impl Store {
         owner: &str,
         archived: bool,
     ) -> Result<Vec<Value>, StoreError> {
-        let mut sessions: Vec<Value> = sqlx::query_scalar("SELECT payload FROM chat_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND archived=$4 ORDER BY updated_at DESC LIMIT 100")
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        let sessions: Vec<Value> = sqlx::query_scalar("SELECT payload FROM chat_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND archived=$4 ORDER BY updated_at DESC,id DESC LIMIT 100")
             .bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(archived)
-            .fetch_all(&self.pool).await?;
+            .fetch_all(&mut *snapshot).await?;
+        let sessions = Self::hydrate_chat_charges(&mut snapshot, scope, sessions).await?;
+        snapshot.commit().await?;
+        Ok(sessions)
+    }
+
+    /// Seek over recent saved conversations within one personal owner and archive.
+    /// The cursor fingerprints its update time; a changed/deleted cursor returns
+    /// conflict rather than silently seeking from a different position.
+    pub async fn chat_session_page(
+        &self,
+        scope: TenantScope,
+        owner: &str,
+        archived: bool,
+        after: Option<&str>,
+        limit: u16,
+    ) -> Result<Value, StoreError> {
+        if !(1..=100).contains(&limit) {
+            return Err(StoreError::Conflict);
+        }
+        let parsed = after
+            .map(|cursor| {
+                let (id, revision) = cursor.split_once(':').ok_or(StoreError::Conflict)?;
+                if revision.len() != 64 || !revision.bytes().all(|b| b.is_ascii_hexdigit()) {
+                    return Err(StoreError::Conflict);
+                }
+                Ok((
+                    Uuid::parse_str(id).map_err(|_| StoreError::Conflict)?,
+                    revision.to_ascii_lowercase(),
+                ))
+            })
+            .transpose()?;
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        let cursor: Option<(Uuid, String)> = if let Some((id, revision)) = parsed {
+            let timestamp: String = sqlx::query_scalar("SELECT updated_at::text FROM chat_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND archived=$4 AND id=$5 AND encode(sha256(convert_to(updated_at::text,'UTF8')),'hex')=$6")
+                .bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(archived).bind(id).bind(revision)
+                .fetch_optional(&mut *snapshot).await?.ok_or(StoreError::Conflict)?;
+            Some((id, timestamp))
+        } else {
+            None
+        };
+        let mut query = sqlx::QueryBuilder::<sqlx::Postgres>::new(
+            "SELECT payload,id,encode(sha256(convert_to(updated_at::text,'UTF8')),'hex') AS revision FROM chat_sessions WHERE organization_id=",
+        );
+        query
+            .push_bind(scope.organization_id)
+            .push(" AND project_id=")
+            .push_bind(scope.project_id)
+            .push(" AND owner=")
+            .push_bind(owner)
+            .push(" AND archived=")
+            .push_bind(archived);
+        if let Some((id, timestamp)) = cursor {
+            query
+                .push(" AND (updated_at,id)<(")
+                .push_bind(timestamp)
+                .push("::timestamptz,")
+                .push_bind(id)
+                .push(")");
+        }
+        query
+            .push(" ORDER BY updated_at DESC,id DESC LIMIT ")
+            .push_bind(i64::from(limit) + 1);
+        let mut rows: Vec<(Value, Uuid, String)> =
+            query.build_query_as().fetch_all(&mut *snapshot).await?;
+        let more = rows.len() > usize::from(limit);
+        rows.truncate(usize::from(limit));
+        let next = if more {
+            rows.last()
+                .map(|(_, id, revision)| format!("{id}:{revision}"))
+        } else {
+            None
+        };
+        let data = Self::hydrate_chat_charges(
+            &mut snapshot,
+            scope,
+            rows.into_iter().map(|(payload, _, _)| payload).collect(),
+        )
+        .await?;
+        snapshot.commit().await?;
+        Ok(serde_json::json!({"data":data,"next_cursor":next}))
+    }
+
+    async fn hydrate_chat_charges(
+        connection: &mut sqlx::PgConnection,
+        scope: TenantScope,
+        mut sessions: Vec<Value>,
+    ) -> Result<Vec<Value>, StoreError> {
         let mut attempts = std::collections::HashSet::new();
         for session in &mut sessions {
             visit_results(session, |result| {
@@ -132,7 +220,7 @@ impl Store {
         let charges: Vec<(Uuid, String, Value)> = sqlx::query_as(
             "SELECT a.id,o.model_alias,jsonb_build_object('customerChargeNanos',c.amount_nanos::text,'customerChargeCurrency',c.currency,'customerChargeStatus',CASE WHEN c.attempt_id IS NOT NULL THEN 'charged' WHEN a.dispatched_at IS NULL OR a.execution='confirmed_not_executed' THEN 'not_charged' WHEN EXISTS(SELECT 1 FROM personal_attempt_routes personal WHERE personal.attempt_id=a.id) THEN 'owner_funded' WHEN EXISTS(SELECT 1 FROM customer_attempt_tariffs t WHERE t.attempt_id=a.id) THEN 'pending' ELSE 'unpriced' END) FROM attempts a JOIN operations o ON o.id=a.operation_id AND o.organization_id=a.organization_id AND o.project_id=a.project_id LEFT JOIN customer_charges c ON c.attempt_id=a.id AND c.organization_id=a.organization_id AND c.project_id=a.project_id WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=ANY($3)")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempts.into_iter().collect::<Vec<_>>())
-            .fetch_all(&self.pool).await?;
+            .fetch_all(&mut *connection).await?;
         let charges: std::collections::HashMap<_, _> = charges
             .into_iter()
             .map(|(id, model, value)| ((id, model), value))

@@ -414,6 +414,8 @@ export type ChatResult = {
   customerChargeNanos?: string | null; customerChargeCurrency?: string | null;
   customerChargeStatus?: 'charged' | 'owner_funded' | 'pending' | 'unpriced' | 'not_charged' | 'unknown';
 };
+export type ChatSessionPage = { data: ChatSession[]; next_cursor: string | null };
+export type ChatSessionPageQuery = { archived?: boolean; limit?: number; after?: string };
 export type ChatAttachment = { name: string; type: string; content: string };
 export type ChatTurn = { prompt: string; results: ChatResult[]; attachments?: ChatAttachment[] };
 /** Reconstruct completed text exchanges for one comparison branch. */
@@ -1877,6 +1879,18 @@ export class NiuAdminClient {
 
   listChatSessions(scope: TenantScope, options?: RequestOptions): Promise<{ data: ChatSession[] }> {
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chat-sessions`, undefined, options);
+  }
+
+  /** Continuation over the owner's recent sessions; a moved cursor requires restarting. */
+  listChatSessionPage(scope: TenantScope, query: ChatSessionPageQuery = {}, options?: RequestOptions): Promise<ChatSessionPage> {
+    const limit = query.limit ?? 50;
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw new TypeError('Chat page limit must be 1..100');
+    if (query.archived !== undefined && typeof query.archived !== 'boolean') throw new TypeError('archived must be a boolean');
+    if (query.after !== undefined && !/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}:[0-9a-fA-F]{64}$/.test(query.after)) throw new TypeError('Invalid Chat page cursor');
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (query.archived !== undefined) params.set('archived', String(query.archived));
+    if (query.after !== undefined) params.set('after', query.after);
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chat-sessions?${params}`, undefined, options);
   }
 
   listArchivedChatSessions(scope: TenantScope, options?: RequestOptions): Promise<{ data: ChatSession[] }> {

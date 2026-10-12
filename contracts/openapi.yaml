@@ -1065,16 +1065,21 @@ paths:
       - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
     get:
       operationId: listChatSessions
-      summary: List the authenticated owner's recent Chat sessions
+      summary: List the authenticated owner's recent Chat sessions or continuation page
       parameters:
         - { name: archived, in: query, schema: { type: boolean, default: false }, description: Select archived history instead of active history. }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 }, description: Select continuation paging; absent limit and after preserve the latest-100 compatibility response. }
+        - { name: after, in: query, schema: { type: string }, description: Opaque next_cursor from the previous page within the same owner and archive state. }
 
-      description: Returns up to 100 saved sessions, ordered by most recently updated, scoped to the authenticated owner and workspace. Result customerChargeNanos, customerChargeCurrency and customerChargeStatus are derived from the workspace customer ledger for matching attempt/model references, including nested turns. Amounts are exact decimal nanounit strings; statuses are charged, owner_funded, pending, unpriced or not_charged. owner_funded identifies a dispatched request using the account owner's API credential without a Niu customer debit; it does not assert an upstream payment amount. Missing or mismatched references remain unknown. Saved browser costs and Supplier expenses are omitted.
+      description: Returns up to 100 saved sessions, ordered by update time and ID descending, scoped to the authenticated owner and workspace. Result customerChargeNanos, customerChargeCurrency and customerChargeStatus are derived from the workspace customer ledger for matching attempt/model references, including nested turns. Amounts are exact decimal nanounit strings; statuses are charged, owner_funded, pending, unpriced or not_charged. owner_funded identifies a dispatched request using the account owner's API credential without a Niu customer debit; it does not assert an upstream payment amount. Missing or mismatched references remain unknown. Saved browser costs and Supplier expenses are omitted. Either paging parameter selects a page with nullable next_cursor. A changed, deleted or inaccessible cursor returns 409; pages are live views rather than a frozen multi-request snapshot. Payloads and charge hydration share a bounded read-only snapshot (250 ms lock and 2 s statement limits); pool acquisition and complete HTTP duration are separate.
       security: [{ adminBearerAuth: [] }]
       responses:
         '200': { description: Saved sessions in the data array. }
         '401': { description: Authentication required. }
         '403': { description: Workspace read access required. }
+        '400': { description: Malformed cursor or invalid page size. }
+        '409': { description: Cursor no longer matches this owner and archive. }
+        '503': { description: Storage unavailable or bounded read exceeded. }
   /admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}/archive:
     parameters:
       - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }

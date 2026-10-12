@@ -236,6 +236,8 @@ pub async fn save_draft(
 pub struct HistoryQuery {
     #[serde(default)]
     archived: bool,
+    limit: Option<u16>,
+    after: Option<String>,
 }
 
 #[derive(serde::Deserialize)]
@@ -266,6 +268,97 @@ pub async fn archive(
     Ok(axum::http::StatusCode::NO_CONTENT)
 }
 
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/chat-sessions",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listChatSessions",
+///     "x-niu-implementation": "implemented",
+///     "summary": "List personal saved Chat history or one continuation page",
+///     "description": "Without limit or after, retain the latest-100 compatibility response. Either paging parameter selects a bounded page, default 50, ordered by updated time and ID descending within the authenticated owner, workspace and archive state. Session payload and customer-charge hydration share a read-only snapshot with 250 ms lock and 2 s statement limits. A changed, deleted, foreign-owner or different-archive cursor returns 409; pages are live views, not a frozen cross-request snapshot.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "archived",
+///         "in": "query",
+///         "schema": {
+///           "type": "boolean",
+///           "default": false
+///         }
+///       },
+///       {
+///         "name": "limit",
+///         "in": "query",
+///         "schema": {
+///           "type": "integer",
+///           "minimum": 1,
+///           "maximum": 100,
+///           "default": 50
+///         }
+///       },
+///       {
+///         "name": "after",
+///         "in": "query",
+///         "description": "Opaque next_cursor from the previous page; do not interpret or display it.",
+///         "schema": {
+///           "type": "string",
+///           "pattern": "^[0-9a-fA-F-]{36}:[0-9a-fA-F]{64}$"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Compatibility data array or paged data array with nullable next_cursor.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "maxItems": 100,
+///                   "items": {
+///                     "type": "object"
+///                   }
+///                 },
+///                 "next_cursor": {
+///                   "type": [
+///                     "string",
+///                     "null"
+///                   ]
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Malformed cursor or invalid page size."
+///       },
+///       "401": {
+///         "description": "Authentication required."
+///       },
+///       "403": {
+///         "description": "Workspace read access required."
+///       },
+///       "409": {
+///         "description": "Cursor no longer matches an accessible session in this archive."
+///       },
+///       "503": {
+///         "description": "Storage unavailable or read wait exceeded; no empty-success fallback."
+///       }
+///     }
+///   }
+/// }
+/// ```
 pub async fn list(
     State(state): State<AppState>,
     Path((organization_id, project_id)): Path<(Uuid, Uuid)>,
@@ -277,6 +370,33 @@ pub async fn list(
         project_id,
     };
     let owner = owner(&state, &headers, scope, AdminPermission::Read).await?;
+    if query.limit.is_some() || query.after.is_some() {
+        if query.limit.is_some_and(|limit| !(1..=100).contains(&limit))
+            || query.after.as_deref().is_some_and(|cursor| {
+                cursor.split_once(':').is_none_or(|(id, revision)| {
+                    Uuid::parse_str(id).is_err()
+                        || revision.len() != 64
+                        || !revision.bytes().all(|b| b.is_ascii_hexdigit())
+                })
+            })
+        {
+            return Err(ApiError::invalid_request(
+                "Invalid Chat history cursor or page size",
+            ));
+        }
+        return state
+            .store
+            .chat_session_page(
+                scope,
+                &owner,
+                query.archived,
+                query.after.as_deref(),
+                query.limit.unwrap_or(50),
+            )
+            .await
+            .map(Json)
+            .map_err(ApiError::from_store);
+    }
     let data = state
         .store
         .chat_sessions_by_archive(scope, &owner, query.archived)
