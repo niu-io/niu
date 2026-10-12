@@ -179,6 +179,7 @@ pub(crate) fn router(state: AppState) -> Router {
             "/admin/v1/workspaces/by-route/{route_slug}",
             get(crate::admin::workspace_route),
         )
+        .route("/admin/v1/workspaces/{workspace}", axum::routing::patch(crate::admin::workspace_aliases::rename).delete(crate::admin::workspace_aliases::delete))
         .route(
             "/admin/v1/workspaces",
             get(crate::admin::workspaces).post(crate::admin::create_workspace),

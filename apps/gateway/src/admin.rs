@@ -12,6 +12,7 @@ mod operator_audit;
 pub mod passwords;
 pub mod preferences;
 pub mod profile;
+pub mod workspace_aliases;
 pub mod request_exports;
 pub mod request_payloads;
 mod session;

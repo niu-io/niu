@@ -4370,6 +4370,144 @@ HTTP 409: Stale revision on policy update.
 
 HTTP 503: Storage unavailable or bounded storage wait exceeded; no empty-success policy/history fallback.
 
+## Rename a workspace by identity
+
+`PATCH /admin/v1/workspaces/{workspace}`
+
+Compatibility alias for the existing organization/workspace endpoint, which remains supported. Authorization is checked before resolving the stored workspace organization; member scope filters the lookup and foreign or missing workspaces return 404. The existing handler rechecks authorization before mutation. Requires scoped workspace write access. Trims the saved name; no optimistic revision is accepted. Response matches the legacy rename endpoint. Unknown body properties retain legacy parser behavior.
+
+Implementation: `implemented`. Operation: `renameWorkspaceById`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Must contain non-whitespace text and be at most 200 UTF-8 bytes before trimming."
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 400: Invalid identifier or name.
+
+HTTP 401: Authentication required.
+
+HTTP 403: Required management permission is missing.
+
+HTTP 404: Workspace missing or outside authorized scope.
+
+HTTP 503: Storage unavailable.
+
+HTTP 200: Saved workspace identity and trimmed name.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "id",
+    "name"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "name": {
+      "type": "string"
+    }
+  }
+}
+```
+
+HTTP 422: Invalid JSON body shape.
+
+HTTP 415: JSON content type required.
+
+## Delete an empty workspace by identity
+
+`DELETE /admin/v1/workspaces/{workspace}`
+
+Compatibility alias for the existing organization/workspace endpoint, which remains supported. Authorization is checked before resolving the stored workspace organization; member scope filters the lookup and foreign or missing workspaces return 404. The existing handler rechecks authorization before mutation. Requires installation authority or company-level owner/member-management permission. Workspace-scoped owners are refused with 403 before lookup for their own scope; another workspace remains concealed with 404. Dependent business records prevent deletion with 409; no business history cascade is requested. Response is the same empty 204 as the legacy endpoint.
+
+Implementation: `implemented`. Operation: `deleteWorkspaceById`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`workspace` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 400: Invalid identifier.
+
+HTTP 401: Authentication required.
+
+HTTP 403: Required management permission is missing.
+
+HTTP 404: Workspace missing or outside authorized scope.
+
+HTTP 503: Storage unavailable.
+
+HTTP 204: Workspace deleted; empty response body.
+
+HTTP 409: Workspace retains dependent business records.
+
 ## List workspace spending currencies
 
 `GET /admin/v1/organizations/{organization}/projects/{project}/spending-limit`

@@ -6,6 +6,8 @@ info:
 servers:
   - url: /
 paths:
+  /admin/v1/workspaces/{workspace}:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1workspaces~1{workspace}'
   /admin/v1/organizations/{organization}/projects/{project}/guardrails/dispatch-denials:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1dispatch-denials'
   /admin/v1/guardrails/detectors/{detector}/preview:
