@@ -3104,12 +3104,23 @@ components:
         required_controls: { type: array, items: { type: string } }
         exclusive_controls: { type: array, items: { type: array, minItems: 2, maxItems: 2, items: { type: string } } }
         output:
-          type: object
+          description: Null for personal Ark models without a configured output estimate; never a free billing quote.
+          type: [object, 'null']
           additionalProperties: false
           required: [specifications, meter, estimator]
+          oneOf:
+            - type: 'null'
+            - type: object
+              properties:
+                meter: { const: video_tokens }
+                estimator: { const: SeedancePixelsV1 }
+            - type: object
+              properties:
+                meter: { const: seconds }
+                estimator: { const: OutputSecondsV1 }
           properties:
-            meter: { const: video_tokens }
-            estimator: { const: SeedancePixelsV1 }
+            meter: { type: string, enum: [video_tokens, seconds] }
+            estimator: { type: string, enum: [SeedancePixelsV1, OutputSecondsV1] }
             specifications: { $ref: './generated/handler-operations.json#/components/schemas/VideoOutputSchema/properties/specifications' }
     VideoSchema:
       $ref: './generated/handler-operations.json#/components/schemas/VideoSchema'
