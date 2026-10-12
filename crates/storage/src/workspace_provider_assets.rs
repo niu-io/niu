@@ -235,7 +235,7 @@ pub struct WorkspaceProviderAssetPage<T: Serialize> {
     pub next_cursor: Option<Uuid>,
 }
 impl Store {
-    async fn provider_asset_key_using(
+    pub(crate) async fn provider_asset_key_using(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         p: &Principal,
         model: &str,
@@ -302,7 +302,7 @@ impl Store {
         tx.commit().await?;
         Ok(route)
     }
-    async fn provider_asset_route_check_using(
+    pub(crate) async fn provider_asset_route_check_using(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         p: &Principal,
         expected: &WorkspaceProviderAssetRoute,

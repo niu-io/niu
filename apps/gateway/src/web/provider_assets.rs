@@ -97,7 +97,7 @@ fn revision(value: Option<String>) -> Result<Option<i64>, ApiError> {
         })
         .transpose()
 }
-fn idempotency(headers: &HeaderMap) -> Result<Uuid, ApiError> {
+pub(super) fn idempotency(headers: &HeaderMap) -> Result<Uuid, ApiError> {
     if headers.get_all("idempotency-key").iter().count() > 1 {
         return Err(ApiError::invalid_request(
             "Provide exactly one Idempotency-Key",
@@ -119,7 +119,7 @@ fn idempotency(headers: &HeaderMap) -> Result<Uuid, ApiError> {
     }
 }
 
-async fn admit(
+pub(super) async fn admit(
     state: &AppState,
     principal: &Principal,
     model: &str,
@@ -271,7 +271,7 @@ async fn admit(
     }
     Ok(binding)
 }
-fn client(
+pub(super) fn client(
     state: &AppState,
     route: &WorkspaceProviderAssetRoute,
 ) -> Result<FastRouterActionClient, ApiError> {
@@ -294,7 +294,7 @@ fn client(
     FastRouterActionClient::new(endpoint.as_str(), &key, route.upstream_model())
         .map_err(|_| ApiError::unavailable())
 }
-fn limits(state: &AppState) -> FastRouterActionLimits {
+pub(super) fn limits(state: &AppState) -> FastRouterActionLimits {
     let seconds = state.config.server.request_timeout_seconds.min(60);
     FastRouterActionLimits {
         http_timeout: Duration::from_secs(seconds),
