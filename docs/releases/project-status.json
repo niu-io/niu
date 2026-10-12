@@ -12,7 +12,9 @@
     "S03-2",
     "S04-3",
     "S03-3",
-    "S12-2"
+    "S12-2",
+    "S05-3",
+    "S06-3"
   ],
   "subsystems": [
     {
@@ -150,9 +152,11 @@
           "id": "S03-3",
           "status": "active",
           "acceptance": "Close material timeout/cancellation/uncertainty and bounded fallback gaps on supported paths; preserve model, credential and financial identity.",
-          "evidence": [],
-          "evidence_revision": null,
-          "note": ""
+          "evidence": [
+            "docs/reference/inference-failure-acceptance.md"
+          ],
+          "evidence_revision": "1212ea3b",
+          "note": "Current actual Responses auth fallback, cancellation and deadline preserve pinned identities and exact bounded unknown holds; current cross-protocol failure coverage remains open."
         }
       ]
     },
@@ -243,11 +247,13 @@
         },
         {
           "id": "S05-3",
-          "status": "open",
+          "status": "active",
           "acceptance": "Verify supported customer media, invoice and Supplier earning/settlement serialization and accounting mechanisms; track unavailable positive evidence separately from external activation.",
-          "evidence": [],
-          "evidence_revision": null,
-          "note": ""
+          "evidence": [
+            "docs/reference/invoice-payment-boundary-acceptance.md"
+          ],
+          "evidence_revision": "c24e75b7",
+          "note": "Current invoices/real charge reversal, historical rates/categories, idempotency, permissions and restart independently verified. Nonempty Supplier earnings/settlement and positive paid-media evidence remain unverified."
         }
       ]
     },
@@ -255,7 +261,7 @@
       "id": "S06",
       "name": "Payment integration capability",
       "lane": "B",
-      "status": "open",
+      "status": "active",
       "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
       "paths": [
         "apps/gateway/src/payments.rs",
@@ -289,11 +295,13 @@
         },
         {
           "id": "S06-3",
-          "status": "open",
+          "status": "active",
           "acceptance": "Establish supported funding/refund transitions and negative callback/idempotency protections from actual evidence; merchant activation is not a completion prerequisite.",
-          "evidence": [],
-          "evidence_revision": null,
-          "note": ""
+          "evidence": [
+            "docs/reference/invoice-payment-boundary-acceptance.md"
+          ],
+          "evidence_revision": "c24e75b7",
+          "note": "Genuine saved unpaid merchant intent, duplicate/currency/amount/signed malicious callback refusals and balance reversal verified without fabricated funds. Positive received-cash transitions remain unverified; external activation is separate."
         }
       ]
     },
