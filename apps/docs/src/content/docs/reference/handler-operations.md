@@ -25576,6 +25576,27 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "video_schema": {
       "$ref": "#/components/schemas/VideoSchema"
     },
+    "provider_assets": {
+      "description": "Explicit FastRouter asset protocol on an Ark adapter; not processing readiness or commercial qualification.",
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "channel"
+          ],
+          "properties": {
+            "channel": {
+              "type": "string",
+              "const": "fastrouter-actions-v1"
+            }
+          }
+        }
+      ]
+    },
     "supports_tool_calls": {
       "type": "boolean",
       "default": false

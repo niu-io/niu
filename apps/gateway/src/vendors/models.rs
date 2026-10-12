@@ -12,6 +12,7 @@ use std::collections::BTreeMap;
 pub(super) struct Capabilities {
     catalog: crate::catalog_metadata::CatalogMetadata,
     video_schema: Option<niu_media::VideoSchema>,
+    provider_assets: Option<ProviderAssetCapabilities>,
     supports_embeddings: bool,
     supports_embedding_dimensions: bool,
     supports_embedding_base64: bool,
@@ -24,6 +25,19 @@ pub(super) struct Capabilities {
     supports_messages_tools: bool,
     supports_messages_streaming_tools: bool,
     supports_generate_content: bool,
+}
+
+/// Explicit protocol capability, not asset readiness or Supplier qualification.
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct ProviderAssetCapabilities {
+    channel: ProviderAssetChannel,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+enum ProviderAssetChannel {
+    #[serde(rename = "fastrouter-actions-v1")]
+    FastRouterActionsV1,
 }
 
 pub(crate) struct ResolvedModel {
@@ -236,6 +250,11 @@ pub(super) fn make_model(
 ) -> Result<ModelConfig, ApiError> {
     let caps: Capabilities = serde_json::from_value(capabilities)
         .map_err(|_| ApiError::invalid_request("Invalid model capabilities"))?;
+    if caps.provider_assets.is_some() && adapter != "ark" {
+        return Err(ApiError::invalid_request(
+            "FastRouter asset capabilities require an Ark adapter",
+        ));
+    }
     if let Some(schema) = &caps.video_schema {
         schema
             .validate()
