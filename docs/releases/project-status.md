@@ -1,7 +1,7 @@
 # Project delivery status
 
 Baseline v1; updated 2026-10-12.
-Committed audit source `1212ea3b`; native implementation `186662c5`.
+Committed audit source `1212ea3b`; native implementation `1212ea3b`.
 
 **Backend acceptance checkpoints: 19/36 recorded complete at their evidence pins.**
 **Whole backend subsystems closed: 0/12.**
@@ -84,8 +84,8 @@ Active implementation: S01-3, S02-3, S08-2, S05-2, S10-2, S03-2, S04-3, S07-2, S
 | ID | Status | Acceptance | Evidence pin |
 | --- | --- | --- | --- |
 | S07-1 | done | The exercised mixed actual inference/report workload reconciles retained customer charges and report artifacts with source records. | [record](../../docs/reference/current-authentication-mixed-load.md) (`e704955`) |
-| S07-2 | active | Close one request-to-Logs-to-usage-to-billing/export journey including full-range totals, pagination and unknown/error/timing states on supported protocols. | Missing / not yet accepted |
-| S07-3 | active | Verify ordinary customer visibility and procurement confidentiality in all required serialized reports/exports; classify unsupported diagnostic fields. | Missing / not yet accepted |
+| S07-2 | active | Close one request-to-Logs-to-usage-to-billing/export journey including full-range totals, pagination and unknown/error/timing states on supported protocols. | [record](../../docs/reference/reporting-acceptance-matrix.md) (`1212ea3b`) |
+| S07-3 | active | Verify ordinary customer visibility and procurement confidentiality in all required serialized reports/exports; classify unsupported diagnostic fields. | [record](../../docs/reference/reporting-acceptance-matrix.md) (`1212ea3b`) |
 
 ### S08 — Video jobs, results and assets
 
@@ -123,7 +123,7 @@ Active implementation: S01-3, S02-3, S08-2, S05-2, S10-2, S03-2, S04-3, S07-2, S
 
 | ID | Status | Acceptance | Evidence pin |
 | --- | --- | --- | --- |
-| S12-1 | done | Existing native runtime is ready with preserved identity, retained executable hash, matching registry and independently restored backup evidence. | [record](../../docs/releases/backend-workflow-status.md) (`3fdc669c`) |
+| S12-1 | done | Existing native runtime is ready with preserved identity, retained executable hash, matching registry and independently restored backup evidence. | [record](../../docs/releases/backend-workflow-status.md), [record](../../docs/reference/ingested-image-video-input.md) (`1212ea3b`) |
 | S12-2 | open | Consolidate supported restart/drain/migration/backup/recovery and explicit operational connection/deadline limits without container scope expansion. | Missing / not yet accepted |
 | S12-3 | open | After business acceptance, measure increasing/mixed load, overload recovery, resources and exact post-run accounting; make only measured capacity/comparison claims. | Missing / not yet accepted |
 

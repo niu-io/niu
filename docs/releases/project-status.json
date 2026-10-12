@@ -2,7 +2,7 @@
   "version": 1,
   "updated": "2026-10-12",
   "source_commit": "1212ea3b68f934c22fff6c62696475d2f628fc6a",
-  "runtime_commit": "186662c5346ec911e2bc19e59bb6b8a51c32500c",
+  "runtime_commit": "1212ea3b68f934c22fff6c62696475d2f628fc6a",
   "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
   "active_implementation_tasks": [
     "S01-3",
@@ -322,17 +322,21 @@
           "id": "S07-2",
           "status": "active",
           "acceptance": "Close one request-to-Logs-to-usage-to-billing/export journey including full-range totals, pagination and unknown/error/timing states on supported protocols.",
-          "evidence": [],
-          "evidence_revision": null,
-          "note": ""
+          "evidence": [
+            "docs/reference/reporting-acceptance-matrix.md"
+          ],
+          "evidence_revision": "1212ea3b",
+          "note": "Current full-range 19-page/1840 real-request dataset, totals, CSV, restart and customer confidentiality independently verified. Supported mixed-protocol/new-media projection coverage remains explicitly tracked; task stays active until supported matrix consolidation."
         },
         {
           "id": "S07-3",
           "status": "active",
           "acceptance": "Verify ordinary customer visibility and procurement confidentiality in all required serialized reports/exports; classify unsupported diagnostic fields.",
-          "evidence": [],
-          "evidence_revision": null,
-          "note": ""
+          "evidence": [
+            "docs/reference/reporting-acceptance-matrix.md"
+          ],
+          "evidence_revision": "1212ea3b",
+          "note": "Current full-range 19-page/1840 real-request dataset, totals, CSV, restart and customer confidentiality independently verified. Supported mixed-protocol/new-media projection coverage remains explicitly tracked; task stays active until supported matrix consolidation."
         }
       ]
     },
@@ -548,10 +552,11 @@
           "status": "done",
           "acceptance": "Existing native runtime is ready with preserved identity, retained executable hash, matching registry and independently restored backup evidence.",
           "evidence": [
-            "docs/releases/backend-workflow-status.md"
+            "docs/releases/backend-workflow-status.md",
+            "docs/reference/ingested-image-video-input.md"
           ],
-          "evidence_revision": "3fdc669c60a74038e138cf03eaca0e0a4964750d",
-          "note": "Done applies only to this bounded evidence checkpoint; it does not imply complete subsystem or whole-release acceptance."
+          "evidence_revision": "1212ea3b",
+          "note": "Native refresh ready with matching routing registry; pre-refresh backup restored independently. Original configuration, encrypted identities and durable business counts unchanged; schema advanced to 284."
         },
         {
           "id": "S12-2",
