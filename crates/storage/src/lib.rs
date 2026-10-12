@@ -49,6 +49,7 @@ mod accounts;
 mod codex_connections;
 pub use codex_connections::{CodexConnectionInput, CodexConnectionSecret, CodexConnectionView};
 mod chat_sessions;
+pub use chat_sessions::ChatWriteCondition;
 mod guardrails;
 mod image_processing;
 mod inspected_image_sources;

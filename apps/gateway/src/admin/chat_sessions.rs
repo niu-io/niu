@@ -478,7 +478,8 @@ pub async fn list(
 ///               "type": "object",
 ///               "required": [
 ///                 "data",
-///                 "archived"
+///                 "archived",
+///                 "revision"
 ///               ],
 ///               "properties": {
 ///                 "data": {
@@ -486,6 +487,11 @@ pub async fn list(
 ///                 },
 ///                 "archived": {
 ///                   "type": "boolean"
+///                 },
+///                 "revision": {
+///                   "type": "string",
+///                   "pattern": "^[1-9][0-9]*$",
+///                   "description": "Opaque positive decimal write revision. Pass as expectedRevision for guarded saves."
 ///                 }
 ///               }
 ///             }
@@ -622,6 +628,278 @@ pub async fn export(
     Ok(Json(conversation_export(payload)))
 }
 
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}",
+///   "method": "put",
+///   "operation": {
+///     "operationId": "saveChatSession",
+///     "summary": "Save an owned Chat session in a workspace",
+///     "description": "Requires workspace write access. Stores conversation content separately from accounting. Only supported top-level and nested fields are retained. Client-supplied accounting fields are discarded. Numeric timestamps, durations and token counts must be nonnegative JavaScript-safe integers; token counts may be null. Settings and attachment shapes are validated. This endpoint does not establish authoritative request charges or detect secrets embedded in conversation text. Omit expectedRevision for the unchanged compatibility write. Explicit null creates only if no owned row exists; a canonical positive decimal revision updates only that exact owned version. Stale, missing or duplicate-create guarded writes return 409 without replacing content. Revisions are global sequence values, not timestamps, and are never reused by API delete/recreate. Guarded success includes a decimal revision; direct GET provides it. Compatibility writes remain unconditional and are not protected from stale snapshots.",
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "requestBody": {
+///       "required": true,
+///       "content": {
+///         "application/json": {
+///           "schema": {
+///             "type": "object",
+///             "required": [
+///               "prompt",
+///               "results",
+///               "createdAt"
+///             ],
+///             "properties": {
+///               "prompt": {
+///                 "type": "string"
+///               },
+///               "title": {
+///                 "type": "string"
+///               },
+///               "createdAt": {
+///                 "type": "integer",
+///                 "minimum": 0,
+///                 "maximum": 9007199254740991
+///               },
+///               "turns": {
+///                 "type": "array",
+///                 "maxItems": 100,
+///                 "description": "Ordered conversation turns. Each retains its prompt and up to four model responses, validated with the same result fields as the current turn. Unknown turn/result fields are stripped. Optional for legacy single-turn sessions.",
+///                 "items": {
+///                   "type": "object",
+///                   "required": [
+///                     "prompt",
+///                     "results"
+///                   ],
+///                   "properties": {
+///                     "prompt": {
+///                       "type": "string"
+///                     },
+///                     "results": {
+///                       "type": "array",
+///                       "maxItems": 4,
+///                       "items": {
+///                         "type": "object"
+///                       }
+///                     },
+///                     "attachments": {
+///                       "type": "array",
+///                       "items": {
+///                         "type": "object",
+///                         "required": [
+///                           "name",
+///                           "type",
+///                           "content"
+///                         ],
+///                         "properties": {
+///                           "name": {
+///                             "type": "string"
+///                           },
+///                           "type": {
+///                             "type": "string"
+///                           },
+///                           "content": {
+///                             "type": "string"
+///                           }
+///                         }
+///                       }
+///                     }
+///                   }
+///                 }
+///               },
+///               "results": {
+///                 "type": "array",
+///                 "maxItems": 4,
+///                 "items": {
+///                   "type": "object",
+///                   "required": [
+///                     "model",
+///                     "content",
+///                     "elapsedMs",
+///                     "phase"
+///                   ],
+///                   "properties": {
+///                     "model": {
+///                       "type": "string"
+///                     },
+///                     "content": {
+///                       "type": "string"
+///                     },
+///                     "elapsedMs": {
+///                       "type": "integer",
+///                       "minimum": 0,
+///                       "maximum": 9007199254740991
+///                     },
+///                     "phase": {
+///                       "type": "string",
+///                       "enum": [
+///                         "connecting",
+///                         "streaming",
+///                         "complete",
+///                         "failed",
+///                         "cancelled"
+///                       ]
+///                     },
+///                     "promptTokens": {
+///                       "type": [
+///                         "integer",
+///                         "null"
+///                       ],
+///                       "minimum": 0,
+///                       "maximum": 9007199254740991
+///                     },
+///                     "completionTokens": {
+///                       "type": [
+///                         "integer",
+///                         "null"
+///                       ],
+///                       "minimum": 0,
+///                       "maximum": 9007199254740991
+///                     },
+///                     "totalTokens": {
+///                       "type": [
+///                         "integer",
+///                         "null"
+///                       ],
+///                       "minimum": 0,
+///                       "maximum": 9007199254740991
+///                     }
+///                   }
+///                 }
+///               },
+///               "settings": {
+///                 "type": "object",
+///                 "properties": {
+///                   "systemPrompt": {
+///                     "type": "string"
+///                   },
+///                   "maxTokens": {
+///                     "type": "integer",
+///                     "minimum": 1
+///                   },
+///                   "temperature": {
+///                     "type": "number",
+///                     "minimum": 0,
+///                     "maximum": 2
+///                   },
+///                   "logPayloads": {
+///                     "type": "boolean"
+///                   }
+///                 }
+///               },
+///               "attachments": {
+///                 "type": "array",
+///                 "items": {
+///                   "type": "object",
+///                   "required": [
+///                     "name",
+///                     "type",
+///                     "content"
+///                   ],
+///                   "properties": {
+///                     "name": {
+///                       "type": "string"
+///                     },
+///                     "type": {
+///                       "type": "string"
+///                     },
+///                     "content": {
+///                       "type": "string"
+///                     }
+///                   }
+///                 }
+///               },
+///               "expectedRevision": {
+///                 "type": [
+///                   "string",
+///                   "null"
+///                 ],
+///                 "pattern": "^[1-9][0-9]*$",
+///                 "description": "Omitted: compatibility write. Null: create-only. Positive decimal string: exact current revision from GET."
+///               }
+///             }
+///           }
+///         }
+///       }
+///     },
+///     "responses": {
+///       "200": {
+///         "description": "Compatibility saved flag, or guarded saved flag and new revision.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "saved"
+///               ],
+///               "properties": {
+///                 "saved": {
+///                   "const": true
+///                 },
+///                 "revision": {
+///                   "type": "string",
+///                   "pattern": "^[1-9][0-9]*$"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid content or expected revision."
+///       },
+///       "401": {
+///         "description": "Authentication required."
+///       },
+///       "403": {
+///         "description": "Workspace write access required."
+///       },
+///       "413": {
+///         "description": "Request exceeds the 24 MiB transport limit."
+///       },
+///       "409": {
+///         "description": "Guarded creation/update does not match current owned state."
+///       },
+///       "503": {
+///         "description": "Storage unavailable or bounded write wait exceeded."
+///       }
+///     },
+///     "x-niu-implementation": "implemented",
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ]
+///   }
+/// }
+/// ```
 pub async fn save(
     State(state): State<AppState>,
     Path((organization_id, project_id, id)): Path<(Uuid, Uuid, Uuid)>,
@@ -633,6 +911,20 @@ pub async fn save(
         project_id,
     };
     let owner = owner(&state, &headers, scope, AdminPermission::Write).await?;
+    let guarded = payload.get("expectedRevision").is_some();
+    let condition = match payload.get("expectedRevision") {
+        None => niu_storage::ChatWriteCondition::Any,
+        Some(Value::Null) => niu_storage::ChatWriteCondition::Missing,
+        Some(Value::String(value)) => {
+            let revision: i64 = value
+                .parse()
+                .ok()
+                .filter(|r: &i64| *r > 0 && r.to_string() == *value)
+                .ok_or_else(|| ApiError::invalid_request("Invalid Chat write revision"))?;
+            niu_storage::ChatWriteCondition::Revision(revision)
+        }
+        _ => return Err(ApiError::invalid_request("Invalid Chat write revision")),
+    };
     if !payload.is_object()
         || payload.get("prompt").and_then(Value::as_str).is_none()
         || !valid_results(&payload)
@@ -700,12 +992,16 @@ pub async fn save(
     }
     sanitize_attachments(&mut payload)?;
     payload["id"] = json!(id);
-    state
+    let revision = state
         .store
-        .save_chat_session(scope, &owner, id, &payload)
+        .save_chat_session_guarded(scope, &owner, id, &payload, condition)
         .await
         .map_err(ApiError::from_store)?;
-    Ok(Json(json!({"saved": true})))
+    Ok(Json(if guarded {
+        json!({"saved":true,"revision":revision.to_string()})
+    } else {
+        json!({"saved":true})
+    }))
 }
 
 #[cfg(test)]

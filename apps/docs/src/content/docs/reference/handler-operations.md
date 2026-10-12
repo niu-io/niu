@@ -193,7 +193,8 @@ Content type: `application/json`.
   "type": "object",
   "required": [
     "data",
-    "archived"
+    "archived",
+    "revision"
   ],
   "properties": {
     "data": {
@@ -201,6 +202,11 @@ Content type: `application/json`.
     },
     "archived": {
       "type": "boolean"
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$",
+      "description": "Opaque positive decimal write revision. Pass as expectedRevision for guarded saves."
     }
   }
 }
@@ -215,6 +221,277 @@ HTTP 404: No conversation for this personal owner and workspace.
 HTTP 413: Saved JSON exceeds one-response capacity; use individual content export.
 
 HTTP 503: Durable storage unavailable or read wait exceeded.
+
+## Save an owned Chat session in a workspace
+
+`PUT /admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}`
+
+Requires workspace write access. Stores conversation content separately from accounting. Only supported top-level and nested fields are retained. Client-supplied accounting fields are discarded. Numeric timestamps, durations and token counts must be nonnegative JavaScript-safe integers; token counts may be null. Settings and attachment shapes are validated. This endpoint does not establish authoritative request charges or detect secrets embedded in conversation text. Omit expectedRevision for the unchanged compatibility write. Explicit null creates only if no owned row exists; a canonical positive decimal revision updates only that exact owned version. Stale, missing or duplicate-create guarded writes return 409 without replacing content. Revisions are global sequence values, not timestamps, and are never reused by API delete/recreate. Guarded success includes a decimal revision; direct GET provides it. Compatibility writes remain unconditional and are not protected from stale snapshots.
+
+Implementation: `implemented`. Operation: `saveChatSession`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "prompt",
+    "results",
+    "createdAt"
+  ],
+  "properties": {
+    "prompt": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "createdAt": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "turns": {
+      "type": "array",
+      "maxItems": 100,
+      "description": "Ordered conversation turns. Each retains its prompt and up to four model responses, validated with the same result fields as the current turn. Unknown turn/result fields are stripped. Optional for legacy single-turn sessions.",
+      "items": {
+        "type": "object",
+        "required": [
+          "prompt",
+          "results"
+        ],
+        "properties": {
+          "prompt": {
+            "type": "string"
+          },
+          "results": {
+            "type": "array",
+            "maxItems": 4,
+            "items": {
+              "type": "object"
+            }
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "type",
+                "content"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "content": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "results": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "required": [
+          "model",
+          "content",
+          "elapsedMs",
+          "phase"
+        ],
+        "properties": {
+          "model": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "elapsedMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "phase": {
+            "type": "string",
+            "enum": [
+              "connecting",
+              "streaming",
+              "complete",
+              "failed",
+              "cancelled"
+            ]
+          },
+          "promptTokens": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "completionTokens": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "totalTokens": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        }
+      }
+    },
+    "settings": {
+      "type": "object",
+      "properties": {
+        "systemPrompt": {
+          "type": "string"
+        },
+        "maxTokens": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "temperature": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2
+        },
+        "logPayloads": {
+          "type": "boolean"
+        }
+      }
+    },
+    "attachments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "type",
+          "content"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "expectedRevision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[1-9][0-9]*$",
+      "description": "Omitted: compatibility write. Null: create-only. Positive decimal string: exact current revision from GET."
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 200: Compatibility saved flag, or guarded saved flag and new revision.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "saved"
+  ],
+  "properties": {
+    "saved": {
+      "const": true
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid content or expected revision.
+
+HTTP 401: Authentication required.
+
+HTTP 403: Workspace write access required.
+
+HTTP 413: Request exceeds the 24 MiB transport limit.
+
+HTTP 409: Guarded creation/update does not match current owned state.
+
+HTTP 503: Storage unavailable or bounded write wait exceeded.
 
 ## Read latest 100 workspace preparation refusals
 

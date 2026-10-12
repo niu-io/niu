@@ -1903,7 +1903,7 @@ export class NiuAdminClient {
   }
 
   /** Restore one complete owned conversation without walking recent history pages. */
-  getChatSession(scope: TenantScope, sessionId: string, options?: RequestOptions): Promise<{ data: ChatSession; archived: boolean }> {
+  getChatSession(scope: TenantScope, sessionId: string, options?: RequestOptions): Promise<{ data: ChatSession; archived: boolean; revision: string }> {
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chat-sessions/${uuid(sessionId)}`, undefined, options);
   }
 
@@ -1913,6 +1913,12 @@ export class NiuAdminClient {
 
   saveChatSession(scope: TenantScope, sessionId: string, session: ChatSession, options?: RequestOptions): Promise<{ saved: boolean }> {
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chat-sessions/${uuid(sessionId)}`, session, options, 'PUT');
+  }
+
+  /** Null creates only; a read revision atomically protects an update from stale clients. */
+  saveChatSessionIfCurrent(scope: TenantScope, sessionId: string, session: ChatSession, expectedRevision: string | null, options?: RequestOptions): Promise<{ saved: boolean; revision: string }> {
+    if (expectedRevision !== null && (typeof expectedRevision !== 'string' || !/^[1-9][0-9]*$/.test(expectedRevision) || BigInt(expectedRevision) > 9223372036854775807n)) throw new TypeError('Invalid Chat write revision');
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chat-sessions/${uuid(sessionId)}`, { ...session, expectedRevision }, options, 'PUT');
   }
 
   deleteChatSession(scope: TenantScope, sessionId: string, options?: RequestOptions): Promise<void> {

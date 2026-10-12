@@ -5,6 +5,15 @@ use uuid::Uuid;
 // Bound saved JSON materialization before payloads cross the database connection.
 const CHAT_HISTORY_PAYLOAD_BYTES: i64 = 32 * 1024 * 1024;
 
+/// Compatibility writes remain unconditional; guarded clients require creation
+/// or the exact revision returned by a direct read. Revisions are never reused.
+#[derive(Clone, Copy)]
+pub enum ChatWriteCondition {
+    Any,
+    Missing,
+    Revision(i64),
+}
+
 fn visit_results(payload: &mut Value, mut visit: impl FnMut(&mut Value)) {
     if let Some(results) = payload.get_mut("results").and_then(Value::as_array_mut) {
         for result in results {
@@ -72,10 +81,10 @@ impl Store {
         id: Uuid,
     ) -> Result<Option<Value>, StoreError> {
         let mut snapshot = self.begin_bounded_read_snapshot().await?;
-        let metadata: Option<(bool, i64)> = sqlx::query_as("SELECT archived,octet_length(payload::text)::bigint FROM chat_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND id=$4")
+        let metadata: Option<(bool, i64, i64)> = sqlx::query_as("SELECT archived,octet_length(payload::text)::bigint,write_revision FROM chat_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND id=$4")
             .bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(id)
             .fetch_optional(&mut *snapshot).await?;
-        let Some((archived, bytes)) = metadata else {
+        let Some((archived, bytes, revision)) = metadata else {
             snapshot.commit().await?;
             return Ok(None);
         };
@@ -88,7 +97,7 @@ impl Store {
         snapshot.commit().await?;
         Ok(payloads
             .pop()
-            .map(|data| serde_json::json!({"data":data,"archived":archived})))
+            .map(|data| serde_json::json!({"data":data,"archived":archived,"revision":revision.to_string()})))
     }
 
     pub async fn delete_chat_session(
@@ -110,7 +119,7 @@ impl Store {
         id: Uuid,
         archived: bool,
     ) -> Result<bool, StoreError> {
-        let result = sqlx::query("UPDATE chat_sessions SET archived=$5 WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND id=$4")
+        let result = sqlx::query("UPDATE chat_sessions SET archived=$5,write_revision=nextval('chat_session_write_revisions') WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND id=$4")
             .bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(id).bind(archived)
             .execute(&self.pool).await?;
         Ok(result.rows_affected() == 1)
@@ -327,9 +336,38 @@ impl Store {
         id: Uuid,
         payload: &Value,
     ) -> Result<(), StoreError> {
-        sqlx::query("INSERT INTO chat_sessions (id,organization_id,project_id,owner,payload) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (organization_id,project_id,owner,id) DO UPDATE SET payload=EXCLUDED.payload,updated_at=now()")
-            .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(payload)
-            .execute(&self.pool).await?;
+        self.save_chat_session_guarded(scope, owner, id, payload, ChatWriteCondition::Any)
+            .await?;
         Ok(())
+    }
+
+    /// Apply a content write with an atomic row precondition. No failed
+    /// precondition changes payload/archive state; nextval prevents ABA reuse.
+    pub async fn save_chat_session_guarded(
+        &self,
+        scope: TenantScope,
+        owner: &str,
+        id: Uuid,
+        payload: &Value,
+        condition: ChatWriteCondition,
+    ) -> Result<i64, StoreError> {
+        if matches!(condition, ChatWriteCondition::Revision(r) if r <= 0) {
+            return Err(StoreError::Conflict);
+        }
+        let mut tx = self.begin_bounded_recording().await?;
+        let revision = match condition {
+            ChatWriteCondition::Any => sqlx::query_scalar("INSERT INTO chat_sessions (id,organization_id,project_id,owner,payload) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (organization_id,project_id,owner,id) DO UPDATE SET payload=EXCLUDED.payload,updated_at=clock_timestamp(),write_revision=nextval('chat_session_write_revisions') RETURNING write_revision")
+                .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(payload)
+                .fetch_optional(&mut *tx).await?,
+            ChatWriteCondition::Missing => sqlx::query_scalar("INSERT INTO chat_sessions (id,organization_id,project_id,owner,payload) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (organization_id,project_id,owner,id) DO NOTHING RETURNING write_revision")
+                .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(payload)
+                .fetch_optional(&mut *tx).await?,
+            ChatWriteCondition::Revision(expected) => sqlx::query_scalar("UPDATE chat_sessions SET payload=$5,updated_at=clock_timestamp(),write_revision=nextval('chat_session_write_revisions') WHERE id=$1 AND organization_id=$2 AND project_id=$3 AND owner=$4 AND write_revision=$6 RETURNING write_revision")
+                .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(payload).bind(expected)
+                .fetch_optional(&mut *tx).await?,
+        };
+        let revision = revision.ok_or(StoreError::Conflict)?;
+        tx.commit().await?;
+        Ok(revision)
     }
 }
