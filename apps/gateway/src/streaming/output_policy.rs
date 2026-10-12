@@ -343,6 +343,24 @@ fn event(out: &mut Vec<u8>, value: Value, responses: bool) -> Result<(), &'stati
 pub(super) fn withheld() -> Vec<u8> {
     b"data: {\"error\":{\"message\":\"Output withheld by the required output policy\",\"type\":\"guardrail_output_withheld\",\"code\":403}}\n\n".to_vec()
 }
+/// Validate delivery limits before its immutable output decision is recorded.
+/// Reuse the same checked event builder used by actual delivery, so redaction
+/// expansion cannot be recorded as deliverable when its replay would overflow.
+pub(crate) fn validate_filtered_replay(
+    value: &Value,
+    responses: bool,
+) -> Result<(), crate::guardrails::input::InspectionError> {
+    replay(value.clone(), responses)
+        .map(|_| ())
+        .map_err(|reason| {
+            if reason.contains("limit exceeded") {
+                crate::guardrails::input::InspectionError::ResourceLimit
+            } else {
+                crate::guardrails::input::InspectionError::UnsupportedContent
+            }
+        })
+}
+
 pub(super) fn replay(v: Value, responses: bool) -> Result<Vec<u8>, &'static str> {
     // Bound transformed JSON before creating repeated lifecycle frames. The
     // writer stops at the cap, including any regex replacement expansion.
