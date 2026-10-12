@@ -6,6 +6,20 @@ info:
 servers:
   - url: /
 paths:
+  /v1/media/asset-groups:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1media~1asset-groups'
+  /v1/media/asset-groups/{id}:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1media~1asset-groups~1{id}'
+  /v1/media/asset-groups/{id}/refresh:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1media~1asset-groups~1{id}~1refresh'
+  /v1/media/assets:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1media~1assets'
+  /v1/media/assets/{id}:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1media~1assets~1{id}'
+  /v1/media/assets/{id}/refresh:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1media~1assets~1{id}~1refresh'
+  /v1/media/asset-operations/{id}:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1media~1asset-operations~1{id}'
   /admin/v1/organizations/{organization}/projects/{project}/guardrails/media-detectors:
     $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1media-detectors'
   /admin/v1/organizations/{organization}/projects/{project}/assets:
@@ -2863,6 +2877,18 @@ paths:
 
 components:
   schemas:
+    MediaAssetGroup:
+      $ref: './generated/handler-operations.json#/components/schemas/MediaAssetGroup'
+    MediaAsset:
+      $ref: './generated/handler-operations.json#/components/schemas/MediaAsset'
+    MediaAssetOperation:
+      $ref: './generated/handler-operations.json#/components/schemas/MediaAssetOperation'
+    MediaAssetMutation:
+      $ref: './generated/handler-operations.json#/components/schemas/MediaAssetMutation'
+    MediaAssetGroupPage:
+      $ref: './generated/handler-operations.json#/components/schemas/MediaAssetGroupPage'
+    MediaAssetPage:
+      $ref: './generated/handler-operations.json#/components/schemas/MediaAssetPage'
     BrandingConfiguration:
       type: object
       required: [data]

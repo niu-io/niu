@@ -5,6 +5,12 @@ mod workspace_asset_video_dispatch;
 pub use workspace_asset_video_dispatch::{
     WorkspaceAssetVideoDispatch, WorkspaceAssetVideoReference,
 };
+mod workspace_provider_assets;
+pub use workspace_provider_assets::{
+    WorkspaceProviderAsset, WorkspaceProviderAssetGroup, WorkspaceProviderAssetMutation,
+    WorkspaceProviderAssetOperation, WorkspaceProviderAssetOutcome, WorkspaceProviderAssetPage,
+    WorkspaceProviderAssetPrepared, WorkspaceProviderAssetRoute,
+};
 mod workspace_asset_library;
 pub use workspace_asset_library::{
     AssetLibraryAsset, AssetLibraryContent, AssetLibraryCreate, AssetLibraryKind,

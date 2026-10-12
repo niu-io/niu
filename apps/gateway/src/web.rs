@@ -6,6 +6,7 @@ mod inference;
 mod routes;
 mod static_site;
 mod workspace_assets;
+mod provider_assets;
 
 #[cfg(test)]
 mod tests;
