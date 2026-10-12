@@ -1,6 +1,6 @@
 # Backend workflow verification status
 
-Reviewed 2026-10-12 against implementation `d6304757`; native implementation `d6304757`.
+Reviewed 2026-10-12 against implementation `a56cfe0d`; native implementation `a56cfe0d`.
 This is an index of scoped evidence, not a declaration that the complete release
 or New API comparison is qualified. Linked runs identify their own implementation
 revisions. Fixture outcomes provide no evidence. Current-input runs and
@@ -12,7 +12,7 @@ independent saved-artifact/database checks define the verified boundaries.
 | Workspace API keys | Scoped actual model calls, spending/RPM/TPM/concurrency/IP policies, immutable policy history, rotation lineage, revocation and restart | Broader cross-protocol combinations and unknown-disconnect occupancy; broader mixed-protocol admission and permission races remain unverified |
 | Balance and charging | Exact original-rate debits using approved internal credit, insufficient-capacity refusal, reservations, invoice settlement, refunds and reconciliation | Positive externally funded top-ups and customer-paid media have separate unverified scope; supported payment inventory does not require every merchant to activate |
 | Logs and usage | Populated customer pagination, concurrent admissions during time-ordered pagination, key filters, full-range totals, CSV, error/timing records and confidential procurement isolation | Mutable-sort pagination, broader tenant scale and frontend presentation |
-| Video | Actual personal generation, idempotent submission, durable saved intents, restart/query recovery, authorized decoded results and deletion that survives refresh | Positive customer-funded settlement, natural expiry, inspected reference inputs and model-specific controls need their own evidence |
+| Video | Actual personal generation, idempotent submission, durable saved intents, restart/query recovery, authorized decoded results, deletion that survives refresh and startup cleanup after natural expiry | Positive customer-funded settlement, continuous-service expiry cleanup latency, inspected reference inputs and model-specific controls need their own evidence |
 | Performance | Two-Gateway actual text workloads, including 1,600 streams at offered 16 requests/second with exact post-restart accounting | Maximum capacity, overload, production SLOs, media capacity and a measured New API baseline |
 
 ## Evidence to inspect

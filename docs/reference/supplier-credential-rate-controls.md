@@ -87,3 +87,31 @@ adds an actual simultaneous same-credential race: one dispatch succeeds and one
 is refused; a sibling configuration succeeds independently. Exact charges and
 combined native artifacts were checked. This closes that specific two-process
 observation, not all distributed limit or overload scenarios.
+
+## Input error contract — 2026-10-12
+
+Current-input HTTP calls reproduced an integration defect in `d630475`: missing
+required limits, invalid value types and unknown JSON fields returned plain-text
+422; malformed history queries returned plain-text 400. These extractor errors
+could echo input. The committed `a56cfe0d` handlers authorize management access
+before returning normalized JSON 400 for invalid body/query extraction. They
+use generic errors rather than serializing extractor diagnostics. Null remains
+an explicit unlimited policy, not a missing-field default.
+
+The new executable was exercised against an isolated copy of the existing real
+two-Gateway workload. All exercised malformed body/query cases returned JSON
+400 without the supplied input marker. The same malformed calls returned 401
+without authentication and 403 for an ordinary workspace owner. Invalid calls
+left policy and immutable history unchanged. A valid save advanced exactly one
+revision with one installation-administrator audit record; resubmitting the old
+revision returned 409, and Gateway restart preserved the new policy/history.
+
+A separate reader reopened source and final PostgreSQL, verified response
+digests, the single new audit row and temporary operator revocation, and compared
+full native fingerprints for credentials, mappings, admissions, attempts and
+financial tables. The four original real calls and their 74,324 customer nanounits
+remained unchanged. No new upstream generation was submitted. Native runtime
+refresh used a fresh independently restored backup, preserved configuration,
+encrypted identities and original durable rows, and retained matching static
+routing. This does not verify malformed inputs for every administrative API or
+replace the broader Supplier journey.

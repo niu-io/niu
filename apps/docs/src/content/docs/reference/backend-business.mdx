@@ -392,3 +392,12 @@ one original submission and unchanged financial rows. The original downloaded
 video digest and full FFmpeg decode were checked separately. This qualifies
 startup cleanup of an already expired result; continuous-service cleanup latency,
 customer-paid video settlement and frontend preview remain unverified.
+
+## Supplier limit input errors
+
+Supplier credential limit updates and history queries return a JSON 400 with a
+generic message for invalid body/query extraction, after management authorization.
+They do not echo extractor diagnostics. Missing limits are rejected; explicit
+null remains unlimited. [Current HTTP and independent database evidence](https://github.com/niu-io/niu/blob/main/docs/reference/supplier-credential-rate-controls.md#input-error-contract--2026-10-12)
+covers rejected inputs, 401/403 authorization, valid revision advancement, stale
+409, restart and unchanged original customer charges.
