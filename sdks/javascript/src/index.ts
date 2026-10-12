@@ -702,3 +702,5 @@ export type { FinancialRecoveryDiagnostics } from './admin.js';
 export type { SupplierConfigurationUsage, SupplierConfigurationUsageQuery, SupplierConfigurationUsageTotals } from './admin.js';
 
 export type { RoutingRegistryStatus } from './admin.js';
+
+export type { WorkspaceKeyCreateInput, WorkspaceKeyMetadataInput, IssuedWorkspaceKey } from './admin.js';

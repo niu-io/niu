@@ -468,6 +468,21 @@ export type NiuAdminOptions = {
 export type ExecutionReceipt = { id: string; created: boolean };
 export type WorkspaceKeyPage = { data: WorkspaceKey[]; next_cursor: string | null };
 
+/** Explicit null opts into no automatic expiration; omission is invalid. */
+export type WorkspaceKeyCreateInput = {
+  name: string;
+  ttl_seconds: number | null;
+  allowed_models?: string[];
+};
+export type WorkspaceKeyMetadataInput = {
+  name: string;
+  allowed_models: string[];
+  /** Integer metadata revision, distinct from decimal-string policy revisions. */
+  expected_revision: number;
+};
+/** Secret is returned only by creation or rotation. Store it securely. */
+export type IssuedWorkspaceKey = { id: string; token: string };
+
 export type WorkspaceKey = {
   id: string;
   revision: number;
@@ -1119,6 +1134,32 @@ export class NiuAdminClient {
   setSupplierOfferActive(supplierId: string, offerId: string, active: boolean, options?: RequestOptions): Promise<{data: {active: boolean}}> {
     if (typeof active !== 'boolean') throw new TypeError('Offer active state must be boolean');
     return this.request(`/providers/${uuid(supplierId)}/offers/${uuid(offerId)}`, {active}, options, 'PATCH');
+  }
+
+  /** Workspace owner/admin write access. Requires an explicit finite or null lifetime. */
+  createWorkspaceKey(scope: TenantScope, input: WorkspaceKeyCreateInput, options?: RequestOptions): Promise<IssuedWorkspaceKey> {
+    if (typeof input.name !== 'string' || !input.name.trim()) throw new TypeError('Key name is required');
+    if (input.ttl_seconds !== null && (!Number.isSafeInteger(input.ttl_seconds) || input.ttl_seconds < 1 || input.ttl_seconds > 31_536_000)) {
+      throw new TypeError('Key lifetime must be explicit null or an integer from 1 to 31536000');
+    }
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys`, input, options, 'POST');
+  }
+
+  /** Changes name/grants with optimistic revision; preserves lifetime and secret. */
+  updateWorkspaceKey(scope: TenantScope, keyId: string, input: WorkspaceKeyMetadataInput, options?: RequestOptions): Promise<{ revision: number }> {
+    if (typeof input.name !== 'string' || !input.name.trim()) throw new TypeError('Key name is required');
+    if (!Number.isSafeInteger(input.expected_revision) || input.expected_revision < 1) throw new TypeError('Key metadata revision must be a positive safe integer');
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}`, input, options, 'PATCH');
+  }
+
+  /** Returns the replacement secret once; preserves expiry and shared lineage limits. */
+  rotateWorkspaceKey(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<IssuedWorkspaceKey> {
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}/rotate`, {}, options, 'POST');
+  }
+
+  /** Blocks new access while retaining saved metadata and request history. */
+  revokeWorkspaceKey(scope: TenantScope, keyId: string, options?: RequestOptions): Promise<void> {
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys/${uuid(keyId)}`, undefined, options, 'DELETE');
   }
 
   /** Scoped key metadata without secrets; uncertain dispatches still count as last use. */
