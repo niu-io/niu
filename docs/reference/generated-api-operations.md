@@ -8,7 +8,7 @@ This is the annotated subset, not the complete API. See `contracts/openapi.yaml`
 
 `GET /admin/v1/organizations/{organization}/projects/{project}/chat-sessions`
 
-Without limit or after, retain the latest-100 compatibility response. Either paging parameter selects a bounded page, default 50, ordered by updated time and ID descending within the authenticated owner, workspace and archive state. Session payload and customer-charge hydration share a read-only snapshot with 250 ms lock and 2 s statement limits. A changed, deleted, foreign-owner or different-archive cursor returns 409; pages are live views, not a frozen cross-request snapshot.
+Without limit or after, retain the latest-100 compatibility response. Either paging parameter selects a bounded page, default 50, ordered by updated time and ID descending within the authenticated owner, workspace and archive state. Session payload and customer-charge hydration share a read-only snapshot with 250 ms lock and 2 s statement limits. A changed, deleted, foreign-owner or different-archive cursor returns 409; pages are live views, not a frozen cross-request snapshot. Before loading saved bodies, paging also limits the sum of saved JSON text bytes to 32 MiB and may return fewer rows than limit; follow next_cursor. Customer-charge hydration can increase wire size. Legacy latest-100 calls over that saved-payload budget return 413 rather than truncated success.
 
 Implementation: `implemented`. Operation: `listChatSessions`.
 
@@ -114,6 +114,8 @@ HTTP 403: Workspace read access required.
 HTTP 409: Cursor no longer matches an accessible session in this archive.
 
 HTTP 503: Storage unavailable or read wait exceeded; no empty-success fallback.
+
+HTTP 413: Saved Chat history exceeds one-response capacity; use paging or individual conversation export.
 
 ## Read latest 100 workspace preparation refusals
 

@@ -172,6 +172,12 @@ impl ApiError {
                 kind: "request_deadline_exceeded",
                 message: "The request deadline expired before dispatch; this attempt was not sent upstream",
             },
+            niu_storage::StoreError::ChatHistoryCapacityExceeded => Self {
+                failure: None,
+                status: StatusCode::PAYLOAD_TOO_LARGE,
+                kind: "chat_history_capacity_exceeded",
+                message: "Saved Chat history is too large for one response. Use continuation paging or export one conversation",
+            },
             niu_storage::StoreError::Conflict => Self {
                 failure: None,
                 status: StatusCode::CONFLICT,

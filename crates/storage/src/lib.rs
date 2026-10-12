@@ -306,6 +306,9 @@ pub struct GatewayCompletion {
 
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {
+    #[error("saved Chat history exceeds the materialization limit")]
+    ChatHistoryCapacityExceeded,
+
     #[error("gateway request deadline expired before dispatch")]
     GatewayRequestDeadlineExceeded,
 

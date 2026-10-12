@@ -2,6 +2,9 @@ use crate::{Store, StoreError, TenantScope};
 use serde_json::Value;
 use uuid::Uuid;
 
+// Bound saved JSON materialization before payloads cross the database connection.
+const CHAT_HISTORY_PAYLOAD_BYTES: i64 = 32 * 1024 * 1024;
+
 fn visit_results(payload: &mut Value, mut visit: impl FnMut(&mut Value)) {
     if let Some(results) = payload.get_mut("results").and_then(Value::as_array_mut) {
         for result in results {
@@ -99,9 +102,20 @@ impl Store {
         archived: bool,
     ) -> Result<Vec<Value>, StoreError> {
         let mut snapshot = self.begin_bounded_read_snapshot().await?;
-        let sessions: Vec<Value> = sqlx::query_scalar("SELECT payload FROM chat_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND archived=$4 ORDER BY updated_at DESC,id DESC LIMIT 100")
+        let rows: Vec<(Uuid, i64)> = sqlx::query_as("SELECT id,octet_length(payload::text)::bigint FROM chat_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND archived=$4 ORDER BY updated_at DESC,id DESC LIMIT 100")
             .bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(archived)
             .fetch_all(&mut *snapshot).await?;
+        if rows.iter().map(|(_, bytes)| bytes).sum::<i64>() > CHAT_HISTORY_PAYLOAD_BYTES {
+            return Err(StoreError::ChatHistoryCapacityExceeded);
+        }
+        let sessions = Self::load_chat_payloads(
+            &mut snapshot,
+            scope,
+            owner,
+            archived,
+            rows.into_iter().map(|(id, _)| id).collect(),
+        )
+        .await?;
         let sessions = Self::hydrate_chat_charges(&mut snapshot, scope, sessions).await?;
         snapshot.commit().await?;
         Ok(sessions)
@@ -143,7 +157,7 @@ impl Store {
             None
         };
         let mut query = sqlx::QueryBuilder::<sqlx::Postgres>::new(
-            "SELECT payload,id,encode(sha256(convert_to(updated_at::text,'UTF8')),'hex') AS revision FROM chat_sessions WHERE organization_id=",
+            "SELECT id,encode(sha256(convert_to(updated_at::text,'UTF8')),'hex') AS revision,octet_length(payload::text)::bigint AS bytes FROM chat_sessions WHERE organization_id=",
         );
         query
             .push_bind(scope.organization_id)
@@ -164,24 +178,54 @@ impl Store {
         query
             .push(" ORDER BY updated_at DESC,id DESC LIMIT ")
             .push_bind(i64::from(limit) + 1);
-        let mut rows: Vec<(Value, Uuid, String)> =
+        let candidates: Vec<(Uuid, String, i64)> =
             query.build_query_as().fetch_all(&mut *snapshot).await?;
-        let more = rows.len() > usize::from(limit);
-        rows.truncate(usize::from(limit));
+        let mut selected = Vec::new();
+        let mut bytes = 0_i64;
+        for (id, revision, size) in &candidates {
+            if selected.len() == usize::from(limit) || bytes + size > CHAT_HISTORY_PAYLOAD_BYTES {
+                break;
+            }
+            bytes += size;
+            selected.push((*id, revision));
+        }
+        if selected.is_empty() && !candidates.is_empty() {
+            return Err(StoreError::ChatHistoryCapacityExceeded);
+        }
+        let more = selected.len() < candidates.len();
         let next = if more {
-            rows.last()
-                .map(|(_, id, revision)| format!("{id}:{revision}"))
+            selected
+                .last()
+                .map(|(id, revision)| format!("{id}:{revision}"))
         } else {
             None
         };
-        let data = Self::hydrate_chat_charges(
+        let payloads = Self::load_chat_payloads(
             &mut snapshot,
             scope,
-            rows.into_iter().map(|(payload, _, _)| payload).collect(),
+            owner,
+            archived,
+            selected.into_iter().map(|(id, _)| id).collect(),
         )
         .await?;
+        let data = Self::hydrate_chat_charges(&mut snapshot, scope, payloads).await?;
         snapshot.commit().await?;
         Ok(serde_json::json!({"data":data,"next_cursor":next}))
+    }
+
+    async fn load_chat_payloads(
+        connection: &mut sqlx::PgConnection,
+        scope: TenantScope,
+        owner: &str,
+        archived: bool,
+        ids: Vec<Uuid>,
+    ) -> Result<Vec<Value>, StoreError> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        Ok(sqlx::query_scalar("SELECT payload FROM chat_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND archived=$4 AND id=ANY($5) ORDER BY updated_at DESC,id DESC")
+            .bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(archived).bind(ids)
+            .fetch_all(connection).await?)
     }
 
     async fn hydrate_chat_charges(
