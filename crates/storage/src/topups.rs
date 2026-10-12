@@ -37,8 +37,9 @@ impl Store {
         organization: Uuid,
         before: Option<Uuid>,
     ) -> Result<(Vec<serde_json::Value>, Option<Uuid>), StoreError> {
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
         let cursor: Option<(String, Uuid)> = if let Some(id) = before {
-            Some(sqlx::query_as("SELECT created_at::text,id FROM customer_topup_orders WHERE organization_id=$1 AND id=$2").bind(organization).bind(id).fetch_optional(&self.pool).await?.ok_or(StoreError::Conflict)?)
+            Some(sqlx::query_as("SELECT created_at::text,id FROM customer_topup_orders WHERE organization_id=$1 AND id=$2").bind(organization).bind(id).fetch_optional(&mut *snapshot).await?.ok_or(StoreError::Conflict)?)
         } else {
             None
         };
@@ -48,8 +49,9 @@ impl Store {
                 .bind(None::<Uuid>)
                 .bind(cursor.as_ref().map(|value| value.0.as_str()))
                 .bind(cursor.as_ref().map(|value| value.1))
-                .fetch_all(&self.pool)
+                .fetch_all(&mut *snapshot)
                 .await?;
+        snapshot.commit().await?;
         let next = if rows.len() > 100 {
             rows.truncate(100);
             rows.last()
@@ -68,13 +70,16 @@ impl Store {
         organization: Uuid,
         order: Uuid,
     ) -> Result<Option<serde_json::Value>, StoreError> {
-        Ok(sqlx::query_scalar(include_str!("customer_topup_view.sql"))
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        let view = sqlx::query_scalar(include_str!("customer_topup_view.sql"))
             .bind(organization)
             .bind(Some(order))
             .bind(None::<String>)
             .bind(None::<Uuid>)
-            .fetch_optional(&self.pool)
-            .await?)
+            .fetch_optional(&mut *snapshot)
+            .await?;
+        snapshot.commit().await?;
+        Ok(view)
     }
 
     pub async fn customer_topup_closed(
