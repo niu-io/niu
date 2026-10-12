@@ -20,8 +20,12 @@ inspection. Mandatory policies still fail closed where inspection is unavailable
 Niu does not fetch or inspect arbitrary reference URLs on this path. OpenRouter's
 video channel remains text-only.
 
-Use `client.video.jobs.create`, `retrieve`, `refresh`, `wait` and `results.retrieve`
-for Niu tasks. `wait` starts from saved state and only refreshes queued/running
+Use `client.video.generate` with Niu's `prompt`, `references`, `durationSeconds`
+and `aspectRatio` parameters; the SDK performs protocol conversion internally.
+References use `{kind, url, role?}` rather than Provider-specific nested blocks.
+The existing `video.jobs.create` method remains available for compatibility.
+Use `video.jobs.retrieve`, `refresh`, `wait` and `results.retrieve` for Niu tasks.
+`wait` starts from saved state and only refreshes queued/running
 jobs. Its default interval is five seconds and deadline ten minutes; callers can
 provide an AbortSignal. Unknown submission and reconciliation states return for
 explicit handling. Waiting never submits or retries a generation; cancelling a
