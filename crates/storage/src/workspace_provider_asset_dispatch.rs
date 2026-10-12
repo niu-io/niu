@@ -243,8 +243,9 @@ impl Store {
         )
         .await?;
         let scope = p.scope();
-        // Pin identity to the admitted attempt rather than a client allowlist.
-        let bound:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM attempts a JOIN media_recovery_routes r ON r.attempt_id=a.id JOIN attempt_route_generations publication ON publication.attempt_id=a.id WHERE a.id=$1 AND a.organization_id=$2 AND a.project_id=$3 AND a.api_key_id=$4 AND a.resource_id=$5 AND r.organization_id=a.organization_id AND r.project_id=a.project_id AND r.vendor_id=$6 AND r.vendor_revision=$7 AND r.model_revision=$8 AND r.upstream_model=$9 AND r.adapter=$10 AND r.api_base=$11 AND r.schema_revision=$12 AND publication.generation=$13)")
+        // Pin the creator through the saved inspection binding. Fresh attempts acquire
+        // api_key_id only when mark_dispatched_using atomically commits dispatch.
+        let bound:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM attempts a JOIN media_recovery_routes r ON r.attempt_id=a.id JOIN attempt_route_generations publication ON publication.attempt_id=a.id JOIN inspected_guardrail_bindings inspection ON inspection.attempt_id=a.id AND inspection.organization_id=a.organization_id AND inspection.project_id=a.project_id WHERE a.id=$1 AND a.organization_id=$2 AND a.project_id=$3 AND inspection.key_id=$4 AND a.execution='not_sent' AND a.dispatched_at IS NULL AND (a.api_key_id IS NULL OR a.api_key_id=$4) AND a.resource_id=$5 AND r.organization_id=a.organization_id AND r.project_id=a.project_id AND r.vendor_id=$6 AND r.vendor_revision=$7 AND r.model_revision=$8 AND r.upstream_model=$9 AND r.adapter=$10 AND r.api_base=$11 AND r.schema_revision=$12 AND publication.generation=$13)")
             .bind(attempt).bind(scope.organization_id).bind(scope.project_id).bind(p.key_id()).bind(&dispatch.route.model.alias).bind(dispatch.route.vendor.id).bind(dispatch.route.vendor.revision).bind(dispatch.route.model.revision).bind(&dispatch.route.model.upstream_model).bind(&dispatch.route.vendor.adapter).bind(&dispatch.route.vendor.api_base).bind(dispatch.request.schema_revision()).bind(generation).fetch_one(&mut *tx).await?;
         if !bound {
             return Err(StoreError::Conflict);
