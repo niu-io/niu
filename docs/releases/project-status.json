@@ -1,8 +1,8 @@
 {
   "version": 1,
   "updated": "2026-10-12",
-  "source_commit": "c24e75b7f3176f35faa571ea1fca6574c6de050e",
-  "runtime_commit": "c24e75b7f3176f35faa571ea1fca6574c6de050e",
+  "source_commit": "606f863eee3fb87d0813d42b172748cf1f570f69",
+  "runtime_commit": "606f863eee3fb87d0813d42b172748cf1f570f69",
   "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
   "active_implementation_tasks": [
     "S02-3",
@@ -103,9 +103,11 @@
           "id": "S02-3",
           "status": "active",
           "acceptance": "Complete configured-model, customer-price and eligibility publication journey, including stale revision and safe unavailable-capability states.",
-          "evidence": [],
-          "evidence_revision": null,
-          "note": ""
+          "evidence": [
+            "docs/reference/platform-customer-pricing.md"
+          ],
+          "evidence_revision": "606f863e",
+          "note": "Draft offer followed by customer tariff publication, stale/history/restart and disabled shared/personal/unknown alias boundaries independently verified on current native runtime. Tariff preparation does not change catalog, key grants or dispatch eligibility. Genuine reviewed commercial eligibility positive evidence remains unverified."
         }
       ]
     },

@@ -1,7 +1,7 @@
 # Project delivery status
 
 Baseline v1; updated 2026-10-12.
-Committed audit source `c24e75b7`; native implementation `c24e75b7`.
+Committed audit source `606f863e`; native implementation `606f863e`.
 
 **Backend acceptance checkpoints: 24/36 recorded complete at their evidence pins.**
 **Whole backend subsystems closed: 3/12.**
@@ -45,7 +45,7 @@ Active implementation: S02-3, S08-2, S05-2, S10-2, S03-2, S04-3, S03-3, S05-3, S
 | --- | --- | --- | --- |
 | S02-1 | done | One Supplier with independent credential mappings preserves the other mapping during local replacement/disable and supports actual calls. | [record](../../docs/reference/supplier-key-isolation-live.md) (`59922df`) |
 | S02-2 | done | All required management, membership, catalog and qualification operations have exact published contracts and ordinary-role isolation. | [record](../../docs/reference/parallel-core-backend-acceptance.md) (`fb21b52a`) |
-| S02-3 | active | Complete configured-model, customer-price and eligibility publication journey, including stale revision and safe unavailable-capability states. | Missing / not yet accepted |
+| S02-3 | active | Complete configured-model, customer-price and eligibility publication journey, including stale revision and safe unavailable-capability states. | [record](../../docs/reference/platform-customer-pricing.md) (`606f863e`) |
 
 ### S03 — Inference protocols and route coordination
 
