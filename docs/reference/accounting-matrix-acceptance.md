@@ -84,3 +84,25 @@ success. Current-runtime end-to-end reruns of all historical contention slices
 also remain unverified. Supplier/media accounting and received-cash funding
 retain their separate S05-3/S06-3 scopes. Fixture outcomes contribute no evidence,
 and task status remains owned by the release checkpoint.
+
+### Actual current read projection and restart
+
+A fresh stopped copy of the genuine fee/uncertainty database was also run on
+retained `8bfdef10003eebe9402401247aa52cd69d3a398f` (SHA-256
+`6f5290d182c9bf51de1f2bb8d469067351c9f9771150235adc2917b1d39c6900`)
+with compiled SDK `ce97f3b0116570dfd2a487b802d2d2de18efbf39`.
+Current HTTP report/detail reads expose seven genuine retained attempts; current
+SDK invoice-history and charge-reconciliation reads execute, followed by
+identical report/detail reads after restart. No inference, reconciliation write,
+merchant query or invoice issuance is performed.
+
+Independent read-only PostgreSQL reopening matches all seven current projections
+to final execution states and exact charges: six completed requests retain their
+original charges and released holds; the uncertain request retains null charge
+and its 581,234-nanounit hold. The below-tier fee charge remains 21,234 nanounits.
+Eleven whole financial, tariff, category and invoice-table fingerprints remain
+unchanged. Response digests and customer-safe serialization are checked; schema
+is 293 and the copy is stopped afterward. Invoice history is legitimately empty
+in this source and supplies no positive invoice evidence. This is actual current
+read/restart acceptance over genuine records, not fresh current generation or
+contention execution.
