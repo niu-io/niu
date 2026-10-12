@@ -253,3 +253,11 @@ The [live SDK checkpoint](https://github.com/niu-io/niu/blob/main/docs/reference
 checks actual HTTP methods, one-time no-store issuance, scoped denial, stale
 updates, natural expiry, model calls/debits and revocation. Browser integration
 remains separate.
+
+
+The [saved-video key checkpoint](https://github.com/niu-io/niu/blob/main/docs/reference/non-expiring-workspace-keys.md#saved-video-access-with-no-expiration-keys--2026-10-12)
+checks result reads using no-expiration keys before/after rotation and restart.
+Actual downloaded MP4 bytes and full decode match the original persisted video;
+IP denial, foreign scope, finite peer expiry and revocation block access. No new
+generation or charge occurs. New video dispatch and customer-paid media remain
+outside this read checkpoint.

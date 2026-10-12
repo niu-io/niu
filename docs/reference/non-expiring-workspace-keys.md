@@ -128,3 +128,37 @@ debits. Final request/charge/ledger counts were 1,844, with no open hold or fund
 receipt. This is a separate run from the earlier 34,693-nanounit checkpoint;
 requested markers and reported tokens differ. It does not establish every race,
 media lifecycle or frontend presentation. Fixture outcomes provide no evidence.
+
+
+## Saved video access with no-expiration keys — 2026-10-12
+
+Clean backend `67b0ed2` was started against an isolated stopped copy containing
+an actual previously generated, persisted video. A no-expiration key granted
+the saved model read the succeeded job and downloaded its result. A two-second
+finite peer first read the same job and then naturally returned 401 at expiry.
+
+Rotating the no-expiration key rejected its old secret. A deny-all IP policy on
+the replacement returned 403 before result delivery. Restoring the loopback
+allowlist and restarting the Gateway recovered the same succeeded state and
+video. A foreign-workspace no-expiration key was refused. Revocation rejected
+subsequent result access for the replacement, finite peer and foreign key.
+
+Both successful downloads returned the same 90,729-byte MP4 as the original saved
+artifact. Independent native reopening verified positive infinity on the rotated
+lineage and foreign key, finite peer expiry, IP history, separate foreign scope
+and all retained revocations. It separately rehashed both downloaded files,
+inspected their actual video streams and fully decoded each with FFmpeg.
+
+Attempt, job and submission-identity fingerprints remained unchanged. There is
+still one original generation/submission. Customer charges, media charges,
+ledger entries, funding and Supplier earnings remained absent, and no open hold
+appeared. Saved billing remained owner-funded personal testing. Result-read
+transport diagnostics may be added; they do not create another submission or
+charge. No refresh, new generation or financial mutation was requested.
+
+This verifies persisted video reads with no-expiration keys, rotation/restart,
+source and workspace isolation, natural finite peer expiry and revocation. It
+does not qualify new video dispatch or unfinished-job recovery with these keys,
+natural result expiry, customer-paid media charging, every permission race or
+browser presentation. Fixture outcomes provide no evidence. Original source,
+installation data, encrypted identity and original video bytes were preserved.
