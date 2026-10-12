@@ -25,7 +25,7 @@ Active implementation: S10-2. Assignments use stable task IDs.
 | S09 Durable Chat | C | done | 3/3 | S01, S03, S07 |
 | S10 Platform configuration and security facilities | A | done | 3/3 | S01 |
 | S11 Contracts, SDK and documentation | I | done | 3/3 | None |
-| S12 Runtime operations, recovery and performance | I | open | 2/3 | S03, S05, S07, S08 |
+| S12 Runtime operations, recovery and performance | I | active | 2/3 | S03, S05, S07, S08 |
 | S13 Dashboard, public catalog and rendered Help | Frontend | delegated | 0/3 | S01, S02, S07, S09, S11 |
 | S14 Packaging, extensions and legacy surfaces | Separate ownership | deferred | 0/3 | None |
 
@@ -77,7 +77,7 @@ Active implementation: S10-2. Assignments use stable task IDs.
 | --- | --- | --- | --- |
 | S06-1 | done | An administrator can read the truthful supported integration inventory independently of checkout activation. | [record](../../docs/reference/payment-aggregators.md) (`3fdc669c`) |
 | S06-2 | done | Publish the supported checkout, signed notification/query, duplicate, currency/amount verification and recovery inventory with exact interfaces. | [record](../../docs/reference/payment-capability-matrix.md) (`af34b6a3`) |
-| S06-3 | done | Establish supported funding/refund transitions and negative callback/idempotency protections from actual evidence; merchant activation is not a completion prerequisite. | [record](../../docs/reference/invoice-payment-boundary-acceptance.md), [record](../../docs/reference/payment-local-capability-acceptance.md) (`dce8a86f`) |
+| S06-3 | done | Establish supported funding/refund transitions and negative callback/idempotency protections from actual evidence; merchant activation is not a completion prerequisite. | [record](../../docs/reference/payment-backend-capability-acceptance.md), [record](../../docs/reference/invoice-payment-boundary-acceptance.md) (`dce8a86f`) |
 
 ### S07 — Request diagnostics and usage reports
 
@@ -125,7 +125,7 @@ Active implementation: S10-2. Assignments use stable task IDs.
 | --- | --- | --- | --- |
 | S12-1 | done | Existing native runtime is ready with preserved identity, retained executable hash, matching registry and independently restored backup evidence. | [record](../../docs/releases/backend-workflow-status.md), [record](../../docs/reference/native-runtime-operations.md), [record](../../docs/reference/native-schema-290-293-upgrade-acceptance.md) (`c24e75b7`) |
 | S12-2 | done | Consolidate supported restart/drain/migration/backup/recovery and explicit operational connection/deadline limits without container scope expansion. | [record](../../docs/reference/native-runtime-operations.md), [record](../../docs/reference/native-schema-290-293-upgrade-acceptance.md) (`c24e75b7`) |
-| S12-3 | open | After business acceptance, measure increasing/mixed load, overload recovery, resources and exact post-run accounting; make only measured capacity/comparison claims. | Missing / not yet accepted |
+| S12-3 | active | After business acceptance, measure increasing/mixed load, overload recovery, resources and exact post-run accounting; make only measured capacity/comparison claims. | Missing / not yet accepted |
 
 ### S13 — Dashboard, public catalog and rendered Help
 

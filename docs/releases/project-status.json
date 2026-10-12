@@ -303,8 +303,8 @@
           "status": "done",
           "acceptance": "Establish supported funding/refund transitions and negative callback/idempotency protections from actual evidence; merchant activation is not a completion prerequisite.",
           "evidence": [
-            "docs/reference/invoice-payment-boundary-acceptance.md",
-            "docs/reference/payment-local-capability-acceptance.md"
+            "docs/reference/payment-backend-capability-acceptance.md",
+            "docs/reference/invoice-payment-boundary-acceptance.md"
           ],
           "evidence_revision": "dce8a86f",
           "note": "Finite payment backend capability accepted per external-activation policy: actual posted-charge exact refund and genuine saved Zhifux uncertain-intent inventory/replay/conflict/unsigned-callback refusal/restart preserve nineteen whole tables, with zero merchant calls or invented receipts. Funding/closed atomic transitions are implemented mechanisms, not observed positive cash. Actual paid/closed cash settlement, valid signed paid callback and funding-entry reversal remain unverified; all external refund initiation unsupported, EPayquery501, Stripeuncertain creation never silently recreated. Fixture merchant outcomes excluded."
@@ -587,7 +587,7 @@
       "id": "S12",
       "name": "Runtime operations, recovery and performance",
       "lane": "I",
-      "status": "open",
+      "status": "active",
       "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
       "paths": [
         "apps/gateway/src/main.rs",
@@ -627,7 +627,7 @@
         },
         {
           "id": "S12-3",
-          "status": "open",
+          "status": "active",
           "acceptance": "After business acceptance, measure increasing/mixed load, overload recovery, resources and exact post-run accounting; make only measured capacity/comparison claims.",
           "evidence": [],
           "evidence_revision": null,

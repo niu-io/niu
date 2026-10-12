@@ -40,4 +40,15 @@ Retained actual Chat cancellation/timeout, native Messages cancellation during t
 
 Those older Chat/Messages cancellation artifacts do not have a recoverable source revision pin. They are historical evidence and do not independently qualify every current-1212 protocol path. No fixture result is used as evidence.
 
-S03-3 remains active for the remaining current supported-protocol failure matrix. The pinned Responses cases close the exercised authentication-refusal fallback, actual timeout, cancellation and no-uncertain-replay checks. Direct Anthropic/Gemini positives and arbitrary HTTP-status fallback are not inferred from this result; additional external activation is not added to this task.
+At this historical `1212ea3b` checkpoint, the current supported-protocol failure matrix remained active. The pinned Responses cases close the exercised authentication-refusal fallback, actual timeout, cancellation and no-uncertain-replay checks. Direct Anthropic/Gemini positives and arbitrary HTTP-status fallback are not inferred from this result; additional external activation is not added to this task.
+
+
+## Current completion boundary
+
+The [current Chat/Messages cancellation](current-chat-messages-cancellation.md)
+adds genuine first-text abort, exact retained liability, no alternate dispatch
+and restart evidence at `8bfdef10`. Together with the separately pinned timeout,
+canonical receipt recovery and bounded Responses fallback records, it establishes
+the finite S03-3 failure scope. Historical cases are not relabelled fresh current
+executions. Response-body idle timeout and optional direct-account/protocol
+combinations remain explicitly unverified; no fabricated upstream stall is used.
