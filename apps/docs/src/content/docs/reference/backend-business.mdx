@@ -244,3 +244,12 @@ lifecycle checkpoint](https://github.com/niu-io/niu/blob/main/docs/reference/non
 checks natural finite expiry, actual calls/debits, owner/viewer permissions,
 SDK traversal, restart and spending refusal. Video and broader concurrent cases
 remain unverified.
+
+
+The SDK now supports `createWorkspaceKey`, `updateWorkspaceKey`,
+`rotateWorkspaceKey` and `revokeWorkspaceKey`, with exported typed inputs/results.
+Use integer metadata revisions and the existing decimal-string policy revisions.
+The [live SDK checkpoint](https://github.com/niu-io/niu/blob/main/docs/reference/non-expiring-workspace-keys.md#javascript-lifecycle-client--2026-10-12)
+checks actual HTTP methods, one-time no-store issuance, scoped denial, stale
+updates, natural expiry, model calls/debits and revocation. Browser integration
+remains separate.

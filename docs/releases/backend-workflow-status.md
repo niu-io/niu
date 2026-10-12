@@ -234,3 +234,10 @@ owner/viewer checks, natural finite expiry, two accurately charged calls,
 rotation/restart, SDK traversal, spending refusal and revocation were independently
 checked. Existing finite dates and original installation identity remain intact;
 no-expiration video and broader concurrent behavior are unverified.
+
+
+The [JavaScript key lifecycle checkpoint](../reference/non-expiring-workspace-keys.md#javascript-lifecycle-client--2026-10-12)
+adds create, metadata PATCH, rotate and revoke methods with exported input/result
+types. Actual SDK fetches, owner/viewer permissions, stale revisions, natural
+finite expiry and two exact charged calls were independently checked. Backend
+runtime remains `67b0ed2`; this SDK-only change does not replace its executable.
