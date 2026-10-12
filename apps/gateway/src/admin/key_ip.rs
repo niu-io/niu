@@ -30,7 +30,7 @@ pub struct History {
 ///       }
 ///     ],
 ///     "operationId": "getKeyIpPolicy",
-///     "description": "Scoped readers may inspect the policy shared across secret rotations.",
+///     "description": "Scoped readers may inspect the policy shared across secret rotations. Storage reads use a read-only snapshot with transaction-local 250 ms lock and 2 s statement limits.",
 ///     "responses": {
 ///       "200": {
 ///         "description": "Null revision means never configured. Null networks permit all sources; an empty array denies all sources.",
@@ -83,6 +83,9 @@ pub struct History {
 ///       },
 ///       "404": {
 ///         "description": "Workspace is outside operator scope, or key is absent from authorized workspace"
+///       },
+///       "503": {
+///         "description": "Storage read unavailable, including a bounded lock or statement timeout. Preserve known policy/history; this does not permit bypassing source restrictions."
 ///       }
 ///     },
 ///     "parameters": [
@@ -332,7 +335,7 @@ pub async fn write(
 ///       }
 ///     ],
 ///     "operationId": "listKeyIpPolicyHistory",
-///     "description": "Scoped readers receive descending revisions shared across rotations. Use the last revision as the next page cursor.",
+///     "description": "Scoped readers receive descending revisions shared across rotations. Use the last revision as the next page cursor. Storage reads use a read-only snapshot with transaction-local 250 ms lock and 2 s statement limits.",
 ///     "parameters": [
 ///       {
 ///         "name": "organization",
@@ -452,6 +455,9 @@ pub async fn write(
 ///       },
 ///       "404": {
 ///         "description": "Workspace is outside operator scope, or key is absent from authorized workspace"
+///       },
+///       "503": {
+///         "description": "Storage read unavailable, including a bounded lock or statement timeout. Preserve known policy/history; this does not permit bypassing source restrictions."
 ///       }
 ///     },
 ///     "x-niu-implementation": "implemented",

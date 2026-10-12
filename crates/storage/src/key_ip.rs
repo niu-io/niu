@@ -10,8 +10,10 @@ impl Store {
         key: Uuid,
         source: Option<IpAddr>,
     ) -> Result<(), StoreError> {
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
         let allowed:Option<bool>=sqlx::query_scalar("SELECT CASE WHEN p.revision IS NULL OR p.allowed_cidrs IS NULL THEN true WHEN $4::text IS NULL THEN false ELSE EXISTS(SELECT 1 FROM unnest(p.allowed_cidrs) n WHERE $4::text::inet <<= n::cidr) END FROM api_keys k LEFT JOIN key_ip_policies p ON p.spending_root_id=k.spending_root_id WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3")
-            .bind(scope.organization_id).bind(scope.project_id).bind(key).bind(source.map(|ip|ip.to_string())).fetch_optional(&self.pool).await?;
+            .bind(scope.organization_id).bind(scope.project_id).bind(key).bind(source.map(|ip|ip.to_string())).fetch_optional(&mut *snapshot).await?;
+        snapshot.commit().await?;
         match allowed {
             Some(true) => Ok(()),
             Some(false) => Err(StoreError::KeyIpDenied),
@@ -23,8 +25,11 @@ impl Store {
         scope: TenantScope,
         key: Uuid,
     ) -> Result<Option<Value>, StoreError> {
-        Ok(sqlx::query_scalar("SELECT jsonb_build_object('allowed_cidrs',p.allowed_cidrs,'revision',p.revision::text) FROM api_keys k LEFT JOIN key_ip_policies p ON p.spending_root_id=k.spending_root_id WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3")
-            .bind(scope.organization_id).bind(scope.project_id).bind(key).fetch_optional(&self.pool).await?)
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        let policy = sqlx::query_scalar("SELECT jsonb_build_object('allowed_cidrs',p.allowed_cidrs,'revision',p.revision::text) FROM api_keys k LEFT JOIN key_ip_policies p ON p.spending_root_id=k.spending_root_id WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3")
+            .bind(scope.organization_id).bind(scope.project_id).bind(key).fetch_optional(&mut *snapshot).await?;
+        snapshot.commit().await?;
+        Ok(policy)
     }
     pub async fn key_ip_history(
         &self,
@@ -36,8 +41,11 @@ impl Store {
         if !(1..=100).contains(&limit) || before.is_some_and(|v| v <= 0) {
             return Err(StoreError::Conflict);
         }
-        Ok(sqlx::query_scalar("SELECT jsonb_build_object('allowed_cidrs',h.allowed_cidrs,'revision',h.revision::text,'recorded_at',h.recorded_at,'actor_kind',h.actor_kind,'actor_name',h.actor_name) FROM key_ip_policy_history h JOIN api_keys k ON k.spending_root_id=h.spending_root_id WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3 AND ($4::bigint IS NULL OR h.revision<$4) ORDER BY h.revision DESC LIMIT $5")
-            .bind(scope.organization_id).bind(scope.project_id).bind(key).bind(before).bind(limit).fetch_all(&self.pool).await?)
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        let rows = sqlx::query_scalar("SELECT jsonb_build_object('allowed_cidrs',h.allowed_cidrs,'revision',h.revision::text,'recorded_at',h.recorded_at,'actor_kind',h.actor_kind,'actor_name',h.actor_name) FROM key_ip_policy_history h JOIN api_keys k ON k.spending_root_id=h.spending_root_id WHERE k.organization_id=$1 AND k.project_id=$2 AND k.id=$3 AND ($4::bigint IS NULL OR h.revision<$4) ORDER BY h.revision DESC LIMIT $5")
+            .bind(scope.organization_id).bind(scope.project_id).bind(key).bind(before).bind(limit).fetch_all(&mut *snapshot).await?;
+        snapshot.commit().await?;
+        Ok(rows)
     }
     pub async fn set_key_ip_policy(
         &self,

@@ -506,7 +506,7 @@ HTTP 404: Workspace is outside operator scope, or key is absent from authorized 
 
 `GET /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy`
 
-Scoped readers may inspect the policy shared across secret rotations.
+Scoped readers may inspect the policy shared across secret rotations. Storage reads use a read-only snapshot with transaction-local 250 ms lock and 2 s statement limits.
 
 Implementation: `implemented`. Operation: `getKeyIpPolicy`.
 
@@ -601,6 +601,8 @@ HTTP 401: Authentication required
 HTTP 403: Workspace access denied
 
 HTTP 404: Workspace is outside operator scope, or key is absent from authorized workspace
+
+HTTP 503: Storage read unavailable, including a bounded lock or statement timeout. Preserve known policy/history; this does not permit bypassing source restrictions.
 
 ## Set API key source policy
 
@@ -732,7 +734,7 @@ HTTP 422: Missing or invalid JSON fields
 
 `GET /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy/history`
 
-Scoped readers receive descending revisions shared across rotations. Use the last revision as the next page cursor.
+Scoped readers receive descending revisions shared across rotations. Use the last revision as the next page cursor. Storage reads use a read-only snapshot with transaction-local 250 ms lock and 2 s statement limits.
 
 Implementation: `implemented`. Operation: `listKeyIpPolicyHistory`.
 
@@ -866,6 +868,8 @@ HTTP 401: Authentication required
 HTTP 403: Workspace access denied
 
 HTTP 404: Workspace is outside operator scope, or key is absent from authorized workspace
+
+HTTP 503: Storage read unavailable, including a bounded lock or statement timeout. Preserve known policy/history; this does not permit bypassing source restrictions.
 
 ## Read API key request rate policy
 
