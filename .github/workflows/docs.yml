@@ -6,6 +6,8 @@ on:
     paths:
       - '.github/workflows/docs.yml'
       - 'apps/docs/**'
+      - 'docs/**'
+      - 'scripts/render-project-status.py'
       - 'apps/dashboard/src/**'
       - 'apps/dashboard/package.json'
       - 'branding/**'
@@ -17,6 +19,8 @@ on:
     paths:
       - '.github/workflows/docs.yml'
       - 'apps/docs/**'
+      - 'docs/**'
+      - 'scripts/render-project-status.py'
       - 'apps/dashboard/src/**'
       - 'apps/dashboard/package.json'
       - 'branding/**'
@@ -48,6 +52,8 @@ jobs:
           cache: pnpm
       - name: Install locked workspace dependencies
         run: pnpm install --frozen-lockfile
+      - name: Check fixed delivery board consistency
+        run: python3 scripts/render-project-status.py --check
       - name: Check documentation types
         run: pnpm --dir apps/docs check
       - name: Build documentation
