@@ -30,3 +30,21 @@ implementation work. The storage facility compiled from a clean committed tree;
 actual receipt creation and its concurrent revocation behavior remain unverified
 without a genuinely configured MediaV3 service. No synthetic Clear response or
 fixture result qualifies this business path.
+
+## Actual activation boundary and saved-state migration
+
+Native revision `7e42a43b1ea82ef39aaa3b7265109e3937b5ad9e` was executed
+against an isolated copy of retained actual business data. The Gateway applied
+migration 288. Nine actual HTTP reads/writes exercised audio/video policy
+activation refusal (501), withdrawn consent, unsupported image kind, malformed
+fingerprint and duplicate detector refusal (400), and unchanged policy reads
+before and after restart. Valid bindings are recognized but cannot be activated
+until exact inspection, Provider delivery and atomic dispatch are connected.
+
+A separate reader reopened the stopped source and final PostgreSQL instances.
+Full-row fingerprints of the original financial/request, Supplier, model and
+guardrail-history/head records matched. It independently checked successful
+migrations, the immutable receipt trigger and saved response digests. No approval,
+model generation or external inspection request was created. An empty receipt
+table is a preservation observation, not positive receipt acceptance. This
+qualifies the exercised migration and refusal boundary, not media enforcement.

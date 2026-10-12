@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "updated": "2026-10-12",
-  "source_commit": "748774de938589905520920e649c9f52dfc3409d",
-  "runtime_commit": "4c3def6381e839d1206d5dd13b3b42632b0ef036",
+  "updated": "2026-10-13",
+  "source_commit": "2543229366197173a7fa2cd3be1f5089ae1ea25e",
+  "runtime_commit": "7e42a43b1ea82ef39aaa3b7265109e3937b5ad9e",
   "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
   "active_implementation_tasks": [
     "S02-3",
@@ -156,10 +156,11 @@
           "evidence": [
             "docs/reference/inference-failure-acceptance.md",
             "docs/reference/provider-timeout-configuration-acceptance.md",
-            "docs/reference/request-transport-phase-acceptance.md"
+            "docs/reference/request-transport-phase-acceptance.md",
+            "docs/reference/stream-body-timeout-observation.md"
           ],
           "evidence_revision": "1212ea3b",
-          "note": "Actual Responses auth fallback, cancellation and deadline preserve pinned identities and bounded unknown holds. Current native connection failure persists its observed phase through Logs, CSV, SDK and restart; historical unknown phases remain unknown. Default/explicit/clamped text connection and DNS budgets verified without generation. Cross-protocol request-phase, cancellation and bounded fallback coverage remains open."
+          "note": "Actual Responses auth fallback, cancellation and deadline preserve pinned identities and bounded unknown holds. Current native connection failure persists its observed phase through Logs, CSV, SDK and restart; historical unknown phases remain unknown. Default/explicit/clamped text connection and DNS budgets verified without generation. Cross-protocol request-phase, cancellation and bounded fallback coverage remains open. Bounded two-request actual run verifies send-stage request-phase uncertainty and a normal exact-charge stream; response-body timeout itself was not reproduced and remains unverified."
         }
       ]
     },
@@ -306,10 +307,11 @@
           "status": "active",
           "acceptance": "Establish supported funding/refund transitions and negative callback/idempotency protections from actual evidence; merchant activation is not a completion prerequisite.",
           "evidence": [
-            "docs/reference/invoice-payment-boundary-acceptance.md"
+            "docs/reference/invoice-payment-boundary-acceptance.md",
+            "docs/reference/payment-local-capability-acceptance.md"
           ],
           "evidence_revision": "c24e75b7",
-          "note": "Genuine saved unpaid merchant intent, duplicate/currency/amount/signed malicious callback refusals and balance reversal verified without fabricated funds. Positive received-cash transitions remain unverified; external activation is separate."
+          "note": "Genuine saved unpaid merchant intent, duplicate/currency/amount/signed malicious callback refusals and balance reversal verified without fabricated funds. Positive received-cash transitions remain unverified; external activation is separate. Thirty actual HTTP/SDK responses independently verify local unactivated EPay checkout identity, restart/idempotency, retained uncertain order and negative callbacks without funding. Terminal paid/closed positive evidence is absent; external merchant activation remains separate."
         }
       ]
     },
@@ -407,10 +409,11 @@
             "docs/reference/video-saved-task-current-acceptance.md",
             "docs/reference/media-reference-facts.md",
             "docs/reference/media-inspection-contract.md",
-            "docs/reference/media-detector-discovery-acceptance.md"
+            "docs/reference/media-detector-discovery-acceptance.md",
+            "docs/reference/media-processing-receipts.md"
           ],
           "evidence_revision": "ab33ee17",
-          "note": "Durable library, scoped SDK lifecycle, caps, rotation and saved real-job matrix are verified. Reference facts, shared ImageV2/MediaV3 exact-content transport and kind-bound runtime consent/capacity implemented; current scoped configuration discovery HTTP/SDK/startup/restart independently checked without network or approvals. Saved-image atomic coordinator exists. Audio/video policy activation, durable receipts, Provider handoff and task bindings remain unimplemented; genuine fresh-inspection/Ark dispatch/deletion race/Provider reuse remain unverified."
+          "note": "Durable library, scoped SDK lifecycle, caps, rotation and saved real-job matrix are verified. Reference facts, shared ImageV2/MediaV3 exact-content transport and kind-bound runtime consent/capacity implemented; current scoped configuration discovery HTTP/SDK/startup/restart independently checked without network or approvals. Saved-image atomic coordinator exists. Audio/video policy activation, Provider handoff and task bindings remain unfinished; genuine fresh-inspection/Ark dispatch/deletion race/Provider reuse remain unverified. Kind-bound policy composition and immutable metadata receipts now implemented; actual schema-288 migration/restart and activation refusals preserve saved records. Receipt creation and audio/video Provider handoff/task binding remain unverified or unfinished; policy activation stays disabled."
         },
         {
           "id": "S08-3",
@@ -601,7 +604,7 @@
             "docs/reference/native-runtime-operations.md"
           ],
           "evidence_revision": "c24e75b7",
-          "note": "Finite native operations inventory includes bounded storage waits, graceful drain, configuration/restart and independently restored backups. Current schema-287 native deployment preserves configuration, encrypted credential identities and retained business data; its fresh backup was independently restored. No global shutdown SLA or arbitrary failure/interleaving qualification."
+          "note": "Finite native operations inventory includes bounded storage waits, graceful drain, configuration/restart and independently restored backups. Current schema-288 native deployment preserves configuration, encrypted credential identities and retained business data; its fresh backup was independently restored. No global shutdown SLA or arbitrary failure/interleaving qualification."
         },
         {
           "id": "S12-3",

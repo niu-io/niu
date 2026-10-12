@@ -181,3 +181,14 @@ stopped afterward. No original records were overwritten, no upstream requests
 were issued and no encryption identity was replaced. This verifies the exercised
 backup restoration; it does not establish media policy enforcement, paid media
 settlement or performance capacity.
+
+The subsequent original-service refresh uses retained executable
+`7e42a43b1ea82ef39aaa3b7265109e3937b5ad9e`, schema 288, after isolated actual
+media-policy refusal/migration/restart checks. Its target and retained binary
+digests matched and the prior executable remained available for rollback. The
+exact running environment was retained; readiness returned 200 and original
+configuration, encrypted credential identities and retained business counts were
+unchanged. The fresh schema-288 archive was independently restored into another
+new PostgreSQL instance, with the same seven complete saved-record fingerprints
+matching the original source. Verification instances were stopped. Media receipt
+creation, Provider handoff and dispatch enforcement remain unqualified.

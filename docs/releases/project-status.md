@@ -1,7 +1,7 @@
 # Project delivery status
 
-Baseline v1; updated 2026-10-12.
-Committed audit source `748774de`; native implementation `4c3def63`.
+Baseline v1; updated 2026-10-13.
+Committed audit source `25432293`; native implementation `7e42a43b`.
 
 **Backend acceptance checkpoints: 24/36 recorded complete at their evidence pins.**
 **Whole backend subsystems closed: 3/12.**
@@ -53,7 +53,7 @@ Active implementation: S02-3, S08-2, S05-2, S10-2, S03-2, S04-3, S03-3, S05-3, S
 | --- | --- | --- | --- |
 | S03-1 | done | The exercised actual text/tool-result streams retain reported usage, finish state and independently checked charges. | [record](../../docs/reference/key-controlled-tool-streaming.md) (`a9de7c8`) |
 | S03-2 | active | Publish a finite supported Chat/Responses/Embeddings/Messages/GenerateContent matrix; qualify declared working combinations and explicit rejection of unsupported ones. | [record](../../docs/reference/inference-protocol-acceptance-matrix.md) (`1212ea3b`) |
-| S03-3 | active | Close material timeout/cancellation/uncertainty and bounded fallback gaps on supported paths; preserve model, credential and financial identity. | [record](../../docs/reference/inference-failure-acceptance.md), [record](../../docs/reference/provider-timeout-configuration-acceptance.md), [record](../../docs/reference/request-transport-phase-acceptance.md) (`1212ea3b`) |
+| S03-3 | active | Close material timeout/cancellation/uncertainty and bounded fallback gaps on supported paths; preserve model, credential and financial identity. | [record](../../docs/reference/inference-failure-acceptance.md), [record](../../docs/reference/provider-timeout-configuration-acceptance.md), [record](../../docs/reference/request-transport-phase-acceptance.md), [record](../../docs/reference/stream-body-timeout-observation.md) (`1212ea3b`) |
 
 ### S04 — Key controls and Guardrails
 
@@ -77,7 +77,7 @@ Active implementation: S02-3, S08-2, S05-2, S10-2, S03-2, S04-3, S03-3, S05-3, S
 | --- | --- | --- | --- |
 | S06-1 | done | An administrator can read the truthful supported integration inventory independently of checkout activation. | [record](../../docs/reference/payment-aggregators.md) (`3fdc669c`) |
 | S06-2 | done | Publish the supported checkout, signed notification/query, duplicate, currency/amount verification and recovery inventory with exact interfaces. | [record](../../docs/reference/payment-capability-matrix.md) (`af34b6a3`) |
-| S06-3 | active | Establish supported funding/refund transitions and negative callback/idempotency protections from actual evidence; merchant activation is not a completion prerequisite. | [record](../../docs/reference/invoice-payment-boundary-acceptance.md) (`c24e75b7`) |
+| S06-3 | active | Establish supported funding/refund transitions and negative callback/idempotency protections from actual evidence; merchant activation is not a completion prerequisite. | [record](../../docs/reference/invoice-payment-boundary-acceptance.md), [record](../../docs/reference/payment-local-capability-acceptance.md) (`c24e75b7`) |
 
 ### S07 — Request diagnostics and usage reports
 
@@ -92,7 +92,7 @@ Active implementation: S02-3, S08-2, S05-2, S10-2, S03-2, S04-3, S03-3, S05-3, S
 | ID | Status | Acceptance | Evidence pin |
 | --- | --- | --- | --- |
 | S08-1 | done | Actual personal video submission, key rotation, saved-job restart recovery, idempotent replay and independently decoded result are exercised. | [record](../../docs/reference/current-video-submission-restart.md) (`e704955`) |
-| S08-2 | active | Close the supported input/control/job/result/retention/asset authorization matrix and recovery without duplicate submission. | [record](../../docs/reference/ingested-image-video-input.md), [record](../../docs/reference/workspace-material-library.md), [record](../../docs/reference/workspace-material-sdk-acceptance.md), [record](../../docs/reference/workspace-material-format-acceptance.md), [record](../../docs/reference/workspace-material-storage-acceptance.md), [record](../../docs/reference/workspace-material-video-reference-acceptance.md), [record](../../docs/reference/video-saved-task-current-acceptance.md), [record](../../docs/reference/media-reference-facts.md), [record](../../docs/reference/media-inspection-contract.md), [record](../../docs/reference/media-detector-discovery-acceptance.md) (`ab33ee17`) |
+| S08-2 | active | Close the supported input/control/job/result/retention/asset authorization matrix and recovery without duplicate submission. | [record](../../docs/reference/ingested-image-video-input.md), [record](../../docs/reference/workspace-material-library.md), [record](../../docs/reference/workspace-material-sdk-acceptance.md), [record](../../docs/reference/workspace-material-format-acceptance.md), [record](../../docs/reference/workspace-material-storage-acceptance.md), [record](../../docs/reference/workspace-material-video-reference-acceptance.md), [record](../../docs/reference/video-saved-task-current-acceptance.md), [record](../../docs/reference/media-reference-facts.md), [record](../../docs/reference/media-inspection-contract.md), [record](../../docs/reference/media-detector-discovery-acceptance.md), [record](../../docs/reference/media-processing-receipts.md) (`ab33ee17`) |
 | S08-3 | open | Implement or verify supported reported media meters, bounded liability and exact settlement; missing quantity remains explicit and never inferred from file duration. | Missing / not yet accepted |
 
 ### S09 — Durable Chat
