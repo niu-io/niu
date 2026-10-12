@@ -490,6 +490,15 @@ pub async fn list(
 ///               }
 ///             }
 ///           }
+///         },
+///         "headers": {
+///           "Cache-Control": {
+///             "description": "Complete personal conversation responses must not be cached.",
+///             "schema": {
+///               "type": "string",
+///               "const": "no-store"
+///             }
+///           }
 ///         }
 ///       },
 ///       "401": {

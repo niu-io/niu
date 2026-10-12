@@ -170,6 +170,17 @@ Each array entry is an alternative; schemes within one entry are required togeth
 
 HTTP 200: Complete owned conversation and separate archive state.
 
+Response header: `Cache-Control`.
+
+Complete personal conversation responses must not be cached.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
 Content type: `application/json`.
 
 ```json
