@@ -7,7 +7,7 @@ remains open.
 ## HTTP and SDK
 
 `GET /admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}`
-returns `{data, archived}`. `data` is the complete saved conversation, including
+returns `{data, archived, revision, guardedWrites}`. `data` is the complete saved conversation, including
 supported settings, attachments, results and nested turns. `archived` comes from
 the separate native archive state. Successful responses set
 `Cache-Control: no-store`.
@@ -91,3 +91,9 @@ authoritative charge projection, archive, scoped deletion, unknown imported
 references, SDK, restart and revocation. It does not establish concurrent update
 protection, image interpretation, every oversized legacy body, complete browser
 restoration or production performance.
+
+## Guarded writes
+
+The [atomic write contract](chat-session-write-guards.md) uses the returned
+revision to protect content saves. Successful opt-in prevents later compatibility
+saves from bypassing protection, including resurrection after deletion.

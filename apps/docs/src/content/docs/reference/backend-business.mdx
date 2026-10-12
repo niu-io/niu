@@ -349,3 +349,12 @@ content, separate archive state and authoritative customer-charge hydration with
 `Cache-Control: no-store`. Actual reads beyond the recent-100 list, imported
 unknown references, settings/report attachments, isolation and restart were
 independently verified. Frontend restoration and concurrent edits remain separate.
+
+
+[Atomic conversation saves](https://github.com/niu-io/niu/blob/main/docs/reference/chat-session-write-guards.md)
+add `revision`/`guardedWrites` to direct reads and SDK `saveChatSessionIfCurrent`.
+Use null for creation and a read revision for updates. Successful guarded saves
+confirm the mode; stale and compatibility writes cannot overwrite enabled
+resources or resurrect their deleted content. Reconcile 409 rather than retry
+an old body blindly. Actual two-turn, concurrent, restart, migration and SDK
+artifacts were independently checked; untouched legacy resources require adoption.

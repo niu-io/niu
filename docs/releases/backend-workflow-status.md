@@ -1,6 +1,6 @@
 # Backend workflow verification status
 
-Reviewed 2026-10-12 against implementation `549d2189`; native implementation `549d2189`.
+Reviewed 2026-10-12 against implementation `7234a4ef`; native implementation `7234a4ef`.
 This is an index of scoped evidence, not a declaration that the complete release
 or New API comparison is qualified. Linked runs identify their own implementation
 revisions. Fixture outcomes provide no evidence. Current-input runs and
@@ -336,3 +336,11 @@ SDK getter restore an owned body without walking recent history. Actual settings
 report attachment, archived state, native charges, unknown imported references,
 owner/workspace isolation, restart and deletion were independently checked.
 Concurrent update protection and frontend adoption remain open.
+
+## Atomic owned Chat writes
+
+[Current write-guard evidence](../reference/chat-session-write-guards.md)
+reproduces a real lost turn and verifies atomic revision checks, one concurrent
+winner, persistent opt-in, legacy bypass/resurrection refusal, explicit recreation,
+SDK confirmation and preserved migration/accounting artifacts. Untouched legacy
+resources need frontend adoption; whole Chat/release acceptance remains open.
