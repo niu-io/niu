@@ -1,7 +1,7 @@
 # Project delivery status
 
 Baseline v1; updated 2026-10-13.
-Committed audit source `25432293`; native implementation `7e42a43b`.
+Committed audit source `16342ee6`; native implementation `17b7370a`.
 
 **Backend acceptance checkpoints: 24/36 recorded complete at their evidence pins.**
 **Whole backend subsystems closed: 3/12.**
@@ -92,7 +92,7 @@ Active implementation: S02-3, S08-2, S05-2, S10-2, S03-2, S04-3, S03-3, S05-3, S
 | ID | Status | Acceptance | Evidence pin |
 | --- | --- | --- | --- |
 | S08-1 | done | Actual personal video submission, key rotation, saved-job restart recovery, idempotent replay and independently decoded result are exercised. | [record](../../docs/reference/current-video-submission-restart.md) (`e704955`) |
-| S08-2 | active | Close the supported input/control/job/result/retention/asset authorization matrix and recovery without duplicate submission. | [record](../../docs/reference/ingested-image-video-input.md), [record](../../docs/reference/workspace-material-library.md), [record](../../docs/reference/workspace-material-sdk-acceptance.md), [record](../../docs/reference/workspace-material-format-acceptance.md), [record](../../docs/reference/workspace-material-storage-acceptance.md), [record](../../docs/reference/workspace-material-video-reference-acceptance.md), [record](../../docs/reference/video-saved-task-current-acceptance.md), [record](../../docs/reference/media-reference-facts.md), [record](../../docs/reference/media-inspection-contract.md), [record](../../docs/reference/media-detector-discovery-acceptance.md), [record](../../docs/reference/media-processing-receipts.md) (`ab33ee17`) |
+| S08-2 | active | Close the supported input/control/job/result/retention/asset authorization matrix and recovery without duplicate submission. | [record](../../docs/reference/ingested-image-video-input.md), [record](../../docs/reference/workspace-material-library.md), [record](../../docs/reference/workspace-material-sdk-acceptance.md), [record](../../docs/reference/workspace-material-format-acceptance.md), [record](../../docs/reference/workspace-material-storage-acceptance.md), [record](../../docs/reference/workspace-material-video-reference-acceptance.md), [record](../../docs/reference/video-saved-task-current-acceptance.md), [record](../../docs/reference/media-reference-facts.md), [record](../../docs/reference/media-inspection-contract.md), [record](../../docs/reference/media-detector-discovery-acceptance.md), [record](../../docs/reference/media-processing-receipts.md), [record](../../docs/reference/fastrouter-video-integration.md) (`ab33ee17`) |
 | S08-3 | open | Implement or verify supported reported media meters, bounded liability and exact settlement; missing quantity remains explicit and never inferred from file duration. | Missing / not yet accepted |
 
 ### S09 — Durable Chat
