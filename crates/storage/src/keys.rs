@@ -129,11 +129,69 @@ impl Store {
     }
 
     pub async fn list_keys(&self, scope: TenantScope) -> Result<Vec<KeyView>, StoreError> {
+        self.key_directory_selection(scope, None, None).await
+    }
+
+    /// Bounded keyset page; cursor lookup and rows share a tenant-scoped snapshot.
+    pub async fn key_directory_page(
+        &self,
+        scope: TenantScope,
+        after: Option<Uuid>,
+        limit: u16,
+    ) -> Result<(Vec<KeyView>, Option<Uuid>), StoreError> {
+        if !(1..=100).contains(&limit) {
+            return Err(StoreError::InvalidKey);
+        }
+        let mut rows = self
+            .key_directory_selection(scope, after, Some(i64::from(limit) + 1))
+            .await?;
+        let more = rows.len() > usize::from(limit);
+        rows.truncate(usize::from(limit));
+        let next = if more {
+            rows.last().map(|row| row.id)
+        } else {
+            None
+        };
+        Ok((rows, next))
+    }
+
+    async fn key_directory_selection(
+        &self,
+        scope: TenantScope,
+        after: Option<Uuid>,
+        limit: Option<i64>,
+    ) -> Result<Vec<KeyView>, StoreError> {
         let mut snapshot = self.begin_bounded_read_snapshot().await?;
-        let keys = sqlx::query_as("SELECT k.id,k.revision,k.name,k.allowed_models,floor(extract(epoch FROM k.expires_at)*1000)::bigint AS expires_at_ms,floor(extract(epoch FROM activity.dispatched_at)*1000)::bigint AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= clock_timestamp() AS expired FROM api_keys k LEFT JOIN LATERAL (SELECT a.dispatched_at FROM attempts a WHERE a.organization_id=k.organization_id AND a.project_id=k.project_id AND a.api_key_id=k.id AND a.dispatched_at IS NOT NULL ORDER BY a.dispatched_at DESC LIMIT 1) activity ON true WHERE k.organization_id=$1 AND k.project_id=$2 ORDER BY k.created_at,k.id")
-            .bind(scope.organization_id).bind(scope.project_id).fetch_all(&mut *snapshot).await?;
+        let cursor: Option<(String, Uuid)> = if let Some(id) = after {
+            Some(sqlx::query_as("SELECT created_at::text,id FROM api_keys WHERE organization_id=$1 AND project_id=$2 AND id=$3")
+                .bind(scope.organization_id).bind(scope.project_id).bind(id)
+                .fetch_optional(&mut *snapshot).await?.ok_or(StoreError::Conflict)?)
+        } else {
+            None
+        };
+        let mut query = sqlx::QueryBuilder::<sqlx::Postgres>::new(
+            "SELECT k.id,k.revision,k.name,k.allowed_models,floor(extract(epoch FROM k.expires_at)*1000)::bigint AS expires_at_ms,floor(extract(epoch FROM activity.dispatched_at)*1000)::bigint AS last_used_at_ms,k.revoked_at IS NOT NULL AS revoked,k.expires_at <= clock_timestamp() AS expired FROM api_keys k LEFT JOIN LATERAL (SELECT a.dispatched_at FROM attempts a WHERE a.organization_id=k.organization_id AND a.project_id=k.project_id AND a.api_key_id=k.id AND a.dispatched_at IS NOT NULL ORDER BY a.dispatched_at DESC LIMIT 1) activity ON true",
+        );
+        query
+            .push(" WHERE k.organization_id=")
+            .push_bind(scope.organization_id)
+            .push(" AND k.project_id=")
+            .push_bind(scope.project_id);
+        if let Some((created, id)) = cursor {
+            query
+                .push(" AND (k.created_at,k.id)>(")
+                .push_bind(created)
+                .push("::timestamptz,")
+                .push_bind(id)
+                .push(")");
+        }
+        query.push(" ORDER BY k.created_at,k.id");
+        if let Some(limit) = limit {
+            query.push(" LIMIT ").push_bind(limit);
+        }
+        let rows = query.build_query_as().fetch_all(&mut *snapshot).await?;
         snapshot.commit().await?;
-        Ok(keys)
+        Ok(rows)
     }
 
     /// Edit metadata without replacing the secret or extending its expiration.

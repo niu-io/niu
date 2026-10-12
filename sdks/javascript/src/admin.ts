@@ -466,6 +466,8 @@ export type NiuAdminOptions = {
   fetch?: typeof globalThis.fetch;
 };
 export type ExecutionReceipt = { id: string; created: boolean };
+export type WorkspaceKeyPage = { data: WorkspaceKey[]; next_cursor: string | null };
+
 export type WorkspaceKey = {
   id: string;
   revision: number;
@@ -1121,6 +1123,15 @@ export class NiuAdminClient {
   /** Scoped key metadata without secrets; uncertain dispatches still count as last use. */
   listWorkspaceKeys(scope: TenantScope, options?: RequestOptions): Promise<{ data: WorkspaceKey[] }> {
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys`, undefined, options);
+  }
+
+  /** Explicit bounded page; the complete-directory method remains compatible. */
+  listWorkspaceKeyPage(scope: TenantScope, query: { after?: string; limit?: number } = {}, options?: RequestOptions): Promise<WorkspaceKeyPage> {
+    const limit = query.limit ?? 50;
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new Error('Key page limit must be between 1 and 100');
+    const parameters = new URLSearchParams({ limit: String(limit) });
+    if (query.after !== undefined) parameters.set('after', uuid(query.after));
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/keys?${parameters}`, undefined, options);
   }
 
   /** Shared company funds require organization-wide owner/admin authorization. */

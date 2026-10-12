@@ -2130,6 +2130,12 @@ pub async fn projects(
     Ok(Json(json!({"data": projects})))
 }
 
+#[derive(Deserialize, Default)]
+pub struct KeyListQuery {
+    after: Option<Uuid>,
+    limit: Option<u16>,
+}
+
 /// ```openapi
 /// {
 ///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys",
@@ -2160,6 +2166,27 @@ pub async fn projects(
 ///           "type": "string",
 ///           "format": "uuid"
 ///         }
+///       },
+///       {
+///         "in": "query",
+///         "name": "limit",
+///         "required": false,
+///         "description": "Explicit limit selects paginated mode (1 to 100). With after but no limit, page size is 50. Omit both for the full compatibility directory.",
+///         "schema": {
+///           "type": "integer",
+///           "minimum": 1,
+///           "maximum": 100
+///         }
+///       },
+///       {
+///         "in": "query",
+///         "name": "after",
+///         "required": false,
+///         "description": "Exclusive key routing reference from next_cursor. Missing or foreign-workspace cursors return 409. Each page shares one snapshot with its cursor lookup; traversal is a live view.",
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
 ///       }
 ///     ],
 ///     "responses": {
@@ -2178,6 +2205,14 @@ pub async fn projects(
 ///                   "items": {
 ///                     "$ref": "#/components/schemas/WorkspaceKey"
 ///                   }
+///                 },
+///                 "next_cursor": {
+///                   "type": [
+///                     "string",
+///                     "null"
+///                   ],
+///                   "format": "uuid",
+///                   "description": "Present only when limit or after is supplied. Null when the paginated range ends. Internal routing reference, not a product label."
 ///                 }
 ///               }
 ///             }
@@ -2203,10 +2238,16 @@ pub async fn projects(
 ///             }
 ///           }
 ///         }
+///       },
+///       "400": {
+///         "description": "Invalid limit or cursor syntax."
+///       },
+///       "409": {
+///         "description": "Missing or foreign-workspace cursor."
 ///       }
 ///     },
 ///     "x-niu-implementation": "implemented",
-///     "description": "Requires workspace read access. Workspace API keys do not authorize these management operations. Returns the complete saved directory in creation-time/routing-reference order; this compatibility response has no continuation cursor. Storage reads use transaction-local 250 ms lock and 2 s statement limits. Timeout returns sanitized 503, never empty or truncated success; pool admission and the complete HTTP deadline are separate. Internal IDs are API routing references, not product labels."
+///     "description": "Requires workspace read access. Workspace API keys do not authorize these management operations. Returns the complete saved directory in creation-time/routing-reference order; this compatibility response has no continuation cursor. Storage reads use transaction-local 250 ms lock and 2 s statement limits. Timeout returns sanitized 503, never empty or truncated success; pool admission and the complete HTTP deadline are separate. Internal IDs are API routing references, not product labels. Supplying limit or after selects a bounded keyset page and adds next_cursor; without either, the complete compatibility response is unchanged."
 ///   },
 ///   "schemas": {
 ///     "WorkspaceKey": {
@@ -2354,6 +2395,7 @@ pub async fn keys(
     State(state): State<AppState>,
     Path((organization_id, project_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
+    axum::extract::Query(query): axum::extract::Query<KeyListQuery>,
 ) -> Result<Json<Value>, ApiError> {
     authorize_project(
         &state,
@@ -2363,8 +2405,18 @@ pub async fn keys(
         project_id,
     )
     .await?;
+    let scope = TenantScope { organization_id, project_id };
+    if query.limit.is_some() || query.after.is_some() {
+        let limit = query.limit.unwrap_or(50);
+        if !(1..=100).contains(&limit) {
+            return Err(ApiError::invalid_request("Key page limit must be between 1 and 100"));
+        }
+        let (data, next_cursor) = state.store.key_directory_page(scope, query.after, limit)
+            .await.map_err(ApiError::from_store)?;
+        return Ok(Json(json!({"data": data, "next_cursor": next_cursor})));
+    }
     Ok(Json(
-        json!({"data":state.store.list_keys(TenantScope { organization_id, project_id }).await.map_err(ApiError::from_store)?}),
+        json!({"data":state.store.list_keys(scope).await.map_err(ApiError::from_store)?}),
     ))
 }
 
