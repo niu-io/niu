@@ -2285,6 +2285,15 @@ pub(super) async fn refresh_asset(
     {
         return Err(ApiError::not_found());
     }
+    if !saved.has_acknowledged_creation() {
+        return Err(ApiError::unavailable());
+    }
+    let parent = niu_media::fastrouter_domain::FastRouterProviderReference::parse(
+        saved
+            .private_group_reference()
+            .ok_or_else(ApiError::unavailable)?,
+    )
+    .map_err(|_| ApiError::unavailable())?;
     let reference = niu_media::fastrouter_domain::FastRouterProviderReference::parse(
         saved
             .private_reference()
@@ -2300,7 +2309,8 @@ pub(super) async fn refresh_asset(
         .await
         .map_err(|_| ApiError::upstream())?;
     let observed =
-        niu_media::fastrouter_domain::decode_asset(&response).map_err(|_| ApiError::upstream())?;
+        niu_media::fastrouter_domain::decode_owned_asset_read(&response, &reference, &parent)
+            .map_err(|_| ApiError::upstream())?;
     if observed.private_reference().private_ref() != reference.private_ref() {
         return Err(ApiError::upstream());
     }

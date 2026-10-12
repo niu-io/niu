@@ -64,6 +64,8 @@ pub struct WorkspaceProviderAsset {
     #[serde(skip)]
     group_provider_ref: Option<String>,
     #[serde(skip)]
+    create_acknowledged: bool,
+    #[serde(skip)]
     vendor_id: Uuid,
     #[serde(skip)]
     vendor_revision: i64,
@@ -71,6 +73,9 @@ pub struct WorkspaceProviderAsset {
     model_revision: i64,
 }
 impl WorkspaceProviderAsset {
+    pub fn has_acknowledged_creation(&self) -> bool {
+        self.create_acknowledged
+    }
     pub fn private_reference(&self) -> Option<&str> {
         self.provider_ref.as_deref()
     }
@@ -227,7 +232,7 @@ pub enum WorkspaceProviderAssetOutcome {
     NotDispatched,
 }
 const GROUP_COLUMNS: &str = "g.id,g.model_alias AS model,g.name,g.description,g.kind,g.status,g.revision::text AS revision,floor(extract(epoch FROM g.created_at)*1000)::bigint AS created_at_ms,floor(extract(epoch FROM g.updated_at)*1000)::bigint AS updated_at_ms,g.provider_ref,g.vendor_id,g.vendor_revision,g.model_revision";
-const ASSET_COLUMNS: &str = "a.id,a.group_id,g.model_alias AS model,a.name,a.kind,CASE WHEN g.status='unknown' THEN 'unknown' ELSE a.status END AS status,a.revision::text AS revision,floor(extract(epoch FROM a.created_at)*1000)::bigint AS created_at_ms,floor(extract(epoch FROM a.updated_at)*1000)::bigint AS updated_at_ms,a.provider_ref,g.provider_ref AS group_provider_ref,g.vendor_id,g.vendor_revision,g.model_revision";
+const ASSET_COLUMNS: &str = "a.id,a.group_id,g.model_alias AS model,a.name,a.kind,CASE WHEN g.status='unknown' THEN 'unknown' ELSE a.status END AS status,a.revision::text AS revision,floor(extract(epoch FROM a.created_at)*1000)::bigint AS created_at_ms,floor(extract(epoch FROM a.updated_at)*1000)::bigint AS updated_at_ms,a.provider_ref,g.provider_ref AS group_provider_ref,g.vendor_id,g.vendor_revision,g.model_revision,EXISTS(SELECT 1 FROM workspace_provider_asset_operations created WHERE created.organization_id=a.organization_id AND created.project_id=a.project_id AND created.group_id=a.group_id AND created.asset_id=a.id AND created.action='create_asset' AND created.status='acknowledged') AS create_acknowledged";
 const OP_COLUMNS: &str = "o.id,o.group_id,o.asset_id,g.model_alias AS model,o.action,o.status,o.http_status,o.request_id,floor(extract(epoch FROM o.created_at)*1000)::bigint AS created_at_ms,floor(extract(epoch FROM o.updated_at)*1000)::bigint AS updated_at_ms,g.vendor_id,g.vendor_revision,g.model_revision";
 #[derive(Serialize)]
 pub struct WorkspaceProviderAssetPage<T: Serialize> {
