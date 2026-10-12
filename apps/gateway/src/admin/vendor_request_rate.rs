@@ -280,9 +280,11 @@ pub async fn write(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(vendor): Path<Uuid>,
-    Json(input): Json<Input>,
+    input: Result<Json<Input>, axum::extract::rejection::JsonRejection>,
 ) -> Result<Json<Value>, ApiError> {
     let actor = authorize(&state, &headers).await?;
+    let Json(input) =
+        input.map_err(|_| ApiError::invalid_request("Invalid request-limit JSON body"))?;
     if input.expected_revision.is_empty()
         || !input.expected_revision.bytes().all(|b| b.is_ascii_digit())
     {
@@ -395,9 +397,11 @@ pub async fn history(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(vendor): Path<Uuid>,
-    Query(page): Query<History>,
+    page: Result<Query<History>, axum::extract::rejection::QueryRejection>,
 ) -> Result<Json<Value>, ApiError> {
     authorize(&state, &headers).await?;
+    let Query(page) =
+        page.map_err(|_| ApiError::invalid_request("Invalid request-limit history query"))?;
     state
         .store
         .vendor_request_rate_policy(vendor)
