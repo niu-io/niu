@@ -1,13 +1,12 @@
 {
   "version": 1,
   "updated": "2026-10-13",
-  "source_commit": "5ea518b3",
+  "source_commit": "3ffd1531",
   "runtime_commit": "8ddf1dc8851dad085930467067f580ae3ca5f177",
   "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
   "active_implementation_tasks": [
     "S02-3",
     "S08-2",
-    "S05-2",
     "S10-2",
     "S03-2",
     "S04-3",
@@ -245,14 +244,14 @@
         },
         {
           "id": "S05-2",
-          "status": "active",
+          "status": "done",
           "acceptance": "Consolidate exact category/tier/fee, insufficient-capacity, concurrent liability, uncertainty and exactly-once recovery checks for the supported charging matrix.",
           "evidence": [
             "docs/reference/accounting-matrix-acceptance.md",
             "docs/reference/current-tier-fee-acceptance.md"
           ],
-          "evidence_revision": "5591a02d",
-          "note": "Current pinned below-tier and above-tier additive fees match actual reported usage, independently reopened charges/debits and customer CSV. The earlier connection timeout retains its frozen uncertain liability without retry or invented quantity. Current category/concurrency/recovery consolidation remains open."
+          "evidence_revision": "3ffd1531",
+          "note": "Fixed finite accounting matrix consolidated: independently reopened genuine category/tier/fee, insufficient-capacity, two-Gateway liability, uncertainty and canonical exactly-once recovery artifacts; byte-identical scoped accounting modules through8bf. Actual8bf/SDKce97 report/detail/restart matches seven genuine records, exact six charges and one retained uncertain hold, with eleven unchanged complete table fingerprints. Historical generation/contention provenance stays explicit; this is not a claim of fresh current-runtime execution of every cross-product or performance capacity."
         },
         {
           "id": "S05-3",

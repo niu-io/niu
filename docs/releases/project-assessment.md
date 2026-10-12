@@ -19,7 +19,7 @@ The [fixed status board](project-status.md) is the delivery authority for this
 baseline. It defines 14 subsystems: 12 backend/integration subsystems, one delegated
 frontend/catalog/Help subsystem and one separate/deferred packaging/legacy scope.
 The original assessment carried 11 of 36 fixed backend checkpoints. The current
-status board records 25 accepted checkpoints and 11 remaining, with four of 12
+status board records 26 accepted checkpoints and 10 remaining, with four of 12
 backend subsystems closed (S01, S07, S09 and S11). These are scoped acceptance
 counts, not coding percentage or complete release readiness. Chat closure covers
 the backend SDK/contract handoff; frontend adoption and browser acceptance remain

@@ -1,16 +1,16 @@
 # Project delivery status
 
 Baseline v1; updated 2026-10-13.
-Committed audit source `5ea518b3`; native implementation `8ddf1dc8`.
+Committed audit source `3ffd1531`; native implementation `8ddf1dc8`.
 
-**Backend acceptance checkpoints: 25/36 recorded complete at their evidence pins.**
+**Backend acceptance checkpoints: 26/36 recorded complete at their evidence pins.**
 **Whole backend subsystems closed: 4/12.**
 These are acceptance-checkpoint counts, not coding percentage, fresh execution of every path or release readiness.
 Existing scoped evidence is carried forward explicitly. Missing evidence remains open; fixture outcomes have zero signal.
 
 Source of truth: [project-status.json](project-status.json). Scope changes require a versioned reason; they cannot silently change the denominator.
 Status meanings: open = unfinished; active = explicitly assigned current work; blocked = identified dependency prevents progress; done = every stated criterion has evidence; delegated/deferred = separate ownership or excluded scope.
-Active implementation: S02-3, S08-2, S05-2, S10-2, S03-2, S04-3, S03-3, S05-3, S06-3. Assignments use stable task IDs.
+Active implementation: S02-3, S08-2, S10-2, S03-2, S04-3, S03-3, S05-3, S06-3. Assignments use stable task IDs.
 
 | Subsystem | Owner lane | Status | Completed checks | Dependencies |
 | --- | --- | --- | ---: | --- |
@@ -18,7 +18,7 @@ Active implementation: S02-3, S08-2, S05-2, S10-2, S03-2, S04-3, S03-3, S05-3, S
 | S02 Supplier configuration and model catalog | A | active | 2/3 | S01 |
 | S03 Inference protocols and route coordination | B | active | 1/3 | S02, S04, S05 |
 | S04 Key controls and Guardrails | A | active | 2/3 | S01 |
-| S05 Pricing, balance, charging and reconciliation | B | active | 1/3 | S01 |
+| S05 Pricing, balance, charging and reconciliation | B | active | 2/3 | S01 |
 | S06 Payment integration capability | B | active | 2/3 | S05 |
 | S07 Request diagnostics and usage reports | C | done | 3/3 | S03, S05 |
 | S08 Video jobs, results and assets | C | active | 1/3 | S02, S04, S05 |
@@ -68,7 +68,7 @@ Active implementation: S02-3, S08-2, S05-2, S10-2, S03-2, S04-3, S03-3, S05-3, S
 | ID | Status | Acceptance | Evidence pin |
 | --- | --- | --- | --- |
 | S05-1 | done | The exercised approved-credit text workflow has immutable-price debits, released holds, refund/reconciliation and restart without invented cash funding. | [record](../../docs/reference/internal-credit-workflow-live.md) (`b1223c0`) |
-| S05-2 | active | Consolidate exact category/tier/fee, insufficient-capacity, concurrent liability, uncertainty and exactly-once recovery checks for the supported charging matrix. | [record](../../docs/reference/accounting-matrix-acceptance.md), [record](../../docs/reference/current-tier-fee-acceptance.md) (`5591a02d`) |
+| S05-2 | done | Consolidate exact category/tier/fee, insufficient-capacity, concurrent liability, uncertainty and exactly-once recovery checks for the supported charging matrix. | [record](../../docs/reference/accounting-matrix-acceptance.md), [record](../../docs/reference/current-tier-fee-acceptance.md) (`3ffd1531`) |
 | S05-3 | active | Verify supported customer media, invoice and Supplier earning/settlement serialization and accounting mechanisms; track unavailable positive evidence separately from external activation. | [record](../../docs/reference/invoice-payment-boundary-acceptance.md) (`c24e75b7`) |
 
 ### S06 — Payment integration capability
