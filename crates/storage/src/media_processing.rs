@@ -18,6 +18,20 @@ pub struct MediaApprovalRecord<'a> {
 }
 
 impl Store {
+    /// Recheck live key and pinned workspace/key policy epochs before disclosing
+    /// media to a detector. No lock survives the network operation; approval
+    /// recording and dispatch must repeat their own current checks afterward.
+    pub async fn authorize_media_processing(
+        &self,
+        principal: &Principal,
+        snapshot: &GuardrailSnapshot,
+    ) -> Result<(), StoreError> {
+        let mut tx = self.begin_bounded_recording().await?;
+        Self::authorize_media_processing_using(&mut tx, principal, snapshot).await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
     /// Recheck current runtime consent and scoped key/policy epochs, then record
     /// actual MediaV3 approval metadata in one bounded transaction. No financial
     /// posting, Provider handoff or dispatch state transition occurs here.
