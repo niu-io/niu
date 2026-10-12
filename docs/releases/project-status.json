@@ -1,0 +1,636 @@
+{
+  "version": 1,
+  "updated": "2026-10-12",
+  "source_commit": "33ce4a5910e2fa41634d01173f4cdbfaa2c3cef9",
+  "runtime_commit": "3fdc669c60a74038e138cf03eaca0e0a4964750d",
+  "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
+  "active_implementation_tasks": [],
+  "subsystems": [
+    {
+      "id": "S01",
+      "name": "Identity and workspaces",
+      "lane": "A",
+      "status": "open",
+      "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
+      "paths": [
+        "apps/gateway/src/admin.rs",
+        "apps/gateway/src/admin/passwords.rs",
+        "crates/storage/src/operators.rs",
+        "crates/storage/src/workspace_creation.rs"
+      ],
+      "dependencies": [],
+      "tasks": [
+        {
+          "id": "S01-1",
+          "status": "done",
+          "acceptance": "Workspace creation/list scoped access, durable identical retry, changed retry refusal and restart for the exercised legacy workflow.",
+          "evidence": [
+            "docs/releases/backend-interface-gaps.md"
+          ],
+          "evidence_revision": "3fdc669c60a74038e138cf03eaca0e0a4964750d",
+          "note": "Done applies only to this bounded evidence checkpoint; it does not imply complete subsystem or whole-release acceptance."
+        },
+        {
+          "id": "S01-2",
+          "status": "open",
+          "acceptance": "Member authentication, expiry/sign-out, company/workspace roles and cross-scope administration match the declared backend contract.",
+          "evidence": [],
+          "evidence_revision": null,
+          "note": ""
+        },
+        {
+          "id": "S01-3",
+          "status": "open",
+          "acceptance": "Freeze workspace route compatibility with the frontend owner; reject inconsistent updates/deletion without losing retained business data.",
+          "evidence": [],
+          "evidence_revision": null,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "id": "S02",
+      "name": "Supplier configuration and model catalog",
+      "lane": "A",
+      "status": "open",
+      "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
+      "paths": [
+        "apps/gateway/src/providers.rs",
+        "apps/gateway/src/vendors.rs",
+        "crates/storage/src/providers.rs",
+        "crates/storage/src/vendors.rs"
+      ],
+      "dependencies": [
+        "S01"
+      ],
+      "tasks": [
+        {
+          "id": "S02-1",
+          "status": "done",
+          "acceptance": "One Supplier with independent credential mappings preserves the other mapping during local replacement/disable and supports actual calls.",
+          "evidence": [
+            "docs/reference/supplier-key-isolation-live.md"
+          ],
+          "evidence_revision": "59922df",
+          "note": "Done applies only to this bounded evidence checkpoint; it does not imply complete subsystem or whole-release acceptance."
+        },
+        {
+          "id": "S02-2",
+          "status": "open",
+          "acceptance": "All required management, membership, catalog and qualification operations have exact published contracts and ordinary-role isolation.",
+          "evidence": [],
+          "evidence_revision": null,
+          "note": ""
+        },
+        {
+          "id": "S02-3",
+          "status": "open",
+          "acceptance": "Complete configured-model, customer-price and eligibility publication journey, including stale revision and safe unavailable-capability states.",
+          "evidence": [],
+          "evidence_revision": null,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "id": "S03",
+      "name": "Inference protocols and route coordination",
+      "lane": "B",
+      "status": "open",
+      "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
+      "paths": [
+        "apps/gateway/src/web/inference",
+        "apps/gateway/src/admission.rs",
+        "crates/upstream",
+        "vendor/litellm-rust"
+      ],
+      "dependencies": [
+        "S02",
+        "S04",
+        "S05"
+      ],
+      "tasks": [
+        {
+          "id": "S03-1",
+          "status": "done",
+          "acceptance": "The exercised actual text/tool-result streams retain reported usage, finish state and independently checked charges.",
+          "evidence": [
+            "docs/reference/key-controlled-tool-streaming.md"
+          ],
+          "evidence_revision": "a9de7c8",
+          "note": "Done applies only to this bounded evidence checkpoint; it does not imply complete subsystem or whole-release acceptance."
+        },
+        {
+          "id": "S03-2",
+          "status": "open",
+          "acceptance": "Publish a finite supported Chat/Responses/Embeddings/Messages/GenerateContent matrix; qualify declared working combinations and explicit rejection of unsupported ones.",
+          "evidence": [],
+          "evidence_revision": null,
+          "note": ""
+        },
+        {
+          "id": "S03-3",
+          "status": "open",
+          "acceptance": "Close material timeout/cancellation/uncertainty and bounded fallback gaps on supported paths; preserve model, credential and financial identity.",
+          "evidence": [],
+          "evidence_revision": null,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "id": "S04",
+      "name": "Key controls and Guardrails",
+      "lane": "A",
+      "status": "open",
+      "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
+      "paths": [
+        "apps/gateway/src/admin/guardrails.rs",
+        "apps/gateway/src/guardrails.rs",
+        "crates/storage/src/guardrails.rs",
+        "crates/storage/src/key_spending.rs",
+        "crates/storage/src/key_concurrency.rs"
+      ],
+      "dependencies": [
+        "S01"
+      ],
+      "tasks": [
+        {
+          "id": "S04-1",
+          "status": "done",
+          "acceptance": "The exercised tool streams preserve key lineage, RPM and spending refusals across rotation/restart and revoke access.",
+          "evidence": [
+            "docs/reference/key-controlled-tool-streaming.md"
+          ],
+          "evidence_revision": "a9de7c8",
+          "note": "Done applies only to this bounded evidence checkpoint; it does not imply complete subsystem or whole-release acceptance."
+        },
+        {
+          "id": "S04-2",
+          "status": "open",
+          "acceptance": "Close the matrix for single-key spending/RPM/TPM/concurrency/IP controls and mandatory parent-child policy composition; concurrent denials create no unauthorized dispatch.",
+          "evidence": [],
+          "evidence_revision": null,
+          "note": ""
+        },
+        {
+          "id": "S04-3",
+          "status": "open",
+          "acceptance": "Document and verify applicable F09 local/external input and output coverage, consent, preview/revision/rollback and fail-closed failure behavior.",
+          "evidence": [],
+          "evidence_revision": null,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "id": "S05",
+      "name": "Pricing, balance, charging and reconciliation",
+      "lane": "B",
+      "status": "open",
+      "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
+      "paths": [
+        "apps/gateway/src/billing",
+        "crates/storage/src/billing.rs",
+        "crates/storage/src/priced_admission.rs",
+        "crates/metered-cost"
+      ],
+      "dependencies": [
+        "S01"
+      ],
+      "tasks": [
+        {
+          "id": "S05-1",
+          "status": "done",
+          "acceptance": "The exercised approved-credit text workflow has immutable-price debits, released holds, refund/reconciliation and restart without invented cash funding.",
+          "evidence": [
+            "docs/reference/internal-credit-workflow-live.md"
+          ],
+          "evidence_revision": "b1223c0",
+          "note": "Done applies only to this bounded evidence checkpoint; it does not imply complete subsystem or whole-release acceptance."
+        },
+        {
+          "id": "S05-2",
+          "status": "open",
+          "acceptance": "Consolidate exact category/tier/fee, insufficient-capacity, concurrent liability, uncertainty and exactly-once recovery checks for the supported charging matrix.",
+          "evidence": [],
+          "evidence_revision": null,
+          "note": ""
+        },
+        {
+          "id": "S05-3",
+          "status": "open",
+          "acceptance": "Verify supported customer media, invoice and Supplier earning/settlement serialization and accounting mechanisms; track unavailable positive evidence separately from external activation.",
+          "evidence": [],
+          "evidence_revision": null,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "id": "S06",
+      "name": "Payment integration capability",
+      "lane": "B",
+      "status": "open",
+      "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
+      "paths": [
+        "apps/gateway/src/payments.rs",
+        "apps/gateway/src/payments",
+        "crates/payments",
+        "crates/storage/src/topups.rs"
+      ],
+      "dependencies": [
+        "S05"
+      ],
+      "tasks": [
+        {
+          "id": "S06-1",
+          "status": "done",
+          "acceptance": "An administrator can read the truthful supported integration inventory independently of checkout activation.",
+          "evidence": [
+            "docs/reference/payment-aggregators.md"
+          ],
+          "evidence_revision": "3fdc669c60a74038e138cf03eaca0e0a4964750d",
+          "note": "Done applies only to this bounded evidence checkpoint; it does not imply complete subsystem or whole-release acceptance."
+        },
+        {
+          "id": "S06-2",
+          "status": "open",
+          "acceptance": "Publish the supported checkout, signed notification/query, duplicate, currency/amount verification and recovery inventory with exact interfaces.",
+          "evidence": [],
+          "evidence_revision": null,
+          "note": ""
+        },
+        {
+          "id": "S06-3",
+          "status": "open",
+          "acceptance": "Establish supported funding/refund transitions and negative callback/idempotency protections from actual evidence; merchant activation is not a completion prerequisite.",
+          "evidence": [],
+          "evidence_revision": null,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "id": "S07",
+      "name": "Request diagnostics and usage reports",
+      "lane": "C",
+      "status": "open",
+      "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
+      "paths": [
+        "apps/gateway/src/request_timings.rs",
+        "apps/gateway/src/request_payloads.rs",
+        "apps/gateway/src/admin/request_exports.rs",
+        "crates/storage/src/request_timings.rs"
+      ],
+      "dependencies": [
+        "S03",
+        "S05"
+      ],
+      "tasks": [
+        {
+          "id": "S07-1",
+          "status": "done",
+          "acceptance": "The exercised mixed actual inference/report workload reconciles retained customer charges and report artifacts with source records.",
+          "evidence": [
+            "docs/reference/current-authentication-mixed-load.md"
+          ],
+          "evidence_revision": "e704955",
+          "note": "Done applies only to this bounded evidence checkpoint; it does not imply complete subsystem or whole-release acceptance."
+        },
+        {
+          "id": "S07-2",
+          "status": "open",
+          "acceptance": "Close one request-to-Logs-to-usage-to-billing/export journey including full-range totals, pagination and unknown/error/timing states on supported protocols.",
+          "evidence": [],
+          "evidence_revision": null,
+          "note": ""
+        },
+        {
+          "id": "S07-3",
+          "status": "open",
+          "acceptance": "Verify ordinary customer visibility and procurement confidentiality in all required serialized reports/exports; classify unsupported diagnostic fields.",
+          "evidence": [],
+          "evidence_revision": null,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "id": "S08",
+      "name": "Video jobs, results and assets",
+      "lane": "C",
+      "status": "open",
+      "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
+      "paths": [
+        "apps/gateway/src/web/inference/video.rs",
+        "apps/gateway/src/video_recovery.rs",
+        "crates/media",
+        "crates/storage/src/media_jobs.rs",
+        "crates/storage/src/video_intents.rs"
+      ],
+      "dependencies": [
+        "S02",
+        "S04",
+        "S05"
+      ],
+      "tasks": [
+        {
+          "id": "S08-1",
+          "status": "done",
+          "acceptance": "Actual personal video submission, key rotation, saved-job restart recovery, idempotent replay and independently decoded result are exercised.",
+          "evidence": [
+            "docs/reference/current-video-submission-restart.md"
+          ],
+          "evidence_revision": "e704955",
+          "note": "Done applies only to this bounded evidence checkpoint; it does not imply complete subsystem or whole-release acceptance."
+        },
+        {
+          "id": "S08-2",
+          "status": "open",
+          "acceptance": "Close the supported input/control/job/result/retention/asset authorization matrix and recovery without duplicate submission.",
+          "evidence": [],
+          "evidence_revision": null,
+          "note": ""
+        },
+        {
+          "id": "S08-3",
+          "status": "open",
+          "acceptance": "Implement or verify supported reported media meters, bounded liability and exact settlement; missing quantity remains explicit and never inferred from file duration.",
+          "evidence": [],
+          "evidence_revision": null,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "id": "S09",
+      "name": "Durable Chat",
+      "lane": "C",
+      "status": "open",
+      "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
+      "paths": [
+        "apps/gateway/src/admin/chat_sessions.rs",
+        "crates/storage/src/chat_sessions.rs"
+      ],
+      "dependencies": [
+        "S01",
+        "S03",
+        "S07"
+      ],
+      "tasks": [
+        {
+          "id": "S09-1",
+          "status": "done",
+          "acceptance": "Guarded saved sessions reject stale/legacy resurrection, preserve durable revision state and retain actual source conversation content in the exercised run.",
+          "evidence": [
+            "docs/reference/chat-session-write-guards.md"
+          ],
+          "evidence_revision": "7234a4ef",
+          "note": "Done applies only to this bounded evidence checkpoint; it does not imply complete subsystem or whole-release acceptance."
+        },
+        {
+          "id": "S09-2",
+          "status": "open",
+          "acceptance": "Close backend multi-turn history/detail/draft/settings/attachment persistence and deletion semantics for the declared Chat workflows.",
+          "evidence": [],
+          "evidence_revision": null,
+          "note": ""
+        },
+        {
+          "id": "S09-3",
+          "status": "open",
+          "acceptance": "Deliver SDK adoption and conflict/reload handling to frontend ownership; mark browser/UI acceptance separately.",
+          "evidence": [],
+          "evidence_revision": null,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "id": "S10",
+      "name": "Platform configuration and security facilities",
+      "lane": "A",
+      "status": "open",
+      "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
+      "paths": [
+        "apps/gateway/src/branding.rs",
+        "apps/gateway/src/encryption_rotation.rs",
+        "crates/storage/src/encryption_rotation.rs",
+        "apps/gateway/src/admin/profile.rs",
+        "apps/gateway/src/admin/preferences.rs"
+      ],
+      "dependencies": [
+        "S01"
+      ],
+      "tasks": [
+        {
+          "id": "S10-1",
+          "status": "open",
+          "acceptance": "Inventory and publish platform authentication/branding/theme/payment configuration and member profile/preferences contracts with correct authority.",
+          "evidence": [],
+          "evidence_revision": null,
+          "note": ""
+        },
+        {
+          "id": "S10-2",
+          "status": "open",
+          "acceptance": "Verify supported secret/config persistence, audit/revisions and encryption-key rotation without changing existing identities or exposing secrets.",
+          "evidence": [],
+          "evidence_revision": null,
+          "note": ""
+        },
+        {
+          "id": "S10-3",
+          "status": "open",
+          "acceptance": "Coordinate configuration changes, current permission checks and supported public-safe projections; reject arbitrary executable branding/config content.",
+          "evidence": [],
+          "evidence_revision": null,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "id": "S11",
+      "name": "Contracts, SDK and documentation",
+      "lane": "I",
+      "status": "open",
+      "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
+      "paths": [
+        "contracts",
+        "sdks/javascript",
+        "apps/docs",
+        "scripts/extract-handler-openapi.py"
+      ],
+      "dependencies": [],
+      "tasks": [
+        {
+          "id": "S11-1",
+          "status": "done",
+          "acceptance": "A committed 236-method interface index resolves source operations and explicitly lists 20 root method gaps.",
+          "evidence": [
+            "docs/releases/backend-interface-gaps.md"
+          ],
+          "evidence_revision": "d6904064",
+          "note": "Done applies only to this bounded evidence checkpoint; it does not imply complete subsystem or whole-release acceptance."
+        },
+        {
+          "id": "S11-2",
+          "status": "open",
+          "acceptance": "Close core root/handler schema gaps and manually map actual SDK methods; explicitly classify excluded/non-JSON/HEAD operations.",
+          "evidence": [],
+          "evidence_revision": null,
+          "note": ""
+        },
+        {
+          "id": "S11-3",
+          "status": "open",
+          "acceptance": "Validate the frozen frontend integration baseline and documentation HTTP/spec resources; delegate rendered browser acceptance when unavailable.",
+          "evidence": [],
+          "evidence_revision": null,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "id": "S12",
+      "name": "Runtime operations, recovery and performance",
+      "lane": "I",
+      "status": "open",
+      "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
+      "paths": [
+        "apps/gateway/src/main.rs",
+        "apps/gateway/src/background_recovery.rs",
+        "crates/storage/src/financial_recovery.rs",
+        ".github/workflows"
+      ],
+      "dependencies": [
+        "S03",
+        "S05",
+        "S07",
+        "S08"
+      ],
+      "tasks": [
+        {
+          "id": "S12-1",
+          "status": "done",
+          "acceptance": "Existing native runtime is ready with preserved identity, retained executable hash, matching registry and independently restored backup evidence.",
+          "evidence": [
+            "docs/releases/backend-workflow-status.md"
+          ],
+          "evidence_revision": "3fdc669c60a74038e138cf03eaca0e0a4964750d",
+          "note": "Done applies only to this bounded evidence checkpoint; it does not imply complete subsystem or whole-release acceptance."
+        },
+        {
+          "id": "S12-2",
+          "status": "open",
+          "acceptance": "Consolidate supported restart/drain/migration/backup/recovery and explicit operational connection/deadline limits without container scope expansion.",
+          "evidence": [],
+          "evidence_revision": null,
+          "note": ""
+        },
+        {
+          "id": "S12-3",
+          "status": "open",
+          "acceptance": "After business acceptance, measure increasing/mixed load, overload recovery, resources and exact post-run accounting; make only measured capacity/comparison claims.",
+          "evidence": [],
+          "evidence_revision": null,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "id": "S13",
+      "name": "Dashboard, public catalog and rendered Help",
+      "lane": "Frontend",
+      "status": "delegated",
+      "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
+      "paths": [
+        "apps/dashboard",
+        "apps/catalog",
+        "apps/docs/src"
+      ],
+      "dependencies": [
+        "S01",
+        "S02",
+        "S07",
+        "S09",
+        "S11"
+      ],
+      "tasks": [
+        {
+          "id": "S13-1",
+          "status": "delegated",
+          "acceptance": "Integrate the frozen backend contracts and preserve brand/shared component rules.",
+          "evidence": [],
+          "evidence_revision": null,
+          "note": ""
+        },
+        {
+          "id": "S13-2",
+          "status": "delegated",
+          "acceptance": "Complete desktop/narrow actual business journeys, permission/error states and data persistence.",
+          "evidence": [],
+          "evidence_revision": null,
+          "note": ""
+        },
+        {
+          "id": "S13-3",
+          "status": "delegated",
+          "acceptance": "Verify standalone docs and embedded Help rendering/navigation against the published artifact.",
+          "evidence": [],
+          "evidence_revision": null,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "id": "S14",
+      "name": "Packaging, extensions and legacy surfaces",
+      "lane": "Separate ownership",
+      "status": "deferred",
+      "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
+      "paths": [
+        "crates/benchmark",
+        "crates/execution",
+        "crates/extension-api",
+        "sdks/agent-connect",
+        "docs/architecture/enterprise-composition.md"
+      ],
+      "dependencies": [],
+      "tasks": [
+        {
+          "id": "S14-1",
+          "status": "deferred",
+          "acceptance": "Do not expand task benchmarking, subscription pooling or external Agent Observability as core gateway work.",
+          "evidence": [],
+          "evidence_revision": null,
+          "note": ""
+        },
+        {
+          "id": "S14-2",
+          "status": "deferred",
+          "acceptance": "Coordinate existing legacy public surfaces and ownership before removal; preserve existing stored history.",
+          "evidence": [],
+          "evidence_revision": null,
+          "note": ""
+        },
+        {
+          "id": "S14-3",
+          "status": "delegated",
+          "acceptance": "Perform image/container/private distribution qualification in its assigned scope, independently from native backend capability.",
+          "evidence": [],
+          "evidence_revision": null,
+          "note": ""
+        }
+      ]
+    }
+  ],
+  "scope_changes": [
+    {
+      "version": 1,
+      "date": "2026-10-12",
+      "reason": "Establish a fixed top-down subsystem and acceptance baseline after fragmented delivery; existing bounded evidence is explicitly carried forward."
+    }
+  ]
+}
