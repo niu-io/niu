@@ -1313,7 +1313,8 @@ export class NiuAdminClient {
     return this.request(`/organizations/${uuid(organizationId)}/billing/topups/${uuid(orderId)}`, undefined, options);
   }
   /** Installation-only original-merchant query recovery. May perform an upstream query;
-   * never creates a checkout or automatically retries. EPay returns unsupported. */
+   * never creates a checkout or automatically retries. Pending EPay query recovery is unsupported.
+   * Paid/closed status replays use durable local state without an upstream call. */
   reconcileCustomerTopup(organizationId: string, orderId: string, options?: RequestOptions): Promise<{ data: CustomerTopup }> {
     return this.request(`/organizations/${uuid(organizationId)}/billing/topups/${uuid(orderId)}/reconcile`, {}, options, 'POST');
   }
