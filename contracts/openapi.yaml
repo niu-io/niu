@@ -283,6 +283,8 @@ paths:
         '401': { description: Active API key required }
         '404': { description: Consent unavailable under this API key }
   /v1/media/sources/{token}:
+    head:
+      $ref: './generated/handler-operations.json#/paths/~1v1~1media~1sources~1{token}/head'
     get:
       operationId: fetchInspectedImageSource
       security: []

@@ -16108,6 +16108,99 @@ HTTP 409: Workspace policy changed during preparation
 
 HTTP 503: Encryption, preparation capacity, storage capacity or durable storage unavailable
 
+## Reject HEAD probes of image source capabilities
+
+`HEAD /v1/media/sources/{token}`
+
+Always returns 405 without a response body. This handler does not authenticate, validate, claim or consume the path capability and does not access storage or return image metadata. HEAD cannot establish whether a source exists or is available. Only GET performs capability delivery checks. Capability tokens are secrets and must not be logged or disclosed. No bearer or workspace API key is required to receive this uniform refusal.
+
+Implementation: `implemented`. Operation: `rejectMediaSourceHead`.
+
+### Authentication
+
+No OpenAPI security scheme is required. Signature and other request validation still apply as described above.
+
+### Parameters
+
+`token` (path, required)
+
+Opaque short-lived source capability; ignored by the HEAD refusal handler.
+
+```json
+{
+  "type": "string"
+}
+```
+
+### Responses
+
+HTTP 405: HEAD is deliberately unsupported; empty response body regardless of capability validity.
+
+Response header: `Cache-Control`.
+
+no-store, max-age=0
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "no-store, max-age=0"
+  ]
+}
+```
+
+Response header: `Referrer-Policy`.
+
+no-referrer
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "no-referrer"
+  ]
+}
+```
+
+Response header: `X-Content-Type-Options`.
+
+nosniff
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "nosniff"
+  ]
+}
+```
+
+Response header: `Cross-Origin-Resource-Policy`.
+
+same-origin
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "same-origin"
+  ]
+}
+```
+
+Response header: `Content-Security-Policy`.
+
+default-src 'none'; sandbox
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "default-src 'none'; sandbox"
+  ]
+}
+```
+
 ## Create an OpenAI-compatible chat completion
 
 `POST /v1/chat/completions`

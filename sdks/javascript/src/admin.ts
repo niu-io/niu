@@ -1149,7 +1149,7 @@ export class NiuAdminClient {
     return this.request(`/providers/${uuid(supplierId)}/qualification`, body, options, 'PUT');
   }
 
-  /** Platform-administrator activation, pinned to the current rate revision and reviewed model/protocol evidence. */
+  /** Platform-administrator qualification review, pinned to the current rate revision; does not activate the offer. */
   qualifySupplierOffer(supplierId: string, offerId: string, input: SupplierOfferQualificationInput, options?: RequestOptions): Promise<{data: {qualification_status: 'qualified'}}> {
     if (typeof input.protocol_matrix_version !== 'string' || !input.protocol_matrix_version.trim()
       || new TextEncoder().encode(input.protocol_matrix_version).length > 100) throw new TypeError('A bounded protocol matrix version is required');
