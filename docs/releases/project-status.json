@@ -1,8 +1,8 @@
 {
   "version": 1,
   "updated": "2026-10-12",
-  "source_commit": "ab60bba3150b294932710db2fc3845cacc139bbf",
-  "runtime_commit": "1212ea3b68f934c22fff6c62696475d2f628fc6a",
+  "source_commit": "c24e75b7f3176f35faa571ea1fca6574c6de050e",
+  "runtime_commit": "c24e75b7f3176f35faa571ea1fca6574c6de050e",
   "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
   "active_implementation_tasks": [
     "S02-3",
@@ -12,7 +12,6 @@
     "S03-2",
     "S04-3",
     "S03-3",
-    "S12-2",
     "S05-3",
     "S06-3"
   ],
@@ -550,7 +549,7 @@
       "id": "S12",
       "name": "Runtime operations, recovery and performance",
       "lane": "I",
-      "status": "active",
+      "status": "open",
       "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
       "paths": [
         "apps/gateway/src/main.rs",
@@ -571,18 +570,20 @@
           "acceptance": "Existing native runtime is ready with preserved identity, retained executable hash, matching registry and independently restored backup evidence.",
           "evidence": [
             "docs/releases/backend-workflow-status.md",
-            "docs/reference/ingested-image-video-input.md"
+            "docs/reference/native-runtime-operations.md"
           ],
-          "evidence_revision": "1212ea3b",
-          "note": "Native refresh ready with matching routing registry; pre-refresh backup restored independently. Original configuration, encrypted identities and durable business counts unchanged; schema advanced to 284."
+          "evidence_revision": "c24e75b7",
+          "note": "Original native service updated after isolated current-input lock/CRUD/scoping verification; ready/registry/config/cipher/durable records preserved, original schema-284 archive independently restored."
         },
         {
           "id": "S12-2",
-          "status": "active",
+          "status": "done",
           "acceptance": "Consolidate supported restart/drain/migration/backup/recovery and explicit operational connection/deadline limits without container scope expansion.",
-          "evidence": [],
-          "evidence_revision": null,
-          "note": ""
+          "evidence": [
+            "docs/reference/native-runtime-operations.md"
+          ],
+          "evidence_revision": "c24e75b7",
+          "note": "Finite native operations inventory: actual bounded directory/cursor/alias waits, graceful exit while lock held, connection allocation/invalid-config/startup/restart, restored backups and explicit recovery/drain limits. No global shutdown SLA or arbitrary failure/interleaving qualification."
         },
         {
           "id": "S12-3",

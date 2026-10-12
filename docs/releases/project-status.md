@@ -1,16 +1,16 @@
 # Project delivery status
 
 Baseline v1; updated 2026-10-12.
-Committed audit source `ab60bba3`; native implementation `1212ea3b`.
+Committed audit source `c24e75b7`; native implementation `c24e75b7`.
 
-**Backend acceptance checkpoints: 23/36 recorded complete at their evidence pins.**
+**Backend acceptance checkpoints: 24/36 recorded complete at their evidence pins.**
 **Whole backend subsystems closed: 3/12.**
 These are acceptance-checkpoint counts, not coding percentage, fresh execution of every path or release readiness.
 Existing scoped evidence is carried forward explicitly. Missing evidence remains open; fixture outcomes have zero signal.
 
 Source of truth: [project-status.json](project-status.json). Scope changes require a versioned reason; they cannot silently change the denominator.
 Status meanings: open = unfinished; active = explicitly assigned current work; blocked = identified dependency prevents progress; done = every stated criterion has evidence; delegated/deferred = separate ownership or excluded scope.
-Active implementation: S02-3, S08-2, S05-2, S10-2, S03-2, S04-3, S03-3, S12-2, S05-3, S06-3. Assignments use stable task IDs.
+Active implementation: S02-3, S08-2, S05-2, S10-2, S03-2, S04-3, S03-3, S05-3, S06-3. Assignments use stable task IDs.
 
 | Subsystem | Owner lane | Status | Completed checks | Dependencies |
 | --- | --- | --- | ---: | --- |
@@ -25,7 +25,7 @@ Active implementation: S02-3, S08-2, S05-2, S10-2, S03-2, S04-3, S03-3, S12-2, S
 | S09 Durable Chat | C | open | 2/3 | S01, S03, S07 |
 | S10 Platform configuration and security facilities | A | active | 2/3 | S01 |
 | S11 Contracts, SDK and documentation | I | done | 3/3 | None |
-| S12 Runtime operations, recovery and performance | I | active | 1/3 | S03, S05, S07, S08 |
+| S12 Runtime operations, recovery and performance | I | open | 2/3 | S03, S05, S07, S08 |
 | S13 Dashboard, public catalog and rendered Help | Frontend | delegated | 0/3 | S01, S02, S07, S09, S11 |
 | S14 Packaging, extensions and legacy surfaces | Separate ownership | deferred | 0/3 | None |
 
@@ -123,8 +123,8 @@ Active implementation: S02-3, S08-2, S05-2, S10-2, S03-2, S04-3, S03-3, S12-2, S
 
 | ID | Status | Acceptance | Evidence pin |
 | --- | --- | --- | --- |
-| S12-1 | done | Existing native runtime is ready with preserved identity, retained executable hash, matching registry and independently restored backup evidence. | [record](../../docs/releases/backend-workflow-status.md), [record](../../docs/reference/ingested-image-video-input.md) (`1212ea3b`) |
-| S12-2 | active | Consolidate supported restart/drain/migration/backup/recovery and explicit operational connection/deadline limits without container scope expansion. | Missing / not yet accepted |
+| S12-1 | done | Existing native runtime is ready with preserved identity, retained executable hash, matching registry and independently restored backup evidence. | [record](../../docs/releases/backend-workflow-status.md), [record](../../docs/reference/native-runtime-operations.md) (`c24e75b7`) |
+| S12-2 | done | Consolidate supported restart/drain/migration/backup/recovery and explicit operational connection/deadline limits without container scope expansion. | [record](../../docs/reference/native-runtime-operations.md) (`c24e75b7`) |
 | S12-3 | open | After business acceptance, measure increasing/mixed load, overload recovery, resources and exact post-run accounting; make only measured capacity/comparison claims. | Missing / not yet accepted |
 
 ### S13 — Dashboard, public catalog and rendered Help
