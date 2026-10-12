@@ -270,7 +270,41 @@ impl VideoSchema {
     }
 
     pub fn validate_request(&self, bytes: &[u8]) -> Result<ValidatedVideoRequest, ValidationError> {
+        self.validate_request_with_ingested_images(bytes, &[])
+    }
+
+    /// Gateway-only transport validation after resolving scoped ingestion IDs.
+    /// The caller must revalidate the same private bindings atomically with its
+    /// dispatch claim. This method grants no authorization and must never take
+    /// a client-supplied allowlist. Ordinary request validation rejects asset URIs.
+    pub fn validate_request_with_ingested_images(
+        &self,
+        bytes: &[u8],
+        references: &[(usize, &str)],
+    ) -> Result<ValidatedVideoRequest, ValidationError> {
         self.validate()?;
+        if !references.is_empty()
+            && (self.channel != "ark-direct-v1"
+                || references.len() > self.maximum_content_items
+                || references
+                    .iter()
+                    .enumerate()
+                    .any(|(index, (position, uri))| {
+                        *position >= self.maximum_content_items
+                            || references[..index]
+                                .iter()
+                                .any(|(other, _)| other == position)
+                            || !uri.strip_prefix("asset://asset-").is_some_and(|id| {
+                                !id.is_empty()
+                                    && id.len() <= 122
+                                    && id.bytes().all(|byte| {
+                                        byte.is_ascii_alphanumeric() || b"_-".contains(&byte)
+                                    })
+                            })
+                    }))
+        {
+            return Err(ValidationError::InvalidContent);
+        }
         if bytes.len() > self.maximum_body_bytes {
             return Err(ValidationError::BodyTooLarge);
         }
@@ -296,7 +330,7 @@ impl VideoSchema {
             return Err(ValidationError::InvalidContent);
         }
         let mut counts = BTreeMap::<&str, usize>::new();
-        for item in content {
+        for (position, item) in content.iter().enumerate() {
             let item = item.as_object().ok_or(ValidationError::InvalidContent)?;
             let kind = item
                 .get("type")
@@ -342,12 +376,25 @@ impl VideoSchema {
                     .get("url")
                     .and_then(Value::as_str)
                     .ok_or(ValidationError::InvalidContent)?;
+                let ingested = kind == "image_url"
+                    && url.len() <= rule.maximum_bytes
+                    && references.iter().any(|(approved_position, approved_uri)| {
+                        *approved_position == position && *approved_uri == url
+                    });
                 if !(rule.https && public_https(url, rule.maximum_bytes))
                     && !valid_data_url(url, rule, kind)
+                    && !ingested
                 {
                     return Err(ValidationError::InvalidContent);
                 }
             }
+        }
+        if references.iter().any(|(position, uri)| {
+            content.get(*position).is_none_or(|item| {
+                item["type"] != "image_url" || item["image_url"]["url"].as_str() != Some(*uri)
+            })
+        }) {
+            return Err(ValidationError::InvalidContent);
         }
         let mut effective = Map::new();
         for (name, rule) in &self.controls {
