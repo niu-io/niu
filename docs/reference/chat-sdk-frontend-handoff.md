@@ -49,9 +49,29 @@ New conversations use `saveChatSessionIfCurrent(..., null)`. After a deleted ref
 
 ## Draft, settings and attachments
 
-The owner has one draft per workspace, separate from saved conversation content. At this source review, `NiuAdminClient` does not expose typed draft methods; the native contract below is implemented, but adding and adopting those helpers remains a specific SDK handoff gap. Do not replace it with browser-only draft persistence. Native GET and PUT use `/admin/v1/organizations/{organization}/projects/{project}/chat-draft`.
+The owner has one draft per workspace, separate from saved conversation content. Use typed `getChatDraft(scope)` and `saveChatDraft(scope, payload, expectedRevision)`. `ChatDraftPayload` and `ChatDraftState` are exported by the SDK. Do not replace backend draft persistence with browser-only storage. Native GET and PUT use `/admin/v1/organizations/{organization}/projects/{project}/chat-draft`.
 
 GET returns `{data:{payload,revision}}`; a never-saved draft has null payload and revision zero. PUT accepts `{expected_revision,payload}` and returns the saved payload with its new numeric revision. A clear is `payload:null` with the last read revision; clearing retains revision protection. A stale PUT returns 409 without replacing the newer draft. Use the same reload, retain-edit and explicit-reconcile workflow as conversation saves; never initialize revision zero merely because the browser cache is empty.
+
+```ts
+const currentDraft = await admin.getChatDraft(scope);
+// pendingDraft is a complete typed ChatDraftPayload retained in memory.
+try {
+  const savedDraft = await admin.saveChatDraft(
+    scope, pendingDraft, currentDraft.data.revision,
+  );
+  // Retain savedDraft.data.revision for the next save or clear.
+} catch (error) {
+  if (!(error instanceof NiuAPIError) || error.status !== 409) throw error;
+  const latestDraft = await admin.getChatDraft(scope);
+  // Preserve pendingDraft; reconcile explicitly before a new save.
+}
+// Clear only at the revision actually read, never at a cached default of zero.
+const toClear = await admin.getChatDraft(scope);
+await admin.saveChatDraft(scope, null, toClear.data.revision);
+```
+
+Draft revisions are nonnegative safe JavaScript integers; use the returned value directly. They are a different contract from opaque string conversation revisions. Do not increment either revision locally.
 
 A non-null payload contains `sessionId` (owned saved reference or null), `prompt`, `models`, `attachments`, and `settings`. Settings require `systemPrompt`, `maxTokens`, `temperature`, and `logPayloads`; attachments contain `name`, `type` (`text` or `image`) and `content`. Draft references must resolve to the same owner's saved conversation. The API accepts at most four distinct models and four attachments; prompt/system prompt each have 12,000-character bounds, attachment content six-MiB bounds, and temperature is 0–2. These persistence contracts do not imply image inspection or new model-input capabilities.
 
@@ -61,4 +81,8 @@ Follow-up inference is separate: supply the chosen branch's completed prior turn
 
 The [guarded-write checkpoint](chat-session-write-guards.md) exercised genuine retained two-turn content, concurrent saves, stale rejection, deletion/recreation, compiled SDK protected writes and independent native verification without new inference. The [backend checkpoint](chat-backend-acceptance.md) exercised populated history/detail, settings, real report attachments, draft save/conflict/clear, archive/delete, restart and scope isolation. The [paging contract](chat-history-pagination.md) records executed compiled SDK continuation over actual populated history.
 
-Those are their recorded historical runtime and SDK pins, not a claim that this handoff executed every helper on the newest deployment. Frontend ownership must adopt guarded writes, restore from the backend, retain edits across conflict, require explicit reconciliation, and browser-verify desktop/narrow interactions and cache clearing. No fixture outcome supports these acceptance claims.
+A fresh isolated run additionally executed compiled SDK `b0b5484c2caddecf266cc7d0b0593bbb1b1a1228` against digest-checked native `8bfdef10003eebe9402401247aa52cd69d3a398f` (SHA-256 `6f5290d182c9bf51de1f2bb8d469067351c9f9771150235adc2917b1d39c6900`), schema 293. A stopped copy of the genuine prior conversation artifacts supplied two actual turns and a real saved report attachment. No model response was fabricated and no upstream request was made; both payment and video polling were explicitly disabled.
+
+The current SDK created a guarded conversation, retrieved it, and listed the full saved turns. It read an absent draft at revision zero, created revision one, updated revision two, surfaced stale revision one as HTTP 409, and reloaded the unchanged newer draft. Gateway restart preserved the complete draft. Clearing at revision two saved null at revision three; an attempted stale recreation returned 409, and a second restart retained null with revision three. Conversation content, settings and attachment bytes remained unchanged. Another personal identity received 404, foreign workspace access received 403, and revoked management credentials received 401.
+
+A separate final verification reopened both stopped source and final databases and directly checked the full native conversation, guarded revision, attachment digest, settings, null draft at revision three, and operator revocation. All original conversation, draft and guard-identity rows were unchanged. Financial, Provider/model, ownership and key fingerprints and configuration bytes were unchanged. The temporary operator was revoked and both copied services were stopped. These current checks qualify the bounded SDK/backend handoff path, not every helper or content format. Frontend ownership must adopt guarded writes, restore from the backend, retain edits across conflict, require explicit reconciliation, and browser-verify desktop/narrow interactions and cache clearing. No fixture outcome supports these acceptance claims.
