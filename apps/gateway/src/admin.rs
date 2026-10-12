@@ -2641,6 +2641,7 @@ pub(super) fn gateway_activity_filter(
                 | "confirmed_not_executed"
                 | "output_withheld"
                 | "delivery_failed"
+                | "recorded_failure"
         )
     }) {
         return Err(ApiError::invalid_request("Unsupported request status"));
@@ -3185,7 +3186,7 @@ pub async fn gateway_request(
 ///       {
 ///         "name": "status",
 ///         "in": "query",
-///         "description": "Exact gateway execution state, or output_withheld for recorded blocked/indeterminate output inspection. delivery_failed selects recorded HTTP errors (400\u2013599). Completion at the Provider does not establish successful response delivery.",
+///         "description": "Exact gateway execution state, or output_withheld for recorded blocked/indeterminate output inspection. delivery_failed selects recorded HTTP errors (400\u2013599). recorded_failure selects persisted failure observations, including errors delivered inside HTTP 200 streams. Missing failure observations are not inferred from execution uncertainty. Completion at the Provider does not establish successful response delivery.",
 ///         "schema": {
 ///           "type": "string",
 ///           "enum": [
@@ -3194,7 +3195,8 @@ pub async fn gateway_request(
 ///             "confirmed_completed",
 ///             "confirmed_not_executed",
 ///             "output_withheld",
-///             "delivery_failed"
+///             "delivery_failed",
+///             "recorded_failure"
 ///           ]
 ///         }
 ///       }

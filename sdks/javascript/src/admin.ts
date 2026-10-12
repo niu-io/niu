@@ -584,7 +584,7 @@ export type GatewayActivityQuery = {
   limit?: number; after?: string; fromMs?: number; toMs?: number;
   sort?: 'time_desc' | 'time_asc' | 'latency_desc' | 'input_desc' | 'output_desc';
   modelAlias?: string; operationId?: string; apiKeyId?: string; httpStatus?: number | 'unknown';
-  status?: 'not_sent' | 'may_have_executed' | 'confirmed_completed' | 'confirmed_not_executed' | 'output_withheld' | 'delivery_failed';
+  status?: 'not_sent' | 'may_have_executed' | 'confirmed_completed' | 'confirmed_not_executed' | 'output_withheld' | 'delivery_failed' | 'recorded_failure';
 };
 
 /** Full filtered range; pagination is intentionally unavailable. */
@@ -2319,7 +2319,7 @@ function gatewayActivityParameters(query: GatewayActivityQuery): URLSearchParams
   if (query.operationId !== undefined) parameters.set('operation_id', uuid(query.operationId));
   if (query.apiKeyId !== undefined) parameters.set('key_id', uuid(query.apiKeyId));
   if (query.status !== undefined) {
-    if (!['not_sent', 'may_have_executed', 'confirmed_completed', 'confirmed_not_executed', 'output_withheld', 'delivery_failed'].includes(query.status)) throw new Error('Invalid gateway execution status');
+    if (!['not_sent', 'may_have_executed', 'confirmed_completed', 'confirmed_not_executed', 'output_withheld', 'delivery_failed', 'recorded_failure'].includes(query.status)) throw new Error('Invalid gateway execution status');
     parameters.set('status', query.status);
   }
   return parameters;

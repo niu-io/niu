@@ -2721,7 +2721,8 @@ paths:
         - { name: key_id, in: query, schema: { type: string, format: uuid } }
         - name: status
           in: query
-          schema: { type: string, enum: [not_sent, may_have_executed, confirmed_completed, confirmed_not_executed, output_withheld, delivery_failed] }
+          description: recorded_failure selects persisted failure observations, including SSE errors under HTTP 200; delivery_failed retains HTTP-error semantics.
+          schema: { type: string, enum: [not_sent, may_have_executed, confirmed_completed, confirmed_not_executed, output_withheld, delivery_failed, recorded_failure] }
       responses:
         '200':
           description: CSV attachment with no-store caching and meaningful customer fields only. Appended Cached input tokens and Reasoning output tokens columns contain exact reported subset counts; unknown counts are blank and explicit zero remains zero. Category counts do not establish billing rates or savings.

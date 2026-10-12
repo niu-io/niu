@@ -291,6 +291,8 @@ fn push_activity_scope_and_filters<'a>(
     if let Some(execution) = filter.execution.as_deref() {
         if execution == "output_withheld" {
             query.push(" AND EXISTS (SELECT 1 FROM output_guardrail_decisions decision WHERE decision.organization_id=a.organization_id AND decision.project_id=a.project_id AND decision.attempt_id=a.id AND decision.outcome IN ('blocked','indeterminate'))");
+        } else if execution == "recorded_failure" {
+            query.push(" AND EXISTS (SELECT 1 FROM request_failures failure WHERE failure.attempt_id=a.id)");
         } else if execution == "delivery_failed" {
             query.push(" AND EXISTS (SELECT 1 FROM request_timings delivery WHERE delivery.attempt_id=a.id AND delivery.http_status>=400)");
         } else {
