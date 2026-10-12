@@ -85,3 +85,14 @@ transport and ledger counts, exactly one original submission, stopped scheduling
 with cleared leases, restart visibility and denied revoked-key access. This
 qualifies the exercised schedule-table contention only; it does not establish
 global worker connection isolation or every background task's deadline.
+
+A fresh actual video regression on `d104367` additionally used one submission,
+rotated a no-expiration key and restarted before automatic querying. Sixteen
+client GETs observed success after 45.78 seconds; four native worker queries
+produced two saved observations. The 84,897-byte result passed independent hash,
+FFprobe and full FFmpeg decode checks. A second restart preserved observations;
+identical replay reused the completed job, changed input returned 409 and
+revocation returned 401. Independently reopened native records confirmed one
+submission, confirmed completion, stopped scheduling, cleared leases and no open
+holds or Niu financial entries. Missing upstream quantity remained missing.
+These counts describe this fresh run, separately from the earlier checkpoint.
