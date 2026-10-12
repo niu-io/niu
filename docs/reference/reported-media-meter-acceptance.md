@@ -1,6 +1,6 @@
 # Reported media meter and settlement acceptance
 
-This S08-3 checkpoint distinguishes actual reported usage from pricing, liability and posted customer settlement. It does not complete S08-3: positive priced-media settlement and competing priced-media liability remain unverified.
+This S08-3 checkpoint distinguishes actual reported usage from pricing, liability and posted customer settlement. Positive priced-media settlement and competing priced-media liability remain unverified. The finite backend-capability completion boundary below separates implemented mechanisms from actual integrated execution.
 
 ## Actual current-input read and recovery
 
@@ -30,3 +30,46 @@ The source review covered `crates/media/src/query.rs`, `crates/media/src/output.
 The remaining priced-media checks are: admission against a genuine authorized immutable customer tariff and contractual liability bound; exact settlement from the same task's trustworthy reported meter; duplicate/restart cardinality and hold release; insufficient-funding or conflicting-quantity recovery; and competing admissions sharing the same account capacity. These require genuine eligible pricing and task evidence, not fabricated commercial qualification, appended prices on an already owner-funded task, or a replacement funding receipt.
 
 [Media invoice integration](media-invoice-integration.md#atomic-query-usage-persistence) explicitly retains its unverified positive priced-usage branches. This record does not substitute owner-funded success for those branches or require external merchant activation to implement the system's interfaces. Additional media meters need their own explicit adapter-reported quantity contract; duration-based extrapolation is not a substitute.
+
+## Finite implemented-or-verified capability boundary
+
+The fixed S08-3 criterion is:
+
+> Implement or verify supported reported media meters, bounded liability and exact settlement; missing quantity remains explicit and never inferred from file duration.
+
+Source review finds these Niu-side facilities implemented: immutable attempt
+pricing, explicitly qualified maximum liability, account/attempt locking and
+reservation, successful reported-meter validation, exact rational calculation,
+matching currency, transactional charge/debit/hold release, and settlement replay
+against the existing posted-charge predicate. Missing/conflicting quantities stay
+unresolved; insufficient funding preserves immutable liability and its hold.
+The financial recovery worker calls the same settlement transaction independently
+of optional video polling. These are inspected implementation findings, not
+positive integrated settlement or contention outcomes.
+
+The genuine current-input evidence above separately verifies nonzero reported
+`video_tokens=257277`, durable query evidence, current SDK observations and
+restart, alongside explicit owner-funded/null-price/null-charge state. It does
+not retrofit a tariff or contractual maximum onto the existing task, infer a
+quantity from its file, or manufacture commercial rights or a funding receipt.
+
+Under the criterion's **implement or verify** wording, the finite backend
+capability consists of those implemented liability/settlement/recovery contracts
+and the separately observed supported meter and safe unknown-price behavior.
+No missing implementation is demonstrated by this audit. Positive priced-media
+settlement, insufficient-funding recovery, duplicate races and competing priced
+admissions remain **unverified**; implementation review is not relabeled as their
+correctness proof. External merchant or Supplier activation is not an additional
+backend-readiness gate. The release checkpoint owns S08-3 status.
+
+S05-3 retains a stricter integrated-evidence gap. Its genuine twelve-charge
+customer invoice, historical customer serialization and Supplier authorization/
+refusal slices are recorded in
+[the customer/Supplier checkpoint](customer-invoice-supplier-capability-acceptance.md).
+Supplier accrual and settlement source mechanisms are audited, but nonempty
+Supplier earning/settlement and positive customer-media invoice behavior remain
+unverified. Empty history and refused settlement selections do not prove those
+positive paths. This gap is not a requirement to execute a bank transfer, qualify
+a fictional Supplier or test every mathematical combination. S05-3 remains
+separately tracked; no source, records, external calls or fixture evidence are
+added by this documentation boundary.
