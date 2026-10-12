@@ -4,7 +4,7 @@ This records fixed S03-3 progress for actual timeout, cancellation, uncertainty 
 
 ## Current-input run
 
-Gateway `1212ea3b68f934c22fff6c62696475d2f628fc6a`, PostgreSQL schema 283 and a stopped native database copy exercise two bounded personal OpenRouter generations. The copy reuses existing approved verification credit and saved internal tariff rates; no cash funding, merchant success or commercial Supplier qualification is created. The original database, configuration, prices and encryption identity remain unchanged.
+Gateway `1212ea3b68f934c22fff6c62696475d2f628fc6a`, PostgreSQL schema 284 and a stopped native database copy exercise two bounded personal OpenRouter generations. The copy reuses existing approved verification credit and saved internal tariff rates; no cash funding, merchant success or commercial Supplier qualification is created. The original database, configuration, prices and encryption identity remain unchanged.
 
 A three-candidate private verification pool uses an intentionally invalid first credential and two separately saved configurations of the existing personal credential. These are distinct local configurations, not independent upstream accounts. Each generation requests at most 32 output tokens. The invalid credential's real OpenRouter 401 is the only refusal that authorizes the narrow fallback.
 
