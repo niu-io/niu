@@ -44,3 +44,43 @@ one debit and one receipt per attempt, no open holds and unchanged other rows.
 Missing cache-write quantity remains null. This adds current recovery evidence;
 it does not replace the separate fee/tier/concurrency slices or promote their
 missing executable identities to verified current-runtime tests.
+
+## Bounded consolidation against the retained 8bf checkpoint — 2026-10-13
+
+The fixed S05-2 criterion remains:
+
+> Consolidate exact category/tier/fee, insufficient-capacity, concurrent liability, uncertainty and exactly-once recovery checks for the supported charging matrix.
+
+Nine retained actual-execution slices were independently reopened again in
+native PostgreSQL, using read-only SQL and stopped copies. Their raw response
+artifacts and original final ledger records were checked directly. No new
+inference, merchant query, tariff, funding or upstream receipt was created.
+This is renewed verification of historical final artifacts, not fresh execution
+of all scenarios on Gateway `8bfdef10003eebe9402401247aa52cd69d3a398f`.
+
+| Fixed criterion | Independently rechecked actual scope | Result and limit |
+| --- | --- | --- |
+| Exact categories, additive fee and minimum | Actual nonzero cached-input responses, frozen revisions, invoice/refund ledger; separately nonzero cache-write and reasoning responses | Cached fee/minimum charges total 11,971,111 nanounits; write and reasoning charges/debits match their reported category quantities. Missing reasoning remains absent with a priced hold, rather than inferred zero. |
+| Context tier and fee | Below-tier native `f6967dadae7effff19227a4e56c586a07fc7eaea`; positive above-tier native `4a2f956cbad72eda0a240ef627b9d04f259036a9` | Below-tier 21,234 and above-tier 79,506 nanounits match upward-rounded frozen rates plus the 12,345 fee. Above-tier threshold is 64; one charge/debit and no open hold. Response digests, executable hashes, original financial/configuration fingerprints and customer CSV match. |
+| Insufficient capacity and concurrent liability | Fixed-only fee, cache-write and reasoning competing admissions across two Gateways | Fixed-only actual statuses 200/402 preserve exactly one dispatched attempt and one 1,000,000 charge/debit. Category-liability slices preserve one admitted attempt and exact debit with no open hold. These are bounded contention checks, not throughput or saturation claims. |
+| Uncertain execution | Actual connection timeout and real SSE interrupted by deliberate process termination | Timeout remains zero charge/debit with priced liability. Interrupted real output has no terminal usage/DONE, zero charge/debit, one 1,000,000 hold and no alternate dispatch. Controlled termination is identified explicitly. |
+| Exactly-once recovery | Two actual Messages generations, original unknown state, canonical metrics, recorded reconciliation and identical replay | Original tariff and quantities produce exactly one charge/debit/receipt per attempt, no open hold and unchanged other rows. Missing cache-write remains null. Customer details, CSV and summary match native final records. No generation is repeated during this consolidation. |
+
+The accounting source paths `crates/metered-cost`,
+`crates/storage/src/customer*` and `crates/storage/src/token*` are byte-for-byte
+unchanged from the documented `5591a02d` baseline, Messages `1212ea3b` and
+above-tier `4a2f956c` checkpoints to retained `8bfdef10`. This continuity is
+limited to those source paths. It does not establish unchanged Gateway
+admission, adapter transport, migrations or every recovery caller. Older slices
+without a digest-verified executable retain that stated provenance limitation.
+All databases opened for this independent verification were stopped afterward.
+
+The finite supported accounting mechanisms have evidence in the mapped slices;
+no newly discovered missing accounting mechanism requires a code change from
+this consolidation. The fixed criterion does not add a requirement for one
+response to combine every independently priced category, tier and fee. That
+simultaneous cross-product remains unverified and is not promoted to an observed
+success. Current-runtime end-to-end reruns of all historical contention slices
+also remain unverified. Supplier/media accounting and received-cash funding
+retain their separate S05-3/S06-3 scopes. Fixture outcomes contribute no evidence,
+and task status remains owned by the release checkpoint.
