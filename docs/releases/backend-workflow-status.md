@@ -122,3 +122,14 @@ keys, and retained one original submission with no financial mutation. An actual
 result download matched the retained MP4 and independently decoded. The
 [video identity checkpoint](../reference/video-submission-intents.md#bounded-saved-submission-identity-read--2026-10-12)
 keeps intent-submit, browser, paid media and complete-deadline scope explicit.
+
+
+## Current mixed streaming/reporting workload
+
+Clean `73d0c46` completed 240 new actual streams alongside 1,200 ordinary customer
+report reads over the retained 1,600-stream history. Four actual invalid tool
+streams remained explicit failures with known, exactly charged usage. Independent
+reopening checked all 1,840 responses, final report/filter/CSV totals and single
+debits; restart retained reports/exports and identities were revoked. The
+[mixed workload checkpoint](../reference/two-gateway-text-load.md#current-mixed-streaming-and-customer-reports--2026-10-12)
+records current timings and the limits of short one-Gateway evidence.

@@ -54,3 +54,32 @@ establishes maximum capacity, overload behavior, production SLOs, media capacity
 or a matched New API baseline. No fixture outcome is evidence.
 
 See the [full workload, historical checkpoints, independent verification and limitations](https://github.com/niu-io/niu/blob/main/docs/reference/two-gateway-text-load.md).
+
+
+## Current mixed streaming and reporting
+
+Clean `73d0c46` ran one isolated Gateway with two admission connections over a
+copy of the actual 1,600-request history. It offered 240 new streams at four per
+second alongside 1,200 ordinary-workspace report reads at 20 per second.
+The phase including final drain lasted 61.127 seconds. There were 236 fresh
+structured-marker streams with `[DONE]` and four actual invalid tool streams
+with an explicit SSE error/no `[DONE]`. All report reads returned HTTP 200.
+
+| Client workload | Reads/calls | P50 | P95 | Maximum |
+| --- | ---: | ---: | ---: | ---: |
+| Streams, including validation errors | 240 | 1,370.71 ms | 1,837.73 ms | 3,062.05 ms |
+| Logs page/full-range summary | 600 | 21.96 ms | 25.61 ms | 157.32 ms |
+| Recorded-failure page/summary | 600 | 11.06 ms | 12.69 ms | 138.26 ms |
+
+Independent reopening re-parsed all 1,840 retained streams and reconciled every
+original-rate charge/debit. New charges were 7,760,854 USD nanounits; final history
+totaled 34,640,002. The four invalid-output executions retained actual usage and
+112,225 nanounits of charges. Final complete/failure-filtered summaries and CSVs
+matched native records; restart retained byte-identical exports and temporary
+identities were revoked. No funding or outstanding hold remained.
+
+This qualifies a short one-Gateway mixed workload and final accounting on this
+implementation. It does not reconstruct every interim summary's entire snapshot,
+set an SLO, isolate Gateway overhead or establish maximum capacity. No resource
+profile, long soak, multi-Gateway contention, media or commercial supply claim
+is made. The full reference above records measurement and verification limits.

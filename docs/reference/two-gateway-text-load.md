@@ -620,3 +620,62 @@ multi-company scale, concurrent writes, long-soak stability or a causal latency
 comparison. CPU/RSS samples cover the Gateway process, not PostgreSQL or the
 whole host. The historical actual model calls used personal upstream access and
 internal approved credit/rates, not commercial Supplier qualification or funds.
+
+
+## Current mixed streaming and customer reports — 2026-10-12
+
+Digest-verified clean `73d0c46` served one isolated Gateway with two configured
+admission connections over a stopped copy of the 1,600 actual-stream history.
+Eight inference workers offered 240 new streams at four requests/second while
+four report workers offered 1,200 reads at 20 requests/second. An ordinary
+workspace viewer alternated first-100-row Logs/full-range-summary reads and
+`status=recorded_failure` reads: 600 of each. The private mapping explicitly
+enabled function/streamed-tool capabilities through the normal revisioned API;
+its procurement price and the original customer tariff were retained.
+
+The request phase including final drain lasted 61.127 seconds. Of the new calls,
+236 returned their fresh strict-JSON marker and `[DONE]`. Four bounded-output
+function requests produced actual invalid tool turns, each ending with
+`upstream_invalid_response` and no `[DONE]`, while preserving native usage.
+Their already-sent HTTP headers were 200. They are explicit validation failures,
+not successful model results. No tool was executed and no inference was retried.
+
+| Measured client workload | Requests | P50 ms | Nearest-rank P95 ms | Maximum ms |
+| --- | ---: | ---: | ---: | ---: |
+| All new streams, including four validation errors | 240 | 1,370.71 | 1,837.73 | 3,062.05 |
+| All report reads | 1,200 | 18.92 | 24.36 | 157.32 |
+| Logs page plus full-range summary | 600 | 21.96 | 25.61 | 157.32 |
+| Recorded-failure page plus filtered summary | 600 | 11.06 | 12.69 | 138.26 |
+
+Maximum scheduled-start lag was 357.64 ms for streams and 10.14 ms for reports.
+These finite-worker client measurements include upstream waiting, local HTTP
+transport and the exercised database path. They do not isolate Gateway overhead.
+All report reads returned HTTP 200/no-store, including reads while actual
+admissions, charges and failure observations were arriving.
+
+Independent reopening hashed/re-parsed every original 1,600 stream and every
+new response, matched native quantities and key associations to 1,840 completed
+attempts, and recomputed each exact original-rate customer charge and equal
+negative balance entry. New charges totaled 7,760,854 USD nanounits, including
+112,225 for the four executed but delivery-invalid tool requests. Final history
+contained 34,640,002 nanounits of charges/debits. No customer/procurement hold,
+funding receipt or live temporary inference key remained.
+
+Every retained report was rehashed and parsed. Loaded IDs belonged to the saved
+workspace history; known quantities and posted amounts matched durable records.
+Filtered rows contained only persisted failures. This checks recorded projections
+against final evidence; it does not reconstruct every report's entire historical
+MVCC snapshot while settlement changed. The final full-range and failure-filtered
+summaries exactly reconciled. Complete and failure-only CSVs matched quantities
+and amounts, with precisely the four failures in the latter. Restart preserved
+both final report responses and byte-identical exports; readers were revoked.
+Customer responses omitted the checked procurement/credential fields.
+
+This is approximately one minute of one-Gateway mixed current-input work, not a
+long soak, maximum capacity, production SLO, multi-company/multi-Gateway contention
+or a measured New API comparison. CPU, memory and PostgreSQL resource profiling
+were not collected. No media capacity or commercial Supplier qualification is
+inferred. Saved personal upstream access and approved internal credit/rates are
+separate from received cash or a discounted supply agreement. Original runtime,
+source history and encrypted identity were preserved. Fixture outcomes supply
+no performance or business evidence.
