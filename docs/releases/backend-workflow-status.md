@@ -1,6 +1,6 @@
 # Backend workflow verification status
 
-Reviewed 2026-10-12 against implementation `0f6319b`; native implementation `0f6319b`.
+Reviewed 2026-10-12 against implementation `e704955`; native implementation `e704955`.
 This is an index of scoped evidence, not a declaration that the complete release
 or New API comparison is qualified. Linked runs identify their own implementation
 revisions. Fixture outcomes provide no evidence. Current-input runs and
@@ -256,3 +256,11 @@ receipts, two-row pagination, scoped refusal, bounded receipt-table locks and
 restart were independently reconciled without changing any business/financial
 record. Current direct OpenRouter metadata still supplies no usable quantity for
 the seconds tariff; expenses and estimates are not customer billing evidence.
+
+
+[Workspace key authentication availability](../reference/workspace-key-authentication.md)
+bounds bearer lookup and dashboard selected-key resolution. Actual table locks,
+format-valid unissued and malformed token behavior, recovery inference/exact
+debit and restart/source restrictions were independently checked. Storage failure
+returns unavailable verification without dispatch. Broader permission races and
+sustained authentication capacity remain unverified.

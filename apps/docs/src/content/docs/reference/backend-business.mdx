@@ -273,3 +273,14 @@ on unavailable reads; a missing quantity is not zero usage. Keep customer billin
 and measured transport timing separate. The [current receipt checkpoint](https://github.com/niu-io/niu/blob/main/docs/reference/video-query-observations.md)
 records actual SDK/HTTP/native reconciliation and unchanged financial state.
 Private upstream costs, identities and URLs are excluded.
+
+
+## Key verification availability
+
+Key lookup and dashboard selected-key resolution use transaction-local storage
+wait limits. A sanitized 503 means unavailable verification, never accepted
+access or an empty key directory. Malformed key format remains 401; a format-valid
+unissued key is classified as 401 after storage recovers. The [actual entrypoint
+checkpoint](https://github.com/niu-io/niu/blob/main/docs/reference/workspace-key-authentication.md)
+checks table-lock refusal, one real accurately debited recovery call, source
+restrictions and revocation. Dispatch still rechecks current access separately.
