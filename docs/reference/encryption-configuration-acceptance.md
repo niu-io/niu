@@ -61,6 +61,36 @@ Existing evidence is reused only after reopening its stopped native database and
 
 Encryption inspection, transition and cipher source at the historical real-video revision remains unchanged at the current integration checkpoint. Historical data schemas and exercised domains remain explicitly distinct from the current schema-283 run.
 
+## Current eleven-domain coverage and executable prerequisites
+
+The supported maintenance inventory now contains **eleven domains**: four credential/configuration domains and seven retained-content domains. Five domains have nonempty actual transition evidence; six remain unverified. The historical 89-envelope transition covered Supplier credentials and EPay configuration, not all domains. An empty scan cannot close any of the remaining six.
+
+| Domain | Nonempty actual transition evidence | Current coverage and genuine data path |
+| --- | --- | --- |
+| Supplier credentials | 88 retained credentials in the recorded transition | Real administrator credential saves, preserved configuration identity and independent plaintext equivalence. |
+| EPay configuration | One actual saved configuration in the recorded transition | Real configuration save and revision/audit lifecycle; encryption does not require merchant activation or a successful payment. |
+| Asset-management credentials | Two independently rechecked saved revisions | `PUT /admin/v1/vendors/{id}/asset-management` saves declared configuration inputs. This can produce nonempty encrypted data without dispatch or externally qualifying that credential. |
+| Media result references | Retained reference from an actual generated video, independently rechecked | Use an existing real encrypted reference in a stopped copy; an erased reference must not be reconstructed or revived to fill the domain. New retention otherwise requires a real successful supported media result. |
+| Workspace material content | 256 actual uploaded objects, independently reopened again | Actual image/audio/video uploads populate this domain without a Provider request. The new domain is separate from Provider assets and inspection approval. |
+| Asset-listing results | **Unverified** | `POST /admin/v1/vendors/{id}/asset-management/listings` requires an original successful ordinary Ark group, its exact credential/project binding and a current reviewed operation grant. Only a real successful parsed Provider listing is encrypted. |
+| Asset-lookup results | **Unverified** | `POST /admin/v1/vendors/{id}/asset-management/lookups` requires a genuine saved listing and an authorized lookup of its original Provider asset. Only a real parsed result is encrypted. |
+| Asset-group read results | **Unverified** | `POST /admin/v1/vendors/{id}/asset-management/group-reads` requires the successful original group and current GetAssetGroup authorization; the actual successful read supplies the saved encrypted result. |
+| Asset-group update patches | **Unverified** | `POST /admin/v1/vendors/{id}/asset-management/group-updates` can save a user's real metadata patch without sending an update. It still requires a genuinely successful original group and current UpdateAssetGroup grant; a manufactured successful group is not acceptable. |
+| Inspected-image source content | **Unverified** | `POST /v1/media/image-sources` requires an active workspace key, exact inline image, current processing consent and approval from every configured real image detector. Client verdicts, unconfigured inspection and an invented external detector response cannot create evidence. |
+| Legacy Codex credentials | **Unverified; retained compatibility maintenance domain** | Existing supported sign-in saves a connection only after real OAuth exchange, required plan-use/renewable scopes, signed identity validation and actual model discovery. A generic API key or a local CLI credential cannot substitute for that authorization. |
+
+A read-only check of the current installation confirms no successful ordinary Ark group, operation grant or asset-management credential available to execute the four remaining asset-result/patch paths. The running deployment has no configured image detector. These are concrete missing prerequisites; successful OpenRouter text requests and model-list checks do not supply them. The current retained inventory has no encrypted legacy Codex connection. No empty domain is relabeled successful, no external receipt is fabricated and no original encryption identity is changed.
+
+The workspace-material evidence was independently reopened for this assessment at its actual `a8f9e68fb7e221f612a1e415db7a763bf9162720` binary and schema 285. All 256 live objects authenticate with the destination key, decrypt to their exact real input bytes and matching lengths/hashes, and reject the original key. Complete metadata fingerprints match the recorded pre-transition state; two tombstones retain no ciphertext. Original financial fingerprints remain unchanged, and the stopped source/final copies have no unfinished transition. Saved response hashes and downloaded media decoding were checked again. This is a reuse of real pinned nonempty evidence, not a new rotation of the original installation.
+
+Current source comparison retains the previous domains' authenticated bindings and rotation branches; the added workspace-material branch enumerates its separate identity-bound content. Static continuity supports identifying which historical evidence is being reused, without turning missing domain data into current-input acceptance.
+
+### Legacy product classification
+
+The current [project assessment](../releases/project-assessment.md) classifies Codex-connection routes as deprecated compatibility work under S14, and the interface audit distinguishes three excluded Codex methods. The [first-release scope](../releases/first-release.md) retires task/subscription-routing obligations. Older private-Codex architecture material still describes implemented sign-in and storage; it is not evidence of a current qualified connection or authority to import personal tokens.
+
+New legacy product activation is deferred, while any retained encrypted record remains inside the full maintenance inventory. This distinction neither deletes the domain nor closes its unverified nonempty transition criterion. Existing configuration operations cannot legitimately save an already available OpenRouter/API credential as a Codex identity: the OAuth callback requires original registered-client, nonce, subject and scope proofs before encryption. No credential extraction, fabricated OAuth grant or storage insertion is proposed.
+
 ## Completion status
 
-S10-2 remains active. The populated credential/configuration domains and historical interrupted-transition and asset/video cases have the evidence documented above. The remaining supported encrypted-content domains require actual data and artifact verification; empty inventory scans do not close them. Production maintenance orchestration, browser/UI acceptance and merchant activation are outside this fixed backend criterion.
+S10-2 remains active. The populated credential/configuration domains and historical interrupted-transition and asset/video cases have the evidence documented above. Six of the current eleven domains still lack nonempty actual transition verification as listed above; empty inventory scans and deferred activation do not close them. Production maintenance orchestration, browser/UI acceptance and merchant activation are outside this fixed backend criterion.
