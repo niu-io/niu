@@ -98,14 +98,20 @@ fn projection_with_images(
         return None;
     }
     let text = schema.inputs.get("text")?;
-    let output = schema.output.as_ref()?;
+    let output = schema.output.as_ref();
     let openrouter = schema.channel == niu_media::openrouter::REVISION;
-    if output.estimator.meter()
-        != if openrouter {
-            "seconds"
-        } else {
-            "video_tokens"
-        }
+    // Personal Ark requests can use configured controls without a qualified
+    // output estimator. Unknown output is explicit; customer pricing and the
+    // OpenRouter adapter retain their existing metering requirements.
+    if (output.is_none() && (!owner_funded || openrouter))
+        || output.is_some_and(|output| {
+            output.estimator.meter()
+                != if openrouter {
+                    "seconds"
+                } else {
+                    "video_tokens"
+                }
+        })
         || (openrouter
             && (!owner_funded
                 || schema.controls.keys().any(|key| {
@@ -116,9 +122,12 @@ fn projection_with_images(
     }
     let mut controls = schema.controls.clone();
     controls.remove("callback_url");
-    // A configured choice can exist without a qualified pixel mapping.
+    // Restrict choices to the qualified output mapping when one exists. With
+    // unknown output, preserve the Provider's explicitly configured controls.
     for (name, resolution) in [("resolution", true), ("ratio", false)] {
-        if let Some(niu_media::Control::Choice { values, .. }) = controls.get_mut(name) {
+        if let (Some(output), Some(niu_media::Control::Choice { values, .. })) =
+            (output, controls.get_mut(name))
+        {
             values.retain(|value| {
                 output.specifications.iter().any(|spec| {
                     value
@@ -151,7 +160,7 @@ fn projection_with_images(
         "maximum_content_items":schema.maximum_content_items,
         "controls":controls,"required_controls":schema.required_controls,
         "exclusive_controls":exclusive,
-        "output":{"specifications":output.specifications,"meter":output.estimator.meter(),"estimator":output.estimator}
+        "output":output.map(|output| json!({"specifications":output.specifications,"meter":output.estimator.meter(),"estimator":output.estimator}))
     });
     // Ordinary references follow the selected Provider schema; local inspection
     // is an explicit customer policy, not a prerequisite for Provider URLs.
