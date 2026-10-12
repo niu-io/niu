@@ -1,97 +1,46 @@
 # Encryption and configuration acceptance
 
-This records current evidence toward the fixed S10-2 backend criterion for supported secret/configuration persistence, revisions, audit and offline encryption transition. It does not qualify every encrypted-content domain, a production maintenance window, or rendered settings screens.
+This records the finite S10-2 backend capability for supported secret/configuration persistence, revisions, audit and offline encryption transition. The closed maintenance inventory and actual provenance-qualified verification are separate. Unused optional or deprecated domains do not need fabricated records or external activation to establish the implemented maintenance capability.
 
-## Historical schema-283 verification boundary
+## Provenance correction
 
-The recorded schema-283 run uses Gateway `186662c5346ec911e2bc19e59bb6b8a51c32500c`, PostgreSQL schema 283 and a stopped copy of the retained native database. The original database, deployment configuration and encryption identity remain unchanged. There are no upstream inference or merchant requests.
+Earlier versions described 88 retained credential envelopes, one EPay configuration and two locally generated asset-management credential revisions as genuine-domain acceptance. Those blanket claims are withdrawn. The current original credential inventory contains fixture-address and other unprovenanced records. The EPay merchant/secret origin was not established, and the asset-management script generated random access/secret values for local verification. Their rotation outcomes provide no genuine business acceptance signal. A real saved configuration operation alone does not prove a secret's provenance; a nonempty envelope or successful aggregate scan is insufficient.
 
-Encryption inspection, transition, credential cipher and configuration persistence source remains unchanged between the exercised Gateway revision and the integration checkpoint `5591a02d`. Handler annotations and SDK additions do not change this behavior.
+The earlier **six of twelve verified domains** count is therefore withdrawn. Four domains have specifically linked genuine nonempty evidence below; remaining domains retain explicit unverified provenance/nonempty states. No fixture pass, failure, count or aggregate CLI result is used to decide acceptance.
 
-The historical checkpoint below covers the ten encrypted domains registered at its recorded pin. The current inventory additionally includes durable workspace-material content and Provider verification sessions, each with separate identity-bound content, startup scanning and offline rotation targets. Its nonempty rotation acceptance is tracked with the [workspace material library](workspace-material-library.md); adding the domain does not retroactively verify it. Counts below describe actual retained envelopes, not fixture outcomes or a claim that an empty scan verifies a domain.
+## Current genuine credential transition
 
-| Domain | Retained envelopes in the current run | Evidence scope |
-| --- | ---: | --- |
-| Supplier credentials | 88 | Actual retained credentials, complete offline transition and independent authentication |
-| EPay configuration | 1 | Actual saved configuration, complete transition and target-key startup/read/restart |
-| Asset-management credentials | 0 | Current scan only; retained historical evidence is separately rechecked below |
-| Legacy Codex credentials | 0 | Unqualified by this run |
-| Media result references | 0 | No encrypted reference remains in this current copy; historical real-video evidence is separately rechecked below |
-| Asset-listing results | 0 | Unqualified by this run |
-| Asset-lookup results | 0 | Unqualified by this run |
-| Asset-group read results | 0 | Unqualified by this run |
-| Asset-group update patches | 0 | Unqualified by this run |
-| Inspected-image source content | 0 | Unqualified by this run |
+A fresh independently restored backup of the original schema-293 database was copied only after its PostgreSQL source was confirmed stopped. The retained executable was `8bfdef10003eebe9402401247aa52cd69d3a398f`, SHA-256 `6f5290d182c9bf51de1f2bb8d469067351c9f9771150235adc2917b1d39c6900`. A random destination key existed only in the private copy. Payment and video polling were disabled; no upstream request, merchant operation, generation or human-verification operation occurred.
 
-A domain with zero envelopes may still contain expired or erased metadata. Its presence in the inventory is not positive acceptance evidence.
+The mechanical inventory had 89 credential envelopes: **two source-proven genuine credentials, thirteen fixture-address records, and seventy-four other unprovenanced records**, with disjoint identities. The closed command processed the inventory, but aggregate command outcomes and the other 87 envelopes are not business proof. Verification is limited to the genuine FastRouter user-supplied key and existing OpenRouter personal credential with retained confirmed-completion lineage.
 
-## Actual transition and independent final-state checks
+A separate reader reopened the stopped backup and final copy. For both genuine credentials, independent AES-GCM authentication established exact original plaintext equality under unchanged identity AAD. The FastRouter plaintext matched the user's saved key in memory. Destination envelopes rejected the source key and foreign AAD. Canonical full-record audit SHA-256 values and source/target maintenance-operation HMAC bindings matched. Plaintexts, key values and private references were never emitted into public documentation.
 
-The source key first authenticates the retained inventory using the read-only `--check-encryption` command. Rotation without the explicit offline-maintenance setting and rotation with a wrong source key are refused. These refusals leave envelopes, business metadata and operation history unchanged.
+Complete original non-ciphertext credential metadata, financial, model and personal-ownership fingerprints were retained. The destination-only copied Gateway started twice and returned safe credential metadata through the current API. Both copied services were stopped. A read-only comparison of the original installation confirmed all 89 original credential ciphertexts unchanged; the original master-identity file remained byte-identical. This is one real credential-domain transition, not a claim that 89 credentials or every domain were qualified.
 
-With Gateway writers stopped, `--rotate-encryption-offline` replaces the 89 populated envelopes and completes one durable maintenance operation. Source-key inspection then fails. Destination-only inspection, Gateway startup, saved EPay configuration read and a subsequent Gateway restart succeed.
+## Closed inventory and evidence states
 
-Independent Python AES-GCM verification reopens both stopped databases and authenticates all 88 credential envelopes and the payment envelope using their original domain/identity bindings. Every replacement decrypts to exactly the original plaintext, rejects the source key and rejects an incorrect authenticated binding. Plaintext comparisons occur in memory; credentials are not emitted into logs or this document.
+The implementation contains twelve fixed rotation targets: four credential/configuration domains and eight retained-content domains. Startup scanning, pagination and exact storage identity are implemented for all twelve; expired retained content remains in the inventory and erased ciphertext is not reconstructed. The command's session lease does not fence concurrent Gateway writers: all writers must be stopped during offline rotation.
 
-For all ten inventory domains, row counts and complete non-ciphertext metadata fingerprints match before and after. Seven complete financial/request table fingerprints also match the source and final databases: attempts, customer charges, customer balance entries, funding receipts, customer balance reservations, cost reservations and Supplier earnings. There is one new completed rotation operation and no unfinished operation. Independently checked saved command and HTTP artifact hashes match, and command output contains neither key.
-
-This proves the exercised offline transition. The command's session lease does not fence a concurrently running Gateway; stopping every writer remains an operational prerequisite.
-
-## Configuration persistence, revisions and authority
-
-The associated current HTTP and compiled-SDK runs verify:
-
-- Installation-authorized branding/theme and payment configuration reads and saves, exact saved snapshots, revision conflicts and restart persistence.
-- One native branding audit row and one native payment audit row for each accepted configuration revision; refused stale updates do not create another revision.
-- Blank EPay secret input preserves the existing key; response projection exposes `has_key` rather than the key. Disabling checkout is configuration readiness, not merchant activation or payment settlement.
-- Ordinary company/workspace owners, administrators and viewers receive 403 for platform configuration reads and writes. Company role alone does not confer platform administration.
-- Member profile/preferences changes persist under the authenticated member, with profile revision conflicts and invalid input preserving the saved state. Installation credentials cannot use member-only profile/preferences endpoints.
-
-The compiled SDK checkpoint is `4a459338`; the verification exercises its authentication discovery, public branding and EPay configuration methods against the actual Gateway. The independent reader verifies raw responses, native revision/audit records and unchanged financial data. Public projections and arbitrary executable-content refusal receive the separate fixed S10-3 matrix; this record does not silently broaden into that criterion.
-
-## Retained evidence rechecked independently
-
-Existing evidence is reused only after reopening its stopped native database and independently checking the retained final artifacts again. These are historical runs, not newly generated upstream media or a claim that all domains were populated in the current run.
-
-| Retained scope | Independent recheck |
-| --- | --- |
-| Interrupted offline command | Original and replacement credential/asset envelopes decrypt identically; the already committed first envelope retains its recorded digest after resume; exactly two additional rewrap authorizations, no unfinished operation, removed interruption hook and unchanged empty financial/inference state. The saved resume output is also checked. |
-| Two historical asset-management credential revisions | Destination AES-GCM authentication recovers the exact API-submitted access/secret pairs under original credential revision/project bindings; old key and altered binding fail; native non-ciphertext metadata is unchanged, with no model dispatch. This does not qualify an external asset service. |
-| Retained real video result at `ab6f2ff1`, schema 278 | Original and rotated result envelopes authenticate the identical original reference and metadata. The retained downloaded artifact matches the original generation digest and fully decodes with FFmpeg. The independent reader verifies the pinned binary, maintenance state, revoked keys, native owner-funded billing and absence of extra generation, polling or financial activity. The saved billing/result receipts are rechecked. This historical download is not repeated after natural expiry. |
-
-Encryption inspection, transition and cipher source at the historical real-video revision remains unchanged at the current integration checkpoint. Historical data schemas and exercised domains remain explicitly distinct from the current schema-283 run.
-
-## Current twelve-domain coverage and executable prerequisites
-
-The supported maintenance inventory now contains **twelve domains**: four credential/configuration domains and eight retained-content domains. Six domains have nonempty actual transition evidence; six remain unverified. The historical 89-envelope transition covered Supplier credentials and EPay configuration, not all domains. An empty scan cannot close any of the remaining six.
-
-| Domain | Nonempty actual transition evidence | Current coverage and genuine data path |
+| Domain | Provenance-qualified evidence | Capability boundary |
 | --- | --- | --- |
-| Supplier credentials | 88 retained credentials in the recorded transition | Real administrator credential saves, preserved configuration identity and independent plaintext equivalence. |
-| EPay configuration | One actual saved configuration in the recorded transition | Real configuration save and revision/audit lifecycle; encryption does not require merchant activation or a successful payment. |
-| Asset-management credentials | Two independently rechecked saved revisions | `PUT /admin/v1/vendors/{id}/asset-management` saves declared configuration inputs. This can produce nonempty encrypted data without dispatch or externally qualifying that credential. |
-| Media result references | Retained reference from an actual generated video, independently rechecked | Use an existing real encrypted reference in a stopped copy; an erased reference must not be reconstructed or revived to fill the domain. New retention otherwise requires a real successful supported media result. |
-| Workspace material content | 256 actual uploaded objects, independently reopened again | Actual image/audio/video uploads populate this domain without a Provider request. The new domain is separate from Provider assets and inspection approval. |
-| Provider verification sessions | One genuine naturally expired session, rotated and independently authenticated | [Current schema-293 rotation](provider-verification-encryption-rotation-acceptance.md) preserves the actual token/H5 envelope, original AAD, expiry and authorized link refusal across restart. No human completion is inferred. |
-| Asset-listing results | **Unverified** | `POST /admin/v1/vendors/{id}/asset-management/listings` requires an original successful ordinary Ark group, its exact credential/project binding and a current reviewed operation grant. Only a real successful parsed Provider listing is encrypted. |
-| Asset-lookup results | **Unverified** | `POST /admin/v1/vendors/{id}/asset-management/lookups` requires a genuine saved listing and an authorized lookup of its original Provider asset. Only a real parsed result is encrypted. |
-| Asset-group read results | **Unverified** | `POST /admin/v1/vendors/{id}/asset-management/group-reads` requires the successful original group and current GetAssetGroup authorization; the actual successful read supplies the saved encrypted result. |
-| Asset-group update patches | **Unverified** | `POST /admin/v1/vendors/{id}/asset-management/group-updates` can save a user's real metadata patch without sending an update. It still requires a genuinely successful original group and current UpdateAssetGroup grant; a manufactured successful group is not acceptable. |
-| Inspected-image source content | **Unverified** | `POST /v1/media/image-sources` requires an active workspace key, exact inline image, current processing consent and approval from every configured real image detector. Client verdicts, unconfigured inspection and an invented external detector response cannot create evidence. |
-| Legacy Codex credentials | **Unverified; retained compatibility maintenance domain** | Existing supported sign-in saves a connection only after real OAuth exchange, required plan-use/renewable scopes, signed identity validation and actual model discovery. A generic API key or a local CLI credential cannot substitute for that authorization. |
+| Supplier credentials | Current independently authenticated transition of two genuine credentials above. | Other fixture/unprovenanced records are excluded from evidence. |
+| Media result references | Genuine generated-video reference, independent plaintext/AAD transition and original artifact hash/full decode; see [offline rotation](offline-key-rotation.md) and [video lifecycle](current-video-automatic-recovery.md). | Historical pin and retention/expiry stay explicit; no expired result is revived. |
+| Workspace material content | Actual uploads of bytes derived from a genuinely generated video, with independent byte/hash/AAD transition and metadata preservation; see [material storage](workspace-material-storage-acceptance.md). | Local uploaded content is not a fabricated Provider approval, and does not qualify generation or inspection. |
+| Provider verification sessions | Genuine purpose-labelled Create receipt and encrypted token/H5 content; independent transition preserves exact plaintext/AAD, expiry and safe restart refusal; see [verification rotation](provider-verification-encryption-rotation-acceptance.md). | Individual genuine session evidence only; aggregate fixture-containing credential counts are excluded. No H5 use or completed human verification is claimed. |
+| EPay configuration | Genuine nonempty transition **unverified**. Current original database has no envelope. | Historical unconfirmed merchant/secret configuration is excluded; merchant activation is not required to implement configuration encryption. |
+| Asset-management credentials | Genuine nonempty transition **unverified**. Current original database has no envelope. | Random local access/secret pairs are excluded. This is an optional ordinary Ark configuration path, not the new Provider asset API. |
+| Asset-listing results | No genuine retained envelope in the current original inventory. | Optional ordinary Ark successful-listing path; implemented target, no invented listing/grant. |
+| Asset-lookup results | No genuine retained envelope in the current original inventory. | Optional authorized lookup of an actual original listed asset; implemented target. |
+| Asset-group read results | No genuine retained envelope in the current original inventory. | Optional original-group read; the new Provider group does not substitute for its binding. |
+| Asset-group update patches | No genuine retained envelope in the current original inventory. | Optional authorized patch of a genuine ordinary group; no fake successful group. |
+| Inspected-image source content | No genuine retained envelope in the current original inventory. | Optional explicit inspection path; custom inspection is not a prerequisite for ordinary upstream video API integration. |
+| Legacy Codex credentials | No genuine retained envelope in the current original inventory. | Deprecated S14 compatibility maintenance; no activation, OAuth fabrication or Agent Observability expansion. |
 
-A read-only check of the current installation confirms no successful ordinary Ark group, operation grant or asset-management credential available to execute the four remaining asset-result/patch paths. The running deployment has no configured image detector. These are concrete missing prerequisites; successful OpenRouter text requests and model-list checks do not supply them. The current retained inventory has no encrypted legacy Codex connection. No empty domain is relabeled successful, no external receipt is fabricated and no original encryption identity is changed.
+The current original read-only inventory contains only credential ciphertext. All other eleven domains have zero envelopes there; those empty scans provide no positive acceptance signal. Genuine retained-content checkpoints belong to their independently verified copies and recorded pins, not a claim that current original data is populated in those domains.
 
-The workspace-material evidence was independently reopened for this assessment at its actual `a8f9e68fb7e221f612a1e415db7a763bf9162720` binary and schema 285. All 256 live objects authenticate with the destination key, decrypt to their exact real input bytes and matching lengths/hashes, and reject the original key. Complete metadata fingerprints match the recorded pre-transition state; two tombstones retain no ciphertext. Original financial fingerprints remain unchanged, and the stopped source/final copies have no unfinished transition. Saved response hashes and downloaded media decoding were checked again. This is a reuse of real pinned nonempty evidence, not a new rotation of the original installation.
+## Configuration and completion boundary
 
-Current source comparison retains the previous domains' authenticated bindings and rotation branches; the added workspace-material branch enumerates its separate identity-bound content. Static continuity supports identifying which historical evidence is being reused, without turning missing domain data into current-input acceptance.
+[Original personal configuration acceptance](original-personal-video-configuration-acceptance.md) verifies actual saved credential ownership/model configuration, current-revision writes, stale refusal, scoped discovery, secret/ciphertext preservation and independent final native state. This is genuine user-authorized configuration, without commercial pricing, fabricated funding or external activation. Public secret projections use metadata rather than raw credentials. The closed rotation audit is separate from business configuration revisions/audits; neither substitutes for the other.
 
-### Legacy product classification
-
-The current [project assessment](../releases/project-assessment.md) classifies Codex-connection routes as deprecated compatibility work under S14, and the interface audit distinguishes three excluded Codex methods. The [first-release scope](../releases/first-release.md) retires task/subscription-routing obligations. Older private-Codex architecture material still describes implemented sign-in and storage; it is not evidence of a current qualified connection or authority to import personal tokens.
-
-New legacy product activation is deferred, while any retained encrypted record remains inside the full maintenance inventory. This distinction neither deletes the domain nor closes its unverified nonempty transition criterion. Existing configuration operations cannot legitimately save an already available OpenRouter/API credential as a Codex identity: the OAuth callback requires original registered-client, nonce, subject and scope proofs before encryption. No credential extraction, fabricated OAuth grant or storage insertion is proposed.
-
-## Completion status
-
-S10-2 remains active. The populated credential/configuration domains and historical interrupted-transition and asset/video cases have the evidence documented above. Six of the current twelve domains still lack nonempty actual transition verification as listed above; empty inventory scans and deferred activation do not close them. Production maintenance orchestration, browser/UI acceptance and merchant activation are outside this fixed backend criterion.
+The finite backend checkpoint can be assessed from current genuine populated credentials, the genuine retained-content transitions, implemented closed inventory and verified configuration boundaries. It does not require populating every unused/legacy domain merely to raise a coverage count. Unverified optional nonempty states stay visible above; external activation, production maintenance orchestration, concurrent-writer fencing, browser settings screens and human verification are separate. No whole-release or production-capacity claim is made here.
