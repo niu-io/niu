@@ -3,7 +3,7 @@
 Baseline v1; updated 2026-10-12.
 Committed audit source `4a459338`; native implementation `186662c5`.
 
-**Backend acceptance checkpoints: 17/36 recorded complete at their evidence pins.**
+**Backend acceptance checkpoints: 18/36 recorded complete at their evidence pins.**
 **Whole backend subsystems closed: 0/12.**
 These are acceptance-checkpoint counts, not coding percentage, fresh execution of every path or release readiness.
 Existing scoped evidence is carried forward explicitly. Missing evidence remains open; fixture outcomes have zero signal.
@@ -23,7 +23,7 @@ Active implementation: S01-3, S02-3, S08-2, S05-2, S10-2. Assignments use stable
 | S07 Request diagnostics and usage reports | C | open | 1/3 | S03, S05 |
 | S08 Video jobs, results and assets | C | active | 1/3 | S02, S04, S05 |
 | S09 Durable Chat | C | open | 1/3 | S01, S03, S07 |
-| S10 Platform configuration and security facilities | A | active | 1/3 | S01 |
+| S10 Platform configuration and security facilities | A | active | 2/3 | S01 |
 | S11 Contracts, SDK and documentation | I | open | 2/3 | None |
 | S12 Runtime operations, recovery and performance | I | open | 1/3 | S03, S05, S07, S08 |
 | S13 Dashboard, public catalog and rendered Help | Frontend | delegated | 0/3 | S01, S02, S07, S09, S11 |
@@ -109,7 +109,7 @@ Active implementation: S01-3, S02-3, S08-2, S05-2, S10-2. Assignments use stable
 | --- | --- | --- | --- |
 | S10-1 | done | Inventory and publish platform authentication/branding/theme/payment configuration and member profile/preferences contracts with correct authority. | [record](../../docs/reference/platform-configuration-acceptance.md) (`4a459338`) |
 | S10-2 | active | Verify supported secret/config persistence, audit/revisions and encryption-key rotation without changing existing identities or exposing secrets. | [record](../../docs/reference/encryption-configuration-acceptance.md) (`186662c5`) |
-| S10-3 | open | Coordinate configuration changes, current permission checks and supported public-safe projections; reject arbitrary executable branding/config content. | Missing / not yet accepted |
+| S10-3 | done | Coordinate configuration changes, current permission checks and supported public-safe projections; reject arbitrary executable branding/config content. | [record](../../docs/reference/platform-safe-projection-acceptance.md) (`186662c5`) |
 
 ### S11 — Contracts, SDK and documentation
 

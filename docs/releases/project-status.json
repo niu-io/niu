@@ -367,7 +367,7 @@
           "acceptance": "Close the supported input/control/job/result/retention/asset authorization matrix and recovery without duplicate submission.",
           "evidence": [],
           "evidence_revision": null,
-          "note": ""
+          "note": "Ingested-image parser, scoped resolver, exact Ark transport validation and atomic dispatch with immutable bindings implemented in 81f6a1e1; current native HTTP validation pending. Durable library grants and actual positive asset reuse remain unverified."
         },
         {
           "id": "S08-3",
@@ -462,11 +462,13 @@
         },
         {
           "id": "S10-3",
-          "status": "open",
+          "status": "done",
           "acceptance": "Coordinate configuration changes, current permission checks and supported public-safe projections; reject arbitrary executable branding/config content.",
-          "evidence": [],
-          "evidence_revision": null,
-          "note": ""
+          "evidence": [
+            "docs/reference/platform-safe-projection-acceptance.md"
+          ],
+          "evidence_revision": "186662c5",
+          "note": "Current HTTP input refusals, two-Gateway revision races, permission revocation and safe projections independently verified; broader encryption-domain acceptance remains S10-2."
         }
       ]
     },
