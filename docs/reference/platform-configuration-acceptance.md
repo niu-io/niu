@@ -8,8 +8,12 @@ read/write. Theme is part of branding settings, not a separate endpoint.
 Commit `4fd3e479` publishes four missing handler contracts and root references;
 all eleven methods now have published operation schemas. Commit `4a459338` adds
 SDK authentication discovery, public branding and EPay configuration helpers.
-The SDK compiles from committed source; compilation alone does not verify runtime
-behavior of those new helpers.
+The SDK compiles from committed source. A separate current-input native run of
+the four new helpers verifies public discovery/branding, EPay read and disabled
+revision-checked save, stale 409 and restart retrieval. Independently reopened
+records match the saved responses, payment revision/audit and retained encrypted
+configuration; original financial rows remain unchanged. No merchant activation
+or received funding is claimed.
 
 ## Current-input native evidence
 

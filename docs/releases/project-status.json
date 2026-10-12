@@ -446,7 +446,7 @@
             "docs/reference/platform-configuration-acceptance.md"
           ],
           "evidence_revision": "4a459338",
-          "note": "Eleven contracts plus independently verified native authority/persistence; new SDK runtime acceptance remains separately tracked."
+          "note": "Eleven published contracts with independently verified native authority/persistence and actual new SDK helper execution; external activation and broader security checks remain separate."
         },
         {
           "id": "S10-2",
