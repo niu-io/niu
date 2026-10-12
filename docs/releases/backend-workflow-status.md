@@ -1,6 +1,6 @@
 # Backend workflow verification status
 
-Reviewed 2026-10-12 against implementation `8363ae3`; native implementation `8363ae3`.
+Reviewed 2026-10-12 against implementation `549d2189`; native implementation `549d2189`.
 This is an index of scoped evidence, not a declaration that the complete release
 or New API comparison is qualified. Linked runs identify their own implementation
 revisions. Fixture outcomes provide no evidence. Current-input runs and
@@ -328,3 +328,11 @@ actual first/continuation reads at offered 20/second, exact native projections,
 unchanged accounting, restart and revocation. Session-time-zone-independent
 fingerprints preserve earlier UTC cursors across upgrade. This is small-body
 read qualification, not maximum capacity or whole-product performance.
+
+## Direct saved-conversation restoration
+
+The [complete conversation endpoint](../reference/chat-session-detail.md) and
+SDK getter restore an owned body without walking recent history. Actual settings,
+report attachment, archived state, native charges, unknown imported references,
+owner/workspace isolation, restart and deletion were independently checked.
+Concurrent update protection and frontend adoption remain open.

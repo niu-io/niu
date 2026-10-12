@@ -341,3 +341,11 @@ page contents and unchanged accounting. Cursor fingerprints now avoid session
 time-zone formatting and preserve previous Gateway UTC cursors across upgrade.
 This covers small-body local reads; large-attachment throughput, mixed inference
 and production SLOs remain separate.
+
+
+[Complete conversation restoration](https://github.com/niu-io/niu/blob/main/docs/reference/chat-session-detail.md)
+adds `GET .../chat-sessions/{id}` and SDK `getChatSession`. It returns full owned
+content, separate archive state and authoritative customer-charge hydration with
+`Cache-Control: no-store`. Actual reads beyond the recent-100 list, imported
+unknown references, settings/report attachments, isolation and restart were
+independently verified. Frontend restoration and concurrent edits remain separate.
