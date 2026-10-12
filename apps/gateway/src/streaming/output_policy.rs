@@ -38,6 +38,176 @@ pub struct BufferedOutputPolicy {
     pub slot: Arc<OwnedSemaphorePermit>,
 }
 
+type Observation = dyn Fn(Result<Value, crate::guardrails::input::InspectionError>) -> BoxFuture<'static, ()>
+    + Send
+    + Sync;
+
+#[derive(Clone)]
+pub struct StreamOutputObservation {
+    pub observe: Arc<Observation>,
+    pub slot: Option<Arc<OwnedSemaphorePermit>>,
+}
+
+pub(super) struct ObservationState {
+    callback: Option<StreamOutputObservation>,
+    tracker: tokio_util::task::TaskTracker,
+    collector: Option<Collector>,
+    error: Option<crate::guardrails::input::InspectionError>,
+}
+impl ObservationState {
+    pub(super) fn new(
+        responses: bool,
+        callback: StreamOutputObservation,
+        tracker: tokio_util::task::TaskTracker,
+        collect: bool,
+    ) -> Self {
+        let capacity = callback.slot.is_some();
+        Self {
+            callback: Some(callback),
+            tracker,
+            collector: (capacity && collect).then(|| Collector::new(responses)),
+            error: (!capacity).then_some(crate::guardrails::input::InspectionError::ResourceLimit),
+        }
+    }
+    pub(super) fn finish_required(
+        &mut self,
+        original: &Result<Value, crate::guardrails::input::InspectionError>,
+    ) {
+        let result = if let Some(error) = self.error.take() {
+            Err(error)
+        } else {
+            match original {
+                Ok(value) => Ok(value.clone()),
+                Err(crate::guardrails::input::InspectionError::ResourceLimit) => {
+                    Err(crate::guardrails::input::InspectionError::ResourceLimit)
+                }
+                Err(crate::guardrails::input::InspectionError::InvalidPattern) => {
+                    Err(crate::guardrails::input::InspectionError::InvalidPattern)
+                }
+                Err(crate::guardrails::input::InspectionError::Blocked) => {
+                    Err(crate::guardrails::input::InspectionError::Blocked)
+                }
+                Err(crate::guardrails::input::InspectionError::UnsupportedContent) => {
+                    Err(crate::guardrails::input::InspectionError::UnsupportedContent)
+                }
+            }
+        };
+        if let Some(callback) = self.callback.take() {
+            spawn_observation(&self.tracker, callback, result);
+        }
+    }
+    fn retain(&mut self, result: Result<(), &'static str>) {
+        if let Err(reason) = result {
+            self.collector = None;
+            self.error = Some(classify(reason));
+        }
+    }
+    fn account(&mut self, bytes: usize) {
+        if let Some(collector) = &mut self.collector {
+            let result = collector.account(bytes);
+            self.retain(result);
+        }
+    }
+    fn observe(&mut self, value: &Value) {
+        if let Some(collector) = &mut self.collector {
+            let result = collector.observe(value);
+            self.retain(result);
+        }
+    }
+    fn finish(&mut self) {
+        let result = match self.error.take() {
+            Some(error) => Err(error),
+            None => self
+                .collector
+                .take()
+                .ok_or(crate::guardrails::input::InspectionError::UnsupportedContent)
+                .and_then(|collector| collector.complete().map_err(classify)),
+        };
+        if let Some(callback) = self.callback.take() {
+            spawn_observation(&self.tracker, callback, result);
+        }
+    }
+}
+impl Drop for ObservationState {
+    fn drop(&mut self) {
+        // Without terminal evidence, no collected prefix is a complete output.
+        // Cancellation or protocol failure cannot become an invented clear result.
+        if let Some(callback) = self.callback.take() {
+            let error = self
+                .error
+                .take()
+                .unwrap_or(crate::guardrails::input::InspectionError::UnsupportedContent);
+            spawn_observation(&self.tracker, callback, Err(error));
+        }
+    }
+}
+fn spawn_observation(
+    tracker: &tokio_util::task::TaskTracker,
+    callback: StreamOutputObservation,
+    result: Result<Value, crate::guardrails::input::InspectionError>,
+) {
+    tracker.spawn(async move {
+        let permit = callback.slot;
+        (callback.observe)(result).await;
+        drop(permit);
+    });
+}
+fn classify(reason: &'static str) -> crate::guardrails::input::InspectionError {
+    if reason.contains("limit exceeded") {
+        crate::guardrails::input::InspectionError::ResourceLimit
+    } else {
+        crate::guardrails::input::InspectionError::UnsupportedContent
+    }
+}
+
+/// Only framing/projection errors can fail delivery. Observation collection
+/// errors discard the side buffer and never propagate through feed/finish.
+pub(super) struct ObservedCustomerOutput {
+    customer: crate::customer_response::CustomerSse,
+    observation: Option<ObservationState>,
+}
+impl ObservedCustomerOutput {
+    pub(super) fn new(
+        responses: bool,
+        public_model: Option<String>,
+        callback: Option<StreamOutputObservation>,
+        tracker: tokio_util::task::TaskTracker,
+    ) -> Self {
+        Self {
+            customer: crate::customer_response::CustomerSse::with_protocol(responses, public_model),
+            observation: callback
+                .map(|callback| ObservationState::new(responses, callback, tracker, true)),
+        }
+    }
+    pub(super) fn feed(&mut self, bytes: &[u8]) -> Result<Vec<u8>, &'static str> {
+        let Some(observation) = &mut self.observation else {
+            return self.customer.feed(bytes);
+        };
+        observation.account(bytes.len());
+        self.customer.feed_with_observer(bytes, &mut |value| {
+            observation.observe(value);
+            Ok(())
+        })
+    }
+    pub(super) fn finish_terminal(&mut self) -> Result<Vec<u8>, &'static str> {
+        let Some(observation) = &mut self.observation else {
+            return self.customer.finish_terminal();
+        };
+        self.customer.finish_terminal_with_observer(&mut |value| {
+            observation.observe(value);
+            Ok(())
+        })
+    }
+    pub(super) fn suppress_chat_terminal(&mut self) {
+        self.customer.suppress_chat_terminal();
+    }
+    pub(super) fn finish_observation(&mut self) {
+        if let Some(mut observation) = self.observation.take() {
+            observation.finish();
+        }
+    }
+}
+
 pub(super) struct Collector {
     responses: bool,
     wire_bytes: usize,

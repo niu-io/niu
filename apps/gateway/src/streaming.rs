@@ -503,14 +503,15 @@ pub fn tracked_body<S>(
     attempt: StreamAttempt,
     structured: Option<crate::structured_stream::StructuredStream>,
     output_policy: Option<output_policy::BufferedOutputPolicy>,
+    observation: Option<output_policy::StreamOutputObservation>,
 ) -> Body
 where
     S: Stream<Item = Result<Bytes, reqwest::Error>> + Send + 'static,
 {
     if let Some(policy) = output_policy {
-        return buffered_protocol_body(upstream, attempt, false, None, policy);
+        return buffered_protocol_body(upstream, attempt, false, None, policy, observation);
     }
-    tracked_protocol_body(upstream, attempt, false, None, structured)
+    tracked_protocol_body(upstream, attempt, false, None, structured, observation)
 }
 
 pub fn tracked_responses_body<S>(
@@ -518,14 +519,29 @@ pub fn tracked_responses_body<S>(
     attempt: StreamAttempt,
     public_model: String,
     output_policy: Option<output_policy::BufferedOutputPolicy>,
+    observation: Option<output_policy::StreamOutputObservation>,
 ) -> Body
 where
     S: Stream<Item = Result<Bytes, reqwest::Error>> + Send + 'static,
 {
     if let Some(policy) = output_policy {
-        return buffered_protocol_body(upstream, attempt, true, Some(public_model), policy);
+        return buffered_protocol_body(
+            upstream,
+            attempt,
+            true,
+            Some(public_model),
+            policy,
+            observation,
+        );
     }
-    tracked_protocol_body(upstream, attempt, true, Some(public_model), None)
+    tracked_protocol_body(
+        upstream,
+        attempt,
+        true,
+        Some(public_model),
+        None,
+        observation,
+    )
 }
 
 /// Polling remains lazy: disconnecting drops PendingStreamAttempt and the
@@ -537,10 +553,19 @@ fn buffered_protocol_body<S>(
     responses: bool,
     public_model: Option<String>,
     policy: output_policy::BufferedOutputPolicy,
+    observation: Option<output_policy::StreamOutputObservation>,
 ) -> Body
 where
     S: Stream<Item = Result<Bytes, reqwest::Error>> + Send + 'static,
 {
+    let mut observation = observation.map(|callback| {
+        output_policy::ObservationState::new(
+            responses,
+            callback,
+            attempt.diagnostic_writes.clone(),
+            false,
+        )
+    });
     let mut pending = PendingStreamAttempt(Some(attempt));
     let timing = crate::request_timings::current();
     Body::from_stream(futures_util::stream::once(async move {
@@ -637,6 +662,9 @@ where
                     });
             }
         };
+        if let Some(mut observation) = observation.take() {
+            observation.finish_required(&complete);
+        }
         // Keep the permit until inspection and event construction finish.
         let _permit = &policy.slot;
         let output = match (policy.inspect)(complete).await {
@@ -654,10 +682,12 @@ fn tracked_protocol_body<S>(
     responses: bool,
     public_model: Option<String>,
     structured: Option<crate::structured_stream::StructuredStream>,
+    observation: Option<output_policy::StreamOutputObservation>,
 ) -> Body
 where
     S: Stream<Item = Result<Bytes, reqwest::Error>> + Send + 'static,
 {
+    let observation_tracker = attempt.diagnostic_writes.clone();
     let state = (
         Box::pin(upstream),
         ChatEvidence {
@@ -665,7 +695,12 @@ where
             structured,
             ..Default::default()
         },
-        crate::customer_response::CustomerSse::with_protocol(responses, public_model),
+        output_policy::ObservedCustomerOutput::new(
+            responses,
+            public_model,
+            observation,
+            observation_tracker,
+        ),
         PendingStreamAttempt(Some(attempt)),
         false,
     );
@@ -699,6 +734,7 @@ where
                         {
                             let context = attempt.take().expect("active stream context");
                             context.complete(&evidence).await;
+                            customer_output.finish_observation();
                             customer_output.suppress_chat_terminal();
                             let output = customer_output.feed(&bytes).and_then(|mut output| {
                                 output.extend(customer_output.finish_terminal()?);
@@ -751,6 +787,7 @@ where
                             stopped = true;
                             let context = attempt.take().expect("active stream context");
                             context.complete(&evidence).await;
+                            customer_output.finish_observation();
                             Ok(bytes)
                         } else {
                             Ok(bytes)
