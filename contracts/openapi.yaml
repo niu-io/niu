@@ -626,6 +626,8 @@ paths:
                         elapsed_ms: { type: integer, minimum: 0, maximum: 120000 }
                         outcome: { type: string, enum: [received, unavailable] }
                         upstream_http_status: { type: [integer, 'null'], minimum: 100, maximum: 599, description: "Safe HTTP failure status only; null for historical or unclassified outcomes. Does not prove generation nonexecution or authorize a refund." }
+                        upstream_error_code: { type: [string, 'null'], maxLength: 128, description: "Bounded observed Provider error code; no response message or body." }
+                        upstream_request_id: { type: [string, 'null'], maxLength: 200, description: "Bounded observed Provider correlation identifier for diagnostics." }
                         transport_phase: { type: [string, 'null'], enum: [connection, request, null], description: 'Observed stage only; historical unknown remains null and does not prove nonexecution.' }
         '401': { description: Invalid credential }
         '404': { description: Missing job or workspace/model access denied }
@@ -754,6 +756,8 @@ paths:
                         elapsed_ms: { type: integer, minimum: 0, maximum: 120000 }
                         outcome: { type: string, enum: [received, unavailable] }
                         upstream_http_status: { type: [integer, 'null'], minimum: 100, maximum: 599, description: "Safe HTTP failure status only; null for historical or unclassified outcomes. Does not prove generation nonexecution or authorize a refund." }
+                        upstream_error_code: { type: [string, 'null'], maxLength: 128, description: "Bounded observed Provider error code; no response message or body." }
+                        upstream_request_id: { type: [string, 'null'], maxLength: 200, description: "Bounded observed Provider correlation identifier for diagnostics." }
                         transport_phase: { type: [string, 'null'], enum: [connection, request, null], description: 'Observed stage only; historical unknown remains null and does not prove nonexecution.' }
         '401': { description: Invalid credential }
         '404': { description: Missing job or workspace/model access denied }
