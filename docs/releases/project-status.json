@@ -1,7 +1,7 @@
 {
   "version": 1,
   "updated": "2026-10-13",
-  "source_commit": "b3e9af801af01befd5cbfb4cf3df22cf8dafa2be",
+  "source_commit": "5ea518b3",
   "runtime_commit": "8ddf1dc8851dad085930467067f580ae3ca5f177",
   "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
   "active_implementation_tasks": [
@@ -310,8 +310,8 @@
             "docs/reference/invoice-payment-boundary-acceptance.md",
             "docs/reference/payment-local-capability-acceptance.md"
           ],
-          "evidence_revision": "c24e75b7",
-          "note": "Genuine saved unpaid merchant intent, duplicate/currency/amount/signed malicious callback refusals and balance reversal verified without fabricated funds. Positive received-cash transitions remain unverified; external activation is separate. Thirty actual HTTP/SDK responses independently verify local unactivated EPay checkout identity, restart/idempotency, retained uncertain order and negative callbacks without funding. Terminal paid/closed positive evidence is absent; external merchant activation remains separate."
+          "evidence_revision": "f30d7842",
+          "note": "Actual posted-charge refund and genuine saved Zhifux uncertain intent now independently verified on current native8bf/SDKce97: replay, changed-input and unsigned callback refusals, restart, nineteen unchanged whole-table fingerprints and zero merchant calls. Positive received-funds/closed transition remains unverified; fixture outcomes are excluded and merchant activation is not a capability prerequisite."
         }
       ]
     },
@@ -432,9 +432,11 @@
           "id": "S08-3",
           "status": "open",
           "acceptance": "Implement or verify supported reported media meters, bounded liability and exact settlement; missing quantity remains explicit and never inferred from file duration.",
-          "evidence": [],
-          "evidence_revision": null,
-          "note": ""
+          "evidence": [
+            "docs/reference/reported-media-meter-acceptance.md"
+          ],
+          "evidence_revision": "5789bb21",
+          "note": "Current native8bf/publicSDKce97 returns the genuine explicit video_tokens257277 meter across restart; independent task/query/financial snapshots remain exact. Owner-funded unpriced billing remains null. Positive priced liability/exact settlement/concurrency remains unverified; no quantity is inferred from media duration."
         }
       ]
     },

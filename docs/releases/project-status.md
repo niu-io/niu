@@ -1,7 +1,7 @@
 # Project delivery status
 
 Baseline v1; updated 2026-10-13.
-Committed audit source `b3e9af80`; native implementation `8ddf1dc8`.
+Committed audit source `5ea518b3`; native implementation `8ddf1dc8`.
 
 **Backend acceptance checkpoints: 25/36 recorded complete at their evidence pins.**
 **Whole backend subsystems closed: 4/12.**
@@ -77,7 +77,7 @@ Active implementation: S02-3, S08-2, S05-2, S10-2, S03-2, S04-3, S03-3, S05-3, S
 | --- | --- | --- | --- |
 | S06-1 | done | An administrator can read the truthful supported integration inventory independently of checkout activation. | [record](../../docs/reference/payment-aggregators.md) (`3fdc669c`) |
 | S06-2 | done | Publish the supported checkout, signed notification/query, duplicate, currency/amount verification and recovery inventory with exact interfaces. | [record](../../docs/reference/payment-capability-matrix.md) (`af34b6a3`) |
-| S06-3 | active | Establish supported funding/refund transitions and negative callback/idempotency protections from actual evidence; merchant activation is not a completion prerequisite. | [record](../../docs/reference/invoice-payment-boundary-acceptance.md), [record](../../docs/reference/payment-local-capability-acceptance.md) (`c24e75b7`) |
+| S06-3 | active | Establish supported funding/refund transitions and negative callback/idempotency protections from actual evidence; merchant activation is not a completion prerequisite. | [record](../../docs/reference/invoice-payment-boundary-acceptance.md), [record](../../docs/reference/payment-local-capability-acceptance.md) (`f30d7842`) |
 
 ### S07 — Request diagnostics and usage reports
 
@@ -93,7 +93,7 @@ Active implementation: S02-3, S08-2, S05-2, S10-2, S03-2, S04-3, S03-3, S05-3, S
 | --- | --- | --- | --- |
 | S08-1 | done | Actual personal video submission, key rotation, saved-job restart recovery, idempotent replay and independently decoded result are exercised. | [record](../../docs/reference/current-video-submission-restart.md) (`e704955`) |
 | S08-2 | active | Close the supported input/control/job/result/retention/asset authorization matrix and recovery without duplicate submission. | [record](../../docs/reference/ingested-image-video-input.md), [record](../../docs/reference/workspace-material-library.md), [record](../../docs/reference/workspace-material-sdk-acceptance.md), [record](../../docs/reference/workspace-material-format-acceptance.md), [record](../../docs/reference/workspace-material-storage-acceptance.md), [record](../../docs/reference/workspace-material-video-reference-acceptance.md), [record](../../docs/reference/video-saved-task-current-acceptance.md), [record](../../docs/reference/media-reference-facts.md), [record](../../docs/reference/media-inspection-contract.md), [record](../../docs/reference/media-detector-discovery-acceptance.md), [record](../../docs/reference/media-processing-receipts.md), [record](../../docs/reference/fastrouter-video-integration.md), [record](../../docs/reference/fastrouter-personal-video-submission-acceptance.md), [record](../../docs/reference/fastrouter-documented-video-acceptance.md), [record](../../docs/reference/personal-video-discovery-acceptance.md), [record](../../docs/reference/provider-asset-group-acceptance.md), [record](../../docs/reference/provider-video-asset-acceptance.md), [record](../../docs/reference/provider-verification-local-acceptance.md), [record](../../docs/reference/provider-verification-session-create-acceptance.md), [record](../../docs/reference/provider-asset-video-current-acceptance.md), [record](../../docs/reference/original-personal-video-configuration-acceptance.md) (`ab33ee17`) |
-| S08-3 | open | Implement or verify supported reported media meters, bounded liability and exact settlement; missing quantity remains explicit and never inferred from file duration. | Missing / not yet accepted |
+| S08-3 | open | Implement or verify supported reported media meters, bounded liability and exact settlement; missing quantity remains explicit and never inferred from file duration. | [record](../../docs/reference/reported-media-meter-acceptance.md) (`5789bb21`) |
 
 ### S09 — Durable Chat
 
