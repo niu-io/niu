@@ -144,6 +144,15 @@ impl CustomerSse {
         self.suppress_chat_terminal = true;
     }
     pub fn feed(&mut self, bytes: &[u8]) -> Result<Vec<u8>, &'static str> {
+        self.feed_with_observer(bytes, &mut |_| Ok(()))
+    }
+    /// Reuse the live frame parser and commercial projection for complete-output
+    /// collection. The observer receives sanitized events, never raw transport.
+    pub(crate) fn feed_with_observer(
+        &mut self,
+        bytes: &[u8],
+        observer: &mut impl FnMut(&Value) -> Result<(), &'static str>,
+    ) -> Result<Vec<u8>, &'static str> {
         if self.done {
             return Ok(Vec::new());
         }
@@ -200,6 +209,7 @@ impl CustomerSse {
                 response.insert("model".into(), Value::String(model.clone()));
                 changed = true;
             }
+            observer(&value)?;
             if changed {
                 // Preserve event fields, comments and identifiers; replace only data.
                 for line in text

@@ -1,5 +1,6 @@
 //! Bounded protocol-specific SSE inspection; customer output excludes supplier commercial metadata.
 mod messages;
+pub(crate) mod output_policy;
 use crate::{admission::GatewayWrites, usage::UsageAttempt};
 use axum::body::{Body, Bytes};
 use futures_util::{Stream, StreamExt};
@@ -501,18 +502,147 @@ pub fn tracked_body<S>(
     upstream: S,
     attempt: StreamAttempt,
     structured: Option<crate::structured_stream::StructuredStream>,
+    output_policy: Option<output_policy::BufferedOutputPolicy>,
 ) -> Body
 where
     S: Stream<Item = Result<Bytes, reqwest::Error>> + Send + 'static,
 {
+    if let Some(policy) = output_policy {
+        return buffered_protocol_body(upstream, attempt, false, None, policy);
+    }
     tracked_protocol_body(upstream, attempt, false, None, structured)
 }
 
-pub fn tracked_responses_body<S>(upstream: S, attempt: StreamAttempt, public_model: String) -> Body
+pub fn tracked_responses_body<S>(
+    upstream: S,
+    attempt: StreamAttempt,
+    public_model: String,
+    output_policy: Option<output_policy::BufferedOutputPolicy>,
+) -> Body
 where
     S: Stream<Item = Result<Bytes, reqwest::Error>> + Send + 'static,
 {
+    if let Some(policy) = output_policy {
+        return buffered_protocol_body(upstream, attempt, true, Some(public_model), policy);
+    }
     tracked_protocol_body(upstream, attempt, true, Some(public_model), None)
+}
+
+/// Polling remains lazy: disconnecting drops PendingStreamAttempt and the
+/// shared buffer permit. No upstream output reaches the client before the
+/// terminal evidence and the required immutable policy decision are handled.
+fn buffered_protocol_body<S>(
+    upstream: S,
+    attempt: StreamAttempt,
+    responses: bool,
+    public_model: Option<String>,
+    policy: output_policy::BufferedOutputPolicy,
+) -> Body
+where
+    S: Stream<Item = Result<Bytes, reqwest::Error>> + Send + 'static,
+{
+    let mut pending = PendingStreamAttempt(Some(attempt));
+    let timing = crate::request_timings::current();
+    Body::from_stream(futures_util::stream::once(async move {
+        let mut upstream = Box::pin(upstream);
+        let mut evidence = ChatEvidence {
+            responses,
+            ..Default::default()
+        };
+        let mut customer =
+            crate::customer_response::CustomerSse::with_protocol(responses, public_model);
+        let mut collector = output_policy::Collector::new(responses);
+        let complete = loop {
+            let bytes = match upstream.next().await {
+                Some(Ok(bytes)) => bytes,
+                Some(Err(error)) => {
+                    let kind = if error.is_timeout() {
+                        niu_storage::RequestFailureKind::UpstreamTimeout
+                    } else {
+                        niu_storage::RequestFailureKind::UpstreamTransportError
+                    };
+                    if let Some(context) = pending.take() {
+                        persist_stream_failure(context, kind).await;
+                    }
+                    return Err(io::Error::other("upstream stream interrupted"));
+                }
+                None => {
+                    if let Some(context) = pending.take() {
+                        persist_stream_failure(
+                            context,
+                            niu_storage::RequestFailureKind::UpstreamInvalidResponse,
+                        )
+                        .await;
+                    }
+                    return Err(io::Error::other(
+                        "upstream stream ended without a terminal event",
+                    ));
+                }
+            };
+            // Usage/terminal evidence has its existing independently bounded
+            // parser. Policy collection reuses CustomerSse's sanitized events.
+            if let Err(reason) = evidence.feed(&bytes) {
+                if let Some(context) = pending.take() {
+                    persist_stream_failure(
+                        context,
+                        niu_storage::RequestFailureKind::UpstreamInvalidResponse,
+                    )
+                    .await;
+                }
+                return Err(io::Error::other(reason));
+            }
+            if evidence.has_output
+                && let Some(timing) = &timing
+            {
+                timing.output();
+            }
+            let collected = collector.account(bytes.len()).and_then(|()| {
+                customer
+                    .feed_with_observer(&bytes, &mut |value| collector.observe(value))
+                    .map(|_| ())
+            });
+            if let Err(reason) = collected {
+                // A terminal generation remains chargeable even when its
+                // content cannot be inspected. Earlier interruption is unknown.
+                if let Some(context) = pending.take() {
+                    if evidence.done {
+                        context.complete(&evidence).await;
+                    } else {
+                        persist_stream_failure(
+                            context,
+                            niu_storage::RequestFailureKind::UpstreamInvalidResponse,
+                        )
+                        .await;
+                    }
+                }
+                let error = if reason.contains("limit exceeded") {
+                    crate::guardrails::input::InspectionError::ResourceLimit
+                } else {
+                    crate::guardrails::input::InspectionError::UnsupportedContent
+                };
+                break Err(error);
+            }
+            if evidence.done {
+                let context = pending.take().expect("active buffered stream context");
+                context.complete(&evidence).await;
+                break collector.complete().map_err(|reason| {
+                    if reason.contains("limit exceeded") {
+                        crate::guardrails::input::InspectionError::ResourceLimit
+                    } else {
+                        crate::guardrails::input::InspectionError::UnsupportedContent
+                    }
+                });
+            }
+        };
+        // Keep the permit until inspection and event construction finish.
+        let _permit = &policy.slot;
+        let output = match (policy.inspect)(complete).await {
+            Ok(value) => output_policy::replay(value, responses)
+                .unwrap_or_else(|_| output_policy::withheld()),
+            Err(()) => output_policy::withheld(),
+        };
+        Ok::<Bytes, io::Error>(Bytes::from(output))
+    }))
 }
 
 fn tracked_protocol_body<S>(
