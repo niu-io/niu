@@ -938,12 +938,15 @@ export class NiuAdminClient {
     return this.request(`/workspaces/${uuid(workspaceId)}`, undefined, options, 'DELETE');
   }
 
-  renameWorkspace(scope: TenantScope, name: string, options?: RequestOptions): Promise<{ id: string; name: string }> {
+  /** Accept workspace IDs for current callers and scoped legacy references for compatibility. */
+  renameWorkspace(scope: TenantScope | string, name: string, options?: RequestOptions): Promise<{ id: string; name: string }> {
+    if (typeof scope === 'string') return this.renameWorkspaceById(scope, name, options);
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}`, { name }, options, 'PATCH');
   }
 
   /** Only eligible empty workspaces may be deleted; existing business data is protected. */
-  deleteWorkspace(scope: TenantScope, options?: RequestOptions): Promise<void> {
+  deleteWorkspace(scope: TenantScope | string, options?: RequestOptions): Promise<void> {
+    if (typeof scope === 'string') return this.deleteWorkspaceById(scope, options);
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}`, undefined, options, 'DELETE');
   }
 
