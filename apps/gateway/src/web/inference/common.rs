@@ -135,6 +135,13 @@ static LIVE_INPUT_SLOTS: std::sync::LazyLock<std::sync::Arc<tokio::sync::Semapho
 static BUFFERED_OUTPUT_SLOTS: std::sync::LazyLock<std::sync::Arc<tokio::sync::Semaphore>> =
     std::sync::LazyLock::new(|| std::sync::Arc::new(tokio::sync::Semaphore::new(4)));
 
+static OBSERVED_OUTPUT_SLOTS: std::sync::LazyLock<std::sync::Arc<tokio::sync::Semaphore>> =
+    std::sync::LazyLock::new(|| std::sync::Arc::new(tokio::sync::Semaphore::new(4)));
+
+// Optional inspection cannot consume mandatory inspection capacity.
+static OBSERVED_INSPECTION_SLOTS: std::sync::LazyLock<std::sync::Arc<tokio::sync::Semaphore>> =
+    std::sync::LazyLock::new(|| std::sync::Arc::new(tokio::sync::Semaphore::new(4)));
+
 pub(super) async fn inspect_request_input(
     state: &AppState,
     principal: &niu_storage::Principal,
@@ -199,7 +206,6 @@ pub(super) async fn inspect_request_input_with_image_requirements(
     let mut rules = Vec::new();
     let mut detectors = Vec::new();
     let mut output_rule_count = 0usize;
-    let mut output_observe_rule_count = 0usize;
     for stored in [&snapshot.workspace_policy, &snapshot.key_policy]
         .into_iter()
         .flatten()
@@ -218,11 +224,6 @@ pub(super) async fn inspect_request_input_with_image_requirements(
                     .output
                     .as_ref()
                     .map_or(0, |output| output.rules.len());
-                if let Some(output) = &policy.output
-                    && output.mode == crate::guardrails::OutputMode::ObserveOnly
-                {
-                    output_observe_rule_count += output.rules.len();
-                }
                 if !crate::guardrails::EffectiveAccess::compose([policy.models])
                     .permits(public_model)
                 {
@@ -254,13 +255,11 @@ pub(super) async fn inspect_request_input_with_image_requirements(
                     | crate::guardrails::input::Protocol::VideoText
             )
             || (body.get("stream").and_then(Value::as_bool) == Some(true)
-                && (output_observe_rule_count > 0
-                    || !matches!(
-                        protocol,
-                        crate::guardrails::input::Protocol::Chat
-                            | crate::guardrails::input::Protocol::Responses
-                    )
-                    || body.get("n").is_some_and(|n| n.as_u64() != Some(1))))
+                && (!matches!(
+                    protocol,
+                    crate::guardrails::input::Protocol::Chat
+                        | crate::guardrails::input::Protocol::Responses
+                ) || body.get("n").is_some_and(|n| n.as_u64() != Some(1))))
             || body.get("tools").is_some()
             || body.get("functions").is_some()
             || body.get("response_format").is_some())
@@ -525,6 +524,20 @@ pub(super) async fn begin_retry_attempt(
     } else {
         None
     };
+    // Observation pressure never turns into a request refusal. With no slot,
+    // only an indeterminate observation is recorded; no content is collected.
+    let stream_observation_enabled = request_body.get("stream").and_then(Value::as_bool)
+        == Some(true)
+        && !output_observe_rules.is_empty();
+    let observed_stream_slot = stream_observation_enabled
+        .then(|| {
+            OBSERVED_OUTPUT_SLOTS
+                .clone()
+                .try_acquire_owned()
+                .ok()
+                .map(std::sync::Arc::new)
+        })
+        .flatten();
     let revision = route_revision(model);
     let (operation, attempt) = if let Some(route) = personal_route {
         if model.pricing.is_some() {
@@ -717,9 +730,33 @@ pub(super) async fn begin_retry_attempt(
             }),
         }
     });
+    let stream_output_observation = stream_observation_enabled.then(|| {
+        let state = state.clone();
+        let rules = output_observe_rules.clone();
+        crate::streaming::output_policy::StreamOutputObservation {
+            slot: observed_stream_slot,
+            observe: std::sync::Arc::new(move |original| {
+                let state = state.clone();
+                let rules = rules.clone();
+                Box::pin(async move {
+                    observe_complete_output(
+                        &state,
+                        scope,
+                        attempt,
+                        protocol,
+                        original.as_ref().map_err(|error| *error),
+                        &rules,
+                        std::time::Instant::now(),
+                    )
+                    .await;
+                })
+            }),
+        }
+    });
     crate::request_timings::dispatched(&state.store, attempt);
     Ok(DispatchContext {
         buffered_stream_output,
+        stream_output_observation,
         retained_input,
         output_rules,
         output_observe_rules,
@@ -804,11 +841,12 @@ async fn inspect_output_rules(
     protocol: crate::guardrails::input::Protocol,
     original: &Value,
     rules: &[crate::guardrails::input::RuleConfig],
+    slots: std::sync::Arc<tokio::sync::Semaphore>,
 ) -> Result<(Value, bool), crate::guardrails::input::InspectionError> {
     use crate::guardrails::input::{CompiledInputPolicy, InspectionError};
     let original = original.clone();
     let rules = rules.to_vec();
-    crate::guardrails::input::run_bounded(LIVE_INPUT_SLOTS.clone(), move || {
+    crate::guardrails::input::run_bounded(slots, move || {
         CompiledInputPolicy::compile(&rules)
             .and_then(|policy| policy.inspect_output(protocol, &original))
             .map(|transformed| {
@@ -839,37 +877,16 @@ async fn inspect_complete_output(
             serde_json::from_slice::<Value>(bytes).map_err(|_| InspectionError::UnsupportedContent)
         });
     if !dispatch.output_observe_rules.is_empty() {
-        let observation = match &original {
-            Ok(original) => {
-                inspect_output_rules(dispatch.protocol, original, &dispatch.output_observe_rules)
-                    .await
-            }
-            Err(InspectionError::ResourceLimit) => Err(InspectionError::ResourceLimit),
-            Err(_) => Err(InspectionError::UnsupportedContent),
-        };
-        let (outcome, reason) = match observation {
-            Ok((_, false)) => ("clear", "inspected_text"),
-            Ok((_, true)) | Err(InspectionError::Blocked) => ("matched", "pattern_match"),
-            Err(InspectionError::UnsupportedContent) => ("indeterminate", "unsupported_content"),
-            Err(InspectionError::ResourceLimit) => ("indeterminate", "resource_limit"),
-            Err(InspectionError::InvalidPattern) => ("indeterminate", "inspection_unavailable"),
-        };
-        let elapsed = i64::try_from(started.elapsed().as_millis()).unwrap_or(i64::MAX);
-        if state
-            .store
-            .record_output_guardrail_observation(
-                dispatch.scope,
-                dispatch.attempt,
-                outcome,
-                reason,
-                elapsed,
-            )
-            .await
-            .is_err()
-        {
-            // Observation must never become an implicit output blocking rule.
-            tracing::error!(attempt_id = %dispatch.attempt, "output observation could not be saved");
-        }
+        observe_complete_output(
+            state,
+            dispatch.scope,
+            dispatch.attempt,
+            dispatch.protocol,
+            original.as_ref().map_err(|error| *error),
+            &dispatch.output_observe_rules,
+            started,
+        )
+        .await;
     }
     if dispatch.output_rules.is_empty() {
         return match bytes {
@@ -896,9 +913,46 @@ async fn inspect_complete_output(
     }
 }
 
+/// Matching and indeterminate observation results never transform or withhold
+/// output. Stream callers do not await this work on the delivery path.
+async fn observe_complete_output(
+    state: &AppState,
+    scope: niu_storage::TenantScope,
+    attempt: Uuid,
+    protocol: crate::guardrails::input::Protocol,
+    original: Result<&Value, crate::guardrails::input::InspectionError>,
+    rules: &[crate::guardrails::input::RuleConfig],
+    started: std::time::Instant,
+) {
+    use crate::guardrails::input::InspectionError;
+    let observation = match original {
+        Ok(original) => {
+            inspect_output_rules(protocol, original, rules, OBSERVED_INSPECTION_SLOTS.clone()).await
+        }
+        Err(InspectionError::ResourceLimit) => Err(InspectionError::ResourceLimit),
+        Err(_) => Err(InspectionError::UnsupportedContent),
+    };
+    let (outcome, reason) = match observation {
+        Ok((_, false)) => ("clear", "inspected_text"),
+        Ok((_, true)) | Err(InspectionError::Blocked) => ("matched", "pattern_match"),
+        Err(InspectionError::UnsupportedContent) => ("indeterminate", "unsupported_content"),
+        Err(InspectionError::ResourceLimit) => ("indeterminate", "resource_limit"),
+        Err(InspectionError::InvalidPattern) => ("indeterminate", "inspection_unavailable"),
+    };
+    let elapsed = i64::try_from(started.elapsed().as_millis()).unwrap_or(i64::MAX);
+    if state
+        .store
+        .record_output_guardrail_observation(scope, attempt, outcome, reason, elapsed)
+        .await
+        .is_err()
+    {
+        // Observation must never become an implicit output blocking rule.
+        tracing::error!(attempt_id = %attempt, "output observation could not be saved");
+    }
+}
+
 /// Both buffered JSON and fully retained streams share inspection and durable
-/// decision semantics. A failed decision write withholds output, without changing
-/// already executed usage or inventing a second completion.
+/// decision semantics, without inventing a second completion.
 enum RequiredOutputInput {
     Buffered(Result<Value, crate::guardrails::input::InspectionError>),
     Stream(Result<Value, crate::guardrails::input::InspectionError>),
@@ -919,7 +973,9 @@ async fn inspect_required_output(
         RequiredOutputInput::Stream(original) => (original, true),
     };
     let inspected = match original {
-        Ok(original) => inspect_output_rules(protocol, &original, rules).await,
+        Ok(original) => {
+            inspect_output_rules(protocol, &original, rules, LIVE_INPUT_SLOTS.clone()).await
+        }
         Err(error) => Err(error),
     }
     .and_then(|(value, changed)| {
@@ -1058,6 +1114,8 @@ pub(super) async fn finalize_response(
 
 #[derive(Clone)]
 pub(super) struct DispatchContext {
+    pub(super) stream_output_observation:
+        Option<crate::streaming::output_policy::StreamOutputObservation>,
     pub(super) buffered_stream_output:
         Option<crate::streaming::output_policy::BufferedOutputPolicy>,
     output_rules: Vec<crate::guardrails::input::RuleConfig>,
