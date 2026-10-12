@@ -476,6 +476,10 @@ impl Drop for PendingStreamAttempt {
 }
 
 async fn persist_stream_failure(context: StreamAttempt, kind: niu_storage::RequestFailureKind) {
+    // This helper runs only after upstream response headers were accepted.
+    // A body timeout is therefore a request-phase failure, never a connect one.
+    let transport_phase = (kind == niu_storage::RequestFailureKind::UpstreamTimeout)
+        .then_some(niu_storage::RequestTransportPhase::Request);
     context.failures.fetch_add(1, Ordering::Relaxed);
     if context
         .store
@@ -485,7 +489,7 @@ async fn persist_stream_failure(context: StreamAttempt, kind: niu_storage::Reque
             niu_storage::RequestFailure {
                 kind,
                 upstream_http_status: None,
-                transport_phase: None,
+                transport_phase,
             },
         )
         .await
