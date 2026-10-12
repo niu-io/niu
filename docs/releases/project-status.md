@@ -108,7 +108,7 @@ Active implementation: S01-3, S02-3, S08-2, S05-2, S10-2. Assignments use stable
 | ID | Status | Acceptance | Evidence pin |
 | --- | --- | --- | --- |
 | S10-1 | done | Inventory and publish platform authentication/branding/theme/payment configuration and member profile/preferences contracts with correct authority. | [record](../../docs/reference/platform-configuration-acceptance.md) (`4a459338`) |
-| S10-2 | active | Verify supported secret/config persistence, audit/revisions and encryption-key rotation without changing existing identities or exposing secrets. | Missing / not yet accepted |
+| S10-2 | active | Verify supported secret/config persistence, audit/revisions and encryption-key rotation without changing existing identities or exposing secrets. | [record](../../docs/reference/encryption-configuration-acceptance.md) (`186662c5`) |
 | S10-3 | open | Coordinate configuration changes, current permission checks and supported public-safe projections; reject arbitrary executable branding/config content. | Missing / not yet accepted |
 
 ### S11 — Contracts, SDK and documentation

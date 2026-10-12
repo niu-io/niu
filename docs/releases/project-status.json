@@ -454,9 +454,11 @@
           "id": "S10-2",
           "status": "active",
           "acceptance": "Verify supported secret/config persistence, audit/revisions and encryption-key rotation without changing existing identities or exposing secrets.",
-          "evidence": [],
-          "evidence_revision": null,
-          "note": ""
+          "evidence": [
+            "docs/reference/encryption-configuration-acceptance.md"
+          ],
+          "evidence_revision": "186662c5",
+          "note": "Actual offline transition of 89 populated envelopes plus rechecked historical interrupted/asset/video transitions; empty supported domains remain unverified, task stays active."
         },
         {
           "id": "S10-3",
