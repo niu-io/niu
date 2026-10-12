@@ -221,3 +221,13 @@ access or empty policy/history. Preserve known policy data. The [actual recovery
 checkpoint](https://github.com/niu-io/niu/blob/main/docs/reference/api-key-ip-policies.md#bounded-source-policy-reads--2026-10-12)
 checks no dispatch on timeout, one accurately charged recovery call, deny-all
 across restart and revocation. Dispatch-time revalidation remains in place.
+
+
+## Tool streams with key limits
+
+A [combined current-input checkpoint](https://github.com/niu-io/niu/blob/main/docs/reference/key-controlled-tool-streaming.md)
+exercises actual tool/result/final text streams with source, spending, RPM, TPM
+and concurrency policies configured before dispatch. Rotation and restart
+preserve RPM exhaustion and an exact consumed spending ceiling. Four actual
+calls produce four independently checked charges/debits; refused calls add none.
+This run does not qualify TPM/concurrency exhaustion or sustained mixed traffic.

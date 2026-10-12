@@ -218,3 +218,11 @@ inference with exact charging, deny-all enforcement across restart and revocatio
 Storage timeout does not bypass an IP policy. Independent native reopening
 preserves earlier financial history plus the sole accurately debited recovery call.
 Broader admission races, proxy configuration and performance remain unverified.
+
+
+[Key-controlled tool streaming](../reference/key-controlled-tool-streaming.md)
+combines actual two-turn text tool streams with five pre-dispatch key policies,
+rotation, RPM/spending refusal and restart. Independent stream/native checks
+verify four exact charges/debits and no extra request on refusal. This adds
+integration evidence; TPM/concurrency exhaustion and sustained combined traffic
+remain outside this run's scope.
