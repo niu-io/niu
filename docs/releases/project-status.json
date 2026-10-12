@@ -1,8 +1,8 @@
 {
   "version": 1,
   "updated": "2026-10-12",
-  "source_commit": "edac585b56214996ea66a4d3a0ab2ff61aaa9cea",
-  "runtime_commit": "13952e57ddde7c8aad3d16c4ddf8361191fda97a",
+  "source_commit": "bfdeecd5a6421af209b77671a06097449e0a8f88",
+  "runtime_commit": "50ff308d85ee2fc6644764d4e514e036ce205bee",
   "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
   "active_implementation_tasks": [
     "S02-3",
@@ -207,10 +207,11 @@
           "evidence": [
             "docs/reference/guardrails-acceptance-matrix.md",
             "docs/reference/buffered-output-policy-execution.md",
-            "docs/reference/output-default-capture-acceptance.md"
+            "docs/reference/output-default-capture-acceptance.md",
+            "docs/reference/buffered-output-streaming-acceptance.md"
           ],
           "evidence_revision": "1212ea3b",
-          "note": "Actual local input, consent/revision/rollback and buffered block/redact are verified. Current default capture matches delivered buffered/stream bytes, exact charges and final reopened released holds; five output-incompatible combinations refuse before dispatch. Stream/tool output inspection remains unsupported; configured external execution/failure coverage remains unverified."
+          "note": "Actual local input, consent/revision/rollback, buffered and full-buffer plain-text Chat/Responses stream block/redact are verified. Default capture matches final delivered bytes, exact charges and final reopened released holds. Observation-only streaming, tool output inspection and configured external execution/failure coverage remain unsupported or unverified; cancellation and overflow qualification remain open."
         }
       ]
     },
@@ -402,10 +403,11 @@
             "docs/reference/workspace-material-format-acceptance.md",
             "docs/reference/workspace-material-storage-acceptance.md",
             "docs/reference/workspace-material-video-reference-acceptance.md",
-            "docs/reference/video-saved-task-current-acceptance.md"
+            "docs/reference/video-saved-task-current-acceptance.md",
+            "docs/reference/media-reference-facts.md"
           ],
           "evidence_revision": "ab33ee17",
-          "note": "Durable three-kind/eight-format library, scoped SDK lifecycle, byte/object caps and nonempty rotation independently verified. Current saved real job status/replay/auth/expiry/restart checked without new generation or upstream query. Saved-image atomic coordinator is implemented; genuine fresh-inspection/Ark dispatch, its deletion race and Provider asset reuse remain unverified; audio/video material task references remain unsupported."
+          "note": "Durable three-kind/eight-format library, scoped SDK lifecycle, byte/object caps and nonempty rotation independently verified. Current saved real job status/replay/auth/expiry/restart checked without new generation. Bounded reference timing/codec facts facility added with actual media/packet verification. Saved-image atomic coordinator is implemented; genuine fresh-inspection/Ark dispatch, deletion race and Provider reuse remain unverified. Audio/video reference inspection, transport handoff and task bindings remain unimplemented."
         },
         {
           "id": "S08-3",
