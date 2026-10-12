@@ -310,26 +310,39 @@ pub(crate) async fn effective_models(
     catalog_models(state, None).await
 }
 
-/// Pricing eligibility and its owner-funded diagnostic must observe the same
-/// registry state. Publication never changes routing eligibility or funding.
+/// Price preparation requires a registered shared billing identity, not a live
+/// eligible inference route. Use one registry snapshot and preserve alias
+/// shadowing so disabled/draft routes cannot fall back to static configuration.
+/// Publishing a price never qualifies supply, grants a key or enables dispatch.
 pub(crate) async fn require_customer_tariff_model(
     state: &AppState,
     organization_id: uuid::Uuid,
     alias: &str,
 ) -> Result<(), ApiError> {
     let (static_models, inputs) = super::publication::catalog_inputs(state).await?;
-    let shared = super::catalog_compiler::compile_catalog(&static_models, &inputs, None)?;
-    if shared.contains_key(alias) {
-        return Ok(());
+    // Pools shadow managed and static aliases even while disabled or empty.
+    let ownership = if let Some(pool) = inputs.pools.iter().find(|pool| pool.alias == alias) {
+        Some(pool.organization_id)
+    } else if let Some(route) = inputs
+        .routes
+        .iter()
+        .find(|route| route.model.alias == alias)
+    {
+        Some(route.personal_organization_id)
+    } else if static_models.contains_key(alias) {
+        Some(None)
+    } else {
+        None
+    };
+    match ownership {
+        Some(None) => Ok(()),
+        Some(Some(owner)) if owner == organization_id => Err(ApiError::invalid_request(
+            "Personal owner-funded models do not accept customer tariffs; choose a registered shared billing model",
+        )),
+        _ => Err(ApiError::invalid_request(
+            "Choose a registered shared model alias",
+        )),
     }
-    let scoped =
-        super::catalog_compiler::compile_catalog(&static_models, &inputs, Some(organization_id))?;
-    if scoped.contains_key(alias) {
-        return Err(ApiError::invalid_request(
-            "Personal owner-funded models do not accept customer tariffs; choose an available shared billing model",
-        ));
-    }
-    Err(ApiError::invalid_request("Choose an available model alias"))
 }
 
 pub(crate) async fn scoped_models(
