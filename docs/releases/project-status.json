@@ -1,8 +1,8 @@
 {
   "version": 1,
   "updated": "2026-10-12",
-  "source_commit": "ab33ee172fbff52357bdd5375dcc3d5e80676244",
-  "runtime_commit": "ab33ee172fbff52357bdd5375dcc3d5e80676244",
+  "source_commit": "4a2f956cbad72eda0a240ef627b9d04f259036a9",
+  "runtime_commit": "a25b0d41f10aef285c90172821d084818a2f86a2",
   "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
   "active_implementation_tasks": [
     "S02-3",
@@ -154,10 +154,12 @@
           "status": "active",
           "acceptance": "Close material timeout/cancellation/uncertainty and bounded fallback gaps on supported paths; preserve model, credential and financial identity.",
           "evidence": [
-            "docs/reference/inference-failure-acceptance.md"
+            "docs/reference/inference-failure-acceptance.md",
+            "docs/reference/provider-timeout-configuration-acceptance.md",
+            "docs/reference/request-transport-phase-acceptance.md"
           ],
           "evidence_revision": "1212ea3b",
-          "note": "Current actual Responses auth fallback, cancellation and deadline preserve pinned identities and exact bounded unknown holds; current cross-protocol failure coverage remains open."
+          "note": "Actual Responses auth fallback, cancellation and deadline preserve pinned identities and bounded unknown holds. Current native connection failure persists its observed phase through Logs, CSV, SDK and restart; historical unknown phases remain unknown. Default/explicit/clamped text connection and DNS budgets verified without generation. Cross-protocol request-phase, cancellation and bounded fallback coverage remains open."
         }
       ]
     },
@@ -592,7 +594,7 @@
             "docs/reference/native-runtime-operations.md"
           ],
           "evidence_revision": "c24e75b7",
-          "note": "Finite native operations inventory: actual bounded directory/cursor/alias waits, graceful exit while lock held, connection allocation/invalid-config/startup/restart, restored backups and explicit recovery/drain limits. No global shutdown SLA or arbitrary failure/interleaving qualification."
+          "note": "Finite native operations inventory includes bounded storage waits, graceful drain, configuration/restart and independently restored backups. Current schema-287 native deployment preserves configuration, encrypted credential identities and retained business data; its fresh backup was independently restored. No global shutdown SLA or arbitrary failure/interleaving qualification."
         },
         {
           "id": "S12-3",

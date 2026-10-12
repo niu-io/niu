@@ -1,7 +1,7 @@
 # Project delivery status
 
 Baseline v1; updated 2026-10-12.
-Committed audit source `ab33ee17`; native implementation `ab33ee17`.
+Committed audit source `4a2f956c`; native implementation `a25b0d41`.
 
 **Backend acceptance checkpoints: 24/36 recorded complete at their evidence pins.**
 **Whole backend subsystems closed: 3/12.**
@@ -53,7 +53,7 @@ Active implementation: S02-3, S08-2, S05-2, S10-2, S03-2, S04-3, S03-3, S05-3, S
 | --- | --- | --- | --- |
 | S03-1 | done | The exercised actual text/tool-result streams retain reported usage, finish state and independently checked charges. | [record](../../docs/reference/key-controlled-tool-streaming.md) (`a9de7c8`) |
 | S03-2 | active | Publish a finite supported Chat/Responses/Embeddings/Messages/GenerateContent matrix; qualify declared working combinations and explicit rejection of unsupported ones. | [record](../../docs/reference/inference-protocol-acceptance-matrix.md) (`1212ea3b`) |
-| S03-3 | active | Close material timeout/cancellation/uncertainty and bounded fallback gaps on supported paths; preserve model, credential and financial identity. | [record](../../docs/reference/inference-failure-acceptance.md) (`1212ea3b`) |
+| S03-3 | active | Close material timeout/cancellation/uncertainty and bounded fallback gaps on supported paths; preserve model, credential and financial identity. | [record](../../docs/reference/inference-failure-acceptance.md), [record](../../docs/reference/provider-timeout-configuration-acceptance.md), [record](../../docs/reference/request-transport-phase-acceptance.md) (`1212ea3b`) |
 
 ### S04 — Key controls and Guardrails
 
