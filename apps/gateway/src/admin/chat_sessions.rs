@@ -284,6 +284,24 @@ pub async fn archive(
 ///     ],
 ///     "parameters": [
 ///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
 ///         "name": "archived",
 ///         "in": "query",
 ///         "schema": {

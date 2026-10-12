@@ -31,6 +31,24 @@ Each array entry is an alternative; schemes within one entry are required togeth
 
 ### Parameters
 
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
 `archived` (query, optional)
 
 ```json
