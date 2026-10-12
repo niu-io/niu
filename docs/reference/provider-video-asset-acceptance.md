@@ -1,6 +1,6 @@
 # Provider video asset acceptance
 
-An actual current-input run verified one owned video asset creation in the [genuine Provider group](provider-asset-group-acceptance.md). An official read returned Active for the exact created asset. At this snapshot, Niu's refresh still returned 502 and its saved state remained `processing`; successful Gateway Active persistence is not yet claimed.
+An actual current-input run verified one owned video asset creation in the [genuine Provider group](provider-asset-group-acceptance.md). An official read returned Active for the exact created asset. A subsequent zero-mutation run verified Niu's Active persistence and restart for the same asset. The earlier 502 and saved `processing` snapshot are retained below.
 
 The retained Gateway was `49bfe8766cc4d7d5cb7df3ec881693d929d5b13a`, binary SHA-256 `7693d305e4b99d9df93ca24b6f2b73cff738777c1ea8ca74d7d5db3647b2d57d`. The executed SDK was `4d889d51612edd1ce31f5d148bbc3871433a9ecf`. A new isolated copy of the stopped actual group database used schema 292. The original group proof, original database, credential and model configuration were preserved.
 
@@ -29,6 +29,19 @@ An independent verifier reopened the stopped final database and confirmed one ex
 
 The narrowly implemented `decode_owned_asset_read` helper requires `GetAsset` and the exact expected asset identifier. Missing or empty-string `GroupId` can use the caller's saved parent context; it does not claim that the Provider reported that parent. A nonempty mismatched group, null or malformed group value remains invalid. Generic and list decoders remain strict. The caller must independently verify an acknowledged create operation and immutable scoped asset, parent and route bindings before using this helper.
 
-Direct parsing of the same saved actual response verified that the original strict decoder rejects the empty field and the helper decodes Active with the exact asset and saved parent context. Compilation and Clippy are static evidence only. This helper result is not a post-fix Gateway acceptance run; the Gateway callsite and durable acknowledgement guard require integration and actual verification.
+Direct parsing of the same saved actual response verified that the original strict decoder rejects the empty field and the helper decodes Active with the exact asset and saved parent context. Compilation and Clippy are static evidence only. That saved-response helper result was not itself a post-fix Gateway acceptance run. The later current-input verification below covers the integrated callsite and durable acknowledgement guard for this actual owned asset.
 
 This evidence does not qualify additional asset types, asset update/delete, face verification, after-send unknown recovery, customer billing, or video generation using a Niu asset reference. No local inspection or fabricated processing approval was substituted for the actual Provider response.
+
+
+## Integrated owned-asset refresh acceptance
+
+A subsequent isolated copy used retained Gateway `fd91291cf3e8c66dece9df159ad7f64b649c8d9a`, binary SHA-256 `82a75da7ce7b7c9093558006bd18b3da0f12216e681162bf1ca44bb9de149b6f`, and executed SDK `8a22ff830d748bb69c74236ce9379808192a88ff`. The actual source migrated from schema 292 to 293. The original processing/502 proof remained unchanged.
+
+A legitimate new key in the same workspace with permission for the actual model refreshed the exact saved asset once. The SDK refresh returned HTTP 200 and `active`. Subsequent scoped reads and Gateway restart preserved that state and the same Niu asset and group references, name and video kind. No new asset creation, other mutation, video generation or face operation was made.
+
+The integrated path checks a recorded acknowledged `create_asset` operation and immutable scoped asset, group, credential and model bindings before invoking the owned-read decoder. Its saved parent context resolves the actual empty `GroupId`; the response's exact asset identity remains mandatory. This establishes Niu's local ownership relationship, not a Provider-reported group identity or a processing-policy/commercial approval.
+
+An independent verifier reopened the stopped source and final database. It confirmed that only the same asset's status (`processing` to `active`), revision (incremented once) and update timestamp changed. Provider asset and parent references, local group, name, kind and route bindings remained identical. The original ready group, two acknowledged operations, canonical mutation evidence, Supplier/model configuration and full original financial and media records were preserved. New verification-session tables in schema 293 remained empty.
+
+All response projections retained safe fields. The temporary key was revoked after refresh, reads and restart verification, and copied processes were stopped. This closes the actual creation-to-Active persistence and restart path for this owned video asset. Asset update/delete, other media types, after-send unknown recovery, face verification, customer billing and video generation using a Niu asset reference remain outside this evidence.
