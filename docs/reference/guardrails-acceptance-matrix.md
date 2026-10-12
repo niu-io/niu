@@ -3,8 +3,10 @@
 Reviewed 2026-10-12. This records S04-3, with current native implementation
 `1212ea3b68f934c22fff6c62696475d2f628fc6a` and retained executable SHA-256
 `f299e3c484bb1a724fe5e4e9e581d45ef552cf1da496a65ff5dd7fae5868e553`.
-S04-3 remains open: configured external processing and its failure paths are not
-accepted by this checkpoint. Fixture outcomes provide no evidence.
+At that historical checkpoint S04-3 remained open; configured external processing
+and its failure paths were not accepted. The later finite completion boundary
+below separates backend readiness from optional external qualification. Fixture
+outcomes provide no evidence.
 
 ## Supported scope and evidence
 
@@ -151,3 +153,43 @@ external success, transport timeout/mismatch, native GenerateContent enforcement
 on a compatible Provider, or any new output-generation path. Previously pinned
 actual output execution retains its separate scope. The full S04-3 status remains
 owned by the release checkpoint; fixture outcomes provide no evidence.
+
+## Finite completion boundary
+
+S04-3 concerns applicable local/external input and output coverage, consent,
+preview/revision/rollback and fail-closed behavior. External integration success
+is not a backend-readiness requirement. A disabled optional detector may retain
+an explicitly unqualified status; Niu must not advertise its unobserved success,
+timeout, fingerprint-mismatch or service-failure guarantees as accepted evidence.
+No real detector or authorization is fabricated to make this matrix appear green.
+
+The selected local plain-text paths have actual evidence for their applicable
+mechanisms. Current `8bfdef10` input refusals and policy management above cover
+local extraction, permissions, consent refusal, immutable revisions, rollback,
+preview boundaries, restart and bounded storage failure. Pinned `606f863eee3fb87d0813d42b172748cf1f570f69`
+[buffered executions](buffered-output-policy-execution.md) establish paid
+Chat block and Responses redaction. Pinned `13952e57ddde7c8aad3d16c4ddf8361191fda97a`
+[default capture](output-default-capture-acceptance.md), `50ff308d85ee2fc6644764d4e514e036ce205bee`
+[required streaming](buffered-output-streaming-acceptance.md) and `45395e7e01917e0691acc9c6b2f303128390bf6b`
+[observation/composition](stream-output-observation-acceptance.md) establish their
+separate actual delivery, policy-binding, capture and exact-accounting scopes.
+The observation-write failure is identified as a controlled persistence fault;
+it is not external-checker failure evidence.
+
+Together these finite slices satisfy the exercised Niu-side local workflow and
+safe optional-integration refusal boundary. They do not imply every protocol,
+content type, mode or mathematical combination was executed on the newest
+binary. Native Messages and GenerateContent nonstream output extractors exist;
+positive output enforcement on those protocols remains unverified. GenerateContent
+input enforcement on a compatible activated route also remains unverified.
+Required tool/structured-output combinations and unsupported native streams
+remain explicitly refused; audio/video detector policies remain unavailable for
+activation. Their existence or discovery metadata does not become an approval.
+
+No additional local implementation gap is demonstrated by this completion audit.
+Optional external positive qualification, collector saturation/overflow,
+protocol-specific additional output qualification and broader media inspection
+remain explicitly scoped follow-up qualification, without becoming invented
+release prerequisites. The fixed criterion is unchanged; the release checkpoint
+owns the finite S04-3 completion decision. This does not declare universal F09
+coverage, new external guarantees or an all-protocol current-runtime rerun.
