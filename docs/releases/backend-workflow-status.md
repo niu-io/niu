@@ -295,3 +295,11 @@ The [current timing checkpoint](../reference/video-timing-read-snapshot.md)
 verifies public and ordinary-viewer reads of actual saved transport/lifecycle
 records, bounded lock refusal, recovery, restart and revocation. Native data
 remained unchanged. This does not qualify every video read or a global deadline.
+
+## Ordinary-owner Chat lifecycle
+
+The [current saved-conversation checkpoint](chat-export-verification.md)
+verifies two actual follow-up calls, exact charges and content-only export,
+ordinary-owner isolation, archive preservation and deletion across restart.
+This is one plain-text model branch; attachments, concurrent edits, large
+history pagination and complete frontend integration remain unverified.

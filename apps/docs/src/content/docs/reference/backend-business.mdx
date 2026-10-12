@@ -308,3 +308,11 @@ verifies public and workspace-viewer reads, sanitized 503 under a held table
 lock, recovery and restart against independent native records. Fields and
 ordering remain unchanged; pool acquisition and complete request deadlines
 are separate boundaries.
+
+
+The [current durable Chat lifecycle](https://github.com/niu-io/niu/blob/main/docs/releases/chat-export-verification.md)
+uses two real model calls under an ordinary workspace owner. It verifies saved
+two-turn content, customer-charge hydration, archive/rename/restart, content-only
+export, owner isolation and deletion that preserves request accounting. The
+consumer supplies previous inference context. Attachment, multi-branch and
+frontend qualification remain separate.
