@@ -1,6 +1,6 @@
 # Backend workflow verification status
 
-Reviewed 2026-10-12 against implementation `e1d4325`; native implementation `e1d4325`.
+Reviewed 2026-10-12 against implementation `1025bf9`; native implementation `1025bf9`.
 This is an index of scoped evidence, not a declaration that the complete release
 or New API comparison is qualified. Linked runs identify their own implementation
 revisions. Fixture outcomes provide no evidence. Current-input runs and
@@ -303,3 +303,11 @@ verifies two actual follow-up calls, exact charges and content-only export,
 ordinary-owner isolation, archive preservation and deletion across restart.
 This is one plain-text model branch; attachments, concurrent edits, large
 history pagination and complete frontend integration remain unverified.
+
+## Personal Chat history paging
+
+The [continuation contract](../reference/chat-history-pagination.md) adds
+scoped recent-history pages and SDK support while preserving latest-100 callers.
+Actual saved responses beyond that boundary, charge hydration, cursor conflict,
+bounded storage refusal and restart were independently verified. Frontend
+integration and cross-page concurrent mutations remain separate.

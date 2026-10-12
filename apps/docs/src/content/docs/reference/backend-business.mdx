@@ -316,3 +316,11 @@ two-turn content, customer-charge hydration, archive/rename/restart, content-onl
 export, owner isolation and deletion that preserves request accounting. The
 consumer supplies previous inference context. Attachment, multi-branch and
 frontend qualification remain separate.
+
+
+[Personal Chat history paging](https://github.com/niu-io/niu/blob/main/docs/reference/chat-history-pagination.md)
+adds optional `limit`/`after` continuation and SDK `listChatSessionPage`.
+An ordinary owner read 101 saved actual-response sessions through HTTP and
+the SDK with native charge hydration. Updated or inaccessible cursors return
+409; bounded storage waits return sanitized 503. Existing calls keep their
+latest-100 response, so complete frontend history requires integrating paging.
