@@ -214,6 +214,7 @@ pub(super) async fn inspect_request_input_with_image_requirements(
         let reason = match policy {
             Ok(policy)
                 if policy.validate_shape().is_ok()
+                    && policy.media_detectors.is_empty()
                     && (policy.image_detectors.is_empty() || allow_image_requirements)
                     && !(matches!(protocol, crate::guardrails::input::Protocol::VideoText)
                         && (!policy.input_detectors.is_empty() || policy.output.is_some())) =>

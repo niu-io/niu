@@ -14,6 +14,13 @@ async fn validate_policy(
     policy
         .validate_shape()
         .map_err(|_| ApiError::invalid_request(message))?;
+    // Recognized consent must never activate without exact-content inspection,
+    // Provider handoff and atomic dispatch enforcement on the supported path.
+    if !policy.media_detectors.is_empty() {
+        return Err(ApiError::unsupported_message(
+            "Audio/video processing policies are not available for activation yet",
+        ));
+    }
     for binding in &policy.input_detectors {
         if !state
             .detectors

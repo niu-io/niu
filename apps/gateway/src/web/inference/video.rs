@@ -970,6 +970,7 @@ pub(super) fn policy_permits_video_with_images(
                 && crate::guardrails::EffectiveAccess::compose([policy.models]).permits(model)
                 && crate::guardrails::EffectiveAccess::compose([policy.providers]).permits(adapter)
                 && (policy.image_detectors.is_empty() || images)
+                && policy.media_detectors.is_empty()
                 && policy.input_detectors.is_empty()
                 && policy.output.is_none()
         })
