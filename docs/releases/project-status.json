@@ -1,7 +1,7 @@
 {
   "version": 1,
   "updated": "2026-10-12",
-  "source_commit": "95195f50a56540f8ea7e6d6e435ea28e32cbe0cd",
+  "source_commit": "edac585b56214996ea66a4d3a0ab2ff61aaa9cea",
   "runtime_commit": "13952e57ddde7c8aad3d16c4ddf8361191fda97a",
   "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
   "active_implementation_tasks": [
@@ -206,10 +206,11 @@
           "acceptance": "Document and verify applicable F09 local/external input and output coverage, consent, preview/revision/rollback and fail-closed failure behavior.",
           "evidence": [
             "docs/reference/guardrails-acceptance-matrix.md",
-            "docs/reference/buffered-output-policy-execution.md"
+            "docs/reference/buffered-output-policy-execution.md",
+            "docs/reference/output-default-capture-acceptance.md"
           ],
           "evidence_revision": "1212ea3b",
-          "note": "Current local input, consent/revision/rollback and safe refusal matrix plus two real buffered Chat-block/Responses-redaction calls independently verified, including exact reported-usage charges and no open holds. Streaming/tool/default capture and configured external execution/failure coverage remain unverified."
+          "note": "Actual local input, consent/revision/rollback and buffered block/redact are verified. Current default capture matches delivered buffered/stream bytes, exact charges and final reopened released holds; five output-incompatible combinations refuse before dispatch. Stream/tool output inspection remains unsupported; configured external execution/failure coverage remains unverified."
         }
       ]
     },
