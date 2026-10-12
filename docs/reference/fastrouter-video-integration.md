@@ -56,7 +56,8 @@ checks. The documentation artifact serves eighteen content routes and thirty-one
 local page/resource requests, including the specification. Rendered browser
 acceptance remains delegated. One [actual documented generation](fastrouter-documented-video-acceptance.md)
 retained an upstream receipt and produced an independently decoded video through
-an official exact-task query/download. Niu Gateway polling, terminal persistence,
-result retrieval, reported media settlement, asset operations and identity
-verification remain unqualified by that bounded run. Model-list access and stored keys
+an official exact-task query/download. A subsequent zero-generation run also verifies Niu Gateway polling, terminal
+persistence, result retrieval and restart for that saved task. Reported quantity
+is retained without inventing an output tariff. Customer media settlement,
+asset operations, identity verification and other versions remain unqualified. Model-list access and stored keys
 alone do not establish business acceptance.
