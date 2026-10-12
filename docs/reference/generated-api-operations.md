@@ -13848,144 +13848,7 @@ Content type: `application/json`.
 
 ```json
 {
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "data",
-    "next_cursor"
-  ],
-  "properties": {
-    "data": {
-      "type": "array",
-      "maxItems": 100,
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "cursor",
-          "observed_at_ms",
-          "meter",
-          "status",
-          "quantity",
-          "provider_times"
-        ],
-        "properties": {
-          "cursor": {
-            "type": "string",
-            "pattern": "^[a-f0-9]{64}$",
-            "description": "Internal continuation reference; never a product label."
-          },
-          "observed_at_ms": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "meter": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "queued",
-              "running",
-              "succeeded",
-              "failed",
-              "cancelled",
-              "expired",
-              "unknown"
-            ]
-          },
-          "quantity": {
-            "oneOf": [
-              {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "state"
-                ],
-                "properties": {
-                  "state": {
-                    "type": "string",
-                    "enum": [
-                      "missing",
-                      "invalid"
-                    ]
-                  }
-                }
-              },
-              {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "state",
-                  "value"
-                ],
-                "properties": {
-                  "state": {
-                    "type": "string",
-                    "const": "reported"
-                  },
-                  "value": {
-                    "type": "string",
-                    "pattern": "^(0|[1-9][0-9]*)$"
-                  }
-                }
-              }
-            ]
-          },
-          "provider_times": {
-            "oneOf": [
-              {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "state"
-                ],
-                "properties": {
-                  "state": {
-                    "type": "string",
-                    "enum": [
-                      "missing",
-                      "invalid"
-                    ]
-                  }
-                }
-              },
-              {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "state",
-                  "created_at",
-                  "updated_at"
-                ],
-                "properties": {
-                  "state": {
-                    "type": "string",
-                    "const": "reported"
-                  },
-                  "created_at": {
-                    "type": "string",
-                    "pattern": "^(0|[1-9][0-9]*)$"
-                  },
-                  "updated_at": {
-                    "type": "string",
-                    "pattern": "^(0|[1-9][0-9]*)$"
-                  }
-                }
-              }
-            ]
-          }
-        }
-      }
-    },
-    "next_cursor": {
-      "type": [
-        "string",
-        "null"
-      ],
-      "pattern": "^[a-f0-9]{64}$"
-    }
-  }
+  "$ref": "#/components/schemas/VideoQueryObservationPage"
 }
 ```
 
@@ -16991,144 +16854,7 @@ Content type: `application/json`.
 
 ```json
 {
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "data",
-    "next_cursor"
-  ],
-  "properties": {
-    "data": {
-      "type": "array",
-      "maxItems": 100,
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "cursor",
-          "observed_at_ms",
-          "meter",
-          "status",
-          "quantity",
-          "provider_times"
-        ],
-        "properties": {
-          "cursor": {
-            "type": "string",
-            "pattern": "^[a-f0-9]{64}$",
-            "description": "Internal continuation reference; never a product label."
-          },
-          "observed_at_ms": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "meter": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "queued",
-              "running",
-              "succeeded",
-              "failed",
-              "cancelled",
-              "expired",
-              "unknown"
-            ]
-          },
-          "quantity": {
-            "oneOf": [
-              {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "state"
-                ],
-                "properties": {
-                  "state": {
-                    "type": "string",
-                    "enum": [
-                      "missing",
-                      "invalid"
-                    ]
-                  }
-                }
-              },
-              {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "state",
-                  "value"
-                ],
-                "properties": {
-                  "state": {
-                    "type": "string",
-                    "const": "reported"
-                  },
-                  "value": {
-                    "type": "string",
-                    "pattern": "^(0|[1-9][0-9]*)$"
-                  }
-                }
-              }
-            ]
-          },
-          "provider_times": {
-            "oneOf": [
-              {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "state"
-                ],
-                "properties": {
-                  "state": {
-                    "type": "string",
-                    "enum": [
-                      "missing",
-                      "invalid"
-                    ]
-                  }
-                }
-              },
-              {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "state",
-                  "created_at",
-                  "updated_at"
-                ],
-                "properties": {
-                  "state": {
-                    "type": "string",
-                    "const": "reported"
-                  },
-                  "created_at": {
-                    "type": "string",
-                    "pattern": "^(0|[1-9][0-9]*)$"
-                  },
-                  "updated_at": {
-                    "type": "string",
-                    "pattern": "^(0|[1-9][0-9]*)$"
-                  }
-                }
-              }
-            ]
-          }
-        }
-      }
-    },
-    "next_cursor": {
-      "type": [
-        "string",
-        "null"
-      ],
-      "pattern": "^[a-f0-9]{64}$"
-    }
-  }
+  "$ref": "#/components/schemas/VideoQueryObservationPage"
 }
 ```
 
@@ -20984,6 +20710,151 @@ Local `#/components/schemas/…` references resolve to these definitions.
           }
         }
       }
+    }
+  }
+}
+```
+
+### VideoQueryObservationPage
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data",
+    "next_cursor"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "cursor",
+          "observed_at_ms",
+          "meter",
+          "status",
+          "quantity",
+          "provider_times"
+        ],
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "description": "Internal continuation reference; never a product label."
+          },
+          "observed_at_ms": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "meter": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed",
+              "cancelled",
+              "expired",
+              "unknown"
+            ]
+          },
+          "quantity": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "state"
+                ],
+                "properties": {
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "missing",
+                      "invalid"
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "state",
+                  "value"
+                ],
+                "properties": {
+                  "state": {
+                    "type": "string",
+                    "const": "reported"
+                  },
+                  "value": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]*)$"
+                  }
+                }
+              }
+            ]
+          },
+          "provider_times": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "state"
+                ],
+                "properties": {
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "missing",
+                      "invalid"
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "state",
+                  "created_at",
+                  "updated_at"
+                ],
+                "properties": {
+                  "state": {
+                    "type": "string",
+                    "const": "reported"
+                  },
+                  "created_at": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]*)$"
+                  },
+                  "updated_at": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]*)$"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "next_cursor": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-f0-9]{64}$"
     }
   }
 }

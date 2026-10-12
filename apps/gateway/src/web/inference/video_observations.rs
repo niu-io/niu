@@ -10,7 +10,7 @@ use serde_json::Value;
 use uuid::Uuid;
 #[derive(Deserialize, Default)]
 #[serde(deny_unknown_fields)]
-pub(super) struct ObservationQuery {
+pub(in crate::web) struct ObservationQuery {
     pub(super) after: Option<String>,
     pub(super) limit: Option<u16>,
 }
@@ -82,144 +82,7 @@ impl ObservationQuery {
 ///         "content": {
 ///           "application/json": {
 ///             "schema": {
-///               "type": "object",
-///               "additionalProperties": false,
-///               "required": [
-///                 "data",
-///                 "next_cursor"
-///               ],
-///               "properties": {
-///                 "data": {
-///                   "type": "array",
-///                   "maxItems": 100,
-///                   "items": {
-///                     "type": "object",
-///                     "additionalProperties": false,
-///                     "required": [
-///                       "cursor",
-///                       "observed_at_ms",
-///                       "meter",
-///                       "status",
-///                       "quantity",
-///                       "provider_times"
-///                     ],
-///                     "properties": {
-///                       "cursor": {
-///                         "type": "string",
-///                         "pattern": "^[a-f0-9]{64}$",
-///                         "description": "Internal continuation reference; never a product label."
-///                       },
-///                       "observed_at_ms": {
-///                         "type": "integer",
-///                         "format": "int64"
-///                       },
-///                       "meter": {
-///                         "type": "string"
-///                       },
-///                       "status": {
-///                         "type": "string",
-///                         "enum": [
-///                           "queued",
-///                           "running",
-///                           "succeeded",
-///                           "failed",
-///                           "cancelled",
-///                           "expired",
-///                           "unknown"
-///                         ]
-///                       },
-///                       "quantity": {
-///                         "oneOf": [
-///                           {
-///                             "type": "object",
-///                             "additionalProperties": false,
-///                             "required": [
-///                               "state"
-///                             ],
-///                             "properties": {
-///                               "state": {
-///                                 "type": "string",
-///                                 "enum": [
-///                                   "missing",
-///                                   "invalid"
-///                                 ]
-///                               }
-///                             }
-///                           },
-///                           {
-///                             "type": "object",
-///                             "additionalProperties": false,
-///                             "required": [
-///                               "state",
-///                               "value"
-///                             ],
-///                             "properties": {
-///                               "state": {
-///                                 "type": "string",
-///                                 "const": "reported"
-///                               },
-///                               "value": {
-///                                 "type": "string",
-///                                 "pattern": "^(0|[1-9][0-9]*)$"
-///                               }
-///                             }
-///                           }
-///                         ]
-///                       },
-///                       "provider_times": {
-///                         "oneOf": [
-///                           {
-///                             "type": "object",
-///                             "additionalProperties": false,
-///                             "required": [
-///                               "state"
-///                             ],
-///                             "properties": {
-///                               "state": {
-///                                 "type": "string",
-///                                 "enum": [
-///                                   "missing",
-///                                   "invalid"
-///                                 ]
-///                               }
-///                             }
-///                           },
-///                           {
-///                             "type": "object",
-///                             "additionalProperties": false,
-///                             "required": [
-///                               "state",
-///                               "created_at",
-///                               "updated_at"
-///                             ],
-///                             "properties": {
-///                               "state": {
-///                                 "type": "string",
-///                                 "const": "reported"
-///                               },
-///                               "created_at": {
-///                                 "type": "string",
-///                                 "pattern": "^(0|[1-9][0-9]*)$"
-///                               },
-///                               "updated_at": {
-///                                 "type": "string",
-///                                 "pattern": "^(0|[1-9][0-9]*)$"
-///                               }
-///                             }
-///                           }
-///                         ]
-///                       }
-///                     }
-///                   }
-///                 },
-///                 "next_cursor": {
-///                   "type": [
-///                     "string",
-///                     "null"
-///                   ],
-///                   "pattern": "^[a-f0-9]{64}$"
-///                 }
-///               }
+///               "$ref": "#/components/schemas/VideoQueryObservationPage"
 ///             }
 ///           }
 ///         }
@@ -245,6 +108,148 @@ impl ObservationQuery {
 ///     },
 ///     "x-niu-implementation": "implemented",
 ///     "operationId": "videoQueryObservations"
+///   },
+///   "schemas": {
+///     "VideoQueryObservationPage": {
+///       "type": "object",
+///       "additionalProperties": false,
+///       "required": [
+///         "data",
+///         "next_cursor"
+///       ],
+///       "properties": {
+///         "data": {
+///           "type": "array",
+///           "maxItems": 100,
+///           "items": {
+///             "type": "object",
+///             "additionalProperties": false,
+///             "required": [
+///               "cursor",
+///               "observed_at_ms",
+///               "meter",
+///               "status",
+///               "quantity",
+///               "provider_times"
+///             ],
+///             "properties": {
+///               "cursor": {
+///                 "type": "string",
+///                 "pattern": "^[a-f0-9]{64}$",
+///                 "description": "Internal continuation reference; never a product label."
+///               },
+///               "observed_at_ms": {
+///                 "type": "integer",
+///                 "format": "int64"
+///               },
+///               "meter": {
+///                 "type": "string"
+///               },
+///               "status": {
+///                 "type": "string",
+///                 "enum": [
+///                   "queued",
+///                   "running",
+///                   "succeeded",
+///                   "failed",
+///                   "cancelled",
+///                   "expired",
+///                   "unknown"
+///                 ]
+///               },
+///               "quantity": {
+///                 "oneOf": [
+///                   {
+///                     "type": "object",
+///                     "additionalProperties": false,
+///                     "required": [
+///                       "state"
+///                     ],
+///                     "properties": {
+///                       "state": {
+///                         "type": "string",
+///                         "enum": [
+///                           "missing",
+///                           "invalid"
+///                         ]
+///                       }
+///                     }
+///                   },
+///                   {
+///                     "type": "object",
+///                     "additionalProperties": false,
+///                     "required": [
+///                       "state",
+///                       "value"
+///                     ],
+///                     "properties": {
+///                       "state": {
+///                         "type": "string",
+///                         "const": "reported"
+///                       },
+///                       "value": {
+///                         "type": "string",
+///                         "pattern": "^(0|[1-9][0-9]*)$"
+///                       }
+///                     }
+///                   }
+///                 ]
+///               },
+///               "provider_times": {
+///                 "oneOf": [
+///                   {
+///                     "type": "object",
+///                     "additionalProperties": false,
+///                     "required": [
+///                       "state"
+///                     ],
+///                     "properties": {
+///                       "state": {
+///                         "type": "string",
+///                         "enum": [
+///                           "missing",
+///                           "invalid"
+///                         ]
+///                       }
+///                     }
+///                   },
+///                   {
+///                     "type": "object",
+///                     "additionalProperties": false,
+///                     "required": [
+///                       "state",
+///                       "created_at",
+///                       "updated_at"
+///                     ],
+///                     "properties": {
+///                       "state": {
+///                         "type": "string",
+///                         "const": "reported"
+///                       },
+///                       "created_at": {
+///                         "type": "string",
+///                         "pattern": "^(0|[1-9][0-9]*)$"
+///                       },
+///                       "updated_at": {
+///                         "type": "string",
+///                         "pattern": "^(0|[1-9][0-9]*)$"
+///                       }
+///                     }
+///                   }
+///                 ]
+///               }
+///             }
+///           }
+///         },
+///         "next_cursor": {
+///           "type": [
+///             "string",
+///             "null"
+///           ],
+///           "pattern": "^[a-f0-9]{64}$"
+///         }
+///       }
+///     }
 ///   }
 /// }
 /// ```
