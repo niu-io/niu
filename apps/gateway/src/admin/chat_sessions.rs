@@ -426,6 +426,110 @@ pub async fn list(
     Ok(Json(json!({"data": data})))
 }
 
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "getChatSession",
+///     "x-niu-implementation": "implemented",
+///     "summary": "Read one complete owned saved Chat conversation",
+///     "description": "Requires workspace read permission and the authenticated personal owner. Returns the full saved conversation and archive state without scanning history pages, including sessions beyond the recent-100 list. Selection and authoritative customer-charge hydration share a bounded read-only snapshot (250 ms lock and 2 s statement limits); preceding authorization and pool acquisition are separate. Saved browser accounting is ignored. Saved JSON above 32 MiB returns 413; no content is truncated. Archived sessions remain directly readable.",
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       }
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Complete owned conversation and separate archive state.",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data",
+///                 "archived"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "object"
+///                 },
+///                 "archived": {
+///                   "type": "boolean"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "401": {
+///         "description": "Authentication required."
+///       },
+///       "403": {
+///         "description": "Workspace read permission required."
+///       },
+///       "404": {
+///         "description": "No conversation for this personal owner and workspace."
+///       },
+///       "413": {
+///         "description": "Saved JSON exceeds one-response capacity; use individual content export."
+///       },
+///       "503": {
+///         "description": "Durable storage unavailable or read wait exceeded."
+///       }
+///     }
+///   }
+/// }
+/// ```
+pub async fn get(
+    State(state): State<AppState>,
+    Path((organization_id, project_id, id)): Path<(Uuid, Uuid, Uuid)>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    let scope = TenantScope {
+        organization_id,
+        project_id,
+    };
+    let owner = owner(&state, &headers, scope, AdminPermission::Read).await?;
+    state
+        .store
+        .chat_session_detail(scope, &owner, id)
+        .await
+        .map_err(ApiError::from_store)?
+        .map(Json)
+        .ok_or_else(ApiError::not_found)
+}
+
 pub async fn delete(
     State(state): State<AppState>,
     Path((organization_id, project_id, id)): Path<(Uuid, Uuid, Uuid)>,

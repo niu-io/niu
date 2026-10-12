@@ -122,6 +122,89 @@ HTTP 503: Storage unavailable or read wait exceeded; no empty-success fallback.
 
 HTTP 413: Saved Chat history exceeds one-response capacity; use paging or individual conversation export.
 
+## Read one complete owned saved Chat conversation
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}`
+
+Requires workspace read permission and the authenticated personal owner. Returns the full saved conversation and archive state without scanning history pages, including sessions beyond the recent-100 list. Selection and authoritative customer-charge hydration share a bounded read-only snapshot (250 ms lock and 2 s statement limits); preceding authorization and pool acquisition are separate. Saved browser accounting is ignored. Saved JSON above 32 MiB returns 413; no content is truncated. Archived sessions remain directly readable.
+
+Implementation: `implemented`. Operation: `getChatSession`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Complete owned conversation and separate archive state.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "archived"
+  ],
+  "properties": {
+    "data": {
+      "type": "object"
+    },
+    "archived": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+HTTP 401: Authentication required.
+
+HTTP 403: Workspace read permission required.
+
+HTTP 404: No conversation for this personal owner and workspace.
+
+HTTP 413: Saved JSON exceeds one-response capacity; use individual content export.
+
+HTTP 503: Durable storage unavailable or read wait exceeded.
+
 ## Read latest 100 workspace preparation refusals
 
 `GET /admin/v1/organizations/{organization}/projects/{project}/guardrails/denials`

@@ -73,7 +73,7 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/admin/v1/organizations/{organization}/projects/{project}/chat-sessions", get(crate::admin::chat_sessions::list))
         .route("/admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}/archive", axum::routing::put(crate::admin::chat_sessions::archive).layer(DefaultBodyLimit::max(1024)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}/export", get(crate::admin::chat_sessions::export))
-        .route("/admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}", axum::routing::put(crate::admin::chat_sessions::save).delete(crate::admin::chat_sessions::delete).layer(DefaultBodyLimit::max(24 * 1024 * 1024)))
+        .route("/admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}", get(crate::admin::chat_sessions::get).put(crate::admin::chat_sessions::save).delete(crate::admin::chat_sessions::delete).layer(DefaultBodyLimit::max(24 * 1024 * 1024)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/models", get(super::inference::dashboard_video::models))
         .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/estimate", axum::routing::post(super::inference::dashboard_video::estimate).layer(DefaultBodyLimit::max(16 * 1024 * 1024)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs", get(super::inference::dashboard_video::history).post(super::inference::dashboard_video::create).layer(DefaultBodyLimit::max(16 * 1024 * 1024)))

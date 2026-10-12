@@ -62,6 +62,35 @@ impl Store {
             .fetch_optional(&self.pool).await?)
     }
 
+    /// Read a complete saved conversation and archive state within one bounded
+    /// snapshot; saved accounting is replaced by the same ledger projection as
+    /// history pages. Direct lookup also reaches conversations outside the list.
+    pub async fn chat_session_detail(
+        &self,
+        scope: TenantScope,
+        owner: &str,
+        id: Uuid,
+    ) -> Result<Option<Value>, StoreError> {
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        let metadata: Option<(bool, i64)> = sqlx::query_as("SELECT archived,octet_length(payload::text)::bigint FROM chat_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND id=$4")
+            .bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(id)
+            .fetch_optional(&mut *snapshot).await?;
+        let Some((archived, bytes)) = metadata else {
+            snapshot.commit().await?;
+            return Ok(None);
+        };
+        if bytes > CHAT_HISTORY_PAYLOAD_BYTES {
+            return Err(StoreError::ChatHistoryCapacityExceeded);
+        }
+        let payloads =
+            Self::load_chat_payloads(&mut snapshot, scope, owner, archived, vec![id]).await?;
+        let mut payloads = Self::hydrate_chat_charges(&mut snapshot, scope, payloads).await?;
+        snapshot.commit().await?;
+        Ok(payloads
+            .pop()
+            .map(|data| serde_json::json!({"data":data,"archived":archived})))
+    }
+
     pub async fn delete_chat_session(
         &self,
         scope: TenantScope,

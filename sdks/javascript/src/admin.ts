@@ -1902,6 +1902,11 @@ export class NiuAdminClient {
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chat-sessions/${uuid(sessionId)}/archive`, { archived }, options, 'PUT');
   }
 
+  /** Restore one complete owned conversation without walking recent history pages. */
+  getChatSession(scope: TenantScope, sessionId: string, options?: RequestOptions): Promise<{ data: ChatSession; archived: boolean }> {
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chat-sessions/${uuid(sessionId)}`, undefined, options);
+  }
+
   exportChatSession(scope: TenantScope, sessionId: string, options?: RequestOptions): Promise<ChatExport> {
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chat-sessions/${uuid(sessionId)}/export`, undefined, options);
   }

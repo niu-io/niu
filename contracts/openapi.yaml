@@ -976,6 +976,8 @@ paths:
       - { name: organization, in: path, required: true, schema: { type: string, format: uuid } }
       - { name: project, in: path, required: true, schema: { type: string, format: uuid } }
       - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1chat-sessions~1{id}/get'
     put:
       operationId: saveChatSession
       summary: Save an owned Chat session in a workspace
