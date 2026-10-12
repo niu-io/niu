@@ -1,6 +1,6 @@
 # Backend workflow verification status
 
-Reviewed 2026-10-12 against implementation `420ef96`; native implementation `420ef96`.
+Reviewed 2026-10-12 against implementation `e274aab`; native implementation `e274aab`.
 This is an index of scoped evidence, not a declaration that the complete release
 or New API comparison is qualified. Linked runs identify their own implementation
 revisions. Fixture outcomes provide no evidence. Current-input runs and
@@ -155,3 +155,13 @@ after release/restart, and preserved exact balances/credit/holds. Independent
 reopening recomputed the complete projection from original usage and financial
 records. See the [balance checkpoint](../reference/customer-charge-reconciliation.md#bounded-company-balance-read--2026-10-12)
 for separate totals and the unverified media/concurrent-policy/capacity scope.
+
+
+## Complete saved key directory
+
+Clean `e274aab` removes the legacy first-1,000-key truncation and bounds the
+existing metadata read. Actual creation of 1,001 keys over retained history
+reproduced ten omitted saved rows; the current complete directory, first/last
+new key calls, dispatch timestamps, exact debits, lock refusal, restart and
+revocation were independently checked. The [directory contract](../reference/workspace-key-directory.md)
+keeps unpaged scale and browser/key-policy qualification limits explicit.

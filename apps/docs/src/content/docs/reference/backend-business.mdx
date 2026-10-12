@@ -160,3 +160,14 @@ do not show an unavailable read as zero balance or released liability. The
 independently reconciles settled real-request debits and a retained uncertain
 hold, including exact available credit, restart and cross-company denial.
 A displayed available amount is not a guarantee of a later atomic admission.
+
+
+## Complete saved key metadata
+
+The [workspace key directory contract](https://github.com/niu-io/niu/blob/main/docs/reference/workspace-key-directory.md)
+returns all saved records in the existing compatibility response, including
+revoked/expired metadata. It no longer hides keys after the first 1,000.
+Storage contention returns sanitized 503; preserve known data instead of showing
+zero keys. Actual 1,010-row reads, first/last key inference, dispatch metadata,
+exact charges, restart and revocation were independently checked. The unpaged
+contract has separate scale limits; internal references are not product labels.
