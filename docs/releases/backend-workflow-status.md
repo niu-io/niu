@@ -1,6 +1,6 @@
 # Backend workflow verification status
 
-Reviewed 2026-10-12 against implementation `a9de7c8`; native implementation `a9de7c8`.
+Reviewed 2026-10-12 against implementation `67b0ed2`; native implementation `67b0ed2`.
 This is an index of scoped evidence, not a declaration that the complete release
 or New API comparison is qualified. Linked runs identify their own implementation
 revisions. Fixture outcomes provide no evidence. Current-input runs and
@@ -9,7 +9,7 @@ independent saved-artifact/database checks define the verified boundaries.
 | User priority | Implemented and exercised scope | Remaining verification boundary |
 | --- | --- | --- |
 | Supplier configuration | Business identity, independent credential configurations, rotation/disable isolation, model and price binding, scoped configuration traffic | Nonempty agreed commercial earnings and settlement; complete Supplier frontend journey |
-| Workspace API keys | Scoped actual model calls, spending/RPM/TPM/concurrency/IP policies, immutable policy history, rotation lineage, revocation and restart | Cross-protocol combinations and unknown-disconnect occupancy; no unlimited-duration key claim |
+| Workspace API keys | Scoped actual model calls, spending/RPM/TPM/concurrency/IP policies, immutable policy history, rotation lineage, revocation and restart | Broader cross-protocol combinations and unknown-disconnect occupancy; no-expiration video lifecycle remains unverified |
 | Balance and charging | Exact original-rate debits using approved internal credit, insufficient-capacity refusal, reservations, invoice settlement, refunds and reconciliation | Positive externally funded top-ups and customer-paid media have separate unverified scope; supported payment inventory does not require every merchant to activate |
 | Logs and usage | Populated customer pagination, concurrent admissions during time-ordered pagination, key filters, full-range totals, CSV, error/timing records and confidential procurement isolation | Mutable-sort pagination, broader tenant scale and frontend presentation |
 | Video | Actual personal generation, idempotent submission, durable saved intents, restart/query recovery, authorized decoded results and deletion that survives refresh | Positive customer-funded settlement, natural expiry, inspected reference inputs and model-specific controls need their own evidence |
@@ -226,3 +226,11 @@ rotation, RPM/spending refusal and restart. Independent stream/native checks
 verify four exact charges/debits and no extra request on refusal. This adds
 integration evidence; TPM/concurrency exhaustion and sustained combined traffic
 remain outside this run's scope.
+
+
+[Explicit no-expiration keys](../reference/non-expiring-workspace-keys.md)
+add required null-or-finite lifetime input and nullable expiry metadata. Actual
+owner/viewer checks, natural finite expiry, two accurately charged calls,
+rotation/restart, SDK traversal, spending refusal and revocation were independently
+checked. Existing finite dates and original installation identity remain intact;
+no-expiration video and broader concurrent behavior are unverified.

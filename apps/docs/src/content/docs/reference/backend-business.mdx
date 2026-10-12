@@ -231,3 +231,16 @@ and concurrency policies configured before dispatch. Rotation and restart
 preserve RPM exhaustion and an exact consumed spending ceiling. Four actual
 calls produce four independently checked charges/debits; refused calls add none.
 This run does not qualify TPM/concurrency exhaustion or sustained mixed traffic.
+
+
+## Explicit key expiration choice
+
+Key creation requires `ttl_seconds`: integers 1–31,536,000 retain finite expiry;
+explicit `null` means no automatic expiration. Omission and invalid finite values
+are refused. Metadata uses `expires_at_ms: null` for this state; display a
+no-expiration label rather than interpreting null as a date. Rotation preserves
+the state and lineage limits; revocation still blocks access. The [actual key
+lifecycle checkpoint](https://github.com/niu-io/niu/blob/main/docs/reference/non-expiring-workspace-keys.md)
+checks natural finite expiry, actual calls/debits, owner/viewer permissions,
+SDK traversal, restart and spending refusal. Video and broader concurrent cases
+remain unverified.
