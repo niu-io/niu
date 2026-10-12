@@ -2,7 +2,7 @@
 use crate::{ValidatedVideoRequest, valid_name};
 use std::time::Duration;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum SubmissionError {
     InvalidConfiguration,
     EndpointRejected,
@@ -11,6 +11,122 @@ pub enum SubmissionError {
     /// A non-success HTTP response is diagnostic evidence only. It does not
     /// prove that an asynchronous job was never created or billed.
     UncertainHttpStatus(u16),
+    /// Bounded public identifiers only; execution remains uncertain.
+    UncertainHttpResponse {
+        status: u16,
+        diagnostic: SubmissionDiagnostic,
+    },
+}
+
+/// Safe correlation fields only. Never retains Provider messages or raw bodies.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct SubmissionDiagnostic {
+    pub error_code: Option<String>,
+    pub request_id: Option<String>,
+}
+
+// Typed extraction rejects duplicate known fields. Unknown message/result fields
+// are ignored and never enter the diagnostic. The input itself is bounded below.
+#[derive(serde::Deserialize)]
+struct ErrorEnvelope {
+    #[serde(default, alias = "Error")]
+    error: Option<ErrorCode>,
+    #[serde(default, alias = "RequestId", alias = "requestId")]
+    request_id: Option<String>,
+    #[serde(default, alias = "ResponseMetadata")]
+    response_metadata: Option<ErrorMetadata>,
+}
+#[derive(serde::Deserialize)]
+struct ErrorCode {
+    #[serde(default, alias = "Code")]
+    code: Option<String>,
+}
+#[derive(serde::Deserialize)]
+struct ErrorMetadata {
+    #[serde(default, alias = "Error")]
+    error: Option<ErrorCode>,
+    #[serde(default, alias = "RequestId", alias = "requestId")]
+    request_id: Option<String>,
+}
+fn public_identifier(value: Option<&str>, secret: &str, maximum_bytes: usize) -> Option<String> {
+    value
+        .filter(|value| {
+            !value.is_empty()
+                && value.len() <= maximum_bytes
+                && value.as_bytes()[0].is_ascii_alphanumeric()
+                && !value.starts_with("sk-")
+                && !value.contains(secret)
+                && value
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || b"_-.:".contains(&byte))
+        })
+        .map(str::to_owned)
+}
+
+async fn rejected_response(
+    mut response: reqwest::Response,
+    maximum_response_bytes: usize,
+    secret: &str,
+    deadline: tokio::time::Instant,
+) -> SubmissionError {
+    let status = response.status().as_u16();
+    let mut diagnostic = SubmissionDiagnostic {
+        error_code: None,
+        request_id: ["x-request-id", "x-tt-logid", "request-id"]
+            .into_iter()
+            .find_map(|name| {
+                public_identifier(
+                    response.headers().get(name).and_then(|v| v.to_str().ok()),
+                    secret,
+                    200,
+                )
+            }),
+    };
+    let limit = maximum_response_bytes.min(64 * 1024);
+    let read = async {
+        if response.content_length().is_some_and(|n| n > limit as u64) {
+            return None;
+        }
+        let mut body = Vec::new();
+        while let Some(chunk) = response.chunk().await.ok()? {
+            if chunk.len() > limit.saturating_sub(body.len()) {
+                return None;
+            }
+            body.extend_from_slice(&chunk);
+        }
+        serde_json::from_slice::<ErrorEnvelope>(&body).ok()
+    };
+    // An unreadable, oversized or late body must not erase the already observed
+    // HTTP status. No retry or nonexecution inference follows from diagnostics.
+    if let Ok(Some(envelope)) = tokio::time::timeout_at(deadline, read).await {
+        let metadata = envelope.response_metadata;
+        diagnostic.error_code = public_identifier(
+            envelope.error.as_ref().and_then(|v| v.code.as_deref()),
+            secret,
+            128,
+        )
+        .or_else(|| {
+            public_identifier(
+                metadata
+                    .as_ref()
+                    .and_then(|v| v.error.as_ref())
+                    .and_then(|v| v.code.as_deref()),
+                secret,
+                128,
+            )
+        });
+        if diagnostic.request_id.is_none() {
+            diagnostic.request_id = public_identifier(envelope.request_id.as_deref(), secret, 200)
+                .or_else(|| {
+                    public_identifier(
+                        metadata.as_ref().and_then(|v| v.request_id.as_deref()),
+                        secret,
+                        200,
+                    )
+                });
+        }
+    }
+    SubmissionError::UncertainHttpResponse { status, diagnostic }
 }
 
 /// Upstream reference is internal recovery data, not a customer display label.
@@ -66,17 +182,13 @@ pub async fn submit_job(
         request.body().clone()
     };
     let work = async {
-        let mut response = client
-            .post(endpoint)
-            .bearer_auth(token)
-            .json(&body)
-            .send()
+        let response = client.post(endpoint).bearer_auth(token).json(&body).send();
+        let mut response = tokio::time::timeout_at(deadline, response)
             .await
+            .map_err(|_| SubmissionError::Uncertain)?
             .map_err(|_| SubmissionError::Uncertain)?;
         if !response.status().is_success() {
-            return Err(SubmissionError::UncertainHttpStatus(
-                response.status().as_u16(),
-            ));
+            return Err(rejected_response(response, maximum_response_bytes, token, deadline).await);
         }
         if response
             .content_length()
@@ -85,9 +197,9 @@ pub async fn submit_job(
             return Err(SubmissionError::Uncertain);
         }
         let mut body = Vec::new();
-        while let Some(chunk) = response
-            .chunk()
+        while let Some(chunk) = tokio::time::timeout_at(deadline, response.chunk())
             .await
+            .map_err(|_| SubmissionError::Uncertain)?
             .map_err(|_| SubmissionError::Uncertain)?
         {
             if chunk.len() > maximum_response_bytes.saturating_sub(body.len()) {
@@ -111,7 +223,5 @@ pub async fn submit_job(
             protocol_revision: protocol_revision.into(),
         })
     };
-    tokio::time::timeout_at(deadline, work)
-        .await
-        .map_err(|_| SubmissionError::Uncertain)?
+    work.await
 }
