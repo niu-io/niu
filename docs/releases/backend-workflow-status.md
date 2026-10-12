@@ -1,6 +1,6 @@
 # Backend workflow verification status
 
-Reviewed 2026-10-12 against implementation `7d7df96`; native implementation `7d7df96`.
+Reviewed 2026-10-12 against implementation `420ef96`; native implementation `420ef96`.
 This is an index of scoped evidence, not a declaration that the complete release
 or New API comparison is qualified. Linked runs identify their own implementation
 revisions. Fixture outcomes provide no evidence. Current-input runs and
@@ -144,3 +144,14 @@ kept exact amounts and all financial records unchanged. Saved reads remained
 available with all merchant checkouts disabled. The [payment checkpoint](../reference/payment-aggregators.md#saved-customer-top-up-reads-under-contention--2026-10-12)
 separates recovery/support readiness from external merchant activation and
 positive funding, without requiring every integration to activate.
+
+
+## Shared balance reads under contention
+
+Clean `420ef96` bounds the existing single-statement company balance snapshot.
+Actual company-owner reads over settled 1,840-stream debits and a separate real
+unresolved liability returned 503 while ledger storage remained locked, recovered
+after release/restart, and preserved exact balances/credit/holds. Independent
+reopening recomputed the complete projection from original usage and financial
+records. See the [balance checkpoint](../reference/customer-charge-reconciliation.md#bounded-company-balance-read--2026-10-12)
+for separate totals and the unverified media/concurrent-policy/capacity scope.

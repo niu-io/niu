@@ -149,3 +149,14 @@ snapshot. The [current recovery-read checkpoint](https://github.com/niu-io/niu/b
 records actual lock refusal/recovery, ordinary-role authorization, unchanged
 uncertain status and absent funding. Supported integration readiness and external
 merchant activation are separate. Preserve known data when reads are unavailable.
+
+
+## Company balance availability
+
+Shared balance reads preserve one amount snapshot and return sanitized 503 when
+storage waits exceed transaction-local limits. Preserve known data on failure;
+do not show an unavailable read as zero balance or released liability. The
+[current balance checkpoint](https://github.com/niu-io/niu/blob/main/docs/reference/customer-charge-reconciliation.md#bounded-company-balance-read--2026-10-12)
+independently reconciles settled real-request debits and a retained uncertain
+hold, including exact available credit, restart and cross-company denial.
+A displayed available amount is not a guarantee of a later atomic admission.

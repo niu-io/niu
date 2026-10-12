@@ -455,3 +455,50 @@ This verifies concurrent admissions during default time-ordered customer
 pagination and the settled final export on one Gateway with two configured
 admission connections. It does not qualify every mutable sort, a frozen
 cross-page aggregate, larger tenant scale or maximum reporting throughput.
+
+
+## Bounded company balance read — 2026-10-12
+
+Clean `420ef96` wraps the existing materialized single-statement balance query
+in the shared bounded read-only transaction initializer. The amount calculation
+is unchanged: posted balance plus explicitly approved credit, less outstanding
+customer liabilities. All displayed amounts still come from one statement
+snapshot. Transaction-local lock/statement limits are 250 ms/2 s; pool admission
+and the complete HTTP deadline are separate. A storage timeout returns sanitized
+503 without zero-balance or partial-success data. Handler annotations and
+generated OpenAPI declare these limits.
+
+An ordinary company-owner session read a stopped copy of the current 1,840-actual-
+stream history. Clean `7d7df96` remained pending for 1,610.15 ms while a separate
+PostgreSQL session held an exclusive ledger-table lock, returning only after
+release. Clean `420ef96` returned 503 in 272.26 ms while the lock stayed held.
+After release and Gateway restart, its balance response remained identical.
+Independent reopening rehashed/re-parsed native usage in all 1,840 original
+responses and matched each original-rate charge and equal negative ledger entry.
+The account's balance was -34,640,002 USD nanounits; approved credit was
+1,000,000,000, with no open customer hold and available capacity 965,359,998.
+These are internal verification credit/charges, not a received-cash claim.
+
+A separate stopped copy retained two actual upstream refusals: one with uncertain
+execution and an unresolved customer hold, the other durably confirmed not
+executed. The new balance read returned 503 in 257.75 ms while the ledger lock
+remained held, then recovered the same response after release/restart. Independent
+reopening checked original refusal artifacts, execution states and the live hold.
+With posted balance zero and approved credit 1,000,000,000, customer outstanding
+liability remained 284,445 and available capacity 999,715,555. Unknown execution
+was not converted to a charge, forgiven debt or released reservation.
+
+For each history, independent ledger/reservation/account inspection reproduced
+every returned amount, warning state and policy revision. Complete financial row
+fingerprints remained unchanged. Foreign-company owners could not read the target
+balance; revoked readers received 401. No funding receipt was created. Customer
+responses contained only the declared customer balance fields, not account IDs,
+Supplier prices or payment references. Temporary read actors were revoked.
+
+This verifies the exercised ledger-lock refusal and recovery for settled debits
+and an unresolved liability. It does not qualify every media liability, currency
+combination, concurrent credit mutation, execution-timeout branch or large-ledger
+capacity. These reads are not an atomic guarantee of a subsequent admission.
+Static clippy/annotation checks completed separately; fixture outcomes supply
+no evidence. Native replacement followed a fresh isolated backup restore/comparison,
+preserving original configuration, encrypted identity and durable business counts.
