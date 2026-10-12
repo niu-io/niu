@@ -559,14 +559,15 @@ impl Store {
         if !(1..=1001).contains(&limit) {
             return Err(StoreError::Conflict);
         }
+        let mut tx = self.begin_bounded_read_snapshot().await?;
         let cursor: Option<(String, Uuid, String, Uuid)> = if let Some(after) = after {
             Some(sqlx::query_as("SELECT o.created_at::text,o.id,p.created_at::text,p.id FROM projects p JOIN organizations o ON o.id=p.organization_id WHERE p.id=$1 AND ($2::uuid IS NULL OR o.id=$2) AND ($3::uuid IS NULL OR p.id=$3)")
                 .bind(after).bind(organization_id).bind(project_id)
-                .fetch_optional(&self.pool).await?.ok_or(StoreError::Conflict)?)
+                .fetch_optional(&mut *tx).await?.ok_or(StoreError::Conflict)?)
         } else {
             None
         };
-        Ok(sqlx::query_as(include_str!("workspace_directory.sql"))
+        let rows = sqlx::query_as(include_str!("workspace_directory.sql"))
             .bind(organization_id)
             .bind(project_id)
             .bind(cursor.as_ref().map(|v| &v.0))
@@ -574,8 +575,10 @@ impl Store {
             .bind(cursor.as_ref().map(|v| &v.2))
             .bind(cursor.as_ref().map(|v| v.3))
             .bind(limit)
-            .fetch_all(&self.pool)
-            .await?)
+            .fetch_all(&mut *tx)
+            .await?;
+        tx.commit().await?;
+        Ok(rows)
     }
 
     /// Explicit installation-admin quick setup. Creates both ownership records
