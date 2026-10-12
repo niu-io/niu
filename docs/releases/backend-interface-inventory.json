@@ -1,0 +1,4545 @@
+{
+  "source_commit": "89be727ec65c25fcfffe8b843bd4d871756799a8",
+  "scope": "Registered root-contract operations grouped for the five core workflows plus access and saved Chat integration. Not a complete product inventory or runtime acceptance.",
+  "schema_ref_context": "Read input/output/error schemas at contract_source + contract_operation_pointer. This compact index does not duplicate or replace OpenAPI.",
+  "sdk_match_semantics": "Exact operation-name text match is a navigation hint, not SDK behavior verification. False can mean differently named SDK helpers.",
+  "counts": {
+    "access_foundation": 34,
+    "billing": 37,
+    "keys_and_inference": 40,
+    "logs": 8,
+    "saved_chat": 8,
+    "supplier": 68,
+    "video": 39
+  },
+  "unresolved_method_handlers": [],
+  "registered_methods_missing_from_inventory": [
+    "HEAD /v1/media/sources/{token}",
+    "GET /auth/callback",
+    "GET /admin/v1/organizations/{organization}/projects/{project}/codex-connections",
+    "POST /admin/v1/organizations/{organization}/projects/{project}/codex-connections/sign-in",
+    "PATCH /admin/v1/organizations/{organization}/projects/{project}/codex-connections/{id}",
+    "GET /admin/v1/organizations/{organization}/projects/{project}/guardrails/detectors",
+    "GET /admin/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors",
+    "POST /admin/v1/organizations/{organization}/projects/{project}/guardrails/image-detectors/{detector}/preview",
+    "GET /admin/v1/organizations/{organization}/projects/{project}/guardrails/detector-decisions",
+    "GET /admin/v1/guardrails/detectors/{detector}",
+    "POST /admin/v1/guardrails/detectors/{detector}/preview",
+    "GET /admin/v1/organizations/{organization}/projects/{project}/guardrails/dispatch-denials",
+    "PUT /admin/v1/providers/{provider}/qualification",
+    "POST /admin/v1/providers/{provider}/qualification/revoke",
+    "PUT /admin/v1/providers/{provider}/offers/{offer}/qualification",
+    "POST /admin/v1/providers/{provider}/offers/{offer}/qualification/revoke",
+    "GET /admin/v1/auth/profile",
+    "PUT /admin/v1/auth/profile",
+    "GET /admin/v1/auth/preferences",
+    "PUT /admin/v1/auth/preferences",
+    "GET /admin/v1/organizations/{organization}/projects",
+    "POST /admin/v1/organizations/{organization}/projects"
+  ],
+  "operations": [
+    {
+      "area": "access_foundation",
+      "method": "POST",
+      "path": "/admin/v1/auth/browser/login",
+      "handler": "crate::admin::passwords::browser_login",
+      "contract_source": "contracts/password-sessions.openapi.yaml",
+      "operation_id": "createBrowserMemberSession",
+      "summary": "Sign in with a secure HttpOnly member cookie",
+      "implementation_annotation": "unspecified",
+      "security": [],
+      "path_item_contract_source": "contracts/password-sessions.openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1auth~1browser~1login/post"
+    },
+    {
+      "area": "access_foundation",
+      "method": "POST",
+      "path": "/admin/v1/auth/browser/logout",
+      "handler": "crate::admin::passwords::browser_logout",
+      "contract_source": "contracts/password-sessions.openapi.yaml",
+      "operation_id": "revokeBrowserMemberSession",
+      "summary": "Revoke and clear the current browser member session",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "memberCookie": []
+        }
+      ],
+      "path_item_contract_source": "contracts/password-sessions.openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1auth~1browser~1logout/post"
+    },
+    {
+      "area": "access_foundation",
+      "method": "GET",
+      "path": "/admin/v1/auth/config",
+      "handler": "crate::admin::passwords::configuration",
+      "contract_source": "contracts/password-sessions.openapi.yaml",
+      "operation_id": "getMemberAuthenticationCapabilities",
+      "summary": "Discover whether member password login is enabled",
+      "implementation_annotation": "unspecified",
+      "security": [],
+      "path_item_contract_source": "contracts/password-sessions.openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1auth~1config/get"
+    },
+    {
+      "area": "access_foundation",
+      "method": "POST",
+      "path": "/admin/v1/auth/login",
+      "handler": "crate::admin::passwords::login",
+      "contract_source": "contracts/password-sessions.openapi.yaml",
+      "operation_id": "createPasswordSession",
+      "summary": "Exchange member credentials for a scoped eight-hour session",
+      "implementation_annotation": "unspecified",
+      "security": [],
+      "path_item_contract_source": "contracts/password-sessions.openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1auth~1login/post"
+    },
+    {
+      "area": "access_foundation",
+      "method": "POST",
+      "path": "/admin/v1/auth/logout",
+      "handler": "crate::admin::passwords::logout",
+      "contract_source": "contracts/password-sessions.openapi.yaml",
+      "operation_id": "revokeCurrentMemberSession",
+      "summary": "Sign out the member session supplied in Authorization",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/password-sessions.openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1auth~1logout/post"
+    },
+    {
+      "area": "access_foundation",
+      "method": "PUT",
+      "path": "/admin/v1/auth/password",
+      "handler": "crate::admin::passwords::change_password",
+      "contract_source": "contracts/password-sessions.openapi.yaml",
+      "operation_id": "changeOwnMemberPassword",
+      "summary": "Change the signed-in member's password with current-password proof",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "memberCookie": []
+        }
+      ],
+      "path_item_contract_source": "contracts/password-sessions.openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1auth~1password/put"
+    },
+    {
+      "area": "access_foundation",
+      "method": "GET",
+      "path": "/admin/v1/operators/{operator}/sessions",
+      "handler": "crate::admin::operator_sessions",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "adminListOperatorSessions",
+      "summary": "List session expiry and revocation metadata",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1operators~1{operator}~1sessions/get"
+    },
+    {
+      "area": "access_foundation",
+      "method": "POST",
+      "path": "/admin/v1/operators/{operator}/sessions",
+      "handler": "crate::admin::create_operator_session",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "adminIssueOperatorSession",
+      "summary": "Issue an additional one-time operator session token",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1operators~1{operator}~1sessions/post"
+    },
+    {
+      "area": "access_foundation",
+      "method": "DELETE",
+      "path": "/admin/v1/operators/{operator}/sessions/{session}",
+      "handler": "crate::admin::revoke_operator_session",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "adminRevokeOperatorSession",
+      "summary": "Revoke one operator session",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1operators~1{operator}~1sessions~1{session}/delete"
+    },
+    {
+      "area": "access_foundation",
+      "method": "DELETE",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}",
+      "handler": "crate::admin::delete_workspace",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "deleteWorkspace",
+      "summary": "Delete an empty workspace",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}/delete"
+    },
+    {
+      "area": "access_foundation",
+      "method": "PATCH",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}",
+      "handler": "crate::admin::rename_workspace",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "renameWorkspace",
+      "summary": "Rename a workspace",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}/patch"
+    },
+    {
+      "area": "access_foundation",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/accounts",
+      "handler": "crate::admin::accounts",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "listAccounts",
+      "summary": "List account metadata without credential references",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1accounts/get"
+    },
+    {
+      "area": "access_foundation",
+      "method": "POST",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/accounts",
+      "handler": "crate::admin::create_account",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "registerAccount",
+      "summary": "Register an unverified account",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1accounts/post"
+    },
+    {
+      "area": "access_foundation",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/accounts/{account}/executions",
+      "handler": "crate::admin::account_executions",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "listExecutionsForAccount",
+      "summary": "Find imported tasks linked to an account's assigned attempts",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1accounts~1{account}~1executions/get"
+    },
+    {
+      "area": "access_foundation",
+      "method": "DELETE",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/accounts/{account}/quota",
+      "handler": "crate::admin::delete_quota_window",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "deleteAccountQuotaWindowHistory",
+      "summary": "Delete imported samples for one provider quota window",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1accounts~1{account}~1quota/delete"
+    },
+    {
+      "area": "access_foundation",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/accounts/{account}/quota",
+      "handler": "crate::admin::quota",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "getAccountQuota",
+      "summary": "Read latest quota observations and freshness",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1accounts~1{account}~1quota/get"
+    },
+    {
+      "area": "access_foundation",
+      "method": "POST",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/accounts/{account}/quota",
+      "handler": "crate::admin::observe_quota",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "importAccountQuotaObservation",
+      "summary": "Import a versioned provider quota window observation",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1accounts~1{account}~1quota/post"
+    },
+    {
+      "area": "access_foundation",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/asset-group-intents",
+      "handler": "crate::admin::asset_requests::list",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "listAssetGroupRequests",
+      "summary": "Discover saved asset group creation requests",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1asset-group-intents/get"
+    },
+    {
+      "area": "access_foundation",
+      "method": "DELETE",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/asset-group-intents/{intent}/request",
+      "handler": "crate::admin::asset_requests::delete",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "deleteAssetGroupRequest",
+      "summary": "Delete saved asset-creation request content",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1asset-group-intents~1{intent}~1request/delete"
+    },
+    {
+      "area": "access_foundation",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/asset-group-intents/{intent}/request",
+      "handler": "crate::admin::asset_requests::get",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "getAssetGroupRequest",
+      "summary": "Read customer-safe asset request content and retention status",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1asset-group-intents~1{intent}~1request/get"
+    },
+    {
+      "area": "access_foundation",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/budget",
+      "handler": "crate::admin::budget",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "getProjectBudget",
+      "summary": "Read the platform upstream cost budget (installation only)",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1budget/get"
+    },
+    {
+      "area": "access_foundation",
+      "method": "POST",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/budget",
+      "handler": "crate::admin::create_budget",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "createProjectBudget",
+      "summary": "Create a platform upstream cost budget (installation only)",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1budget/post"
+    },
+    {
+      "area": "access_foundation",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/collector-keys",
+      "handler": "crate::admin::collector_keys",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "listCollectorKeys",
+      "summary": "List scoped collector credential metadata",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1collector-keys/get"
+    },
+    {
+      "area": "access_foundation",
+      "method": "POST",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/collector-keys",
+      "handler": "crate::admin::issue_collector_key",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "issueCollectorKey",
+      "summary": "Issue a scoped quota-observation collector credential",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1collector-keys/post"
+    },
+    {
+      "area": "access_foundation",
+      "method": "DELETE",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/collector-keys/{id}",
+      "handler": "crate::admin::revoke_collector_key",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "revokeCollectorKey",
+      "summary": "Revoke a scoped collector credential",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1collector-keys~1{id}/delete"
+    },
+    {
+      "area": "access_foundation",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/costs",
+      "handler": "crate::admin::costs",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "listProjectCosts",
+      "summary": "Read platform upstream cost entries (installation only)",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1costs/get"
+    },
+    {
+      "area": "access_foundation",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/spending-limit",
+      "handler": "crate::admin::workspace_spending::list",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listWorkspaceSpendingLimits",
+      "summary": "List workspace spending currencies",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1spending-limit/get"
+    },
+    {
+      "area": "access_foundation",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}",
+      "handler": "crate::admin::workspace_spending::read",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "getWorkspaceSpendingLimit",
+      "summary": "Read a workspace spending limit",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1spending-limit~1{currency}/get"
+    },
+    {
+      "area": "access_foundation",
+      "method": "PUT",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}",
+      "handler": "crate::admin::workspace_spending::write",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "setWorkspaceSpendingLimit",
+      "summary": "Set a workspace spending limit",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1spending-limit~1{currency}/put"
+    },
+    {
+      "area": "access_foundation",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}/history",
+      "handler": "crate::admin::workspace_spending::history",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listWorkspaceSpendingLimitHistory",
+      "summary": "List workspace spending revisions",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1spending-limit~1{currency}~1history/get"
+    },
+    {
+      "area": "access_foundation",
+      "method": "GET",
+      "path": "/admin/v1/session",
+      "handler": "crate::admin::current_session",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "getAdminSessionIdentity",
+      "summary": "Read the current administrator's scope and permissions",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1session/get"
+    },
+    {
+      "area": "access_foundation",
+      "method": "GET",
+      "path": "/admin/v1/workspaces",
+      "handler": "crate::admin::workspaces",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listWorkspaces",
+      "summary": "List an authorized page of workspaces",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1workspaces/get"
+    },
+    {
+      "area": "access_foundation",
+      "method": "POST",
+      "path": "/admin/v1/workspaces",
+      "handler": "crate::admin::create_workspace",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "createWorkspace",
+      "summary": "Create a workspace with retry-safe identity",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1workspaces/post"
+    },
+    {
+      "area": "access_foundation",
+      "method": "GET",
+      "path": "/admin/v1/workspaces/by-route/{route_slug}",
+      "handler": "crate::admin::workspace_route",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "resolveWorkspaceRoute",
+      "summary": "Resolve an authorized canonical workspace route",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1workspaces~1by-route~1{route_slug}/get"
+    },
+    {
+      "area": "billing",
+      "method": "PUT",
+      "path": "/admin/v1/organizations/{organization}/billing/accounts/{currency}/policy",
+      "handler": "crate::billing::balance_policy",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "configureCustomerBalancePolicy",
+      "summary": "Configure approved credit and low-balance threshold",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1policy/put"
+    },
+    {
+      "area": "billing",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/billing/accounts/{currency}/policy/history",
+      "handler": "crate::billing::balance_policy_history::history",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "getCustomerBalancePolicyHistory",
+      "summary": "Read immutable company credit and warning policy revisions",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1policy~1history/get"
+    },
+    {
+      "area": "billing",
+      "method": "PUT",
+      "path": "/admin/v1/organizations/{organization}/billing/accounts/{currency}/warning-threshold",
+      "handler": "crate::billing::balance_warning",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "setCustomerBalanceWarning",
+      "summary": "Set company low-balance warning threshold",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1accounts~1{currency}~1warning-threshold/put"
+    },
+    {
+      "area": "billing",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/billing/balance",
+      "handler": "crate::billing::account_balance",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "getCustomerBalance",
+      "summary": "Read shared company account balances",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1balance/get"
+    },
+    {
+      "area": "billing",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/billing/charge-reconciliation",
+      "handler": "crate::billing::charge_reconciliation",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "getCustomerChargeReconciliation",
+      "summary": "Compare customer charge records with prepaid ledger debits",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1charge-reconciliation/get"
+    },
+    {
+      "area": "billing",
+      "method": "POST",
+      "path": "/admin/v1/organizations/{organization}/billing/entries/{entry}/reversal",
+      "handler": "crate::billing::balance_reversal",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "reverseCustomerBalanceEntry",
+      "summary": "Record a balance refund or settled-funding reversal",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1entries~1{entry}~1reversal/post"
+    },
+    {
+      "area": "billing",
+      "method": "POST",
+      "path": "/admin/v1/organizations/{organization}/billing/funding/settled",
+      "handler": "crate::billing::settled_funding",
+      "contract_source": "contracts/billing.openapi.yaml",
+      "operation_id": "recordSettledCustomerFunding",
+      "summary": "Record an externally verified settled customer payment",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/billing.openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1funding~1settled/post"
+    },
+    {
+      "area": "billing",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/billing/media-rate-models",
+      "handler": "crate::billing::media_rate_models",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listCustomerMediaRateModels",
+      "summary": "Read named qualified commercial video configuration choices",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1media-rate-models/get"
+    },
+    {
+      "area": "billing",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/billing/media-rates",
+      "handler": "crate::billing::media_rates",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listCustomerMediaRates",
+      "summary": "Read bounded immutable customer selling history",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1media-rates/get"
+    },
+    {
+      "area": "billing",
+      "method": "POST",
+      "path": "/admin/v1/organizations/{organization}/billing/media-rates",
+      "handler": "crate::billing::media_rate",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "publishCustomerMediaRate",
+      "summary": "Publish an immutable customer video selling schedule",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1media-rates/post"
+    },
+    {
+      "area": "billing",
+      "method": "POST",
+      "path": "/admin/v1/organizations/{organization}/billing/media-rates/replace",
+      "handler": "crate::billing::replace_media_rate",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "replaceCustomerMediaRate",
+      "summary": "Atomically replace a customer media selling schedule",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1media-rates~1replace/post"
+    },
+    {
+      "area": "billing",
+      "method": "POST",
+      "path": "/admin/v1/organizations/{organization}/billing/media-rates/{revision}/retire",
+      "handler": "crate::billing::retire_media_rate",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "retireCustomerMediaRate",
+      "summary": "End a published customer media rate's eligibility",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1media-rates~1{revision}~1retire/post"
+    },
+    {
+      "area": "billing",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/billing/payment-methods",
+      "handler": "crate::payments::payment_methods",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "getCustomerPaymentMethods",
+      "summary": "Read company checkout availability",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/billing.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1payment-methods/get"
+    },
+    {
+      "area": "billing",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/billing/reservations",
+      "handler": "crate::billing::reservations::list",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listCustomerBalanceReservations",
+      "summary": "Inspect open customer balance reservations",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1reservations/get"
+    },
+    {
+      "area": "billing",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/billing/topups",
+      "handler": "crate::payments::topup_history",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listCustomerTopups",
+      "summary": "Recover company checkout history",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/billing.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1topups/get"
+    },
+    {
+      "area": "billing",
+      "method": "POST",
+      "path": "/admin/v1/organizations/{organization}/billing/topups",
+      "handler": "crate::payments::create_topup",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "createCustomerTopup",
+      "summary": "Create or recover a company prepaid top-up",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/billing.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1topups/post"
+    },
+    {
+      "area": "billing",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/billing/topups/{order}",
+      "handler": "crate::payments::topup_status",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "getCustomerTopup",
+      "summary": "Read saved company top-up status",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/billing.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1topups~1{order}/get"
+    },
+    {
+      "area": "billing",
+      "method": "POST",
+      "path": "/admin/v1/organizations/{organization}/billing/topups/{order}/reconcile",
+      "handler": "crate::payments::reconcile",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "reconcileCustomerTopup",
+      "summary": "Independently reconcile a saved payment",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/billing.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1topups~1{order}~1reconcile/post"
+    },
+    {
+      "area": "billing",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/billing/transactions",
+      "handler": "crate::billing::balance_transactions",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "getCustomerBalanceTransactions",
+      "summary": "Read a company balance transaction page",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1billing~1transactions/get"
+    },
+    {
+      "area": "billing",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/billing",
+      "handler": "crate::billing::overview",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "getCustomerBilling",
+      "summary": "Read workspace customer charges, tariffs and latest 100 invoices",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1billing/get"
+    },
+    {
+      "area": "billing",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/billing/invoices",
+      "handler": "crate::billing::invoice_history::list",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listCustomerInvoices",
+      "summary": "Page complete workspace customer invoice history",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1invoices/get"
+    },
+    {
+      "area": "billing",
+      "method": "POST",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/billing/invoices",
+      "handler": "crate::billing::issue",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "issueCustomerUsageInvoice",
+      "summary": "Issue an immutable itemized usage statement",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1invoices/post"
+    },
+    {
+      "area": "billing",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}",
+      "handler": "crate::billing::lines",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "getCustomerInvoiceLines",
+      "summary": "Read invoice lines grouped by model and pinned rate revision",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1invoices~1{invoice}/get"
+    },
+    {
+      "area": "billing",
+      "method": "POST",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/billing/invoices/{invoice}/payment",
+      "handler": "crate::billing::payment",
+      "contract_source": "contracts/billing.openapi.yaml",
+      "operation_id": "recordCustomerExternalPayment",
+      "summary": "Record one confirmed full external invoice payment",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/billing.openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1invoices~1{invoice}~1payment/post"
+    },
+    {
+      "area": "billing",
+      "method": "POST",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/billing/tariffs",
+      "handler": "crate::billing::tariff",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "publishCustomerSellingRate",
+      "summary": "Publish an immutable customer selling rate revision",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1tariffs/post"
+    },
+    {
+      "area": "billing",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/billing/tariffs/{model}/history",
+      "handler": "crate::billing::tariff_history",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listCustomerTariffHistory",
+      "summary": "Read immutable customer text price history",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1billing~1tariffs~1{model}~1history/get"
+    },
+    {
+      "area": "billing",
+      "method": "GET",
+      "path": "/admin/v1/platform/payments/epay",
+      "handler": "crate::payments::read_configuration_api",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "getPlatformEPayConfiguration",
+      "summary": "Read EPay configuration with platform administrator read access",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/platform-configuration.openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1platform~1payments~1epay/get"
+    },
+    {
+      "area": "billing",
+      "method": "PUT",
+      "path": "/admin/v1/platform/payments/epay",
+      "handler": "crate::payments::save_configuration_api",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "savePlatformEPayConfiguration",
+      "summary": "Save encrypted EPay configuration with platform administrator write access",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/platform-configuration.openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1platform~1payments~1epay/put"
+    },
+    {
+      "area": "billing",
+      "method": "GET",
+      "path": "/admin/v1/platform/payments/integrations",
+      "handler": "crate::payments::integrations",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listPaymentIntegrations",
+      "summary": "List supported payment integrations",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/platform-configuration.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1platform~1payments~1integrations/get"
+    },
+    {
+      "area": "billing",
+      "method": "GET",
+      "path": "/admin/v1/pricing/models",
+      "handler": "crate::billing::platform_pricing::models",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listPlatformPricingModels",
+      "summary": "List models eligible for customer tariff publication",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1pricing~1models/get"
+    },
+    {
+      "area": "billing",
+      "method": "GET",
+      "path": "/admin/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs",
+      "handler": "crate::billing::platform_pricing::tariffs",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listPlatformCustomerTariffs",
+      "summary": "Page current customer selling tariffs",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1pricing~1organizations~1{organization}~1workspaces~1{project}~1tariffs/get"
+    },
+    {
+      "area": "billing",
+      "method": "GET",
+      "path": "/admin/v1/pricing/organizations/{organization}/workspaces/{project}/tariffs/{model}/history",
+      "handler": "crate::billing::platform_tariff_history",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listPlatformCustomerTariffHistory",
+      "summary": "Read platform customer selling-price history",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1pricing~1organizations~1{organization}~1workspaces~1{project}~1tariffs~1{model}~1history/get"
+    },
+    {
+      "area": "billing",
+      "method": "GET",
+      "path": "/admin/v1/pricing/targets",
+      "handler": "crate::billing::platform_pricing::targets",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listPlatformPricingTargets",
+      "summary": "Discover named platform pricing targets",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1pricing~1targets/get"
+    },
+    {
+      "area": "billing",
+      "method": "GET",
+      "path": "/payments/epay/notify",
+      "handler": "crate::payments::epay_notify_get",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "receiveEPayQueryNotification",
+      "summary": "Receive a signed classic EPay query notification",
+      "implementation_annotation": "implemented",
+      "security": [],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1payments~1epay~1notify/get"
+    },
+    {
+      "area": "billing",
+      "method": "POST",
+      "path": "/payments/epay/notify",
+      "handler": "crate::payments::epay_notify_post",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "receiveEPayFormNotification",
+      "summary": "Receive a signed classic EPay form notification",
+      "implementation_annotation": "implemented",
+      "security": [],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1payments~1epay~1notify/post"
+    },
+    {
+      "area": "billing",
+      "method": "POST",
+      "path": "/payments/stripe/notify",
+      "handler": "crate::payments::stripe_notify",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "receiveStripePaymentNotification",
+      "summary": "Receive a signed Stripe checkout notification",
+      "implementation_annotation": "implemented",
+      "security": [],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1payments~1stripe~1notify/post"
+    },
+    {
+      "area": "billing",
+      "method": "POST",
+      "path": "/payments/zhifux/notify",
+      "handler": "crate::payments::notify",
+      "contract_source": "contracts/billing.openapi.yaml",
+      "operation_id": "receiveZhifuxNotification",
+      "summary": "Receive signed merchant notification",
+      "implementation_annotation": "unspecified",
+      "security": [],
+      "path_item_contract_source": "contracts/billing.openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1payments~1zhifux~1notify/post"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/guardrails",
+      "handler": "crate::admin::guardrails::read",
+      "contract_source": "contracts/guardrails.openapi.yaml",
+      "operation_id": null,
+      "summary": "Read active workspace access policy",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/guardrails.openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails/get"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "PUT",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/guardrails",
+      "handler": "crate::admin::guardrails::activate",
+      "contract_source": "contracts/guardrails.openapi.yaml",
+      "operation_id": null,
+      "summary": "Activate a validated workspace access-policy revision",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/guardrails.openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails/put"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/guardrails/denials",
+      "handler": "crate::admin::guardrails::preparation_denials",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listGuardrailPreparationDenials",
+      "summary": "Read latest 100 workspace preparation refusals",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1denials/get"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/guardrails/history",
+      "handler": "crate::admin::guardrails::history",
+      "contract_source": "contracts/guardrails.openapi.yaml",
+      "operation_id": "listWorkspaceGuardrailHistory",
+      "summary": "Browse immutable workspace policy revision metadata",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/guardrails.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1history/get"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "POST",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/guardrails/input-preview",
+      "handler": "crate::admin::guardrails::input_preview",
+      "contract_source": "contracts/guardrails.openapi.yaml",
+      "operation_id": "previewGuardrailInput",
+      "summary": "Test synthetic input against local text rules without enforcement",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/guardrails.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1input-preview/post"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "POST",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/guardrails/output-preview",
+      "handler": "crate::admin::guardrails::output_preview",
+      "contract_source": "contracts/guardrails.openapi.yaml",
+      "operation_id": "previewGuardrailOutput",
+      "summary": "Test synthetic output against local text rules without enforcement",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/guardrails.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1output-preview/post"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "POST",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/guardrails/preview",
+      "handler": "crate::admin::guardrails::preview",
+      "contract_source": "contracts/guardrails.openapi.yaml",
+      "operation_id": null,
+      "summary": "Preview draft model and Provider access without persistence",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/guardrails.openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1preview/post"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/guardrails/revisions/{revision}",
+      "handler": "crate::admin::guardrails::read_revision",
+      "contract_source": "contracts/guardrails.openapi.yaml",
+      "operation_id": "getWorkspaceGuardrailRevision",
+      "summary": "Inspect a preserved workspace policy version before restoring",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/guardrails.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1revisions~1{revision}/get"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "POST",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/guardrails/rollback",
+      "handler": "crate::admin::guardrails::rollback",
+      "contract_source": "contracts/guardrails.openapi.yaml",
+      "operation_id": null,
+      "summary": "Restore a preserved policy as a new active revision",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/guardrails.openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1guardrails~1rollback/post"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys",
+      "handler": "crate::admin::keys",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listKeys",
+      "summary": "List saved workspace API-key metadata",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys/get"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "POST",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys",
+      "handler": "crate::admin::issue_key",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "issueKey",
+      "summary": "Issue a workspace API key and return its secret once",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys/post"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "DELETE",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}",
+      "handler": "crate::admin::revoke_key",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "revokeKey",
+      "summary": "Revoke a workspace API key",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}/delete"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "PATCH",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}",
+      "handler": "crate::admin::update_key_metadata",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "updateKeyMetadata",
+      "summary": "Update workspace API key name and model grants",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}/patch"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "POST",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/chat/completions",
+      "handler": "super::inference::dashboard_chat",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "createDashboardChatCompletion",
+      "summary": "Create a Chat completion with a selected workspace key",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1chat~1completions/post"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit",
+      "handler": "crate::admin::key_concurrency::read",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "getKeyConcurrencyLimit",
+      "summary": "Read API key concurrency policy",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/key-concurrency.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1concurrency-limit/get"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "PUT",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit",
+      "handler": "crate::admin::key_concurrency::write",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "setKeyConcurrencyLimit",
+      "summary": "Set API key concurrency policy",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/key-concurrency.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1concurrency-limit/put"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/concurrency-limit/history",
+      "handler": "crate::admin::key_concurrency::history",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listKeyConcurrencyLimitHistory",
+      "summary": "List API key concurrency policy history",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/key-concurrency.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1concurrency-limit~1history/get"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail",
+      "handler": "crate::admin::guardrails::read_key_assignment",
+      "contract_source": "contracts/guardrails.openapi.yaml",
+      "operation_id": null,
+      "summary": "Read a workspace-scoped key policy assignment",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/guardrails.openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1guardrail/get"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "PUT",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail",
+      "handler": "crate::admin::guardrails::assign_key",
+      "contract_source": "contracts/guardrails.openapi.yaml",
+      "operation_id": null,
+      "summary": "Assign a preserved workspace policy revision to an active key",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/guardrails.openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1guardrail/put"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/guardrail/history",
+      "handler": "crate::admin::guardrails::key_history",
+      "contract_source": "contracts/guardrails.openapi.yaml",
+      "operation_id": null,
+      "summary": "Read immutable key policy assignment history",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/guardrails.openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1guardrail~1history/get"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy",
+      "handler": "crate::admin::key_ip::read",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "getKeyIpPolicy",
+      "summary": "Read API key source policy",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/key-ip.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1ip-policy/get"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "PUT",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy",
+      "handler": "crate::admin::key_ip::write",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "setKeyIpPolicy",
+      "summary": "Set API key source policy",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/key-ip.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1ip-policy/put"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/ip-policy/history",
+      "handler": "crate::admin::key_ip::history",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listKeyIpPolicyHistory",
+      "summary": "List API key source policy history",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/key-ip.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1ip-policy~1history/get"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/request-rate-limit",
+      "handler": "crate::admin::key_request_rate::read",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "getKeyRequestRateLimit",
+      "summary": "Read API key request rate policy",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/key-request-rate.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1request-rate-limit/get"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "PUT",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/request-rate-limit",
+      "handler": "crate::admin::key_request_rate::write",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "setKeyRequestRateLimit",
+      "summary": "Set API key request rate policy",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/key-request-rate.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1request-rate-limit/put"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/request-rate-limit/history",
+      "handler": "crate::admin::key_request_rate::history",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listKeyRequestRateLimitHistory",
+      "summary": "List API key request rate policy history",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/key-request-rate.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1request-rate-limit~1history/get"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "POST",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/rotate",
+      "handler": "crate::admin::rotate_key",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "rotateKey",
+      "summary": "Atomically replace a key while preserving its grants and expiry",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1rotate/post"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit",
+      "handler": "crate::admin::key_spending::list",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listKeySpendingLimits",
+      "summary": "List API key spending limits",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/key-spending.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1spending-limit/get"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "PUT",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}",
+      "handler": "crate::admin::key_spending::write",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "setKeySpendingLimit",
+      "summary": "Set API key spending limit",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/key-spending.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1spending-limit~1{currency}/put"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/spending-limit/{currency}/history",
+      "handler": "crate::admin::key_spending::history",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listKeySpendingLimitHistory",
+      "summary": "List API key spending history",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/key-spending.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1spending-limit~1{currency}~1history/get"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit",
+      "handler": "crate::admin::key_token_rate::read",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "getKeyTokenRateLimit",
+      "summary": "Read API key token rate policy",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/key-token-rate.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1token-rate-limit/get"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "PUT",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit",
+      "handler": "crate::admin::key_token_rate::write",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "setKeyTokenRateLimit",
+      "summary": "Set API key token rate policy",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/key-token-rate.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1token-rate-limit/put"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/token-rate-limit/history",
+      "handler": "crate::admin::key_token_rate::history",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listKeyTokenRateLimitHistory",
+      "summary": "List API key token rate policy history",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/key-token-rate.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1token-rate-limit~1history/get"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/token-usage-window",
+      "handler": "crate::admin::key_request_rate::usage",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "getKeyTokenUsageWindow",
+      "summary": "Read API key token usage window",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/key-request-rate.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1token-usage-window/get"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "GET",
+      "path": "/v1/branding",
+      "handler": "crate::branding::public",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "getPublicBranding",
+      "summary": "Read deployment display settings",
+      "implementation_annotation": "unspecified",
+      "security": [],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1v1~1branding/get"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "POST",
+      "path": "/v1/chat/completions",
+      "handler": "chat",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "createChatCompletion",
+      "summary": "Create an OpenAI-compatible chat completion",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1v1~1chat~1completions/post"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "POST",
+      "path": "/v1/embeddings",
+      "handler": "embeddings",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "createEmbedding",
+      "summary": "Create OpenAI-compatible text embeddings",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1v1~1embeddings/post"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "POST",
+      "path": "/v1/messages",
+      "handler": "messages",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "createMessage",
+      "summary": "Create a native text Message, optionally streamed",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1v1~1messages/post"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "GET",
+      "path": "/v1/models",
+      "handler": "public_models",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listModels",
+      "summary": "List key-accessible model aliases and workspace customer prices",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1v1~1models/get"
+    },
+    {
+      "area": "keys_and_inference",
+      "method": "POST",
+      "path": "/v1/responses",
+      "handler": "responses",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "createResponse",
+      "summary": "Create a text response",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1v1~1responses/post"
+    },
+    {
+      "area": "logs",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/requests",
+      "handler": "crate::admin::gateway_activity",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listProjectGatewayActivity",
+      "summary": "Read automatically retained gateway request activity",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1requests/get"
+    },
+    {
+      "area": "logs",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/requests/export",
+      "handler": "crate::admin::request_exports::csv",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "exportWorkspaceRequests",
+      "summary": "Export filtered customer-safe request metadata as CSV",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1requests~1export/get"
+    },
+    {
+      "area": "logs",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}",
+      "handler": "crate::admin::gateway_request",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "getGatewayRequest",
+      "summary": "Read a recorded gateway request",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/request-observability.openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1requests~1{attempt}/get"
+    },
+    {
+      "area": "logs",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/guardrails",
+      "handler": "crate::admin::guardrails::dispatch_decision",
+      "contract_source": "contracts/guardrails.openapi.yaml",
+      "operation_id": "getRequestGuardrailDecision",
+      "summary": "Read immutable policy attribution for an allowed dispatch",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/guardrails.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1requests~1{attempt}~1guardrails/get"
+    },
+    {
+      "area": "logs",
+      "method": "DELETE",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/payloads",
+      "handler": "crate::admin::request_payloads::delete",
+      "contract_source": "contracts/request-observability.openapi.yaml",
+      "operation_id": "deleteRequestPayload",
+      "summary": "Delete retained content without deleting accounting records",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/request-observability.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1requests~1{attempt}~1payloads/delete"
+    },
+    {
+      "area": "logs",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/payloads",
+      "handler": "crate::admin::request_payloads::get",
+      "contract_source": "contracts/request-observability.openapi.yaml",
+      "operation_id": "getRequestPayload",
+      "summary": "Read retained request content in an authorized workspace",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/request-observability.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1requests~1{attempt}~1payloads/get"
+    },
+    {
+      "area": "logs",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation",
+      "handler": "crate::billing::usage_reconciliation::get",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "getRequestUsageReconciliation",
+      "summary": "Read recorded supplemental request usage",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1requests~1{attempt}~1usage-reconciliation/get"
+    },
+    {
+      "area": "logs",
+      "method": "POST",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/requests/{attempt}/usage-reconciliation",
+      "handler": "crate::billing::usage_reconciliation::reconcile",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "reconcileRequestUsage",
+      "summary": "Supplement missing native request usage from captured OpenRouter evidence",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1requests~1{attempt}~1usage-reconciliation/post"
+    },
+    {
+      "area": "saved_chat",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/chat-draft",
+      "handler": "crate::admin::chat_sessions::draft",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "getChatDraft",
+      "summary": "Read the current actor's durable composer draft",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1chat-draft/get"
+    },
+    {
+      "area": "saved_chat",
+      "method": "PUT",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/chat-draft",
+      "handler": "crate::admin::chat_sessions::save_draft",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "saveChatDraft",
+      "summary": "Save or clear an owned composer draft",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1chat-draft/put"
+    },
+    {
+      "area": "saved_chat",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/chat-sessions",
+      "handler": "crate::admin::chat_sessions::list",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listChatSessions",
+      "summary": "List personal saved Chat history or one continuation page",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1chat-sessions/get"
+    },
+    {
+      "area": "saved_chat",
+      "method": "DELETE",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}",
+      "handler": "crate::admin::chat_sessions::delete",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "deleteChatSession",
+      "summary": "Delete an owned Chat session in a workspace",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1chat-sessions~1{id}/delete"
+    },
+    {
+      "area": "saved_chat",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}",
+      "handler": "crate::admin::chat_sessions::get",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "getChatSession",
+      "summary": "Read one complete owned saved Chat conversation",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1chat-sessions~1{id}/get"
+    },
+    {
+      "area": "saved_chat",
+      "method": "PUT",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}",
+      "handler": "crate::admin::chat_sessions::save",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "saveChatSession",
+      "summary": "Save an owned Chat session in a workspace",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1chat-sessions~1{id}/put"
+    },
+    {
+      "area": "saved_chat",
+      "method": "PUT",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}/archive",
+      "handler": "crate::admin::chat_sessions::archive",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "setChatSessionArchived",
+      "summary": "Archive or restore the authenticated owner's Chat session",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1chat-sessions~1{id}~1archive/put"
+    },
+    {
+      "area": "saved_chat",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}/export",
+      "handler": "crate::admin::chat_sessions::export",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "exportChatSession",
+      "summary": "Export one owned saved conversation",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1chat-sessions~1{id}~1export/get"
+    },
+    {
+      "area": "supplier",
+      "method": "GET",
+      "path": "/admin/v1/providers",
+      "handler": "crate::providers::list",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listProviderBusinesses",
+      "summary": "List active Supplier business identities",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1providers/get"
+    },
+    {
+      "area": "supplier",
+      "method": "POST",
+      "path": "/admin/v1/providers",
+      "handler": "crate::providers::create",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "createProviderBusiness",
+      "summary": "Create a Supplier business identity",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1providers/post"
+    },
+    {
+      "area": "supplier",
+      "method": "DELETE",
+      "path": "/admin/v1/providers/{provider}",
+      "handler": "crate::providers::delete",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "deleteSupplierBusiness",
+      "summary": "Remove an unconfigured Supplier from the directory",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/provider-business.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}/delete"
+    },
+    {
+      "area": "supplier",
+      "method": "GET",
+      "path": "/admin/v1/providers/{provider}",
+      "handler": "crate::providers::profile",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "getSupplierProfile",
+      "summary": "Read Supplier business profile",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/provider-business.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}/get"
+    },
+    {
+      "area": "supplier",
+      "method": "PATCH",
+      "path": "/admin/v1/providers/{provider}",
+      "handler": "crate::providers::rename",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "renameSupplierBusiness",
+      "summary": "Update Supplier business profile",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/provider-business.openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}/patch"
+    },
+    {
+      "area": "supplier",
+      "method": "GET",
+      "path": "/admin/v1/providers/{provider}/administration",
+      "handler": "crate::providers::administration_dashboard",
+      "contract_source": "contracts/provider-business.openapi.yaml",
+      "operation_id": "getProviderAdministrationDashboard",
+      "summary": "Explicit installation oversight of the supplier dashboard",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "operatorBearer": []
+        }
+      ],
+      "path_item_contract_source": "contracts/provider-business.openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1administration/get"
+    },
+    {
+      "area": "supplier",
+      "method": "GET",
+      "path": "/admin/v1/providers/{provider}/configuration-usage",
+      "handler": "crate::supplier_configuration_usage::read",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "getSupplierConfigurationUsage",
+      "summary": "Inspect operational usage of Supplier-owned configurations",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1configuration-usage/get"
+    },
+    {
+      "area": "supplier",
+      "method": "GET",
+      "path": "/admin/v1/providers/{provider}/dashboard",
+      "handler": "crate::providers::dashboard",
+      "contract_source": "contracts/provider-business.openapi.yaml",
+      "operation_id": "getProviderDashboard",
+      "summary": "Supplier-scoped earnings and operations; active explicit membership required",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "operatorBearer": []
+        }
+      ],
+      "path_item_contract_source": "contracts/provider-business.openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1dashboard/get"
+    },
+    {
+      "area": "supplier",
+      "method": "GET",
+      "path": "/admin/v1/providers/{provider}/earnings",
+      "handler": "crate::providers::earning_history",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listSupplierEarnings",
+      "summary": "Page platform Supplier accrued and paid obligations",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/provider-business.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1earnings/get"
+    },
+    {
+      "area": "supplier",
+      "method": "GET",
+      "path": "/admin/v1/providers/{provider}/media-offer-models",
+      "handler": "crate::providers::media_offer_models",
+      "contract_source": "contracts/provider-business.openapi.yaml",
+      "operation_id": "listSupplierMediaOfferModels",
+      "summary": "List named draft media offer bindings",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "operatorBearer": []
+        }
+      ],
+      "path_item_contract_source": "contracts/provider-business.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1media-offer-models/get"
+    },
+    {
+      "area": "supplier",
+      "method": "POST",
+      "path": "/admin/v1/providers/{provider}/media-offers",
+      "handler": "crate::providers::publish_media_offer",
+      "contract_source": "contracts/provider-business.openapi.yaml",
+      "operation_id": "publishSupplierMediaOffer",
+      "summary": "Save an inactive versioned media offer without text-token prices",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "operatorBearer": []
+        }
+      ],
+      "path_item_contract_source": "contracts/provider-business.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1media-offers/post"
+    },
+    {
+      "area": "supplier",
+      "method": "GET",
+      "path": "/admin/v1/providers/{provider}/media-rate-models",
+      "handler": "crate::providers::media_rate_models",
+      "contract_source": "contracts/provider-business.openapi.yaml",
+      "operation_id": "listSupplierMediaRateModels",
+      "summary": "List current media pricing configuration choices",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "operatorBearer": []
+        }
+      ],
+      "path_item_contract_source": "contracts/provider-business.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1media-rate-models/get"
+    },
+    {
+      "area": "supplier",
+      "method": "GET",
+      "path": "/admin/v1/providers/{provider}/media-rates",
+      "handler": "crate::providers::media_rates",
+      "contract_source": "contracts/provider-business.openapi.yaml",
+      "operation_id": "listSupplierMediaRates",
+      "summary": "Read this Supplier's agreed media purchase schedules",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "operatorBearer": []
+        }
+      ],
+      "path_item_contract_source": "contracts/provider-business.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1media-rates/get"
+    },
+    {
+      "area": "supplier",
+      "method": "POST",
+      "path": "/admin/v1/providers/{provider}/media-rates",
+      "handler": "crate::providers::media_rate",
+      "contract_source": "contracts/provider-business.openapi.yaml",
+      "operation_id": "publishSupplierMediaRate",
+      "summary": "Publish confidential agreed Supplier media purchase terms",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "operatorBearer": []
+        }
+      ],
+      "path_item_contract_source": "contracts/provider-business.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1media-rates/post"
+    },
+    {
+      "area": "supplier",
+      "method": "POST",
+      "path": "/admin/v1/providers/{provider}/media-rates/replace",
+      "handler": "crate::providers::replace_media_rate",
+      "contract_source": "contracts/provider-business.openapi.yaml",
+      "operation_id": "replaceSupplierMediaRate",
+      "summary": "Atomically replace agreed media purchase terms",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "operatorBearer": []
+        }
+      ],
+      "path_item_contract_source": "contracts/provider-business.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1media-rates~1replace/post"
+    },
+    {
+      "area": "supplier",
+      "method": "POST",
+      "path": "/admin/v1/providers/{provider}/media-rates/{revision}/retire",
+      "handler": "crate::providers::retire_media_rate",
+      "contract_source": "contracts/provider-business.openapi.yaml",
+      "operation_id": "retireSupplierMediaRate",
+      "summary": "End a Supplier purchase schedule's eligibility",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "operatorBearer": []
+        }
+      ],
+      "path_item_contract_source": "contracts/provider-business.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1media-rates~1{revision}~1retire/post"
+    },
+    {
+      "area": "supplier",
+      "method": "GET",
+      "path": "/admin/v1/providers/{provider}/members",
+      "handler": "crate::providers::members",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listSupplierMembers",
+      "summary": "List Supplier business members",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1members/get"
+    },
+    {
+      "area": "supplier",
+      "method": "PUT",
+      "path": "/admin/v1/providers/{provider}/members/{operator}",
+      "handler": "crate::providers::set_member",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "setProviderMembership",
+      "summary": "Grant, change or disable a Supplier membership",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1members~1{operator}/put"
+    },
+    {
+      "area": "supplier",
+      "method": "GET",
+      "path": "/admin/v1/providers/{provider}/offers",
+      "handler": "crate::providers::offers",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listSupplierOffersPage",
+      "summary": "Page current Supplier offers and rate revisions",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/provider-business.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1offers/get"
+    },
+    {
+      "area": "supplier",
+      "method": "POST",
+      "path": "/admin/v1/providers/{provider}/offers",
+      "handler": "crate::providers::publish_offer",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "publishProviderPayoutRates",
+      "summary": "Publish an immutable agreed Supplier payout schedule",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/provider-business.openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1offers/post"
+    },
+    {
+      "area": "supplier",
+      "method": "PATCH",
+      "path": "/admin/v1/providers/{provider}/offers/{offer}",
+      "handler": "crate::providers::set_offer",
+      "contract_source": "contracts/provider-business.openapi.yaml",
+      "operation_id": "setProviderOfferAvailability",
+      "summary": "A supplier manager can pause or resume an owned offer",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "operatorBearer": []
+        }
+      ],
+      "path_item_contract_source": "contracts/provider-business.openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1offers~1{offer}/patch"
+    },
+    {
+      "area": "supplier",
+      "method": "GET",
+      "path": "/admin/v1/providers/{provider}/offers/{offer}/revisions",
+      "handler": "crate::providers::offer_history",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listSupplierOfferHistory",
+      "summary": "List immutable Supplier quote history",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1offers~1{offer}~1revisions/get"
+    },
+    {
+      "area": "supplier",
+      "method": "GET",
+      "path": "/admin/v1/providers/{provider}/offers/{offer}/revisions/{revision}",
+      "handler": "crate::providers::offer_revision",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "getSupplierOfferRevision",
+      "summary": "Read an immutable Supplier procurement quote",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1offers~1{offer}~1revisions~1{revision}/get"
+    },
+    {
+      "area": "supplier",
+      "method": "GET",
+      "path": "/admin/v1/providers/{provider}/settlements",
+      "handler": "crate::providers::settlement_history",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listSupplierSettlements",
+      "summary": "Page Supplier settlement history",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/provider-business.openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1settlements/get"
+    },
+    {
+      "area": "supplier",
+      "method": "POST",
+      "path": "/admin/v1/providers/{provider}/settlements",
+      "handler": "crate::providers::record_settlement",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "recordExternalProviderPayment",
+      "summary": "Record an already completed external Supplier payment",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/provider-business.openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1providers~1{provider}~1settlements/post"
+    },
+    {
+      "area": "supplier",
+      "method": "GET",
+      "path": "/admin/v1/vendors",
+      "handler": "crate::vendors::list",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listVendors",
+      "summary": "List Supplier API-key configurations without credentials",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors/get"
+    },
+    {
+      "area": "supplier",
+      "method": "POST",
+      "path": "/admin/v1/vendors",
+      "handler": "crate::vendors::create",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "createVendor",
+      "summary": "Create an encrypted Supplier API-key configuration",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors/post"
+    },
+    {
+      "area": "supplier",
+      "method": "PUT",
+      "path": "/admin/v1/vendors/{id}",
+      "handler": "crate::vendors::update",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "updateVendor",
+      "summary": "Update one Supplier API-key configuration or rotate its credential",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}/put"
+    },
+    {
+      "area": "supplier",
+      "method": "DELETE",
+      "path": "/admin/v1/vendors/{id}/asset-management",
+      "handler": "crate::vendors::revoke_asset_management",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "revokeAssetManagement",
+      "summary": "Revoke locally saved asset-management credentials",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management/delete"
+    },
+    {
+      "area": "supplier",
+      "method": "GET",
+      "path": "/admin/v1/vendors/{id}/asset-management",
+      "handler": "crate::vendors::asset_management_configuration",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "getAssetManagementConfiguration",
+      "summary": "Read installation asset-management configuration metadata",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management/get"
+    },
+    {
+      "area": "supplier",
+      "method": "PUT",
+      "path": "/admin/v1/vendors/{id}/asset-management",
+      "handler": "crate::vendors::configure_asset_management",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "configureAssetManagement",
+      "summary": "Save an encrypted asset-management credential revision",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management/put"
+    },
+    {
+      "area": "supplier",
+      "method": "GET",
+      "path": "/admin/v1/vendors/{id}/asset-management/authorizations",
+      "handler": "crate::vendors::asset_authorizations::list",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "listAssetOperationAuthorizations",
+      "summary": "List one account's qualification records",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1authorizations/get"
+    },
+    {
+      "area": "supplier",
+      "method": "POST",
+      "path": "/admin/v1/vendors/{id}/asset-management/authorizations",
+      "handler": "crate::vendors::asset_authorizations::create",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "createAssetOperationAuthorization",
+      "summary": "Record administrator-reviewed ordinary asset qualification",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1authorizations/post"
+    },
+    {
+      "area": "supplier",
+      "method": "DELETE",
+      "path": "/admin/v1/vendors/{id}/asset-management/authorizations/{authorization}",
+      "handler": "crate::vendors::asset_authorizations::revoke",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "revokeAssetOperationAuthorization",
+      "summary": "Revoke one account's asset qualification",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1authorizations~1{authorization}/delete"
+    },
+    {
+      "area": "supplier",
+      "method": "POST",
+      "path": "/admin/v1/vendors/{id}/asset-management/group-deletion-consents",
+      "handler": "crate::vendors::asset_deletions::prepare",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "prepareOrdinaryAssetGroupDeletionConsent",
+      "summary": "Record specific cascading-deletion consent without dispatch",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1group-deletion-consents/post"
+    },
+    {
+      "area": "supplier",
+      "method": "DELETE",
+      "path": "/admin/v1/vendors/{id}/asset-management/group-deletion-consents/{consent}",
+      "handler": "crate::vendors::asset_deletions::revoke",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "revokeOrdinaryAssetGroupDeletionConsent",
+      "summary": "Revoke local deletion consent without erasing history",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1group-deletion-consents~1{consent}/delete"
+    },
+    {
+      "area": "supplier",
+      "method": "GET",
+      "path": "/admin/v1/vendors/{id}/asset-management/group-deletion-consents/{consent}",
+      "handler": "crate::vendors::asset_deletions::read",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "getOrdinaryAssetGroupDeletionConsent",
+      "summary": "Read safe local consent and outcome status",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1group-deletion-consents~1{consent}/get"
+    },
+    {
+      "area": "supplier",
+      "method": "POST",
+      "path": "/admin/v1/vendors/{id}/asset-management/group-deletion-consents/{consent}/dispatch",
+      "handler": "crate::vendors::asset_deletions::dispatch",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "dispatchOrdinaryAssetGroupDeletion",
+      "summary": "Dispatch one irreversible ordinary-group cascading deletion",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1group-deletion-consents~1{consent}~1dispatch/post"
+    },
+    {
+      "area": "supplier",
+      "method": "GET",
+      "path": "/admin/v1/vendors/{id}/asset-management/group-reads",
+      "handler": "crate::vendors::asset_reads::history",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": null,
+      "summary": "List scoped ordinary group-read outcomes and timing",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1group-reads/get"
+    },
+    {
+      "area": "supplier",
+      "method": "POST",
+      "path": "/admin/v1/vendors/{id}/asset-management/group-reads",
+      "handler": "crate::vendors::asset_reads::read",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": null,
+      "summary": "Read a saved ordinary asset group using its original account",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1group-reads/post"
+    },
+    {
+      "area": "supplier",
+      "method": "DELETE",
+      "path": "/admin/v1/vendors/{id}/asset-management/group-reads/{read}",
+      "handler": "crate::vendors::asset_reads::delete_result",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": null,
+      "summary": "Erase retained group-read content",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1group-reads~1{read}/delete"
+    },
+    {
+      "area": "supplier",
+      "method": "GET",
+      "path": "/admin/v1/vendors/{id}/asset-management/group-reads/{read}",
+      "handler": "crate::vendors::asset_reads::get_result",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": null,
+      "summary": "Recover an encrypted ordinary group read result",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1group-reads~1{read}/get"
+    },
+    {
+      "area": "supplier",
+      "method": "GET",
+      "path": "/admin/v1/vendors/{id}/asset-management/group-updates",
+      "handler": "crate::vendors::asset_updates::history",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": null,
+      "summary": "Retrieve scoped metadata-update audit history",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1group-updates/get"
+    },
+    {
+      "area": "supplier",
+      "method": "POST",
+      "path": "/admin/v1/vendors/{id}/asset-management/group-updates",
+      "handler": "crate::vendors::asset_updates::prepare",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": null,
+      "summary": "Prepare an encrypted metadata patch for a saved ordinary group",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1group-updates/post"
+    },
+    {
+      "area": "supplier",
+      "method": "DELETE",
+      "path": "/admin/v1/vendors/{id}/asset-management/group-updates/{update}",
+      "handler": "crate::vendors::asset_updates::delete_patch",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": null,
+      "summary": "Erase retained metadata-update patch",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1group-updates~1{update}/delete"
+    },
+    {
+      "area": "supplier",
+      "method": "POST",
+      "path": "/admin/v1/vendors/{id}/asset-management/group-updates/{update}/dispatch",
+      "handler": "crate::vendors::asset_updates::dispatch",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": null,
+      "summary": "Dispatch a prepared ordinary-group metadata update once",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1group-updates~1{update}~1dispatch/post"
+    },
+    {
+      "area": "supplier",
+      "method": "POST",
+      "path": "/admin/v1/vendors/{id}/asset-management/group-updates/{update}/reconcile",
+      "handler": "crate::vendors::asset_updates::reconcile",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": null,
+      "summary": "Read back and reconcile an acknowledged ordinary-group update",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1group-updates~1{update}~1reconcile/post"
+    },
+    {
+      "area": "supplier",
+      "method": "POST",
+      "path": "/admin/v1/vendors/{id}/asset-management/groups",
+      "handler": "crate::vendors::asset_groups::create",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "createOrdinaryAssetGroup",
+      "summary": "Create an ordinary asset group through platform administration",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1groups/post"
+    },
+    {
+      "area": "supplier",
+      "method": "GET",
+      "path": "/admin/v1/vendors/{id}/asset-management/listings",
+      "handler": "crate::vendors::asset_listings::history",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": null,
+      "summary": "List scoped ordinary asset-listing outcomes and timing",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1listings/get"
+    },
+    {
+      "area": "supplier",
+      "method": "POST",
+      "path": "/admin/v1/vendors/{id}/asset-management/listings",
+      "handler": "crate::vendors::asset_listings::list",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": null,
+      "summary": "List one bounded page of assets in a saved ordinary group",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1listings/post"
+    },
+    {
+      "area": "supplier",
+      "method": "DELETE",
+      "path": "/admin/v1/vendors/{id}/asset-management/listings/{listing}",
+      "handler": "crate::vendors::asset_listings::delete_result",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": null,
+      "summary": "Erase retained ordinary asset listing content",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1listings~1{listing}/delete"
+    },
+    {
+      "area": "supplier",
+      "method": "GET",
+      "path": "/admin/v1/vendors/{id}/asset-management/listings/{listing}",
+      "handler": "crate::vendors::asset_listings::get_result",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": null,
+      "summary": "Recover a retained ordinary asset listing locally",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1listings~1{listing}/get"
+    },
+    {
+      "area": "supplier",
+      "method": "GET",
+      "path": "/admin/v1/vendors/{id}/asset-management/lookups",
+      "handler": "crate::vendors::asset_lookups::history",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": null,
+      "summary": "List durable asset lookup audit history",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1lookups/get"
+    },
+    {
+      "area": "supplier",
+      "method": "POST",
+      "path": "/admin/v1/vendors/{id}/asset-management/lookups",
+      "handler": "crate::vendors::asset_lookups::lookup",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": null,
+      "summary": "Look up one asset from a retained original-group listing",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1lookups/post"
+    },
+    {
+      "area": "supplier",
+      "method": "DELETE",
+      "path": "/admin/v1/vendors/{id}/asset-management/lookups/{lookup}",
+      "handler": "crate::vendors::asset_lookups::delete_result",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": null,
+      "summary": "Erase retained asset lookup content",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1lookups~1{lookup}/delete"
+    },
+    {
+      "area": "supplier",
+      "method": "GET",
+      "path": "/admin/v1/vendors/{id}/asset-management/lookups/{lookup}",
+      "handler": "crate::vendors::asset_lookups::get_result",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": null,
+      "summary": "Recover one encrypted asset lookup result",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1asset-management~1lookups~1{lookup}/get"
+    },
+    {
+      "area": "supplier",
+      "method": "GET",
+      "path": "/admin/v1/vendors/{id}/catalog",
+      "handler": "crate::vendors::catalog",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listProviderModelCatalog",
+      "summary": "Discover upstream models for a Supplier API-key configuration",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1catalog/get"
+    },
+    {
+      "area": "supplier",
+      "method": "POST",
+      "path": "/admin/v1/vendors/{id}/catalog",
+      "handler": "crate::vendors::refresh_catalog",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "refreshProviderCatalogMetadata",
+      "summary": "Refresh descriptive metadata for existing vendor model mappings",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1catalog/post"
+    },
+    {
+      "area": "supplier",
+      "method": "POST",
+      "path": "/admin/v1/vendors/{id}/check",
+      "handler": "crate::vendors::check_model",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "checkVendorModel",
+      "summary": "Check provider reachability and whether a mapped model is listed",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1check/post"
+    },
+    {
+      "area": "supplier",
+      "method": "GET",
+      "path": "/admin/v1/vendors/{id}/models",
+      "handler": "crate::vendors::list_models",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listVendorModels",
+      "summary": "List model bindings for one Supplier API-key configuration",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1models/get"
+    },
+    {
+      "area": "supplier",
+      "method": "POST",
+      "path": "/admin/v1/vendors/{id}/models",
+      "handler": "crate::vendors::upsert_model",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "upsertVendorModel",
+      "summary": "Create or update a model mapping with optimistic revision checks",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1models/post"
+    },
+    {
+      "area": "supplier",
+      "method": "PUT",
+      "path": "/admin/v1/vendors/{id}/personal-owner",
+      "handler": "crate::vendors::assign_personal_owner",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "assignPersonalCredentialOwner",
+      "summary": "Assign a configured personal credential to its account",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1personal-owner/put"
+    },
+    {
+      "area": "supplier",
+      "method": "GET",
+      "path": "/admin/v1/vendors/{id}/supplier",
+      "handler": "crate::vendors::supplier",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "getConfigurationSupplier",
+      "summary": "Read the Supplier owning an API configuration",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1supplier/get"
+    },
+    {
+      "area": "supplier",
+      "method": "PUT",
+      "path": "/admin/v1/vendors/{id}/supplier",
+      "handler": "crate::vendors::associate_supplier",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "associateConfigurationSupplier",
+      "summary": "Associate an API configuration with a Supplier",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{id}~1supplier/put"
+    },
+    {
+      "area": "supplier",
+      "method": "GET",
+      "path": "/admin/v1/vendors/{vendor}/cooldown",
+      "handler": "crate::admin::vendor_cooldown::read",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "getVendorCooldown",
+      "summary": "Read credential safe-failure cooldown",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{vendor}~1cooldown/get"
+    },
+    {
+      "area": "supplier",
+      "method": "GET",
+      "path": "/admin/v1/vendors/{vendor}/request-rate-limit",
+      "handler": "crate::admin::vendor_request_rate::read",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "getVendorRequestRateLimit",
+      "summary": "Read upstream credential request limit",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{vendor}~1request-rate-limit/get"
+    },
+    {
+      "area": "supplier",
+      "method": "PUT",
+      "path": "/admin/v1/vendors/{vendor}/request-rate-limit",
+      "handler": "crate::admin::vendor_request_rate::write",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "setVendorRequestRateLimit",
+      "summary": "Set upstream credential request limit",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{vendor}~1request-rate-limit/put"
+    },
+    {
+      "area": "supplier",
+      "method": "GET",
+      "path": "/admin/v1/vendors/{vendor}/request-rate-limit/history",
+      "handler": "crate::admin::vendor_request_rate::history",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listVendorRequestRateLimitHistory",
+      "summary": "Read credential request-limit history",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1vendors~1{vendor}~1request-rate-limit~1history/get"
+    },
+    {
+      "area": "video",
+      "method": "POST",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/estimate",
+      "handler": "super::inference::dashboard_video::estimate",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "estimateDashboardVideo",
+      "summary": "Estimate a configured text-video request without submission",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1video~1estimate/post"
+    },
+    {
+      "area": "video",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs",
+      "handler": "super::inference::dashboard_video::history",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "listDashboardVideoJobs",
+      "summary": "List durable workspace video jobs",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1video~1jobs/get"
+    },
+    {
+      "area": "video",
+      "method": "POST",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs",
+      "handler": "super::inference::dashboard_video::create",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "createDashboardVideoJob",
+      "summary": "Submit a direct-channel text video job",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1video~1jobs/post"
+    },
+    {
+      "area": "video",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}",
+      "handler": "super::inference::dashboard_video::status",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "retrieveDashboardVideoJob",
+      "summary": "Read persisted video job state",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1video~1jobs~1{job}/get"
+    },
+    {
+      "area": "video",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/billing",
+      "handler": "super::inference::dashboard_video::billing",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "retrieveDashboardVideoBilling",
+      "summary": "Read saved customer video billing through a workspace session",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1video~1jobs~1{job}~1billing/get"
+    },
+    {
+      "area": "video",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/observations",
+      "handler": "super::inference::dashboard_video::observations",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "dashboardVideoQueryObservations",
+      "summary": "Read saved video query observations",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1video~1jobs~1{job}~1observations/get"
+    },
+    {
+      "area": "video",
+      "method": "POST",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/refresh",
+      "handler": "super::inference::dashboard_video::refresh",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "refreshDashboardVideoJob",
+      "summary": "Refresh one direct-channel video job",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1video~1jobs~1{job}~1refresh/post"
+    },
+    {
+      "area": "video",
+      "method": "DELETE",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/results",
+      "handler": "super::inference::dashboard_video::delete_results",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "deleteDashboardVideoResults",
+      "summary": "Permanently delete saved result references with workspace write access",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1video~1jobs~1{job}~1results/delete"
+    },
+    {
+      "area": "video",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/results",
+      "handler": "super::inference::dashboard_video::results_status",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "getDashboardVideoResultsStatus",
+      "summary": "Read saved result availability without downloading media",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1video~1jobs~1{job}~1results/get"
+    },
+    {
+      "area": "video",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/results/{kind}",
+      "handler": "super::inference::dashboard_video::result",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "retrieveDashboardVideoResult",
+      "summary": "Retrieve saved media with a dashboard session and selected workspace key",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "adminBearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1video~1jobs~1{job}~1results~1{kind}/get"
+    },
+    {
+      "area": "video",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/timings",
+      "handler": "super::inference::dashboard_video::timings",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "retrieveDashboardVideoTimings",
+      "summary": "Read measured gateway video transport spans",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1video~1jobs~1{job}~1timings/get"
+    },
+    {
+      "area": "video",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/models",
+      "handler": "super::inference::dashboard_video::models",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "listDashboardVideoModels",
+      "summary": "Read customer-safe configured text-video capabilities",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": true,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1keys~1{key}~1video~1models/get"
+    },
+    {
+      "area": "video",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/video-intents",
+      "handler": "super::inference::video_intents::list",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listVideoSubmissionIntents",
+      "summary": "List the current actor video intent index",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1video-intents/get"
+    },
+    {
+      "area": "video",
+      "method": "DELETE",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}",
+      "handler": "super::inference::video_intents::delete",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "deleteVideoSubmissionIntent",
+      "summary": "Erase saved intent content without cancelling its job",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1video-intents~1{intent}/delete"
+    },
+    {
+      "area": "video",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}",
+      "handler": "super::inference::video_intents::get",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "getVideoSubmissionIntent",
+      "summary": "Restore a video intent and resolve its original job",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1video-intents~1{intent}/get"
+    },
+    {
+      "area": "video",
+      "method": "PUT",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}",
+      "handler": "super::inference::video_intents::save",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "saveVideoSubmissionIntent",
+      "summary": "Save an immutable text-video submission intent",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1video-intents~1{intent}/put"
+    },
+    {
+      "area": "video",
+      "method": "POST",
+      "path": "/admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}/submit",
+      "handler": "super::inference::video_intents::submit",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "submitVideoSubmissionIntent",
+      "summary": "Explicitly submit or replay an immutable saved video intent",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1video-intents~1{intent}~1submit/post"
+    },
+    {
+      "area": "video",
+      "method": "GET",
+      "path": "/v1/media/image-ingestions",
+      "handler": "super::image_ingestions::list",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "listImageIngestions",
+      "summary": "Recover this API key's saved ingestion history",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1v1~1media~1image-ingestions/get"
+    },
+    {
+      "area": "video",
+      "method": "DELETE",
+      "path": "/v1/media/image-ingestions/{id}",
+      "handler": "super::image_ingestions::revoke",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "revokeImageIngestionConsent",
+      "summary": "Revoke source publication consent without erasing immutable history",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1v1~1media~1image-ingestions~1{id}/delete"
+    },
+    {
+      "area": "video",
+      "method": "GET",
+      "path": "/v1/media/image-ingestions/{id}",
+      "handler": "super::image_ingestions::read",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "getImageIngestionConsent",
+      "summary": "Read customer-safe ingestion status under the original API key",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1v1~1media~1image-ingestions~1{id}/get"
+    },
+    {
+      "area": "video",
+      "method": "PUT",
+      "path": "/v1/media/image-ingestions/{id}",
+      "handler": "super::image_ingestions::prepare",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "prepareImageIngestionConsent",
+      "summary": "Consent to ingestion of one inspected image into one ordinary asset group",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1v1~1media~1image-ingestions~1{id}/put"
+    },
+    {
+      "area": "video",
+      "method": "POST",
+      "path": "/v1/media/image-ingestions/{id}/dispatch",
+      "handler": "super::image_ingestions::dispatch",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "dispatchImageIngestion",
+      "summary": "Claim and dispatch one inspected image ingestion",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1v1~1media~1image-ingestions~1{id}~1dispatch/post"
+    },
+    {
+      "area": "video",
+      "method": "GET",
+      "path": "/v1/media/image-ingestions/{id}/readiness/{read_id}",
+      "handler": "super::image_readiness::status",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "getIngestedImageReadiness",
+      "summary": "Retrieve one persisted readiness observation without an upstream request",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1v1~1media~1image-ingestions~1{id}~1readiness~1{read_id}/get"
+    },
+    {
+      "area": "video",
+      "method": "POST",
+      "path": "/v1/media/image-ingestions/{id}/readiness/{read_id}",
+      "handler": "super::image_readiness::refresh",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "refreshIngestedImageReadiness",
+      "summary": "Observe accepted image status using its original account",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1v1~1media~1image-ingestions~1{id}~1readiness~1{read_id}/post"
+    },
+    {
+      "area": "video",
+      "method": "POST",
+      "path": "/v1/media/image-sources",
+      "handler": "super::image_source_uploads::prepare",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "prepareInspectedImageSource",
+      "summary": "Inspect and temporarily retain one exact inline image",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1v1~1media~1image-sources/post"
+    },
+    {
+      "area": "video",
+      "method": "DELETE",
+      "path": "/v1/media/image-sources/{id}",
+      "handler": "super::image_source_uploads::erase",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "eraseInspectedImageSource",
+      "summary": "Erase this API key's retained source bytes",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1v1~1media~1image-sources~1{id}/delete"
+    },
+    {
+      "area": "video",
+      "method": "GET",
+      "path": "/v1/media/sources/{token}",
+      "handler": "super::image_sources::read",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "fetchInspectedImageSource",
+      "summary": "Fetch exact approved image bytes using an expiring capability",
+      "implementation_annotation": "unspecified",
+      "security": [],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1v1~1media~1sources~1{token}/get"
+    },
+    {
+      "area": "video",
+      "method": "POST",
+      "path": "/v1/video/estimate",
+      "handler": "super::inference::video::estimate",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "estimateVideoGeneration",
+      "summary": "Estimate a configured text-video request without submission",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1v1~1video~1estimate/post"
+    },
+    {
+      "area": "video",
+      "method": "GET",
+      "path": "/v1/video/jobs",
+      "handler": "super::inference::video::history",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listVideoJobHistory",
+      "summary": "List durable workspace video jobs",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1v1~1video~1jobs/get"
+    },
+    {
+      "area": "video",
+      "method": "POST",
+      "path": "/v1/video/jobs",
+      "handler": "super::inference::video::create",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "createOwnerFundedVideoJob",
+      "summary": "Submit a schema-validated video job",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1v1~1video~1jobs/post"
+    },
+    {
+      "area": "video",
+      "method": "GET",
+      "path": "/v1/video/jobs/{id}",
+      "handler": "super::inference::video::status",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "retrieveVideoJobState",
+      "summary": "Read persisted video job state",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1v1~1video~1jobs~1{id}/get"
+    },
+    {
+      "area": "video",
+      "method": "GET",
+      "path": "/v1/video/jobs/{id}/billing",
+      "handler": "super::inference::video::billing",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "retrieveVideoJobBilling",
+      "summary": "Read saved customer video billing",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1v1~1video~1jobs~1{id}~1billing/get"
+    },
+    {
+      "area": "video",
+      "method": "GET",
+      "path": "/v1/video/jobs/{id}/observations",
+      "handler": "super::inference::video_observations::observations",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "videoQueryObservations",
+      "summary": "Read saved video query observations",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1v1~1video~1jobs~1{id}~1observations/get"
+    },
+    {
+      "area": "video",
+      "method": "POST",
+      "path": "/v1/video/jobs/{id}/refresh",
+      "handler": "super::inference::video::refresh",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "refreshOwnerFundedVideoJob",
+      "summary": "Refresh one direct-channel video job",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1v1~1video~1jobs~1{id}~1refresh/post"
+    },
+    {
+      "area": "video",
+      "method": "DELETE",
+      "path": "/v1/video/jobs/{id}/results",
+      "handler": "super::inference::video_results::delete",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "deleteVideoResults",
+      "summary": "Permanently remove locally saved result references",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1v1~1video~1jobs~1{id}~1results/delete"
+    },
+    {
+      "area": "video",
+      "method": "GET",
+      "path": "/v1/video/jobs/{id}/results",
+      "handler": "super::inference::video_results::availability",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "getVideoResultsStatus",
+      "summary": "Read saved result availability without downloading media",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1v1~1video~1jobs~1{id}~1results/get"
+    },
+    {
+      "area": "video",
+      "method": "GET",
+      "path": "/v1/video/jobs/{id}/results/{kind}",
+      "handler": "super::inference::video_results::retrieve",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "retrieveVideoResult",
+      "summary": "Retrieve a bounded saved video or last frame",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1v1~1video~1jobs~1{id}~1results~1{kind}/get"
+    },
+    {
+      "area": "video",
+      "method": "GET",
+      "path": "/v1/video/jobs/{id}/timings",
+      "handler": "super::inference::video::timings",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "retrieveVideoTransportTimings",
+      "summary": "Read measured gateway video transport spans",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1v1~1video~1jobs~1{id}~1timings/get"
+    },
+    {
+      "area": "video",
+      "method": "GET",
+      "path": "/v1/video/models",
+      "handler": "super::inference::video_models::models",
+      "contract_source": "contracts/openapi.yaml",
+      "operation_id": "listVideoModels",
+      "summary": "Read customer-safe configured text-video capabilities",
+      "implementation_annotation": "unspecified",
+      "security": [
+        {
+          "bearerAuth": []
+        },
+        {
+          "niuApiKeyAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/openapi.yaml",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "unverified_by_this_inventory",
+      "contract_operation_pointer": "#/paths/~1v1~1video~1models/get"
+    }
+  ]
+}
