@@ -25,7 +25,7 @@ checkpoint; no empty success substitutes for an unsupported business operation.
 
 ## Documentation delivery evidence
 
-Committed documentation `dde36895` was built from a clean archive with the locked
+The original handoff documentation `dde36895` was built from a clean archive with the locked
 offline dependency set. Handler extraction is current at 156 operations; root
 entrypoints resolve 139 registered paths with those generated methods. Build and
 schema checks establish publication consistency, not business acceptance.
@@ -43,9 +43,33 @@ browser result is invented when actual rendered observation is unavailable.
 
 ## Runtime and remaining business acceptance
 
-The original native service runs pinned `1212ea3b`, schema 284, with a matching
+At the original handoff, the native service ran pinned `1212ea3b`, schema 284, with a matching
 routing registry, preserved configuration/encrypted identities and independently
 restored pre-refresh backup. Its readiness is runtime preservation evidence,
 not whole-release acceptance. Protocol, charging, Guardrails, payment, media and
 performance checkpoints remain governed by the [fixed board](../releases/project-status.md).
 Fixture outcomes have zero acceptance signal.
+
+## Current publication refresh — 2026-10-13
+
+A clean documentation artifact from `2aa81340d65632b3611694171a7ad0f1c9a2ad16`
+contains 183 extracted handler operations and 155 registered root paths. An
+actual local HTTP reader verified all 18 content routes and 31 local page and
+resource targets, including the handler specification. Served content-page
+bytes matched the built files; the published specification retains Messages
+and the committed `/v1beta/models/{model_action}` GenerateContent route.
+
+The same commit's API contract, JavaScript SDK static checks, documentation
+build and backend static GitHub workflows completed successfully. These are
+publication and static-check results, not business acceptance or fixture
+signals. Rendered documentation and embedded Help remain unverified here.
+
+The public SDK at `ce97f3b0` adds the exact Chat draft helpers and exported
+payload/state types. Its actual save/conflict/reload/clear/restart evidence is
+recorded in [the Chat frontend handoff](chat-sdk-frontend-handoff.md). The
+original installation now runs native `8ddf1dc8`, schema 293; its preserved-data
+upgrade and finite personal FastRouter configuration are recorded separately
+in [native upgrade acceptance](native-schema-290-293-upgrade-acceptance.md) and
+[personal video configuration](original-personal-video-configuration-acceptance.md).
+The compiled `8bfdef10` payment-polling change is used by isolated acceptance
+copies and has not yet replaced that original running executable.
