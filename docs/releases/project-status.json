@@ -1,7 +1,7 @@
 {
   "version": 1,
   "updated": "2026-10-13",
-  "source_commit": "18a91468",
+  "source_commit": "38443589",
   "runtime_commit": "8bfdef10003eebe9402401247aa52cd69d3a398f",
   "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
   "active_implementation_tasks": [
@@ -587,7 +587,7 @@
       "id": "S12",
       "name": "Runtime operations, recovery and performance",
       "lane": "I",
-      "status": "active",
+      "status": "done",
       "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
       "paths": [
         "apps/gateway/src/main.rs",
@@ -627,11 +627,13 @@
         },
         {
           "id": "S12-3",
-          "status": "active",
+          "status": "done",
           "acceptance": "After business acceptance, measure increasing/mixed load, overload recovery, resources and exact post-run accounting; make only measured capacity/comparison claims.",
-          "evidence": [],
-          "evidence_revision": null,
-          "note": ""
+          "evidence": [
+            "docs/reference/current-bounded-performance.md"
+          ],
+          "evidence_revision": "38443589",
+          "note": "After finite business acceptance, actual8bf/SDKce97 mixedload on genuine stopped nativecopy: 1/2/4 concurrency stages, keylimit2 eight callers yielded2success/6pre-dispatch429, samekey4success recovery;72 nonempty business reads. Independent eighteen Provider-reported completed generations/eighteen exact charge-debits totaling161371 nanounits, zero open holds/unknown/retries/funding, original rows preserved except exact legitimate procurement spent counter, safe Logs/CSV/restart; resources37samples RSS45.9MiB and reportedCPU3.6%, outputs<=16. Upstream-inclusive smallsample metrics are not saturation/SLA/Niu-only or NewAPI comparison claims; allcopiesstopped/keysrevoked."
         }
       ]
     },
