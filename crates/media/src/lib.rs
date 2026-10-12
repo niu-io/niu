@@ -33,6 +33,7 @@ const CONTROLS: &[&str] = &[
     "duration",
     "resolution",
     "ratio",
+    "omni_reference_task_type",
     "seed",
     "watermark",
     "camera_fixed",
@@ -239,12 +240,13 @@ impl VideoSchema {
                 (
                     "duration" | "seed" | "frames_per_second",
                     Control::Integer { .. }
-                ) | ("resolution" | "ratio", Control::Choice { .. })
-                    | (
-                        "watermark" | "camera_fixed" | "return_last_frame",
-                        Control::Boolean { .. }
-                    )
-                    | ("callback_url", Control::HttpsUrl { .. })
+                ) | (
+                    "resolution" | "ratio" | "omni_reference_task_type",
+                    Control::Choice { .. }
+                ) | (
+                    "watermark" | "camera_fixed" | "return_last_frame",
+                    Control::Boolean { .. }
+                ) | ("callback_url", Control::HttpsUrl { .. })
             );
             if !CONTROLS.contains(&name.as_str())
                 || !rule.valid()
