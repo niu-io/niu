@@ -9,7 +9,11 @@
     "S02-3",
     "S08-2",
     "S05-2",
-    "S10-2"
+    "S10-2",
+    "S03-2",
+    "S04-3",
+    "S07-2",
+    "S07-3"
   ],
   "subsystems": [
     {
@@ -106,7 +110,7 @@
       "id": "S03",
       "name": "Inference protocols and route coordination",
       "lane": "B",
-      "status": "open",
+      "status": "active",
       "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
       "paths": [
         "apps/gateway/src/web/inference",
@@ -132,7 +136,7 @@
         },
         {
           "id": "S03-2",
-          "status": "open",
+          "status": "active",
           "acceptance": "Publish a finite supported Chat/Responses/Embeddings/Messages/GenerateContent matrix; qualify declared working combinations and explicit rejection of unsupported ones.",
           "evidence": [],
           "evidence_revision": null,
@@ -152,7 +156,7 @@
       "id": "S04",
       "name": "Key controls and Guardrails",
       "lane": "A",
-      "status": "open",
+      "status": "active",
       "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
       "paths": [
         "apps/gateway/src/admin/guardrails.rs",
@@ -187,7 +191,7 @@
         },
         {
           "id": "S04-3",
-          "status": "open",
+          "status": "active",
           "acceptance": "Document and verify applicable F09 local/external input and output coverage, consent, preview/revision/rollback and fail-closed failure behavior.",
           "evidence": [],
           "evidence_revision": null,
@@ -291,7 +295,7 @@
       "id": "S07",
       "name": "Request diagnostics and usage reports",
       "lane": "C",
-      "status": "open",
+      "status": "active",
       "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
       "paths": [
         "apps/gateway/src/request_timings.rs",
@@ -316,7 +320,7 @@
         },
         {
           "id": "S07-2",
-          "status": "open",
+          "status": "active",
           "acceptance": "Close one request-to-Logs-to-usage-to-billing/export journey including full-range totals, pagination and unknown/error/timing states on supported protocols.",
           "evidence": [],
           "evidence_revision": null,
@@ -324,7 +328,7 @@
         },
         {
           "id": "S07-3",
-          "status": "open",
+          "status": "active",
           "acceptance": "Verify ordinary customer visibility and procurement confidentiality in all required serialized reports/exports; classify unsupported diagnostic fields.",
           "evidence": [],
           "evidence_revision": null,
@@ -365,9 +369,11 @@
           "id": "S08-2",
           "status": "active",
           "acceptance": "Close the supported input/control/job/result/retention/asset authorization matrix and recovery without duplicate submission.",
-          "evidence": [],
-          "evidence_revision": null,
-          "note": "Ingested-image parser, scoped resolver, exact Ark transport validation and atomic dispatch with immutable bindings implemented in 81f6a1e1; current native HTTP validation pending. Durable library grants and actual positive asset reuse remain unverified. Unsupported reference channels now reject before transport validation in 1212ea3b. Original runtime remains 186662c5 pending isolated native acceptance."
+          "evidence": [
+            "docs/reference/ingested-image-video-input.md"
+          ],
+          "evidence_revision": "1212ea3b",
+          "note": "Current native malformed/unsupported/key refusal and retained-video/backup preservation verified with no dispatch or charge. Real Ark asset-binding isolation/expiry/revocation, positive reuse and durable grants remain unverified."
         },
         {
           "id": "S08-3",
@@ -407,11 +413,13 @@
         },
         {
           "id": "S09-2",
-          "status": "open",
+          "status": "done",
           "acceptance": "Close backend multi-turn history/detail/draft/settings/attachment persistence and deletion semantics for the declared Chat workflows.",
-          "evidence": [],
-          "evidence_revision": null,
-          "note": ""
+          "evidence": [
+            "docs/reference/chat-backend-acceptance.md"
+          ],
+          "evidence_revision": "1212ea3b",
+          "note": "Current native HTTP and executed compiled SDK with real retained conversations/CSV attachments; independent native persistence and scope checks. Frontend integration remains S09-3."
         },
         {
           "id": "S09-3",

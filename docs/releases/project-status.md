@@ -3,26 +3,26 @@
 Baseline v1; updated 2026-10-12.
 Committed audit source `1212ea3b`; native implementation `186662c5`.
 
-**Backend acceptance checkpoints: 18/36 recorded complete at their evidence pins.**
+**Backend acceptance checkpoints: 19/36 recorded complete at their evidence pins.**
 **Whole backend subsystems closed: 0/12.**
 These are acceptance-checkpoint counts, not coding percentage, fresh execution of every path or release readiness.
 Existing scoped evidence is carried forward explicitly. Missing evidence remains open; fixture outcomes have zero signal.
 
 Source of truth: [project-status.json](project-status.json). Scope changes require a versioned reason; they cannot silently change the denominator.
 Status meanings: open = unfinished; active = explicitly assigned current work; blocked = identified dependency prevents progress; done = every stated criterion has evidence; delegated/deferred = separate ownership or excluded scope.
-Active implementation: S01-3, S02-3, S08-2, S05-2, S10-2. Assignments use stable task IDs.
+Active implementation: S01-3, S02-3, S08-2, S05-2, S10-2, S03-2, S04-3, S07-2, S07-3. Assignments use stable task IDs.
 
 | Subsystem | Owner lane | Status | Completed checks | Dependencies |
 | --- | --- | --- | ---: | --- |
 | S01 Identity and workspaces | A | active | 2/3 | None |
 | S02 Supplier configuration and model catalog | A | active | 2/3 | S01 |
-| S03 Inference protocols and route coordination | B | open | 1/3 | S02, S04, S05 |
-| S04 Key controls and Guardrails | A | open | 2/3 | S01 |
+| S03 Inference protocols and route coordination | B | active | 1/3 | S02, S04, S05 |
+| S04 Key controls and Guardrails | A | active | 2/3 | S01 |
 | S05 Pricing, balance, charging and reconciliation | B | active | 1/3 | S01 |
 | S06 Payment integration capability | B | open | 2/3 | S05 |
-| S07 Request diagnostics and usage reports | C | open | 1/3 | S03, S05 |
+| S07 Request diagnostics and usage reports | C | active | 1/3 | S03, S05 |
 | S08 Video jobs, results and assets | C | active | 1/3 | S02, S04, S05 |
-| S09 Durable Chat | C | open | 1/3 | S01, S03, S07 |
+| S09 Durable Chat | C | open | 2/3 | S01, S03, S07 |
 | S10 Platform configuration and security facilities | A | active | 2/3 | S01 |
 | S11 Contracts, SDK and documentation | I | open | 2/3 | None |
 | S12 Runtime operations, recovery and performance | I | open | 1/3 | S03, S05, S07, S08 |
@@ -52,7 +52,7 @@ Active implementation: S01-3, S02-3, S08-2, S05-2, S10-2. Assignments use stable
 | ID | Status | Acceptance | Evidence pin |
 | --- | --- | --- | --- |
 | S03-1 | done | The exercised actual text/tool-result streams retain reported usage, finish state and independently checked charges. | [record](../../docs/reference/key-controlled-tool-streaming.md) (`a9de7c8`) |
-| S03-2 | open | Publish a finite supported Chat/Responses/Embeddings/Messages/GenerateContent matrix; qualify declared working combinations and explicit rejection of unsupported ones. | Missing / not yet accepted |
+| S03-2 | active | Publish a finite supported Chat/Responses/Embeddings/Messages/GenerateContent matrix; qualify declared working combinations and explicit rejection of unsupported ones. | Missing / not yet accepted |
 | S03-3 | open | Close material timeout/cancellation/uncertainty and bounded fallback gaps on supported paths; preserve model, credential and financial identity. | Missing / not yet accepted |
 
 ### S04 — Key controls and Guardrails
@@ -61,7 +61,7 @@ Active implementation: S01-3, S02-3, S08-2, S05-2, S10-2. Assignments use stable
 | --- | --- | --- | --- |
 | S04-1 | done | The exercised tool streams preserve key lineage, RPM and spending refusals across rotation/restart and revoke access. | [record](../../docs/reference/key-controlled-tool-streaming.md) (`a9de7c8`) |
 | S04-2 | done | Close the matrix for single-key spending/RPM/TPM/concurrency/IP controls and mandatory parent-child policy composition; concurrent denials create no unauthorized dispatch. | [record](../../docs/reference/parallel-core-backend-acceptance.md) (`fb21b52a`) |
-| S04-3 | open | Document and verify applicable F09 local/external input and output coverage, consent, preview/revision/rollback and fail-closed failure behavior. | Missing / not yet accepted |
+| S04-3 | active | Document and verify applicable F09 local/external input and output coverage, consent, preview/revision/rollback and fail-closed failure behavior. | Missing / not yet accepted |
 
 ### S05 — Pricing, balance, charging and reconciliation
 
@@ -84,15 +84,15 @@ Active implementation: S01-3, S02-3, S08-2, S05-2, S10-2. Assignments use stable
 | ID | Status | Acceptance | Evidence pin |
 | --- | --- | --- | --- |
 | S07-1 | done | The exercised mixed actual inference/report workload reconciles retained customer charges and report artifacts with source records. | [record](../../docs/reference/current-authentication-mixed-load.md) (`e704955`) |
-| S07-2 | open | Close one request-to-Logs-to-usage-to-billing/export journey including full-range totals, pagination and unknown/error/timing states on supported protocols. | Missing / not yet accepted |
-| S07-3 | open | Verify ordinary customer visibility and procurement confidentiality in all required serialized reports/exports; classify unsupported diagnostic fields. | Missing / not yet accepted |
+| S07-2 | active | Close one request-to-Logs-to-usage-to-billing/export journey including full-range totals, pagination and unknown/error/timing states on supported protocols. | Missing / not yet accepted |
+| S07-3 | active | Verify ordinary customer visibility and procurement confidentiality in all required serialized reports/exports; classify unsupported diagnostic fields. | Missing / not yet accepted |
 
 ### S08 — Video jobs, results and assets
 
 | ID | Status | Acceptance | Evidence pin |
 | --- | --- | --- | --- |
 | S08-1 | done | Actual personal video submission, key rotation, saved-job restart recovery, idempotent replay and independently decoded result are exercised. | [record](../../docs/reference/current-video-submission-restart.md) (`e704955`) |
-| S08-2 | active | Close the supported input/control/job/result/retention/asset authorization matrix and recovery without duplicate submission. | Missing / not yet accepted |
+| S08-2 | active | Close the supported input/control/job/result/retention/asset authorization matrix and recovery without duplicate submission. | [record](../../docs/reference/ingested-image-video-input.md) (`1212ea3b`) |
 | S08-3 | open | Implement or verify supported reported media meters, bounded liability and exact settlement; missing quantity remains explicit and never inferred from file duration. | Missing / not yet accepted |
 
 ### S09 — Durable Chat
@@ -100,7 +100,7 @@ Active implementation: S01-3, S02-3, S08-2, S05-2, S10-2. Assignments use stable
 | ID | Status | Acceptance | Evidence pin |
 | --- | --- | --- | --- |
 | S09-1 | done | Guarded saved sessions reject stale/legacy resurrection, preserve durable revision state and retain actual source conversation content in the exercised run. | [record](../../docs/reference/chat-session-write-guards.md) (`7234a4ef`) |
-| S09-2 | open | Close backend multi-turn history/detail/draft/settings/attachment persistence and deletion semantics for the declared Chat workflows. | Missing / not yet accepted |
+| S09-2 | done | Close backend multi-turn history/detail/draft/settings/attachment persistence and deletion semantics for the declared Chat workflows. | [record](../../docs/reference/chat-backend-acceptance.md) (`1212ea3b`) |
 | S09-3 | open | Deliver SDK adoption and conflict/reload handling to frontend ownership; mark browser/UI acceptance separately. | Missing / not yet accepted |
 
 ### S10 — Platform configuration and security facilities

@@ -72,3 +72,25 @@ compiles with the new input type. These establish static compatibility only.
 Current-input HTTP refusals and a real positive asset-to-video generation remain
 separate acceptance work. No saved Active response, consent, qualification or
 upstream result was fabricated; fixture outcomes provide no evidence.
+
+## Current native refusal and preservation checkpoint
+
+Native `1212ea3b`, schema 284, was exercised through actual HTTP on a preserved
+database copy. Fourteen saved refusal responses cover false/missing consent,
+malformed IDs, extra fields, null role, untrusted raw asset URI, mixed inputs,
+non-Ark references, unsupported callback, natural key expiry, revocation and
+restart. Invalid input returns 400; unsupported inputs return 501; expired or
+revoked keys return 401. Responses expose neither private URI nor placeholder.
+
+The saved real video job remains succeeded and readable; a foreign workspace
+key receives 404. Independently reopened source/final native databases retain
+identical original job, dispatch, financial and configuration fingerprints. No
+new ingestion, readiness record, video binding, upstream call or charge exists.
+A native dump restored into another database preserves those fingerprints.
+
+These requests do not reach the Ark resolver because the retained setup contains
+no real direct Ark route, asset-management identity, accepted asset, inspection
+proof or Active observation. Foreign/missing/expired/revoked *asset-binding*
+cases and positive asset reuse remain unverified; key/job isolation and non-Ark
+refusals cannot stand in for those cases. Genuine upstream credentials, reviewed
+operation grants and an owned inspected image are needed for that actual flow.
