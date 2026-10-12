@@ -1,6 +1,6 @@
 # Durable workspace materials
 
-Status: local storage, member APIs, SDK and encrypted-content maintenance are implemented. Actual file, restart, isolation, capacity and rotation acceptance is pending. Saved materials are separate from Provider assets and generation permission.
+Status: local storage, member APIs, SDK and encrypted-content maintenance are implemented. Actual files, SDK isolation, stale revisions, deletion and restart are independently verified for the linked scopes. Additional byte-quota and task integration acceptance remain open. Saved materials are separate from Provider assets and generation permission.
 
 The member API uses `/admin/v1/organizations/{organization}/projects/{project}/assets`. Workspace read permission allows listing, metadata and content reads; write permission allows uploading, renaming and deleting. Inference keys do not manage the library. Names are user-facing labels; asset IDs remain API references.
 
@@ -26,3 +26,5 @@ Startup key validation and offline key rotation include this independent encrypt
 Uploading does not inspect material for a model request, send it upstream, create a task, reserve money or grant reuse rights. The existing short-lived inspected-image ingestion and Provider readiness interfaces remain separate. Library-to-generation references, task associations, collections and audio/video reference dispatch are not implemented by this API. They remain explicit work within S08-2; this storage facility does not close the full video workflow.
 
 See the generated handler operations for exact response schemas and permission/error states. Clearing browser storage cannot erase saved library content.
+
+Current-input acceptance: [SDK lifecycle](workspace-material-sdk-acceptance.md) verifies three media kinds, scoped permissions, revisions, encrypted-content deletion and restart; [format matrix](workspace-material-format-acceptance.md) verifies eight actual encoded formats, corresponding invalid uploads, independent decryption and full download decoding. The native Gateway was refreshed to `a8f9e68f` after a schema-284 backup. Readiness and saved routing configuration match; original encrypted Supplier identities and durable business counts are unchanged. A fresh schema-285 archive was restored independently with seven selected full-table fingerprints equal to the source. No additional Provider generation occurred.

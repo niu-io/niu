@@ -1,8 +1,8 @@
 {
   "version": 1,
   "updated": "2026-10-12",
-  "source_commit": "606f863eee3fb87d0813d42b172748cf1f570f69",
-  "runtime_commit": "606f863eee3fb87d0813d42b172748cf1f570f69",
+  "source_commit": "a8f9e68fb7e221f612a1e415db7a763bf9162720",
+  "runtime_commit": "a8f9e68fb7e221f612a1e415db7a763bf9162720",
   "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
   "active_implementation_tasks": [
     "S02-3",
@@ -392,10 +392,13 @@
           "status": "active",
           "acceptance": "Close the supported input/control/job/result/retention/asset authorization matrix and recovery without duplicate submission.",
           "evidence": [
-            "docs/reference/ingested-image-video-input.md"
+            "docs/reference/ingested-image-video-input.md",
+            "docs/reference/workspace-material-library.md",
+            "docs/reference/workspace-material-sdk-acceptance.md",
+            "docs/reference/workspace-material-format-acceptance.md"
           ],
-          "evidence_revision": "1212ea3b",
-          "note": "Current native malformed/unsupported/key refusal and retained-video/backup preservation verified with no dispatch or charge. Real Ark asset-binding isolation/expiry/revocation, positive reuse and durable grants remain unverified."
+          "evidence_revision": "a8f9e68f",
+          "note": "Durable three-kind workspace library and SDK lifecycle plus eight real-format upload/refusal/download/decryption matrix independently verified; original runtime refreshed with preserved identities/data and restored schema-285 backup. Library-to-task references, byte-quota exhaustion, real Ark asset reuse and durable Provider grants remain open. This does not close the full video checkpoint."
         },
         {
           "id": "S08-3",
