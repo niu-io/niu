@@ -1,14 +1,16 @@
 {
   "version": 1,
   "updated": "2026-10-12",
-  "source_commit": "fb21b52a472ac5ab70fe226d093e2c8178a6f698",
-  "runtime_commit": "3fdc669c60a74038e138cf03eaca0e0a4964750d",
+  "source_commit": "4a4593386143c2d46271ea13a66b7dd8a64229c3",
+  "runtime_commit": "186662c5346ec911e2bc19e59bb6b8a51c32500c",
   "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
   "active_implementation_tasks": [
     "S01-3",
     "S02-3",
     "S08-2",
-    "S10-1"
+    "S05-2",
+    "S06-2",
+    "S10-2"
   ],
   "subsystems": [
     {
@@ -198,7 +200,7 @@
       "id": "S05",
       "name": "Pricing, balance, charging and reconciliation",
       "lane": "B",
-      "status": "open",
+      "status": "active",
       "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
       "paths": [
         "apps/gateway/src/billing",
@@ -222,7 +224,7 @@
         },
         {
           "id": "S05-2",
-          "status": "open",
+          "status": "active",
           "acceptance": "Consolidate exact category/tier/fee, insufficient-capacity, concurrent liability, uncertainty and exactly-once recovery checks for the supported charging matrix.",
           "evidence": [],
           "evidence_revision": null,
@@ -242,7 +244,7 @@
       "id": "S06",
       "name": "Payment integration capability",
       "lane": "B",
-      "status": "open",
+      "status": "active",
       "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
       "paths": [
         "apps/gateway/src/payments.rs",
@@ -266,7 +268,7 @@
         },
         {
           "id": "S06-2",
-          "status": "open",
+          "status": "active",
           "acceptance": "Publish the supported checkout, signed notification/query, duplicate, currency/amount verification and recovery inventory with exact interfaces.",
           "evidence": [],
           "evidence_revision": null,
@@ -437,15 +439,17 @@
       "tasks": [
         {
           "id": "S10-1",
-          "status": "active",
+          "status": "done",
           "acceptance": "Inventory and publish platform authentication/branding/theme/payment configuration and member profile/preferences contracts with correct authority.",
-          "evidence": [],
-          "evidence_revision": null,
-          "note": ""
+          "evidence": [
+            "docs/reference/platform-configuration-acceptance.md"
+          ],
+          "evidence_revision": "4a459338",
+          "note": "Eleven contracts plus independently verified native authority/persistence; new SDK runtime acceptance remains separately tracked."
         },
         {
           "id": "S10-2",
-          "status": "open",
+          "status": "active",
           "acceptance": "Verify supported secret/config persistence, audit/revisions and encryption-key rotation without changing existing identities or exposing secrets.",
           "evidence": [],
           "evidence_revision": null,

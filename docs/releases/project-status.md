@@ -1,16 +1,16 @@
 # Project delivery status
 
 Baseline v1; updated 2026-10-12.
-Committed audit source `fb21b52a`; native implementation `3fdc669c`.
+Committed audit source `4a459338`; native implementation `186662c5`.
 
-**Backend acceptance checkpoints: 15/36 recorded complete at their evidence pins.**
+**Backend acceptance checkpoints: 16/36 recorded complete at their evidence pins.**
 **Whole backend subsystems closed: 0/12.**
 These are acceptance-checkpoint counts, not coding percentage, fresh execution of every path or release readiness.
 Existing scoped evidence is carried forward explicitly. Missing evidence remains open; fixture outcomes have zero signal.
 
 Source of truth: [project-status.json](project-status.json). Scope changes require a versioned reason; they cannot silently change the denominator.
 Status meanings: open = unfinished; active = explicitly assigned current work; blocked = identified dependency prevents progress; done = every stated criterion has evidence; delegated/deferred = separate ownership or excluded scope.
-Active implementation: S01-3, S02-3, S08-2, S10-1. Assignments use stable task IDs.
+Active implementation: S01-3, S02-3, S08-2, S05-2, S06-2, S10-2. Assignments use stable task IDs.
 
 | Subsystem | Owner lane | Status | Completed checks | Dependencies |
 | --- | --- | --- | ---: | --- |
@@ -18,12 +18,12 @@ Active implementation: S01-3, S02-3, S08-2, S10-1. Assignments use stable task I
 | S02 Supplier configuration and model catalog | A | active | 2/3 | S01 |
 | S03 Inference protocols and route coordination | B | open | 1/3 | S02, S04, S05 |
 | S04 Key controls and Guardrails | A | open | 2/3 | S01 |
-| S05 Pricing, balance, charging and reconciliation | B | open | 1/3 | S01 |
-| S06 Payment integration capability | B | open | 1/3 | S05 |
+| S05 Pricing, balance, charging and reconciliation | B | active | 1/3 | S01 |
+| S06 Payment integration capability | B | active | 1/3 | S05 |
 | S07 Request diagnostics and usage reports | C | open | 1/3 | S03, S05 |
 | S08 Video jobs, results and assets | C | active | 1/3 | S02, S04, S05 |
 | S09 Durable Chat | C | open | 1/3 | S01, S03, S07 |
-| S10 Platform configuration and security facilities | A | active | 0/3 | S01 |
+| S10 Platform configuration and security facilities | A | active | 1/3 | S01 |
 | S11 Contracts, SDK and documentation | I | open | 2/3 | None |
 | S12 Runtime operations, recovery and performance | I | open | 1/3 | S03, S05, S07, S08 |
 | S13 Dashboard, public catalog and rendered Help | Frontend | delegated | 0/3 | S01, S02, S07, S09, S11 |
@@ -68,7 +68,7 @@ Active implementation: S01-3, S02-3, S08-2, S10-1. Assignments use stable task I
 | ID | Status | Acceptance | Evidence pin |
 | --- | --- | --- | --- |
 | S05-1 | done | The exercised approved-credit text workflow has immutable-price debits, released holds, refund/reconciliation and restart without invented cash funding. | [record](../../docs/reference/internal-credit-workflow-live.md) (`b1223c0`) |
-| S05-2 | open | Consolidate exact category/tier/fee, insufficient-capacity, concurrent liability, uncertainty and exactly-once recovery checks for the supported charging matrix. | Missing / not yet accepted |
+| S05-2 | active | Consolidate exact category/tier/fee, insufficient-capacity, concurrent liability, uncertainty and exactly-once recovery checks for the supported charging matrix. | Missing / not yet accepted |
 | S05-3 | open | Verify supported customer media, invoice and Supplier earning/settlement serialization and accounting mechanisms; track unavailable positive evidence separately from external activation. | Missing / not yet accepted |
 
 ### S06 — Payment integration capability
@@ -76,7 +76,7 @@ Active implementation: S01-3, S02-3, S08-2, S10-1. Assignments use stable task I
 | ID | Status | Acceptance | Evidence pin |
 | --- | --- | --- | --- |
 | S06-1 | done | An administrator can read the truthful supported integration inventory independently of checkout activation. | [record](../../docs/reference/payment-aggregators.md) (`3fdc669c`) |
-| S06-2 | open | Publish the supported checkout, signed notification/query, duplicate, currency/amount verification and recovery inventory with exact interfaces. | Missing / not yet accepted |
+| S06-2 | active | Publish the supported checkout, signed notification/query, duplicate, currency/amount verification and recovery inventory with exact interfaces. | Missing / not yet accepted |
 | S06-3 | open | Establish supported funding/refund transitions and negative callback/idempotency protections from actual evidence; merchant activation is not a completion prerequisite. | Missing / not yet accepted |
 
 ### S07 — Request diagnostics and usage reports
@@ -107,8 +107,8 @@ Active implementation: S01-3, S02-3, S08-2, S10-1. Assignments use stable task I
 
 | ID | Status | Acceptance | Evidence pin |
 | --- | --- | --- | --- |
-| S10-1 | active | Inventory and publish platform authentication/branding/theme/payment configuration and member profile/preferences contracts with correct authority. | Missing / not yet accepted |
-| S10-2 | open | Verify supported secret/config persistence, audit/revisions and encryption-key rotation without changing existing identities or exposing secrets. | Missing / not yet accepted |
+| S10-1 | done | Inventory and publish platform authentication/branding/theme/payment configuration and member profile/preferences contracts with correct authority. | [record](../../docs/reference/platform-configuration-acceptance.md) (`4a459338`) |
+| S10-2 | active | Verify supported secret/config persistence, audit/revisions and encryption-key rotation without changing existing identities or exposing secrets. | Missing / not yet accepted |
 | S10-3 | open | Coordinate configuration changes, current permission checks and supported public-safe projections; reject arbitrary executable branding/config content. | Missing / not yet accepted |
 
 ### S11 — Contracts, SDK and documentation
