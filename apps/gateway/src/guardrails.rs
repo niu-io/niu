@@ -2,6 +2,7 @@
 pub(crate) mod detector;
 pub(crate) mod image;
 pub(crate) mod input;
+pub(crate) mod media;
 pub(crate) mod output;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -33,6 +34,8 @@ pub struct PolicyDraft {
     pub input_detectors: Vec<detector::Binding>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub image_detectors: Vec<image::Binding>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub media_detectors: Vec<media::Binding>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub output: Option<OutputPolicy>,
 }
@@ -114,6 +117,9 @@ impl PolicyDraft {
                 .len()
                 != self.image_detectors.len()
         {
+            return Err(PolicyValidationError::InvalidInputRules);
+        }
+        if media::compose_required(&self.media_detectors, &[]).is_err() {
             return Err(PolicyValidationError::InvalidInputRules);
         }
         if self.input_rules.len() > 32
@@ -253,6 +259,7 @@ mod tests {
             input_rules: Vec::new(),
             input_detectors: Vec::new(),
             image_detectors: Vec::new(),
+            media_detectors: Vec::new(),
             output: None,
             schema_version: 1,
             name: "Restricted models".into(),
