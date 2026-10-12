@@ -1,6 +1,6 @@
 # Backend workflow verification status
 
-Reviewed 2026-10-12 against implementation `5a8a39c`; native implementation `5a8a39c`.
+Reviewed 2026-10-12 against implementation `9bc2105`; native implementation `9bc2105`.
 This is an index of scoped evidence, not a declaration that the complete release
 or New API comparison is qualified. Linked runs identify their own implementation
 revisions. Fixture outcomes provide no evidence. Current-input runs and
@@ -89,3 +89,14 @@ records the limits and separate totals. Two later real malformed text-tool strea
 were independently checked for terminal refusal, exact debits and scoped customer
 list/detail/CSV diagnostics; other malformed/provider cases remain unverified.
 The native upgrade preserved the original database/configuration/encrypted identity.
+
+
+## Published catalog eligibility under contention
+
+Clean `9bc2105` bounds the published catalog's live Supplier/cooldown eligibility
+read through the existing shared read-only transaction initializer. An actual
+workspace-key catalog request returned 503 while an eligibility table remained
+locked, then recovered its complete directory and a real, exactly charged stream
+after release/restart. The [Supplier configuration evidence](../reference/supplier-key-isolation-live.md#bounded-published-catalog-eligibility-read--2026-10-12)
+records the old waiting request, current refusal, independent original-history
+and recovery checks, and the remaining whole-catalog/performance limits.

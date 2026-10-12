@@ -106,3 +106,14 @@ native usage and exact debits on `5a8a39c`. Clients must wait for validated
 `[DONE]` before executing streamed calls; two actual malformed text-tool streams were independently verified to fail
 without `[DONE]` while preserving reported usage and exact charges. Other malformed
 upstream cases still require separate actual evidence. See the [text-mode validation checkpoint](https://github.com/niu-io/niu/blob/main/docs/reference/chat-tools-structured-output.md#plain-text-streamed-tool-validation--2026-10-12).
+
+
+## Catalog eligibility storage failures
+
+Published catalog reads check live Supplier eligibility and credential cooldowns.
+The [bounded eligibility read checkpoint](https://github.com/niu-io/niu/blob/main/docs/reference/supplier-key-isolation-live.md#bounded-published-catalog-eligibility-read--2026-10-12)
+verifies an actual workspace-key model-list refusal with HTTP 503 while storage
+remains locked, followed by complete catalog and real-stream recovery. Treat 503
+as unavailable, rather than empty setup or qualified cached supply. The exercised
+query has transaction-local lock/statement limits; other reads, pool admission
+and the complete HTTP deadline have separate scope.

@@ -384,3 +384,46 @@ behavior. Therefore earlier credit-backed legacy-route accounting runs must not
 be interpreted as proof of qualified commercial supply. This checkpoint proves
 the explicit draft-offer refusal, not positive qualification, earning or payment.
 No qualification agreement or payment was fabricated for the run.
+
+
+## Bounded published-catalog eligibility read — 2026-10-12
+
+Published route definitions remain immutable, but catalog reads separately check
+clock-dependent Supplier exclusions and credential cooldowns. This live query
+previously used an unbounded pool statement. Clean `9bc2105` now reuses the
+existing bounded read-only transaction initializer, with transaction-local
+250 ms lock and 2 s statement limits. The transaction commits before catalog
+composition or inference. It does not alter pool-wide settings, infer qualified
+supply or return an empty directory when eligibility storage is unavailable.
+
+An isolated stopped copy of the current 1,600-real-stream history was served by
+clean `5a8a39c`. After a successful workspace-key catalog read, a separate native
+PostgreSQL session held an exclusive offer-table lock. The pending HTTP model-list
+request was observed waiting on the live eligibility query and remained pending
+through 1,610.13 ms; it returned the original complete catalog after lock release.
+No new attempt or financial entry was created by this baseline.
+
+The same current-input procedure on a separate copy with clean `9bc2105` returned
+sanitized HTTP 503 in 276.85 ms while the lock remained held. The response had no
+partial or empty-success data and no database object names. Native PostgreSQL
+recorded lock-timeout cancellation. After lock release and Gateway restart, the
+complete original catalog remained available. A subsequent actual structured
+Chat stream returned its fresh marker, native usage and `[DONE]` through the
+workspace key. Restart retained its single original-rate charge/debit of
+30,247 USD nanounits; the temporary key was revoked.
+
+Independent reopening rehashed and re-parsed all 1,600 original streams in both
+copies, checked native quantities, key associations and exact charges/debits,
+and separately verified the recovery response, timing and published-generation
+binding. Original charges remained 26,879,148 USD nanounits; the recovery copy's
+total was 26,909,395. No failure, open customer/procurement hold or funding receipt
+remained. The original installation and source history were not altered.
+
+This verifies the exercised live-eligibility lock boundary and actual recovery.
+It does not bound every catalog/publication lookup, pool admission or complete
+HTTP request, qualify the two-second execution-timeout branch, or measure the
+transaction's throughput cost. Supplier commercial qualification and browser
+onboarding remain separate. Static clippy/annotation checks completed without
+using fixture outcomes as evidence. The original native runtime was upgraded
+only after a fresh backup restore/comparison; configuration, encrypted identity
+and durable business counts remained unchanged afterward.
