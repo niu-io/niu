@@ -25,9 +25,11 @@ and `aspectRatio` parameters; the SDK performs protocol conversion internally.
 References use `{kind, url, role?}` rather than Provider-specific nested blocks.
 The existing `video.jobs.create` method remains available for compatibility.
 Use `video.jobs.retrieve`, `refresh`, `wait` and `results.retrieve` for Niu tasks.
-`wait` starts from saved state and only refreshes queued/running
-jobs. Its default interval is five seconds and deadline ten minutes; callers can
-provide an AbortSignal. Unknown submission and reconciliation states return for
+`wait` starts from saved state. An initial `unknown` gets one explicit refresh
+to resolve a persisted upstream receipt; if it remains unknown, waiting returns.
+Queued/running jobs then refresh at the configured interval. Its default interval
+is five seconds and deadline ten minutes; callers can provide an AbortSignal.
+`submission_unknown` and reconciliation states return without a refresh for
 explicit handling. Waiting never submits or retries a generation; cancelling a
 wait does not cancel the upstream task.
 
