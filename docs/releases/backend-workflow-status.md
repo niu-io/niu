@@ -280,3 +280,11 @@ before refresh, seven original-identity queries, independently decoded result,
 idempotent replay/conflict and revocation. No customer/Supplier financial entry
 was fabricated. Paid media quantities/settlement, automatic polling and natural
 result expiry remain separate unverified boundaries.
+
+
+[Current automatic video recovery](../reference/current-video-automatic-recovery.md)
+uses one actual personal submission and an isolated polling-enabled restart after
+key rotation. Independent native/artifact checks verify three worker queries,
+completed stopped schedule, decoded result and no extra submission/financial
+entry. Paid settlement, multi-instance contention, connection isolation and
+natural result expiry remain separately unverified.

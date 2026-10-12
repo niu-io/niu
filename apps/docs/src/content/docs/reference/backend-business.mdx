@@ -292,3 +292,11 @@ refresh. Seven queries recovered the saved job and a fully decoded result,
 without a second submission. Replay/conflict, later restart and revocation were
 independently checked. This covers personal owner-funded operation; customer-paid
 metering, automatic polling and broader input/concurrency cases remain separate.
+
+
+The [automatic video recovery checkpoint](https://github.com/niu-io/niu/blob/main/docs/reference/current-video-automatic-recovery.md)
+restarts an isolated personal job after key rotation with polling enabled.
+The client performs saved-state GETs only; three worker queries complete the
+original submission and stop its schedule. Native records and the final decoded
+video were independently verified. This does not establish paid settlement,
+multi-instance contention, connection isolation or production capacity.
