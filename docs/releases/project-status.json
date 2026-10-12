@@ -1,12 +1,11 @@
 {
   "version": 1,
   "updated": "2026-10-13",
-  "source_commit": "d04b7441",
+  "source_commit": "18a91468",
   "runtime_commit": "8bfdef10003eebe9402401247aa52cd69d3a398f",
   "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
   "active_implementation_tasks": [
-    "S10-2",
-    "S05-3"
+    "S10-2"
   ],
   "subsystems": [
     {
@@ -217,7 +216,7 @@
       "id": "S05",
       "name": "Pricing, balance, charging and reconciliation",
       "lane": "B",
-      "status": "active",
+      "status": "done",
       "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
       "paths": [
         "apps/gateway/src/billing",
@@ -252,14 +251,14 @@
         },
         {
           "id": "S05-3",
-          "status": "active",
+          "status": "done",
           "acceptance": "Verify supported customer media, invoice and Supplier earning/settlement serialization and accounting mechanisms; track unavailable positive evidence separately from external activation.",
           "evidence": [
             "docs/reference/invoice-payment-boundary-acceptance.md",
             "docs/reference/customer-invoice-supplier-capability-acceptance.md"
           ],
-          "evidence_revision": "29670e8b",
-          "note": "Actual8bf/SDKce97 genuine invoice lines/history/export/restart equal immutable twelve charges totaling132227 nanounits; customer procurement403, revoked401 and Supplier unauthorized/invalid unpaid-settlement409 verified. Independent seventeen full financial/Supplier/Provider/model projections unchanged. Nonempty Supplier accrual/settlement and priced media positive remain unverified; empty histories are negative scope only, not successful accounting or external activation gates."
+          "evidence_revision": "18a91468",
+          "note": "Finite supported mechanism checkpoint accepted: actualcurrent12charge invoice/history/export/restart and customer procurement boundaries, Supplier membership/revocation/403/absent-selection409/bounded locks retain genuine scopes. Exact committed DTO/SDK/OpenAPI/SQL customer-retail and Supplier amount/currency/category serialization, own-member reads, installation-only writes and immutable accrual/one-currency/checked-total/idempotent atomic settlement mechanisms reviewed. Nonempty Supplier earning/settlement serialization, positive paid media and bank/processor transfers remain unverified integrated outcomes; no success is inferred from empty histories, source review, fixtures or external activation."
         }
       ]
     },
