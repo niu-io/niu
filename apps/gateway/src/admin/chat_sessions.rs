@@ -832,7 +832,7 @@ pub async fn export(
 ///     },
 ///     "responses": {
 ///       "200": {
-///         "description": "Compatibility saved flag, or guarded saved flag and new revision.",
+///         "description": "Compatibility saved flag, or confirmed guarded saved flag, revision and guardedWrites=true.",
 ///         "content": {
 ///           "application/json": {
 ///             "schema": {
@@ -847,6 +847,10 @@ pub async fn export(
 ///                 "revision": {
 ///                   "type": "string",
 ///                   "pattern": "^[1-9][0-9]*$"
+///                 },
+///                 "guardedWrites": {
+///                   "const": true,
+///                   "description": "Present with revision only for confirmed guarded saves; older compatibility servers do not confirm this mode."
 ///                 }
 ///               }
 ///             }
@@ -1003,7 +1007,7 @@ pub async fn save(
         .await
         .map_err(ApiError::from_store)?;
     Ok(Json(if guarded {
-        json!({"saved":true,"revision":revision.to_string()})
+        json!({"saved":true,"revision":revision.to_string(),"guardedWrites":true})
     } else {
         json!({"saved":true})
     }))

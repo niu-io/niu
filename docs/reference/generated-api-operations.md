@@ -459,7 +459,7 @@ Content type: `application/json`.
 
 ### Responses
 
-HTTP 200: Compatibility saved flag, or guarded saved flag and new revision.
+HTTP 200: Compatibility saved flag, or confirmed guarded saved flag, revision and guardedWrites=true.
 
 Content type: `application/json`.
 
@@ -476,6 +476,10 @@ Content type: `application/json`.
     "revision": {
       "type": "string",
       "pattern": "^[1-9][0-9]*$"
+    },
+    "guardedWrites": {
+      "const": true,
+      "description": "Present with revision only for confirmed guarded saves; older compatibility servers do not confirm this mode."
     }
   }
 }

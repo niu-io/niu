@@ -1916,9 +1916,11 @@ export class NiuAdminClient {
   }
 
   /** Null creates only; a read revision atomically protects an update from stale clients. */
-  saveChatSessionIfCurrent(scope: TenantScope, sessionId: string, session: ChatSession, expectedRevision: string | null, options?: RequestOptions): Promise<{ saved: boolean; revision: string }> {
+  async saveChatSessionIfCurrent(scope: TenantScope, sessionId: string, session: ChatSession, expectedRevision: string | null, options?: RequestOptions): Promise<{ saved: boolean; revision: string; guardedWrites: true }> {
     if (expectedRevision !== null && (typeof expectedRevision !== 'string' || !/^[1-9][0-9]*$/.test(expectedRevision) || BigInt(expectedRevision) > 9223372036854775807n)) throw new TypeError('Invalid Chat write revision');
-    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chat-sessions/${uuid(sessionId)}`, { ...session, expectedRevision }, options, 'PUT');
+    const result = await this.request<{ saved: boolean; revision: string; guardedWrites: true }>(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chat-sessions/${uuid(sessionId)}`, { ...session, expectedRevision }, options, 'PUT');
+    if (result.saved !== true || result.guardedWrites !== true || typeof result.revision !== 'string' || !/^[1-9][0-9]*$/.test(result.revision) || BigInt(result.revision) > 9223372036854775807n) throw new Error('Gateway did not confirm guarded Chat writes. A save may have occurred; reload before retrying.');
+    return result;
   }
 
   deleteChatSession(scope: TenantScope, sessionId: string, options?: RequestOptions): Promise<void> {

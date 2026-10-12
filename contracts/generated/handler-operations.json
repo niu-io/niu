@@ -408,7 +408,7 @@
         },
         "responses": {
           "200": {
-            "description": "Compatibility saved flag, or guarded saved flag and new revision.",
+            "description": "Compatibility saved flag, or confirmed guarded saved flag, revision and guardedWrites=true.",
             "content": {
               "application/json": {
                 "schema": {
@@ -423,6 +423,10 @@
                     "revision": {
                       "type": "string",
                       "pattern": "^[1-9][0-9]*$"
+                    },
+                    "guardedWrites": {
+                      "const": true,
+                      "description": "Present with revision only for confirmed guarded saves; older compatibility servers do not confirm this mode."
                     }
                   }
                 }
