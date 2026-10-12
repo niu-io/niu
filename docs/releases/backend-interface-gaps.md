@@ -1,13 +1,13 @@
 # Frontend interface inventory and gaps
 
-Reviewed 2026-10-12 at committed baseline `89be727e`. Native implementation is
+Reviewed 2026-10-12 at committed baseline `d6904064`. Native implementation is
 `3fdc669c`. This is milestone M1 of the [delivery plan](backend-delivery-plan.md).
 It is an interface audit, not business acceptance or a declaration of readiness.
 
 ## Delivered index
 
 [Machine-readable interface index](backend-interface-inventory.json) contains
-234 registered root-contract methods. Each entry identifies method/path, handler,
+236 registered root-contract methods. Each entry identifies method/path, handler,
 contract file and operation pointer, security declaration, implementation
 annotation and an exact SDK operation-name search hint. Resolve input, output,
 parameter and error schemas at that pointer; this index does not duplicate or
@@ -20,10 +20,10 @@ replace OpenAPI. Names/UUIDs in paths are contract placeholders, not user data.
 | Company billing, customer prices and payments | 37 |
 | Requests, logs and usage | 8 |
 | Video and media | 39 |
-| Access and workspace foundation | 34 |
+| Access and workspace foundation | 36 |
 | Saved Chat | 8 |
 
-All indexed methods were matched to a committed route handler. 120 declare
+All indexed methods were matched to a committed route handler. 122 declare
 implemented in their operation annotations; 114 have no such annotation. An
 unspecified annotation is not evidence of a stub or missing implementation.
 111 have an exact SDK operation-name match; the others require manual mapping
@@ -32,13 +32,12 @@ Security declarations alone do not prove role or tenant isolation.
 
 ## Gaps discovered by route-to-root comparison
 
-The index records 22 registered methods not exposed as methods in the root
+The index records 20 registered methods not exposed as methods in the root
 contract. They are existing handlers, not missing HTTP implementations. Do not
 replace them with empty successes or claim their business paths are verified.
 
 | Priority / category | Missing root method coverage | Next action |
 | --- | --- | --- |
-| M1 integration blocker | GET/POST `/admin/v1/organizations/{organization}/projects` | The existing integration table explicitly lists these. Add exact contracts for the legacy handlers; canonical `/admin/v1/workspaces` is already indexed. |
 | M1 integration review | GET/PUT `/admin/v1/auth/profile` and `/admin/v1/auth/preferences` | Inspect handler authorization/input/output and SDK usage before publishing contracts. |
 | Supplier capability coverage | Supplier and offer qualification PUT/revoke POST (four methods) | Publish contracts without treating commercial activation as a backend gate. No invented qualification. |
 | Applicable Guardrails coverage | Seven detector/list/preview/decision/dispatch-denial methods | Verify exact operation schemas and current frontend usage; required content checks must remain fail closed. |
@@ -68,3 +67,20 @@ start unrelated improvement work before resolving or explicitly classifying
 these gaps. Docs build/HTTP/spec checks verify documentation delivery only;
 fixture outcomes have zero acceptance signal and rendered-browser presentation
 requires separate observation.
+
+## Legacy company workspace checkpoint — 2026-10-12
+
+The two previously missing workspace methods now have handler-generated schemas
+and a root path reference in `d6904064`. The native `3fdc669c` implementation
+contains the same unchanged handlers. Actual HTTP against a preserved database
+copy returned 201 for creation and identical durable-key replay, with exactly one
+new workspace; changed input under the same key returned 409. The list envelope
+contained id/name records and matched after Gateway restart. A workspace-scoped
+viewer saw only its authorized workspace, received 403 for creation and 404 for
+a foreign company; revoked access returned 401.
+
+Independent source/final PostgreSQL reopening confirmed the single new row,
+revoked viewer and unchanged original business/financial fingerprints. Saved
+HTTP digests, exact creation/replay objects and restart list equality were
+checked separately. No inference, new funding or credit was introduced. This
+closes these two interface-contract gaps, not M1 or full workspace qualification.

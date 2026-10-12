@@ -1,10 +1,10 @@
 {
-  "source_commit": "89be727ec65c25fcfffe8b843bd4d871756799a8",
+  "source_commit": "d6904064bcf7aa262255d9a0395458382ebfae19",
   "scope": "Registered root-contract operations grouped for the five core workflows plus access and saved Chat integration. Not a complete product inventory or runtime acceptance.",
   "schema_ref_context": "Read input/output/error schemas at contract_source + contract_operation_pointer. This compact index does not duplicate or replace OpenAPI.",
   "sdk_match_semantics": "Exact operation-name text match is a navigation hint, not SDK behavior verification. False can mean differently named SDK helpers.",
   "counts": {
-    "access_foundation": 34,
+    "access_foundation": 36,
     "billing": 37,
     "keys_and_inference": 40,
     "logs": 8,
@@ -33,9 +33,7 @@
     "GET /admin/v1/auth/profile",
     "PUT /admin/v1/auth/profile",
     "GET /admin/v1/auth/preferences",
-    "PUT /admin/v1/auth/preferences",
-    "GET /admin/v1/organizations/{organization}/projects",
-    "POST /admin/v1/organizations/{organization}/projects"
+    "PUT /admin/v1/auth/preferences"
   ],
   "operations": [
     {
@@ -199,6 +197,44 @@
       "sdk_operation_name_match": false,
       "runtime_verification": "unverified_by_this_inventory",
       "contract_operation_pointer": "#/paths/~1admin~1v1~1operators~1{operator}~1sessions~1{session}/delete"
+    },
+    {
+      "area": "access_foundation",
+      "method": "GET",
+      "path": "/admin/v1/organizations/{organization}/projects",
+      "handler": "crate::admin::projects",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "listOrganizationWorkspaces",
+      "summary": "List scoped company workspaces",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "Current-input HTTP and independent saved-response/native-database verification; see backend-interface-gaps.md legacy workspace checkpoint.",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects/get"
+    },
+    {
+      "area": "access_foundation",
+      "method": "POST",
+      "path": "/admin/v1/organizations/{organization}/projects",
+      "handler": "crate::admin::project",
+      "contract_source": "contracts/generated/handler-operations.json",
+      "operation_id": "createOrganizationWorkspace",
+      "summary": "Create a workspace in the selected company",
+      "implementation_annotation": "implemented",
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "path_item_contract_source": "contracts/generated/handler-operations.json",
+      "sdk_operation_name_match": false,
+      "runtime_verification": "Current-input HTTP and independent saved-response/native-database verification; see backend-interface-gaps.md legacy workspace checkpoint.",
+      "contract_operation_pointer": "#/paths/~1admin~1v1~1organizations~1{organization}~1projects/post"
     },
     {
       "area": "access_foundation",
