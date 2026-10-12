@@ -30,3 +30,16 @@ An independent verifier reopened both the stopped source and final copied databa
 Default captured request bytes matched the submitted request, and captured response bytes matched the delivered 202 response; both were complete and untruncated. Safe customer artifacts contained no saved Provider credential. The temporary key was revoked and the copied Gateway and database were stopped.
 
 No result download, media decode, positive upstream task query, measured output usage or completed video billing was verified. This evidence establishes safe persistence, idempotency and restart behavior for this actual failed submission, while identifying the missing bounded rejection diagnostics as an implementation gap.
+
+## Subsequent diagnostic implementation
+
+Revision `b428ab95` implements bounded rejection-body extraction and optional
+persisted `upstream_error_code`/`upstream_request_id` fields in video transport
+timings (migration 291). It retains a received HTTP status even when reading its
+error body times out or exceeds the bound. Provider messages, raw bodies, URLs
+and credentials are excluded. Historic missing details are not backfilled.
+
+Gateway static checks cover the integrated implementation; this original run
+does not exercise the new extraction or persistence branch. The actual cause of
+its HTTP 400 therefore remains unknown. No additional generation was submitted
+to make this record appear successful.
