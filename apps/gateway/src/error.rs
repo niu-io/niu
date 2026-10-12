@@ -359,6 +359,15 @@ impl ApiError {
         }
     }
 
+    pub(crate) fn guardrail_output_busy() -> Self {
+        Self {
+            failure: None,
+            status: StatusCode::SERVICE_UNAVAILABLE,
+            kind: "guardrail_output_busy",
+            message: "Output inspection is busy. Try again later.",
+        }
+    }
+
     pub(crate) fn asset_management_busy() -> Self {
         Self {
             failure: None,

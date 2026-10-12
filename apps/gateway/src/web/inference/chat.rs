@@ -19,6 +19,7 @@ use super::common::*;
 use super::priced_chat::validate_priced_request;
 
 struct ChatExecution<'a> {
+    output_policy: Option<crate::streaming::output_policy::BufferedOutputPolicy>,
     public_model: &'a str,
     model: &'a crate::config::ModelConfig,
     api_key: String,
@@ -34,6 +35,7 @@ struct ChatExecution<'a> {
 }
 
 struct CompatibleExecution<'a> {
+    output_policy: Option<crate::streaming::output_policy::BufferedOutputPolicy>,
     public_model: &'a str,
     model: &'a crate::config::ModelConfig,
     api_key: String,
@@ -143,13 +145,13 @@ struct CompatibleExecution<'a> {
 ///         "description": "API key request, concurrency or token rate limit exceeded."
 ///       },
 ///       "503": {
-///         "description": "Durable storage or configured route unavailable."
+///         "description": "Durable storage or configured route unavailable. guardrail_output_busy identifies exhausted full-output collection capacity before admission or dispatch."
 ///       },
 ///       "413": {
 ///         "description": "Request body exceeds 1 MiB; rejected before inference whether payload capture is enabled or disabled. Framework responses may use a plain-text body."
 ///       }
 ///     },
-///     "x-niu-status": "Basic chat is implemented for configured native provider routes. Function tools, streaming tool deltas, and structured JSON are opt-in on OpenAI-compatible routes only. Niu validates tool-call shape and structured JSON against a valid self-contained schema; json_object output must be an object. Schema compilation is offline and limited to 64 KiB, 4096 JSON nodes and depth 32, with bounded regular expressions. Niu does not execute tools. Structured JSON streaming validates assembled output before releasing [DONE], with a 1 MiB total content/refusal bound and at most 128 choices. Partial deltas are provisional; invalid final output sends an upstream_invalid_response SSE error without [DONE], while reported terminal usage remains accounting evidence. Token-priced routes support function calls and text-only tool-result conversations under the same input/output rates. Serialized messages, tool definitions, tool choices and response-format instructions count toward the configured input byte guard. Hosted tools and additional billable modalities remain unsupported. Chat pools allow at most one different-credential successor after a canonical OpenRouter immediate HTTP 401 with durable nonexecution and released holds, preserving operation price and funding under one deadline. Other errors and streams already returned to the client are not retried.",
+///     "x-niu-status": "Basic chat is implemented for configured native provider routes. Local buffered_full output rules support single-choice plain text streaming: retain the real upstream stream until terminal evidence, inspect the complete bounded output, then emit compatible sanitized chunks. Required output withholding emits a guardrail_output_withheld SSE error without [DONE]; known executed usage remains billable. Text buffering is limited to 1 MiB and total stream bytes to 2 MiB, with four concurrent collectors per process. Output rules with tools, structured format or streaming observation-only mode remain unsupported. Function tools, streaming tool deltas, and structured JSON are opt-in on OpenAI-compatible routes only. Niu validates tool-call shape and structured JSON against a valid self-contained schema; json_object output must be an object. Schema compilation is offline and limited to 64 KiB, 4096 JSON nodes and depth 32, with bounded regular expressions. Niu does not execute tools. Structured JSON streaming validates assembled output before releasing [DONE], with a 1 MiB total content/refusal bound and at most 128 choices. Partial deltas are provisional; invalid final output sends an upstream_invalid_response SSE error without [DONE], while reported terminal usage remains accounting evidence. Token-priced routes support function calls and text-only tool-result conversations under the same input/output rates. Serialized messages, tool definitions, tool choices and response-format instructions count toward the configured input byte guard. Hosted tools and additional billable modalities remain unsupported. Chat pools allow at most one different-credential successor after a canonical OpenRouter immediate HTTP 401 with durable nonexecution and released holds, preserving operation price and funding under one deadline. Other errors and streams already returned to the client are not retried.",
 ///     "x-niu-implementation": "implemented",
 ///     "description": "Uses the workspace API key and its model grants, source policy, rate/concurrency/token limits and configured billing. Streaming HTTP 200 starts delivery; completion and reported usage require the terminal stream evidence. Niu does not execute function tools. See the supported scope below for structured output and modality restrictions."
 ///   },
@@ -858,6 +860,7 @@ pub(super) async fn execute_chat_attempt(
     let result = execute_chat(
         state,
         ChatExecution {
+            output_policy: dispatch.buffered_stream_output.clone(),
             public_model,
             model,
             api_key,
@@ -881,6 +884,7 @@ async fn execute_chat(
     execution: ChatExecution<'_>,
 ) -> Result<ProviderResponse, ApiError> {
     let ChatExecution {
+        output_policy,
         public_model,
         model,
         api_key,
@@ -898,6 +902,7 @@ async fn execute_chat(
         return stream_openai_compatible(
             state,
             CompatibleExecution {
+                output_policy,
                 public_model,
                 model,
                 api_key,
@@ -916,6 +921,7 @@ async fn execute_chat(
         return complete_openai_compatible(
             state,
             CompatibleExecution {
+                output_policy,
                 public_model,
                 model,
                 api_key,
@@ -1008,6 +1014,7 @@ async fn complete_openai_compatible(
     execution: CompatibleExecution<'_>,
 ) -> Result<ProviderResponse, ApiError> {
     let CompatibleExecution {
+        output_policy: _,
         public_model,
         model,
         api_key,
@@ -1225,6 +1232,7 @@ async fn stream_openai_compatible(
     execution: CompatibleExecution<'_>,
 ) -> Result<ProviderResponse, ApiError> {
     let CompatibleExecution {
+        output_policy,
         public_model,
         model,
         api_key,
@@ -1312,6 +1320,7 @@ async fn stream_openai_compatible(
             failures: state.failures.clone(),
         },
         structured,
+        output_policy,
     ));
     *response.status_mut() = status;
     response

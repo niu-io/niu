@@ -132,6 +132,9 @@ pub(super) fn provider_reported_model(value: &Value) -> Option<String> {
 static LIVE_INPUT_SLOTS: std::sync::LazyLock<std::sync::Arc<tokio::sync::Semaphore>> =
     std::sync::LazyLock::new(|| std::sync::Arc::new(tokio::sync::Semaphore::new(4)));
 
+static BUFFERED_OUTPUT_SLOTS: std::sync::LazyLock<std::sync::Arc<tokio::sync::Semaphore>> =
+    std::sync::LazyLock::new(|| std::sync::Arc::new(tokio::sync::Semaphore::new(4)));
+
 pub(super) async fn inspect_request_input(
     state: &AppState,
     principal: &niu_storage::Principal,
@@ -196,6 +199,7 @@ pub(super) async fn inspect_request_input_with_image_requirements(
     let mut rules = Vec::new();
     let mut detectors = Vec::new();
     let mut output_rule_count = 0usize;
+    let mut output_observe_rule_count = 0usize;
     for stored in [&snapshot.workspace_policy, &snapshot.key_policy]
         .into_iter()
         .flatten()
@@ -214,6 +218,11 @@ pub(super) async fn inspect_request_input_with_image_requirements(
                     .output
                     .as_ref()
                     .map_or(0, |output| output.rules.len());
+                if let Some(output) = &policy.output
+                    && output.mode == crate::guardrails::OutputMode::ObserveOnly
+                {
+                    output_observe_rule_count += output.rules.len();
+                }
                 if !crate::guardrails::EffectiveAccess::compose([policy.models])
                     .permits(public_model)
                 {
@@ -244,7 +253,14 @@ pub(super) async fn inspect_request_input_with_image_requirements(
                 crate::guardrails::input::Protocol::Embeddings
                     | crate::guardrails::input::Protocol::VideoText
             )
-            || body.get("stream").and_then(Value::as_bool) == Some(true)
+            || (body.get("stream").and_then(Value::as_bool) == Some(true)
+                && (output_observe_rule_count > 0
+                    || !matches!(
+                        protocol,
+                        crate::guardrails::input::Protocol::Chat
+                            | crate::guardrails::input::Protocol::Responses
+                    )
+                    || body.get("n").is_some_and(|n| n.as_u64() != Some(1))))
             || body.get("tools").is_some()
             || body.get("functions").is_some()
             || body.get("response_format").is_some())
@@ -494,6 +510,21 @@ pub(super) async fn begin_retry_attempt(
             }
         }
     }
+    // Bound concurrent full-stream memory before creating a durable attempt or
+    // reserving paid capacity. Collection retains it through inspection and replay
+    // construction; this is not a bound on slow-client network delivery.
+    let buffered_stream_slot = if request_body.get("stream").and_then(Value::as_bool) == Some(true)
+        && !output_rules.is_empty()
+    {
+        Some(std::sync::Arc::new(
+            BUFFERED_OUTPUT_SLOTS
+                .clone()
+                .try_acquire_owned()
+                .map_err(|_| ApiError::guardrail_output_busy())?,
+        ))
+    } else {
+        None
+    };
     let revision = route_revision(model);
     let (operation, attempt) = if let Some(route) = personal_route {
         if model.pricing.is_some() {
@@ -663,8 +694,32 @@ pub(super) async fn begin_retry_attempt(
                 }
             })?
     };
+    let buffered_stream_output = buffered_stream_slot.map(|slot| {
+        let state = state.clone();
+        let rules = output_rules.clone();
+        crate::streaming::output_policy::BufferedOutputPolicy {
+            slot,
+            inspect: std::sync::Arc::new(move |original| {
+                let state = state.clone();
+                let rules = rules.clone();
+                Box::pin(async move {
+                    inspect_required_output(
+                        &state,
+                        scope,
+                        attempt,
+                        protocol,
+                        RequiredOutputInput::Stream(original),
+                        &rules,
+                        std::time::Instant::now(),
+                    )
+                    .await
+                })
+            }),
+        }
+    });
     crate::request_timings::dispatched(&state.store, attempt);
     Ok(DispatchContext {
+        buffered_stream_output,
         retained_input,
         output_rules,
         output_observe_rules,
@@ -822,12 +877,60 @@ async fn inspect_complete_output(
             Err(_) => ApiError::upstream().into_response(),
         };
     }
-    let inspected = match original {
-        Ok(original) => {
-            inspect_output_rules(dispatch.protocol, &original, &dispatch.output_rules).await
+    match inspect_required_output(
+        state,
+        dispatch.scope,
+        dispatch.attempt,
+        dispatch.protocol,
+        RequiredOutputInput::Buffered(original),
+        &dispatch.output_rules,
+        started,
+    )
+    .await
+    {
+        Ok(value) => {
+            let (_, body) = axum::Json(value).into_response().into_parts();
+            Response::from_parts(parts, body)
         }
-        Err(error) => Err(error),
+        Err(()) => ApiError::guardrail_output_withheld().into_response(),
+    }
+}
+
+/// Both buffered JSON and fully retained streams share inspection and durable
+/// decision semantics. A failed decision write withholds output, without changing
+/// already executed usage or inventing a second completion.
+enum RequiredOutputInput {
+    Buffered(Result<Value, crate::guardrails::input::InspectionError>),
+    Stream(Result<Value, crate::guardrails::input::InspectionError>),
+}
+
+async fn inspect_required_output(
+    state: &AppState,
+    scope: niu_storage::TenantScope,
+    attempt: Uuid,
+    protocol: crate::guardrails::input::Protocol,
+    original: RequiredOutputInput,
+    rules: &[crate::guardrails::input::RuleConfig],
+    started: std::time::Instant,
+) -> Result<Value, ()> {
+    use crate::guardrails::input::InspectionError;
+    let (original, stream_replay) = match original {
+        RequiredOutputInput::Buffered(original) => (original, false),
+        RequiredOutputInput::Stream(original) => (original, true),
     };
+    let inspected = match original {
+        Ok(original) => inspect_output_rules(protocol, &original, rules).await,
+        Err(error) => Err(error),
+    }
+    .and_then(|(value, changed)| {
+        if stream_replay {
+            crate::streaming::output_policy::validate_filtered_replay(
+                &value,
+                protocol == crate::guardrails::input::Protocol::Responses,
+            )?;
+        }
+        Ok((value, changed))
+    });
     let (outcome, reason) = match &inspected {
         Ok((_, false)) => ("allowed", "inspected_text"),
         Ok((_, true)) => ("redacted", "inspected_text"),
@@ -839,25 +942,13 @@ async fn inspect_complete_output(
     let elapsed = i64::try_from(started.elapsed().as_millis()).unwrap_or(i64::MAX);
     if state
         .store
-        .record_output_guardrail_decision(
-            dispatch.scope,
-            dispatch.attempt,
-            outcome,
-            reason,
-            elapsed,
-        )
+        .record_output_guardrail_decision(scope, attempt, outcome, reason, elapsed)
         .await
         .is_err()
     {
-        return ApiError::guardrail_output_withheld().into_response();
+        return Err(());
     }
-    match inspected {
-        Ok((value, _)) => {
-            let (_, body) = axum::Json(value).into_response().into_parts();
-            Response::from_parts(parts, body)
-        }
-        Err(_) => ApiError::guardrail_output_withheld().into_response(),
-    }
+    inspected.map(|(value, _)| value).map_err(|_| ())
 }
 
 pub(super) async fn finalize_response(
@@ -967,6 +1058,8 @@ pub(super) async fn finalize_response(
 
 #[derive(Clone)]
 pub(super) struct DispatchContext {
+    pub(super) buffered_stream_output:
+        Option<crate::streaming::output_policy::BufferedOutputPolicy>,
     output_rules: Vec<crate::guardrails::input::RuleConfig>,
     output_observe_rules: Vec<crate::guardrails::input::RuleConfig>,
     protocol: crate::guardrails::input::Protocol,
