@@ -3358,6 +3358,27 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "description": "Explicit limit selects paginated mode (1 to 100). With after but no limit, page size is 50. Omit both for the full compatibility directory.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "description": "Exclusive key routing reference from next_cursor. Missing or foreign-workspace cursors return 409. Each page shares one snapshot with its cursor lookup; traversal is a live view.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "responses": {
@@ -3376,6 +3397,14 @@
                       "items": {
                         "$ref": "#/components/schemas/WorkspaceKey"
                       }
+                    },
+                    "next_cursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uuid",
+                      "description": "Present only when limit or after is supplied. Null when the paginated range ends. Internal routing reference, not a product label."
                     }
                   }
                 }
@@ -3401,10 +3430,16 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid limit or cursor syntax."
+          },
+          "409": {
+            "description": "Missing or foreign-workspace cursor."
           }
         },
         "x-niu-implementation": "implemented",
-        "description": "Requires workspace read access. Workspace API keys do not authorize these management operations. Returns the complete saved directory in creation-time/routing-reference order; this compatibility response has no continuation cursor. Storage reads use transaction-local 250 ms lock and 2 s statement limits. Timeout returns sanitized 503, never empty or truncated success; pool admission and the complete HTTP deadline are separate. Internal IDs are API routing references, not product labels."
+        "description": "Requires workspace read access. Workspace API keys do not authorize these management operations. Returns the complete saved directory in creation-time/routing-reference order; this compatibility response has no continuation cursor. Storage reads use transaction-local 250 ms lock and 2 s statement limits. Timeout returns sanitized 503, never empty or truncated success; pool admission and the complete HTTP deadline are separate. Internal IDs are API routing references, not product labels. Supplying limit or after selects a bounded keyset page and adds next_cursor; without either, the complete compatibility response is unchanged."
       }
     },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}": {

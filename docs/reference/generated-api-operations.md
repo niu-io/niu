@@ -3764,7 +3764,7 @@ HTTP 409: Cursor is missing, deleted or outside current company scope.
 
 `GET /admin/v1/organizations/{organization}/projects/{project}/keys`
 
-Requires workspace read access. Workspace API keys do not authorize these management operations. Returns the complete saved directory in creation-time/routing-reference order; this compatibility response has no continuation cursor. Storage reads use transaction-local 250 ms lock and 2 s statement limits. Timeout returns sanitized 503, never empty or truncated success; pool admission and the complete HTTP deadline are separate. Internal IDs are API routing references, not product labels.
+Requires workspace read access. Workspace API keys do not authorize these management operations. Returns the complete saved directory in creation-time/routing-reference order; this compatibility response has no continuation cursor. Storage reads use transaction-local 250 ms lock and 2 s statement limits. Timeout returns sanitized 503, never empty or truncated success; pool admission and the complete HTTP deadline are separate. Internal IDs are API routing references, not product labels. Supplying limit or after selects a bounded keyset page and adds next_cursor; without either, the complete compatibility response is unchanged.
 
 Implementation: `implemented`. Operation: `listKeys`.
 
@@ -3800,6 +3800,29 @@ Each array entry is an alternative; schemes within one entry are required togeth
 }
 ```
 
+`limit` (query, optional)
+
+Explicit limit selects paginated mode (1 to 100). With after but no limit, page size is 50. Omit both for the full compatibility directory.
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100
+}
+```
+
+`after` (query, optional)
+
+Exclusive key routing reference from next_cursor. Missing or foreign-workspace cursors return 409. Each page shares one snapshot with its cursor lookup; traversal is a live view.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
 ### Responses
 
 HTTP 200: Scoped metadata, never token hashes or secrets. Last used is the latest durable dispatch intent, including uncertain attempts; it is not authentication time or proof of upstream completion.
@@ -3818,6 +3841,14 @@ Content type: `application/json`.
       "items": {
         "$ref": "#/components/schemas/WorkspaceKey"
       }
+    },
+    "next_cursor": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid",
+      "description": "Present only when limit or after is supplied. Null when the paginated range ends. Internal routing reference, not a product label."
     }
   }
 }
@@ -3842,6 +3873,10 @@ Content type: `application/json`.
   "$ref": "#/components/schemas/ApiErrorResponse"
 }
 ```
+
+HTTP 400: Invalid limit or cursor syntax.
+
+HTTP 409: Missing or foreign-workspace cursor.
 
 ## Atomically replace a key while preserving its grants and expiry
 

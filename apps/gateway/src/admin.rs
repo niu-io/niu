@@ -2405,14 +2405,22 @@ pub async fn keys(
         project_id,
     )
     .await?;
-    let scope = TenantScope { organization_id, project_id };
+    let scope = TenantScope {
+        organization_id,
+        project_id,
+    };
     if query.limit.is_some() || query.after.is_some() {
         let limit = query.limit.unwrap_or(50);
         if !(1..=100).contains(&limit) {
-            return Err(ApiError::invalid_request("Key page limit must be between 1 and 100"));
+            return Err(ApiError::invalid_request(
+                "Key page limit must be between 1 and 100",
+            ));
         }
-        let (data, next_cursor) = state.store.key_directory_page(scope, query.after, limit)
-            .await.map_err(ApiError::from_store)?;
+        let (data, next_cursor) = state
+            .store
+            .key_directory_page(scope, query.after, limit)
+            .await
+            .map_err(ApiError::from_store)?;
         return Ok(Json(json!({"data": data, "next_cursor": next_cursor})));
     }
     Ok(Json(
