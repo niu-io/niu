@@ -680,6 +680,9 @@ pub(super) async fn validate_admission(
     body: &Value,
     model: &str,
 ) -> Result<VideoAdmission, ApiError> {
+    let prepared = super::video_ingested_images::prepare(body)?;
+    let body = prepared.admission_body();
+    let placeholders = prepared.trusted_placeholders();
     let scope = principal.scope();
     let published = crate::vendors::publication::snapshot(state).await?;
     let route_generation = published.as_ref().map(|published| published.generation);
@@ -805,9 +808,10 @@ pub(super) async fn validate_admission(
         ));
     }
     let request = schema
-        .validate_request(
+        .validate_request_with_ingested_images(
             &serde_json::to_vec(&body)
                 .map_err(|_| ApiError::invalid_request("Invalid video request"))?,
+            &placeholders,
         )
         .map_err(|_| {
             ApiError::invalid_request("The request does not match this model's video schema")
@@ -833,14 +837,19 @@ pub(super) async fn validate_admission(
         .get("content")
         .and_then(Value::as_array)
         .is_none_or(|items| {
-            items.iter().any(|item| {
+            items.iter().enumerate().any(|(position, item)| {
                 !matches!(
                     item.get("type").and_then(Value::as_str),
                     Some("text" | "image_url")
                 ) || item["type"] == "image_url"
-                    && !item["image_url"]["url"]
-                        .as_str()
-                        .is_some_and(|url| url.starts_with("data:image/"))
+                    && !item["image_url"]["url"].as_str().is_some_and(|url| {
+                        url.starts_with("data:image/")
+                            || placeholders
+                                .iter()
+                                .any(|(approved_position, approved_uri)| {
+                                    *approved_position == position && *approved_uri == url
+                                })
+                    })
             })
         })
     {
@@ -921,9 +930,11 @@ pub(super) fn policy_permits_video(
 }
 
 fn has_images(body: &Value) -> bool {
-    body["content"]
-        .as_array()
-        .is_some_and(|items| items.iter().any(|item| item["type"] == "image_url"))
+    body["content"].as_array().is_some_and(|items| {
+        items
+            .iter()
+            .any(|item| matches!(item["type"].as_str(), Some("image_url" | "ingested_image")))
+    })
 }
 
 pub(super) fn policy_permits_video_with_images(
@@ -1041,7 +1052,7 @@ pub(super) async fn estimate_as(
 ///   "operation": {
 ///     "operationId": "createOwnerFundedVideoJob",
 ///     "summary": "Submit a schema-validated video job",
-///     "description": "Personal routes support configured ark-direct-v1 or openrouter-video-v1 channels. Customer-funded video currently requires a qualified ark-direct-v1 route and video_tokens pricing; OpenRouter remains personal-only. Shared routes with a legacy procurement budget are unsupported, while personal routes retain ordinary authorization and key limits. Exactly one upstream submission follows durable dispatch intent. HTTP or transport errors retain submission_unknown and any unresolved liability. Observed non-success HTTP statuses are saved as upstream_http_error in scoped request diagnostics, without upstream bodies or credentials; they do not prove nonexecution or authorize a retry. Fresh creation responses include x-niu-attempt-id. Logs retain the inspected Niu request and delivered Niu creation response for up to 24 hours by default; x-niu-log-payloads: false opts out. Requests larger than the 1 MiB capture bound are not retained. This is not an upstream transport-body capture, and replay does not recreate deleted or expired payloads. Optional workspace-scoped Idempotency-Key supports text-only creation: identical replay returns the original reference and current saved status, including after restart. Changed input conflicts. Unkeyed requests are not idempotent. Configured controls, reference inputs and required inspection remain subject to the selected schema and supported channel.",
+///     "description": "Personal routes support configured ark-direct-v1 or openrouter-video-v1 channels. Customer-funded video currently requires a qualified ark-direct-v1 route and video_tokens pricing; OpenRouter remains personal-only. Shared routes with a legacy procurement budget are unsupported, while personal routes retain ordinary authorization and key limits. Exactly one upstream submission follows durable dispatch intent. HTTP or transport errors retain submission_unknown and any unresolved liability. Observed non-success HTTP statuses are saved as upstream_http_error in scoped request diagnostics, without upstream bodies or credentials; they do not prove nonexecution or authorize a retry. Fresh creation responses include x-niu-attempt-id. Logs retain the inspected Niu request and delivered Niu creation response for up to 24 hours by default; x-niu-log-payloads: false opts out. Requests larger than the 1 MiB capture bound are not retained. This is not an upstream transport-body capture, and replay does not recreate deleted or expired payloads. Optional workspace-scoped Idempotency-Key supports text-only creation: identical replay returns the original reference and current saved status, including after restart. Changed input conflicts. Unkeyed requests are not idempotent. Configured controls, reference inputs and required inspection remain subject to the selected schema and supported channel. Short-lived ordinary ingested_image references accept Niu ingestion/readiness IDs with explicit consent_to_reuse. Provider asset URIs remain private and are resolved only for the exact selected Ark route. This does not grant durable library or portrait rights; expired, erased, revoked or unavailable bindings fail closed before dispatch.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -1148,10 +1159,49 @@ pub(super) async fn estimate_as(
 ///                         }
 ///                       },
 ///                       "additionalProperties": false
+///                     },
+///                     {
+///                       "type": "object",
+///                       "additionalProperties": false,
+///                       "required": [
+///                         "type",
+///                         "ingested_image"
+///                       ],
+///                       "properties": {
+///                         "type": {
+///                           "const": "ingested_image"
+///                         },
+///                         "role": {
+///                           "type": "string",
+///                           "description": "Only roles declared by the selected image input rule."
+///                         },
+///                         "ingested_image": {
+///                           "type": "object",
+///                           "additionalProperties": false,
+///                           "required": [
+///                             "ingestion_id",
+///                             "readiness_id",
+///                             "consent_to_reuse"
+///                           ],
+///                           "properties": {
+///                             "ingestion_id": {
+///                               "type": "string",
+///                               "format": "uuid"
+///                             },
+///                             "readiness_id": {
+///                               "type": "string",
+///                               "format": "uuid"
+///                             },
+///                             "consent_to_reuse": {
+///                               "const": true
+///                             }
+///                           }
+///                         }
+///                       }
 ///                     }
 ///                   ]
 ///                 },
-///                 "description": "Ordered input blocks matching the configured video schema. Text input is supported; inline image inputs additionally require a qualified channel and current inspection consent. Idempotent submission supports text only."
+///                 "description": "Ordered configured text/inline-image inputs or Niu ingested_image IDs. Ingested references require current original-account Active observation, retained inspected content and unexpired original grants/consent; dispatch rechecks all bindings atomically. Ark direct only; mixed inline/ingested input and image idempotency are unsupported. Client asset:// URIs are never accepted."
 ///               }
 ///             },
 ///             "additionalProperties": true
@@ -1399,16 +1449,38 @@ pub(super) async fn create_as(
     let schema: niu_media::VideoSchema =
         serde_json::from_value(route.model.capabilities["video_schema"].clone())
             .map_err(|_| ApiError::unsupported())?;
-    let request = schema
-        .validate_request(
-            &serde_json::to_vec(&body)
-                .map_err(|_| ApiError::invalid_request("Invalid inspected video request"))?,
-        )
-        .map_err(|_| {
-            ApiError::invalid_request(
-                "The inspected request does not match this model's video schema",
+    let prepared = super::video_ingested_images::prepare(&body)?;
+    let resolved = if prepared.has_references() {
+        Some(
+            super::video_ingested_images::resolve(
+                &state, &principal, &snapshot, &route, &schema, &prepared,
             )
-        })?;
+            .await?,
+        )
+    } else {
+        None
+    };
+    let ordinary_request =
+        if resolved.is_none() {
+            Some(
+                schema
+                    .validate_request(&serde_json::to_vec(&body).map_err(|_| {
+                        ApiError::invalid_request("Invalid inspected video request")
+                    })?)
+                    .map_err(|_| {
+                        ApiError::invalid_request(
+                            "The inspected request does not match this model's video schema",
+                        )
+                    })?,
+            )
+        } else {
+            None
+        };
+    let request = resolved
+        .as_ref()
+        .map(|value| &value.request)
+        .or(ordinary_request.as_ref())
+        .ok_or_else(ApiError::unavailable)?;
     let cipher = state
         .vendor_cipher
         .as_ref()
@@ -1520,7 +1592,7 @@ pub(super) async fn create_as(
         .map_err(ApiError::from_store)?;
     state
         .store
-        .pin_media_output_snapshot(scope, attempt, &request)
+        .pin_media_output_snapshot(scope, attempt, request)
         .await
         .map_err(ApiError::from_store)?;
     state
@@ -1541,7 +1613,7 @@ pub(super) async fn create_as(
     if !image_bindings.is_empty() {
         state
             .store
-            .bind_image_request(&principal, attempt, &snapshot, &request, &image_bindings)
+            .bind_image_request(&principal, attempt, &snapshot, request, &image_bindings)
             .await
             .map_err(ApiError::from_store)?;
     }
@@ -1552,12 +1624,48 @@ pub(super) async fn create_as(
             .await
             .map_err(ApiError::from_store)?;
     }
-    let dispatch = if image_bindings.is_empty() {
+    let dispatch = if let Some(resolved) = &resolved {
+        let selected = niu_storage::IngestedImageRoute {
+            vendor_id: route.vendor.id,
+            vendor_revision: route.vendor.revision,
+            model_alias: &route.model.alias,
+            model_revision: route.model.revision,
+            channel: &schema.channel,
+        };
+        let detectors: Vec<_> = state
+            .image_detectors
+            .iter()
+            .map(|(name, runtime)| (name.as_str(), runtime))
+            .collect();
+        let references: Vec<_> = resolved
+            .images
+            .iter()
+            .map(|image| niu_storage::IngestedVideoImage {
+                position: image.position,
+                input: &image.input,
+                reference: &image.reference,
+            })
+            .collect();
+        state
+            .store
+            .mark_ingested_video_dispatched(
+                &principal,
+                attempt,
+                niu_storage::IngestedVideoDispatch {
+                    snapshot: &snapshot,
+                    route: &selected,
+                    detectors: &detectors,
+                    request,
+                    images: &references,
+                },
+            )
+            .await
+    } else if image_bindings.is_empty() {
         state.store.mark_dispatched(&principal, attempt).await
     } else {
         state
             .store
-            .mark_image_dispatched(&principal, attempt, &snapshot, &request, &image_bindings)
+            .mark_image_dispatched(&principal, attempt, &snapshot, request, &image_bindings)
             .await
     };
     if let Err(error) = dispatch {
@@ -1576,7 +1684,7 @@ pub(super) async fn create_as(
         &endpoint,
         &token,
         &schema.channel,
-        &request,
+        request,
         64 * 1024,
         timeout,
     )

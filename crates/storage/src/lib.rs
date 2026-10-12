@@ -1,6 +1,8 @@
 //! Durable tenant ownership and attempt intent. Credentials, prompts and outputs
 //! do not belong in accounting records. Chat content has separate storage.
 //! Authorization remains a caller obligation.
+mod ingested_video_dispatch;
+pub use ingested_video_dispatch::{IngestedVideoDispatch, IngestedVideoImage};
 mod ingested_image_references;
 pub use ingested_image_references::{
     IngestedImageReference, IngestedImageReferenceResolution, IngestedImageReferenceUnavailable,

@@ -12,6 +12,7 @@ mod responses;
 mod retry;
 pub(super) mod video;
 pub(super) mod video_images;
+pub(super) mod video_ingested_images;
 pub(super) mod video_intents;
 
 pub(super) use chat::{chat, dashboard_chat};

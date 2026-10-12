@@ -73,7 +73,7 @@ impl IngestedImageReference {
 // erasure never becomes an implicit permission to keep using the upstream copy.
 const RESOLVE: &str = r#"
 SELECT s.id AS source_id, i.id AS group_intent_id, o.upstream_asset_id, v.adapter, i.request_body, i.upstream_project,
-       (EXTRACT(EPOCH FROM LEAST(d.expires_at,s.expires_at,a.expires_at,g.expires_at,group_grant.expires_at,k.expires_at,i.request_expires_at))*1000)::bigint AS expires_at_ms,
+       (floor(EXTRACT(EPOCH FROM LEAST(d.expires_at,s.expires_at,a.expires_at,g.expires_at,group_grant.expires_at,k.expires_at,i.request_expires_at))*1000))::bigint AS expires_at_ms,
        s.content_sha256,
        jsonb_build_object('source',s.id,'ingestion',d.id,'readiness',r.id,
           'vendor',v.id,'vendor_revision',v.revision,'model',m.alias,'model_revision',m.revision,
@@ -81,7 +81,7 @@ SELECT s.id AS source_id, i.id AS group_intent_id, o.upstream_asset_id, v.adapte
           'creation_grant',a.id,'read_grant',g.id,'group_grant',group_grant.id,'approval',s.approval_id,
           'workspace_revision',p.workspace_revision,'key_revision',p.key_policy_revision,
           'assignment_revision',p.key_assignment_revision,'asset',o.upstream_asset_id,
-          'deadline',(EXTRACT(EPOCH FROM LEAST(d.expires_at,s.expires_at,a.expires_at,g.expires_at,group_grant.expires_at,k.expires_at,i.request_expires_at))*1000)::bigint
+          'deadline',(floor(EXTRACT(EPOCH FROM LEAST(d.expires_at,s.expires_at,a.expires_at,g.expires_at,group_grant.expires_at,k.expires_at,i.request_expires_at))*1000))::bigint
        )::text AS binding
 FROM asset_image_ingestion_consents d
 JOIN inspected_image_sources s ON s.id=d.source_id

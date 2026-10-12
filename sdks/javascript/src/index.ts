@@ -297,9 +297,15 @@ export type VideoModel = {
 };
 export type VideoModelList = { object: 'list'; data: VideoModel[] };
 
+/** Short-lived ordinary image reuse; raw Provider asset URIs are not accepted. */
+export type IngestedVideoImageInput = {
+  type: 'ingested_image'; role?: string;
+  ingested_image: { ingestion_id: string; readiness_id: string; consent_to_reuse: true };
+};
+
 export type VideoCreateRequest = {
   model: string;
-  content: Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string }; role?: string }>;
+  content: Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string }; role?: string } | IngestedVideoImageInput>;
   [control: string]: unknown;
 };
 
