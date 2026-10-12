@@ -515,19 +515,20 @@ pub async fn get(
     State(state): State<AppState>,
     Path((organization_id, project_id, id)): Path<(Uuid, Uuid, Uuid)>,
     headers: HeaderMap,
-) -> Result<Json<Value>, ApiError> {
+) -> Result<axum::response::Response, ApiError> {
+    use axum::response::IntoResponse;
     let scope = TenantScope {
         organization_id,
         project_id,
     };
     let owner = owner(&state, &headers, scope, AdminPermission::Read).await?;
-    state
+    let value = state
         .store
         .chat_session_detail(scope, &owner, id)
         .await
         .map_err(ApiError::from_store)?
-        .map(Json)
-        .ok_or_else(ApiError::not_found)
+        .ok_or_else(ApiError::not_found)?;
+    Ok(([("cache-control", "no-store")], Json(value)).into_response())
 }
 
 pub async fn delete(
