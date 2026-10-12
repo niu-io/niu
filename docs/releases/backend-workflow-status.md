@@ -264,3 +264,11 @@ format-valid unissued and malformed token behavior, recovery inference/exact
 debit and restart/source restrictions were independently checked. Storage failure
 returns unavailable verification without dispatch. Broader permission races and
 sustained authentication capacity remain unverified.
+
+
+[Current mixed streaming/reporting load](../reference/current-authentication-mixed-load.md)
+exercises `e704955` with 240 actual streams and 1,200 viewer reads. Independent
+raw-stream/native reconciliation verifies four accurately charged validation
+errors, complete report/export totals, restart and no open hold. Read p95 was
+26.00 ms for this offered local workload. Maximum capacity, broader protocols,
+resource profiling and production SLOs remain unverified.

@@ -83,3 +83,14 @@ implementation. It does not reconstruct every interim summary's entire snapshot,
 set an SLO, isolate Gateway overhead or establish maximum capacity. No resource
 profile, long soak, multi-Gateway contention, media or commercial supply claim
 is made. The full reference above records measurement and verification limits.
+
+
+## Current mixed inference and report reads
+
+On `e704955`, 240 actual streams at an offered 4/second ran alongside 1,200
+ordinary-viewer report reads at 20/second. 236 streams returned valid content;
+four actual invalid tool turns ended with safe errors and accurate reported-usage
+charges. Read p95 was 26.00 ms. Independent native reopening reconciled all
+1,840 retained requests, final summaries/CSV, restart and released holds. See the
+[current workload boundary](https://github.com/niu-io/niu/blob/main/docs/reference/current-authentication-mixed-load.md).
+This is local mixed-workload evidence, not maximum capacity or a production SLO.
