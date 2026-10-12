@@ -1,14 +1,12 @@
 {
   "version": 1,
   "updated": "2026-10-13",
-  "source_commit": "63ea2281",
+  "source_commit": "dce8a86f",
   "runtime_commit": "8bfdef10003eebe9402401247aa52cd69d3a398f",
   "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
   "active_implementation_tasks": [
     "S10-2",
-    "S04-3",
-    "S05-3",
-    "S06-3"
+    "S05-3"
   ],
   "subsystems": [
     {
@@ -166,7 +164,7 @@
       "id": "S04",
       "name": "Key controls and Guardrails",
       "lane": "A",
-      "status": "active",
+      "status": "done",
       "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
       "paths": [
         "apps/gateway/src/admin/guardrails.rs",
@@ -201,7 +199,7 @@
         },
         {
           "id": "S04-3",
-          "status": "active",
+          "status": "done",
           "acceptance": "Document and verify applicable F09 local/external input and output coverage, consent, preview/revision/rollback and fail-closed failure behavior.",
           "evidence": [
             "docs/reference/guardrails-acceptance-matrix.md",
@@ -210,8 +208,8 @@
             "docs/reference/buffered-output-streaming-acceptance.md",
             "docs/reference/stream-output-observation-acceptance.md"
           ],
-          "evidence_revision": "500e5289",
-          "note": "Pinned-current8bf/SDKce97 actual local policy: four protocol input blocks, preview-only contracts, consent/unconfigured-service refusals, explicit unsupported audio/video activation, revision/rollback, permissions, observed lock503 and restart; independent seven native decisions/eight unchanged whole financial tables. GenerateContent wrong-adapter501 is excluded from enforcement proof. Prior actual output scopes retained; configured external processing/failure and compatible native enforcement remain explicitly unverified, not activation requirements."
+          "evidence_revision": "65504127",
+          "note": "Finite applicable local plaintext/policy workflow accepted: current8bf/SDKce97 four input-protocol blocks, previews, consent/unconfigured-service refusal, revision/rollback/permissions/lock503/restart; genuine separately pinned buffered and streaming output/capture/observation/parent-key accounting evidence retained. Optional configured external success/timeouts and native extra output combinations remain explicitly unqualified, not activation gates or universalF09 guarantees."
         }
       ]
     },
@@ -269,7 +267,7 @@
       "id": "S06",
       "name": "Payment integration capability",
       "lane": "B",
-      "status": "active",
+      "status": "done",
       "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
       "paths": [
         "apps/gateway/src/payments.rs",
@@ -303,14 +301,14 @@
         },
         {
           "id": "S06-3",
-          "status": "active",
+          "status": "done",
           "acceptance": "Establish supported funding/refund transitions and negative callback/idempotency protections from actual evidence; merchant activation is not a completion prerequisite.",
           "evidence": [
             "docs/reference/invoice-payment-boundary-acceptance.md",
             "docs/reference/payment-local-capability-acceptance.md"
           ],
-          "evidence_revision": "f30d7842",
-          "note": "Actual posted-charge refund and genuine saved Zhifux uncertain intent now independently verified on current native8bf/SDKce97: replay, changed-input and unsigned callback refusals, restart, nineteen unchanged whole-table fingerprints and zero merchant calls. Positive received-funds/closed transition remains unverified; fixture outcomes are excluded and merchant activation is not a capability prerequisite."
+          "evidence_revision": "dce8a86f",
+          "note": "Finite payment backend capability accepted per external-activation policy: actual posted-charge exact refund and genuine saved Zhifux uncertain-intent inventory/replay/conflict/unsigned-callback refusal/restart preserve nineteen whole tables, with zero merchant calls or invented receipts. Funding/closed atomic transitions are implemented mechanisms, not observed positive cash. Actual paid/closed cash settlement, valid signed paid callback and funding-entry reversal remain unverified; all external refund initiation unsupported, EPayquery501, Stripeuncertain creation never silently recreated. Fixture merchant outcomes excluded."
         }
       ]
     },

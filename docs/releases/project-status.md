@@ -1,25 +1,25 @@
 # Project delivery status
 
 Baseline v1; updated 2026-10-13.
-Committed audit source `63ea2281`; native implementation `8bfdef10`.
+Committed audit source `dce8a86f`; native implementation `8bfdef10`.
 
-**Backend acceptance checkpoints: 30/36 recorded complete at their evidence pins.**
-**Whole backend subsystems closed: 6/12.**
+**Backend acceptance checkpoints: 32/36 recorded complete at their evidence pins.**
+**Whole backend subsystems closed: 8/12.**
 These are acceptance-checkpoint counts, not coding percentage, fresh execution of every path or release readiness.
 Existing scoped evidence is carried forward explicitly. Missing evidence remains open; fixture outcomes have zero signal.
 
 Source of truth: [project-status.json](project-status.json). Scope changes require a versioned reason; they cannot silently change the denominator.
 Status meanings: open = unfinished; active = explicitly assigned current work; blocked = identified dependency prevents progress; done = every stated criterion has evidence; delegated/deferred = separate ownership or excluded scope.
-Active implementation: S10-2, S04-3, S05-3, S06-3. Assignments use stable task IDs.
+Active implementation: S10-2, S05-3. Assignments use stable task IDs.
 
 | Subsystem | Owner lane | Status | Completed checks | Dependencies |
 | --- | --- | --- | ---: | --- |
 | S01 Identity and workspaces | A | done | 3/3 | None |
 | S02 Supplier configuration and model catalog | A | done | 3/3 | S01 |
 | S03 Inference protocols and route coordination | B | done | 3/3 | S02, S04, S05 |
-| S04 Key controls and Guardrails | A | active | 2/3 | S01 |
+| S04 Key controls and Guardrails | A | done | 3/3 | S01 |
 | S05 Pricing, balance, charging and reconciliation | B | active | 2/3 | S01 |
-| S06 Payment integration capability | B | active | 2/3 | S05 |
+| S06 Payment integration capability | B | done | 3/3 | S05 |
 | S07 Request diagnostics and usage reports | C | done | 3/3 | S03, S05 |
 | S08 Video jobs, results and assets | C | active | 2/3 | S02, S04, S05 |
 | S09 Durable Chat | C | done | 3/3 | S01, S03, S07 |
@@ -61,7 +61,7 @@ Active implementation: S10-2, S04-3, S05-3, S06-3. Assignments use stable task I
 | --- | --- | --- | --- |
 | S04-1 | done | The exercised tool streams preserve key lineage, RPM and spending refusals across rotation/restart and revoke access. | [record](../../docs/reference/key-controlled-tool-streaming.md) (`a9de7c8`) |
 | S04-2 | done | Close the matrix for single-key spending/RPM/TPM/concurrency/IP controls and mandatory parent-child policy composition; concurrent denials create no unauthorized dispatch. | [record](../../docs/reference/parallel-core-backend-acceptance.md) (`fb21b52a`) |
-| S04-3 | active | Document and verify applicable F09 local/external input and output coverage, consent, preview/revision/rollback and fail-closed failure behavior. | [record](../../docs/reference/guardrails-acceptance-matrix.md), [record](../../docs/reference/buffered-output-policy-execution.md), [record](../../docs/reference/output-default-capture-acceptance.md), [record](../../docs/reference/buffered-output-streaming-acceptance.md), [record](../../docs/reference/stream-output-observation-acceptance.md) (`500e5289`) |
+| S04-3 | done | Document and verify applicable F09 local/external input and output coverage, consent, preview/revision/rollback and fail-closed failure behavior. | [record](../../docs/reference/guardrails-acceptance-matrix.md), [record](../../docs/reference/buffered-output-policy-execution.md), [record](../../docs/reference/output-default-capture-acceptance.md), [record](../../docs/reference/buffered-output-streaming-acceptance.md), [record](../../docs/reference/stream-output-observation-acceptance.md) (`65504127`) |
 
 ### S05 — Pricing, balance, charging and reconciliation
 
@@ -77,7 +77,7 @@ Active implementation: S10-2, S04-3, S05-3, S06-3. Assignments use stable task I
 | --- | --- | --- | --- |
 | S06-1 | done | An administrator can read the truthful supported integration inventory independently of checkout activation. | [record](../../docs/reference/payment-aggregators.md) (`3fdc669c`) |
 | S06-2 | done | Publish the supported checkout, signed notification/query, duplicate, currency/amount verification and recovery inventory with exact interfaces. | [record](../../docs/reference/payment-capability-matrix.md) (`af34b6a3`) |
-| S06-3 | active | Establish supported funding/refund transitions and negative callback/idempotency protections from actual evidence; merchant activation is not a completion prerequisite. | [record](../../docs/reference/invoice-payment-boundary-acceptance.md), [record](../../docs/reference/payment-local-capability-acceptance.md) (`f30d7842`) |
+| S06-3 | done | Establish supported funding/refund transitions and negative callback/idempotency protections from actual evidence; merchant activation is not a completion prerequisite. | [record](../../docs/reference/invoice-payment-boundary-acceptance.md), [record](../../docs/reference/payment-local-capability-acceptance.md) (`dce8a86f`) |
 
 ### S07 — Request diagnostics and usage reports
 
