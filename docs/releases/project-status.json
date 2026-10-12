@@ -1,7 +1,7 @@
 {
   "version": 1,
   "updated": "2026-10-12",
-  "source_commit": "4a4593386143c2d46271ea13a66b7dd8a64229c3",
+  "source_commit": "1212ea3b68f934c22fff6c62696475d2f628fc6a",
   "runtime_commit": "186662c5346ec911e2bc19e59bb6b8a51c32500c",
   "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
   "active_implementation_tasks": [
@@ -367,7 +367,7 @@
           "acceptance": "Close the supported input/control/job/result/retention/asset authorization matrix and recovery without duplicate submission.",
           "evidence": [],
           "evidence_revision": null,
-          "note": "Ingested-image parser, scoped resolver, exact Ark transport validation and atomic dispatch with immutable bindings implemented in 81f6a1e1; current native HTTP validation pending. Durable library grants and actual positive asset reuse remain unverified."
+          "note": "Ingested-image parser, scoped resolver, exact Ark transport validation and atomic dispatch with immutable bindings implemented in 81f6a1e1; current native HTTP validation pending. Durable library grants and actual positive asset reuse remain unverified. Unsupported reference channels now reject before transport validation in 1212ea3b. Original runtime remains 186662c5 pending isolated native acceptance."
         },
         {
           "id": "S08-3",
