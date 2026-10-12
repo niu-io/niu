@@ -19,22 +19,33 @@ impl Store {
         principal: &Principal,
         snapshot: &GuardrailSnapshot,
     ) -> Result<(), StoreError> {
-        let scope = principal.scope();
         let mut tx = self.pool.begin().await?;
+        Self::authorize_media_processing_using(&mut tx, principal, snapshot).await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    /// Shared current key and policy-epoch check for exact-content processing.
+    /// The caller owns transaction bounds and must repeat this after network I/O.
+    pub(crate) async fn authorize_media_processing_using(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        principal: &Principal,
+        snapshot: &GuardrailSnapshot,
+    ) -> Result<(), StoreError> {
+        let scope = principal.scope();
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('niu-guardrails:'||$1::text||':'||$2::text,0))")
-            .bind(scope.organization_id).bind(scope.project_id).execute(&mut *tx).await?;
+            .bind(scope.organization_id).bind(scope.project_id).execute(&mut **tx).await?;
         let active: Option<Uuid> = sqlx::query_scalar("SELECT k.id FROM api_keys k JOIN projects p ON p.organization_id=k.organization_id AND p.id=k.project_id WHERE k.id=$1 AND k.organization_id=$2 AND k.project_id=$3 AND k.revoked_at IS NULL AND k.expires_at > clock_timestamp() FOR SHARE OF k,p")
-            .bind(principal.key_id()).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut *tx).await?;
+            .bind(principal.key_id()).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut **tx).await?;
         if active.is_none() {
             return Err(StoreError::Unauthorized);
         }
-        let current = Self::guardrail_snapshot_using(&mut *tx, scope, principal.key_id())
+        let current = Self::guardrail_snapshot_using(&mut **tx, scope, principal.key_id())
             .await?
             .ok_or(StoreError::Unauthorized)?;
         if !same_policy(&current, snapshot) {
             return Err(StoreError::Conflict);
         }
-        tx.commit().await?;
         Ok(())
     }
 

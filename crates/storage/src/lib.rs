@@ -68,6 +68,8 @@ mod chat_sessions;
 pub use chat_sessions::ChatWriteCondition;
 mod guardrails;
 mod image_processing;
+mod media_processing;
+pub use media_processing::MediaApprovalRecord;
 mod inspected_image_sources;
 pub use guardrails::GuardrailSnapshot;
 pub use image_processing::{ImageApprovalRecord, ImageRequestApproval};
