@@ -442,7 +442,8 @@ SELECT jsonb_build_object(
     ) -> Result<Vec<Value>, StoreError> {
         // One statement snapshot for every displayed amount. Calling a volatile
         // admission function twice could observe different concurrent commits.
-        Ok(sqlx::query_scalar(
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        let balances = sqlx::query_scalar(
             r#"WITH accounts AS MATERIALIZED (
                 SELECT a.*,
                     COALESCE((SELECT SUM(e.amount_nanos) FROM customer_balance_entries e
@@ -468,7 +469,9 @@ SELECT jsonb_build_object(
                 'reserved_nanos',reserved::text,'outstanding_nanos',outstanding::text,
                 'available_nanos',(balance+credit_limit_nanos-outstanding)::text
             ) FROM accounts ORDER BY currency"#,
-        ).bind(organization).fetch_all(&self.pool).await?)
+        ).bind(organization).fetch_all(&mut *snapshot).await?;
+        snapshot.commit().await?;
+        Ok(balances)
     }
 
     /// Complete customer catalog prices; this compatibility map has no cursor.
