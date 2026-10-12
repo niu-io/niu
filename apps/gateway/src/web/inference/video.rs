@@ -797,6 +797,11 @@ pub(super) async fn validate_admission(
     )
     .map_err(|_| ApiError::unsupported())?;
     let openrouter = schema.channel == niu_media::openrouter::REVISION;
+    if prepared.has_references() && schema.channel != "ark-direct-v1" {
+        return Err(ApiError::unsupported_message(
+            "This video channel does not support ingested image references",
+        ));
+    }
     if (schema.channel != "ark-direct-v1" && !openrouter) || body.get("callback_url").is_some() {
         return Err(ApiError::unsupported_message(
             "This video channel or notification contract is not implemented",
