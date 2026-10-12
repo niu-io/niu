@@ -3754,7 +3754,7 @@
             "description": "Authentication required."
           },
           "404": {
-            "description": "Company absent or outside authorized scope."
+            "description": "Company outside authorized scope."
           },
           "503": {
             "description": "Storage unavailable."
@@ -3845,7 +3845,7 @@
             "description": "Authentication required."
           },
           "404": {
-            "description": "Company absent or outside authorized scope."
+            "description": "Company outside authorized scope."
           },
           "503": {
             "description": "Storage unavailable."

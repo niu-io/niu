@@ -3858,7 +3858,7 @@ Content type: `application/json`.
 
 HTTP 401: Authentication required.
 
-HTTP 404: Company absent or outside authorized scope.
+HTTP 404: Company outside authorized scope.
 
 HTTP 503: Storage unavailable.
 
@@ -4410,7 +4410,7 @@ Each array entry is an alternative; schemes within one entry are required togeth
 
 HTTP 401: Authentication required.
 
-HTTP 404: Company absent or outside authorized scope.
+HTTP 404: Company outside authorized scope.
 
 HTTP 503: Storage unavailable.
 

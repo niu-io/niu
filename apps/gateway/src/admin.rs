@@ -1181,7 +1181,7 @@ pub async fn organization(
 ///         "description": "Authentication required."
 ///       },
 ///       "404": {
-///         "description": "Company absent or outside authorized scope."
+///         "description": "Company outside authorized scope."
 ///       },
 ///       "503": {
 ///         "description": "Storage unavailable."
@@ -2256,7 +2256,7 @@ pub async fn revoke_operator(
 ///         "description": "Authentication required."
 ///       },
 ///       "404": {
-///         "description": "Company absent or outside authorized scope."
+///         "description": "Company outside authorized scope."
 ///       },
 ///       "503": {
 ///         "description": "Storage unavailable."
