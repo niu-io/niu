@@ -194,7 +194,8 @@ Content type: `application/json`.
   "required": [
     "data",
     "archived",
-    "revision"
+    "revision",
+    "guardedWrites"
   ],
   "properties": {
     "data": {
@@ -207,6 +208,10 @@ Content type: `application/json`.
       "type": "string",
       "pattern": "^[1-9][0-9]*$",
       "description": "Opaque positive decimal write revision. Pass as expectedRevision for guarded saves."
+    },
+    "guardedWrites": {
+      "type": "boolean",
+      "description": "True after guarded content save. Version-free saves are then rejected; this mode cannot be disabled by a content save."
     }
   }
 }
@@ -226,7 +231,7 @@ HTTP 503: Durable storage unavailable or read wait exceeded.
 
 `PUT /admin/v1/organizations/{organization}/projects/{project}/chat-sessions/{id}`
 
-Requires workspace write access. Stores conversation content separately from accounting. Only supported top-level and nested fields are retained. Client-supplied accounting fields are discarded. Numeric timestamps, durations and token counts must be nonnegative JavaScript-safe integers; token counts may be null. Settings and attachment shapes are validated. This endpoint does not establish authoritative request charges or detect secrets embedded in conversation text. Omit expectedRevision for the unchanged compatibility write. Explicit null creates only if no owned row exists; a canonical positive decimal revision updates only that exact owned version. Stale, missing or duplicate-create guarded writes return 409 without replacing content. Revisions are global sequence values, not timestamps, and are never reused by API delete/recreate. Guarded success includes a decimal revision; direct GET provides it. Compatibility writes remain unconditional and are not protected from stale snapshots.
+Requires workspace write access. Stores conversation content separately from accounting. Only supported top-level and nested fields are retained. Client-supplied accounting fields are discarded. Numeric timestamps, durations and token counts must be nonnegative JavaScript-safe integers; token counts may be null. Settings and attachment shapes are validated. This endpoint does not establish authoritative request charges or detect secrets embedded in conversation text. Omit expectedRevision for a compatibility write only while the owned record has not enabled guarded writes. Explicit null creates only if no owned row exists; a canonical positive decimal revision updates only that exact owned version. Stale, missing or duplicate-create guarded writes return 409 without replacing content. Revisions are global sequence values, not timestamps, and are never reused by API delete/recreate. Guarded success includes a decimal revision; direct GET provides it. A successful guarded creation/update permanently enables guarded writes on that owned row. Compatibility saves thereafter return 409; there is no content-write downgrade. Untouched legacy rows retain compatibility behavior until guarded save.
 
 Implementation: `implemented`. Operation: `saveChatSession`.
 

@@ -5,7 +5,7 @@ use uuid::Uuid;
 // Bound saved JSON materialization before payloads cross the database connection.
 const CHAT_HISTORY_PAYLOAD_BYTES: i64 = 32 * 1024 * 1024;
 
-/// Compatibility writes remain unconditional; guarded clients require creation
+/// Compatibility writes require an unguarded record; guarded clients require creation
 /// or the exact revision returned by a direct read. Revisions are never reused.
 #[derive(Clone, Copy)]
 pub enum ChatWriteCondition {
@@ -81,10 +81,10 @@ impl Store {
         id: Uuid,
     ) -> Result<Option<Value>, StoreError> {
         let mut snapshot = self.begin_bounded_read_snapshot().await?;
-        let metadata: Option<(bool, i64, i64)> = sqlx::query_as("SELECT archived,octet_length(payload::text)::bigint,write_revision FROM chat_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND id=$4")
+        let metadata: Option<(bool, i64, i64, bool)> = sqlx::query_as("SELECT archived,octet_length(payload::text)::bigint,write_revision,guarded_writes FROM chat_sessions WHERE organization_id=$1 AND project_id=$2 AND owner=$3 AND id=$4")
             .bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(id)
             .fetch_optional(&mut *snapshot).await?;
-        let Some((archived, bytes, revision)) = metadata else {
+        let Some((archived, bytes, revision, guarded)) = metadata else {
             snapshot.commit().await?;
             return Ok(None);
         };
@@ -97,7 +97,7 @@ impl Store {
         snapshot.commit().await?;
         Ok(payloads
             .pop()
-            .map(|data| serde_json::json!({"data":data,"archived":archived,"revision":revision.to_string()})))
+            .map(|data| serde_json::json!({"data":data,"archived":archived,"revision":revision.to_string(),"guardedWrites":guarded})))
     }
 
     pub async fn delete_chat_session(
@@ -356,13 +356,13 @@ impl Store {
         }
         let mut tx = self.begin_bounded_recording().await?;
         let revision = match condition {
-            ChatWriteCondition::Any => sqlx::query_scalar("INSERT INTO chat_sessions (id,organization_id,project_id,owner,payload) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (organization_id,project_id,owner,id) DO UPDATE SET payload=EXCLUDED.payload,updated_at=clock_timestamp(),write_revision=nextval('chat_session_write_revisions') RETURNING write_revision")
+            ChatWriteCondition::Any => sqlx::query_scalar("INSERT INTO chat_sessions (id,organization_id,project_id,owner,payload) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (organization_id,project_id,owner,id) DO UPDATE SET payload=EXCLUDED.payload,updated_at=clock_timestamp(),write_revision=nextval('chat_session_write_revisions') WHERE NOT chat_sessions.guarded_writes RETURNING write_revision")
                 .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(payload)
                 .fetch_optional(&mut *tx).await?,
-            ChatWriteCondition::Missing => sqlx::query_scalar("INSERT INTO chat_sessions (id,organization_id,project_id,owner,payload) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (organization_id,project_id,owner,id) DO NOTHING RETURNING write_revision")
+            ChatWriteCondition::Missing => sqlx::query_scalar("INSERT INTO chat_sessions (id,organization_id,project_id,owner,payload,guarded_writes) VALUES ($1,$2,$3,$4,$5,true) ON CONFLICT (organization_id,project_id,owner,id) DO NOTHING RETURNING write_revision")
                 .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(payload)
                 .fetch_optional(&mut *tx).await?,
-            ChatWriteCondition::Revision(expected) => sqlx::query_scalar("UPDATE chat_sessions SET payload=$5,updated_at=clock_timestamp(),write_revision=nextval('chat_session_write_revisions') WHERE id=$1 AND organization_id=$2 AND project_id=$3 AND owner=$4 AND write_revision=$6 RETURNING write_revision")
+            ChatWriteCondition::Revision(expected) => sqlx::query_scalar("UPDATE chat_sessions SET payload=$5,updated_at=clock_timestamp(),write_revision=nextval('chat_session_write_revisions'),guarded_writes=true WHERE id=$1 AND organization_id=$2 AND project_id=$3 AND owner=$4 AND write_revision=$6 RETURNING write_revision")
                 .bind(id).bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(payload).bind(expected)
                 .fetch_optional(&mut *tx).await?,
         };

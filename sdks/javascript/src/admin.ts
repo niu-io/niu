@@ -1903,7 +1903,7 @@ export class NiuAdminClient {
   }
 
   /** Restore one complete owned conversation without walking recent history pages. */
-  getChatSession(scope: TenantScope, sessionId: string, options?: RequestOptions): Promise<{ data: ChatSession; archived: boolean; revision: string }> {
+  getChatSession(scope: TenantScope, sessionId: string, options?: RequestOptions): Promise<{ data: ChatSession; archived: boolean; revision: string; guardedWrites: boolean }> {
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/chat-sessions/${uuid(sessionId)}`, undefined, options);
   }
 
