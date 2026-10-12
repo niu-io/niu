@@ -84,7 +84,7 @@ pub async fn validate(
     Ok(kind)
 }
 
-fn wav(bytes: &[u8]) -> bool {
+pub(crate) fn wav(bytes: &[u8]) -> bool {
     if bytes.len() < 44 || &bytes[..4] != b"RIFF" || &bytes[8..12] != b"WAVE" {
         return false;
     }
@@ -145,7 +145,7 @@ fn wav(bytes: &[u8]) -> bool {
     matches!((align, data_bytes), (Some(block), Some(size)) if size.is_multiple_of(block))
 }
 
-fn mpeg(bytes: &[u8]) -> bool {
+pub(crate) fn mpeg(bytes: &[u8]) -> bool {
     let mut offset = 0;
     if bytes.starts_with(b"ID3") {
         if bytes.len() < 10
@@ -302,7 +302,7 @@ struct Movie {
     data: bool,
     boxes: usize,
 }
-fn mp4(bytes: &[u8]) -> bool {
+pub(crate) fn mp4(bytes: &[u8]) -> bool {
     let mut movie = Movie::default();
     boxes(bytes, 0, &mut movie) && movie.brand && movie.video && movie.data
 }
