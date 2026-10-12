@@ -435,3 +435,19 @@ lists supported checkout, signed notification and query-recovery interfaces for
 EPay, Stripe and Zhifux, including unsupported refunds and EPay query recovery.
 Merchant activation does not gate capability publication. The matrix makes no
 new positive received-funds claim; actual funding remains a separate checkpoint.
+
+## Workspace compatibility and durable Chat
+
+The [workspace compatibility freeze](https://github.com/niu-io/niu/blob/main/docs/releases/backend-integration-contract.md#workspace-mutation-compatibility-freeze--2026-10-12)
+retains both workspace-ID and legacy scoped mutation routes. The JavaScript SDK
+accepts both argument forms, independently exercised against the current native
+Gateway. The [Chat backend checkpoint](https://github.com/niu-io/niu/blob/main/docs/reference/chat-backend-acceptance.md)
+covers saved multi-turn content, drafts/settings/attachments, guarded writes,
+scoped deletion and restart; frontend adoption is separately assigned.
+
+The [current reporting matrix](https://github.com/niu-io/niu/blob/main/docs/reference/reporting-acceptance-matrix.md)
+checks complete pagination and customer CSV against genuine saved inference and
+native accounting. The [ingested-image input contract](https://github.com/niu-io/niu/blob/main/docs/reference/ingested-image-video-input.md)
+describes implemented short-lived references and actual safe refusals. Positive
+Ark asset reuse and durable library grants remain unverified; those are not
+inferred from personal text-video success.
