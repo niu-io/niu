@@ -127,3 +127,14 @@ summary uses the same selection. The SDK query supports this value. Existing
 `delivery_failed` selects HTTP 400–599; missing diagnostics or uncertain execution
 are not inferred as recorded failures. The [current filter contract and real verification](https://github.com/niu-io/niu/blob/main/docs/reference/recorded-request-failure-filter.md)
 cover pagination, mixed success, SDK requests, exact charges, scope and restart.
+
+
+## Saved video creation replay
+
+The [bounded saved-identity checkpoint](https://github.com/niu-io/niu/blob/main/docs/reference/video-submission-intents.md#bounded-saved-submission-identity-read--2026-10-12)
+verifies that a blocked identity read returns an unavailable error rather than
+assuming the submission is absent. Compatible creation replay restored the same
+actual succeeded video after lock release and restart, with one original
+submission and no new billing. Its retrieved MP4 matched the retained result and
+fully decoded. This checkpoint covers existing-job recovery; new generation,
+intent-submit/browser restoration and paid media have separate verification scope.

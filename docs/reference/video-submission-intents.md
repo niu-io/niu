@@ -197,3 +197,47 @@ charges. A separate native database dispatch interruption retained one prepared,
 undispatched attempt across restart and explicit replay, with no transport or
 ledger entry. These runs cover the exercised states, not every possible
 interleaving or customer-funded video settlement.
+
+
+## Bounded saved-submission identity read — 2026-10-12
+
+The shared saved-submission identity lookup now uses the existing bounded
+read-only transaction initializer in clean `73d0c46`. It has transaction-local
+250 ms lock and 2 s statement limits, and ends before job-state restoration or
+any network work. Unavailable identity storage returns a safe error; it must not
+be treated as an absent submission or permission to dispatch again. The original
+request-digest comparison and conflict behavior are preserved. This does not
+bound every preparation, dispatch, authorization or job-state read.
+
+Current-input verification used stopped copies of one actual completed personal
+video and its original workspace-scoped creation identity. The original saved
+request digest was independently matched before replay. No new video was generated.
+The exercised HTTP surface was compatible `POST /v1/video/jobs` with its original
+`Idempotency-Key`; this is not browser or intent-submit acceptance.
+
+Clean `7fa886b` was observed blocked in the saved-identity SELECT during an
+exclusive native PostgreSQL table lock. The replay stayed pending through
+1,607.23 ms, then returned HTTP 202 with the same completed job after release.
+Clean `73d0c46` returned sanitized HTTP 503 in 264.14 ms while the lock remained
+held. No empty-success body or database object name was returned; PostgreSQL
+recorded lock-timeout cancellation. After lock release and restart, identical
+replay again returned the original succeeded job. Changed input returned 409,
+and revoked-key replay returned 401.
+
+Independent reopening verified the original request/key digest binding, unchanged
+full-row fingerprints of creation identities, attempts and jobs, and exactly one
+original submission transport record. Replays produced no new transport or
+financial entry. The result was subsequently fetched through current authorized
+HTTP: 90,729 bytes of MP4 matched the original retained file hash. Independent
+FFprobe inspection and full FFmpeg decoding checked measurable video content.
+That result retrieval has its own transport observation; it is not another
+submission. Billing remained owner-funded. Customer charges, Supplier earnings,
+funding receipts and outstanding customer/procurement holds were absent.
+
+This qualifies the stated saved-identity contention/replay and existing-result
+recovery path. It does not establish new-generation concurrency, customer-paid
+media, intent-submit/browser restoration, natural expiry, every lost-response
+interleaving or a complete request deadline. Static clippy and annotation checks
+completed separately; fixture outcomes are not evidence. Native replacement
+followed a fresh isolated backup restore/comparison, retaining the original
+configuration, encrypted identity and durable business record counts.

@@ -1,6 +1,6 @@
 # Backend workflow verification status
 
-Reviewed 2026-10-12 against implementation `7fa886b`; native implementation `7fa886b`.
+Reviewed 2026-10-12 against implementation `73d0c46`; native implementation `73d0c46`.
 This is an index of scoped evidence, not a declaration that the complete release
 or New API comparison is qualified. Linked runs identify their own implementation
 revisions. Fixture outcomes provide no evidence. Current-input runs and
@@ -110,3 +110,15 @@ verified selection, pagination, full-range totals, exact charges, SDK HTTP calls
 and restart. A separate real-refusal history verified that unrecorded uncertain
 execution remains outside the filter. See the [filter contract](../reference/recorded-request-failure-filter.md).
 Existing HTTP-error filtering and financial states retain their meanings.
+
+
+## Saved video identity lookup under contention
+
+Clean `73d0c46` bounds saved-submission identity reads without changing their
+request-digest comparison or granting a new dispatch. Actual legacy creation
+replay over an existing generated video refused a held database lock, restored
+the same succeeded job after release/restart, rejected changed input and revoked
+keys, and retained one original submission with no financial mutation. An actual
+result download matched the retained MP4 and independently decoded. The
+[video identity checkpoint](../reference/video-submission-intents.md#bounded-saved-submission-identity-read--2026-10-12)
+keeps intent-submit, browser, paid media and complete-deadline scope explicit.
