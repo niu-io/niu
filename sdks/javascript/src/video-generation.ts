@@ -4,7 +4,10 @@ import type { VideoCreateRequest } from './index.js';
 export type NiuVideoGenerationInput = {
   model: string;
   prompt?: string;
-  references?: Array<{ kind: 'image' | 'audio' | 'video'; url: string; role?: string }>;
+  references?: Array<
+    | { kind: 'image' | 'audio' | 'video'; url: string; role?: string; assetId?: never }
+    | { assetId: string; role?: string; kind?: never; url?: never }
+  >;
   durationSeconds?: number;
   resolution?: string;
   aspectRatio?: string;
@@ -44,11 +47,21 @@ export function normalizeVideoGeneration(input: NiuVideoGenerationInput): VideoC
     throw new TypeError('references must be an array');
   }
   for (const reference of input.references ?? []) {
-    if (!reference || typeof reference.url !== 'string' || !reference.url.trim()
-      || (reference.role !== undefined && (typeof reference.role !== 'string' || !reference.role.trim()))) {
-      throw new TypeError('references require nonempty URL and optional role strings');
+    if (!reference || (reference.role !== undefined && (typeof reference.role !== 'string' || !reference.role.trim()))) {
+      throw new TypeError('references require an optional nonempty role');
     }
     const role = reference.role === undefined ? {} : { role: reference.role };
+    if (reference.assetId !== undefined) {
+      if (typeof reference.assetId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(reference.assetId)
+        || reference.url !== undefined || reference.kind !== undefined) {
+        throw new TypeError('asset references require one canonical Niu asset ID; kind is resolved by the backend');
+      }
+      content.push({ type: 'provider_asset', provider_asset: { id: reference.assetId }, ...role });
+      continue;
+    }
+    if (typeof reference.url !== 'string' || !reference.url.trim()) {
+      throw new TypeError('URL references require a nonempty URL');
+    }
     switch (reference.kind) {
       case 'image': content.push({ type: 'image_url', image_url: { url: reference.url }, ...role }); break;
       case 'audio': content.push({ type: 'audio_url', audio_url: { url: reference.url }, ...role }); break;

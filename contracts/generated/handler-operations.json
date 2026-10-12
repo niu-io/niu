@@ -18353,7 +18353,7 @@
       "post": {
         "operationId": "createOwnerFundedVideoJob",
         "summary": "Submit a schema-validated video job",
-        "description": "Personal routes support configured ark-direct-v1 or openrouter-video-v1 channels. Customer-funded video currently requires a qualified ark-direct-v1 route and video_tokens pricing; OpenRouter remains personal-only. Shared routes with a legacy procurement budget are unsupported, while personal routes retain ordinary authorization and key limits. Exactly one upstream submission follows durable dispatch intent. HTTP or transport errors retain submission_unknown and any unresolved liability. Observed non-success HTTP statuses are saved as upstream_http_error in scoped request diagnostics, without upstream bodies or credentials; they do not prove nonexecution or authorize a retry. Fresh creation responses include x-niu-attempt-id. Logs retain the inspected Niu request and delivered Niu creation response for up to 24 hours by default; x-niu-log-payloads: false opts out. Requests larger than the 1 MiB capture bound are not retained. This is not an upstream transport-body capture, and replay does not recreate deleted or expired payloads. Optional workspace-scoped Idempotency-Key supports text and schema-approved upstream URL creation: identical replay returns the original reference and current saved status, including after restart. Changed input conflicts. Unkeyed requests are not idempotent. Configured controls, reference inputs and required inspection remain subject to the selected schema and supported channel. Ordinary public HTTPS image/audio/video URLs are forwarded only when the exact selected upstream schema supports them. Inline image data follows the configured schema. Explicit required image policies still enforce local inspection; unsupported remote inspection fails closed. Short-lived ordinary ingested_image references accept Niu ingestion/readiness IDs with explicit consent_to_reuse. Provider asset URIs remain private and are resolved only for the exact selected Ark route. This does not grant durable library or portrait rights; expired, erased, revoked or unavailable bindings fail closed before dispatch. Durable workspace image references do not reuse Provider readiness or old inspection receipts; they undergo fresh current inspection and atomic local-content authorization.",
+        "description": "Personal routes support configured ark-direct-v1 or openrouter-video-v1 channels. Customer-funded video currently requires a qualified ark-direct-v1 route and video_tokens pricing; OpenRouter remains personal-only. Shared routes with a legacy procurement budget are unsupported, while personal routes retain ordinary authorization and key limits. Exactly one upstream submission follows durable dispatch intent. HTTP or transport errors retain submission_unknown and any unresolved liability. Observed non-success HTTP statuses are saved as upstream_http_error in scoped request diagnostics, without upstream bodies or credentials; they do not prove nonexecution or authorize a retry. Fresh creation responses include x-niu-attempt-id. Logs retain the inspected Niu request and delivered Niu creation response for up to 24 hours by default; x-niu-log-payloads: false opts out. Requests larger than the 1 MiB capture bound are not retained. This is not an upstream transport-body capture, and replay does not recreate deleted or expired payloads. Optional workspace-scoped Idempotency-Key supports text and schema-approved upstream URL creation: identical replay returns the original reference and current saved status, including after restart. Changed input conflicts. Unkeyed requests are not idempotent. Configured controls, reference inputs and required inspection remain subject to the selected schema and supported channel. Ordinary public HTTPS image/audio/video URLs are forwarded only when the exact selected upstream schema supports them. Inline image data follows the configured schema. Explicit required image policies still enforce local inspection; unsupported remote inspection fails closed. Short-lived ordinary ingested_image references accept Niu ingestion/readiness IDs with explicit consent_to_reuse. Provider asset URIs remain private and are resolved only for the exact selected Ark route. This does not grant durable library or portrait rights; expired, erased, revoked or unavailable bindings fail closed before dispatch. Durable workspace image references do not reuse Provider readiness or old inspection receipts; they undergo fresh current inspection and atomic local-content authorization. Owned Provider references use content.type provider_asset with provider_asset.id identifying a Niu workspace asset, not a raw upstream URI. Current scope, model, account, acknowledged creation and Active asset state are checked; the same live binding is checked atomically with dispatch. Source model revision is retained as history, while current selected model/schema and tariffs govern the request. Kind, roles and input limits follow backend metadata and the selected schema. Explicit required image inspection refuses these remote assets; ordinary default policy adds no detector. Mixing these references with ingested/workspace material or inline image data is currently unsupported. On creation, idempotency and request captures retain Niu IDs and inspected text, never the resolved asset URI.",
         "security": [
           {
             "bearerAuth": []
@@ -18593,6 +18593,36 @@
                                   "const": true
                                 }
                               }
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "type",
+                            "provider_asset"
+                          ],
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "const": "provider_asset"
+                            },
+                            "provider_asset": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "id"
+                              ],
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                }
+                              }
+                            },
+                            "role": {
+                              "type": "string"
                             }
                           }
                         }

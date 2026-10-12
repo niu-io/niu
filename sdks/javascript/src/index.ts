@@ -319,9 +319,15 @@ export type WorkspaceAssetVideoImageInput = {
   workspace_asset: { asset_id: string; consent_to_process: true };
 };
 
+/** A saved Niu asset ID; upstream type and URI are resolved by the backend. */
+export type ProviderAssetVideoInput = {
+  type: 'provider_asset';
+  provider_asset: { id: string };
+  role?: string;
+};
 export type VideoCreateRequest = {
   model: string;
-  content: Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string }; role?: string } | { type: 'audio_url'; audio_url: { url: string }; role?: string } | { type: 'video_url'; video_url: { url: string }; role?: string } | IngestedVideoImageInput | WorkspaceAssetVideoImageInput>;
+  content: Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string }; role?: string } | { type: 'audio_url'; audio_url: { url: string }; role?: string } | { type: 'video_url'; video_url: { url: string }; role?: string } | IngestedVideoImageInput | WorkspaceAssetVideoImageInput | ProviderAssetVideoInput>;
   [control: string]: unknown;
 };
 

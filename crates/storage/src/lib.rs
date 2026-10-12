@@ -10,6 +10,11 @@ pub use workspace_provider_verification::{
     WorkspaceProviderVerificationContent, WorkspaceProviderVerificationSession,
     workspace_provider_verification_aad,
 };
+mod workspace_provider_asset_dispatch;
+pub use workspace_provider_asset_dispatch::{
+    WorkspaceProviderAssetReference, WorkspaceProviderAssetVideoDispatch,
+    WorkspaceProviderAssetVideoReference,
+};
 mod workspace_provider_assets;
 pub use workspace_provider_assets::{
     WorkspaceProviderAsset, WorkspaceProviderAssetGroup, WorkspaceProviderAssetMutation,
