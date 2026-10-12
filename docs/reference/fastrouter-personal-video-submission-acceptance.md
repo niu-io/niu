@@ -43,3 +43,21 @@ Gateway static checks cover the integrated implementation; this original run
 does not exercise the new extraction or persistence branch. The actual cause of
 its HTTP 400 therefore remains unknown. No additional generation was submitted
 to make this record appear successful.
+
+## Actual historical migration verification
+
+A separate copy of the stopped failed-submission database was migrated from
+schema 290 to 291 by retained runtime
+`9634c70e384ca8a36cef1c75ade75b49675d34a4`. Independent reopening of the stopped
+source and final databases confirmed unchanged old-field fingerprints for
+attempts, failures, timings, Supplier credentials/model mappings, financial and
+media records. The original HTTP 400 unknown state was preserved. Both new
+diagnostic fields remained NULL; missing historical data was not fabricated.
+Request detail and captured payload reads returned HTTP 200.
+
+The executed SDK from `b428ab95` attempted only a timing GET with the original
+revoked key's identifier. The active-key authorization boundary returned HTTP
+401; the key stayed revoked. This verifies that boundary and does not qualify a
+positive SDK timing read. No upstream generation or task-query calls were made.
+The copied processes were stopped and the original running database was not
+changed. New-response extraction remains outside this historical check.
