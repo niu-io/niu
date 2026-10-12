@@ -21393,6 +21393,455 @@ HTTP 502: Provider read failed safely
 
 HTTP 503: Credential, capacity or bounded storage unavailable
 
+## Create upstream human verification session
+
+`POST /v1/media/verification-sessions`
+
+Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Forwards only caller-supplied optional subject_name and return_url to the upstream H5 service. Exactly one creation follows a durable claim. All after-send failures remain unknown without automatic retry. A created session is not human completion or a local liveness approval. Token and H5 URL are encrypted and absent from ordinary metadata and logs.
+
+Implementation: `implemented`. Operation: `createMediaVerificationSession`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`Idempotency-Key` (header, optional)
+
+Canonical nonnil UUID; unchanged replay reads saved session without repeating creation.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "model"
+  ],
+  "properties": {
+    "model": {
+      "type": "string"
+    },
+    "subject_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "return_url": {
+      "type": "string",
+      "format": "uri",
+      "maxLength": 8192
+    }
+  }
+}
+```
+
+### Responses
+
+HTTP 202: Saved session accepted
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/MediaVerificationSession"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid fields or query
+
+HTTP 401: Missing, revoked or expired API key
+
+HTTP 403: Workspace/key policy refusal
+
+HTTP 404: Owned session or model not found
+
+HTTP 409: Changed input, stale route, expiry, unavailable token or capacity conflict
+
+HTTP 413: Body exceeds bounded size
+
+HTTP 501: Selected channel does not configure verification management
+
+HTTP 503: Credential, encrypted content or bounded storage unavailable
+
+## List saved verification sessions
+
+`GET /v1/media/verification-sessions`
+
+Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Local owned metadata only; no global upstream discovery, H5 URL, token or raw response.
+
+Implementation: `implemented`. Operation: `listMediaVerificationSessions`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`model` (query, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+`after` (query, optional)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Owned verification metadata
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "next_cursor"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "$ref": "#/components/schemas/MediaVerificationSession"
+      }
+    },
+    "next_cursor": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid fields or query
+
+HTTP 401: Missing, revoked or expired API key
+
+HTTP 403: Workspace/key policy refusal
+
+HTTP 404: Owned session or model not found
+
+HTTP 409: Changed input, stale route, expiry, unavailable token or capacity conflict
+
+HTTP 413: Body exceeds bounded size
+
+HTTP 501: Selected channel does not configure verification management
+
+HTTP 503: Credential, encrypted content or bounded storage unavailable
+
+## Read saved verification session
+
+`GET /v1/media/verification-sessions/{id}`
+
+Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Local saved status only, with known expiry reflected; no token, H5 URL or upstream request.
+
+Implementation: `implemented`. Operation: `getMediaVerificationSession`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`model` (query, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+### Responses
+
+HTTP 200: Owned verification metadata
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/MediaVerificationSession"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid fields or query
+
+HTTP 401: Missing, revoked or expired API key
+
+HTTP 403: Workspace/key policy refusal
+
+HTTP 404: Owned session or model not found
+
+HTTP 409: Changed input, stale route, expiry, unavailable token or capacity conflict
+
+HTTP 413: Body exceeds bounded size
+
+HTTP 501: Selected channel does not configure verification management
+
+HTTP 503: Credential, encrypted content or bounded storage unavailable
+
+## Get authenticated upstream verification link
+
+`GET /v1/media/verification-sessions/{id}/link`
+
+Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Explicit authenticated disclosure of the genuine external H5 URL to the current authorized workspace. Known expiry is checked before disclosure; absent upstream expiry is not replaced with invented entitlement. Only waiting/processing sessions expose a link. No raw BytedToken field, anonymous NIU link or local biometric processing. Cache-Control no-store and Referrer-Policy no-referrer.
+
+Implementation: `implemented`. Operation: `getMediaVerificationLink`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`model` (query, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+### Responses
+
+HTTP 200: Authorized upstream H5 handoff
+
+Response header: `Cache-Control`.
+
+```json
+{
+  "type": "string",
+  "const": "no-store"
+}
+```
+
+Response header: `Referrer-Policy`.
+
+```json
+{
+  "type": "string",
+  "const": "no-referrer"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "verification_url",
+    "expires_at"
+  ],
+  "properties": {
+    "verification_url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "expires_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid fields or query
+
+HTTP 401: Missing, revoked or expired API key
+
+HTTP 403: Workspace/key policy refusal
+
+HTTP 404: Owned session or model not found
+
+HTTP 409: Changed input, stale route, expiry, unavailable token or capacity conflict
+
+HTTP 413: Body exceeds bounded size
+
+HTTP 501: Selected channel does not configure verification management
+
+HTTP 503: Credential, encrypted content or bounded storage unavailable
+
+## Refresh upstream verification session
+
+`POST /v1/media/verification-sessions/{id}/refresh`
+
+Current workspace API key, model grant, composed workspace/key model and Provider policy, eligible published route and selectable credential required. Original immutable account/model binding is revalidated; original key identity binds encryption only, not workspace access control. Only configured fastrouter-actions-v1 channels are supported. Empty body only. One explicit bounded query for an active genuine saved token. Upstream resolution can create a group, so a durable query claim prevents concurrent or uncertain replay. In-flight or after-send uncertain queries are exposed as unknown. Genuine waiting/processing results permit a later explicit query. Other states return unchanged without an upstream call. Only actual decoded verified GroupId binds a person group; no fake completion or local detector.
+
+Implementation: `implemented`. Operation: `refreshMediaVerificationSession`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`model` (query, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+### Responses
+
+HTTP 200: Owned verification metadata
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/MediaVerificationSession"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid fields or query
+
+HTTP 401: Missing, revoked or expired API key
+
+HTTP 403: Workspace/key policy refusal
+
+HTTP 404: Owned session or model not found
+
+HTTP 409: Changed input, stale route, expiry, unavailable token or capacity conflict
+
+HTTP 413: Body exceeds bounded size
+
+HTTP 501: Selected channel does not configure verification management
+
+HTTP 503: Credential, encrypted content or bounded storage unavailable
+
 ## List key-accessible model aliases and workspace customer prices
 
 `GET /v1/models`
@@ -25001,6 +25450,75 @@ Local `#/components/schemas/…` references resolve to these definitions.
         "null"
       ],
       "pattern": "^-?[0-9]+$"
+    }
+  }
+}
+```
+
+### MediaVerificationSession
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "model",
+    "subject_name",
+    "status",
+    "group_id",
+    "expires_at",
+    "created_at_ms",
+    "updated_at_ms"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "model": {
+      "type": "string"
+    },
+    "subject_name": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "prepared",
+        "unknown",
+        "not_sent",
+        "waiting_user",
+        "processing",
+        "verified",
+        "failed",
+        "expired"
+      ]
+    },
+    "group_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "expires_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "created_at_ms": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "updated_at_ms": {
+      "type": "integer",
+      "format": "int64"
     }
   }
 }

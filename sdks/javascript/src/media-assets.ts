@@ -1,4 +1,5 @@
 import type { RequestOptions } from './index.js';
+import { createMediaVerificationClient } from './media-verification.js';
 
 /** Niu workspace references, never raw Provider asset identifiers or Actions. */
 export type MediaAssetGroup = {
@@ -55,6 +56,7 @@ function query(input: PageQuery & { group_id?: string; expected_revision?: strin
 /** Explicit reads and one-shot mutations; no automatic retry or readiness claim. */
 export function createMediaAssetsClient(send: MediaAssetSender) {
   return {
+    verification: createMediaVerificationClient(send, reference, query),
     groups: {
       list: (input: PageQuery, options?: RequestOptions) => send<MediaAssetPage<MediaAssetGroup>>(`/media/asset-groups${query(input)}`, 'GET', undefined, options),
       create: (input: { model: string; name: string; description?: string }, options?: MediaAssetMutationOptions) => send<MediaAssetMutation>('/media/asset-groups', 'POST', input, options),

@@ -5,6 +5,11 @@ mod workspace_asset_video_dispatch;
 pub use workspace_asset_video_dispatch::{
     WorkspaceAssetVideoDispatch, WorkspaceAssetVideoReference,
 };
+mod workspace_provider_verification;
+pub use workspace_provider_verification::{
+    WorkspaceProviderVerificationContent, WorkspaceProviderVerificationSession,
+    workspace_provider_verification_aad,
+};
 mod workspace_provider_assets;
 pub use workspace_provider_assets::{
     WorkspaceProviderAsset, WorkspaceProviderAssetGroup, WorkspaceProviderAssetMutation,

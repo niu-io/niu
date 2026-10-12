@@ -5,6 +5,7 @@ export type { VideoWaitOptions } from './video-wait.js';
 import { normalizeVideoGeneration, type NiuVideoGenerationInput } from './video-generation.js';
 import { createMediaAssetsClient } from './media-assets.js';
 export type { MediaAsset, MediaAssetGroup, MediaAssetOperation, MediaAssetMutation, MediaAssetMutationOptions, MediaAssetPage } from './media-assets.js';
+export type { MediaVerificationSession, MediaVerificationInput, MediaVerificationLink } from './media-verification.js';
 export type { NiuVideoGenerationInput } from './video-generation.js';
 /** Buffered native Gemini text. Requires an explicitly declared static or managed gemini route. */
 export type GenerateContentRequest = {
@@ -568,7 +569,7 @@ export class NiuClient {
     const headers = new Headers(this.defaultHeaders);
     if (options.idempotencyKey !== undefined) {
       const videoCreation = path === '/video/jobs' && method === 'POST';
-      const mediaMutation = /^\/media\/(?:asset-groups|assets)(?:\/[0-9a-f-]{36})?(?:\?[^#]*)?$/.test(path) && ['POST', 'PATCH', 'DELETE'].includes(method);
+      const mediaMutation = /^\/media\/(?:asset-groups|assets|verification-sessions)(?:\/[0-9a-f-]{36})?(?:\?[^#]*)?$/.test(path) && ['POST', 'PATCH', 'DELETE'].includes(method);
       if (typeof options.idempotencyKey !== 'string' || (videoCreation
         ? !/^[\x21-\x7e]{1,128}$/.test(options.idempotencyKey)
         : !mediaMutation || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(options.idempotencyKey))) {

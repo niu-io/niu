@@ -6,6 +6,14 @@ info:
 servers:
   - url: /
 paths:
+  /v1/media/verification-sessions:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1media~1verification-sessions'
+  /v1/media/verification-sessions/{id}:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1media~1verification-sessions~1{id}'
+  /v1/media/verification-sessions/{id}/refresh:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1media~1verification-sessions~1{id}~1refresh'
+  /v1/media/verification-sessions/{id}/link:
+    $ref: './generated/handler-operations.json#/paths/~1v1~1media~1verification-sessions~1{id}~1link'
   /v1/media/asset-groups:
     $ref: './generated/handler-operations.json#/paths/~1v1~1media~1asset-groups'
   /v1/media/asset-groups/{id}:
@@ -2877,6 +2885,8 @@ paths:
 
 components:
   schemas:
+    MediaVerificationSession:
+      $ref: './generated/handler-operations.json#/components/schemas/MediaVerificationSession'
     MediaAssetGroup:
       $ref: './generated/handler-operations.json#/components/schemas/MediaAssetGroup'
     MediaAsset:

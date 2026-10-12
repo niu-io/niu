@@ -4,6 +4,7 @@ mod image_source_uploads;
 mod image_sources;
 mod inference;
 mod provider_assets;
+mod provider_verification;
 mod routes;
 mod static_site;
 mod workspace_assets;
