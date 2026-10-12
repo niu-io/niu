@@ -1,7 +1,7 @@
 {
   "version": 1,
   "updated": "2026-10-13",
-  "source_commit": "9634c70e384ca8a36cef1c75ade75b49675d34a4",
+  "source_commit": "d01c601f88ed9e6d5d5f9c6269b83e58b3dc6209",
   "runtime_commit": "17b7370af24611bc49a89461c81e7f290860d5cd",
   "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
   "active_implementation_tasks": [
@@ -412,10 +412,11 @@
             "docs/reference/media-detector-discovery-acceptance.md",
             "docs/reference/media-processing-receipts.md",
             "docs/reference/fastrouter-video-integration.md",
-            "docs/reference/fastrouter-personal-video-submission-acceptance.md"
+            "docs/reference/fastrouter-personal-video-submission-acceptance.md",
+            "docs/reference/fastrouter-documented-video-acceptance.md"
           ],
           "evidence_revision": "ab33ee17",
-          "note": "Durable library and saved real-job lifecycle evidence are retained. Current priority is the configured upstream video API: supported URL/asset-ID inputs and controls, durable async submission/query/recovery, authorized results and no duplicate submission. Custom detector coordination, approval binding and private Provider delivery are removed from this implementation track following owner scope correction; unconnected Rust coordinator/binder removed, applied migrations preserved. Extra custom inspection/Provider asset-management success is not a release prerequisite. Current actual supported API matrix and final artifacts still require qualification; explicit optional Guardrails requirements must not be silently bypassed. Ordinary schema-supported Provider references and SDK bounded saved-task waiting are implemented. Actual FastRouter model discovery and encrypted Supplier/draft-key configuration verified; One actual SDK mini-model submission received HTTP 400 and retained submission_unknown through replay/restart without another submission or financial posting; no result or exact rejection reason was retained by that older runtime. Bounded safe code/request-ID persistence is implemented in schema 291 but its current-input branch remains unverified. Successful FastRouter generation and normalized group/asset/identity APIs remain unfinished or unverified."
+          "note": "Durable library and saved real-job lifecycle evidence are retained. Current priority is the configured upstream video API: supported URL/asset-ID inputs and controls, durable async submission/query/recovery, authorized results and no duplicate submission. Custom detector coordination, approval binding and private Provider delivery are removed from this implementation track following owner scope correction; unconnected Rust coordinator/binder removed, applied migrations preserved. Extra custom inspection/Provider asset-management success is not a release prerequisite. Current actual supported API matrix and final artifacts still require qualification; explicit optional Guardrails requirements must not be silently bypassed. Ordinary schema-supported Provider references and SDK bounded saved-task waiting are implemented. Actual FastRouter model discovery and encrypted Supplier/draft-key configuration verified; One actual SDK mini-model submission received HTTP 400 and retained submission_unknown through replay/restart without another submission or financial posting; no result or exact rejection reason was retained by that older runtime. Bounded safe code/request-ID persistence is implemented in schema 291 but its current-input branch remains unverified. Successful FastRouter generation and normalized group/asset/identity APIs remain unfinished or unverified. A separate documented Seedance 2.5 request retained a genuine upstream task receipt. One official exact-task GET returned succeeded; the downloaded 1080p result was independently hashed and fully decoded. This official query/download is distinct from Niu Gateway query/result/settlement, which remain unverified; the initial-unknown SDK wait defect is fixed but its positive Gateway path remains to be exercised."
         },
         {
           "id": "S08-3",

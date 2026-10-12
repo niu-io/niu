@@ -54,7 +54,9 @@ mappings are not advertised as working generation routes.
 Committed Gateway/contracts, SDK and protocol adapter have static compilation
 checks. The documentation artifact serves eighteen content routes and thirty-one
 local page/resource requests, including the specification. Rendered browser
-acceptance remains delegated. Actual generation, SDK polling, downloadable result,
-reported media settlement, asset operations and identity-verification integration
-are not yet qualified by these observations. Model-list access and stored keys
+acceptance remains delegated. One [actual documented generation](fastrouter-documented-video-acceptance.md)
+retained an upstream receipt and produced an independently decoded video through
+an official exact-task query/download. Niu Gateway polling, terminal persistence,
+result retrieval, reported media settlement, asset operations and identity
+verification remain unqualified by that bounded run. Model-list access and stored keys
 alone do not establish business acceptance.
