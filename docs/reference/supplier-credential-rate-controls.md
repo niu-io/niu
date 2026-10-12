@@ -79,3 +79,11 @@ This verifies the exercised single-Gateway personal upstream workload and local
 configuration isolation. It does not qualify distinct upstream accounts, every
 media/protocol combination, multi-Gateway limit contention, long-window reset,
 commercial Supplier earnings, frontend rendering or production capacity.
+
+## Two-Gateway follow-up
+
+[Shared-database contention evidence](supplier-credential-two-gateway-limit.md)
+adds an actual simultaneous same-credential race: one dispatch succeeds and one
+is refused; a sibling configuration succeeds independently. Exact charges and
+combined native artifacts were checked. This closes that specific two-process
+observation, not all distributed limit or overload scenarios.

@@ -359,3 +359,10 @@ acceptance remains open.
 verifies bounded policy/history/update failure, audit-insert rollback, independent
 local windows and two actual correctly debited generations. This is personal
 upstream testing, not distinct external accounts or commercial qualification.
+
+## Shared credential admission across two Gateways
+
+[Current contention evidence](../reference/supplier-credential-two-gateway-limit.md)
+verifies one winner for simultaneous requests sharing a one-RPM credential,
+sibling configuration independence and exact original-rate debits. This does
+not qualify saturation, every protocol or commercial supply.

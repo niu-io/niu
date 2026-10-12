@@ -372,3 +372,10 @@ use platform-only revisioned policy/history and bounded storage transactions.
 Actual lock and audit-insert failures preserve state; two local configurations
 independently enforce rolling dispatch limits with native customer-charge checks.
 This remains personal upstream testing, not commercial or distinct-account supply.
+
+
+[Two-Gateway credential contention](https://github.com/niu-io/niu/blob/main/docs/reference/supplier-credential-two-gateway-limit.md)
+uses shared PostgreSQL and two actual simultaneous requests under a one-RPM
+credential. One succeeds and one is refused; another configuration succeeds
+independently, with all response/charge artifacts checked against native state.
+This is a scoped contention observation, not production capacity.
