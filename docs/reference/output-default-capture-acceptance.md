@@ -1,6 +1,6 @@
 # Default output capture acceptance
 
-This supplements [buffered output policy execution](buffered-output-policy-execution.md) and the [Guardrails acceptance matrix](guardrails-acceptance-matrix.md). It verifies default capture and five preparation refusals; S04-3 remains active.
+This supplements [buffered output policy execution](buffered-output-policy-execution.md) and the [Guardrails acceptance matrix](guardrails-acceptance-matrix.md). It verifies default capture and five preparation refusals; S04-3 remained active at this historical checkpoint; its later finite completion boundary is recorded in the linked Guardrails matrix.
 
 The actual Gateway binary is pinned to `13952e57ddde7c8aad3d16c4ddf8361191fda97a`. Independent reopening of the stopped final PostgreSQL copy confirms migration 287 and successful migration flags. The binary SHA is checked against the retained build pointer. Execution uses the saved personal self-funded OpenRouter route, existing approved internal credit and frozen customer tariff in an isolated copy. No cash receipt, commercial qualification or external detector is created.
 

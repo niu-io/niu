@@ -62,7 +62,7 @@ admissions remain **unverified**; implementation review is not relabeled as thei
 correctness proof. External merchant or Supplier activation is not an additional
 backend-readiness gate. The release checkpoint owns S08-3 status.
 
-S05-3 retains a stricter integrated-evidence gap. Its genuine twelve-charge
+Positive Supplier/media integrated qualification retains its own evidence gap. Its genuine twelve-charge
 customer invoice, historical customer serialization and Supplier authorization/
 refusal slices are recorded in
 [the customer/Supplier checkpoint](customer-invoice-supplier-capability-acceptance.md).
@@ -71,5 +71,6 @@ Supplier earning/settlement and positive customer-media invoice behavior remain
 unverified. Empty history and refused settlement selections do not prove those
 positive paths. This gap is not a requirement to execute a bank transfer, qualify
 a fictional Supplier or test every mathematical combination. S05-3 remains
+completed for finite backend mechanisms, with those unverified positive outcomes
 separately tracked; no source, records, external calls or fixture evidence are
 added by this documentation boundary.

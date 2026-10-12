@@ -74,3 +74,39 @@ in [native upgrade acceptance](native-schema-290-293-upgrade-acceptance.md) and
 The `8bfdef10` payment-polling change has also been independently checked in
 isolated acceptance copies. The original refresh retains default polling,
 configuration, encrypted identities and business records.
+
+
+## Fixed backend baseline handoff — 2026-10-13
+
+The [fixed board](../releases/project-status.md) now records 36 completed
+checkpoints across all twelve backend subsystems. Completion concerns the
+finite backend capabilities and genuinely exercised slices stated in each
+checkpoint. It does not claim that every implemented external combination or
+positive commercial operation has been executed.
+
+The [current measured workload](current-bounded-performance.md) independently
+verifies eighteen real reported generations and eighteen exact charge/debits,
+six pre-dispatch concurrency refusals, same-key recovery, saved-business reads,
+resource observations and restart/report consistency. The workload is small and
+upstream-inclusive; no performance superiority or production capacity is inferred.
+
+Main's runtime changes after retained `8bfdef10` are Chat draft operation
+annotations; the original executable remains pinned to that implementation and
+schema 293. The compiled public SDK is `ce97f3b0`, with actual helper-path and
+persistence evidence. Native configuration and encrypted identities remain
+preserved. The original Supplier keeps its enabled personal Seedance 2.5 preset.
+
+The documentation workflow now checks root documentation and the fixed-board
+renderer in addition to documentation types, build and API artifacts. A clean
+local HTTP artifact check at `0ccf5140` read eighteen content routes and thirty-one
+page/resource targets including the specification; the subsequently changed
+workflow itself completed successfully at `05904f1b`. These are publication
+checks; frontend desktop/narrow rendering and embedded Help remain delegated.
+
+Positive received-cash settlement, nonempty Supplier earning/settlement, priced
+media settlement, optional upstream/human qualification, long-duration saturation
+and a controlled New API comparison remain explicitly unverified. They are
+qualification boundaries rather than invented external-activation prerequisites.
+Fixture merchant/ciphertext outcomes and unknown credential provenance contribute
+no acceptance signal. Other sessions' pending source changes are preserved and
+not silently included in this committed handoff.
