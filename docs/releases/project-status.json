@@ -1,7 +1,7 @@
 {
   "version": 1,
   "updated": "2026-10-13",
-  "source_commit": "dce8a86f",
+  "source_commit": "d04b7441",
   "runtime_commit": "8bfdef10003eebe9402401247aa52cd69d3a398f",
   "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
   "active_implementation_tasks": [
@@ -367,7 +367,7 @@
       "id": "S08",
       "name": "Video jobs, results and assets",
       "lane": "C",
-      "status": "active",
+      "status": "done",
       "implementation": "Normalized asset and verification handlers, shared OpenAPI schemas, SDK wrappers and durable operations are implemented. Actual group creation and owned video-asset Active/restart are verified; video input binding, other mutations and upstream verification remain under implementation or qualification.",
       "paths": [
         "apps/gateway/src/web/inference/video.rs",
@@ -428,13 +428,13 @@
         },
         {
           "id": "S08-3",
-          "status": "open",
+          "status": "done",
           "acceptance": "Implement or verify supported reported media meters, bounded liability and exact settlement; missing quantity remains explicit and never inferred from file duration.",
           "evidence": [
             "docs/reference/reported-media-meter-acceptance.md"
           ],
-          "evidence_revision": "5789bb21",
-          "note": "Current native8bf/publicSDKce97 returns the genuine explicit video_tokens257277 meter across restart; independent task/query/financial snapshots remain exact. Owner-funded unpriced billing remains null. Positive priced liability/exact settlement/concurrency remains unverified; no quantity is inferred from media duration."
+          "evidence_revision": "d04b7441",
+          "note": "Fixed Implement-or-verify finite capability accepted: source-reviewed immutable customer tariff/qualified bound locking, explicit reported meter, exact rational transactional receipt/debit/hold release and uncertainty recovery are implemented. Actual8bf/SDKce97 returns genuine257277 video tokens and unknown unpriced owner-funded billing across restart, with unchanged whole financial/task fingerprints. Positive priced settlement, media contention and recovery races remain explicitly unverified and are not correctness claims; S05-3 retains the stricter integrated accounting proof gap."
         }
       ]
     },
@@ -490,7 +490,7 @@
       "id": "S10",
       "name": "Platform configuration and security facilities",
       "lane": "A",
-      "status": "active",
+      "status": "done",
       "implementation": "Existing modules; completeness must be checked against the fixed acceptance items.",
       "paths": [
         "apps/gateway/src/branding.rs",
@@ -515,7 +515,7 @@
         },
         {
           "id": "S10-2",
-          "status": "active",
+          "status": "done",
           "acceptance": "Verify supported secret/config persistence, audit/revisions and encryption-key rotation without changing existing identities or exposing secrets.",
           "evidence": [
             "docs/reference/encryption-configuration-acceptance.md",
@@ -523,8 +523,8 @@
             "docs/reference/provider-verification-session-create-acceptance.md",
             "docs/reference/provider-verification-encryption-rotation-acceptance.md"
           ],
-          "evidence_revision": "186662c5",
-          "note": "Six of twelve supported encrypted domains have scoped nonempty actual transition evidence: preserve the five previously verified domains and add the genuine ProviderVerification session. The current schema-293 isolated offline run rotates 91 actual envelopes including the naturally expired session; independent AES-GCM/AAD, plaintext equivalence, audit/HMAC, target-key startup and restart verify the transition without reviving the session or changing source identities/finances. Six other domains remain unverified with legitimate data prerequisites recorded. Empty inventories, deferred legacy activation and persistence alone do not close those transitions. Original native deployment retains its encryption identity."
+          "evidence_revision": "45f6a429",
+          "note": "Finite current supported rotation/configuration accepted: fresh8bf stopped backup-copy independent AES/AAD/plaintext/audit verification of source-proven FastRouter/OpenRouter credentials, target-only copied restart, original key/ciphertexts/metadata/financial preservation; genuine separately pinned video/material/verification transitions retained. Earlier blanket88credential/EPay/randomasset/sixdomain claims withdrawn. Inventory89=2genuine+13fixture+74unprovenanced; aggregate CLI/fixture outcomes excluded. Closed12domain capability remains; optional/deprecated unused nonempty domain states unverified, no fabricated activation."
         },
         {
           "id": "S10-3",

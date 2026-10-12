@@ -1,10 +1,10 @@
 # Project delivery status
 
 Baseline v1; updated 2026-10-13.
-Committed audit source `dce8a86f`; native implementation `8bfdef10`.
+Committed audit source `d04b7441`; native implementation `8bfdef10`.
 
-**Backend acceptance checkpoints: 32/36 recorded complete at their evidence pins.**
-**Whole backend subsystems closed: 8/12.**
+**Backend acceptance checkpoints: 34/36 recorded complete at their evidence pins.**
+**Whole backend subsystems closed: 10/12.**
 These are acceptance-checkpoint counts, not coding percentage, fresh execution of every path or release readiness.
 Existing scoped evidence is carried forward explicitly. Missing evidence remains open; fixture outcomes have zero signal.
 
@@ -21,9 +21,9 @@ Active implementation: S10-2, S05-3. Assignments use stable task IDs.
 | S05 Pricing, balance, charging and reconciliation | B | active | 2/3 | S01 |
 | S06 Payment integration capability | B | done | 3/3 | S05 |
 | S07 Request diagnostics and usage reports | C | done | 3/3 | S03, S05 |
-| S08 Video jobs, results and assets | C | active | 2/3 | S02, S04, S05 |
+| S08 Video jobs, results and assets | C | done | 3/3 | S02, S04, S05 |
 | S09 Durable Chat | C | done | 3/3 | S01, S03, S07 |
-| S10 Platform configuration and security facilities | A | active | 2/3 | S01 |
+| S10 Platform configuration and security facilities | A | done | 3/3 | S01 |
 | S11 Contracts, SDK and documentation | I | done | 3/3 | None |
 | S12 Runtime operations, recovery and performance | I | open | 2/3 | S03, S05, S07, S08 |
 | S13 Dashboard, public catalog and rendered Help | Frontend | delegated | 0/3 | S01, S02, S07, S09, S11 |
@@ -93,7 +93,7 @@ Active implementation: S10-2, S05-3. Assignments use stable task IDs.
 | --- | --- | --- | --- |
 | S08-1 | done | Actual personal video submission, key rotation, saved-job restart recovery, idempotent replay and independently decoded result are exercised. | [record](../../docs/reference/current-video-submission-restart.md) (`e704955`) |
 | S08-2 | done | Close the supported input/control/job/result/retention/asset authorization matrix and recovery without duplicate submission. | [record](../../docs/reference/ingested-image-video-input.md), [record](../../docs/reference/workspace-material-library.md), [record](../../docs/reference/workspace-material-sdk-acceptance.md), [record](../../docs/reference/workspace-material-format-acceptance.md), [record](../../docs/reference/workspace-material-storage-acceptance.md), [record](../../docs/reference/workspace-material-video-reference-acceptance.md), [record](../../docs/reference/video-saved-task-current-acceptance.md), [record](../../docs/reference/media-reference-facts.md), [record](../../docs/reference/media-inspection-contract.md), [record](../../docs/reference/media-detector-discovery-acceptance.md), [record](../../docs/reference/media-processing-receipts.md), [record](../../docs/reference/fastrouter-video-integration.md), [record](../../docs/reference/fastrouter-personal-video-submission-acceptance.md), [record](../../docs/reference/fastrouter-documented-video-acceptance.md), [record](../../docs/reference/personal-video-discovery-acceptance.md), [record](../../docs/reference/provider-asset-group-acceptance.md), [record](../../docs/reference/provider-video-asset-acceptance.md), [record](../../docs/reference/provider-verification-local-acceptance.md), [record](../../docs/reference/provider-verification-session-create-acceptance.md), [record](../../docs/reference/provider-asset-video-current-acceptance.md), [record](../../docs/reference/original-personal-video-configuration-acceptance.md), [record](../../docs/reference/video-integration-acceptance-matrix.md) (`63ea2281`) |
-| S08-3 | open | Implement or verify supported reported media meters, bounded liability and exact settlement; missing quantity remains explicit and never inferred from file duration. | [record](../../docs/reference/reported-media-meter-acceptance.md) (`5789bb21`) |
+| S08-3 | done | Implement or verify supported reported media meters, bounded liability and exact settlement; missing quantity remains explicit and never inferred from file duration. | [record](../../docs/reference/reported-media-meter-acceptance.md) (`d04b7441`) |
 
 ### S09 — Durable Chat
 
@@ -108,7 +108,7 @@ Active implementation: S10-2, S05-3. Assignments use stable task IDs.
 | ID | Status | Acceptance | Evidence pin |
 | --- | --- | --- | --- |
 | S10-1 | done | Inventory and publish platform authentication/branding/theme/payment configuration and member profile/preferences contracts with correct authority. | [record](../../docs/reference/platform-configuration-acceptance.md) (`4a459338`) |
-| S10-2 | active | Verify supported secret/config persistence, audit/revisions and encryption-key rotation without changing existing identities or exposing secrets. | [record](../../docs/reference/encryption-configuration-acceptance.md), [record](../../docs/reference/provider-verification-local-acceptance.md), [record](../../docs/reference/provider-verification-session-create-acceptance.md), [record](../../docs/reference/provider-verification-encryption-rotation-acceptance.md) (`186662c5`) |
+| S10-2 | done | Verify supported secret/config persistence, audit/revisions and encryption-key rotation without changing existing identities or exposing secrets. | [record](../../docs/reference/encryption-configuration-acceptance.md), [record](../../docs/reference/provider-verification-local-acceptance.md), [record](../../docs/reference/provider-verification-session-create-acceptance.md), [record](../../docs/reference/provider-verification-encryption-rotation-acceptance.md) (`45f6a429`) |
 | S10-3 | done | Coordinate configuration changes, current permission checks and supported public-safe projections; reject arbitrary executable branding/config content. | [record](../../docs/reference/platform-safe-projection-acceptance.md) (`186662c5`) |
 
 ### S11 — Contracts, SDK and documentation
