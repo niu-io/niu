@@ -8,7 +8,7 @@ The current run uses Gateway `186662c5346ec911e2bc19e59bb6b8a51c32500c`, Postgre
 
 Encryption inspection, transition, credential cipher and configuration persistence source remains unchanged between the exercised Gateway revision and the integration checkpoint `5591a02d`. Handler annotations and SDK additions do not change this behavior.
 
-The closed storage inventory contains ten encrypted domains. Counts below describe actual retained envelopes, not fixture outcomes or a claim that an empty scan verifies a domain.
+The historical checkpoint below covers the ten encrypted domains registered at its recorded pin. The current inventory additionally includes durable workspace-material content, with a separate authenticated-data domain, retained-content startup scan and offline rotation target. Its nonempty rotation acceptance is tracked with the [workspace material library](workspace-material-library.md); adding the domain does not retroactively verify it. Counts below describe actual retained envelopes, not fixture outcomes or a claim that an empty scan verifies a domain.
 
 | Domain | Retained envelopes in the current run | Evidence scope |
 | --- | ---: | --- |
