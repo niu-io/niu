@@ -24,6 +24,16 @@ use std::{
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
+/// Disable automatic merchant queries without changing callbacks or manual reconciliation.
+/// Absence preserves the existing enabled behavior; invalid values never disable silently.
+pub(crate) fn background_polling_enabled() -> Result<bool, &'static str> {
+    match env::var("NIU_PAYMENT_POLLING").as_deref() {
+        Err(env::VarError::NotPresent) | Ok("true") => Ok(true),
+        Ok("false") => Ok(false),
+        _ => Err("NIU_PAYMENT_POLLING must be true or false"),
+    }
+}
+
 /// Product support inventory, independent of merchant activation or live qualification.
 /// ```openapi
 /// {

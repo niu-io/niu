@@ -66,6 +66,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .compact()
         .init();
 
+    let payment_polling_enabled = payments::background_polling_enabled()?;
     let state = AppState::load_from_env().await?;
     let address = bind_address(
         env::var("NIU_BIND").ok().as_deref(),
@@ -83,21 +84,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let gateway_writes = state.gateway_writes.clone();
     let diagnostic_writes = state.diagnostic_writes.clone();
     let recovery = background_recovery::spawn(state.store.clone(), content_store);
-    let payment_recovery = state.payments.clone().map(|payments| {
-        let payment_state = state.clone();
-        tokio::spawn(async move {
-            let mut cursor = None;
-            let mut interval = tokio::time::interval(std::time::Duration::from_secs(5));
-            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-            loop {
-                interval.tick().await;
-                match payments.recover_next(&payment_state, cursor).await {
-                    Ok(next) => cursor = next,
-                    Err(_) => tracing::warn!("Payment recovery storage requires retry"),
+    let payment_recovery = state
+        .payments
+        .clone()
+        .filter(|_| payment_polling_enabled)
+        .map(|payments| {
+            let payment_state = state.clone();
+            tokio::spawn(async move {
+                let mut cursor = None;
+                let mut interval = tokio::time::interval(std::time::Duration::from_secs(5));
+                interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+                loop {
+                    interval.tick().await;
+                    match payments.recover_next(&payment_state, cursor).await {
+                        Ok(next) => cursor = next,
+                        Err(_) => tracing::warn!("Payment recovery storage requires retry"),
+                    }
                 }
-            }
-        })
-    });
+            })
+        });
     let video_recovery = video_recovery::spawn(&state)?;
     // OAuth callbacks contain authorization codes: trace paths, never queries.
     let app = web::router(state).layer(TraceLayer::new_for_http().make_span_with(

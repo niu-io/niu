@@ -1098,3 +1098,14 @@ inventory or recovery-read capability. No paid receipt was fabricated. Static
 clippy and annotation checks completed separately; fixture outcomes are not
 evidence. The native upgrade followed a fresh isolated backup restore/comparison,
 preserving original configuration, encrypted identity and business record counts.
+
+## Automatic payment recovery
+
+`NIU_PAYMENT_POLLING` controls the Gateway's automatic native Zhifux query
+worker. The default is `true`, preserving automatic recovery for configured
+merchants. Set it to the exact value `false` to prevent background merchant
+queries. Signed callbacks and authorized manual reconciliation remain available;
+this setting does not disable checkout or make uncertain orders terminal.
+Values other than `true` or `false` refuse normal Gateway startup with a sanitized
+configuration error before payment runtime initialization. Offline encryption
+commands do not start payment workers.
