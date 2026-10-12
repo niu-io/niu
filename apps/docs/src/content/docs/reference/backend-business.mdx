@@ -191,8 +191,16 @@ refusals and restart are recorded in the [bounded-page contract](https://github.
 Cursor references are internal API values and must not become product labels.
 
 
-Page selection precedes latest-dispatch lookups. The [current query-plan and
+Page selection precedes latest-dispatch lookups. The [`8aba958` query-plan and
 HTTP checkpoint](https://github.com/niu-io/niu/blob/main/docs/reference/workspace-key-directory.md#page-activity-lookup-cost--2026-10-12)
 checks page-sized activity probes, complete SDK/HTTP traversal, scoped refusal
-and restart on retained real-request data. The directory still scans/sorts saved
-key rows; this does not qualify arbitrary scale or a production latency target.
+and restart on retained real-request data. That checkpoint predates the order
+index below; its directory scan/sort observation describes the earlier revision.
+
+
+Migration 0279 adds an index matching workspace ownership and keyset order.
+The [indexed-page checkpoint](https://github.com/niu-io/niu/blob/main/docs/reference/workspace-key-directory.md#indexed-keyset-selection--2026-10-12)
+verifies actual existing-data upgrade and first/middle-cursor index use without
+sorting, together with complete HTTP/SDK traversal and scoped refusal/recovery.
+This narrows read work on the exercised directory; broader capacity remains
+unverified. Existing full-directory clients retain their compatibility response.

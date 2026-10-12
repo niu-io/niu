@@ -1,6 +1,6 @@
 # Backend workflow verification status
 
-Reviewed 2026-10-12 against implementation `8aba958`; native implementation `8aba958`.
+Reviewed 2026-10-12 against implementation `c1eee14`; native implementation `c1eee14`.
 This is an index of scoped evidence, not a declaration that the complete release
 or New API comparison is qualified. Linked runs identify their own implementation
 revisions. Fixture outcomes provide no evidence. Current-input runs and
@@ -188,10 +188,19 @@ The [page contract](../reference/workspace-key-directory.md#optional-bounded-pag
 records the separate concurrency, scale and browser verification boundaries.
 
 
-The latest [key page SQL checkpoint](../reference/workspace-key-directory.md#page-activity-lookup-cost--2026-10-12)
+The `8aba958` [key page SQL checkpoint](../reference/workspace-key-directory.md#page-activity-lookup-cost--2026-10-12)
 selects each page before dispatch-activity lookup and independently checks
 page-sized activity probes on a retained real directory. Actual HTTP/SDK traversal,
 scoped refusals, lock recovery and restart preserve exact existing financial
-history. Key rows still scan/sort; arbitrary-directory capacity is unverified.
+history. That revision still scans/sorts key rows; the indexed checkpoint below
+addresses this observation on the retained directory.
 Native refresh followed a fresh isolated backup restore and retained existing
 configuration, encrypted identities and durable counts.
+
+
+The [indexed keyset checkpoint](../reference/workspace-key-directory.md#indexed-keyset-selection--2026-10-12)
+adds schema 0279's workspace/order index. Actual existing-data startup, HTTP/SDK
+traversal and independently reopened native plans show page-sized key selection
+and activity lookups without sorting on the retained directory. Financial counts
+and totals, configuration and encrypted identities remain unchanged. Broader
+scale and sustained paginated-read performance remain unverified.
