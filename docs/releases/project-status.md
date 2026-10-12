@@ -61,7 +61,7 @@ Active implementation: S02-3, S08-2, S05-2, S10-2, S03-2, S04-3, S03-3, S05-3, S
 | --- | --- | --- | --- |
 | S04-1 | done | The exercised tool streams preserve key lineage, RPM and spending refusals across rotation/restart and revoke access. | [record](../../docs/reference/key-controlled-tool-streaming.md) (`a9de7c8`) |
 | S04-2 | done | Close the matrix for single-key spending/RPM/TPM/concurrency/IP controls and mandatory parent-child policy composition; concurrent denials create no unauthorized dispatch. | [record](../../docs/reference/parallel-core-backend-acceptance.md) (`fb21b52a`) |
-| S04-3 | active | Document and verify applicable F09 local/external input and output coverage, consent, preview/revision/rollback and fail-closed failure behavior. | [record](../../docs/reference/guardrails-acceptance-matrix.md) (`1212ea3b`) |
+| S04-3 | active | Document and verify applicable F09 local/external input and output coverage, consent, preview/revision/rollback and fail-closed failure behavior. | [record](../../docs/reference/guardrails-acceptance-matrix.md), [record](../../docs/reference/buffered-output-policy-execution.md) (`1212ea3b`) |
 
 ### S05 — Pricing, balance, charging and reconciliation
 

@@ -203,10 +203,11 @@
           "status": "active",
           "acceptance": "Document and verify applicable F09 local/external input and output coverage, consent, preview/revision/rollback and fail-closed failure behavior.",
           "evidence": [
-            "docs/reference/guardrails-acceptance-matrix.md"
+            "docs/reference/guardrails-acceptance-matrix.md",
+            "docs/reference/buffered-output-policy-execution.md"
           ],
           "evidence_revision": "1212ea3b",
-          "note": "Current local input/preview/revision/rollback/bounded read failure verified. Configured external failure paths and current pinned output enforcement remain unverified; historical output pins absent."
+          "note": "Current local input, consent/revision/rollback and safe refusal matrix plus two real buffered Chat-block/Responses-redaction calls independently verified, including exact reported-usage charges and no open holds. Streaming/tool/default capture and configured external execution/failure coverage remain unverified."
         }
       ]
     },
