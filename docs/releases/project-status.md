@@ -1,7 +1,7 @@
 # Project delivery status
 
 Baseline v1; updated 2026-10-13.
-Committed audit source `d2abe411`; native implementation `8bfdef10`.
+Committed audit source `29670e8b`; native implementation `8bfdef10`.
 
 **Backend acceptance checkpoints: 27/36 recorded complete at their evidence pins.**
 **Whole backend subsystems closed: 4/12.**
@@ -61,7 +61,7 @@ Active implementation: S02-3, S08-2, S10-2, S04-3, S03-3, S05-3, S06-3. Assignme
 | --- | --- | --- | --- |
 | S04-1 | done | The exercised tool streams preserve key lineage, RPM and spending refusals across rotation/restart and revoke access. | [record](../../docs/reference/key-controlled-tool-streaming.md) (`a9de7c8`) |
 | S04-2 | done | Close the matrix for single-key spending/RPM/TPM/concurrency/IP controls and mandatory parent-child policy composition; concurrent denials create no unauthorized dispatch. | [record](../../docs/reference/parallel-core-backend-acceptance.md) (`fb21b52a`) |
-| S04-3 | active | Document and verify applicable F09 local/external input and output coverage, consent, preview/revision/rollback and fail-closed failure behavior. | [record](../../docs/reference/guardrails-acceptance-matrix.md), [record](../../docs/reference/buffered-output-policy-execution.md), [record](../../docs/reference/output-default-capture-acceptance.md), [record](../../docs/reference/buffered-output-streaming-acceptance.md), [record](../../docs/reference/stream-output-observation-acceptance.md) (`1212ea3b`) |
+| S04-3 | active | Document and verify applicable F09 local/external input and output coverage, consent, preview/revision/rollback and fail-closed failure behavior. | [record](../../docs/reference/guardrails-acceptance-matrix.md), [record](../../docs/reference/buffered-output-policy-execution.md), [record](../../docs/reference/output-default-capture-acceptance.md), [record](../../docs/reference/buffered-output-streaming-acceptance.md), [record](../../docs/reference/stream-output-observation-acceptance.md) (`500e5289`) |
 
 ### S05 — Pricing, balance, charging and reconciliation
 
@@ -69,7 +69,7 @@ Active implementation: S02-3, S08-2, S10-2, S04-3, S03-3, S05-3, S06-3. Assignme
 | --- | --- | --- | --- |
 | S05-1 | done | The exercised approved-credit text workflow has immutable-price debits, released holds, refund/reconciliation and restart without invented cash funding. | [record](../../docs/reference/internal-credit-workflow-live.md) (`b1223c0`) |
 | S05-2 | done | Consolidate exact category/tier/fee, insufficient-capacity, concurrent liability, uncertainty and exactly-once recovery checks for the supported charging matrix. | [record](../../docs/reference/accounting-matrix-acceptance.md), [record](../../docs/reference/current-tier-fee-acceptance.md) (`3ffd1531`) |
-| S05-3 | active | Verify supported customer media, invoice and Supplier earning/settlement serialization and accounting mechanisms; track unavailable positive evidence separately from external activation. | [record](../../docs/reference/invoice-payment-boundary-acceptance.md) (`c24e75b7`) |
+| S05-3 | active | Verify supported customer media, invoice and Supplier earning/settlement serialization and accounting mechanisms; track unavailable positive evidence separately from external activation. | [record](../../docs/reference/invoice-payment-boundary-acceptance.md), [record](../../docs/reference/customer-invoice-supplier-capability-acceptance.md) (`29670e8b`) |
 
 ### S06 — Payment integration capability
 

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "updated": "2026-10-13",
-  "source_commit": "d2abe411",
+  "source_commit": "29670e8b",
   "runtime_commit": "8bfdef10003eebe9402401247aa52cd69d3a398f",
   "baseline_policy": "Fixed subsystem/task IDs. Progress counts accepted checkpoints, not LOC, code completion, fixture outcomes or whole-release readiness. Scope changes require a new version and a recorded reason; completed items reopen only with contrary actual evidence.",
   "active_implementation_tasks": [
@@ -212,8 +212,8 @@
             "docs/reference/buffered-output-streaming-acceptance.md",
             "docs/reference/stream-output-observation-acceptance.md"
           ],
-          "evidence_revision": "1212ea3b",
-          "note": "Actual local input, consent/revision/rollback, buffered and full-buffer plain-text Chat/Responses stream block/redact are verified. Current nonblocking observation and parent observation/child required composition match real output; an actual observation-table lock times out without changing delivery or exact charges. Default capture/restart/final ledger verified. Tool output and configured external coverage remain unsupported or unverified; cancellation and overflow qualification remain open."
+          "evidence_revision": "500e5289",
+          "note": "Pinned-current8bf/SDKce97 actual local policy: four protocol input blocks, preview-only contracts, consent/unconfigured-service refusals, explicit unsupported audio/video activation, revision/rollback, permissions, observed lock503 and restart; independent seven native decisions/eight unchanged whole financial tables. GenerateContent wrong-adapter501 is excluded from enforcement proof. Prior actual output scopes retained; configured external processing/failure and compatible native enforcement remain explicitly unverified, not activation requirements."
         }
       ]
     },
@@ -259,10 +259,11 @@
           "status": "active",
           "acceptance": "Verify supported customer media, invoice and Supplier earning/settlement serialization and accounting mechanisms; track unavailable positive evidence separately from external activation.",
           "evidence": [
-            "docs/reference/invoice-payment-boundary-acceptance.md"
+            "docs/reference/invoice-payment-boundary-acceptance.md",
+            "docs/reference/customer-invoice-supplier-capability-acceptance.md"
           ],
-          "evidence_revision": "c24e75b7",
-          "note": "Current invoices/real charge reversal, historical rates/categories, idempotency, permissions and restart independently verified. Nonempty Supplier earnings/settlement and positive paid-media evidence remain unverified."
+          "evidence_revision": "29670e8b",
+          "note": "Actual8bf/SDKce97 genuine invoice lines/history/export/restart equal immutable twelve charges totaling132227 nanounits; customer procurement403, revoked401 and Supplier unauthorized/invalid unpaid-settlement409 verified. Independent seventeen full financial/Supplier/Provider/model projections unchanged. Nonempty Supplier accrual/settlement and priced media positive remain unverified; empty histories are negative scope only, not successful accounting or external activation gates."
         }
       ]
     },
