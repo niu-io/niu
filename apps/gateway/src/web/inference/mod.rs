@@ -14,6 +14,11 @@ pub(super) mod video;
 pub(super) mod video_images;
 pub(super) mod video_ingested_images;
 pub(super) mod video_intents;
+#[expect(
+    dead_code,
+    reason = "Awaiting media handoff and combined dispatch integration"
+)]
+pub(super) mod video_media;
 pub(super) mod video_workspace_assets;
 
 pub(super) use chat::{chat, dashboard_chat};

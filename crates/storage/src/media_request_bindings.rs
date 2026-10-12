@@ -95,7 +95,7 @@ impl Store {
                     let mime = header
                         .strip_prefix("data:")
                         .and_then(|v| v.strip_suffix(";base64"))
-                        .filter(|v| matches!(*v, "audio/wav" | "audio/mpeg" | "audio/ogg"))
+                        .filter(|v| matches!(*v, "audio/wav" | "audio/mpeg"))
                         .ok_or(StoreError::InvalidObservation)?;
                     if encoded.len() > 11_184_812 {
                         return Err(StoreError::InvalidObservation);
