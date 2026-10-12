@@ -54,6 +54,30 @@ pub struct MediaTransportTiming {
     pub upstream_http_status: Option<i32>,
 }
 
+/// Bounded Provider error/correlation codes, never response messages or bodies.
+pub struct MediaTransportDiagnostic {
+    pub upstream_error_code: Option<String>,
+    pub upstream_request_id: Option<String>,
+}
+impl MediaTransportDiagnostic {
+    fn valid(&self) -> bool {
+        fn token(value: &str, maximum: usize) -> bool {
+            (1..=maximum).contains(&value.len())
+                && !value.to_ascii_lowercase().starts_with("sk-")
+                && value.bytes().enumerate().all(|(index, byte)| {
+                    byte.is_ascii_alphanumeric() || index > 0 && b"_.:-".contains(&byte)
+                })
+        }
+        self.upstream_error_code
+            .as_deref()
+            .is_none_or(|v| token(v, 128))
+            && self
+                .upstream_request_id
+                .as_deref()
+                .is_none_or(|v| token(v, 200))
+    }
+}
+
 /// Internal leased query identity; key authorization is rechecked by the worker.
 pub struct MediaQueryLease {
     pub attempt_id: Uuid,
@@ -361,6 +385,24 @@ impl Store {
         attempt: Uuid,
         timing: &MediaTransportTiming,
     ) -> Result<(), StoreError> {
+        self.record_media_transport_timing_with_diagnostics(scope, attempt, timing, None)
+            .await
+    }
+
+    pub async fn record_media_transport_timing_with_diagnostics(
+        &self,
+        scope: TenantScope,
+        attempt: Uuid,
+        timing: &MediaTransportTiming,
+        diagnostic: Option<&MediaTransportDiagnostic>,
+    ) -> Result<(), StoreError> {
+        if diagnostic.is_some_and(|d| {
+            !d.valid()
+                || (d.upstream_error_code.is_some() || d.upstream_request_id.is_some())
+                    && (timing.received || timing.upstream_http_status.is_none())
+        }) {
+            return Err(StoreError::Conflict);
+        }
         if timing
             .upstream_http_status
             .is_some_and(|status| timing.received || !(100..=599).contains(&status))
@@ -371,15 +413,16 @@ impl Store {
             return Err(StoreError::Conflict);
         }
         let mut tx = self.begin_bounded_recording().await?;
-        sqlx::query("INSERT INTO media_transport_timings(id,organization_id,project_id,attempt_id,phase,started_unix_ms,elapsed_ms,outcome,upstream_http_status) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)")
-            .bind(timing.id).bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(timing.phase).bind(timing.started_unix_ms).bind(timing.elapsed_ms).bind(if timing.received {"received"} else {"unavailable"}).bind(timing.upstream_http_status).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO media_transport_timings(id,organization_id,project_id,attempt_id,phase,started_unix_ms,elapsed_ms,outcome,upstream_http_status,upstream_error_code,upstream_request_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)")
+            .bind(timing.id).bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(timing.phase).bind(timing.started_unix_ms).bind(timing.elapsed_ms).bind(if timing.received {"received"} else {"unavailable"}).bind(timing.upstream_http_status).bind(diagnostic.and_then(|d| d.upstream_error_code.as_deref())).bind(diagnostic.and_then(|d| d.upstream_request_id.as_deref())).execute(&mut *tx).await?;
         tx.commit().await?;
         Ok(())
     }
 
     /// Last 100 measured spans, ordered chronologically with explicit truncation.
     /// Transport spans and lifecycle share one bounded read-only snapshot.
-    /// The response contains no internal timing IDs, upstream identities, URLs or response bodies.
+    /// The response contains no internal timing/job IDs, URLs or response bodies.
+    /// Bounded Provider correlation and error codes are diagnostic metadata only.
     pub async fn media_transport_timings_for_key(
         &self,
         principal: &crate::Principal,
@@ -394,7 +437,7 @@ impl Store {
         }
         let scope = principal.scope();
         let mut snapshot = self.begin_bounded_read_snapshot().await?;
-        let mut rows: Vec<serde_json::Value> = sqlx::query_scalar("SELECT jsonb_build_object('phase',phase,'started_unix_ms',started_unix_ms,'elapsed_ms',elapsed_ms,'outcome',outcome,'upstream_http_status',upstream_http_status) FROM media_transport_timings WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3 ORDER BY started_unix_ms DESC,id DESC LIMIT 101")
+        let mut rows: Vec<serde_json::Value> = sqlx::query_scalar("SELECT jsonb_build_object('phase',phase,'started_unix_ms',started_unix_ms,'elapsed_ms',elapsed_ms,'outcome',outcome,'upstream_http_status',upstream_http_status,'upstream_error_code',upstream_error_code,'upstream_request_id',upstream_request_id) FROM media_transport_timings WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3 ORDER BY started_unix_ms DESC,id DESC LIMIT 101")
             .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_all(&mut *snapshot).await?;
         let has_more = rows.len() > 100;
         rows.truncate(100);
