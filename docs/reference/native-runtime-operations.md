@@ -163,3 +163,21 @@ and [durable transport-phase checks](request-transport-phase-acceptance.md) reta
 their own execution pins and scopes. Historical unknown phases are not backfilled.
 The original installation retains its default connection budgets; only isolated
 verification copies used explicitly longer budgets.
+
+## Media configuration runtime and fresh backup restoration
+
+The original native service now runs retained executable
+`4c3def6381e839d1206d5dd13b3b42632b0ef036`, schema 287. The refresh reused
+the existing process environment, configuration, database and encryption identity;
+readiness returned HTTP 200. Configuration digests, encrypted Supplier credential
+identities/revisions and retained business counts remained unchanged.
+
+On 2026-10-13, its fresh native archive was restored into a newly initialized,
+isolated PostgreSQL instance. The archive digest and restored migration version
+were checked independently. Full-row fingerprints matched the current original
+organizations, workspaces, encrypted Suppliers, balance entries, video jobs,
+media transport timings and saved Chat sessions. The verification database was
+stopped afterward. No original records were overwritten, no upstream requests
+were issued and no encryption identity was replaced. This verifies the exercised
+backup restoration; it does not establish media policy enforcement, paid media
+settlement or performance capacity.
