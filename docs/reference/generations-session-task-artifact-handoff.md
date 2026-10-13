@@ -302,3 +302,12 @@ secondary. Do not pretend a single intent supports persistent multi-turn Video.
 Workspace Provider modules need session-authenticated scoped access and model capability discovery before the page flow can read real records. Admin Supplier configuration is a separate entry and must not substitute for this customer workflow.
 Tasks and Artifacts navigation waits for its inventory contract; no empty placeholder
 destinations or browser-only indexes should stand in for the backend work above.
+
+## Implemented frontend review flow
+
+- `/workspaces/:workspace/provider-capabilities/volcengine` contains Provider-native Materials and Human verification sections. Materials uses Groups and Materials tabs.
+- The Video composer opens the same module in a dialog without navigating away or unmounting its draft. Closing restores the composer.
+- New material group and verification forms expose their intended context and name fields. Submission is disabled until session-authenticated integration is supplied. No generation, registration or verification call is issued by this review implementation.
+- Missing integration is represented as unavailable records, never an empty successful inventory or invented verification state. This is a review flow, not completed backend integration.
+- Replace the temporary fixed module entry with server-discovered authorized capabilities. The selected generation model is context, not proof that Volcengine capabilities are supported.
+- Supply workspace-scoped group/material/session inventory, safe display context, compatible reference resolution and the module-to-platform associations described above. Preserve the current workspace member authorization boundary.

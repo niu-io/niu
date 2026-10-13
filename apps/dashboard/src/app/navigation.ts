@@ -23,6 +23,7 @@ export const navigation: Array<{ to: string; label: string; icon: TablerIcon; de
   { destination: 'Workspace', to: 'keys', label: 'API keys', icon: KeyRound },
   { destination: 'Workspace', to: 'executions', label: 'Logs', icon: Logs },
   { destination: 'Models', to: '/models', label: 'Models', icon: Boxes },
+  { destination: 'Workspace', to: 'provider-capabilities/volcengine', label: 'Provider capabilities', icon: SupplierConnection },
   { destination: 'Workspace', to: 'guardrails', label: 'Guardrails', icon: ShieldCheck },
   { destination: 'Workspace', to: 'usage', label: 'Activity', icon: ChartNoAxesCombined },
   { destination: 'Workspace', to: 'billing', label: 'Billing', icon: CreditCard },

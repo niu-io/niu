@@ -104,6 +104,7 @@ export const appRoutes: RouteObject[] = [{
           { path: 'models/*', element: <WorkspaceModelsRedirect /> },
           { path: 'providers-admin', element: <Navigate to="/admin/suppliers" replace /> },
           { path: 'vendors', element: <Navigate to="/admin/suppliers" replace /> },
+          { path: 'provider-capabilities/volcengine', lazy: async () => ({ Component: (await import('@/features/provider-modules/volcengine/page')).default }) },
           { path: 'keys/new', lazy: async () => ({ Component: (await import('@/features/keys/new-page')).default }) },
           { path: 'keys/:keyId', lazy: async () => ({ Component: (await import('@/features/keys/detail-page')).default }) },
           { path: 'keys', lazy: async () => ({ Component: (await import('@/features/keys/page')).default }) },
