@@ -21,7 +21,7 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/component
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
 import { Sidebar, SidebarHeader, SidebarContent, useSidebar } from '@/components/ui/sidebar';
 import type { DashboardContext } from '@/app/dashboard-context';
-import { workspacePathSegment } from '@/app/workspace-route';
+import { workspaceDisplayName, workspacePathSegment } from '@/app/workspace-route';
 import { keyRequest, projectKeyPath, type ProjectKey } from '@/features/keys/api';
 import { money } from '@/lib/money';
 import { controlLabels, initialControls, videoRequest, type ControlValues } from './request';
@@ -30,6 +30,8 @@ import VideoBilling from './VideoBilling';
 import VideoLifecycle from './VideoLifecycle';
 import ImageReferences, { type NamedImageReference } from './ImageReferences';
 import './video.css';
+import VolcengineView from '@/features/provider-modules/volcengine/VolcengineView';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 const statusLabel: Record<string,string> = {submission_unknown:'Submission uncertain',queued:'Queued',running:'Running',succeeded:'Succeeded',failed:'Failed',unknown:'Status unavailable',reconciliation_required:'Needs reconciliation'};
 function message(error: unknown) { return error instanceof Error ? error.message : 'The request could not be completed.'; }
@@ -44,6 +46,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
   const {settings:branding} = useBranding();
   const {token,workspace,workspaces,session}=context;
   const [keyPickerOpen,setKeyPickerOpen]=useState(false);
+  const [providerToolsOpen,setProviderToolsOpen]=useState(false);
   const availableKeys=useGenerationKeys(context,keyPickerOpen);
   const [search,setSearch]=useSearchParams();
   const {toggleSidebar,isMobile,setOpenMobile,open,openMobile}=useSidebar();
@@ -290,6 +293,8 @@ export default function VideoView({context}:{context:DashboardContext}) {
               <Label>Model</Label>
               <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="video-choice" aria-label="Video model" disabled={Boolean(busy) || Boolean(intentId)}>{model.id}<ChevronDown size={14}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={modelId} onValueChange={id=>{setModelId(id);const next=models.find(model=>model.id === id);setControls(next ? initialControls(next):{});}}>{models.map(item=><DropdownMenuRadioItem key={item.id} value={item.id}>{item.id}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
               <Label htmlFor="video-prompt">Prompt</Label><Textarea id="video-prompt" placeholder="Describe your video…" rows={5} value={prompt} onChange={event=>setPrompt(event.target.value)} disabled={busy === 'create' || Boolean(intentId)}/>
+              <Button type="button" variant="ghost" onClick={()=>setProviderToolsOpen(true)}>Provider capabilities</Button>
+              <Dialog open={providerToolsOpen} onOpenChange={setProviderToolsOpen}><DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-3xl"><DialogHeader><DialogTitle>Provider capabilities</DialogTitle><DialogDescription>Your generation draft stays open. Close this panel to return.</DialogDescription></DialogHeader><VolcengineView workspaceName={workspace ? workspaceDisplayName(workspace.name) : 'Current workspace'} model={model.id}/></DialogContent></Dialog>
               <ImageReferences model={model} images={images} onChange={setImages} disabled={Boolean(busy) || uncertain || Boolean(intentId)} onReadingChange={reading=>{setReadingImages(reading);if(reading){estimateController.current?.abort();setQuote(null);}}}/>
               <Collapsible><CollapsibleTrigger asChild><Button variant="ghost" className="video-choice">Additional settings<ChevronDown size={14}/></Button></CollapsibleTrigger><CollapsibleContent className="video-controls">
                 {Object.entries(model.controls).map(([name,rule])=><div key={name} className="video-field"><Label htmlFor={`video-${name}`}>{controlLabels[name] ?? name}</Label>
