@@ -44,7 +44,7 @@ Every row remains partial. Verified subsets below do not establish the entire fl
 | Fresh Video payloads | [Creation capture](../reference/video-request-payloads.md) is implemented. Old jobs are not backfilled. A new local single-submission authorization is pending; the previous single paid test was consumed. Do not resubmit automatically. |
 | Provider model attribution | [Attribution](../reference/video-model-attribution.md) represents an explicitly returned model. OpenRouter may omit it; Unknown is correct for the exercised saved job. Do not substitute the configured alias. |
 | Guardrail errors | [Preparation errors](../reference/guardrail-preparation-errors.md) distinguish `guardrail_denied`, `guardrail_output_withheld` and ordinary permission failures. The backend contract is available; current browser evidence remains required. |
-| Cross-machine coordination | Shared main and contract documents are working. Direct Supen coordination is unavailable due to authentication; do not expand permissions or disclose credentials to work around it. |
+| Cross-machine coordination | Use SSH for authorized remote inspection and configuration transfers, with shared main and contract documents for code coordination. Keep credentials private. |
 
 ## Next work in dependency order
 
