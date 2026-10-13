@@ -9,8 +9,8 @@ Status: implementation contract with an additive backend increment delivered. Ex
 | P1 historical task inventory | Implemented for Video across saved keys, with exact states and actor privacy; complete text-execution inventory remains open |
 | P2 generated-output inventory | Implemented for video and last frame; actual expired outputs refuse download; positive unexpired delivery remains unverified in this increment |
 | General retained Video controls/references | New turns retain typed text instructions only; the original Video intent remains authoritative for validated submission input |
-| P3 workspace-scoped Provider modules and shared platform capabilities | Latest handoff scope; workspace module backend/SDK integration and shared asset bindings remain pending; no universal Person entity |
-| P4 human verification | Newly added handoff scope; the required Generations-level workflow remains pending |
+| P3 workspace-scoped Provider modules and shared platform capabilities | Existing inference-key media SDK and workspace isolation are implemented; dashboard session bridge, module discovery and shared asset bindings remain pending; no universal Person entity |
+| P4 human verification | Existing inference-key session operations are implemented; workspace module and contextual Generations integration remain pending |
 | Frontend timeline and two-browser rendering | Frontend integration and acceptance remain open |
 
 This status does not mark all acceptance items complete. No fixture result supports these delivery claims, and no paid generation was initiated for this increment.
@@ -20,8 +20,9 @@ This status does not mark all acceptance items complete. No fixture result suppo
 Generations has one conversation experience for Chat and Video. A user submits
 an instruction, sees its execution state in the same timeline, and views the
 result there. Subsequent instructions create new turns in that saved session.
-Tasks and Artifacts are first-level views inside Generations, not new product
-rail areas. Tasks finds executions across sessions; Artifacts finds outputs.
+Tasks remains a view of executions across sessions. Assets is now requested as a
+top-level product area for generated outputs; the existing artifacts API is its
+read contract, not a requirement to rename storage or duplicate execution state.
 Neither is an agent orchestration service.
 
 This work must use existing generated videos for integration acceptance. Do not
@@ -36,8 +37,8 @@ fixtures for creation/concurrency failure tests, not paid upstream operations.
 
 | Existing surface | Coverage | Remaining gap |
 | --- | --- | --- |
-| Video jobs: create, retrieve, list, refresh, wait | Durable task state, original dispatch identity and recovery | Lists are keyed by an inference key; there is no shared session/turn association or dashboard inventory across authorized keys. |
-| Video results: availability and binary retrieval | Authorized video/last-frame preview and download, separate expiry/deletion | No cross-task output index for the Artifacts view. |
+| Video jobs: create, retrieve, list, refresh, wait | Durable task state, original dispatch identity and recovery | Key-scoped compatibility APIs remain; the delivered generations session/task inventory adds actor-scoped associations and history across saved keys. |
+| Video results: availability and binary retrieval | Authorized video/last-frame preview and download, separate expiry/deletion | Delivered generations artifacts inventory indexes Video and last-frame outputs; durable byte capture remains separate. |
 | Video billing, observations and timings | Customer-safe task diagnosis | Must remain linked to the task, independently of retained output. |
 | Dashboard key-scoped Video bridge | Reuses saved jobs and selected-key authorization | Frontend must enumerate keys and cannot treat active-key discovery as a complete historical inventory. |
 | Video submission intents | Actor-owned saved text input, optimistic revision and no-resend restoration | A single intent is not a multi-turn session. It expires; references are not a general saved conversation format. |
@@ -330,3 +331,73 @@ The Video management canvas is fluid and has no fixed maximum page width. Only G
 ### Next frontend scope: top-level Assets
 
 After the Video management flow, design a top-level Assets area for generated outputs. It must consume shared authorized output/task capabilities rather than provider-native material registries. Define the screen flow before implementing the backend inventory contract. Do not add an empty navigation destination or fabricate persisted outputs. Preserve source task/session associations, result availability, retrieval authorization, expiry and retention semantics. This requested placement updates the earlier assumption that generated artifacts are only reachable inside Generations.
+
+## API alignment review after backend synchronization — 2026-10-13
+
+Reviewed the delivered gateway route registrations, session/inventory handlers,
+JavaScript SDK and `generations.mdx`. This is a source/contract review, not a new
+runtime or paid-generation acceptance run.
+
+### Reuse delivered contracts
+
+- Session-authenticated workspace `/generations-sessions` reads/writes and turn/task
+  association match the module-to-platform direction. Module callers attach an
+  existing accepted task; these operations do not submit or replay generation.
+- `/generations/tasks` and `/generations/artifacts` list historical Video work
+  across saved keys, including expired/revoked keys, with workspace Read and actor
+  privacy checks. SDK `admin.generations(scope)` already exposes these reads.
+  Use the artifacts contract for top-level Assets; no duplicate inventory is needed.
+- Artifact detail/content preserves availability, bounded delivery, private
+  upstream URLs and account/model binding checks. Do not interpret `available`
+  as proof that bytes were durably copied or are still downloadable.
+- Existing `/v1/media/asset-groups`, `/v1/media/assets` and verification sessions
+  provide native scoped operations. Asset listing already supports `group_id`,
+  which fits the group dropdown and selected group's files. Keep these contracts
+  compatible rather than invent a universal Person domain.
+
+### Required additive integration
+
+1. **Dashboard authorization bridge:** current media endpoints admit an inference
+   principal, while the page has a dashboard session. Add documented workspace
+   session access to scoped groups, assets, operations and verification. The server
+   resolves an authorized model/channel binding; never return or ask the browser
+   to retrieve a key secret. Read membership and mutation permissions remain
+   distinct. Cross-workspace list/detail/link/reference tests are required.
+2. **Capability and model context discovery:** the Video model list describes
+   inputs/controls, but does not declare Seedance family, available native modules
+   or safe Provider/account/channel context. Add an authorized discovery projection
+   for dynamic sidebar visibility and the top-right family choice. Seedance is a
+   model family; Volcengine is one Provider. Family selection alone must never
+   choose a credential or combine different Provider registries. Show only actual
+   supported families/contexts; preserve immutable resource bindings.
+3. **Group menu/dialog flow:** return safe names, revisions, group kind and state;
+   create/edit return recoverable operation/resource references. Edit is disabled
+   without a selected group. Preserve existing idempotency and optimistic revision
+   handling; person groups come from the genuine verification flow, not ordinary
+   group creation. Unknown mutation outcomes must not auto-repeat.
+4. **Material admission:** the current native create contract takes a URL, kind and
+   group reference; it does not itself upload local bytes or provide a browser
+   preview. Document supported safe source admission and authorized preview
+   retrieval for Add material. If uploads are supported, use bounded server-owned
+   sources or workspace file references, not assumed public authenticated-file URLs.
+   Keep Provider registration/processing independent from original-file ownership.
+5. **Verification bridge:** preserve deliberate private H5 link retrieval, expiry
+   and explicit result check. Refresh is POST and may resolve/create a person group;
+   do not implement passive GET polling or mark verified from navigation alone.
+6. **Draft references:** new session turns currently retain only typed video prompt
+   text. Selected group/material references and model controls require a documented
+   saved draft/input association if they must survive browser loss. Keep the
+   existing validated submission intent authoritative; no browser-only persistence
+   or assertion that an attached old task used a newly edited prompt.
+
+### Limits relevant to top-level Assets
+
+The delivered output inventory supports Video and last-frame only. Content type
+is null until retrieval inspects bytes; frontend must not invent MIME, dimensions,
+thumbnail availability or a successful preview. Unexpired positive retrieval and
+two-browser frontend acceptance remain unverified in the backend delivery report.
+No output deletion, rename, capture or promotion method is exposed by this new
+SDK inventory; only add those controls when an explicit authorized contract exists.
+Aggregating authorized workspace output pages can provide the initial global
+Assets view, while preserving actor-private associations and failures. Do not call
+generation to fill missing or expired outputs.
