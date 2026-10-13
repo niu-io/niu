@@ -49,6 +49,11 @@ function WorkspaceChatRedirect() {
   return <Navigate to={`/generations${search.size ? `?${search.toString()}` : ''}`} replace />;
 }
 
+function WorkspaceSectionRedirect({ section }: { section: string }) {
+  const location = useLocation();
+  return <Navigate to={`../${section}${location.search}${location.hash}`} replace />;
+}
+
 function WorkspaceModelsRedirect() {
   const { workspace, '*': model } = useParams();
   const location = useLocation();
@@ -116,12 +121,12 @@ export const appRoutes: RouteObject[] = [{
           { path: 'guardrails/:section?', lazy: async () => ({ Component: (await import('@/features/guardrails/page')).default }) },
           { path: 'billing', lazy: async () => ({ Component: (await import('@/features/billing/page')).default }) },
           { path: 'usage', lazy: async () => ({ Component: (await import('@/features/activity/page')).default }) },
-          { path: 'activity', element: <Navigate to="../usage" replace /> },
+          { path: 'activity', element: <WorkspaceSectionRedirect section="usage" /> },
           { path: 'executions', lazy: async () => ({ Component: (await import('@/features/executions/page')).default }) },
           { path: 'benchmarks', lazy: async () => ({ Component: (await import('@/features/benchmarks/page')).default }) },
-          { path: 'costs', element: <Navigate to="../billing" replace /> },
+          { path: 'costs', element: <WorkspaceSectionRedirect section="billing" /> },
           { path: 'playground', element: <WorkspaceChatRedirect /> },
-          { path: 'subscriptions', element: <Navigate to="../usage" replace /> },
+          { path: 'subscriptions', element: <WorkspaceSectionRedirect section="usage" /> },
           { path: '*', lazy: async () => ({ Component: (await import('@/features/not-found/page')).default }) },
         ] },
       ],

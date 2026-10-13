@@ -35,8 +35,9 @@ WITH events AS (
  UNION ALL
  (SELECT * FROM (
  SELECT 'branding', e.revision::text, 'configuration', 'branding_updated',
-   CASE WHEN e.actor_operator_id IS NULL THEN 'unknown' ELSE 'operator' END,
-   COALESCE(a.name,'Unknown actor'), 'Platform branding', e.revision, e.created_at
+   CASE WHEN e.actor_kind='installation' THEN 'installation' WHEN e.actor_operator_id IS NOT NULL THEN 'operator' ELSE 'unknown' END,
+   CASE WHEN e.actor_kind='installation' THEN 'Installation administrator' ELSE COALESCE(a.name,'Unknown actor') END,
+   'Platform branding', e.revision, e.created_at
  FROM branding_configuration_events e LEFT JOIN admin_operators a ON a.id=e.actor_operator_id
  ) projection(source,event_id,category,action,actor_kind,actor_label,target_label,revision,created_at) WHERE ($1::text IS NULL OR category=$1)
  AND ($2::text IS NULL OR (created_at,source,event_id)<($2::text::timestamptz,$3::text,$4::text))

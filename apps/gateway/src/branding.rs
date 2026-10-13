@@ -294,12 +294,14 @@ pub(crate) async fn save(
         )
     })?;
     let actor = match auth {
-        AdminAuthorization::Operator(operator) => Some(operator.id),
-        _ => None,
+        AdminAuthorization::Operator(operator) => {
+            niu_storage::OperatorAuditActor::Operator(operator.id)
+        }
+        AdminAuthorization::Installation => niu_storage::OperatorAuditActor::Installation,
     };
     let (revision, settings) = state
         .store
-        .save_branding_configuration_snapshot(expected, &input.settings, actor)
+        .save_branding_configuration_snapshot_as(expected, &input.settings, Some(actor))
         .await
         .map_err(ApiError::from_store)?;
     Ok(Json(

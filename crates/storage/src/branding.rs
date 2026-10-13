@@ -110,6 +110,24 @@ impl Store {
         settings: &BrandingSettings,
         actor: Option<Uuid>,
     ) -> Result<(i64, BrandingSettings), StoreError> {
+        self.save_branding_configuration_snapshot_as(
+            expected_revision,
+            settings,
+            actor.map(crate::OperatorAuditActor::Operator),
+        )
+        .await
+    }
+
+    /// Record an explicitly authenticated actor. None keeps historical unknown
+    /// semantics; it must never be interpreted as installation authorization.
+    pub async fn save_branding_configuration_snapshot_as(
+        &self,
+        expected_revision: i64,
+        settings: &BrandingSettings,
+        actor: Option<crate::OperatorAuditActor>,
+    ) -> Result<(i64, BrandingSettings), StoreError> {
+        let (actor_kind, actor_id) =
+            actor.map_or(("unknown", None), |value| value.kind_and_id());
         settings.validate()?;
         static SLOTS: std::sync::LazyLock<std::sync::Arc<tokio::sync::Semaphore>> =
             std::sync::LazyLock::new(|| std::sync::Arc::new(tokio::sync::Semaphore::new(2)));
@@ -145,8 +163,8 @@ impl Store {
         }
         sqlx::query("INSERT INTO branding_configuration(singleton,revision,settings) VALUES(true,$1,$2) ON CONFLICT(singleton) DO UPDATE SET revision=EXCLUDED.revision,settings=EXCLUDED.settings,updated_at=clock_timestamp()")
             .bind(revision).bind(&value).execute(&mut *tx).await?;
-        sqlx::query("INSERT INTO branding_configuration_events(revision,settings,actor_operator_id) VALUES($1,$2,$3)")
-            .bind(revision).bind(value).bind(actor).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO branding_configuration_events(revision,settings,actor_operator_id,actor_kind) VALUES($1,$2,$3,$4)")
+            .bind(revision).bind(value).bind(actor_id).bind(actor_kind).execute(&mut *tx).await?;
         tx.commit().await?;
         Ok((revision, settings))
     }
