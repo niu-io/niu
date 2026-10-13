@@ -23,7 +23,7 @@ Baseline: current `main` at `534c07ee`, 2026-10-13. This audit covers rendered p
 | P07 | API key detail | `/workspaces/:workspace/keys/:key` | Limits, rotation, revocation, history, conflict recovery | In review: actual limits, metadata/rate conflicts, rotation inheritance, expiry and revocation/history qualified; runtime limit admission pending |
 | P08 | Workspace members | `/workspaces/:workspace/users` | Invite/manage roles and scope enforcement | Verified scope: genuine Owner GUI member creation, one-time credential, role changes/conflict recovery and revocation; same-token scope/expiry, current permissions and exact audit independently qualified |
 | P09 | Organization management | `/workspaces/:workspace/organization` | Company/workspace ownership and supported actions | In review: actual workspace links and create dialog desktop/narrow; full ownership boundaries pending |
-| P10 | Workspace settings | `/workspaces/:workspace/settings` | Saved scope settings and limits | In review: rename/reload and guarded empty-workspace deletion verified; limits/boundaries pending |
+| P10 | Workspace settings | `/workspaces/:workspace/settings` | Saved scope settings and limits | In review: rename/reload and guarded empty-workspace deletion verified; actual Owner limit save and independent API/SDK/database readback qualified; conflict, response-loss and role boundaries pending |
 | P11 | Guardrails | `/workspaces/:workspace/guardrails/:section?` | Every supported section, preview, activation, conflicts, roles | In review: all sections/menu states checked; actual save/conflict/reload and independent versions verified; enforcement pending |
 | P12 | Workspace Logs | `/workspaces/:workspace/executions` | Filters, details, exports, timing, unknown usage, customer charges | In review: actual existing Video log, detail, filter and independently parsed export verified; remaining error/role branches pending |
 | P13 | Global Gateway Activity | `/activity/:section?` and `/workspaces/:workspace/usage` | Global/workspace scope, coverage, drilldowns; excludes external Agent Observability | In review: current global/workspace coverage, pagination, drilldown and narrow workspace menu verified; remaining status/role branches pending |
@@ -363,6 +363,12 @@ Appearance already uses backend member preferences; browser storage is a disposa
 Failing a real PUT response after its HTTP 200 commit reproduced a mismatch: the backend retained the new mode while the UI claimed that its previous mode had been restored and allowed further writes. The hook now marks confirmation as uncertain, clears pending choices and freezes both Settings and account-menu choices. It displays truthful recovery guidance and reuses the existing Reload control. An actual guarded response-loss run followed by Reload issued one GET and no PUT, restored the saved server mode, cleared the error and re-enabled controls. Desktop and 390px states were inspected in the existing layout; the constrained Stitch review introduced no new controls or styles.
 
 The temporary member and sessions were revoked. Normal password sign-in restored the original Owner profile exactly; API reads and independent SQL confirmed its preference row remained absent and inherited System. No branding, original password, encryption identity, Provider invocation or payment was changed.
+
+### Workspace spending-limit persistence
+
+A genuine Owner saved a decimal lifetime limit through the existing Billing → Spending editor on a newly created workspace. Current API reads and independent PostgreSQL matched the exact nanos and revision, with one immutable member-attributed history entry. The freshly built JavaScript SDK independently read the same current currency summary, exact limit and history through the running Gateway. The workspace had no API keys, inference attempts or customer charges; existing workspace configuration, limit history and member credential fingerprints were unchanged.
+
+This qualifies the exercised save and persistence paths. It does not establish model-request enforcement, conflict recovery, response-loss recovery or all role boundaries. Workspace Settings retains its existing name/delete actions; monetary limits belong to Billing.
 
 ### Low-balance warning with approved credit
 
