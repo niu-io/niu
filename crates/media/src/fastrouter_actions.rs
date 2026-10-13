@@ -103,10 +103,15 @@ pub enum FastRouterActionError {
 /// Deliberately no Debug or Serialize; handlers must project their own NIU API.
 pub struct FastRouterActionResponse {
     action: FastRouterAction,
+    http_status: u16,
     request_id: Option<String>,
     result: Value,
 }
 impl FastRouterActionResponse {
+    /// Actual successful transport status, not proof of domain acknowledgement.
+    pub fn http_status(&self) -> u16 {
+        self.http_status
+    }
     pub fn action(&self) -> FastRouterAction {
         self.action
     }
@@ -366,6 +371,7 @@ fn parse_response(
     // HTTP 200 alone says nothing about asset Active or face verification.
     Ok(FastRouterActionResponse {
         action,
+        http_status: status.as_u16(),
         request_id: correlation(metadata.request_id),
         result,
     })

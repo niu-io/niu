@@ -14,7 +14,9 @@ use axum::{
 use niu_media::fastrouter_actions::{
     FastRouterAction, FastRouterActionClient, FastRouterActionError, FastRouterActionLimits,
 };
-use niu_media::fastrouter_domain::{FastRouterAssetKind, decode_created_reference};
+use niu_media::fastrouter_domain::{
+    FastRouterAssetKind, decode_created_reference, decode_group_update_acknowledgement,
+};
 use niu_storage::{
     Principal, WorkspaceProviderAssetMutation, WorkspaceProviderAssetOutcome,
     WorkspaceProviderAssetRoute,
@@ -369,7 +371,7 @@ async fn mutate(
                             provider_reference: Some(reference),
                         },
                         Err(_) => WorkspaceProviderAssetOutcome::Unknown {
-                            http_status: None,
+                            http_status: Some(response.http_status()),
                             request_id: response.request_id().map(str::to_owned),
                         },
                     }
@@ -377,13 +379,16 @@ async fn mutate(
                     .result()
                     .as_object()
                     .is_some_and(|result| result.is_empty())
+                    || action == FastRouterAction::UpdateAssetGroup
+                        && decode_group_update_acknowledgement(&response, prepared.request_body())
+                            .is_ok()
                 {
                     WorkspaceProviderAssetOutcome::Acknowledged {
                         provider_reference: None,
                     }
                 } else {
                     WorkspaceProviderAssetOutcome::Unknown {
-                        http_status: None,
+                        http_status: Some(response.http_status()),
                         request_id: response.request_id().map(str::to_owned),
                     }
                 }

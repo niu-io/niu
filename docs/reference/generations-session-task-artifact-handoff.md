@@ -97,3 +97,11 @@ Return implemented API/SDK changes, test evidence and remaining limitations in t
 - [Workspace material library](workspace-material-library.md)
 - [Provider group acceptance](provider-asset-group-acceptance.md), [asset acceptance](provider-video-asset-acceptance.md)
 - [Verification creation](provider-verification-session-create-acceptance.md), [expiry and rotation](provider-verification-encryption-rotation-acceptance.md)
+
+## Actual native material qualification — 2026-10-13
+
+- Using the existing generated Seedance video, actual FastRouter group creation and video material registration returned acknowledged operations. Explicit material refresh observed processing followed by active. Canonical create retries returned the original saved operations; no generation or human-verification session was submitted.
+- A nonempty Provider-video-reference draft was saved, restored, replayed and bound to a session. Independent SQL verified the original Niu reference and canonical digest, one create operation per resource, unchanged execution and financial records, and no private source URL or upstream resource identifier in customer responses. An independently authorized sibling workspace could not use the material; a reader could read metadata but could not refresh it.
+- Actual group editing exposed a nonempty successful UpdateAssetGroup result that the previous decoder conservatively classified as unknown. The decoder now acknowledges only the exact owned resource identity and every requested name/description field. Other unrecognized results retain unknown with the actual transport status; HTTP success alone is insufficient.
+- A fresh actual group update was acknowledged, canonical replay returned the same operation, and an explicit Provider read confirmed the requested name. Independent SQL found exactly one acknowledged update and unchanged generation/financial fingerprints. Previous unknown operations and resource states were preserved without automatic replay or reclassification.
+- The draft-to-submitted-task projection remains unverified: read-only inspection found no existing submitted dashboard-intent association. Direct-job evidence is not evidence for this branch. The prohibition on new generations remains in effect. Frontend and completed human-verification acceptance remain separate.

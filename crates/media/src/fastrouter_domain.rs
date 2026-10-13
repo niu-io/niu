@@ -500,6 +500,37 @@ fn asset_with_owned_parent(
         status,
     })
 }
+/// Decode the observed UpdateAssetGroup acknowledgement without disclosing
+/// Provider metadata. Exact owned identity and requested fields must match.
+/// Extra response fields never become customer data or readiness evidence.
+pub fn decode_group_update_acknowledgement(
+    response: &FastRouterActionResponse,
+    request: &Value,
+) -> Result<(), FastRouterDomainError> {
+    let value = result(response, FastRouterAction::UpdateAssetGroup)?;
+    let requested_id = reference(request, "Id")?;
+    let observed_id = reference(value, "Id")?;
+    if observed_id.private_ref() != requested_id.private_ref() {
+        return Err(FastRouterDomainError::InvalidResponse);
+    }
+    let name = optional_text(value, "Name", 64)?;
+    let description = optional_text(value, "Description", 300)?;
+    if name.as_ref().is_some_and(|name| !text(name, 64))
+        || !optional_description(description.as_deref())
+        || (request.get("Name").is_none() && request.get("Description").is_none())
+    {
+        return Err(FastRouterDomainError::InvalidResponse);
+    }
+    for field in ["Name", "Description"] {
+        if let Some(expected) = request.get(field)
+            && (!expected.is_string() || value.get(field) != Some(expected))
+        {
+            return Err(FastRouterDomainError::InvalidResponse);
+        }
+    }
+    Ok(())
+}
+
 pub fn decode_created_reference(
     response: &FastRouterActionResponse,
 ) -> Result<FastRouterProviderReference, FastRouterDomainError> {
