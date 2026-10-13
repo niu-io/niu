@@ -22692,11 +22692,11 @@ HTTP 501: Unsupported video capability or saved-reference form.
 
 HTTP 413: Request envelope exceeds 64 KiB.
 
-## Restore a video intent and resolve its original job
+## Restore a saved video intent and its historical job
 
 `GET /admin/v1/organizations/{organization}/projects/{project}/video-intents/{intent}`
 
-Actor-owned workspace records: installation authority shares one installation actor, while operator actors are isolated even within the same workspace. Current workspace permission applies. Request content is retained for 30 days from creation or until deletion; expiry is unreadable immediately and background maintenance clears retained content. Identity tombstones remain. Deletion does not cancel an already accepted concurrent submission, erase its job or refund charges. Requires read permission plus current key/model/source authorization. A rotated key is resolved only within the saved key lineage. An unrelated key never replaces the original billing source. This GET never polls upstream, reserves funds or submits a job; it reports saved, not_dispatched or dispatched preparation.
+Current workspace Read permission and the original actor-owned intent are required. Restores saved request and job evidence independently of current inference key lifetime, model grants, source policy or Provider configuration. Original and available rotation-lineage key IDs are context only, never authority to submit, estimate or query upstream. Revoked/expired keys and lost model grants do not hide retained private input; deletion and original/bound-turn expiry still hide content immediately. Unknown submission evidence never grants permission to dispatch again. No upstream request, inference, reservation, settlement or write occurs. Storage failures remain errors.
 
 Implementation: `implemented`. Operation: `getVideoSubmissionIntent`.
 
@@ -22780,11 +22780,11 @@ Content type: `application/json`.
 
 HTTP 400: Invalid path, query or request; framework rejections may be plain text.
 
-HTTP 401: Invalid actor credential or no authorized current key in the original lineage.
+HTTP 401: Invalid actor credential.
 
-HTTP 403: Workspace permission or current source policy denied.
+HTTP 403: Current workspace Read permission denied.
 
-HTTP 404: Intent is not owned by this actor and workspace, or selected model is inaccessible.
+HTTP 404: Intent is not owned by this actor and workspace.
 
 HTTP 409: Immutable identity, request, funding mode, revision or cursor conflict.
 
@@ -34193,7 +34193,7 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "key_id": {
       "type": "string",
       "format": "uuid",
-      "description": "Current active key in the original rotation lineage; no secret is returned."
+      "description": "Available active rotation-lineage key with the model grant, otherwise the original saved key. Context only; current action authorization remains required and no secret is returned."
     },
     "model": {
       "type": "string"
@@ -34222,7 +34222,7 @@ Local `#/components/schemas/…` references resolve to these definitions.
         "not_dispatched",
         "dispatched"
       ],
-      "description": "Dispatch and job status are read from one database statement snapshot. not_dispatched means original preparation has no recorded dispatch; it never grants a fresh submission right."
+      "description": "Dispatch and job status are read from one bounded read-only database snapshot. not_dispatched means original preparation has no recorded dispatch; it never grants a fresh submission right."
     },
     "job": {
       "anyOf": [

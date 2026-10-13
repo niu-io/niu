@@ -1087,7 +1087,8 @@ export class NiuAdminClient {
     return this.request(this.videoIntentPath(scope, intentId), { key_id: uuid(keyId), request }, options, 'PUT');
   }
 
-  /** Restore the original identity and current key lineage without polling or dispatch. */
+  /** Actor-owned historical read independent of inference key expiry/revocation.
+   * Returned key IDs are context only; submission still checks current authority. */
   getVideoIntent(scope: TenantScope, intentId: string, options?: RequestOptions): Promise<{ data: VideoSubmissionIntent }> {
     return this.request(this.videoIntentPath(scope, intentId), undefined, options);
   }

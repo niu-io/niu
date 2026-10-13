@@ -27,6 +27,15 @@ pub struct VideoIntent {
     pub expired: bool,
 }
 
+#[derive(sqlx::FromRow)]
+struct IntentSubmissionRow {
+    attempt_id: Uuid,
+    model: String,
+    dispatched: bool,
+    submitted_digest: Vec<u8>,
+    intent_digest: Vec<u8>,
+}
+
 impl Store {
     pub async fn save_video_intent(
         &self,
@@ -78,6 +87,52 @@ impl Store {
             })
         })
         .transpose()
+    }
+
+    /// Saved submission evidence under the private intent's ownership; no
+    /// current inference key or model grant is required for this historical read.
+    pub async fn video_intent_submission_snapshot(
+        &self,
+        scope: TenantScope,
+        owner: &str,
+        intent: Uuid,
+    ) -> Result<Option<(bool, Value)>, StoreError> {
+        let mut tx = self.begin_bounded_read_snapshot().await?;
+        let row: Option<IntentSubmissionRow> = sqlx::query_as(
+            "SELECT a.id AS attempt_id,a.resource_id AS model,a.dispatched_at IS NOT NULL AS dispatched,submitted.request_digest AS submitted_digest,intent.request_digest AS intent_digest \
+             FROM video_submission_intents intent \
+             JOIN media_submission_keys submitted ON submitted.organization_id=intent.organization_id \
+              AND submitted.project_id=intent.project_id \
+              AND submitted.key_digest=sha256(convert_to(intent.submission_key::text,'UTF8')) \
+             JOIN attempts a ON a.organization_id=submitted.organization_id \
+              AND a.project_id=submitted.project_id AND a.id=submitted.attempt_id \
+             WHERE intent.organization_id=$1 AND intent.project_id=$2 AND intent.owner=$3 AND intent.id=$4",
+        ).bind(scope.organization_id).bind(scope.project_id).bind(owner).bind(intent)
+            .fetch_optional(&mut *tx).await?;
+        let Some(IntentSubmissionRow {attempt_id: attempt, model, dispatched, submitted_digest, intent_digest}) = row else {
+            tx.commit().await?;
+            return Ok(None);
+        };
+        if submitted_digest != intent_digest {
+            return Err(StoreError::Conflict);
+        }
+        let private_to_other: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM generations_turn_tasks WHERE organization_id=$1 AND project_id=$2 AND task_id=$3 AND owner<>$4)",
+        ).bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(owner)
+            .fetch_one(&mut *tx).await?;
+        if private_to_other { return Err(StoreError::Unauthorized); }
+        let status = match Self::media_job_status_on(scope, attempt, &mut *tx).await? {
+            None => "submission_unknown",
+            Some(crate::MediaJobStatus::Queued) => "queued",
+            Some(crate::MediaJobStatus::Running) => "running",
+            Some(crate::MediaJobStatus::Succeeded) => "succeeded",
+            Some(crate::MediaJobStatus::Failed) => "failed",
+            Some(crate::MediaJobStatus::Unknown) => "unknown",
+            Some(crate::MediaJobStatus::Conflicting) => "reconciliation_required",
+        };
+        let job=serde_json::json!({"id":attempt,"object":"video.job","model":model,"status":status});
+        tx.commit().await?;
+        Ok(Some((dispatched,job)))
     }
 
     /// Rotation preserves spending_root_id; unrelated keys never replace it.

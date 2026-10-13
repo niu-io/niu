@@ -7,13 +7,17 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import type { DashboardContext } from '@/app/dashboard-context';
-import { keyRequest, projectKeyPath, type ProjectKey } from '@/features/keys/api';
+import { keyRequest } from '@/features/keys/api';
 import type { VideoJobHistory } from '../../../../../sdks/javascript/src/index';
-import { NiuAdminClient } from '../../../../../sdks/javascript/src/admin';
+import { NiuAdminClient, type GenerationTask, type TenantScope } from '../../../../../sdks/javascript/src/admin';
 import { videoIntentHistory, type VideoIntentHistoryRow } from '@/features/video/intent-history';
 
 type Chat = {id:string;title?:string;prompt:string;createdAt:number};
-type Video = VideoJobHistory['data'][number] & {keyId:string;workspaceId?:string};
+type Video = VideoJobHistory['data'][number] & {keyId?:string;workspaceId?:string};
+type VideoCursor = {scope:TenantScope;before:string};
+function savedVideo(task:GenerationTask,workspaceId:string):Video {
+  return {id:task.id,object:'video.job',model:task.model,status:task.state,created_at_ms:String(Date.parse(task.created_at)),workspaceId};
+}
 export default function SessionHistory({context,chats, activeChat, onChat, chatActions, videos, videoKeyId, currentKeys, activeVideo, activeIntent, onIntentDeleted, pending=false, failed=false, disabled=false, listTarget}: {
   listTarget?: HTMLElement | null; context:DashboardContext; chats?:Chat[]; activeChat?:string|null; onChat?:(id:string)=>void; chatActions?:(id:string)=>ReactNode;
   currentKeys?:Array<{id:string;revoked:boolean;expired:boolean}>;videoKeyId?:string;videos?:Video[]; activeVideo?:string;activeIntent?:string;onIntentDeleted?:(id:string)=>void; disabled?:boolean;pending?:boolean;failed?:boolean;
@@ -38,7 +42,7 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
   const [error,setError]=useState('');
   const [loading,setLoading]=useState(false);
   const [revision,setRevision]=useState(0);
-  const [cursors,setCursors]=useState<Array<{keyId:string;before:string;scope:string;workspaceId:string}>>([]);
+  const [cursors,setCursors]=useState<VideoCursor[]>([]);
   const loadedScope=useRef('');
   const scope=workspace ? `/admin/v1/organizations/${workspace.organization_id}/projects/${workspace.id}` : '';
   useEffect(()=>{
@@ -60,7 +64,7 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
       const videoRows:Video[]=[];
       const intentRows:VideoIntentHistoryRow[]=[];
       const nextIntents:Array<{scope:VideoIntentHistoryRow['scope'];before:string}>=[];
-      const next:Array<{keyId:string;before:string;scope:string;workspaceId:string}>=[];
+      const next:VideoCursor[]=[];
       const pending=Array.from({length:Math.min(4,queue.length)},async()=>{
         while(queue.length && !controller.signal.aborted){
           const item=queue.shift()!;
@@ -76,14 +80,11 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
             const page=await read<{data:Chat[]}>(`${currentScope}/chat-sessions`);
             if(page)chatRows.push(...page.data.map(chat=>({...chat,workspaceId:item.id})));
           }
-          const keys=currentKeys!==undefined && item.id===workspace?.id ? {data:currentKeys} : await read<{data:ProjectKey[]}>(projectKeyPath(item.organization_id,item.id));
-          for(const key of (keys?.data??[]).filter(key=>!key.revoked&&!key.expired)){
-            if(controller.signal.aborted)return;
-            const page=await read<VideoJobHistory>(`${currentScope}/keys/${key.id}/video/jobs?limit=25`);
-            if(!page)continue;
-            videoRows.push(...page.data.map(video=>({...video,keyId:key.id,workspaceId:item.id})));
-            if(page.has_more&&page.next_before)next.push({keyId:key.id,before:page.next_before,scope:currentScope,workspaceId:item.id});
-          }
+          try {
+            const page=await client!.generations(tenant).tasks.list({kind:'video',limit:25},{signal:controller.signal});
+            videoRows.push(...page.data.map(task=>savedVideo(task,item.id)));
+            if(page.has_more&&page.next_cursor)next.push({scope:tenant,before:page.next_cursor});
+          }catch{if(!controller.signal.aborted)failedRead=true;}
         }
       });
       const outcomes=await Promise.allSettled(pending);
@@ -99,7 +100,7 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
     const intentHref=(item:VideoIntentHistoryRow)=>`/generations?workspace=${encodeURIComponent(item.scope.projectId)}&intent=${encodeURIComponent(item.id)}${item.keyId ? `&key=${encodeURIComponent(item.keyId)}`:''}`;
     return [
       ...[...new Map([...savedChats.filter(item => chats === undefined || pending || item.workspaceId !== workspace?.id),...(chats??[]).map(item=>({...item,workspaceId:workspace?.id??''}))].map(item=>[`${item.workspaceId}:${item.id}`,item])).values()].map(item=>({id:item.id,type:'chat' as const,workspaceId:item.workspaceId,title:item.title||item.prompt.split('\n')[0]||'Chat session',created:item.createdAt,href:`/generations?workspace=${encodeURIComponent(item.workspaceId??'')}&session=${encodeURIComponent(item.id)}`})),
-      ...[...merged.values()].map(item=>{const intent=intentsByJob.get(item.id);return {id:item.id,type:'video' as const,intent,workspaceId:item.workspaceId,title:intent?.title??`Video · ${item.model}`,created:Number(item.created_at_ms),href:intent ? intentHref(intent):`/generations?workspace=${encodeURIComponent(item.workspaceId??'')}&key=${encodeURIComponent(item.keyId)}&job=${encodeURIComponent(item.id)}`};}),
+      ...[...merged.values()].map(item=>{const intent=intentsByJob.get(item.id);return {id:item.id,type:'video' as const,intent,workspaceId:item.workspaceId,title:intent?.title??`Video · ${item.model}`,created:Number(item.created_at_ms),href:intent ? intentHref(intent):`/generations?workspace=${encodeURIComponent(item.workspaceId??'')}${item.keyId ? `&key=${encodeURIComponent(item.keyId)}`:''}&job=${encodeURIComponent(item.id)}`};}),
       ...savedIntents.filter(item=>!item.jobId || !merged.has(item.jobId)).map(item=>({id:item.id,type:'video' as const,intent:item,workspaceId:item.scope.projectId,title:item.title,created:Number(item.expires_at_ms),href:intentHref(item)})),
     ].sort((a,b)=>b.created-a.created||a.id.localeCompare(b.id));
   },[chats,savedChats,savedVideos,savedIntents,videos,workspace?.id,pending]);
@@ -108,7 +109,7 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
     const request=new AbortController();pagination.current=request;
     const currentGeneration=generation.current;
     try{
-      const next:Array<{keyId:string;before:string;scope:string;workspaceId:string}>=[];const rows:Video[]=[];
+      const next:VideoCursor[]=[];const rows:Video[]=[];
       const nextIntents:Array<{scope:VideoIntentHistoryRow['scope'];before:string}>=[];const intentRows:VideoIntentHistoryRow[]=[];let incomplete=false;
       for(const cursor of intentCursors){
         const page=await videoIntentHistory(client!,cursor.scope,{limit:25,before:cursor.before},{signal:request.signal});
@@ -118,9 +119,9 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
       // Sequential page reads bound both concurrency and retained response memory.
       for(const cursor of cursors){
         if(request.signal.aborted)return;
-        const page=await keyRequest<VideoJobHistory>(token,`${cursor.scope}/keys/${cursor.keyId}/video/jobs?limit=25&before=${encodeURIComponent(cursor.before)}`,'GET',undefined,request.signal);
-        rows.push(...page.data.map(item=>({...item,keyId:cursor.keyId,workspaceId:cursor.workspaceId})));
-        if(page.has_more&&page.next_before)next.push({...cursor,before:page.next_before});
+        const page=await client!.generations(cursor.scope).tasks.list({kind:'video',limit:25,cursor:cursor.before},{signal:request.signal});
+        rows.push(...page.data.map(task=>savedVideo(task,cursor.scope.projectId)));
+        if(page.has_more&&page.next_cursor)next.push({...cursor,before:page.next_cursor});
       }
       if(request.signal.aborted||currentGeneration!==generation.current)return;
       if(incomplete)setError('Some saved inputs could not be read.');

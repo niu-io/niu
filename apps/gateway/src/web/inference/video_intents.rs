@@ -76,35 +76,25 @@ async fn load(
 async fn restored(
     state: &AppState,
     scope: TenantScope,
+    owner: &str,
     intent: VideoIntent,
 ) -> Result<Value, ApiError> {
-    let principal = selected(state, scope, &intent).await?;
-    let identity = identity(&intent);
-    let attempt = state
-        .store
-        .media_submission_attempt(scope, &identity.key, &identity.request)
-        .await
-        .map_err(ApiError::from_store)?;
-    let (submission_state, job) = if let Some(attempt) = attempt {
-        let (dispatched, job) = state
-            .store
-            .media_job_snapshot_for_key(&principal, attempt)
-            .await
-            .map_err(ApiError::from_store)?
-            .ok_or_else(ApiError::not_found)?;
-        (
-            if dispatched {
-                "dispatched"
-            } else {
-                "not_dispatched"
-            },
-            Some(job),
-        )
-    } else {
-        ("saved", None)
+    // A key ID is saved context, never a historical read or action grant.
+    // Preserve rotation lineage when available; only its explicit absence falls
+    // back to the original key. Storage failures must not become successful reads.
+    let key_id = match state.store.video_intent_key(scope,intent.key_id,&intent.model).await {
+        Ok(key) => key,
+        Err(niu_storage::StoreError::Unauthorized) => intent.key_id,
+        Err(error) => return Err(ApiError::from_store(error)),
+    };
+    let saved=state.store.video_intent_submission_snapshot(scope,owner,intent.id)
+        .await.map_err(ApiError::from_store)?;
+    let (submission_state, job) = match saved {
+        Some((dispatched,job)) => (if dispatched {"dispatched"} else {"not_dispatched"},Some(job)),
+        None => ("saved",None),
     };
     Ok(
-        json!({"data":{"id":intent.id,"revision":intent.revision,"original_key_id":intent.key_id,"key_id":principal.key_id(),"model":intent.model,"funding_mode":if intent.owner_funded {"owner_funded"} else {"customer"},"request":intent.request,"content_state":if intent.expired {"expired"} else if intent.deleted {"deleted"} else {"retained"},"expires_at_ms":intent.expires_at_ms,"submission_state":submission_state,"job":job}}),
+        json!({"data":{"id":intent.id,"revision":intent.revision,"original_key_id":intent.key_id,"key_id":key_id,"model":intent.model,"funding_mode":if intent.owner_funded {"owner_funded"} else {"customer"},"request":intent.request,"content_state":if intent.expired {"expired"} else if intent.deleted {"deleted"} else {"retained"},"expires_at_ms":intent.expires_at_ms,"submission_state":submission_state,"job":job}}),
     )
 }
 
@@ -431,7 +421,7 @@ pub(in crate::web) struct SaveInput {
 ///         "key_id": {
 ///           "type": "string",
 ///           "format": "uuid",
-///           "description": "Current active key in the original rotation lineage; no secret is returned."
+///           "description": "Available active rotation-lineage key with the model grant, otherwise the original saved key. Context only; current action authorization remains required and no secret is returned."
 ///         },
 ///         "model": {
 ///           "type": "string"
@@ -460,7 +450,7 @@ pub(in crate::web) struct SaveInput {
 ///             "not_dispatched",
 ///             "dispatched"
 ///           ],
-///           "description": "Dispatch and job status are read from one database statement snapshot. not_dispatched means original preparation has no recorded dispatch; it never grants a fresh submission right."
+///           "description": "Dispatch and job status are read from one bounded read-only database snapshot. not_dispatched means original preparation has no recorded dispatch; it never grants a fresh submission right."
 ///         },
 ///         "job": {
 ///           "anyOf": [
@@ -535,7 +525,7 @@ pub(in crate::web) async fn save(
         .await
         .map_err(ApiError::from_store)?;
     Ok(Json(
-        restored(&state, scope, load(&state, scope, &owner, id).await?).await?,
+        restored(&state, scope, &owner, load(&state, scope, &owner, id).await?).await?,
     ))
 }
 
@@ -545,8 +535,8 @@ pub(in crate::web) async fn save(
 ///   "method": "get",
 ///   "operation": {
 ///     "operationId": "getVideoSubmissionIntent",
-///     "summary": "Restore a video intent and resolve its original job",
-///     "description": "Actor-owned workspace records: installation authority shares one installation actor, while operator actors are isolated even within the same workspace. Current workspace permission applies. Request content is retained for 30 days from creation or until deletion; expiry is unreadable immediately and background maintenance clears retained content. Identity tombstones remain. Deletion does not cancel an already accepted concurrent submission, erase its job or refund charges. Requires read permission plus current key/model/source authorization. A rotated key is resolved only within the saved key lineage. An unrelated key never replaces the original billing source. This GET never polls upstream, reserves funds or submits a job; it reports saved, not_dispatched or dispatched preparation.",
+///     "summary": "Restore a saved video intent and its historical job",
+///     "description": "Current workspace Read permission and the original actor-owned intent are required. Restores saved request and job evidence independently of current inference key lifetime, model grants, source policy or Provider configuration. Original and available rotation-lineage key IDs are context only, never authority to submit, estimate or query upstream. Revoked/expired keys and lost model grants do not hide retained private input; deletion and original/bound-turn expiry still hide content immediately. Unknown submission evidence never grants permission to dispatch again. No upstream request, inference, reservation, settlement or write occurs. Storage failures remain errors.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -616,13 +606,13 @@ pub(in crate::web) async fn save(
 ///         "description": "Invalid path, query or request; framework rejections may be plain text."
 ///       },
 ///       "401": {
-///         "description": "Invalid actor credential or no authorized current key in the original lineage."
+///         "description": "Invalid actor credential."
 ///       },
 ///       "403": {
-///         "description": "Workspace permission or current source policy denied."
+///         "description": "Current workspace Read permission denied."
 ///       },
 ///       "404": {
-///         "description": "Intent is not owned by this actor and workspace, or selected model is inaccessible."
+///         "description": "Intent is not owned by this actor and workspace."
 ///       },
 ///       "409": {
 ///         "description": "Immutable identity, request, funding mode, revision or cursor conflict."
@@ -644,7 +634,7 @@ pub(in crate::web) async fn get(
     let scope = scope(org, ws);
     let owner = owner(&state, &headers, scope, AdminPermission::Read).await?;
     Ok(Json(
-        restored(&state, scope, load(&state, scope, &owner, id).await?).await?,
+        restored(&state, scope, &owner, load(&state, scope, &owner, id).await?).await?,
     ))
 }
 

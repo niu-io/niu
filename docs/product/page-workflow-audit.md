@@ -16,14 +16,14 @@ Baseline: current `main` at `534c07ee`, 2026-10-13. This audit covers rendered p
 | --- | --- | --- | --- | --- |
 | P01 | Login and member session | `/login` | Destination, restore, expiry, sign-out, errors | In review: actual member sign-in/session restoration observed; expiry/sign-out pending |
 | P02 | Installation administration | `/installation` | Platform sign-in and role boundaries | In review: actual installation sign-in and member/platform navigation observed; full boundaries pending |
-| P03 | Workspace directory | `/workspaces` | Create, switch, rename, delete, empty/error states | Not checked |
-| P04 | Workspace overview | `/workspaces/:workspace` | Real summary and action destinations | Not checked |
+| P03 | Workspace directory | `/workspaces` | Create, switch, rename, delete, empty/error states | In review: actual create/rename/reload/delete and independent database checks verified; narrow/error states pending |
+| P04 | Workspace overview | `/workspaces/:workspace` | Real summary and action destinations | In review: actual new empty workspace and action destinations inspected; request details pending |
 | P05 | API key list | `/workspaces/:workspace/keys` | Filter, grants, expiry, status, navigation | Not checked |
 | P06 | API key creation | `/workspaces/:workspace/keys/new` | Validation, permissions, one-time secret, persistence | Not checked |
 | P07 | API key detail | `/workspaces/:workspace/keys/:key` | Limits, rotation, revocation, history, conflict recovery | Not checked |
 | P08 | Workspace members | `/workspaces/:workspace/users` | Invite/manage roles and scope enforcement | Not checked |
 | P09 | Organization management | `/workspaces/:workspace/organization` | Company/workspace ownership and supported actions | Not checked |
-| P10 | Workspace settings | `/workspaces/:workspace/settings` | Saved scope settings and limits | Not checked |
+| P10 | Workspace settings | `/workspaces/:workspace/settings` | Saved scope settings and limits | In review: rename/reload and guarded empty-workspace deletion verified; limits/boundaries pending |
 | P11 | Guardrails | `/workspaces/:workspace/guardrails/:section?` | Every supported section, preview, activation, conflicts, roles | Not checked |
 | P12 | Workspace Logs | `/workspaces/:workspace/executions` | Filters, details, exports, timing, unknown usage, customer charges | Not checked |
 | P13 | Global Gateway Activity | `/activity/:section?` and `/workspaces/:workspace/usage` | Global/workspace scope, coverage, drilldowns; excludes external Agent Observability | Not checked |
@@ -32,7 +32,7 @@ Baseline: current `main` at `534c07ee`, 2026-10-13. This audit covers rendered p
 | P16 | Generations Chat | `/generations` | Model/key selection, messages, branches, cancellation, attachments, persistence | Not checked |
 | P17 | Generations Video | `/generations?new=video` | Drafts, references, async tasks, original recovery, preview/download | Fix needed: native tools corrected; drafts/reference/task integration remain open |
 | P18 | Writing entry points | `/generations` | Existing writing templates and supported Chat flow; no new editor | Not checked |
-| P19 | Generation session history | `/generations` | Restoration, archived/deleted input, revoked keys, actor isolation | In review: actual saved entries/restoration observed; revoked-key coverage pending |
+| P19 | Generation session history | `/generations` | Restoration, archived/deleted input, revoked keys, actor isolation | In review: revoked/expired-key input restoration and actor isolation verified; output integration pending |
 | P20 | Native video materials | `/workspaces/:workspace/video/volcengine/:section?` | Exact account context, groups/materials, validation, uncertainty, observations | Fix needed: Video exact context corrected; standalone selection/recovery pending |
 | P21 | Native verification tools | `/workspaces/:workspace/video/volcengine/:section?` | Capability-gated explicit workflow; no fabricated H5 completion | In review: capability-gated entry and saved read observed; verification creation not exercised |
 | P22 | Shared task/output integration | `/generations` | Existing task/artifact inventory and durable save; UI integration gap candidate | Not checked |
@@ -44,7 +44,7 @@ Baseline: current `main` at `534c07ee`, 2026-10-13. This audit covers rendered p
 | P28 | Admin branding | `/admin/branding` | Preview, validation, save, conflict recovery and shared shell consistency | Not checked |
 | P29 | Supplier member portal | `/suppliers/:supplier/:section?` | Own offers/models/consumption/settlements and permissions | Not checked |
 | P30 | Global Settings | `/settings/:section?` | Account, Appearance, Billing, Payments, About; underlying-page return | In review: actual profile save observed; remaining settings/conflict states pending |
-| P31 | Help and documentation | `/help/* and /docs/*` | Actual destinations, navigation, truthful API/SDK capabilities | Not checked |
+| P31 | Help and documentation | `/help/* and /docs/*` | Actual destinations, navigation, truthful API/SDK capabilities | In review: current Generations guide served in dashboard iframe at desktop/narrow; full navigation/link coverage pending |
 | P32 | Public model catalog | `Public catalog model routes` | Anonymous routes and dashboard handoff; separate marketing ownership | Not checked |
 | P33 | Compatibility and not-found routes | `Legacy redirects and unknown URLs` | Destination/query preservation and useful recovery | Not checked |
 | P34 | Deferred legacy surfaces | `/benchmarks` and legacy redirects | Check product boundary and entry points; do not revive excluded orchestration | Not checked |
@@ -55,9 +55,9 @@ These are source findings awaiting current-input reproduction, not integrated ac
 
 | Candidate | Priority | Page families | Concrete suspected gap | State |
 | --- | --- | --- | --- | --- |
-| C01 | P1 | P17, P19 | Saved Video history requires active keys instead of historical workspace/session access | In review |
+| C01 | P1 | P17, P19 | Saved Video history requires active keys instead of historical workspace/session access | Historical input/status scope fixed; results integration remains open |
 | C02 | P1 | P17, P20, P21 | Unsupported models expose native materials and verification tools before failing | Video scope fixed; standalone gap remains |
-| C03 | P1 | P20 | Material validation errors remain behind dialogs; unknown operations lack explicit recovery | In review |
+| C03 | P1 | P20 | Material validation errors remain behind dialogs; unknown operations lack explicit recovery | Inline/network-failure scope fixed; durable recovery remains open |
 | C04 | P1 | P17, P22 | Existing task/artifact/durable capture SDK is not consumed by product pages | In review |
 | C05 | P1 | P17 | Image/reference submission bypasses retained intent association | In review |
 | C06 | P1 | P23, P24 | Supplier adapter controls omit backend-supported Anthropic/Gemini/Ark | Fixed; verified scope below |
@@ -94,3 +94,19 @@ Actual administration previously showed only EPay. The current page now displays
 ### Reasoning customer price editor
 
 The existing customer-price form now exposes the backend reasoning-output rate and its ordinary-output fallback. An actual browser publication of a current decimal value was independently read back through the pricing API with all other rates unchanged. Separate browser publications verified explicit zero and blank fallback restoration. Desktop and 390px form checks found no page overflow. These checks used the isolated current Gateway/database copy and made no inference about accounting correctness from control rendering.
+
+### Historical Video reads after key revocation and expiry
+
+An actual newly saved, unsubmitted draft became unreadable after its key was revoked. The historical intent read now checks workspace permission and original actor ownership without requiring current inference authority. Current-input revocation and finite-expiry runs restored the identical saved requests; explicit submissions remained denied. A different authenticated member received 404 for the private draft. The existing paid video's intent returned the same original successful job after restart without a new generation. Desktop and 390px checks verified retained input/status and the correct API-key recovery link. Sidebar task history uses the existing workspace Tasks SDK rather than enumerating active keys. Historical preview, billing/timing panels and complete shared-output integration remain open.
+
+### Native material form failures
+
+The actual material form previously hid a server validation error behind the open dialog. Errors now appear inline, and malformed/non-HTTPS URLs are rejected locally with a clear message. Actual desktop/narrow checks verified retained fields and readable errors. A deliberate interruption of the isolated current Gateway produced a real 502 during the form request; the UI preserved the draft, blocked another submission and restored the same frozen form after close/reopen. The isolated Gateway was restored; the original service was untouched. This check created no accepted upstream operation. Saved-operation references enable explicit status reads when returned, but that recovery branch and durability after component unload remain unverified/open.
+
+### Workspace lifecycle
+
+An actual member created a new workspace, renamed it, reloaded the resulting settings route and deleted only that empty verification workspace through the confirmation dialog. Independent PostgreSQL reads proved the saved name and subsequent absence. The new workspace overview's empty state and action destinations were inspected. Other workspace role/error/narrow states are still pending.
+
+### Current documentation rendering
+
+The current docs artifact was built and served by the isolated Gateway at the real `/docs` path. Browser checks at `/help/reference/generations/` confirmed the embedded guide's heading, updated historical-read explanation and explicit remaining dashboard limitations at desktop and 390px width. The full documentation link/menu inventory remains pending.

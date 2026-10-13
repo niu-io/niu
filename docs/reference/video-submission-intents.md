@@ -72,13 +72,15 @@ Each operator is a separate actor, even when another operator or installation
 administrator can access the same workspace. Installation credentials share one
 installation actor. Read and write workspace permissions apply independently.
 
-The index exposes only IDs, revisions, retention state and expiry, so an actor
-can erase their retained content after key revocation. Full reads additionally
-require current model grants and source policy for an active key in the original
-rotation lineage. They return both `original_key_id` and the current `key_id`,
-never a key secret. An unrelated key cannot replace the billing source. If the
-whole lineage is revoked, expired or no longer grants the model, content reads
-are denied; creating another unrelated key does not restore access.
+The index exposes only IDs, revisions, retention state and expiry. Full historical
+reads require current workspace Read permission and the original actor-owned
+intent, independently of inference key expiry, revocation or model grants. They
+return `original_key_id` and an available rotation-lineage `key_id`, falling back
+to the original key ID when no valid successor exists; these IDs are context,
+never an action grant or a key secret. Retention and actor isolation still apply.
+An unrelated key cannot replace the billing source. Submission, estimation and
+upstream checks continue to require current model grants, source policy and an
+active key in the original rotation lineage.
 
 A full read returns `submission_state` and a nullable `job`:
 

@@ -47,6 +47,13 @@ Saved intent drafts accept text, typed `provider_asset { id }` references to Niu
 
 Create/associate recover independently: after a Video submission response is lost, recover its original saved intent/task identity and attach that task. A failed session write is never permission to send another paid request. Read the session to recover a lost association response. Archive hides the session from the default directory without cancelling tasks or deleting their outputs, history or billing.
 
+### Restore history after a key becomes unavailable
+
+The dashboard can restore retained Video input and saved task state after its original inference key is revoked or expires. Historical reads still require current workspace Read permission and the original actor-owned intent. Returned key references are context, not authorization to generate, estimate or query a Supplier. An unavailable key leads to API-key management rather than Supplier configuration.
+
+Historical preview, billing/timing panels and complete shared-output controls remain dashboard integration work; the SDK contracts below expose their supported operations independently.
+
+
 ## Existing Chat timelines
 
 The Chat bridge reads the existing actor-private saved sessions without replacing their storage or writes. Session timestamps come from database metadata; missing titles remain null. It preserves retained prompts, attachments and comparison branches, and uses the existing customer-charge hydration. Branch fields are filtered to declared scalar metadata; a saved comparison `phase` is content, not authoritative execution evidence. An execution reference appears only after its workspace and model match a real saved attempt. A Chat conversation is never presented as one running task.
