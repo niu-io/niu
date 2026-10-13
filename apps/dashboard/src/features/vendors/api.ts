@@ -1,6 +1,15 @@
 import type { VideoSchema } from './video-schema';
 import type { CatalogMetadata } from '@/app/dashboard-context';
-export type VendorAdapter = 'openrouter' | 'openai';
+export type VendorAdapter = 'openrouter' | 'openai' | 'anthropic' | 'gemini' | 'ark';
+
+export const vendorAdapterLabels: Record<VendorAdapter, string> = {
+  openrouter: 'OpenRouter', openai: 'OpenAI', anthropic: 'Anthropic',
+  gemini: 'Google Gemini', ark: 'Volcengine Ark',
+};
+export const vendorAdapterApiLabels: Record<VendorAdapter, string> = {
+  openrouter: 'OpenRouter API', openai: 'OpenAI-compatible API',
+  anthropic: 'Anthropic Messages API', gemini: 'Google Gemini API', ark: 'Ark-compatible API',
+};
 
 export type Vendor = {
   id: string;
@@ -117,7 +126,13 @@ export async function request<T>(
 }
 
 export function defaultApiBase(adapter: VendorAdapter) {
-  return adapter === 'openrouter' ? 'https://openrouter.ai/api/v1' : 'https://api.openai.com/v1';
+  const defaults: Record<VendorAdapter, string> = {
+    openrouter: 'https://openrouter.ai/api/v1', openai: 'https://api.openai.com/v1',
+    anthropic: 'https://api.anthropic.com/v1', gemini: 'https://generativelanguage.googleapis.com/v1beta',
+    // Ark-compatible services need their own explicit configured endpoint.
+    ark: '',
+  };
+  return defaults[adapter];
 }
 
 export function emptyCapabilities(): ModelCapabilities {

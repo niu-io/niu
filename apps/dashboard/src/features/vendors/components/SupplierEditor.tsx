@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { request, defaultApiBase, type Vendor, type VendorAdapter, type VendorWrite } from '../api';
+import { request, defaultApiBase, vendorAdapterLabels, type Vendor, type VendorAdapter, type VendorWrite } from '../api';
 
 export type VendorCreate = { name: string; adapter: VendorAdapter; api_base: string; api_key: string; enabled: true; create_supplier?: true; supplier_id?: string };
 
@@ -119,15 +119,18 @@ export default function SupplierEditor({ token, initialSupplierId, vendor, disab
         </Label>
         <Label htmlFor="vendor-adapter">Upstream API service
           <DropdownMenu>
-            <DropdownMenuTrigger asChild><Button id="vendor-adapter" type="button" variant="outline" className="w-full justify-between font-normal" disabled={disabled || Boolean(vendor)}>{adapter === 'openrouter' ? 'OpenRouter' : 'OpenAI'}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
+            <DropdownMenuTrigger asChild><Button id="vendor-adapter" type="button" variant="outline" className="w-full justify-between font-normal" disabled={disabled || Boolean(vendor)}>{vendorAdapterLabels[adapter]}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]"><DropdownMenuRadioGroup value={adapter} onValueChange={value => changeAdapter(value as VendorAdapter)}>
               <DropdownMenuRadioItem value="openrouter">OpenRouter</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="openai">OpenAI</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="anthropic">Anthropic</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="gemini">Google Gemini</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="ark">Volcengine Ark</DropdownMenuRadioItem>
             </DropdownMenuRadioGroup></DropdownMenuContent>
           </DropdownMenu>
         </Label>
         <Label htmlFor="vendor-api-base">API base URL
-          <Input id="vendor-api-base" type="url" inputMode="url" value={apiBase} onChange={event => setApiBase(event.target.value)} maxLength={2048} autoComplete="url" placeholder="https://openrouter.ai/api/v1" required disabled={disabled} />
+          <Input id="vendor-api-base" type="url" inputMode="url" value={apiBase} onChange={event => setApiBase(event.target.value)} maxLength={2048} autoComplete="url" placeholder={adapter === 'ark' ? 'https://fastrouter.wecitytech.com/doubao/api/v3' : defaultApiBase(adapter)} required disabled={disabled} />
         </Label>
         <Label htmlFor="vendor-api-key">{vendor ? 'Replace supplier API key (optional)' : 'Supplier API key'}
           <Input id="vendor-api-key" type="password" value={apiKey} onChange={event => setApiKey(event.target.value)} autoComplete="new-password" spellCheck={false} placeholder={vendor ? 'Leave blank to keep the current credential' : 'Paste a supplier key'} required={!vendor} disabled={disabled} />
