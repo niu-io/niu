@@ -14,6 +14,7 @@ export function useAccountAppearance(token: string, identity: string, personal: 
     if (!personal) {cacheThemeOwner('');cacheTheme(deploymentDefault);setState({identity,ready:true,saving:false,error:''});return;}
     const controller = new AbortController();
     let ready = false;
+    let unconfirmed = false;
     let running = false;
     let confirmed: Theme = 'system';
     let queued: Theme | null = null;
@@ -39,8 +40,10 @@ export function useAccountAppearance(token: string, identity: string, personal: 
       } catch {
         if (!controller.signal.aborted) {
           queued = null;
+          ready = false;
+          unconfirmed = true;
           cacheTheme(confirmed);
-          setState({identity,ready:true,saving:false,error:'Could not save color mode. Your previous mode has been restored.'});
+          setState({identity,ready:false,saving:false,error:'Could not confirm your saved color mode. Reload color mode to check it.'});
         }
         return;
       } finally { running = false; }
@@ -49,7 +52,7 @@ export function useAccountAppearance(token: string, identity: string, personal: 
         setState({identity,ready:true,saving:false,error:''});
       }
     }
-    const choose = (mode: Theme) => {queued=mode;void flush();};
+    const choose = (mode: Theme) => {if(unconfirmed)return;queued=mode;void flush();};
     const changed = (event: Event) => {
       const detail = (event as CustomEvent<{theme:unknown;persist:boolean}>).detail;
       if (detail?.persist && validMode(detail.theme)) choose(detail.theme);

@@ -155,7 +155,7 @@ export default function AccountBilling({token, organization, canConfigure = fals
             </div>
             {BigInt(account.available_nanos) <= 0n
               ? <Alert variant="destructive"><AlertTitle>Insufficient funds</AlertTitle><AlertDescription>{canConfigure ? 'Paid requests are paused until funds are added.' : 'Paid requests are paused. Contact your billing administrator to add funds.'}</AlertDescription></Alert>
-              : account.low_balance && <Alert><AlertTitle>Low balance</AlertTitle><AlertDescription>Add funds before your available balance runs out.</AlertDescription></Alert>}
+              : account.low_balance && <Alert><AlertTitle>Low balance</AlertTitle><AlertDescription>Your account balance is below the warning threshold. Approved credit is excluded from this warning.</AlertDescription></Alert>}
           </div>)}
           {!accountError && accounts?.length === 0 && <p className="text-muted-foreground">{canConfigure ? 'No prepaid account configured.' : 'No prepaid account configured. Contact your billing administrator.'}</p>}
         </section>}
