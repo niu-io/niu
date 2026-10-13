@@ -1,16 +1,30 @@
 import type { RequestOptions } from './index.js';
 import { createMediaVerificationClient } from './media-verification.js';
 
+/** Current metadata from an explicit, successful, identity-validated Get.
+ * Independent of operation ACKs; cannot unblock unknown writes or grant reuse.
+ */
+export type MediaAssetGroupObservation = {
+  source: 'provider_get'; status: 'present';
+  name: string | null; description: string | null; observed_at_ms: number;
+};
+export type MediaAssetObservation = {
+  source: 'provider_get'; status: 'processing' | 'active' | 'failed';
+  name: string | null; observed_at_ms: number;
+};
+
 /** Niu workspace references, never raw Provider asset identifiers or Actions. */
 export type MediaAssetGroup = {
   id: string; model: string; name: string; description: string | null;
   kind: 'generated' | 'person'; status: 'pending' | 'ready' | 'unknown' | 'failed' | 'deleted';
+  observation: MediaAssetGroupObservation | null;
   revision: string; created_at_ms: number; updated_at_ms: number;
 };
 export type MediaAsset = {
   id: string; group_id: string; model: string; name: string | null;
   kind: 'image' | 'video' | 'audio';
   status: 'pending' | 'processing' | 'active' | 'failed' | 'unknown' | 'deleted';
+  observation: MediaAssetObservation | null;
   revision: string; created_at_ms: number; updated_at_ms: number;
 };
 export type MediaAssetOperation = {

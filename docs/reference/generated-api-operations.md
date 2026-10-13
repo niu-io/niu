@@ -25547,7 +25547,7 @@ HTTP 503: Credential, capacity or bounded storage unavailable
 
 `POST /v1/media/asset-groups/{id}/refresh`
 
-Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Performs one explicit read of the original owned Provider reference and saves validated metadata. This is not a generation or mutation retry.
+Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Performs one explicit read of the original owned Provider reference and saves validated metadata. This is not a generation or mutation retry. Successful identity-validated reads persist nullable observation metadata even while the resource status and original uncertain operation remain unknown. Unknown writes remain blocked; this read does not redispatch, infer write completion, acknowledge a delete from 404, discover an unknown creation ID or grant material reuse. Failed reads preserve the previous observation and its timestamp.
 
 Implementation: `implemented`. Operation: `refresh_groupProviderAsset`.
 
@@ -25624,7 +25624,7 @@ HTTP 503: Credential, capacity or bounded storage unavailable
 
 `POST /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-groups/{id}/refresh`
 
-Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Performs one explicit read of the original owned Provider reference and saves validated metadata. This is not a generation or mutation retry.
+Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Performs one explicit read of the original owned Provider reference and saves validated metadata. This is not a generation or mutation retry. Successful identity-validated reads persist nullable observation metadata even while the resource status and original uncertain operation remain unknown. Unknown writes remain blocked; this read does not redispatch, infer write completion, acknowledge a delete from 404, discover an unknown creation ID or grant material reuse. Failed reads preserve the previous observation and its timestamp.
 
 Implementation: `implemented`. Operation: `dashboardrefresh_groupProviderAsset`.
 
@@ -25728,7 +25728,7 @@ HTTP 503: Credential, capacity or bounded storage unavailable
 
 `POST /v1/media/assets/{id}/refresh`
 
-Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Performs one explicit read of the original owned Provider reference and saves validated metadata. This is not a generation or mutation retry.
+Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Performs one explicit read of the original owned Provider reference and saves validated metadata. This is not a generation or mutation retry. Successful identity-validated reads persist nullable observation metadata even while the resource status and original uncertain operation remain unknown. Unknown writes remain blocked; this read does not redispatch, infer write completion, acknowledge a delete from 404, discover an unknown creation ID or grant material reuse. Failed reads preserve the previous observation and its timestamp.
 
 Implementation: `implemented`. Operation: `refresh_assetProviderAsset`.
 
@@ -25805,7 +25805,7 @@ HTTP 503: Credential, capacity or bounded storage unavailable
 
 `POST /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/assets/{id}/refresh`
 
-Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Performs one explicit read of the original owned Provider reference and saves validated metadata. This is not a generation or mutation retry.
+Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Performs one explicit read of the original owned Provider reference and saves validated metadata. This is not a generation or mutation retry. Successful identity-validated reads persist nullable observation metadata even while the resource status and original uncertain operation remain unknown. Unknown writes remain blocked; this read does not redispatch, infer write completion, acknowledge a delete from 404, discover an unknown creation ID or grant material reuse. Failed reads preserve the previous observation and its timestamp.
 
 Implementation: `implemented`. Operation: `dashboardrefresh_assetProviderAsset`.
 
@@ -30874,7 +30874,8 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "status",
     "revision",
     "created_at_ms",
-    "updated_at_ms"
+    "updated_at_ms",
+    "observation"
   ],
   "properties": {
     "id": {
@@ -30916,6 +30917,17 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "updated_at_ms": {
       "type": "integer",
       "format": "int64"
+    },
+    "observation": {
+      "oneOf": [
+        {
+          "$ref": "#/components/schemas/MediaAssetObservation"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Last successful identity-validated Provider Get metadata, independent of mutation status. Null before any successful read. An observation never acknowledges or unblocks unknown writes, grants dispatch or proves an uncertain write completed."
     }
   }
 }
@@ -30934,7 +30946,8 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "status",
     "revision",
     "created_at_ms",
-    "updated_at_ms"
+    "updated_at_ms",
+    "observation"
   ],
   "properties": {
     "id": {
@@ -30974,6 +30987,62 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "updated_at_ms": {
       "type": "integer",
       "format": "int64"
+    },
+    "observation": {
+      "oneOf": [
+        {
+          "$ref": "#/components/schemas/MediaAssetGroupObservation"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Last successful identity-validated Provider Get metadata, independent of mutation status. Null before any successful read. An observation never acknowledges or unblocks unknown writes, grants dispatch or proves an uncertain write completed."
+    }
+  }
+}
+```
+
+### MediaAssetGroupObservation
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "source",
+    "status",
+    "name",
+    "observed_at_ms",
+    "description"
+  ],
+  "properties": {
+    "source": {
+      "type": "string",
+      "const": "provider_get"
+    },
+    "status": {
+      "type": "string",
+      "const": "present"
+    },
+    "name": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 64
+    },
+    "observed_at_ms": {
+      "type": "integer",
+      "format": "int64",
+      "description": "Server time of the saved successful Provider read. Historical observation, not a current availability guarantee."
+    },
+    "description": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 300
     }
   }
 }
@@ -31041,6 +31110,47 @@ Local `#/components/schemas/…` references resolve to these definitions.
           "type": "null"
         }
       ]
+    }
+  }
+}
+```
+
+### MediaAssetObservation
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "source",
+    "status",
+    "name",
+    "observed_at_ms"
+  ],
+  "properties": {
+    "source": {
+      "type": "string",
+      "const": "provider_get"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "processing",
+        "active",
+        "failed"
+      ]
+    },
+    "name": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 64
+    },
+    "observed_at_ms": {
+      "type": "integer",
+      "format": "int64",
+      "description": "Server time of the saved successful Provider read. Historical observation, not a current availability guarantee."
     }
   }
 }

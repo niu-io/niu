@@ -5,7 +5,7 @@ import { waitForVideoJob, type VideoWaitOptions } from './video-wait.js';
 export type { VideoWaitOptions } from './video-wait.js';
 import { normalizeVideoGeneration, type NiuVideoGenerationInput } from './video-generation.js';
 import { createMediaAssetsClient } from './media-assets.js';
-export type { MediaAsset, MediaAssetGroup, MediaAssetOperation, MediaAssetMutation, MediaAssetMutationOptions, MediaAssetPage } from './media-assets.js';
+export type { MediaAssetObservation, MediaAssetGroupObservation, MediaAsset, MediaAssetGroup, MediaAssetOperation, MediaAssetMutation, MediaAssetMutationOptions, MediaAssetPage } from './media-assets.js';
 export type { MediaVerificationSession, MediaVerificationInput, MediaVerificationLink } from './media-verification.js';
 export type { NiuVideoGenerationInput } from './video-generation.js';
 /** Buffered native Gemini text. Requires an explicitly declared static or managed gemini route. */

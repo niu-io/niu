@@ -5,7 +5,7 @@ use crate::{Principal, Store, StoreError, TenantScope};
 use niu_media::fastrouter_domain::{
     FastRouterAsset, FastRouterAssetKind, FastRouterGroup, FastRouterProviderReference,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use sqlx::Row;
@@ -14,6 +14,24 @@ use uuid::Uuid;
 const MAX_GROUPS: i64 = 256;
 const MAX_ASSETS: i64 = 1024;
 const MAX_REQUEST_BYTES: usize = 16 * 1024;
+/// Last successful identity-validated explicit Provider read. This is not a
+/// mutation acknowledgement and cannot release uncertain operation holds.
+#[derive(Deserialize, Serialize)]
+pub struct ProviderGroupObservation {
+    pub source: String,
+    pub status: String,
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub observed_at_ms: i64,
+}
+#[derive(Deserialize, Serialize)]
+pub struct ProviderAssetObservation {
+    pub source: String,
+    pub status: String,
+    pub name: Option<String>,
+    pub observed_at_ms: i64,
+}
+
 #[derive(Serialize, sqlx::FromRow)]
 pub struct WorkspaceProviderAssetGroup {
     pub id: Uuid,
@@ -25,6 +43,7 @@ pub struct WorkspaceProviderAssetGroup {
     pub revision: String,
     pub created_at_ms: i64,
     pub updated_at_ms: i64,
+    pub observation: Option<sqlx::types::Json<ProviderGroupObservation>>,
     #[serde(skip)]
     provider_ref: Option<String>,
     #[serde(skip)]
@@ -65,6 +84,7 @@ pub struct WorkspaceProviderAsset {
     pub revision: String,
     pub created_at_ms: i64,
     pub updated_at_ms: i64,
+    pub observation: Option<sqlx::types::Json<ProviderAssetObservation>>,
     #[serde(skip)]
     provider_ref: Option<String>,
     #[serde(skip)]
@@ -249,8 +269,8 @@ pub enum WorkspaceProviderAssetOutcome {
     /// Only a proven failure before HTTP dispatch; no HTTP refusal implies this.
     NotDispatched,
 }
-const GROUP_COLUMNS: &str = "g.id,g.model_alias AS model,g.name,g.description,g.kind,g.status,g.revision::text AS revision,floor(extract(epoch FROM g.created_at)*1000)::bigint AS created_at_ms,floor(extract(epoch FROM g.updated_at)*1000)::bigint AS updated_at_ms,g.provider_ref,g.vendor_id,g.vendor_revision,g.model_revision,g.upstream_model";
-const ASSET_COLUMNS: &str = "a.id,a.group_id,g.model_alias AS model,a.name,a.kind,CASE WHEN g.status='unknown' THEN 'unknown' ELSE a.status END AS status,a.revision::text AS revision,floor(extract(epoch FROM a.created_at)*1000)::bigint AS created_at_ms,floor(extract(epoch FROM a.updated_at)*1000)::bigint AS updated_at_ms,a.provider_ref,g.provider_ref AS group_provider_ref,g.vendor_id,g.vendor_revision,g.model_revision,g.upstream_model,EXISTS(SELECT 1 FROM workspace_provider_asset_operations created WHERE created.organization_id=a.organization_id AND created.project_id=a.project_id AND created.group_id=a.group_id AND created.asset_id=a.id AND created.action='create_asset' AND created.status='acknowledged') AS create_acknowledged";
+const GROUP_COLUMNS: &str = "g.id,g.model_alias AS model,g.name,g.description,g.kind,g.status,g.revision::text AS revision,floor(extract(epoch FROM g.created_at)*1000)::bigint AS created_at_ms,floor(extract(epoch FROM g.updated_at)*1000)::bigint AS updated_at_ms,CASE WHEN g.observed_at IS NULL THEN NULL ELSE jsonb_build_object('source','provider_get','status','present','name',g.observed_name,'description',g.observed_description,'observed_at_ms',floor(extract(epoch FROM g.observed_at)*1000)::bigint) END AS observation,g.provider_ref,g.vendor_id,g.vendor_revision,g.model_revision,g.upstream_model";
+const ASSET_COLUMNS: &str = "a.id,a.group_id,g.model_alias AS model,a.name,a.kind,CASE WHEN g.status='unknown' THEN 'unknown' ELSE a.status END AS status,a.revision::text AS revision,floor(extract(epoch FROM a.created_at)*1000)::bigint AS created_at_ms,floor(extract(epoch FROM a.updated_at)*1000)::bigint AS updated_at_ms,CASE WHEN a.observed_at IS NULL THEN NULL ELSE jsonb_build_object('source','provider_get','status',a.observed_status,'name',a.observed_name,'observed_at_ms',floor(extract(epoch FROM a.observed_at)*1000)::bigint) END AS observation,a.provider_ref,g.provider_ref AS group_provider_ref,g.vendor_id,g.vendor_revision,g.model_revision,g.upstream_model,EXISTS(SELECT 1 FROM workspace_provider_asset_operations created WHERE created.organization_id=a.organization_id AND created.project_id=a.project_id AND created.group_id=a.group_id AND created.asset_id=a.id AND created.action='create_asset' AND created.status='acknowledged') AS create_acknowledged";
 const OP_COLUMNS: &str = "o.id,o.group_id,o.asset_id,g.model_alias AS model,o.action,o.status,o.http_status,o.request_id,floor(extract(epoch FROM o.created_at)*1000)::bigint AS created_at_ms,floor(extract(epoch FROM o.updated_at)*1000)::bigint AS updated_at_ms,g.vendor_id,g.vendor_revision,g.model_revision,g.upstream_model";
 #[derive(Serialize)]
 pub struct WorkspaceProviderAssetPage<T: Serialize> {
@@ -978,11 +998,10 @@ impl Store {
         {
             return Err(StoreError::Conflict);
         }
-        // An observation is not proof that an uncertain write never executed. Keep
-        // its unresolved operation and externally visible unknown state intact.
-        if g.status != "unknown" {
-            sqlx::query("UPDATE workspace_provider_asset_groups SET name=COALESCE($2,name),description=$3,status='ready',revision=revision+1,updated_at=now() WHERE id=$1").bind(id).bind(&observed.name).bind(&observed.description).execute(&mut *tx).await?;
-        }
+        // Persist genuine current metadata separately. An uncertain write and
+        // its mutation hold remain unknown; a read never proves write completion.
+        sqlx::query("UPDATE workspace_provider_asset_groups SET observed_name=$2,observed_description=$3,observed_at=clock_timestamp(),name=CASE WHEN status='unknown' THEN name ELSE COALESCE($2,name) END,description=CASE WHEN status='unknown' THEN description ELSE $3 END,status=CASE WHEN status='unknown' THEN status ELSE 'ready' END,revision=revision+1,updated_at=clock_timestamp() WHERE id=$1")
+            .bind(id).bind(&observed.name).bind(&observed.description).execute(&mut *tx).await?;
         let v = Self::provider_group_using(&mut tx, s, id, false)
             .await?
             .ok_or(StoreError::Conflict)?;
@@ -1014,9 +1033,8 @@ impl Store {
         {
             return Err(StoreError::Conflict);
         }
-        if a.status != "unknown" {
-            sqlx::query("UPDATE workspace_provider_assets SET name=COALESCE($2,name),status=$3,revision=revision+1,updated_at=now() WHERE id=$1").bind(id).bind(&observed.name).bind(provider_kind(&observed.status)?).execute(&mut *tx).await?;
-        }
+        sqlx::query("UPDATE workspace_provider_assets SET observed_name=$2,observed_status=$3,observed_at=clock_timestamp(),name=CASE WHEN status='unknown' THEN name ELSE COALESCE($2,name) END,status=CASE WHEN status='unknown' THEN status ELSE $3 END,revision=revision+1,updated_at=clock_timestamp() WHERE id=$1")
+            .bind(id).bind(&observed.name).bind(provider_kind(&observed.status)?).execute(&mut *tx).await?;
         let v = Self::provider_asset_using(&mut tx, s, id, false)
             .await?
             .ok_or(StoreError::Conflict)?;
