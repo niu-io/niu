@@ -356,17 +356,22 @@ function Administration({ token }: { token: string }) {
           "PUT",
           { role, active: active === "true" },
         );
-      if (dialog === "offer")
+      if (dialog === "offer") {
+        const currentOffer = data?.offers.find((offer) => offer.model_alias === alias);
         await request(token, `/admin/v1/providers/${selected}/offers`, "POST", {
           model_alias: alias,
           currency,
           prompt_rate: nanos(inputRate),
           cached_prompt_rate: cachedInputRate.trim() === "" ? null : nanos(cachedInputRate),
           completion_rate: nanos(outputRate),
-          expected_revision:
-            data?.offers.find((offer) => offer.model_alias === alias)
-              ?.revision ?? null,
+          ...(currentOffer ? {
+            reasoning_completion_rate: currentOffer.reasoning_completion_rate,
+            cache_write_prompt_rate: currentOffer.cache_write_prompt_rate,
+            context_tiers: currentOffer.context_tiers,
+          } : {}),
+          expected_revision: currentOffer?.revision ?? null,
         });
+      }
       if (dialog === "supplier-qualification")
         await request(token, `/admin/v1/providers/${selected}/qualification`, "PUT", {
           supply_rights_sha256: supplyRightsHash,

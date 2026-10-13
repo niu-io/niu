@@ -68,7 +68,7 @@ These are source findings awaiting current-input reproduction, not integrated ac
 | C10 | P2 | P13 | Known token totals omit reported-usage coverage | Fixed; actual unknown/empty and mixed known-subtotal display qualified |
 | C11 | P2 | P25 | Backend-supported reasoning customer prices lack an editor | Fixed; publication scope verified |
 | C12 | P2 | P17 | Unsubmitted Video drafts exist only in component memory | Draft restore/conflict, scoped save-clear and saved-image picker qualified; concurrent newer-draft clear and submission recovery remain open |
-| C13 | P1 | P23, P24 | Editing an existing ordinary text offer omits configured reasoning, cache-write and context-tier rates | Actual current editor payload rejected with 409; preservation fix awaits rendered save/readback |
+| C13 | P1 | P23, P24 | Editing an existing ordinary text offer omits configured reasoning, cache-write and context-tier rates | Fixed; actual desktop/narrow ordinary-rate edits preserve populated and nullable advanced categories with independent readback |
 
 ## Delivery order
 
@@ -273,7 +273,7 @@ Independent request and financial content digests across thirteen organization t
 
 ### Supplier multi-key metadata and text-offer blocker
 
-One isolated verification Supplier was configured with two independently named disabled credentials and three private, disabled model mappings. Actual API creation and independent persisted rows agreed. An inactive text offer with explicit reasoning-output, cache-write and long-context rates was published. Replaying the existing editor’s ordinary-rate payload against its exact current revision returned 409 because it omitted those configured categories. The rejected update did not advance the saved offer revision. The functional fix preserves the existing typed advanced categories while editing ordinary rates; its rendered save/readback qualification is still pending.
+One isolated verification Supplier was configured with two independently named disabled credentials and three private, disabled model mappings. Actual API creation and independent persisted rows agreed. An inactive text offer with explicit reasoning-output, cache-write and long-context rates was published. Replaying the existing editor’s ordinary-rate payload against its exact current revision returned 409 because it omitted those configured categories. The rejected update did not advance the saved offer revision. The functional fix preserves the existing typed advanced categories while editing ordinary rates. Actual desktop and 390px saves succeeded for both a populated advanced schedule and an offer with nullable advanced rates and an empty tier array. API responses and independent PostgreSQL matched the new ordinary rates and revisions while reasoning, cache-write and tier values remained exactly unchanged. This preserves configured schedules; it does not add an editor for every advanced category or qualify their financial enforcement.
 
 All preexisting Supplier, credential, mapping and offer records remained unchanged. These own configurations stay disabled and unqualified, with no Provider call or public catalog publication. The verification Supplier remains in the isolated database because its saved credential/history relationships prevent empty deletion; no direct database deletion was performed. This is metadata/configuration evidence, not model invocation or commercial supply acceptance.
 
