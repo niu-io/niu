@@ -30658,6 +30658,91 @@
       }
     },
     "/admin/v1/operators/{operator}": {
+      "patch": {
+        "operationId": "updateOperatorRole",
+        "summary": "Change a scoped customer member role",
+        "description": "Current scoped Owner management permission or installation administrator required. Admin and Viewer cannot manage user roles. Preserves the original member organization/workspace, credentials, sessions, session expiries and Supplier memberships. Rejects self role changes, revoked/noncustomer/platform actors and role-update demotion of the last applicable active Owner. expected_role is a compare-and-set precondition; stale input returns 409 and requires reloading. Organization-scoped serialization and current actor/session validation protect the mutation transaction. A same-role request with a matching precondition returns unchanged metadata without an audit event. Changed roles apply to the original token on its next authenticated request; no replacement token or renewed session is issued. A future immutable role_changed journal records exact before/after roles and actor attribution; historical roles are never inferred. No credentials or commercial data returned.",
+        "tags": [
+          "Administration"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "operator",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Scoped Niu user routing reference; never display as a product label."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/handler_operations_json_MemberRoleUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Current scoped user metadata; no credential or session renewal",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/handler_operations_json_MemberRoleChangeView"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid role/input or protected customer actor"
+          },
+          "401": {
+            "description": "Invalid, expired or concurrently revoked management session"
+          },
+          "403": {
+            "description": "Manage-users permission denied or self role change"
+          },
+          "404": {
+            "description": "User outside the actor scope or not a customer user"
+          },
+          "409": {
+            "description": "Stale expected role, revoked user or last Owner protection"
+          },
+          "413": {
+            "description": "Body exceeds bounded request size"
+          },
+          "503": {
+            "description": "Storage unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented"
+      },
       "delete": {
         "operationId": "adminRevokeOperator",
         "summary": "Revoke an operator and all of its sessions",
@@ -40205,6 +40290,8 @@
           "target_session_id",
           "organization_id",
           "project_id",
+          "before_role",
+          "after_role",
           "created_at"
         ],
         "properties": {
@@ -40218,7 +40305,10 @@
               "operator_created",
               "session_created",
               "session_revoked",
-              "operator_revoked"
+              "operator_revoked",
+              "password_changed",
+              "password_login_succeeded",
+              "role_changed"
             ]
           },
           "actor_kind": {
@@ -40246,7 +40336,8 @@
               "null"
             ],
             "format": "uuid",
-            "description": "Present for session_created and session_revoked."
+            "description": "Present for session creation",
+            "revocation and password login; role changes apply to the member and have no target session.": null
           },
           "organization_id": {
             "type": "string",
@@ -40258,6 +40349,32 @@
               "null"
             ],
             "format": "uuid"
+          },
+          "before_role": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "owner",
+              "admin",
+              "viewer",
+              null
+            ],
+            "description": "Recorded original role for role_changed; null for other events."
+          },
+          "after_role": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "owner",
+              "admin",
+              "viewer",
+              null
+            ],
+            "description": "Recorded new role for role_changed; null for other events."
           },
           "created_at": {
             "type": "string",
@@ -44389,7 +44506,9 @@
           "actor_label",
           "target_label",
           "created_at",
-          "revision"
+          "revision",
+          "before_role",
+          "after_role"
         ],
         "properties": {
           "id": {
@@ -44440,6 +44559,32 @@
             ],
             "pattern": "^[1-9][0-9]*$",
             "description": "Decimal revision string, when present. No configuration values are included."
+          },
+          "before_role": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "owner",
+              "admin",
+              "viewer",
+              null
+            ],
+            "description": "Recorded role before a future role_changed event; null for historical events and other journal streams."
+          },
+          "after_role": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "owner",
+              "admin",
+              "viewer",
+              null
+            ],
+            "description": "Recorded role after the same mutation; never inferred from current user metadata."
           }
         }
       },
@@ -48115,6 +48260,77 @@
               "null"
             ],
             "minimum": 1
+          }
+        }
+      },
+      "handler_operations_json_MemberRoleUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role",
+          "expected_role"
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "viewer"
+            ]
+          },
+          "expected_role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "viewer"
+            ]
+          }
+        }
+      },
+      "handler_operations_json_MemberRoleChangeView": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "role",
+          "organization_id",
+          "project_id",
+          "revoked"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "viewer"
+            ]
+          },
+          "organization_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "project_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "revoked": {
+            "type": "boolean"
           }
         }
       },

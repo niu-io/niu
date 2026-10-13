@@ -2,6 +2,9 @@
 export type PlatformAuditCategory = 'authentication' | 'configuration' | 'access' | 'supplier';
 export type PlatformAuditSource = 'operator' | 'vendor' | 'supplier' | 'branding' | 'payment_gateway' | 'platform_access';
 export interface PlatformAuditEvent {
+  /** Recorded transitions only; absent/null on older servers and other journal streams. */
+  before_role?: 'owner' | 'admin' | 'viewer' | null;
+  after_role?: 'owner' | 'admin' | 'viewer' | null;
   /** Internal source-qualified reference; do not render this as a display label. */
   id: string;
   source: PlatformAuditSource;

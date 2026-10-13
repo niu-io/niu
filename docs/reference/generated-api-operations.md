@@ -23574,6 +23574,95 @@ HTTP 409: Cursor absent from this job scope.
 
 HTTP 503: Storage read unavailable; never empty successful history.
 
+## Change a scoped customer member role
+
+`PATCH /admin/v1/operators/{operator}`
+
+Current scoped Owner management permission or installation administrator required. Admin and Viewer cannot manage user roles. Preserves the original member organization/workspace, credentials, sessions, session expiries and Supplier memberships. Rejects self role changes, revoked/noncustomer/platform actors and role-update demotion of the last applicable active Owner. expected_role is a compare-and-set precondition; stale input returns 409 and requires reloading. Organization-scoped serialization and current actor/session validation protect the mutation transaction. A same-role request with a matching precondition returns unchanged metadata without an audit event. Changed roles apply to the original token on its next authenticated request; no replacement token or renewed session is issued. A future immutable role_changed journal records exact before/after roles and actor attribution; historical roles are never inferred. No credentials or commercial data returned.
+
+Implementation: `implemented`. Operation: `updateOperatorRole`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`operator` (path, required)
+
+Scoped Niu user routing reference; never display as a product label.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/MemberRoleUpdate"
+}
+```
+
+### Responses
+
+HTTP 200: Current scoped user metadata; no credential or session renewal
+
+Response header: `Cache-Control`.
+
+no-store
+
+```json
+{
+  "type": "string"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/MemberRoleChangeView"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid role/input or protected customer actor
+
+HTTP 401: Invalid, expired or concurrently revoked management session
+
+HTTP 403: Manage-users permission denied or self role change
+
+HTTP 404: User outside the actor scope or not a customer user
+
+HTTP 409: Stale expected role, revoked user or last Owner protection
+
+HTTP 413: Body exceeds bounded request size
+
+HTTP 503: Storage unavailable
+
 ## Create a Provider asset group
 
 `POST /v1/media/asset-groups`
@@ -33947,6 +34036,87 @@ Local `#/components/schemas/…` references resolve to these definitions.
 }
 ```
 
+### MemberRoleChangeView
+
+```json
+{
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "role",
+    "organization_id",
+    "project_id",
+    "revoked"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "name": {
+      "type": "string"
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "owner",
+        "admin",
+        "viewer"
+      ]
+    },
+    "organization_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "project_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "revoked": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### MemberRoleUpdate
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "role",
+    "expected_role"
+  ],
+  "properties": {
+    "role": {
+      "type": "string",
+      "enum": [
+        "owner",
+        "admin",
+        "viewer"
+      ]
+    },
+    "expected_role": {
+      "type": "string",
+      "enum": [
+        "owner",
+        "admin",
+        "viewer"
+      ]
+    }
+  }
+}
+```
+
 ### ModelRoutePool
 
 ```json
@@ -34205,7 +34375,9 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "actor_label",
     "target_label",
     "created_at",
-    "revision"
+    "revision",
+    "before_role",
+    "after_role"
   ],
   "properties": {
     "id": {
@@ -34256,6 +34428,32 @@ Local `#/components/schemas/…` references resolve to these definitions.
       ],
       "pattern": "^[1-9][0-9]*$",
       "description": "Decimal revision string, when present. No configuration values are included."
+    },
+    "before_role": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "owner",
+        "admin",
+        "viewer",
+        null
+      ],
+      "description": "Recorded role before a future role_changed event; null for historical events and other journal streams."
+    },
+    "after_role": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "owner",
+        "admin",
+        "viewer",
+        null
+      ],
+      "description": "Recorded role after the same mutation; never inferred from current user metadata."
     }
   }
 }

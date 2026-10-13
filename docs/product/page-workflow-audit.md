@@ -16,7 +16,7 @@ Baseline: current `main` at `534c07ee`, 2026-10-13. This audit covers rendered p
 | --- | --- | --- | --- | --- |
 | P01 | Login and member session | `/login` | Destination, restore, expiry, sign-out, errors | In review: actual password/token browser sign-in, reload, original-session expiry/revocation and Viewer sign-out; deployed HTTPS and remaining session races unverified |
 | P02 | Installation administration | `/installation` | Platform sign-in and role boundaries | In review: actual installation sign-in and member/platform navigation observed; full boundaries pending |
-| P03 | Workspace directory | `/workspaces` | Create, switch, rename, delete, empty/error states | In review: actual create/rename/reload/delete and independent database checks verified; narrow/error states pending |
+| P03 | Workspace directory | `/workspaces` | Create, switch, rename, delete, empty/error states | In review: actual create/rename/reload/delete and independent database checks verified; narrow directory/menu/create plus network-failure retry qualified; broader scope boundaries pending |
 | P04 | Workspace overview | `/workspaces/:workspace` | Real summary and action destinations | In review: actual new empty workspace and action destinations inspected; request details pending |
 | P05 | API key list | `/workspaces/:workspace/keys` | Filter, grants, expiry, status, navigation | In review: actual creation/detail, grants, rotation/revocation and inherited policy histories qualified; list filters/broader grants pending |
 | P06 | API key creation | `/workspaces/:workspace/keys/new` | Validation, permissions, one-time secret, persistence | In review: actual finite/nonexpiring creation, exact model grants, native guidance and four saved limits qualified; inference admission pending |
@@ -69,6 +69,7 @@ These are source findings awaiting current-input reproduction, not integrated ac
 | C11 | P2 | P25 | Backend-supported reasoning customer prices lack an editor | Fixed; publication scope verified |
 | C12 | P2 | P17 | Unsubmitted Video drafts exist only in component memory | Draft restore/conflict, scoped save-clear and saved-image picker qualified; concurrent newer-draft clear and submission recovery remain open |
 | C13 | P1 | P23, P24 | Editing an existing ordinary text offer omits configured reasoning, cache-write and context-tier rates | Fixed; actual desktop/narrow ordinary-rate edits preserve populated and nullable advanced categories with independent readback |
+| C14 | P1 | P08 | Existing member management has no role-change contract or control | Owner-authorized API/SDK role update, same-token permissions, conflicts, concurrency and exact role-change audit qualified; rendered role-change controls in implementation |
 
 ## Delivery order
 
@@ -320,3 +321,13 @@ An actual metadata-only preparation response was held at HTTP 200. The test key 
 The new history REST documents, SDK reference and video guide were delivered byte-for-byte from the built documentation artifact. The actual downloaded public specification matched the source artifact with all local references resolved, and the representative history guide rendered at desktop and 390px.
 
 A second guarded metadata-only run verified the final three-action recovery dialog at desktop and 390px after fixing footer overflow. Explicit dialog cancellation succeeded; the subsequent key-bound refresh returned 401 and was correctly reported as a refresh failure after confirmed cancellation. Reload showed the retained Not sent record with current actions disabled. Independent saved records again confirmed no Provider reference or associated attempt, and the own key and CLI session were revoked.
+
+### Workspace member role changes: API and SDK
+
+The missing role-change contract is implemented as an Owner-authorized scoped PATCH with the saved role as a compare-and-set precondition. Organization serialization and transactional actor/session validation guard writes. Self changes and protected/revoked accounts are rejected. Role-update demotion cannot remove the last applicable active Owner; this does not qualify the separate account-revocation path. Existing identities, scope, tokens, session expiry and Supplier membership remain intact. Future role-change events record exact before/after roles without inferring historical transitions.
+
+An actual built SDK changed a newly created Viewer to Admin and back. The same original token changed current authenticated permissions, and workspace writes returned 403, then succeeded with the temporary name restored, then returned 403 again. Independent SQL matched the original scope/session identity/expiry and two exactly attributed role-change events with no target session. Stale-role input and same-role replay preserved the expected audit count. Admin/Viewer management and Owner self-change were denied.
+
+A separate zero-funded organization qualified the sole-Owner demotion guard. Concurrent demotions of two own Owners produced one success and one conflict; SQL retained one Owner and one demotion event. A real blocked transaction waited on the organization lock while its actor session was revoked through the API. After release it returned 401 with the target and audit count unchanged. Platform audit reads returned exact role transitions and null role fields for other event streams. All verification actors/sessions were revoked; audit-dependent scope records were retained. There were no associated attempts, balance entries or customer charges, and thirteen original request/financial table digests were unchanged.
+
+Four REST/SDK documents were served byte-for-byte from the independently built HTML. The actual public specification matched the generated artifact with all local references resolved. The representative role-change API reference rendered at desktop and 390px. Dashboard role editing and conflict recovery remain separate, ongoing browser acceptance.

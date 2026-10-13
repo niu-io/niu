@@ -16,6 +16,17 @@ Generated from the checked-in source. Do not edit this reference by hand.
 constructor(options: NiuAdminOptions);
 ```
 
+### updateOperatorRole
+
+```typescript
+/** Owner-only scoped role change. Preserves sessions/scope; reload after a stale-role409.
+ * Rejects self changes and protected actors. Never issues a replacement token.
+ */
+updateOperatorRole(operatorId: string, input: OperatorRoleUpdate, options?: RequestOptions): Promise<{
+    data: OperatorAccessView;
+}>;
+```
+
 ### getMemberProfile
 
 ```typescript

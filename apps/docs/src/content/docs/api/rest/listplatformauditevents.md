@@ -121,7 +121,9 @@ Content type: `application/json`.
           "actor_label",
           "target_label",
           "created_at",
-          "revision"
+          "revision",
+          "before_role",
+          "after_role"
         ],
         "properties": {
           "id": {
@@ -172,6 +174,32 @@ Content type: `application/json`.
             ],
             "pattern": "^[1-9][0-9]*$",
             "description": "Decimal revision string, when present. No configuration values are included."
+          },
+          "before_role": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "owner",
+              "admin",
+              "viewer",
+              null
+            ],
+            "description": "Recorded role before a future role_changed event; null for historical events and other journal streams."
+          },
+          "after_role": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "owner",
+              "admin",
+              "viewer",
+              null
+            ],
+            "description": "Recorded role after the same mutation; never inferred from current user metadata."
           }
         }
       }

@@ -1,3 +1,10 @@
+export type OperatorAccessRole = 'owner' | 'admin' | 'viewer';
+export type OperatorRoleUpdate = { role: OperatorAccessRole; expected_role: OperatorAccessRole };
+export type OperatorAccessView = {
+  id: string; name: string; role: OperatorAccessRole;
+  organization_id: string | null; project_id: string | null; revoked: boolean;
+};
+
 import { createGenerationTaskDiagnosticsClient } from './generation-task-diagnostics.js';
 export type { GenerationTaskDiagnostics } from './generation-task-diagnostics.js';
 export type { GenerationsVideoIntentReference } from './generations-sessions.js';
@@ -869,6 +876,15 @@ export interface RoutingRegistryStatus {
 }
 
 export class NiuAdminClient {
+  /** Owner-only scoped role change. Preserves sessions/scope; reload after a stale-role409.
+   * Rejects self changes and protected actors. Never issues a replacement token.
+   */
+  updateOperatorRole(operatorId: string, input: OperatorRoleUpdate, options?: RequestOptions): Promise<{ data: OperatorAccessView }> {
+    const roles = ['owner', 'admin', 'viewer'];
+    if (!roles.includes(input.role) || !roles.includes(input.expected_role)) throw new TypeError('A supported role and expected_role are required');
+    return this.request(`/operators/${uuid(operatorId)}`, input, options, 'PATCH');
+  }
+
   /** Read the current member; this never selects a caller-supplied operator ID. */
   getMemberProfile(options?: RequestOptions): Promise<{ data: MemberProfile }> {
     return this.request('/auth/profile', undefined, options);

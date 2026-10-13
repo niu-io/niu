@@ -10,6 +10,9 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 ```typescript
 export interface PlatformAuditEvent {
+    /** Recorded transitions only; absent/null on older servers and other journal streams. */
+    before_role?: 'owner' | 'admin' | 'viewer' | null;
+    after_role?: 'owner' | 'admin' | 'viewer' | null;
     /** Internal source-qualified reference; do not render this as a display label. */
     id: string;
     source: PlatformAuditSource;

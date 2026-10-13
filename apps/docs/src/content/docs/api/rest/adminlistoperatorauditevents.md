@@ -105,6 +105,8 @@ Content type: `application/json`.
           "target_session_id",
           "organization_id",
           "project_id",
+          "before_role",
+          "after_role",
           "created_at"
         ],
         "properties": {
@@ -118,7 +120,10 @@ Content type: `application/json`.
               "operator_created",
               "session_created",
               "session_revoked",
-              "operator_revoked"
+              "operator_revoked",
+              "password_changed",
+              "password_login_succeeded",
+              "role_changed"
             ]
           },
           "actor_kind": {
@@ -146,7 +151,8 @@ Content type: `application/json`.
               "null"
             ],
             "format": "uuid",
-            "description": "Present for session_created and session_revoked."
+            "description": "Present for session creation",
+            "revocation and password login; role changes apply to the member and have no target session.": null
           },
           "organization_id": {
             "type": "string",
@@ -158,6 +164,32 @@ Content type: `application/json`.
               "null"
             ],
             "format": "uuid"
+          },
+          "before_role": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "owner",
+              "admin",
+              "viewer",
+              null
+            ],
+            "description": "Recorded original role for role_changed; null for other events."
+          },
+          "after_role": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "owner",
+              "admin",
+              "viewer",
+              null
+            ],
+            "description": "Recorded new role for role_changed; null for other events."
           },
           "created_at": {
             "type": "string",

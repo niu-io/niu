@@ -30,6 +30,8 @@ pub struct OperatorAuditEvent {
     pub organization_id: Uuid,
     pub project_id: Option<Uuid>,
     pub created_at: String,
+    pub before_role: Option<String>,
+    pub after_role: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -49,6 +51,8 @@ struct AuditEventRow {
     organization_id: Uuid,
     project_id: Option<Uuid>,
     created_at: String,
+    before_role: Option<String>,
+    after_role: Option<String>,
 }
 
 impl From<AuditEventRow> for OperatorAuditEvent {
@@ -63,6 +67,8 @@ impl From<AuditEventRow> for OperatorAuditEvent {
             organization_id: row.organization_id,
             project_id: row.project_id,
             created_at: row.created_at,
+            before_role: row.before_role,
+            after_role: row.after_role,
         }
     }
 }
@@ -92,7 +98,7 @@ impl Store {
 
         let rows: Vec<AuditEventRow> = sqlx::query_as(
             "SELECT e.id, e.action, e.actor_kind, e.actor_operator_id, e.target_operator_id, \
-             e.target_session_id, e.organization_id, e.project_id, \
+             e.target_session_id, e.organization_id, e.project_id, e.before_role, e.after_role, \
              to_char(e.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS created_at \
              FROM operator_audit_events e WHERE e.target_operator_id=$1 \
              AND ($2::uuid IS NULL OR EXISTS (SELECT 1 FROM operator_audit_events c \

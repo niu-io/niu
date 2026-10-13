@@ -4,6 +4,7 @@ mod image_source_uploads;
 mod image_sources;
 mod inference;
 mod media_authorization;
+mod operator_roles;
 mod provider_assets;
 mod provider_capabilities;
 mod provider_verification;

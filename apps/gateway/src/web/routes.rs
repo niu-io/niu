@@ -236,7 +236,9 @@ pub(crate) fn router(state: AppState) -> Router {
         )
         .route(
             "/admin/v1/operators/{operator}",
-            axum::routing::delete(crate::admin::revoke_operator),
+            axum::routing::delete(crate::admin::revoke_operator)
+                .patch(super::operator_roles::update_operator_role)
+                .layer(DefaultBodyLimit::max(4096)),
         )
         .route(
             "/admin/v1/operators/{operator}/sessions",

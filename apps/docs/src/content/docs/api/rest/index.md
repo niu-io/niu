@@ -284,6 +284,7 @@ The contract includes endpoints with explicit limitations or stub status. Read t
 - [`GET /admin/v1/operators` — List operator identities without session credentials](/docs/api/rest/adminlistoperators/)
 - [`POST /admin/v1/operators` — Create an operator and issue its first session token](/docs/api/rest/admincreateoperator/)
 - [`DELETE /admin/v1/operators/{operator}` — Revoke an operator and all of its sessions](/docs/api/rest/adminrevokeoperator/)
+- [`PATCH /admin/v1/operators/{operator}` — Change a scoped customer member role](/docs/api/rest/updateoperatorrole/)
 - [`GET /admin/v1/operators/{operator}/events` — Read immutable operator and session lifecycle events](/docs/api/rest/adminlistoperatorauditevents/)
 - [`PUT /admin/v1/operators/{operator}/password` — Provision or reset an existing member password](/docs/api/rest/setmemberpassword/)
 - [`GET /admin/v1/operators/{operator}/sessions` — List session expiry and revocation metadata](/docs/api/rest/adminlistoperatorsessions/)

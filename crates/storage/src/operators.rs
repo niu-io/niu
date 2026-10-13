@@ -404,6 +404,83 @@ impl Store {
         Ok(())
     }
 
+    /// Change only a customer member's role; original scope and sessions remain unchanged.
+    pub async fn update_operator_role(
+        &self,
+        target: Uuid,
+        role: OperatorRole,
+        expected_role: OperatorRole,
+        actor: OperatorAuditActor,
+        principal: Option<OperatorPrincipal>,
+    ) -> Result<OperatorView, StoreError> {
+        let mut tx = self.begin_bounded_recording().await?;
+        let scope: Option<(Option<Uuid>, Option<Uuid>)> =
+            sqlx::query_as("SELECT organization_id,project_id FROM admin_operators WHERE id=$1")
+                .bind(target)
+                .fetch_optional(&mut *tx)
+                .await?;
+        let (organization, project) = scope.ok_or(StoreError::Conflict)?;
+        let organization = organization.ok_or(StoreError::InvalidOperator)?;
+        // Serialize role transitions for the whole organization, including all-workspace owners.
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))")
+            .bind(format!("niu-member-role:{organization}"))
+            .execute(&mut *tx)
+            .await?;
+        if let Some(principal) = principal {
+            if actor != OperatorAuditActor::Operator(principal.id) || principal.id == target {
+                return Err(StoreError::Unauthorized);
+            }
+            // Operator-before-session locks match revocation and hold current authority until commit.
+            let current:Option<(String,Option<Uuid>,Option<Uuid>)>=sqlx::query_as("SELECT role,organization_id,project_id FROM admin_operators WHERE id=$1 AND revoked_at IS NULL FOR SHARE")
+                .bind(principal.id).fetch_optional(&mut *tx).await?;
+            let (current_role, current_org, current_project) =
+                current.ok_or(StoreError::Unauthorized)?;
+            if current_role != "owner"
+                || current_org != Some(organization)
+                || current_project.is_some_and(|p| project != Some(p))
+            {
+                return Err(StoreError::Unauthorized);
+            }
+            let active:Option<Uuid>=sqlx::query_scalar("SELECT id FROM admin_sessions WHERE id=$1 AND operator_id=$2 AND revoked_at IS NULL AND expires_at_unix>extract(epoch FROM clock_timestamp()) FOR SHARE")
+                .bind(principal.session_id).bind(principal.id).fetch_optional(&mut *tx).await?;
+            if active.is_none() {
+                return Err(StoreError::Unauthorized);
+            }
+        } else if actor != OperatorAuditActor::Installation {
+            return Err(StoreError::Unauthorized);
+        }
+        let row:Option<(String,bool,bool)>=sqlx::query_as("SELECT role,platform_admin,revoked_at IS NOT NULL FROM admin_operators WHERE id=$1 AND organization_id=$2 AND project_id IS NOT DISTINCT FROM $3 FOR UPDATE")
+            .bind(target).bind(organization).bind(project).fetch_optional(&mut *tx).await?;
+        let (before, platform, revoked) = row.ok_or(StoreError::Conflict)?;
+        if platform || revoked {
+            return Err(StoreError::InvalidOperator);
+        }
+        if before != expected_role.as_str() {
+            return Err(StoreError::Conflict);
+        }
+        if before != role.as_str() {
+            if before == "owner" && role != OperatorRole::Owner {
+                let remaining:Vec<Uuid>=sqlx::query_scalar("SELECT id FROM admin_operators WHERE organization_id=$1 AND revoked_at IS NULL AND role='owner' AND id<>$2 AND (project_id IS NULL OR project_id IS NOT DISTINCT FROM $3) ORDER BY id FOR SHARE")
+                    .bind(organization).bind(target).bind(project).fetch_all(&mut *tx).await?;
+                if remaining.is_empty() {
+                    return Err(StoreError::Conflict);
+                }
+            }
+            sqlx::query("UPDATE admin_operators SET role=$2 WHERE id=$1")
+                .bind(target)
+                .bind(role.as_str())
+                .execute(&mut *tx)
+                .await?;
+            let (actor_kind, actor_id) = actor.kind_and_id();
+            sqlx::query("INSERT INTO operator_audit_events(id,action,actor_kind,actor_operator_id,target_operator_id,target_session_id,organization_id,project_id,before_role,after_role) VALUES($1,'role_changed',$2,$3,$4,NULL,$5,$6,$7,$8)")
+                .bind(Uuid::new_v4()).bind(actor_kind).bind(actor_id).bind(target).bind(organization).bind(project).bind(&before).bind(role.as_str()).execute(&mut *tx).await?;
+        }
+        let row:OperatorRow=sqlx::query_as("SELECT id,name,role,organization_id,project_id,revoked_at IS NOT NULL AS revoked FROM admin_operators WHERE id=$1")
+            .bind(target).fetch_one(&mut *tx).await?;
+        let view = OperatorView::try_from(row)?;
+        tx.commit().await?;
+        Ok(view)
+    }
     pub async fn revoke_operator(
         &self,
         operator_id: Uuid,

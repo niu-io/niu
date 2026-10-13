@@ -15,6 +15,8 @@ pub struct PlatformAuditEvent {
     pub actor_label: String,
     pub target_label: String,
     pub revision: Option<String>,
+    pub before_role: Option<String>,
+    pub after_role: Option<String>,
     pub created_at: String,
 }
 
@@ -105,7 +107,7 @@ impl Store {
         let projection = include_str!("platform_audit.sql");
         let query = format!("{projection}
             SELECT source || ':' || event_id AS id, source, category, action,
-                actor_kind, actor_label, target_label, revision::text AS revision,
+                actor_kind, actor_label, target_label, revision::text AS revision, before_role, after_role,
                 to_char(created_at AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') AS created_at
             FROM events ORDER BY created_at DESC, source DESC, event_id DESC LIMIT $5");
         let mut data: Vec<PlatformAuditEvent> = sqlx::query_as(&query)
