@@ -10,7 +10,7 @@ function renderCapability(enabled, label) {
   return item;
 }
 
-function showEmpty(message) {
+function showEmpty(message, countLabel = '0 routes') {
   rows.replaceChildren();
   const row = document.createElement('tr');
   const cell = document.createElement('td');
@@ -19,7 +19,7 @@ function showEmpty(message) {
   cell.textContent = message;
   row.append(cell);
   rows.append(row);
-  count.textContent = '0 routes';
+  count.textContent = countLabel;
 }
 
 async function loadCatalog() {
@@ -59,9 +59,9 @@ async function loadCatalog() {
       rows.append(row);
     }
     count.textContent = `${catalog.data.length} ${catalog.data.length === 1 ? 'route' : 'routes'}`;
-    statusMessage.textContent = 'Use your Niu workspace key to call a route enabled for your project.';
+    statusMessage.textContent = 'Use your Niu workspace key to call a route enabled for your workspace.';
   } catch {
-    showEmpty('The public catalog could not be loaded.');
+    showEmpty('The public catalog could not be loaded.', 'Unavailable');
     statusMessage.textContent = 'Check that this Niu gateway is ready, then reload the page.';
   }
 }

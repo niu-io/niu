@@ -5,7 +5,8 @@ export const onRequest = defineMiddleware(async ({ request, url }, next) => {
   if (!import.meta.env.DEV || url.pathname !== '/catalog/v1/models') return next();
   if (request.method !== 'GET') return new Response(null, { status: 405 });
   try {
-    const upstream = await fetch('http://127.0.0.1:2555/catalog/v1/models', {
+    const gateway = process.env.NIU_DEV_GATEWAY_URL ?? 'http://127.0.0.1:2555';
+    const upstream = await fetch(new URL('/catalog/v1/models', gateway), {
       signal: AbortSignal.timeout(5000),
     });
     return new Response(await upstream.text(), {
