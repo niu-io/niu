@@ -1,0 +1,115 @@
+---
+title: "Remove an unconfigured Supplier from the directory"
+description: "DELETE /admin/v1/providers/{provider}"
+tableOfContents: false
+---
+
+Generated from the checked-in source. Do not edit this reference by hand.
+
+`DELETE /admin/v1/providers/{provider}`
+
+Platform administration required. Soft-deletes only a live Supplier with no owned API configurations, offers or memberships; disabled configurations and inactive memberships still count as dependencies. Audit history is retained. Concurrent configuration association serializes with deletion. This is not a credential revocation or financial-history deletion operation. Repeating deletion returns 409.
+
+Operation: `deleteSupplierBusiness`.
+
+## Authentication
+
+Use the credential and permission scope described above. Each object below is an alternative; schemes within one object are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+## HTTP request
+
+Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
+
+```sh
+curl --fail-with-body -X DELETE "$NIU_ORIGIN/admin/v1/providers/{provider}" \
+  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+```
+
+## Parameters
+
+### provider
+
+Location: **path**. **Required.**
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### provider
+
+Location: **path**. **Required.**
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+## Request body
+
+No request body is declared.
+
+## Responses
+
+### HTTP 200
+
+Supplier removed from the active directory.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "deleted"
+      ],
+      "properties": {
+        "deleted": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    }
+  }
+}
+```
+
+### HTTP 401
+
+Missing or invalid administrative credential.
+
+### HTTP 403
+
+Platform administration required.
+
+### HTTP 409
+
+Unknown or already deleted Supplier, or existing configuration, offer or membership dependency.
+
+### HTTP 503
+
+Storage unavailable.
+
+## Behavior and supported scope
+
+Platform administration required. Soft-deletes only a live Supplier with no owned API configurations, offers or memberships; disabled configurations and inactive memberships still count as dependencies. Audit history is retained. Concurrent configuration association serializes with deletion. This is not a credential revocation or financial-history deletion operation. Repeating deletion returns 409.
+
+**Supported scope:** implemented

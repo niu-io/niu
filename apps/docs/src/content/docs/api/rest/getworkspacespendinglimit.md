@@ -1,0 +1,157 @@
+---
+title: "Read a workspace spending limit"
+description: "GET /admin/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}"
+tableOfContents: false
+---
+
+Generated from the checked-in source. Do not edit this reference by hand.
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}`
+
+Workspace read permission required. Returns data: null when no explicit limit exists. Does not expose company funds or other workspace usage.
+
+Operation: `getWorkspaceSpendingLimit`.
+
+## Authentication
+
+Use the credential and permission scope described above. Each object below is an alternative; schemes within one object are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+## HTTP request
+
+Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
+
+```sh
+curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/spending-limit/{currency}" \
+  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+```
+
+## Parameters
+
+### organization
+
+Location: **path**. **Required.**
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### project
+
+Location: **path**. **Required.**
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### currency
+
+Location: **path**. **Required.**
+
+```json
+{
+  "type": "string",
+  "pattern": "^[A-Z]{3}$"
+}
+```
+
+## Request body
+
+No request body is declared.
+
+## Responses
+
+### HTTP 200
+
+Current scoped state
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "currency",
+            "limit_nanos",
+            "revision",
+            "committed_nanos"
+          ],
+          "properties": {
+            "currency": {
+              "type": "string",
+              "pattern": "^[A-Z]{3}$"
+            },
+            "limit_nanos": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9]+$",
+              "description": "Exact nonnegative decimal integer, within signed 64-bit range."
+            },
+            "revision": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9]+$",
+              "description": "Exact nonnegative decimal integer, within signed 64-bit range."
+            },
+            "committed_nanos": {
+              "type": "string",
+              "pattern": "^[0-9]+$",
+              "description": "Exact nonnegative decimal integer, within signed 64-bit range."
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}
+```
+
+### HTTP 400
+
+Invalid currency, decimal value or history query
+
+### HTTP 401
+
+Authentication required
+
+### HTTP 403
+
+Insufficient role permissions
+
+### HTTP 404
+
+Workspace unavailable in the authorized scope
+
+## Behavior and supported scope
+
+Workspace read permission required. Returns data: null when no explicit limit exists. Does not expose company funds or other workspace usage.
+
+**Supported scope:** implemented

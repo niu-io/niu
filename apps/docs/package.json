@@ -4,8 +4,11 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev --host 0.0.0.0",
-    "build": "astro build",
-    "check": "astro check"
+    "build": "node scripts/generate-api-docs.mjs --check && astro build",
+    "check": "astro check",
+    "generate:api": "node scripts/generate-api-docs.mjs",
+    "check:api": "node scripts/generate-api-docs.mjs --check",
+    "test:api": "node --test scripts/test-api-docs.mjs"
   },
   "dependencies": {
     "@astrojs/react": "7.0.1",
@@ -21,6 +24,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "tailwindcss": "^4.3.3",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "yaml": "2.9.1"
   }
 }

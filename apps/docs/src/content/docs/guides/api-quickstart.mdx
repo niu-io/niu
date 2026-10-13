@@ -1,0 +1,63 @@
+---
+title: Make your first API request
+description: Discover an available model and call Niu with curl.
+---
+
+Use a **workspace API key** from your workspace's **Keys** page. An administrator must first configure an enabled model route. Supplier credentials and installation administrator tokens are not application keys.
+
+## Set your endpoint and key
+
+Copy the endpoint from your installation. Container deployments normally expose port 2555; repository development uses port 2566. Hosted installations use their own HTTPS origin.
+
+```sh
+export NIU_ORIGIN='http://localhost:2555'
+export NIU_API_KEY='your-workspace-api-key'
+```
+
+Keep the key out of source control and browser-delivered application code.
+
+## Discover a model
+
+```sh
+curl --fail-with-body "$NIU_ORIGIN/v1/models" \
+  -H "Authorization: Bearer $NIU_API_KEY"
+```
+
+Use an `id` from the response's `data` array as the `model` value in your request. An empty list means this key has no available model; check its allowed models and the configured routes. Model discovery does not itself prove every optional protocol or parameter is supported.
+
+## Send a Chat request
+
+Replace `your-model-alias` with an available text model from discovery.
+
+```sh
+export NIU_MODEL='your-model-alias'
+curl --fail-with-body "$NIU_ORIGIN/v1/chat/completions" \
+  -H "Authorization: Bearer $NIU_API_KEY" \
+  -H 'Content-Type: application/json' \
+  -d "{\"model\":\"$NIU_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"Say hello in one sentence.\"}],\"max_tokens\":64}"
+```
+
+Read the generated [Chat response schema](/docs/api/rest/createchatcompletion/#responses) for the complete shape. For a successful text completion, the answer is in `choices[0].message.content`; reported token counts are in `usage` when supplied. Missing usage is unknown, not zero. Inspect the corresponding request in workspace **Logs**.
+
+## Receive a stream
+
+Use a route that supports streaming. `curl -N` disables buffering.
+
+```sh
+curl -N --fail-with-body "$NIU_ORIGIN/v1/chat/completions" \
+  -H "Authorization: Bearer $NIU_API_KEY" \
+  -H 'Content-Type: application/json' \
+  -d "{\"model\":\"$NIU_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"Say hello.\"}],\"max_tokens\":64,\"stream\":true,\"stream_options\":{\"include_usage\":true}}"
+```
+
+Consume all SSE events and the terminal state. An initial HTTP 200 does not prove generation completed; a later stream event can report an error. Client cancellation does not prove the upstream request stopped or that no charge occurred.
+
+## Handle failures
+
+Preserve the response's error body and request-correlation headers for investigation. Read the operation's generated [response states](/docs/api/rest/createchatcompletion/#responses). Authentication failures require checking the workspace key; a permission or budget rejection requires fixing its scope or available balance. Do not automatically replay an uncertain submission.
+
+## Continue
+
+- [JavaScript / TypeScript tutorial](/docs/guides/sdk-quickstart/).
+- [Generated REST specification](/docs/api/rest/) for exact fields and supported scope.
+- [Generated SDK reference](/docs/api/sdk/) for client signatures and types.

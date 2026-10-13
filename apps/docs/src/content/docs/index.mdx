@@ -1,33 +1,11 @@
 ---
 title: Niu Documentation
-description: Connect models, make your first API request, and inspect usage with Niu.
+description: Connect model APIs, manage text and video generation, and understand usage and billing with Niu.
+tableOfContents: false
+prev: false
+next: false
 ---
 
-Niu gives your applications one API for configured models, workspace access controls, and durable request logs. Start with a request, then follow its response, usage, and customer charge through the dashboard.
+import DocsHome from '../../components/DocsHome';
 
-## Start here
-
-1. **[Deploy Niu](/docs/deployment/single-container/)** — run the public gateway, dashboard, catalog, and docs together with PostgreSQL.
-2. **[Connect models](/docs/configuration/models/)** — configure a Supplier, its API credentials, and the model routes your applications can call.
-3. **[Make your first request](/docs/getting-started/)** — use a workspace API key and an available model with an OpenAI-compatible client.
-
-## Use Niu
-
-- **[Generations](/docs/reference/generations/)** — work with saved Chat and Video sessions.
-- **[Video generation](/docs/reference/video/)** — submit supported video inputs and follow a job to its result.
-- **[Request logs](/docs/concepts/execution-observation/)** — inspect responses, timing, reported token usage, and available customer charges.
-- **[Guardrails](/docs/configuration/guardrails/)** — configure the supported policies that apply before dispatch.
-
-## Operate your gateway
-
-Read the [deployment guide](/docs/deployment/single-container/) for storage and endpoint setup, [security and access](/docs/security/overview/) for credential boundaries, and [audit logs](/docs/reference/platform-audit/) for administration events. Contributors can start with [local development](/docs/guides/local-development/).
-
-## Find the right reference
-
-**[API](/docs/reference/api/)** brings together authentication, inference and management contracts, SDK guidance, and [operation schemas](/docs/reference/handler-operations/). Individual routes describe their supported inputs and current limitations.
-
-**[Compare](/docs/compare/)** explains the differences between Niu, New API, and OpenRouter, with detailed comparisons for each alternative.
-
-:::note[Release status]
-Niu is in active development. The first feature-complete release has not yet been qualified; each guide documents supported behavior and current limitations.
-:::
+<DocsHome />

@@ -1,0 +1,11 @@
+---
+import { Button } from '../../../dashboard/src/components/ui/button';
+import { IconMenu2, IconX } from '@tabler/icons-react';
+---
+<Button variant="ghost" size="icon" className="sl-menu-button" popoverTarget="starlight__sidebar" aria-label="Navigation menu"><IconMenu2 className="open-menu"/><IconX className="close-menu"/></Button>
+<style is:global>
+.sl-menu-button { position:fixed; top:14px; right:var(--sl-nav-pad-x); z-index:var(--sl-z-index-navbar); }
+.sl-menu-button:not(:has(~ :popover-open)) .close-menu, .sl-menu-button:has(~ :popover-open) .open-menu { display:none; }
+@media(min-width:50rem) { .sl-menu-button { display:none; } }
+body:has(#starlight__sidebar:popover-open) { overflow:hidden; }
+</style>

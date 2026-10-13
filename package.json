@@ -19,6 +19,8 @@
     "dev:docs": "pnpm --filter @niu-io/docs dev",
     "dev:catalog": "pnpm --filter @niu-io/catalog dev",
     "dev": "python3 scripts/dev.py",
-    "dev:stop": "python3 scripts/dev.py --stop"
+    "dev:stop": "python3 scripts/dev.py --stop",
+    "generate:api": "python3 scripts/extract-handler-openapi.py && pnpm --filter @niu-io/docs generate:api",
+    "check:api": "python3 scripts/extract-handler-openapi.py --check && pnpm --filter @niu-io/docs check:api"
   }
 }

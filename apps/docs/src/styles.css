@@ -4,9 +4,15 @@
 @source '../../dashboard/src/components/ui/button.tsx';
 @source '../../dashboard/src/components/ui/dropdown-menu.tsx';
 @source './components/ThemeMenu.tsx';
+@source './components/DocsHome.tsx';
 @custom-variant dark (&:is(.dark *));
 @theme inline {
   --color-background: var(--background);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --radius-md: var(--radius-control);
   --color-foreground: var(--foreground);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
@@ -17,6 +23,7 @@
   --color-ring: var(--ring);
 }
 @import '../../../branding/tokens.css';
+@import '../../../branding/public-header.css';
 
 /* Adapt the shared Niu palette to Starlight in both theme modes. */
 :root {
@@ -134,7 +141,7 @@ starlight-toc a {
   line-height: 1.5;
 }
 
-:focus-visible {
+:focus-visible:not([data-slot]) {
   outline: 2px solid var(--ring);
   outline-offset: 3px;
 }
@@ -160,31 +167,13 @@ starlight-toc a {
 }
 ::view-transition-old(*) { display: none; }
 
-/* Public docs navigation follows the shared brand and the reference portals. */
-.docs-header { display: flex; align-items: center; gap: 2rem; height: 100%; }
-.docs-brand { display: inline-flex; align-items: center; gap: .625rem; color: var(--foreground); font-weight: 650; text-decoration: none; white-space: nowrap; }
-.docs-brand img { width: 28px; height: 28px; }
-.docs-header nav { display: flex; align-items: center; gap: 1.5rem; margin-inline-start: auto; }
-.docs-header nav a { color: var(--muted-foreground); font-size: .875rem; font-weight: 500; text-decoration: none; padding-block: .625rem; border-bottom: 2px solid transparent; }
-.docs-header nav a:hover, .docs-header nav a[aria-current='page'] { color: var(--foreground); }
-.docs-header nav a[aria-current='page'] { border-bottom-color: var(--foreground); }
-.docs-header-tools { display: flex; align-items: center; gap: .5rem; }
-.docs-header-tools site-search { width: auto; }
-.docs-header-tools site-search button { width: 2.5rem; height: 2.5rem; justify-content: center; border: 0; background: transparent; padding: .5rem; }
-.docs-header-tools site-search button > :not(svg) { display: none; }
 @source '../../dashboard/src/components/ui/table.tsx';
 .comparison-table { table-layout: fixed; }
 .comparison-table :is(th, td) { color: var(--sl-color-text); white-space: normal; overflow-wrap: anywhere; padding: 1rem .75rem; vertical-align: top; }
 .comparison-table th { font-size: .8125rem; }
 .comparison-table td:first-child { font-weight: 600; }
 .comparison-table caption { text-align: left; }
-@media (max-width: 49.999rem) {
-  :root { --sl-nav-height: 6rem; }
-  .docs-header { display: grid; grid-template-columns: 1fr auto; gap: .25rem .75rem; padding-inline-end: 2.5rem; }
-  .docs-header nav { grid-row: 2; grid-column: 1 / -1; margin-inline-start: 0; gap: 1.5rem; }
-  .docs-header-tools { grid-column: 2; grid-row: 1; }
-  .docs-header nav a { padding-block: .25rem; }
-}
+
 @media (max-width: 49.999rem) {
   .comparison-table { min-width: 0; display: block; width: 100%; }
   .comparison-table caption { display: block; width: 100%; margin-block: .75rem; }
@@ -198,4 +187,77 @@ starlight-toc a {
   .comparison-table th:first-child { width: 28%; }
   .comparison-table:has(th:nth-child(4)) th:first-child { width: 22%; }
   .comparison-table :is(th, td) { overflow-wrap: normal; }
+}
+
+:root[data-docs-embedded] .docs-brand { display: none; }
+:root[data-docs-embedded] .docs-header nav { margin-inline-start: 0; }
+:root[data-docs-embedded] .docs-header-tools { margin-inline-start: auto; }
+
+:root[data-api-reference] { --sl-content-width: 100%; }
+
+/* Documentation overview follows the Stitch developer-portal composition. */
+:root[data-docs-home] { --sl-content-width: 64rem; }
+:root[data-docs-home] .content-panel:has(> .sl-container > [data-docs-home-title]) { display: none; }
+:root[data-docs-home] .content-panel + .content-panel { border-top: 0; padding-top: 3rem; }
+.docs-home :is(h1,h2,h3,p,pre) { margin: 0; }
+.docs-home h1 { font-size: clamp(2rem, 3vw, 2.75rem); line-height: 1.15; letter-spacing: -.04em; }
+.docs-home h2 { font-size: 1.125rem; line-height: 1.4; font-weight: 650; }
+.docs-home h3 { font-size: .9375rem; line-height: 1.4; font-weight: 600; }
+.docs-home p { color: var(--muted-foreground); font-size: .875rem; line-height: 1.65; }
+.docs-home a { text-decoration: none; }
+.docs-home a:not([data-slot='button']) { color: var(--foreground); }
+.docs-home a[data-variant='default'] { color: var(--primary-foreground); }
+.docs-home a:focus-visible:not([data-slot]) { outline: 2px solid var(--ring); outline-offset: 4px; }
+.docs-home .docs-home-eyebrow { font-size: .6875rem; font-weight: 650; letter-spacing: .12em; text-transform: uppercase; margin-bottom: .75rem; }
+.docs-home .docs-home-lead { color: var(--foreground); font-size: 1.125rem; margin-top: 1rem; max-width: 38rem; }
+.docs-home-intro > p:last-of-type { margin-top: .5rem; }
+.docs-home-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 1.5rem; }
+.docs-home-request { margin-top: 2.5rem; padding-block: 1.75rem; border-block: 1px solid var(--border); }
+.docs-home-section-heading { display: flex; justify-content: space-between; gap: 1rem; align-items: center; }
+.docs-home-section-heading p { margin-top: .375rem; }
+.docs-home-section-heading > a { display: inline-flex; gap: .5rem; align-items: center; font-size: .8125rem; white-space: nowrap; }
+.docs-home-code { background: var(--muted); border-radius: var(--radius-control); margin-top: 1rem; padding: 1rem 1.25rem; }
+.docs-home-code > span { display: block; font-size: .6875rem; color: var(--muted-foreground); margin-bottom: .75rem; }
+.docs-home-code pre { background: transparent; padding: 0; font-size: .8125rem; line-height: 1.7; overflow-x: auto; color: var(--foreground); }
+.docs-home-code code { border: 0; padding: 0; background: transparent; }
+.docs-home .docs-home-hint { font-size: .75rem; margin-top: .75rem; }
+.docs-home-groups { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; margin-top: 2rem; }
+.docs-home-links { margin-top: .75rem; }
+.docs-home-links a, .docs-home-reference-links a { display: flex; align-items: flex-start; gap: .875rem; padding: 1rem .75rem; border-radius: var(--radius-control); }
+.docs-home-links a:hover, .docs-home-reference-links a:hover { background: var(--muted); }
+.docs-home-links a > svg:first-child, .docs-home-reference-links a > svg:first-child { margin-top: .125rem; flex-shrink: 0; color: var(--muted-foreground); }
+.docs-home-links p, .docs-home-reference-links p { margin-top: .25rem; font-size: .8125rem; }
+.docs-home-links a > svg:last-child, .docs-home-reference-links a > svg:last-child { margin-left: auto; flex-shrink: 0; margin-top: .25rem; color: var(--muted-foreground); }
+.docs-home-reference { margin-top: 2rem; padding-top: 1.75rem; border-top: 1px solid var(--border); }
+.docs-home-reference > p { margin-top: .375rem; }
+.docs-home-reference-links { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: .875rem; }
+.docs-home-reference-links a { background: var(--muted); }
+.docs-home-footer { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; font-size: .8125rem; }
+.docs-home-footer p { flex-basis: 100%; font-size: .75rem; margin-top: .5rem; }
+@media (max-width: 49.999rem) {
+  :root[data-docs-home] .content-panel + .content-panel { padding-top: 1.75rem; }
+  .docs-home-groups, .docs-home-reference-links { grid-template-columns: 1fr; gap: 1.5rem; }
+  .docs-home-section-heading { align-items: flex-start; flex-direction: column; }
+  .docs-home-code { padding: 1rem; }
+  .docs-home-links a { padding-inline: 0; }
+}
+
+:root { --sl-nav-height:4rem; }
+.docs-mobile-public { display:none; }
+@media(max-width:49.999rem) {
+ .docs-header { padding-inline-end:2.5rem; }
+ .docs-header nav { display:none; }
+ .docs-header-tools site-search > button, .docs-header-tools > astro-island { display:none; }
+ .docs-mobile-public { display:block; margin-bottom:1.5rem; padding-bottom:1rem; border-bottom:1px solid var(--border); }
+ .docs-mobile-public nav { display:grid; gap:.25rem; margin-bottom:.75rem; }
+ .docs-mobile-public nav a { display:block; padding:.5rem; color:var(--muted-foreground); font-size:.875rem; text-decoration:none; border-radius:var(--radius-control); }
+ .docs-mobile-public nav a[aria-current="page"] { background:var(--accent); color:var(--foreground); font-weight:600; }
+}
+@source './components/MobileMenuTools.tsx';
+@source './components/MobileMenuToggle.astro';
+@media(max-width:49.999rem) {
+ :root[data-has-sidebar] .header { padding-inline-end:var(--sl-nav-pad-x); }
+ #starlight__sidebar:popover-open { inset:calc(var(--sl-nav-height) + .5rem) 1rem auto auto; margin:0; width:min(22.5rem,calc(100% - 2rem)); height:auto; max-height:calc(100dvh - var(--sl-nav-height) - 1.5rem); border:1px solid var(--border); border-radius:var(--radius-overlay); background:var(--popover); box-shadow:var(--shadow-overlay); overflow-y:auto; scrollbar-gutter:auto; }
+ #starlight__sidebar::backdrop { background:oklch(0 0 0 / 18%); }
+ #starlight__sidebar:popover-open .sidebar-content { height:auto; padding:1rem; gap:0; }
 }

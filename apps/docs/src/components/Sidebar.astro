@@ -1,11 +1,14 @@
 ---
 import SidebarSublist from '@astrojs/starlight/components/SidebarSublist.astro';
 import MobileMenuFooter from './MobileMenuFooter.astro';
+import navigation from '../../../../branding/public-navigation.json';
+import MobileMenuTools from './MobileMenuTools';
 import { documentationSection } from '../navigation';
 import SidebarPersister from '@astrojs/starlight/components/SidebarPersister.astro';
 const section = documentationSection(Astro.url.pathname);
-const scope = section === 'API' ? 'API & SDK' : section;
-const sidebar = Astro.locals.starlightRoute.sidebar.filter(entry => scope === 'Docs' ? !['API & SDK', 'Compare'].includes(entry.label) : entry.label === scope);
+const scope = section;
+const sidebar = Astro.locals.starlightRoute.sidebar.filter(entry => scope === 'Docs' ? !['API', 'SDK', 'Compare'].includes(entry.label) : entry.label === scope);
 ---
+<div class="docs-mobile-public"><nav aria-label="Public navigation">{navigation.map(({label,href})=><a href={href} aria-current={section===label?'page':undefined}>{label}</a>)}</nav><MobileMenuTools client:load /></div>
 <SidebarPersister><SidebarSublist sublist={sidebar} /></SidebarPersister>
 <div class="md:sl-hidden"><MobileMenuFooter /></div>

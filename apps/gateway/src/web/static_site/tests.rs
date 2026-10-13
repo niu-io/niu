@@ -16,6 +16,8 @@ impl Fixture {
         let root = std::env::temp_dir().join(format!("niu-domain-{}", Uuid::new_v4()));
         for (file, content) in [
             ("website/index.html", "marketing"),
+            ("website/compare/index.html", "comparison overview"),
+            ("website/compare/new-api/index.html", "new api comparison"),
             ("website/models/index.html", "must not shadow catalog"),
             ("website/docs/index.html", "must not shadow docs"),
             (
@@ -87,6 +89,8 @@ async fn separate_artifacts_share_one_origin_without_route_or_asset_collisions()
     let app = fixture.router(true);
     for (path, expected) in [
         ("/", "marketing"),
+        ("/compare/", "comparison overview"),
+        ("/compare/new-api/", "new api comparison"),
         ("/models/", "public catalog"),
         ("/docs/", "public docs"),
         ("/help/", "workspace shell"),
@@ -159,6 +163,19 @@ async fn community_build_does_not_require_marketing_artifacts() {
         body(&app, "/favicon.ico", StatusCode::OK).await,
         "community favicon"
     );
+    for (path, target) in [
+        ("/compare/", "/docs/compare/"),
+        ("/compare/new-api/", "/docs/compare/new-api/"),
+        ("/compare/openrouter/", "/docs/compare/openrouter/"),
+    ] {
+        let response = app
+            .clone()
+            .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT);
+        assert_eq!(response.headers()["location"], target);
+    }
     body(&app, "/site-assets/brand.png", StatusCode::NOT_FOUND).await;
     body(&app, "/_astro/style.css", StatusCode::NOT_FOUND).await;
 }

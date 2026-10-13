@@ -6,6 +6,9 @@ on:
     paths:
       - '.github/workflows/sdk.yml'
       - 'sdks/javascript/**'
+      - 'apps/docs/scripts/generate-api-docs.mjs'
+      - 'apps/docs/src/content/docs/api/**'
+      - 'contracts/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
@@ -13,6 +16,9 @@ on:
     paths:
       - '.github/workflows/sdk.yml'
       - 'sdks/javascript/**'
+      - 'apps/docs/scripts/generate-api-docs.mjs'
+      - 'apps/docs/src/content/docs/api/**'
+      - 'contracts/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
@@ -40,6 +46,10 @@ jobs:
           cache: pnpm
       - name: Install locked workspace dependencies
         run: pnpm install --frozen-lockfile
+      - name: Check generated SDK and REST references
+        run: pnpm check:api
+      - name: Test documentation generation and stale-output rejection
+        run: pnpm --filter @niu-io/docs test:api
       - name: Check SDK types
         run: pnpm --dir sdks/javascript check
       - name: Build SDK JavaScript and declarations

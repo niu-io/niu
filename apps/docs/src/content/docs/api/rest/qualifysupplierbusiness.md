@@ -1,0 +1,164 @@
+---
+title: "Record a Supplier business qualification review"
+description: "PUT /admin/v1/providers/{provider}/qualification"
+tableOfContents: false
+---
+
+Generated from the checked-in source. Do not edit this reference by hand.
+
+`PUT /admin/v1/providers/{provider}/qualification`
+
+Platform administration required; Supplier membership does not grant this write. Records a new immutable review and audit with caller-supplied evidence digests, then selects that review. The server validates digest syntax and expiry, not the truth of supply rights, capability or data-handling evidence. No upstream check, commercial agreement, funds transfer or offer activation is performed. Missing or deleted Supplier conflicts.
+
+Operation: `qualifySupplierBusiness`.
+
+## Authentication
+
+Use the credential and permission scope described above. Each object below is an alternative; schemes within one object are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+## HTTP request
+
+Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
+
+```sh
+curl --fail-with-body -X PUT "$NIU_ORIGIN/admin/v1/providers/{provider}/qualification" \
+  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data @request.json
+```
+
+## Parameters
+
+### provider
+
+Location: **path**. **Required.**
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+## Request body
+
+### application/json
+
+**Required.**
+
+
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "supply_rights_sha256",
+    "supply_capability_sha256",
+    "data_handling_sha256",
+    "valid_until_ms"
+  ],
+  "properties": {
+    "supply_rights_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
+    },
+    "supply_capability_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
+    },
+    "data_handling_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 digest of independently reviewed evidence; lowercase hexadecimal. Evidence content is not uploaded by this operation."
+    },
+    "valid_until_ms": {
+      "type": "integer",
+      "format": "int64",
+      "maximum": 253402300799999,
+      "description": "Unix epoch milliseconds; must be strictly later than server time."
+    }
+  }
+}
+```
+
+## Responses
+
+### HTTP 200
+
+Qualification transaction committed.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "qualification_status"
+      ],
+      "properties": {
+        "qualification_status": {
+          "type": "string",
+          "enum": [
+            "qualified"
+          ]
+        }
+      }
+    }
+  }
+}
+```
+
+### HTTP 400
+
+Invalid path UUID, malformed JSON, evidence digest, expiry or review metadata.
+
+### HTTP 401
+
+Missing or invalid administrator authentication.
+
+### HTTP 403
+
+Authenticated principal lacks platform management permission.
+
+### HTTP 409
+
+Missing resource or qualification/revision prerequisites no longer hold.
+
+### HTTP 415
+
+Request is not JSON.
+
+### HTTP 422
+
+JSON has missing, unknown or incorrectly typed fields.
+
+### HTTP 500
+
+Unexpected internal persistence failure.
+
+### HTTP 503
+
+Persistence temporarily unavailable; no successful qualification is confirmed.
+
+## Behavior and supported scope
+
+Platform administration required; Supplier membership does not grant this write. Records a new immutable review and audit with caller-supplied evidence digests, then selects that review. The server validates digest syntax and expiry, not the truth of supply rights, capability or data-handling evidence. No upstream check, commercial agreement, funds transfer or offer activation is performed. Missing or deleted Supplier conflicts.
+
+**Supported scope:** implemented

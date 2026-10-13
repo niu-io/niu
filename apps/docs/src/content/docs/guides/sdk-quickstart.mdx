@@ -1,0 +1,99 @@
+---
+title: Use the JavaScript / TypeScript SDK
+description: Install a local Niu SDK package, discover a model, send a request and handle a stream.
+---
+
+The fetch-based `@niu-io/sdk` client exposes Niu's inference and management interfaces. Use a **workspace API key** with `NiuClient`. Keep privileged management credentials server-side.
+
+## Install from this checkout
+
+Until you have a published or released SDK package, build and pack the checked-in SDK. From the Niu repository:
+
+```sh
+pnpm --dir sdks/javascript build
+pnpm --dir sdks/javascript pack --pack-destination /tmp/niu-sdk
+```
+
+In your application's directory, install the resulting package:
+
+```sh
+npm install /tmp/niu-sdk/niu-io-sdk-0.1.0.tgz
+```
+
+Use the filename produced by `pack` if the package version has changed. A published package can be installed by its pinned package version instead.
+
+## Configure the client
+
+Set `NIU_API_KEY` to your workspace key and `NIU_BASE_URL` to your installation's endpoint ending in `/v1`.
+
+```sh
+export NIU_API_KEY='your-workspace-api-key'
+export NIU_BASE_URL='http://localhost:2555/v1'
+```
+
+```typescript
+import { NiuClient } from '@niu-io/sdk';
+
+const niu = new NiuClient({
+  apiKey: process.env.NIU_API_KEY!,
+  baseURL: process.env.NIU_BASE_URL!,
+});
+
+const models = await niu.models.list();
+console.log(models.data.map(model => model.id));
+```
+
+Choose an available text model from discovery; replace the placeholder below. The generated [NiuClientOptions](/docs/api/sdk/niuclientoptions/) page lists the complete constructor options.
+
+## Send a request
+
+```typescript
+const completion = await niu.chat.completions({
+  model: 'your-model-alias',
+  messages: [{ role: 'user', content: 'Say hello in one sentence.' }],
+  max_tokens: 64,
+});
+
+console.log(completion.choices[0]?.message.content);
+console.log(completion.usage);
+```
+
+Use the generated [ChatCompletionRequest](/docs/api/sdk/chatcompletionrequest/) and [ChatCompletionResponse](/docs/api/sdk/chatcompletionresponse/) references for exact types. Optional capabilities still depend on the selected route.
+
+## Read a stream
+
+```typescript
+for await (const event of niu.chat.stream({
+  model: 'your-model-alias',
+  messages: [{ role: 'user', content: 'Say hello.' }],
+  max_tokens: 64,
+})) {
+  console.log(event);
+}
+```
+
+The current stream event type is `unknown`: validate the event shape before reading fields. The SDK throws on malformed or incomplete streams and does not automatically reconnect or retry. Consume the stream's terminal state; breaking the loop cancels the response body but does not prove upstream cancellation.
+
+## Handle API errors
+
+```typescript
+import { NiuAPIError } from '@niu-io/sdk';
+
+try {
+  await niu.models.list();
+} catch (error) {
+  if (error instanceof NiuAPIError) {
+    console.error(error.status, error.responseBody);
+  } else {
+    throw error;
+  }
+}
+```
+
+See [NiuAPIError](/docs/api/sdk/niuapierror/) for its actual properties. Keep correlation identifiers in diagnostic logs, not product labels. The SDK does not retry requests automatically.
+
+## Reference and verification
+
+- [Generated SDK interfaces](/docs/api/sdk/) contain constructors, methods, request and response types emitted from the source.
+- [Generated REST specification](/docs/api/rest/) describes HTTP authorization, fields and response schemas.
+- The packaged `examples/verify-inference.mjs` exercises model discovery and bounded buffered/streamed requests. It requires a configured key and enabled text route and can incur customer charges. Run it only for a workload you intend to execute.

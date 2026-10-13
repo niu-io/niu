@@ -98,6 +98,8 @@ jobs:
         run: pnpm --filter @niu-io/dashboard check
       - name: Build dashboard
         run: pnpm --filter @niu-io/dashboard build
+      - name: Check generated SDK and REST documentation
+        run: pnpm check:api
       - name: Check documentation
         run: pnpm --filter @niu-io/docs check
       - name: Build documentation

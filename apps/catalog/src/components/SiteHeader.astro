@@ -1,25 +1,7 @@
 ---
-const currentPath = Astro.url.pathname;
+import PublicHeader from '../../../docs/src/components/PublicHeader';
 ---
-
-<header class="site-header">
-  <div class="container nav-row">
-    <a class="wordmark" href="/" aria-label="Niu home">
-      <img src="/catalog-assets/brand/niu-mark.png" alt="" width="32" height="32" />
-      <span>Niu</span>
-    </a>
-    <nav id="navigation" aria-label="Main navigation">
-      <a href="/models/" aria-current={currentPath.startsWith("/models/") ? "page" : undefined}>Models</a>
-      <a href="/docs/">Docs</a>
-      <a href="/docs/reference/api/">API</a>
-      <a href="/docs/compare/">Compare</a>
-      <a href="/workspaces/default/">Workspace</a>
-      <a class="nav-github" href="https://github.com/niu-io/niu">
-        GitHub <span aria-hidden="true">↗</span>
-      </a>
-    </nav>
-    <a class="nav-workspace" href="/workspaces/default/">
-      Open workspace <span aria-hidden="true">↗</span>
-    </a>
-  </div>
-</header>
+<script is:inline>
+(()=>{let value='system';try{value=localStorage.getItem('niu-dashboard-theme')||'system';}catch{}const dark=value==='dark'||(value==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',dark);document.documentElement.style.colorScheme=dark?'dark':'light';})();
+</script>
+<PublicHeader path={Astro.url.pathname} brandSrc="/catalog-assets/brand/niu-mark.png" client:load/>

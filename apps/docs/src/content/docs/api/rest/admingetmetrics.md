@@ -1,0 +1,92 @@
+---
+title: "Read in-process request and token counters"
+description: "GET /admin/v1/metrics"
+tableOfContents: false
+---
+
+Generated from the checked-in source. Do not edit this reference by hand.
+
+`GET /admin/v1/metrics`
+
+
+
+Operation: `adminGetMetrics`.
+
+## Authentication
+
+Use the credential and permission scope described above. Each object below is an alternative; schemes within one object are required together.
+
+```json
+[
+  {
+    "adminBearerAuth": []
+  }
+]
+```
+
+## HTTP request
+
+Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
+
+```sh
+curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/metrics" \
+  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+```
+
+## Parameters
+
+No path, query, or header parameters are declared.
+
+## Request body
+
+No request body is declared.
+
+## Responses
+
+### HTTP 200
+
+Process-local counters. Token totals cover only complete provider-reported usage. Unknown attempts include missing or invalid usage, failures, cancellations, native adapter calls without usage provenance, and streams without trustworthy usage/termination evidence. Durable attempt evidence is stored separately; this metrics endpoint is process-local.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "requests_total": {
+      "type": "integer"
+    },
+    "requests_failed": {
+      "type": "integer"
+    },
+    "prompt_tokens": {
+      "type": "integer"
+    },
+    "completion_tokens": {
+      "type": "integer"
+    },
+    "usage": {
+      "type": "object",
+      "properties": {
+        "attempts_total": {
+          "type": "integer"
+        },
+        "attempts_unknown": {
+          "type": "integer"
+        },
+        "attempts_provider_reported": {
+          "type": "integer"
+        },
+        "prompt_tokens": {
+          "type": "integer"
+        },
+        "completion_tokens": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}
+```
+
+## Behavior and supported scope

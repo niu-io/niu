@@ -1,0 +1,223 @@
+---
+title: "Read the persistent personal Chat draft"
+description: "GET /admin/v1/organizations/{organization}/projects/{project}/chat-draft"
+tableOfContents: false
+---
+
+Generated from the checked-in source. Do not edit this reference by hand.
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/chat-draft`
+
+The draft is isolated by authenticated personal owner and workspace. Operators have distinct drafts; installation credentials share the installation owner. Read authorization and workspace scope are required. An absent draft returns null payload and revision zero.
+
+Operation: `getChatDraft`.
+
+## Authentication
+
+Use the credential and permission scope described above. Each object below is an alternative; schemes within one object are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+## HTTP request
+
+Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
+
+```sh
+curl --fail-with-body -X GET "$NIU_ORIGIN/admin/v1/organizations/{organization}/projects/{project}/chat-draft" \
+  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+```
+
+## Parameters
+
+### organization
+
+Location: **path**. **Required.**
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### project
+
+Location: **path**. **Required.**
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+## Request body
+
+No request body is declared.
+
+## Responses
+
+### HTTP 200
+
+Saved personal draft state.
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "payload",
+        "revision"
+      ],
+      "properties": {
+        "payload": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "prompt",
+                "models",
+                "attachments",
+                "settings"
+              ],
+              "properties": {
+                "sessionId": {
+                  "oneOf": [
+                    {
+                      "type": "string",
+                      "format": "uuid",
+                      "description": "Optional saved conversation belonging to this owner and workspace."
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "prompt": {
+                  "type": "string",
+                  "maxLength": 12000
+                },
+                "models": {
+                  "type": "array",
+                  "maxItems": 4,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Nonblank and at most 512 UTF-8 bytes; saving a draft does not invoke or grant access to this model."
+                  }
+                },
+                "attachments": {
+                  "type": "array",
+                  "maxItems": 4,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "name",
+                      "type",
+                      "content"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "At most 1024 UTF-8 bytes."
+                      },
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "image",
+                          "text"
+                        ]
+                      },
+                      "content": {
+                        "type": "string",
+                        "description": "At most 6291456 UTF-8 bytes; stored text, not a server-fetched URL."
+                      }
+                    }
+                  }
+                },
+                "settings": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "systemPrompt",
+                    "maxTokens",
+                    "temperature",
+                    "logPayloads"
+                  ],
+                  "properties": {
+                    "systemPrompt": {
+                      "type": "string",
+                      "maxLength": 12000
+                    },
+                    "maxTokens": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991
+                    },
+                    "temperature": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 2
+                    },
+                    "logPayloads": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "revision": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0,
+          "description": "Zero before the first saved draft; integer revision, not a string."
+        }
+      }
+    }
+  }
+}
+```
+
+### HTTP 401
+
+Missing or invalid administration/member authentication.
+
+### HTTP 403
+
+Insufficient permission or workspace scope.
+
+### HTTP 500
+
+Internal storage failure.
+
+### HTTP 503
+
+Storage unavailable.
+
+## Behavior and supported scope
+
+The draft is isolated by authenticated personal owner and workspace. Operators have distinct drafts; installation credentials share the installation owner. Read authorization and workspace scope are required. An absent draft returns null payload and revision zero.
+
+**Supported scope:** implemented

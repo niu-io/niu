@@ -7,7 +7,7 @@ Repository boundaries and URL boundaries are independent. The hosted product use
 | Repository | Owns | Public paths |
 | --- | --- | --- |
 | `niu-io/niu` | Public Gateway, dashboard, model catalog, API contracts, SDKs, docs, tests, community image, shared brand assets and theme tokens | `/models/`, `/docs/`, `/help/`, `/login`, `/installation`, `/chat`, `/activity/…`, `/settings/…`, `/admin/suppliers/…`, `/suppliers/…`, `/workspaces/{workspace}/…`, `/v1/`, `/admin/v1/`, `/catalog/v1/` |
-| `niu-io/website` | Marketing homepage, copy, illustrations, and marketing build | `/`, `/site-assets/`, `/_astro/`, favicon, robots and sitemap |
+| `niu-io/website` | Marketing homepage, public product comparisons, copy, illustrations, and marketing build | `/`, `/compare/…`, `/site-assets/`, `/_astro/`, favicon, robots and sitemap |
 | Enterprise distribution | Private modules, SaaS integration, production release composition | `/enterprise/` and `/enterprise/api/v1/{module_id}/…` |
 
 The public product builds from this checkout without website or private source. Its image serves the catalog, docs, dashboard and APIs from one listener, with PostgreSQL as an external service. Its root redirects to the default workspace. Builds use checked-in brand assets and theme tokens under `branding/`.
@@ -16,6 +16,10 @@ The hosted distribution pins immutable Niu and website commits and installs the 
 
 Keep cross-product navigation relative to the origin: `/models/`, `/docs/`, and `/workspaces/default/`. Production canonical URLs use `https://niu.io`. Website brand snapshots retain attribution and record the Niu revision from which they were copied; the Niu `branding/` directory remains the shared theme source.
 
+Public header geometry and navigation are owned by `branding/public-header.css` and `branding/public-navigation.json`. Docs and catalog import them directly; the independent website snapshots these contracts and the Niu-specific public header composition, recording the public revision, working-tree state and exact file hashes. Its synchronization command takes an explicit public source checkout; regular website builds verify the snapshot without needing that checkout. All public sections use one-row headers and collapse navigation into a floating menu below the shared narrow-width breakpoint.
+
 The private Enterprise distribution composes independently versioned private services beside the pinned public core. The public service boundary, module registration, health checks and tenant context are specified in [Enterprise composition and service boundaries](enterprise-composition.md). Community operation requires no private module, supervisor, or license service.
 
 `/docs/` serves standalone public documentation. `/help/` is a dashboard route inside the shared application layout. It embeds the standalone documentation artifact; article navigation updates the dashboard router while retaining its rail and account controls. Dashboard Help links use `/help/`, while public links and canonical URLs use `/docs/`. Neither documentation route requires authentication.
+
+Hosted product comparisons at `/compare/` belong to the independently built website artifact. Community installations without `NIU_SITE_DIR` redirect those entries to the bundled technical documentation comparisons under `/docs/compare/`; they require no website source.

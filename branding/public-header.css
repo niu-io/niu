@@ -1,0 +1,25 @@
+/* Canonical public shell: website snapshots this file; Docs and catalog import it. */
+.public-header { position:sticky; top:0; z-index:40; height:4rem; padding:.75rem 1.5rem; background:var(--background); border-bottom:1px solid var(--border); }
+.docs-header { font-family:ui-sans-serif,system-ui,sans-serif; display:flex; align-items:center; gap:2rem; height:100%; }
+.docs-brand { display:inline-flex; align-items:center; gap:.625rem; color:var(--foreground); font-size:1rem; font-weight:650; text-decoration:none; white-space:nowrap; }
+.docs-brand img { width:28px; height:28px; }
+.docs-header nav { display:flex; align-items:center; gap:1.5rem; margin-inline-start:auto; }
+.docs-header nav a { color:var(--muted-foreground); font-size:.875rem; font-weight:500; text-decoration:none; padding-block:.625rem; border-bottom:2px solid transparent; }
+.docs-header nav a:hover, .docs-header nav a[aria-current='page'] { color:var(--foreground); }
+.docs-header nav a[aria-current='page'] { border-bottom-color:var(--foreground); }
+.docs-header-tools { display:flex; align-items:center; gap:.5rem; }
+.public-search { width:2.5rem; height:2.5rem; color:var(--foreground); }
+.public-mobile-menu { display:none; margin-inline-start:auto; }
+.docs-header-tools site-search { width:auto; }
+.docs-header-tools site-search button { width:2.5rem; height:2.5rem; justify-content:center; border:0; background:transparent; padding:.5rem; }
+.docs-header-tools site-search button > :not(svg) { display:none; }
+@media(max-width:49.999rem) {
+ .public-header { padding:.75rem 1rem; }
+ .public-header .docs-header nav, .public-header .docs-header-tools { display:none; }
+ .public-mobile-menu { display:block; }
+}
+.docs-header nav a { line-height:1.5; }
+@layer base {
+ * { border-color:var(--border); }
+ .docs-header button, .sl-menu-button, .docs-mobile-public button { border:0; background:transparent; color:inherit; font:inherit; padding:0; box-sizing:border-box; }
+}

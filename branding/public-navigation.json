@@ -1,0 +1,7 @@
+[
+  { "label": "Models", "href": "/models/" },
+  { "label": "Docs", "href": "/docs/" },
+  { "label": "API", "href": "/docs/api/rest/" },
+  { "label": "SDK", "href": "/docs/api/sdk/" },
+  { "label": "Compare", "href": "/compare/" }
+]

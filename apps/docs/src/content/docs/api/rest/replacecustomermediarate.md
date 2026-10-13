@@ -1,0 +1,468 @@
+---
+title: "Atomically replace a customer media selling schedule"
+description: "POST /admin/v1/organizations/{organization}/billing/media-rates/replace"
+tableOfContents: false
+---
+
+Generated from the checked-in source. Do not edit this reference by hand.
+
+`POST /admin/v1/organizations/{organization}/billing/media-rates/replace`
+
+Platform-administrator write permission required. Installation credentials and explicitly granted member administrators are supported. Publishes the immutable replacement and retires the previous scoped schedule at the new effective start in one transaction. Dimensions and meter must match; competing effective schedules conflict. Identical replay is accepted while route bindings remain current. Any publication or retirement failure rolls back both changes. Historical cards and pinned jobs are unchanged. No procurement fallback or automatic submission retry.
+
+Operation: `replaceCustomerMediaRate`.
+
+## Authentication
+
+Use the credential and permission scope described above. Each object below is an alternative; schemes within one object are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+## HTTP request
+
+Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
+
+```sh
+curl --fail-with-body -X POST "$NIU_ORIGIN/admin/v1/organizations/{organization}/billing/media-rates/replace" \
+  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data @request.json
+```
+
+## Parameters
+
+### organization
+
+Location: **path**. **Required.**
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+## Request body
+
+### application/json
+
+**Required.**
+
+
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "previous_revision",
+    "rate"
+  ],
+  "properties": {
+    "previous_revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "rate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision",
+        "vendor_id",
+        "vendor_revision",
+        "model_revision",
+        "schema_revision",
+        "offer_revision",
+        "tariff",
+        "discounts",
+        "maximum_quantity",
+        "liability_qualification_revision"
+      ],
+      "properties": {
+        "revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "vendor_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Internal route reference; never a display label."
+        },
+        "vendor_revision": {
+          "type": "integer",
+          "minimum": 1,
+          "format": "int64"
+        },
+        "model_revision": {
+          "type": "integer",
+          "minimum": 1,
+          "format": "int64"
+        },
+        "schema_revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "offer_revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "tariff": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "revision",
+            "dimensions",
+            "meter",
+            "currency",
+            "decimal_places",
+            "amount_units",
+            "per_quantity",
+            "minimum_quantity",
+            "rounding",
+            "effective_from"
+          ],
+          "properties": {
+            "revision": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "dimensions": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "model",
+                "channel",
+                "resolution",
+                "reference_video"
+              ],
+              "properties": {
+                "model": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "channel": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "resolution": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "reference_video": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "meter": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "currency": {
+              "type": "string",
+              "pattern": "^[A-Z]{3}$"
+            },
+            "decimal_places": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9
+            },
+            "amount_units": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Exact u64 smallest accounting units at the declared decimal precision. JavaScript SDK requires a safe integer."
+            },
+            "per_quantity": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "numerator",
+                "denominator"
+              ],
+              "description": "Reduced nonnegative rational quantity; canonical decimal strings bounded to u128. Denominator must be positive. Maximum liability quantity must be positive.",
+              "properties": {
+                "numerator": {
+                  "type": "string",
+                  "maxLength": 39,
+                  "pattern": "^(0|[1-9][0-9]*)$"
+                },
+                "denominator": {
+                  "type": "string",
+                  "maxLength": 39,
+                  "pattern": "^[1-9][0-9]*$"
+                }
+              }
+            },
+            "minimum_quantity": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "numerator",
+                "denominator"
+              ],
+              "description": "Reduced nonnegative rational quantity; canonical decimal strings bounded to u128. Denominator must be positive. Maximum liability quantity must be positive.",
+              "properties": {
+                "numerator": {
+                  "type": "string",
+                  "maxLength": 39,
+                  "pattern": "^(0|[1-9][0-9]*)$"
+                },
+                "denominator": {
+                  "type": "string",
+                  "maxLength": 39,
+                  "pattern": "^[1-9][0-9]*$"
+                }
+              }
+            },
+            "rounding": {
+              "type": "string",
+              "enum": [
+                "Down",
+                "Up",
+                "HalfEven"
+              ]
+            },
+            "effective_from": {
+              "type": "integer",
+              "format": "int64",
+              "description": "Unix seconds, inclusive."
+            },
+            "effective_until": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64",
+              "description": "Unix seconds, exclusive; must exceed effective_from."
+            }
+          }
+        },
+        "discounts": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "revision",
+              "effective_from",
+              "priority",
+              "stacking",
+              "multiplier"
+            ],
+            "properties": {
+              "revision": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "dimensions": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "model",
+                      "channel",
+                      "resolution",
+                      "reference_video"
+                    ],
+                    "properties": {
+                      "model": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 256
+                      },
+                      "channel": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 256
+                      },
+                      "resolution": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 256
+                      },
+                      "reference_video": {
+                        "type": "boolean"
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "offer": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "customer": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "effective_from": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "effective_until": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int64"
+              },
+              "priority": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "stacking": {
+                "type": "string",
+                "enum": [
+                  "Exclusive",
+                  "Multiply"
+                ]
+              },
+              "multiplier": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "numerator",
+                  "denominator"
+                ],
+                "description": "Reduced nonnegative rational quantity; canonical decimal strings bounded to u128. Denominator must be positive. Maximum liability quantity must be positive.",
+                "properties": {
+                  "numerator": {
+                    "type": "string",
+                    "maxLength": 39,
+                    "pattern": "^(0|[1-9][0-9]*)$"
+                  },
+                  "denominator": {
+                    "type": "string",
+                    "maxLength": 39,
+                    "pattern": "^[1-9][0-9]*$"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "maximum_quantity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "numerator",
+            "denominator"
+          ],
+          "description": "Reduced nonnegative rational quantity; canonical decimal strings bounded to u128. Denominator must be positive. Maximum liability quantity must be positive.",
+          "properties": {
+            "numerator": {
+              "type": "string",
+              "maxLength": 39,
+              "pattern": "^(0|[1-9][0-9]*)$"
+            },
+            "denominator": {
+              "type": "string",
+              "maxLength": 39,
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        },
+        "liability_qualification_revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "Reference to independently qualified upper-bound evidence; a point estimate is insufficient."
+        }
+      }
+    }
+  }
+}
+```
+
+## Responses
+
+### HTTP 200
+
+Replacement committed or identical replay accepted
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": [
+        "revision",
+        "effective_from"
+      ],
+      "properties": {
+        "revision": {
+          "type": "string"
+        },
+        "effective_from": {
+          "type": "string",
+          "pattern": "^-?[0-9]+$"
+        }
+      }
+    }
+  }
+}
+```
+
+### HTTP 400
+
+Invalid card, changed dimensions or cutoff outside original interval
+
+### HTTP 401
+
+Administrator authentication required
+
+### HTTP 403
+
+Platform-administrator write permission required
+
+### HTTP 409
+
+Missing scoped revision, competing schedule, stale route or conflicting receipt
+
+### HTTP 413
+
+Body exceeds 128 KiB
+
+### HTTP 422
+
+Malformed typed JSON body
+
+### HTTP 503
+
+Durable storage unavailable
+
+## Behavior and supported scope
+
+Platform-administrator write permission required. Installation credentials and explicitly granted member administrators are supported. Publishes the immutable replacement and retires the previous scoped schedule at the new effective start in one transaction. Dimensions and meter must match; competing effective schedules conflict. Identical replay is accepted while route bindings remain current. Any publication or retirement failure rolls back both changes. Historical cards and pinned jobs are unchanged. No procurement fallback or automatic submission retry.
+
+**Supported scope:** implemented

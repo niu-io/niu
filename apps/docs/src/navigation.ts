@@ -1,6 +1,7 @@
 /** Shared section identity for public navigation and the article sidebar. */
-export function documentationSection(path: string): 'Docs' | 'API' | 'Compare' {
+export function documentationSection(path: string): 'Docs' | 'API' | 'SDK' | 'Compare' {
   if (/\/compare(?:\/|$)/.test(path)) return 'Compare';
-  if (/\/reference\/(api|handler-operations|backend-business|backend-text-load|workspace-materials)(?:\/|$)/.test(path)) return 'API';
+  if (/\/api\/sdk(?:\/|$)/.test(path)) return 'SDK';
+  if (/\/api(?:\/|$)/.test(path)) return 'API';
   return 'Docs';
 }

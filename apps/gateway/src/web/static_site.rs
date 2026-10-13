@@ -122,6 +122,30 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
     // it must not capture product routes, API failures, or workspace deep links.
     let app = match site_dir {
         Some(directory) => app
+            .route(
+                "/docs/compare/",
+                get(|| async { Redirect::permanent("/compare/") }),
+            )
+            .route(
+                "/docs/compare/new-api/",
+                get(|| async { Redirect::permanent("/compare/new-api/") }),
+            )
+            .route(
+                "/docs/compare/openrouter/",
+                get(|| async { Redirect::permanent("/compare/openrouter/") }),
+            )
+            .route(
+                "/compare",
+                get(|| async { Redirect::permanent("/compare/") }),
+            )
+            .route_service(
+                "/compare/",
+                ServeFile::new(format!("{directory}/compare/index.html")),
+            )
+            .nest_service(
+                "/compare",
+                ServeDir::new(format!("{directory}/compare")),
+            )
             .route_service("/", ServeFile::new(format!("{directory}/index.html")))
             .route_service(
                 "/favicon.ico",
@@ -140,10 +164,28 @@ fn from_directories<S: Clone + Send + Sync + 'static>(
                 "/site-assets",
                 ServeDir::new(format!("{directory}/site-assets")),
             ),
-        None => app.route("/", get(default_workspace)).route_service(
-            "/favicon.ico",
-            ServeFile::new(format!("{catalog_dir}/favicon.ico")),
-        ),
+        None => app
+            .route(
+                "/compare",
+                get(|| async { Redirect::temporary("/docs/compare/") }),
+            )
+            .route(
+                "/compare/",
+                get(|| async { Redirect::temporary("/docs/compare/") }),
+            )
+            .route(
+                "/compare/new-api/",
+                get(|| async { Redirect::temporary("/docs/compare/new-api/") }),
+            )
+            .route(
+                "/compare/openrouter/",
+                get(|| async { Redirect::temporary("/docs/compare/openrouter/") }),
+            )
+            .route("/", get(default_workspace))
+            .route_service(
+                "/favicon.ico",
+                ServeFile::new(format!("{catalog_dir}/favicon.ico")),
+            ),
     };
     app.layer(middleware::map_response(revalidate_html))
 }

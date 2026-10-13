@@ -12,69 +12,21 @@
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
-  color-scheme: dark;
+  color-scheme: light;
   background: var(--background);
   color: var(--foreground);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 }
-.dark {
-  color-scheme: dark;
-  --background: #171714;
-  --foreground: #eee9de;
-  --card: #20211d;
-  --card-foreground: #eee9de;
-  --popover: #292923;
-  --popover-foreground: #eee9de;
-  --primary: #e9e2d5;
-  --primary-foreground: #201b17;
-  --secondary: #2b2a24;
-  --secondary-foreground: #e8e2d7;
-  --muted: #2b2b25;
-  --muted-foreground: #b8b0a2;
-  --accent: #383229;
-  --accent-foreground: #f0e8da;
-  --destructive: #bb6655;
-  --destructive-foreground: #fff8ee;
-  --success: #a3ad83;
-  --success-foreground: #1d2119;
-  --warning: #d2a15d;
-  --warning-foreground: #221b14;
-  --info: #b9a38a;
-  --info-foreground: #1d1b18;
-  --border: #ffffff1c;
-  --input: #ffffff24;
-  --ring: #c58b67;
-  --chart-1: #c58b67;
-  --chart-2: #a3ad83;
-  --chart-3: #d2a15d;
-  --chart-4: #a99179;
-  --chart-5: #bb6655;
-  --sidebar: #1c1c18;
-  --sidebar-foreground: #eee9de;
-  --sidebar-primary: #e9e2d5;
-  --sidebar-primary-foreground: #201b17;
-  --sidebar-accent: #302e27;
-  --sidebar-accent-foreground: #eee9de;
-  --sidebar-border: #ffffff16;
-  --sidebar-ring: #c58b67;
-  --neutral-border: var(--border);
-  --logo-surface: #eee9de;
-  --oxhide: #171714;
-  --horn: #eee9de;
-  --russet: #b9775a;
-  --copper: #d7a17d;
-  --pasture: #a3ad83;
-  --straw: #d2a15d;
-}
+
 * {
   box-sizing: border-box;
 }
 body {
   margin: 0;
 }
-a {
+a:not([data-slot="button"]) {
   color: inherit;
   text-decoration: none;
 }
@@ -105,8 +57,8 @@ button,
 summary {
   touch-action: manipulation;
 }
-a:focus-visible,
-button:focus-visible,
+a:focus-visible:not([data-slot]),
+button:focus-visible:not([data-slot]),
 summary:focus-visible {
   outline: 3px solid var(--ring);
   outline-offset: 5px;

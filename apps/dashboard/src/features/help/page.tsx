@@ -9,7 +9,9 @@ export default function HelpPage() {
   const docsBase = `${dashboardBase}/docs/`;
   const helpPath = location.pathname.replace(/^\/help\/?/, '');
   const path = `${docsBase}${helpPath}`;
-  const framePath = path + location.search + location.hash;
+  const query = new URLSearchParams(location.search);
+  query.set('embed', 'help');
+  const framePath = path + '?' + query.toString() + location.hash;
   const initialFramePath = useRef(framePath);
   useEffect(() => {
     const contentWindow = frame.current?.contentWindow;
@@ -32,6 +34,7 @@ export default function HelpPage() {
           ? url.pathname.slice('/docs/'.length)
           : null;
       if (url.origin === window.location.origin && docsPath !== null) {
+        url.searchParams.delete('embed');
         navigate('/help/' + docsPath + url.search + url.hash);
       }
     }

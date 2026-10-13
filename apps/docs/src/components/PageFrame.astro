@@ -7,13 +7,14 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
 <script>
   import { navigate } from 'astro:transitions/client';
 
-  if (window.parent !== window) {
+  if (document.documentElement.hasAttribute('data-docs-embedded')) {
     // The dashboard owns browser history; Astro swaps articles without blanking
     // the iframe or rebuilding the documentation shell.
     window.addEventListener('message', (event) => {
       if (event.origin !== location.origin || event.source !== parent || event.data?.type !== 'niu-docs-navigate' || typeof event.data.path !== 'string') return;
       const url = new URL(event.data.path, location.origin);
       if (url.origin === location.origin && url.pathname.startsWith('/docs/')) {
+        url.searchParams.set('embed', 'help');
         void navigate(url.pathname + url.search + url.hash, { history: 'replace' });
       }
     });
@@ -21,6 +22,7 @@ import PageFrame from '@astrojs/starlight/components/PageFrame.astro';
       const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>('a[href]') : null;
       if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || link.target || link.hasAttribute('download')) return;
       const url = new URL(link.href, location.href);
+      url.searchParams.delete('embed');
       if (url.origin === location.origin && url.pathname.startsWith('/docs/')) {
         event.preventDefault();
         parent.postMessage({ type: 'niu-docs-navigation', path: url.pathname + url.search + url.hash }, location.origin);

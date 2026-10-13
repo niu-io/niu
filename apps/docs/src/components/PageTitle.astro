@@ -1,0 +1,5 @@
+---
+import PageTitle from '@astrojs/starlight/components/PageTitle.astro';
+const home=/^\/docs\/?$/.test(Astro.url.pathname);
+---
+{home ? <span data-docs-home-title hidden /> : <PageTitle />}
