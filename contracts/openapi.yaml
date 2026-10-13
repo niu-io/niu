@@ -6,6 +6,12 @@ info:
 servers:
   - url: /
 paths:
+  /admin/v1/organizations/{organization}/projects/{project}/media/asset-operations:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1media~1asset-operations'
+  /admin/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1media~1asset-operations~1{id}'
+  /admin/v1/organizations/{organization}/projects/{project}/media/asset-operations/by-idempotency/{id}:
+    $ref: './generated/handler-operations.json#/paths/~1admin~1v1~1organizations~1{organization}~1projects~1{project}~1media~1asset-operations~1by-idempotency~1{id}'
   /v1/media/asset-operations/prepare:
     $ref: './generated/handler-operations.json#/paths/~1v1~1media~1asset-operations~1prepare'
   /v1/media/asset-operations/{id}/dispatch:

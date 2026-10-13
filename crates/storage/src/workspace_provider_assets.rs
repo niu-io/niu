@@ -271,6 +271,8 @@ pub enum WorkspaceProviderAssetOutcome {
 }
 const GROUP_COLUMNS: &str = "g.id,g.model_alias AS model,g.name,g.description,g.kind,g.status,g.revision::text AS revision,floor(extract(epoch FROM g.created_at)*1000)::bigint AS created_at_ms,floor(extract(epoch FROM g.updated_at)*1000)::bigint AS updated_at_ms,CASE WHEN g.observed_at IS NULL THEN NULL ELSE jsonb_build_object('source','provider_get','status','present','name',g.observed_name,'description',g.observed_description,'observed_at_ms',floor(extract(epoch FROM g.observed_at)*1000)::bigint) END AS observation,g.provider_ref,g.vendor_id,g.vendor_revision,g.model_revision,g.upstream_model";
 const ASSET_COLUMNS: &str = "a.id,a.group_id,g.model_alias AS model,a.name,a.kind,CASE WHEN g.status='unknown' THEN 'unknown' ELSE a.status END AS status,a.revision::text AS revision,floor(extract(epoch FROM a.created_at)*1000)::bigint AS created_at_ms,floor(extract(epoch FROM a.updated_at)*1000)::bigint AS updated_at_ms,CASE WHEN a.observed_at IS NULL THEN NULL ELSE jsonb_build_object('source','provider_get','status',a.observed_status,'name',a.observed_name,'observed_at_ms',floor(extract(epoch FROM a.observed_at)*1000)::bigint) END AS observation,a.provider_ref,g.provider_ref AS group_provider_ref,g.vendor_id,g.vendor_revision,g.model_revision,g.upstream_model,EXISTS(SELECT 1 FROM workspace_provider_asset_operations created WHERE created.organization_id=a.organization_id AND created.project_id=a.project_id AND created.group_id=a.group_id AND created.asset_id=a.id AND created.action='create_asset' AND created.status='acknowledged') AS create_acknowledged";
+// Original key and model select recorded history; optional group pins its immutable account context.
+const HISTORICAL_OPERATION_FILTER: &str = "o.organization_id=$1 AND o.project_id=$2 AND o.key_id=$3 AND g.model_alias=$4 AND ($5::uuid IS NULL OR EXISTS(SELECT 1 FROM workspace_provider_asset_groups context WHERE context.organization_id=$1 AND context.project_id=$2 AND context.id=$5 AND context.model_alias=g.model_alias AND context.vendor_id=g.vendor_id AND context.vendor_revision=g.vendor_revision AND context.model_revision=g.model_revision AND context.upstream_model=g.upstream_model))";
 const OP_COLUMNS: &str = "o.id,o.group_id,o.asset_id,g.model_alias AS model,o.action,o.status,o.http_status,o.request_id,floor(extract(epoch FROM o.created_at)*1000)::bigint AS created_at_ms,floor(extract(epoch FROM o.updated_at)*1000)::bigint AS updated_at_ms,g.vendor_id,g.vendor_revision,g.model_revision,g.upstream_model";
 #[derive(Serialize)]
 pub struct WorkspaceProviderAssetPage<T: Serialize> {
@@ -480,6 +482,122 @@ impl Store {
         Ok(data)
     }
 
+    /// Saved workspace history does not authenticate or restore the original inference key.
+    async fn historical_provider_operation_filter(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: TenantScope,
+        key: Uuid,
+        model: &str,
+        context: Option<Uuid>,
+    ) -> Result<(), StoreError> {
+        if key.is_nil()
+            || model.trim().is_empty()
+            || model.len() > 512
+            || context.is_some_and(|id| id.is_nil())
+        {
+            return Err(StoreError::InvalidObservation);
+        }
+        let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM api_keys WHERE organization_id=$1 AND project_id=$2 AND id=$3)")
+            .bind(scope.organization_id).bind(scope.project_id).bind(key).fetch_one(&mut **tx).await?;
+        if !exists {
+            return Err(StoreError::Conflict);
+        }
+        if let Some(group) = context {
+            let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM workspace_provider_asset_groups g JOIN workspace_provider_asset_operations o ON o.group_id=g.id AND o.organization_id=g.organization_id AND o.project_id=g.project_id WHERE g.organization_id=$1 AND g.project_id=$2 AND g.id=$3 AND g.model_alias=$4 AND o.key_id=$5)")
+                .bind(scope.organization_id).bind(scope.project_id).bind(group).bind(model).bind(key).fetch_one(&mut **tx).await?;
+            if !exists {
+                return Err(StoreError::Conflict);
+            }
+        }
+        Ok(())
+    }
+    pub async fn historical_workspace_provider_asset_operation(
+        &self,
+        scope: TenantScope,
+        key: Uuid,
+        model: &str,
+        context: Option<Uuid>,
+        id: Uuid,
+        by_idempotency: bool,
+    ) -> Result<Option<WorkspaceProviderAssetOperation>, StoreError> {
+        if id.is_nil() {
+            return Err(StoreError::InvalidObservation);
+        }
+        let mut tx = self.begin_bounded_read_snapshot().await?;
+        Self::historical_provider_operation_filter(&mut tx, scope, key, model, context).await?;
+        let column = if by_idempotency {
+            "o.idempotency_key"
+        } else {
+            "o.id"
+        };
+        let sql = format!(
+            "SELECT {OP_COLUMNS} FROM workspace_provider_asset_operations o JOIN workspace_provider_asset_groups g ON g.id=o.group_id AND g.organization_id=o.organization_id AND g.project_id=o.project_id WHERE {HISTORICAL_OPERATION_FILTER} AND {column}=$6"
+        );
+        let value = sqlx::query_as(&sql)
+            .bind(scope.organization_id)
+            .bind(scope.project_id)
+            .bind(key)
+            .bind(model)
+            .bind(context)
+            .bind(id)
+            .fetch_optional(&mut *tx)
+            .await?;
+        tx.commit().await?;
+        Ok(value)
+    }
+    pub async fn historical_workspace_provider_asset_operations(
+        &self,
+        scope: TenantScope,
+        key: Uuid,
+        model: &str,
+        context: Option<Uuid>,
+        after: Option<Uuid>,
+        limit: i64,
+    ) -> Result<WorkspaceProviderAssetPage<WorkspaceProviderAssetOperation>, StoreError> {
+        if !(1..=100).contains(&limit) || after.is_some_and(|id| id.is_nil()) {
+            return Err(StoreError::InvalidObservation);
+        }
+        let mut tx = self.begin_bounded_read_snapshot().await?;
+        Self::historical_provider_operation_filter(&mut tx, scope, key, model, context).await?;
+        if let Some(id) = after {
+            let sql = format!(
+                "SELECT EXISTS(SELECT 1 FROM workspace_provider_asset_operations o JOIN workspace_provider_asset_groups g ON g.id=o.group_id AND g.organization_id=o.organization_id AND g.project_id=o.project_id WHERE {HISTORICAL_OPERATION_FILTER} AND o.id=$6)"
+            );
+            let valid: bool = sqlx::query_scalar(&sql)
+                .bind(scope.organization_id)
+                .bind(scope.project_id)
+                .bind(key)
+                .bind(model)
+                .bind(context)
+                .bind(id)
+                .fetch_one(&mut *tx)
+                .await?;
+            if !valid {
+                return Err(StoreError::Conflict);
+            }
+        }
+        let sql = format!(
+            "SELECT {OP_COLUMNS} FROM workspace_provider_asset_operations o JOIN workspace_provider_asset_groups g ON g.id=o.group_id AND g.organization_id=o.organization_id AND g.project_id=o.project_id WHERE {HISTORICAL_OPERATION_FILTER} AND ($6::uuid IS NULL OR (o.created_at,o.id)<(SELECT c.created_at,c.id FROM workspace_provider_asset_operations c WHERE c.organization_id=$1 AND c.project_id=$2 AND c.id=$6)) ORDER BY o.created_at DESC,o.id DESC LIMIT $7"
+        );
+        let mut data: Vec<WorkspaceProviderAssetOperation> = sqlx::query_as(&sql)
+            .bind(scope.organization_id)
+            .bind(scope.project_id)
+            .bind(key)
+            .bind(model)
+            .bind(context)
+            .bind(after)
+            .bind(limit + 1)
+            .fetch_all(&mut *tx)
+            .await?;
+        let next_cursor = if data.len() > limit as usize {
+            data.truncate(limit as usize);
+            data.last().map(|v| v.id)
+        } else {
+            None
+        };
+        tx.commit().await?;
+        Ok(WorkspaceProviderAssetPage { data, next_cursor })
+    }
     pub async fn workspace_provider_asset_operations(
         &self,
         p: &Principal,

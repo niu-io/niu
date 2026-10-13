@@ -197,9 +197,16 @@ after its original inference key expires or is revoked. It does not restore
 inference authority or send a Provider request. Current-key cancellation also
 remains available through `media.operations.cancel()`.
 
-Preparation and cancellation have current-input API and independent persistence
-qualification. Dispatch success, response-loss recovery in the browser and fresh
-historical reads after key expiry require separate qualification.
+Read saved operations using `admin.mediaOperationHistory(scope, { keyId, model })`.
+The original key may be expired or revoked; current workspace Read permission
+governs access. This scope includes all saved accounts for that exact key and
+model. Supply `contextGroupId` to pin a saved group's immutable account binding.
+Use `list`, `retrieve` or `retrieveByIdempotency` without refreshing Provider state
+or restoring execution permission.
+
+Preparation, cancellation and historical reads have current-input API, built SDK
+and independent persistence qualification. Dispatch success and response-loss
+recovery in the browser require separate qualification.
 
 ### Use an asset as a generation reference
 

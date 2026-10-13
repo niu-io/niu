@@ -10,6 +10,7 @@ export type { PlatformAuditCategory, PlatformAuditSource, PlatformAuditEvent, Pl
 import { assetBinaryRequest, type WorkspaceAsset, type WorkspaceAssetPage, type WorkspaceAssetPageOptions } from './workspace-assets.js';
 import { nativeCapabilityQuery, type NativeProviderCapabilities } from './provider-capabilities.js';
 export type { NativeProviderCapabilities, NativeProviderModule } from './provider-capabilities.js';
+import type { MediaAssetOperation, MediaAssetPage } from './media-assets.js';
 import { createDashboardMediaClient } from './dashboard-media.js';
 import { createGenerationArtifactCaptureClient, type GenerationArtifactCaptureInput } from './generation-artifact-capture.js';
 export type { GenerationArtifactCapture, GenerationArtifactCaptureInput, GenerationArtifactCaptureFailureCode, GenerationArtifactCaptureClient, GenerationArtifactCaptureSender } from './generation-artifact-capture.js';
@@ -28,6 +29,10 @@ export interface FinancialRecoveryDiagnostics {
     has_cursor: boolean;
   }>;
 }
+
+/** Explicit saved-operation scope; no active key or default account is inferred. */
+export type MediaOperationHistoryContext = { keyId: string; model: string; contextGroupId?: string };
+export type MediaOperationHistoryQuery = { limit?: number; after?: string };
 
 /** Authorized identity for a canonical route; never display the routing reference as a name. */
 export type WorkspaceRoute = { id: string; organization_id: string; name: string; route_slug: string };
@@ -1143,6 +1148,31 @@ export class NiuAdminClient {
   cancelPreparedMediaOperation(scope: TenantScope, operationId: string, model: string, options?: RequestOptions): Promise<{ data: { status: 'not_sent' } }> {
     if (!model.trim()) throw new TypeError('A model is required');
     return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/media/asset-operations/${uuid(operationId)}/cancel${nativeCapabilityQuery(model)}`, undefined, options, 'POST');
+  }
+
+  /** Read saved native operations with current workspace Read access.
+   * The original key may be expired or revoked. An optional saved group pins
+   * its account binding; omitting it reads all saved accounts for this key/model.
+   * This helper never dispatches, refreshes upstream state or restores key grants.
+   */
+  mediaOperationHistory(scope: TenantScope, context: MediaOperationHistoryContext) {
+    if (!context.model.trim()) throw new TypeError('A model is required');
+    const path = `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/media/asset-operations`;
+    const parameters = new URLSearchParams({ key_id: uuid(context.keyId), model: context.model });
+    if (context.contextGroupId !== undefined) parameters.set('context_group_id', uuid(context.contextGroupId));
+    return {
+      list: (query: MediaOperationHistoryQuery = {}, options?: RequestOptions): Promise<MediaAssetPage<MediaAssetOperation>> => {
+        if (query.limit !== undefined && (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100)) throw new TypeError('History limit must be an integer from 1 to 100');
+        const page = new URLSearchParams(parameters);
+        if (query.limit !== undefined) page.set('limit', String(query.limit));
+        if (query.after !== undefined) page.set('after', uuid(query.after));
+        return this.request(`${path}?${page}`, undefined, options);
+      },
+      retrieve: (operationId: string, options?: RequestOptions): Promise<{ data: MediaAssetOperation }> =>
+        this.request(`${path}/${uuid(operationId)}?${parameters}`, undefined, options),
+      retrieveByIdempotency: (idempotencyKey: string, options?: RequestOptions): Promise<{ data: MediaAssetOperation }> =>
+        this.request(`${path}/by-idempotency/${uuid(idempotencyKey)}?${parameters}`, undefined, options),
+    };
   }
 
   /** Session-authenticated media with an explicit current key/account context. */

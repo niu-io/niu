@@ -173,6 +173,8 @@ The reference is emitted from the TypeScript SDK source, including inferred retu
 - [MediaAssetPage](/docs/api/sdk/mediaassetpage/)
 - [MediaAssetPreparationOptions](/docs/api/sdk/mediaassetpreparationoptions/)
 - [MediaBillingDimensions](/docs/api/sdk/mediabillingdimensions/)
+- [MediaOperationHistoryContext](/docs/api/sdk/mediaoperationhistorycontext/)
+- [MediaOperationHistoryQuery](/docs/api/sdk/mediaoperationhistoryquery/)
 - [MediaVerificationInput](/docs/api/sdk/mediaverificationinput/)
 - [MediaVerificationLink](/docs/api/sdk/mediaverificationlink/)
 - [MediaVerificationSession](/docs/api/sdk/mediaverificationsession/)

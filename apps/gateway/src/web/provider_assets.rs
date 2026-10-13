@@ -5810,3 +5810,522 @@ pub(super) async fn cancel_historical_operation(
         Json(json!({"data":{"status":"not_sent"}})),
     ))
 }
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct HistoricalOperationQuery {
+    key_id: Uuid,
+    model: String,
+    context_group_id: Option<Uuid>,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct HistoricalOperationListQuery {
+    key_id: Uuid,
+    model: String,
+    context_group_id: Option<Uuid>,
+    after: Option<Uuid>,
+    limit: Option<u32>,
+}
+async fn authorize_historical_operations(
+    state: &AppState,
+    headers: &HeaderMap,
+    scope: niu_storage::TenantScope,
+) -> Result<(), ApiError> {
+    let auth = state
+        .authorize_admin_headers(headers, niu_storage::AdminPermission::Read)
+        .await?;
+    if !auth.permits_project(scope) {
+        return Err(ApiError::forbidden());
+    }
+    Ok(())
+}
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/media/asset-operations",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "listHistoricalWorkspaceProviderAssetOperations",
+///     "summary": "List historical native material operations",
+///     "description": "Current authenticated workspace Read permission required. Native operation history is workspace-shared. Reads only immutable saved scope, original key, model and optional group/account context; does not authenticate or reenable an expired or revoked inference key, consult current model grants or catalog, select a default account, create a Provider client, call the Provider or retry a mutation. Safe Niu references and saved diagnostic metadata only; private Provider identifiers, source URLs, credentials and procurement prices are excluded. Prepared is not dispatch permission; unknown remains uncertain. A missing record does not prove an original request was never sent. Deleted resources retain operation history. Without context_group_id, includes all saved account bindings for this original key and model, without claiming they share an account. Newest-first creation time and UUID tie-breaker with exclusive cursor pagination. Validation and page share one bounded database snapshot; keep all filters fixed. This is a live history, not a fixed export snapshot.",
+///     "tags": [
+///       "Media"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key_id",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "description": "Original saved workspace key reference; expiration or revocation does not restore or remove historical read permission."
+///       },
+///       {
+///         "name": "model",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "minLength": 1,
+///           "maxLength": 512
+///         },
+///         "description": "Exact recorded Niu model alias. Never resolves a default Provider account."
+///       },
+///       {
+///         "name": "context_group_id",
+///         "in": "query",
+///         "required": false,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "description": "Existing scoped Niu group recorded under this original key/model; pins its immutable account, credential revision, model revision and upstream mapping without exposing those fields."
+///       },
+///       {
+///         "name": "after",
+///         "in": "query",
+///         "required": false,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "description": "Cursor from these exact original-key/model/account filters. Unknown or foreign cursors are refused."
+///       },
+///       {
+///         "name": "limit",
+///         "in": "query",
+///         "required": false,
+///         "schema": {
+///           "type": "integer",
+///           "minimum": 1,
+///           "maximum": 100,
+///           "default": 50
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Saved workspace operation metadata",
+///         "headers": {
+///           "Cache-Control": {
+///             "schema": {
+///               "type": "string"
+///             },
+///             "description": "no-store"
+///           }
+///         },
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data",
+///                 "next_cursor"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "items": {
+///                     "$ref": "#/components/schemas/MediaAssetOperation"
+///                   }
+///                 },
+///                 "next_cursor": {
+///                   "type": [
+///                     "string",
+///                     "null"
+///                   ],
+///                   "format": "uuid"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid query, UUID or limit"
+///       },
+///       "401": {
+///         "description": "Invalid or expired member session"
+///       },
+///       "403": {
+///         "description": "Current workspace Read denied"
+///       },
+///       "404": {
+///         "description": "Operation absent from this exact binding"
+///       },
+///       "409": {
+///         "description": "Foreign original key, account context or pagination cursor"
+///       },
+///       "503": {
+///         "description": "Bounded storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+pub(super) async fn list_historical_operations(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    axum::extract::Path((organization, project)): axum::extract::Path<(Uuid, Uuid)>,
+    input: Result<Query<HistoricalOperationListQuery>, QueryRejection>,
+) -> Result<(HeaderMap, Json<Value>), ApiError> {
+    let scope = niu_storage::TenantScope {
+        organization_id: organization,
+        project_id: project,
+    };
+    authorize_historical_operations(&state, &headers, scope).await?;
+    let input = query(input)?;
+    let page = state
+        .store
+        .historical_workspace_provider_asset_operations(
+            scope,
+            input.key_id,
+            &input.model,
+            input.context_group_id,
+            input.after,
+            page_limit(input.limit)?,
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok((operation_read_headers(), Json(json!(page))))
+}
+async fn historical_operation(
+    state: &AppState,
+    headers: &HeaderMap,
+    scope: niu_storage::TenantScope,
+    id: Uuid,
+    input: HistoricalOperationQuery,
+    by_idempotency: bool,
+) -> Result<(HeaderMap, Json<Value>), ApiError> {
+    authorize_historical_operations(state, headers, scope).await?;
+    let operation = state
+        .store
+        .historical_workspace_provider_asset_operation(
+            scope,
+            input.key_id,
+            &input.model,
+            input.context_group_id,
+            id,
+            by_idempotency,
+        )
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    Ok((operation_read_headers(), Json(json!({"data":operation}))))
+}
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "getHistoricalWorkspaceProviderAssetOperation",
+///     "summary": "Read historical native material operations",
+///     "description": "Current authenticated workspace Read permission required. Native operation history is workspace-shared. Reads only immutable saved scope, original key, model and optional group/account context; does not authenticate or reenable an expired or revoked inference key, consult current model grants or catalog, select a default account, create a Provider client, call the Provider or retry a mutation. Safe Niu references and saved diagnostic metadata only; private Provider identifiers, source URLs, credentials and procurement prices are excluded. Prepared is not dispatch permission; unknown remains uncertain. A missing record does not prove an original request was never sent. Deleted resources retain operation history. Without context_group_id, includes all saved account bindings for this original key and model, without claiming they share an account.",
+///     "tags": [
+///       "Media"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key_id",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "description": "Original saved workspace key reference; expiration or revocation does not restore or remove historical read permission."
+///       },
+///       {
+///         "name": "model",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "minLength": 1,
+///           "maxLength": 512
+///         },
+///         "description": "Exact recorded Niu model alias. Never resolves a default Provider account."
+///       },
+///       {
+///         "name": "context_group_id",
+///         "in": "query",
+///         "required": false,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "description": "Existing scoped Niu group recorded under this original key/model; pins its immutable account, credential revision, model revision and upstream mapping without exposing those fields."
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Saved workspace operation metadata",
+///         "headers": {
+///           "Cache-Control": {
+///             "schema": {
+///               "type": "string"
+///             },
+///             "description": "no-store"
+///           }
+///         },
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "$ref": "#/components/schemas/MediaAssetOperation"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid query, UUID or limit"
+///       },
+///       "401": {
+///         "description": "Invalid or expired member session"
+///       },
+///       "403": {
+///         "description": "Current workspace Read denied"
+///       },
+///       "404": {
+///         "description": "Operation absent from this exact binding"
+///       },
+///       "409": {
+///         "description": "Foreign original key, account context or pagination cursor"
+///       },
+///       "503": {
+///         "description": "Bounded storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+pub(super) async fn get_historical_operation(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    axum::extract::Path((organization, project, id)): axum::extract::Path<(Uuid, Uuid, Uuid)>,
+    input: Result<Query<HistoricalOperationQuery>, QueryRejection>,
+) -> Result<(HeaderMap, Json<Value>), ApiError> {
+    historical_operation(
+        &state,
+        &headers,
+        niu_storage::TenantScope {
+            organization_id: organization,
+            project_id: project,
+        },
+        id,
+        query(input)?,
+        false,
+    )
+    .await
+}
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/media/asset-operations/by-idempotency/{id}",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "getHistoricalWorkspaceProviderAssetOperationByIdempotency",
+///     "summary": "Read historical native material operations",
+///     "description": "Current authenticated workspace Read permission required. Native operation history is workspace-shared. Reads only immutable saved scope, original key, model and optional group/account context; does not authenticate or reenable an expired or revoked inference key, consult current model grants or catalog, select a default account, create a Provider client, call the Provider or retry a mutation. Safe Niu references and saved diagnostic metadata only; private Provider identifiers, source URLs, credentials and procurement prices are excluded. Prepared is not dispatch permission; unknown remains uncertain. A missing record does not prove an original request was never sent. Deleted resources retain operation history. Without context_group_id, includes all saved account bindings for this original key and model, without claiming they share an account. The path id is the original canonical nonnil request idempotency UUID, not an operation reference.",
+///     "tags": [
+///       "Media"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key_id",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "description": "Original saved workspace key reference; expiration or revocation does not restore or remove historical read permission."
+///       },
+///       {
+///         "name": "model",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "minLength": 1,
+///           "maxLength": 512
+///         },
+///         "description": "Exact recorded Niu model alias. Never resolves a default Provider account."
+///       },
+///       {
+///         "name": "context_group_id",
+///         "in": "query",
+///         "required": false,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "description": "Existing scoped Niu group recorded under this original key/model; pins its immutable account, credential revision, model revision and upstream mapping without exposing those fields."
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Saved workspace operation metadata",
+///         "headers": {
+///           "Cache-Control": {
+///             "schema": {
+///               "type": "string"
+///             },
+///             "description": "no-store"
+///           }
+///         },
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "$ref": "#/components/schemas/MediaAssetOperation"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid query, UUID or limit"
+///       },
+///       "401": {
+///         "description": "Invalid or expired member session"
+///       },
+///       "403": {
+///         "description": "Current workspace Read denied"
+///       },
+///       "404": {
+///         "description": "Operation absent from this exact binding"
+///       },
+///       "409": {
+///         "description": "Foreign original key, account context or pagination cursor"
+///       },
+///       "503": {
+///         "description": "Bounded storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+pub(super) async fn get_historical_operation_by_idempotency(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    axum::extract::Path((organization, project, id)): axum::extract::Path<(Uuid, Uuid, Uuid)>,
+    input: Result<Query<HistoricalOperationQuery>, QueryRejection>,
+) -> Result<(HeaderMap, Json<Value>), ApiError> {
+    historical_operation(
+        &state,
+        &headers,
+        niu_storage::TenantScope {
+            organization_id: organization,
+            project_id: project,
+        },
+        id,
+        query(input)?,
+        true,
+    )
+    .await
+}

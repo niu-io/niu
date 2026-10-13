@@ -434,6 +434,25 @@ cancelPreparedMediaOperation(scope: TenantScope, operationId: string, model: str
 }>;
 ```
 
+### mediaOperationHistory
+
+```typescript
+/** Read saved native operations with current workspace Read access.
+ * The original key may be expired or revoked. An optional saved group pins
+ * its account binding; omitting it reads all saved accounts for this key/model.
+ * This helper never dispatches, refreshes upstream state or restores key grants.
+ */
+mediaOperationHistory(scope: TenantScope, context: MediaOperationHistoryContext): {
+    list: (query?: MediaOperationHistoryQuery, options?: RequestOptions) => Promise<MediaAssetPage<MediaAssetOperation>>;
+    retrieve: (operationId: string, options?: RequestOptions) => Promise<{
+        data: MediaAssetOperation;
+    }>;
+    retrieveByIdempotency: (idempotencyKey: string, options?: RequestOptions) => Promise<{
+        data: MediaAssetOperation;
+    }>;
+};
+```
+
 ### dashboardMedia
 
 ```typescript
@@ -465,7 +484,7 @@ dashboardMedia(scope: TenantScope, keyId: string): {
             model: string;
             after?: string;
             limit?: number;
-        }, options?: RequestOptions) => Promise<import("./media-assets.js").MediaAssetPage<import("./media-assets.js").MediaAssetGroup>>;
+        }, options?: RequestOptions) => Promise<MediaAssetPage<import("./media-assets.js").MediaAssetGroup>>;
         create: (input: {
             model: string;
             name: string;
@@ -495,7 +514,7 @@ dashboardMedia(scope: TenantScope, keyId: string): {
             limit?: number;
         } & {
             group_id?: string;
-        }, options?: RequestOptions) => Promise<import("./media-assets.js").MediaAssetPage<import("./media-assets.js").MediaAsset>>;
+        }, options?: RequestOptions) => Promise<MediaAssetPage<import("./media-assets.js").MediaAsset>>;
         create: (input: {
             model: string;
             group_id: string;
@@ -523,18 +542,18 @@ dashboardMedia(scope: TenantScope, keyId: string): {
         prepare: (input: import("./media-assets.js").MediaAssetOperationInput, options: import("./media-assets.js").MediaAssetPreparationOptions) => Promise<import("./media-assets.js").MediaAssetMutation>;
         dispatch: (id: string, input: import("./media-assets.js").MediaAssetOperationInput, options: import("./media-assets.js").MediaAssetPreparationOptions) => Promise<import("./media-assets.js").MediaAssetMutation>;
         cancel: (id: string, model: string, options?: RequestOptions) => Promise<{
-            data: import("./media-assets.js").MediaAssetOperation;
+            data: MediaAssetOperation;
         }>;
         list: (input: {
             model: string;
             after?: string;
             limit?: number;
-        }, options?: RequestOptions) => Promise<import("./media-assets.js").MediaAssetPage<import("./media-assets.js").MediaAssetOperation>>;
+        }, options?: RequestOptions) => Promise<MediaAssetPage<MediaAssetOperation>>;
         retrieveByIdempotency: (idempotencyKey: string, model: string, options?: RequestOptions) => Promise<{
-            data: import("./media-assets.js").MediaAssetOperation;
+            data: MediaAssetOperation;
         }>;
         retrieve: (id: string, model: string, options?: RequestOptions) => Promise<{
-            data: import("./media-assets.js").MediaAssetOperation;
+            data: MediaAssetOperation;
         }>;
     };
 };

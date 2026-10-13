@@ -27454,6 +27454,405 @@ HTTP 409: Unknown, acknowledged, foreign or mismatched model preparation
 
 HTTP 503: Storage unavailable
 
+## List historical native material operations
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/media/asset-operations`
+
+Current authenticated workspace Read permission required. Native operation history is workspace-shared. Reads only immutable saved scope, original key, model and optional group/account context; does not authenticate or reenable an expired or revoked inference key, consult current model grants or catalog, select a default account, create a Provider client, call the Provider or retry a mutation. Safe Niu references and saved diagnostic metadata only; private Provider identifiers, source URLs, credentials and procurement prices are excluded. Prepared is not dispatch permission; unknown remains uncertain. A missing record does not prove an original request was never sent. Deleted resources retain operation history. Without context_group_id, includes all saved account bindings for this original key and model, without claiming they share an account. Newest-first creation time and UUID tie-breaker with exclusive cursor pagination. Validation and page share one bounded database snapshot; keep all filters fixed. This is a live history, not a fixed export snapshot.
+
+Implementation: `implemented`. Operation: `listHistoricalWorkspaceProviderAssetOperations`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key_id` (query, required)
+
+Original saved workspace key reference; expiration or revocation does not restore or remove historical read permission.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`model` (query, required)
+
+Exact recorded Niu model alias. Never resolves a default Provider account.
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 512
+}
+```
+
+`context_group_id` (query, optional)
+
+Existing scoped Niu group recorded under this original key/model; pins its immutable account, credential revision, model revision and upstream mapping without exposing those fields.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`after` (query, optional)
+
+Cursor from these exact original-key/model/account filters. Unknown or foreign cursors are refused.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Saved workspace operation metadata
+
+Response header: `Cache-Control`.
+
+no-store
+
+```json
+{
+  "type": "string"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "next_cursor"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "$ref": "#/components/schemas/MediaAssetOperation"
+      }
+    },
+    "next_cursor": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid query, UUID or limit
+
+HTTP 401: Invalid or expired member session
+
+HTTP 403: Current workspace Read denied
+
+HTTP 404: Operation absent from this exact binding
+
+HTTP 409: Foreign original key, account context or pagination cursor
+
+HTTP 503: Bounded storage unavailable
+
+## Read historical native material operations
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/media/asset-operations/{id}`
+
+Current authenticated workspace Read permission required. Native operation history is workspace-shared. Reads only immutable saved scope, original key, model and optional group/account context; does not authenticate or reenable an expired or revoked inference key, consult current model grants or catalog, select a default account, create a Provider client, call the Provider or retry a mutation. Safe Niu references and saved diagnostic metadata only; private Provider identifiers, source URLs, credentials and procurement prices are excluded. Prepared is not dispatch permission; unknown remains uncertain. A missing record does not prove an original request was never sent. Deleted resources retain operation history. Without context_group_id, includes all saved account bindings for this original key and model, without claiming they share an account.
+
+Implementation: `implemented`. Operation: `getHistoricalWorkspaceProviderAssetOperation`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key_id` (query, required)
+
+Original saved workspace key reference; expiration or revocation does not restore or remove historical read permission.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`model` (query, required)
+
+Exact recorded Niu model alias. Never resolves a default Provider account.
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 512
+}
+```
+
+`context_group_id` (query, optional)
+
+Existing scoped Niu group recorded under this original key/model; pins its immutable account, credential revision, model revision and upstream mapping without exposing those fields.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Saved workspace operation metadata
+
+Response header: `Cache-Control`.
+
+no-store
+
+```json
+{
+  "type": "string"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/MediaAssetOperation"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid query, UUID or limit
+
+HTTP 401: Invalid or expired member session
+
+HTTP 403: Current workspace Read denied
+
+HTTP 404: Operation absent from this exact binding
+
+HTTP 409: Foreign original key, account context or pagination cursor
+
+HTTP 503: Bounded storage unavailable
+
+## Read historical native material operations
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/media/asset-operations/by-idempotency/{id}`
+
+Current authenticated workspace Read permission required. Native operation history is workspace-shared. Reads only immutable saved scope, original key, model and optional group/account context; does not authenticate or reenable an expired or revoked inference key, consult current model grants or catalog, select a default account, create a Provider client, call the Provider or retry a mutation. Safe Niu references and saved diagnostic metadata only; private Provider identifiers, source URLs, credentials and procurement prices are excluded. Prepared is not dispatch permission; unknown remains uncertain. A missing record does not prove an original request was never sent. Deleted resources retain operation history. Without context_group_id, includes all saved account bindings for this original key and model, without claiming they share an account. The path id is the original canonical nonnil request idempotency UUID, not an operation reference.
+
+Implementation: `implemented`. Operation: `getHistoricalWorkspaceProviderAssetOperationByIdempotency`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`id` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key_id` (query, required)
+
+Original saved workspace key reference; expiration or revocation does not restore or remove historical read permission.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`model` (query, required)
+
+Exact recorded Niu model alias. Never resolves a default Provider account.
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 512
+}
+```
+
+`context_group_id` (query, optional)
+
+Existing scoped Niu group recorded under this original key/model; pins its immutable account, credential revision, model revision and upstream mapping without exposing those fields.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Saved workspace operation metadata
+
+Response header: `Cache-Control`.
+
+no-store
+
+```json
+{
+  "type": "string"
+}
+```
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/MediaAssetOperation"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid query, UUID or limit
+
+HTTP 401: Invalid or expired member session
+
+HTTP 403: Current workspace Read denied
+
+HTTP 404: Operation absent from this exact binding
+
+HTTP 409: Foreign original key, account context or pagination cursor
+
+HTTP 503: Bounded storage unavailable
+
 ## Discover authorized model-specific native Provider tools
 
 `GET /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/capabilities`
