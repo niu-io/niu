@@ -531,6 +531,32 @@ pub fn decode_group_update_acknowledgement(
     Ok(())
 }
 
+/// Decode the observed UpdateAsset acceptance receipt, not verified metadata
+/// or processing readiness. Only a singleton owned Id is a recognized shape;
+/// callers must explicitly GetAsset to confirm its current name/status.
+pub fn decode_asset_update_acknowledgement(
+    response: &FastRouterActionResponse,
+    request: &Value,
+) -> Result<(), FastRouterDomainError> {
+    let value = result(response, FastRouterAction::UpdateAsset)?;
+    if !value
+        .as_object()
+        .is_some_and(|object| object.len() == 1 && object.contains_key("Id"))
+        || request
+            .get("Name")
+            .and_then(Value::as_str)
+            .is_none_or(|name| !text(name, 64))
+    {
+        return Err(FastRouterDomainError::InvalidResponse);
+    }
+    let requested_id = reference(request, "Id")?;
+    let observed_id = reference(value, "Id")?;
+    if observed_id.private_ref() != requested_id.private_ref() {
+        return Err(FastRouterDomainError::InvalidResponse);
+    }
+    Ok(())
+}
+
 pub fn decode_created_reference(
     response: &FastRouterActionResponse,
 ) -> Result<FastRouterProviderReference, FastRouterDomainError> {
