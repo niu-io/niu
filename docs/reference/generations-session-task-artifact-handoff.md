@@ -2,6 +2,73 @@
 
 Status: implementation contract with an additive backend increment delivered. Existing Video APIs remain authoritative. The [implemented API/SDK guide](../../apps/docs/src/content/docs/reference/generations.mdx) records exact paths, verification and limitations. Reviewed 2026-10-13.
 
+## Current handoff: resume here (2026-10-13)
+
+**The implementation is not complete.** The latest local increment adds dashboard
+media access and explicit result re-fetching. Task execution-context projection,
+SDK normalization and correct model-specific tool discovery are still pending.
+The code described below includes uncommitted working-tree changes; a pull of the
+current base commit alone does not include them. Transfer/review those changes
+before continuing, preserving unrelated concurrent frontend work.
+
+### Next work, in order
+
+1. **Make saved task identity authoritative.** Every generation must retain its
+   dispatched model, Provider adapter, channel and upstream account binding, plus
+   the validated inputs/parameters permitted by retention policy. Existing
+   `media_recovery_routes` already pins dispatch identity and refresh uses it:
+   preserve this implementation rather than introducing another routing engine.
+   Expose a customer-safe execution-context projection in task detail and the SDK.
+   The current `GenerationTask` exposes model but not this execution context.
+   Distinguish submitted model alias from actual dispatched model. Missing historic
+   information stays unknown; never reconstruct it from current composer choices
+   or today's Supplier configuration. Do not expose credentials, private upstream
+   IDs/URLs, internal account IDs or procurement data.
+2. **Normalize status and result operations in the SDK.** Callers provide the
+   authorized task reference and output kind. The server loads the saved binding
+   and selects the adapter; clients must not supply a replacement Provider/model
+   to query an existing task. Keep saved reads, explicit upstream status refresh,
+   cached content delivery and explicit fresh-result delivery distinct. Existing
+   selected-key APIs remain compatible; document their current-grant requirements
+   separately from cross-key historical inventory reads. Add a typed SDK method
+   for the new dashboard result-refresh endpoint and session-authenticated media
+   access; the frontend currently uses custom fetch senders for these additions.
+   Publish matching OpenAPI and docs. Do not silently add auto-retry or generation.
+3. **Gate native tools by declared capabilities.** `VideoView.tsx` currently opens
+   `VolcengineView` from an unconditional “Supplier tools” action. This incorrectly
+   offers Seedance-specific tools for an OpenRouter Grok task. Return authorized
+   model/channel module capabilities, and use them for contextual tools, workspace
+   Video discovery and family choices. `useMaterials.ts` currently probes active
+   keys/models and takes the first supported binding; replace that fallback with
+   explicit authorized context. Never mix inventories across upstream accounts or
+   infer native capability from a model name or generic video support.
+4. **Verify the correct existing FastRouter Seedance task.** Locate its saved
+   record and existing result in the test environment. Verify the actual saved
+   channel, then exercise status and output retrieval without submitting again.
+   Keep OpenRouter Grok and FastRouter Seedance evidence separate. The local
+   successful-task/HTTP-410 download check below was OpenRouter Grok, and proves
+   nothing about FastRouter output availability. The FastRouter recovery check
+   remains outstanding. Copy only necessary scoped test data through private
+   configuration; do not replace the local database or publish credentials.
+5. **Finish acceptance, then shared output presentation.** Test authorization,
+   original-route recovery, result expiry semantics and SDK contracts first. Wire
+   Tasks/Assets to the delivered inventory and show source-task context. Native
+   materials/groups remain workspace-scoped module resources, not generated
+   outputs. Durable byte capture/promotion remains separate unfinished work.
+
+### Local increment: files and verification boundaries
+
+| Change | Implementation | Verification / remaining work |
+| --- | --- | --- |
+| Dashboard media routes | `apps/gateway/src/web/media_authorization.rs`, `provider_assets.rs`, `provider_verification.rs`, `routes.rs`; session-authorized selected-key access to existing native handlers | Build/check passed earlier in this increment; actual group/session reads returned 200 and empty inventories; invalid authentication was denied. Full role/cross-workspace regression coverage remains pending. |
+| Materials and verification UI | `apps/dashboard/src/features/provider-modules/volcengine/useMaterials.ts`, `VolcengineView.tsx`, `page.tsx`; group menu/dialog, URL registration, explicit verification actions | Desktop menu/dialog and empty reads inspected. No upstream group/material/session creation or completed face verification was performed. Narrow-screen and mutation-recovery acceptance remain pending. |
+| Explicit fresh result delivery | `apps/gateway/src/web/inference/{dashboard_video,video,video_results}.rs`, `web/routes.rs`; frontend `VideoResult.tsx` and `result.ts` | Earlier endpoint build passed; nine targeted `VideoResult` tests passed. Existing OpenRouter task query succeeded, download returned 410. Latest error mapping needs final build/runtime verification; positive FastRouter delivery remains unverified. |
+| SDK and task metadata | Existing `sdks/javascript/src/admin.ts`, `generations-inventory.ts`, storage `generations_inventory.sql` | The new execution-context projection and typed refresh/media additions have **not** been implemented. Do not treat the requested design as delivered code. |
+
+The broader dashboard test run had failures in concurrent layout/activity work;
+it is not a passing release acceptance. Re-run relevant checks after integrating
+all changes. No paid generation is authorized for this handoff.
+
 | Area | Delivery state |
 | --- | --- |
 | P0 Video sessions and turn/task associations | Implemented; actual existing-task association, concurrency, deletion, archive and restart exercised |
@@ -9,8 +76,8 @@ Status: implementation contract with an additive backend increment delivered. Ex
 | P1 historical task inventory | Implemented for Video across saved keys, with exact states and actor privacy; complete text-execution inventory remains open |
 | P2 generated-output inventory | Implemented for video and last frame; actual expired outputs refuse download; positive unexpired delivery remains unverified in this increment |
 | General retained Video controls/references | New turns retain typed text instructions only; the original Video intent remains authoritative for validated submission input |
-| P3 workspace-scoped Provider modules and shared platform capabilities | Existing inference-key media SDK and workspace isolation are implemented; dashboard session bridge, module discovery and shared asset bindings remain pending; no universal Person entity |
-| P4 human verification | Existing inference-key session operations are implemented; workspace module and contextual Generations integration remain pending |
+| P3 workspace-scoped Provider modules and shared platform capabilities | Existing inference-key media SDK and workspace isolation are implemented; dashboard selected-key access is implemented; module discovery and shared asset bindings remain pending; no universal Person entity |
+| P4 human verification | Existing inference-key session operations are implemented; workspace forms now call existing session operations; completed human verification remains unverified |
 | Frontend timeline and two-browser rendering | Frontend integration and acceptance remain open |
 
 This status does not mark all acceptance items complete. No fixture result supports these delivery claims, and no paid generation was initiated for this increment.
@@ -30,7 +97,9 @@ call generation or replay creation to obtain new test data. Read saved status
 and available result bytes. Do not create reference assets or verification
 sessions solely for acceptance; the human-verification entry is a separately
 explicit user action, not an automatic step in viewing a video.
-If an old result has expired, report that fact rather than regenerate it. Use
+If a cached download reference has expired, report that specific state; do not
+infer that the upstream resource has expired. An explicit query may obtain a fresh
+reference from the original task, without regeneration. Use
 fixtures for creation/concurrency failure tests, not paid upstream operations.
 
 ## Existing capabilities to retain
@@ -46,7 +115,7 @@ fixtures for creation/concurrency failure tests, not paid upstream operations.
 | Supplier model mappings and Video schemas | Model-declared channels, inputs and controls | Frontend discoverability work; no replacement backend capability editor is required. |
 | Workspace material library | Durable encrypted original files, metadata, scoped member CRUD, SDK and quota enforcement | No Collections, person entity, Artifact-to-Asset promotion or general audio/video reference dispatch. |
 | Provider asset groups, assets and operations | Account/model-bound resources, acknowledged creation, processing/Active state and recovery | Not a generic material library; no unified material-to-Provider binding projection. |
-| Provider verification sessions | Create/list/read, explicit private H5 link, guarded result query and genuine person-group binding | No person-library association or dashboard entry; actual human completion remains unverified. |
+| Provider verification sessions | Create/list/read, explicit private H5 link, guarded result query and genuine person-group binding | No person-library association; dashboard entry is wired in the local increment, but actual human completion remains unverified. |
 
 See [Video API and SDK](../../apps/docs/src/content/docs/reference/video.mdx),
 `sdks/javascript/src/admin.ts`, `sdks/javascript/src/index.ts`,
@@ -248,8 +317,8 @@ completion. Expired or uncertain sessions retain their historical association;
 starting another is a separate explicit action. Reuse stored server session data
 across restart and browser loss, and preserve authorization when changing keys.
 
-Deliver a session-authenticated dashboard bridge or documented authorized SDK
-access for the minimum entry. Do not require users to paste upstream secrets or
+Dashboard media access now reuses session-authorized workspace keys under
+`/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/*`. Do not require users to paste upstream secrets or
 retrieve/store inference-key secrets just to open this feature. Add any required
 Provider-local material/session associations, capability discovery and safe named context
 DTOs through additive contracts, with no blanket permission to migrate bindings.
@@ -315,12 +384,12 @@ Workspace Provider modules need session-authenticated scoped access and model ca
 Tasks and Artifacts navigation waits for its inventory contract; no empty placeholder
 destinations or browser-only indexes should stand in for the backend work above.
 
-## Implemented frontend review flow
+## Implemented frontend flow
 
 - `/workspaces/:workspace/video/volcengine` uses one horizontal tab row for Materials and Human verification. Materials uses a group DropdownMenu and the selected group’s files; the workspace sidebar contains only Video, with no child navigation. The legacy provider-capabilities route redirects here. Video visibility currently uses authorized video model discovery through active workspace key metadata and session-authenticated model reads. This discovers Video availability, not Volcengine-specific support; the backend capability contract must distinguish Provider modules.
 - The Video composer opens the same module in a dialog without navigating away or unmounting its draft. Closing restores the composer.
-- New material group and verification forms expose their intended context and name fields. Submission is disabled until session-authenticated integration is supplied. No generation, registration or verification call is issued by this review implementation.
-- This is a frontend review flow, not completed backend integration. Product surfaces contain no implementation-status notices; they make no claims of empty successful inventories or verified state. Submit controls remain disabled and no upstream mutation occurs. Integration limitations belong in this handoff only.
+- Group creation/editing, URL material registration and human verification creation call the existing media SDK operations through dashboard selected-key routes. Mutations require workspace write permission. Verification links and status checks are explicit actions; page loading performs only saved-state reads.
+- Live local reads for groups and verification sessions return 200, with empty saved inventories in the current workspace. Invalid authentication returns 401. Upstream mutations and completed human verification were not exercised in this pass; no generation was submitted. Product errors replace the empty state and offer Retry.
 - Replace the temporary fixed module entry with server-discovered authorized capabilities. The selected generation model is context, not proof that Volcengine capabilities are supported.
 - Supply workspace-scoped group/material/session inventory, safe display context, compatible reference resolution and the module-to-platform associations described above. Preserve the current workspace member authorization boundary.
 
@@ -357,12 +426,13 @@ runtime or paid-generation acceptance run.
 
 ### Required additive integration
 
-1. **Dashboard authorization bridge:** current media endpoints admit an inference
-   principal, while the page has a dashboard session. Add documented workspace
-   session access to scoped groups, assets, operations and verification. The server
-   resolves an authorized model/channel binding; never return or ask the browser
-   to retrieve a key secret. Read membership and mutation permissions remain
-   distinct. Cross-workspace list/detail/link/reference tests are required.
+1. **Dashboard media authorization — implemented:** the selected-key routes reuse
+   `authorize_dashboard_key` and the existing native media handlers. GET requires
+   Read; mutations and explicit refresh require Write. Existing model grants,
+   workspace isolation and Provider account binding checks still apply. The stored
+   Supplier credential stays on the server. Neither a Supplier login nor another
+   user-supplied key is needed. Broader role/isolation regression acceptance remains
+   required before release.
 2. **Capability and model context discovery:** the Video model list describes
    inputs/controls, but does not declare Seedance family, available native modules
    or safe Provider/account/channel context. Add an authorized discovery projection
@@ -381,7 +451,7 @@ runtime or paid-generation acceptance run.
    retrieval for Add material. If uploads are supported, use bounded server-owned
    sources or workspace file references, not assumed public authenticated-file URLs.
    Keep Provider registration/processing independent from original-file ownership.
-5. **Verification bridge:** preserve deliberate private H5 link retrieval, expiry
+5. **Verification flow:** preserve deliberate private H5 link retrieval, expiry
    and explicit result check. Refresh is POST and may resolve/create a person group;
    do not implement passive GET polling or mark verified from navigation alone.
 6. **Draft references:** new session turns currently retain only typed video prompt
@@ -401,3 +471,29 @@ SDK inventory; only add those controls when an explicit authorized contract exis
 Aggregating authorized workspace output pages can provide the initial global
 Assets view, while preserving actor-private associations and failures. Do not call
 generation to fill missing or expired outputs.
+
+### Compact layout correction
+
+The existing breadcrumb supplies the page title. Materials/Human verification tabs
+and the Seedance choice share one horizontal row. Group selection and Add material
+share the next toolbar. Empty content is unboxed; failures do not masquerade as
+empty inventories. The layout follows the updated existing Stitch screen.
+
+### Existing output retrieval after link expiry
+
+The dashboard now offers an explicit `Fetch video again` action. Its POST endpoint
+is the selected-key Video result path with `/refresh` appended:
+`/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/results/{kind}/refresh`.
+It authorizes workspace write access and conversation ownership, queries the original
+Provider task, then uses its current result reference for bounded binary delivery.
+It never submits a generation. Signed URLs remain private. Existing result-reference
+expiry/deletion records are not rewritten; the returned bytes are a new explicit
+delivery, not a claim that the old cache is available. Account/key access is checked
+again after the network work. Persistent artifact capture remains separate scope.
+
+An existing local **OpenRouter Grok** task returned HTTP 200 and `succeeded` on explicit query. This was not the FastRouter Seedance task; FastRouter result recovery remains unverified.
+Cached URL expiry alone must not be presented as deletion of the upstream resource.
+
+The subsequent OpenRouter current-result download returned upstream HTTP 410. The task
+remains succeeded; the UI reports the download failure without implying that local
+cache expiry itself deleted the upstream resource. No new generation was made.
