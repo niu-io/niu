@@ -128,24 +128,47 @@ and diagnostics. Session archival/deletion must not silently delete task evidenc
 or financial records. Document retention for instructions, outputs and task
 history separately; this extension does not imply permanent media storage.
 
-### P3: reusable Assets and Provider capability integration
+### P3: workspace-scoped Provider modules and shared platform capabilities
 
-Assets is a general reusable material library, not a Video-only resource. Reuse
-the existing workspace material API and encrypted-content domain. A global Assets
-entry can aggregate authorized workspace materials without changing their ownership.
-Artifacts remains generated output history inside Generations. An explicit
-**Add to Assets** action promotes an available output into durable reusable
-material and retains its source task/output association; it never submits a task
-or registers the material with a Provider automatically.
+Provider-specific modules call shared platform capabilities; the platform does
+not orchestrate their private concepts. A Volcengine module owns its groups,
+person materials, verification and channel-specific API flow. It can pass an
+authorized reference into the current composer, associate an existing accepted
+task with a platform turn, and publish an existing result reference for shared
+artifact presentation. The platform supplies session/task/artifact capabilities
+and authorization, without interpreting Volcengine group or verification states.
+Keep these module-to-platform calls typed and explicit. Navigation preserves the
+origin session/draft; closing a module performs no submission. Accept only
+server-owned scoped references, not client assertions of success or output URLs.
 
-| Product concept | Meaning and placement |
+Do not create a universal Person or human-verification entity. Volcengine person
+materials and certification stay entirely in the Provider module and are not
+promised reusable across platforms. General original-file storage remains a
+separate optional platform facility; it does not normalize Provider registries.
+
+Provider resources belong to an authorized workspace, never to the customer-facing
+Supplier directory. Primary entry: **Workspace → Provider capabilities → Volcengine**,
+with Materials and Human verification sections. Generations offers a contextual
+shortcut carrying the selected workspace, model and return draft. Admin → Suppliers
+continues to manage supply configuration and credentials; it is not a customer
+material library or biometric workflow.
+
+The server derives workspace scope from the authenticated principal and verifies
+membership and model access on every list, detail, link, mutation and reference
+resolution. Sharing one upstream account must not expose that account's complete
+inventory. Return only resources recorded as owned by the current workspace;
+foreign resources are excluded from lists and inaccessible by guessed identifiers.
+Within a workspace, sharing follows member permissions rather than implicit
+per-user ownership. Provider-side isolation is additional protection, not a
+prerequisite or replacement for Niu authorization.
+
+| Resource | Owner and placement |
 | --- | --- |
-| Asset | Original image/video/audio, preview, name, provenance and retained content; general Assets library. |
-| Collection | Optional user organization of Assets; not a one-to-one Provider group. Existing library APIs do not implement Collections. |
-| Person | A named subject associated with multiple user-selected materials; optional product association, not a claim of verified identity or automated face matching. |
-| Provider registration | A separate binding from a material to an acknowledged Provider asset and its actual processing status; Asset details and contextual generation requirements. |
-| Provider asset group | Channel-specific operational resource, including generated/person group kinds; Provider bindings, not the user's folder hierarchy. |
-| Human-verification record | H5 session and confirmed person-group binding for a specific Provider account/channel; Person details and contextual generation entry. |
+| Original file | Existing workspace material library, if needed; independent of Provider registration. |
+| Provider material/group | Workspace-scoped Volcengine module; retain its native concepts and actual states. |
+| Person material/verification | Workspace-scoped Volcengine module only; no universal Person entity. |
+| Accepted generation task | Shared platform task capability, associated with its workspace/session. |
+| Generated artifact | Shared platform output capability with authorized retrieval and retention state. |
 
 Keep a Niu material identity independent of opaque Provider identifiers. A material
 may have several registrations; registration does not replace its original file.
@@ -173,20 +196,19 @@ authenticated library downloads by assumption.
 
 ### P4: minimum human-verification entry and recovery
 
-Primary entry: **Assets → Person details → Provider binding → Human verification**.
+Primary entry: **Workspace → Provider capabilities → Volcengine → Human verification**.
 Secondary entry: a contextual action beside selected person/reference inputs in
 Generations when the chosen model/channel actually requires it. Restore the
 original draft after returning; switching a model preserves materials and outputs
 but recomputes compatibility and binding requirements. No extra rail item or
 Admin-only biometric workflow is required.
 
-The minimum implementation reuses `client.media.verification` and existing
-workspace Provider groups. Do not wait for a complete Collections feature, but do
-not fabricate a Person details destination: add the necessary named association
-contract or temporarily expose the capability on an existing selected Provider
-group/reference detail with an explicit scope label. Model discovery must expose
-whether verification/Provider assets are available and which reference kinds,
-roles and controls apply; ordinary text generation must not acquire a face gate.
+The module reuses `client.media.verification` and existing workspace Provider
+groups. It does not require Collections or a general Person destination. Model
+discovery must identify supported Provider modules and expose their safe named
+context; do not infer capability solely from a model alias. Ordinary text generation
+must not acquire a face gate. The dashboard needs session-authenticated access to
+these existing scoped operations without exposing or asking for inference secrets.
 
 1. The authorized user explicitly starts a session for the selected account/model
    context. Persist its idempotency identity and optional subject label; creation
@@ -217,7 +239,7 @@ across restart and browser loss, and preserve authorization when changing keys.
 Deliver a session-authenticated dashboard bridge or documented authorized SDK
 access for the minimum entry. Do not require users to paste upstream secrets or
 retrieve/store inference-key secrets just to open this feature. Add any required
-Person/material/session associations, capability discovery and safe named context
+Provider-local material/session associations, capability discovery and safe named context
 DTOs through additive contracts, with no blanket permission to migrate bindings.
 
 See [material library](workspace-material-library.md),
@@ -264,7 +286,7 @@ submit another generation. Customer fields contain customer charges only.
    test credentials, customer records or machine paths in this public document.
 8. Asset promotion stores available original output bytes/provenance once, survives
    restart, enforces quotas and handles expiry/failure without new generation.
-   Provider registration remains separate from material ownership and Collections.
+   Provider registration remains separate from original-file ownership and stays workspace-scoped.
 9. Fixture human-verification flows cover waiting, processing, verified person-group
    association, expiry and unknown query recovery, with independent asset Active
    checks and account/channel isolation. Existing genuine expired-session reads
@@ -277,6 +299,6 @@ Use Stitch and the established conversation reference to remove Video's parallel
 input/result layout. Show retained instruction followed by saved task state and
 available output in one timeline; keep settings beside the composer and diagnosis
 secondary. Do not pretend a single intent supports persistent multi-turn Video.
-Supplier model configuration can gain an explicit entry through existing APIs.
+Workspace Provider modules need session-authenticated scoped access and model capability discovery before the page flow can read real records. Admin Supplier configuration is a separate entry and must not substitute for this customer workflow.
 Tasks and Artifacts navigation waits for its inventory contract; no empty placeholder
 destinations or browser-only indexes should stand in for the backend work above.
