@@ -10,6 +10,7 @@ export default function KeyDetailRoute() {
       token={token}
       models={models.map(model => model.id)}
       canWrite={session?.permissions.write === true}
+      canConfigureSpending={session?.kind === 'installation' || session?.operator?.role === 'owner'}
       initialScope={workspace ? { organizationId: workspace.organization_id, projectId: workspace.id } : null}
     />}
   </ConnectGate>;

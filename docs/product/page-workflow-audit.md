@@ -133,3 +133,7 @@ Actual existing keys returned null expiry through the API but displayed a 1970 d
 ### Video-key onboarding
 
 A newly issued key's first-request example selected Mini but incorrectly sent it to Chat completions. The page now preserves catalog modality metadata, directs Video keys to the Video composer and requests the current model schema rather than inventing a runnable payload. Unqualified protocols show no example. An actual second zero-use key showed the correct explanation and Video destination. The destination initially restored the draft's old key; the composer now honors the explicitly selected URL key while retaining text and controls. Actual reload and the narrow key menu confirmed the new selection and retained prompt. Both new verification keys were revoked without sending inference.
+
+### Key spending-role controls
+
+A genuine workspace administrator signed in through the normal password form could open spending-limit editing; saving was refused by the backend role check. Key spending controls now follow Owner/installation authority while other key write controls retain their existing permissions. Actual administrator desktop/narrow reads retained limit history and throughput editing, with spending editing absent. Actual Owner sign-in retained the spending edit dialog. Independent PostgreSQL confirmed the rejected save created no limit. Full monetary enforcement and remaining key-role branches are not established by this UI check.
