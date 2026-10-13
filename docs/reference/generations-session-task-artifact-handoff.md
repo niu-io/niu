@@ -41,7 +41,7 @@ Typed Niu material-reference drafts and immutable session-turn-to-intent binding
 
 Current-input genuine workspace-image draft saving/restoration/replay, session binding/replay, unrelated existing-task rejection, Read/Write/actor/workspace isolation, deletion and Gateway restart were exercised through HTTP and the built SDK. Independent native database verification matched canonical request digests and original references, found one immutable binding, and confirmed no submission or generation/financial changes. The private schema stand-in bug discovered by the actual image input was fixed without weakening image validation.
 
-Provider-reference drafts and actual attempted-submission projection are implemented but nonempty Provider material and lost-attachment recovery qualification remain separate; no new generation or synthetic submitted record was created for this increment. URL/inline/short-lived ingestion drafts remain outside this retained-intent contract. Frontend and human-verification acceptance remain separate.
+Provider-reference drafts and actual attempted-submission projection are implemented. Nonempty native video material qualification is recorded below; lost-attachment recovery from an actual submitted dashboard intent remains unverified. No new generation or synthetic submitted record was created for this increment. URL/inline/short-lived ingestion drafts remain outside this retained-intent contract. Frontend and human-verification acceptance remain separate.
 
 ## Frontend integration for the delivered SDK
 
@@ -60,6 +60,17 @@ Provider-reference drafts and actual attempted-submission projection are impleme
 - Verification requires an explicit private H5 action and backend confirmation; returning from H5 is not success. Verified identity and material approval are independent states. Do not create verification sessions or materials merely to test page loading.
 - Retain existing intent/idempotency and optimistic revision behavior. Unknown submission/association outcomes must recover without duplicate dispatch. Persist drafts and associations on the backend.
 - Keep credentials, private upstream URLs/IDs, internal account identifiers and procurement information out of customer responses and UI.
+
+## Backend milestone status
+
+| Milestone | Implementation | Actual verification | Remaining acceptance |
+| --- | --- | --- | --- |
+| Saved execution context and original-route recovery | Implemented | Existing FastRouter task, changed live mapping, independent saved records and decoded output | Frontend consumption |
+| Typed SDK, OpenAPI and model-specific native discovery | Implemented | Current scoped HTTP/SDK reads and static contract checks | Frontend exact-context selection and browser acceptance |
+| Durable bounded output capture | Implemented | Cached/fresh bytes, encrypted storage, restart, quota recovery, interrupted lease, deletion and independent records | Frontend reload and second browser |
+| Material-reference drafts and immutable turn binding | Implemented | Genuine workspace image and native Provider video; replay, roles, isolation, digest and retained association | Actual submitted-intent/lost-attachment branch remains unverified |
+| Native groups and materials | Implemented | Genuine create/register/active refresh; exact group update and readback; replay and independent records | Other nonempty mutation response shapes and explicit uncertainty reconciliation remain unverified |
+| Human verification | Implemented contract | No completed human verification claimed | Explicit user H5 action and backend confirmation |
 
 ## Verification still required
 
