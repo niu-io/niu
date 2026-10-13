@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router';
 import { IconChevronDown as ChevronDown, IconArrowUp as ArrowUp, IconAdjustmentsHorizontal as Settings, IconKey as KeyIcon, IconRefresh as RefreshCw } from '@tabler/icons-react';
 import type { VideoEstimate, VideoJobBilling, VideoJobHistory, VideoJobState, VideoModelList, VideoTransportTimings } from '../../../../../sdks/javascript/src/index';
-import { NiuAdminClient, type VideoIntentRequest, type VideoSubmissionIntent } from '../../../../../sdks/javascript/src/admin';
+import { NiuAdminClient, type VideoIntentRequest, type VideoSubmissionIntent, type NativeProviderModule } from '../../../../../sdks/javascript/src/admin';
 import { VideoIntent } from './intent';
 import { findVideoIntent, videoSessionTitle } from './intent-history';
 import { Button } from '@/components/ui/button';
@@ -90,6 +90,23 @@ export default function VideoView({context}:{context:DashboardContext}) {
   const routeIntent=useRef(intentId);
   routeIntent.current=intentId;
   const intentClient=useMemo(()=>token ? new NiuAdminClient({adminToken:token,baseURL:new URL('/admin/v1',window.location.origin).href}):null,[token]);
+  const [toolsRevision,setToolsRevision]=useState(0);
+  const [nativeTools,setNativeTools]=useState<{identity:string;state:'loading'|'supported'|'unsupported'|'error';module?:NativeProviderModule;error?:string}>({identity:'',state:'loading'});
+  const toolsIdentity=JSON.stringify([token,workspace?.organization_id,workspace?.id,keyId,modelId]);
+  const toolsState=nativeTools.identity===toolsIdentity ? nativeTools.state : 'loading';
+  const toolsModule=toolsState==='supported' ? nativeTools.module : undefined;
+  useEffect(()=>{
+    const controller=new AbortController();setProviderToolsOpen(false);
+    setNativeTools({identity:toolsIdentity,state:'loading'});
+    if(!intentClient||!workspace||!keyId||!modelId){setNativeTools({identity:toolsIdentity,state:'unsupported'});return()=>controller.abort();}
+    const media=intentClient.dashboardMedia({organizationId:workspace.organization_id,projectId:workspace.id},keyId);
+    void media.capabilities(modelId,{signal:controller.signal}).then(capabilities=>{
+      if(controller.signal.aborted)return;
+      const module=capabilities.modules.find(module=>module.module==='volcengine'&&module.model_alias===modelId);
+      setNativeTools(module ? {identity:toolsIdentity,state:'supported',module}:{identity:toolsIdentity,state:'unsupported'});
+    }).catch(error=>{if(!controller.signal.aborted)setNativeTools({identity:toolsIdentity,state:'error',error:message(error)});});
+    return()=>controller.abort();
+  },[intentClient,workspace?.organization_id,workspace?.id,keyId,modelId,toolsIdentity,toolsRevision]);
   const retainedIntent=useMemo(()=>intentClient && workspace && intentId ? new VideoIntent(intentClient,{organizationId:workspace.organization_id,projectId:workspace.id},intentId):null,[intentClient,workspace?.organization_id,workspace?.id,intentId]);
   useEffect(()=>{
     if(!intentClient || !workspace || !selected || intentId || busy==='create')return;
@@ -340,7 +357,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
                   : <Checkbox id={`video-${name}`} checked={controls[name] === true} onCheckedChange={checked=>setControls(current=>({...current,[name]:checked === true}))} disabled={busy === 'create' || Boolean(intentId && !intentDocument?.job)}/>}</div>)}
               <Button type="button" variant="ghost" onClick={()=>setControls(initialControls(model))} disabled={busy === 'create' || Boolean(intentId && !intentDocument?.job)}>Reset settings</Button>
 
-                </div><Button type="button" variant="ghost" onClick={()=>setProviderToolsOpen(true)}>Supplier tools</Button></PopoverContent></Popover>
+                </div><Button type="button" variant="ghost" disabled={toolsState==='loading'||toolsState==='unsupported'} onClick={()=>toolsState==='error' ? setToolsRevision(value=>value+1) : setProviderToolsOpen(true)}>{toolsState==='loading'?'Checking Supplier tools…':toolsState==='error'?'Retry Supplier tools':'Supplier tools'}</Button>{toolsState==='unsupported'&&<p className="video-muted">This model has no native Supplier tools.</p>}{toolsState==='error'&&<p role="alert" className="video-error">{nativeTools.error}</p>}</PopoverContent></Popover>
               </>}
             </div>
             {model && <Button type="submit" size="icon" aria-label={quoteMatches ? 'Generate video':'Estimate'} title={quoteMatches ? 'Generate video':'Estimate generation cost'} disabled={!form.body || Boolean(busy) || uncertain || readingImages || restoringIntent || (quoteMatches && !canWrite)}><ArrowUp size={20}/></Button>}
@@ -349,7 +366,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
             {!canWrite && <small className="video-muted">Read access can estimate; generation needs write access.</small>}
           </div>
         </form>
-        <Dialog open={providerToolsOpen} onOpenChange={setProviderToolsOpen}><DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-3xl"><DialogHeader><DialogTitle>Supplier tools</DialogTitle><DialogDescription>Tools available for the selected video model.</DialogDescription></DialogHeader><VolcengineView workspaceName={workspace ? workspaceDisplayName(workspace.name) : 'Current workspace'} model={modelId}/></DialogContent></Dialog>
+        <Dialog open={providerToolsOpen&&Boolean(toolsModule)} onOpenChange={setProviderToolsOpen}><DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-3xl"><DialogHeader><DialogTitle>Supplier tools</DialogTitle><DialogDescription>Tools available for the selected video model.</DialogDescription></DialogHeader>{toolsModule&&<VolcengineView key={toolsIdentity} workspaceName={workspace ? workspaceDisplayName(workspace.name) : 'Current workspace'} model={modelId} nativeContext={{keyId,model:modelId}}/>}</DialogContent></Dialog>
         </>}
       </div>
     </section>

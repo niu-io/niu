@@ -47,12 +47,12 @@ function PaymentConfiguration({token}: {token: string}) {
   }
   return <section className="space-y-5 py-5">
     {error && !open && <p role="alert">{error}<Button variant="ghost" onClick={() => setRevision(value => value + 1)}>Retry</Button></p>}
-    {loading ? <p role="status">Loading payment gateways…</p> : configuration ? <Table className="payment-gateway-table">
+    {loading ? <p role="status">Loading payment gateways…</p> : configuration ? <Table className="payment-gateway-table" aria-label="Supported payment gateways">
       <TableHeader><TableRow><TableHead>Gateway</TableHead><TableHead className="hidden sm:table-cell">Status</TableHead><TableHead className="w-28"><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
-      <TableBody>{configuration.payment_gateways.filter(gateway => gateway.name === 'EPay' || gateway.configured).map(gateway => {
-        const status = gateway.name === 'EPay' ? savedSettings?.enabled ? 'Enabled' : 'Disabled' : gateway.configured ? 'Configured' : 'Not configured';
+      <TableBody>{configuration.payment_gateways.map(gateway => {
+        const status = !gateway.configured ? 'Supported · Not configured' : gateway.name === 'EPay' ? savedSettings?.enabled ? 'Enabled' : 'Disabled' : 'Configured';
         return <TableRow key={gateway.name}>
-          <TableCell className="whitespace-normal">{gateway.name === 'EPay' ? 'EPay · Alipay / WeChat Pay' : gateway.name}<dl className="mt-2 sm:hidden"><dt className="text-xs text-muted-foreground">Status</dt><dd>{status}</dd></dl></TableCell>
+          <TableCell className="whitespace-normal">{gateway.name === 'EPay' ? 'EPay · Alipay / WeChat Pay' : gateway.name === 'Zhifux' ? 'PaymentFM (Zhifux)' : gateway.name}<dl className="mt-2 sm:hidden"><dt className="text-xs text-muted-foreground">Status</dt><dd>{status}</dd></dl></TableCell>
           <TableCell className="hidden sm:table-cell">{status}</TableCell>
           <TableCell className="text-right align-top sm:align-middle">{gateway.name === 'EPay' && <Button variant="outline" size="sm" disabled={!savedSettings} onClick={() => {setSettings(savedSettings);setKey('');setError('');setOpen(true);}}>Configure</Button>}</TableCell>
         </TableRow>;

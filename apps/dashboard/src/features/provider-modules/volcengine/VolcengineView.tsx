@@ -9,13 +9,13 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
 
-import {useMaterials} from './useMaterials';
+import {useMaterials,type NativeMaterialsContext} from './useMaterials';
 import {Table,TableHeader,TableRow,TableHead,TableBody,TableCell} from '@/components/ui/table';
-export default function VolcengineView({workspaceName, model:preferredModel, initialSection='materials'}:{workspaceName:string;model?:string;initialSection?:string}) {
+export default function VolcengineView({workspaceName, model:preferredModel, nativeContext, initialSection='materials'}:{workspaceName:string;model?:string;nativeContext?:NativeMaterialsContext;initialSection?:string}) {
   const [section,setSection]=useState(initialSection);
   const [dialog,setDialog]=useState<'group'|'edit'|'material'|'verification'|null>(null);
   const [name,setName]=useState('');
-  const data=useMaterials(preferredModel);
+  const data=useMaterials(preferredModel,nativeContext);
   const [attempt,setAttempt]=useState('');
   const [busy,setBusy]=useState(false),[url,setUrl]=useState(''),[kind,setKind]=useState<'image'|'video'|'audio'>('image');
   const selected=data.groups.find(g=>g.id===data.group);

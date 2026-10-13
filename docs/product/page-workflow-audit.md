@@ -14,8 +14,8 @@ Baseline: current `main` at `534c07ee`, 2026-10-13. This audit covers rendered p
 
 | ID | Page family | Routes | Required workflow scope | State |
 | --- | --- | --- | --- | --- |
-| P01 | Login and member session | `/login` | Destination, restore, expiry, sign-out, errors | Not checked |
-| P02 | Installation administration | `/installation` | Platform sign-in and role boundaries | Not checked |
+| P01 | Login and member session | `/login` | Destination, restore, expiry, sign-out, errors | In review: actual member sign-in/session restoration observed; expiry/sign-out pending |
+| P02 | Installation administration | `/installation` | Platform sign-in and role boundaries | In review: actual installation sign-in and member/platform navigation observed; full boundaries pending |
 | P03 | Workspace directory | `/workspaces` | Create, switch, rename, delete, empty/error states | Not checked |
 | P04 | Workspace overview | `/workspaces/:workspace` | Real summary and action destinations | Not checked |
 | P05 | API key list | `/workspaces/:workspace/keys` | Filter, grants, expiry, status, navigation | Not checked |
@@ -30,20 +30,20 @@ Baseline: current `main` at `534c07ee`, 2026-10-13. This audit covers rendered p
 | P14 | Model list | `/models` | Global catalog, selected workspace context, filters, prices, eligibility | Not checked |
 | P15 | Model detail | `/models/*` | Capabilities, qualified access, setup and request examples | Not checked |
 | P16 | Generations Chat | `/generations` | Model/key selection, messages, branches, cancellation, attachments, persistence | Not checked |
-| P17 | Generations Video | `/generations?new=video` | Drafts, references, async tasks, original recovery, preview/download | Not checked |
+| P17 | Generations Video | `/generations?new=video` | Drafts, references, async tasks, original recovery, preview/download | Fix needed: native tools corrected; drafts/reference/task integration remain open |
 | P18 | Writing entry points | `/generations` | Existing writing templates and supported Chat flow; no new editor | Not checked |
-| P19 | Generation session history | `/generations` | Restoration, archived/deleted input, revoked keys, actor isolation | Not checked |
-| P20 | Native video materials | `/workspaces/:workspace/video/volcengine/:section?` | Exact account context, groups/materials, validation, uncertainty, observations | Not checked |
-| P21 | Native verification tools | `/workspaces/:workspace/video/volcengine/:section?` | Capability-gated explicit workflow; no fabricated H5 completion | Not checked |
+| P19 | Generation session history | `/generations` | Restoration, archived/deleted input, revoked keys, actor isolation | In review: actual saved entries/restoration observed; revoked-key coverage pending |
+| P20 | Native video materials | `/workspaces/:workspace/video/volcengine/:section?` | Exact account context, groups/materials, validation, uncertainty, observations | Fix needed: Video exact context corrected; standalone selection/recovery pending |
+| P21 | Native verification tools | `/workspaces/:workspace/video/volcengine/:section?` | Capability-gated explicit workflow; no fabricated H5 completion | In review: capability-gated entry and saved read observed; verification creation not exercised |
 | P22 | Shared task/output integration | `/generations` | Existing task/artifact inventory and durable save; UI integration gap candidate | Not checked |
-| P23 | Admin Supplier list | `/admin/suppliers` | Onboarding, multiple credentials, adapter choice, discoverability | Not checked |
-| P24 | Admin Supplier details | `/admin/suppliers/:supplier/:section` | Overview, API keys & routes, Models & pricing, Usage, Settlements, Portal access, Settings | Not checked |
-| P25 | Admin customer pricing | `/admin/pricing` | Published customer categories, history, edit/conflict validation | Not checked |
-| P26 | Admin payments | `/admin/payments` | Complete supported inventory, configuration and unavailable states | Not checked |
+| P23 | Admin Supplier list | `/admin/suppliers` | Onboarding, multiple credentials, adapter choice, discoverability | In review: adapter controls verified; onboarding writes pending |
+| P24 | Admin Supplier details | `/admin/suppliers/:supplier/:section` | Overview, API keys & routes, Models & pricing, Usage, Settlements, Portal access, Settings | In review: saved credential editing verified; remaining tabs pending |
+| P25 | Admin customer pricing | `/admin/pricing` | Published customer categories, history, edit/conflict validation | In review: reasoning publication/readback verified; remaining pricing workflows pending |
+| P26 | Admin payments | `/admin/payments` | Complete supported inventory, configuration and unavailable states | Verified scope: complete supported inventory and existing configuration entry; merchant activation not exercised |
 | P27 | Admin audit logs | `/admin/audit-logs` | Filters, pagination, readable actors/actions, platform authorization | Not checked |
 | P28 | Admin branding | `/admin/branding` | Preview, validation, save, conflict recovery and shared shell consistency | Not checked |
 | P29 | Supplier member portal | `/suppliers/:supplier/:section?` | Own offers/models/consumption/settlements and permissions | Not checked |
-| P30 | Global Settings | `/settings/:section?` | Account, Appearance, Billing, Payments, About; underlying-page return | Not checked |
+| P30 | Global Settings | `/settings/:section?` | Account, Appearance, Billing, Payments, About; underlying-page return | In review: actual profile save observed; remaining settings/conflict states pending |
 | P31 | Help and documentation | `/help/* and /docs/*` | Actual destinations, navigation, truthful API/SDK capabilities | Not checked |
 | P32 | Public model catalog | `Public catalog model routes` | Anonymous routes and dashboard handoff; separate marketing ownership | Not checked |
 | P33 | Compatibility and not-found routes | `Legacy redirects and unknown URLs` | Destination/query preservation and useful recovery | Not checked |
@@ -56,16 +56,16 @@ These are source findings awaiting current-input reproduction, not integrated ac
 | Candidate | Priority | Page families | Concrete suspected gap | State |
 | --- | --- | --- | --- | --- |
 | C01 | P1 | P17, P19 | Saved Video history requires active keys instead of historical workspace/session access | In review |
-| C02 | P1 | P17, P20, P21 | Unsupported models expose native materials and verification tools before failing | Reproduced; fix in progress |
+| C02 | P1 | P17, P20, P21 | Unsupported models expose native materials and verification tools before failing | Video scope fixed; standalone gap remains |
 | C03 | P1 | P20 | Material validation errors remain behind dialogs; unknown operations lack explicit recovery | In review |
 | C04 | P1 | P17, P22 | Existing task/artifact/durable capture SDK is not consumed by product pages | In review |
 | C05 | P1 | P17 | Image/reference submission bypasses retained intent association | In review |
 | C06 | P1 | P23, P24 | Supplier adapter controls omit backend-supported Anthropic/Gemini/Ark | Fixed; verified scope below |
-| C07 | P2 | P26 | Supported unconfigured payment integrations are hidden | In review |
+| C07 | P2 | P26 | Supported unconfigured payment integrations are hidden | Fixed; inventory scope verified |
 | C08 | P2 | P30 | Profile save does not update shared account-menu session state | In review |
 | C09 | P2 | P11 | A stale revision conflict does not lock repeated saves until reload | In review |
 | C10 | P2 | P13 | Known token totals omit reported-usage coverage | In review |
-| C11 | P2 | P25 | Backend-supported reasoning customer prices lack an editor | In review |
+| C11 | P2 | P25 | Backend-supported reasoning customer prices lack an editor | Fixed; publication scope verified |
 | C12 | P2 | P17 | Unsubmitted Video drafts exist only in component memory | In review |
 
 ## Delivery order
@@ -85,4 +85,12 @@ The actual administration page mislabeled an existing Ark credential as OpenAI-c
 
 ### Video native tools
 
-In the actual Video composer, selecting a model without native asset management still exposed Supplier tools, Materials and Human verification. Opening them produced an unsupported-management error. Capability gating and exact selected-key/model propagation are being implemented against the existing SDK. This workflow remains unverified until the patch is browser-qualified.
+In the actual Video composer, selecting a model without native asset management still exposed Supplier tools, Materials and Human verification. Opening them produced an unsupported-management error. The Video composer now queries capabilities for its selected key and model, cancels stale reads and passes that exact context to the existing SDK. Actual API reads reported no modules for Mini and the Volcengine module for the configured supported model. Desktop and 390px browser checks confirmed the unsupported explanation/disabled entry and supported materials/verification tabs, including scrolling narrow tables. No generation, material mutation or verification session was created. Standalone material-context selection remains open.
+
+### Supported payment inventory
+
+Actual administration previously showed only EPay. The current page now displays all three backend-supported integrations, including unconfigured PaymentFM and Stripe, and distinguishes missing configuration from a configured disabled gateway. Desktop and 390px checks verified the complete list and opened the existing EPay configuration form without saving merchant credentials. External merchant activation is outside this inventory check.
+
+### Reasoning customer price editor
+
+The existing customer-price form now exposes the backend reasoning-output rate and its ordinary-output fallback. An actual browser publication of a current decimal value was independently read back through the pricing API with all other rates unchanged. Separate browser publications verified explicit zero and blank fallback restoration. Desktop and 390px form checks found no page overflow. These checks used the isolated current Gateway/database copy and made no inference about accounting correctness from control rendering.
