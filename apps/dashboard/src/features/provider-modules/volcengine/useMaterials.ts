@@ -1,7 +1,7 @@
-import {useEffect,useMemo,useRef,useState} from 'react';
+import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {useDashboardContext} from '@/app/dashboard-context';
 import {keyRequest,projectKeyPath,type ProjectKey} from '@/features/keys/api';
-import {type MediaAssetGroup,type MediaAsset} from '../../../../../../sdks/javascript/src/media-assets';
+import {type MediaAssetGroup,type MediaAsset,type MediaAssetOperation} from '../../../../../../sdks/javascript/src/media-assets';
 import {NiuAdminClient,type NativeProviderModule} from '../../../../../../sdks/javascript/src/admin';
 import type {MediaVerificationSession} from '../../../../../../sdks/javascript/src/media-verification';
 
@@ -53,6 +53,31 @@ export function useMaterials(preferredModel?:string,nativeContext?:NativeMateria
  },[discoveryIdentity,admin,revision,Boolean(nativeContext)]);
  const discoveryPending=!nativeContext&&(discovery.identity!==discoveryIdentity||discovery.loading);
  const client=useMemo(()=>binding?.identity===identity&&workspace ? admin.dashboardMedia({organizationId:workspace.organization_id,projectId:workspace.id},binding.keyId):null,[binding,identity,admin,workspace?.organization_id,workspace?.id]);
+ const [operationHistory,setOperationHistory]=useState<{identity:string;rows:MediaAssetOperation[];complete:boolean;loading:boolean;error:string}>({identity:'',rows:[],complete:false,loading:false,error:''});
+ const operationController=useRef<AbortController|null>(null);
+ const reloadOperations=useCallback(async()=>{
+  if(!client||!binding||binding.identity!==identity)return;
+  operationController.current?.abort();const controller=new AbortController();operationController.current=controller;
+  setOperationHistory(previous=>({identity,rows:previous.identity===identity?previous.rows:[],complete:false,loading:true,error:''}));
+  try{
+   const page=await allPages(after=>client.operations.list({model:binding.model,limit:100,after},{signal:controller.signal}));
+   if(!controller.signal.aborted&&liveIdentity.current===identity)setOperationHistory({identity,rows:page.data,complete:true,loading:false,error:''});
+  }catch(error){if(!controller.signal.aborted&&liveIdentity.current===identity)setOperationHistory(previous=>({...previous,loading:false,error:error instanceof Error?error.message:'Could not load saved operations.'}));}
+ },[client,binding,identity]);
+ useEffect(()=>{if(client)void reloadOperations();return()=>operationController.current?.abort();},[client,reloadOperations]);
+ const checkOperation=useCallback(async(id:string)=>{
+  if(!client||!binding||binding.identity!==identity)return;
+  operationController.current?.abort();const controller=new AbortController();operationController.current=controller;
+  setOperationHistory(previous=>({...previous,loading:true,error:''}));
+  try{
+   const result=await client.operations.retrieve(id,binding.model,{signal:controller.signal});
+   if(!controller.signal.aborted&&liveIdentity.current===identity)setOperationHistory(previous=>({...previous,loading:false,rows:previous.rows.map(row=>row.id===id?result.data:row)}));
+  }catch(error){if(!controller.signal.aborted&&liveIdentity.current===identity)setOperationHistory(previous=>({...previous,loading:false,error:`${error instanceof Error?error.message:'Could not check the saved operation.'} Its outcome has not been changed by this check.`}));}
+ },[client,binding,identity]);
+ const operations=operationHistory.identity===identity?operationHistory.rows:[];
+ const operationsLoading=!!client&&(operationHistory.identity!==identity||operationHistory.loading);
+ const operationsReady=operationHistory.identity===identity&&operationHistory.complete;
+ const operationsError=operationHistory.identity===identity?operationHistory.error:'';
  useEffect(()=>()=>reloadController.current?.abort(),[client,group]);
  useEffect(()=>{const controller=new AbortController();setLoading(true);setBinding(null);setGroups([]);setAssets([]);setSessions([]);setGroup('');setError('');
   if(!workspace){setLoading(false);return;}
@@ -75,6 +100,7 @@ export function useMaterials(preferredModel?:string,nativeContext?:NativeMateria
   })().catch(e=>{if(!controller.signal.aborted)setError(e.message);}).finally(()=>{if(!controller.signal.aborted)setLoading(false);});return()=>controller.abort();
  },[identity,admin,revision,discoveryPending,discovery]);
  async function reload(){
+  await reloadOperations();
   if(!client||!binding||binding.identity!==identity)return;
   reloadController.current?.abort();const controller=new AbortController();reloadController.current=controller;
   try{
@@ -86,5 +112,5 @@ export function useMaterials(preferredModel?:string,nativeContext?:NativeMateria
  }
 
  useEffect(()=>{if(!client||!binding)return;const controller=new AbortController();setAssets([]);void Promise.all([allPages(after=>client.verification.list({model:binding.model,limit:100,after},{signal:controller.signal})).then(p=>{if(!controller.signal.aborted)setSessions(p.data);}),group?allPages(after=>client.assets.list({model:binding.model,group_id:group,limit:100,after},{signal:controller.signal})).then(p=>{if(!controller.signal.aborted)setAssets(p.data);}):Promise.resolve()]).catch(e=>{if(!controller.signal.aborted)setError(e.message);});return()=>controller.abort();},[client,group]);
- return {discoveryLoading:discoveryPending,contextKeys:discovery.identity===discoveryIdentity?discovery.keys:[],contextChoices:discovery.identity===discoveryIdentity?discovery.choices:[],discoveryErrors:discovery.identity===discoveryIdentity?discovery.errors:[],selection:requested,currentModule:binding?.identity===identity?binding.module:undefined,retry:()=>setRevision(v=>v+1),client,model:binding?.model,groups,assets,sessions,group,setGroup,error,setError,loading:loading||discoveryPending,reload,canWrite:context.session?.permissions.write===true};
+ return {operations,operationsReady,operationsLoading,operationsError,reloadOperations,checkOperation,discoveryLoading:discoveryPending,contextKeys:discovery.identity===discoveryIdentity?discovery.keys:[],contextChoices:discovery.identity===discoveryIdentity?discovery.choices:[],discoveryErrors:discovery.identity===discoveryIdentity?discovery.errors:[],selection:requested,currentModule:binding?.identity===identity?binding.module:undefined,retry:()=>setRevision(v=>v+1),client,model:binding?.model,groups,assets,sessions,group,setGroup,error,setError,loading:loading||discoveryPending,reload,canWrite:context.session?.permissions.write===true};
 }
