@@ -30,6 +30,7 @@ export default defineConfig({
       sidebar: [
         { label: 'Getting started', items: ['index', 'getting-started'] },
         { label: 'Models & routing', items: ['configuration/models'] },
+        { label: 'Video generation', items: ['reference/video'] },
         { label: 'Guardrails', items: ['configuration/guardrails'] },
         { label: 'Workspace logs', items: [
           { label: 'Request logs', slug: 'concepts/execution-observation' },

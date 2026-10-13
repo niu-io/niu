@@ -867,3 +867,7 @@ A separate concurrent-edit run returned 409 and retained both model records.
 Independent reopening matched the saved responses to model revisions, pricing
 and encrypted credential fingerprints. These catalog operations do not establish
 inference, commercial supply or customer-funded settlement readiness.
+
+## Video API integration guide
+
+The [video guide](../../apps/docs/src/content/docs/reference/video.mdx) maps every generation, saved-job, result, asset-group, asset and verification-session endpoint to its public SDK method. The docs site exposes it at `/docs/reference/video/`, including generation/wait/download examples, model-specific controls, idempotency and unknown-state handling, and current verification boundaries.

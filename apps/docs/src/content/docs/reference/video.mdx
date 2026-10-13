@@ -1,0 +1,245 @@
+---
+title: Video generation API and SDK
+description: Generate and recover video tasks, retrieve results, manage Provider assets, and hand off verification through Niu's JavaScript SDK.
+---
+
+Niu provides implemented video APIs and a typed JavaScript SDK. Start with
+`video.generate()`; use Niu model aliases, task references and asset references.
+The configured Provider adapter translates them to the upstream service. Clients
+do not send Volcengine Actions, upstream asset identifiers or Provider credentials.
+
+## Current availability
+
+| Capability | Implementation and actual verification |
+| --- | --- |
+| Text-to-video | Implemented. Personal FastRouter Seedance 2.5 creation, task recovery, result retrieval and complete video decoding have actual evidence. |
+| Asynchronous tasks | Implemented create/read/list/refresh/wait, persistent state, restart recovery and identical-request replay. Acceptance is not completion. |
+| Results | Implemented availability, authorized binary download and result deletion. A successful task can have an expired or deleted result. |
+| Provider asset groups and assets | Implemented management and explicit refresh. Actual group creation, video asset creation and Active recovery are verified. |
+| Asset-reference generation | Implemented Niu asset-ID resolution and authorization. One actual upstream request returned 403; safe unknown state and no-resend replay are verified. Successful reference output remains unverified. |
+| Verification sessions | Implemented creation, metadata, refresh and private H5-link handoff. Actual session creation, encrypted persistence and natural expiry are verified; human completion remains unverified. |
+| Usage and billing | Implemented observations, billing and timings. A real result reports 257277 video tokens. Positive customer-priced media settlement remains unverified. |
+
+The current local FastRouter configuration enables only the personal Seedance 2.5
+text preset: five seconds, 1080p, 16:9, seed 42, watermark disabled. The 2.0,
+mini and fast mappings remain disabled. This is personal self-funded testing,
+with no customer price or commercial qualification. Model discovery is the
+source of truth for each installation's enabled inputs and controls.
+
+## Generate, wait and download
+
+Use the workspace API key with the selected model grant. The examples import
+`@niu-io/sdk`, whose source lives in `sdks/javascript`; build the workspace package
+with `pnpm --filter @niu-io/sdk build` before using its compiled entry point.
+`NIU_BASE_URL` is the Niu API base ending in `/v1`, not the upstream Provider URL.
+Keep the API key in your application's server environment.
+
+```ts
+import { NiuClient } from '@niu-io/sdk';
+
+const niu = new NiuClient({
+  baseURL: process.env.NIU_BASE_URL,
+  apiKey: process.env.NIU_API_KEY!,
+});
+
+const models = await niu.video.models.list();
+// Check the chosen model's input_types, controls, mode and output first.
+
+// Keep this key with this exact request for uncertain-submission recovery.
+const idempotencyKey = crypto.randomUUID();
+const job = await niu.video.generate({
+  model: 'fastrouter/seedance-2.5',
+  prompt: 'A quiet ocean at sunrise, with slow camera movement.',
+  durationSeconds: 5,
+  resolution: '1080p',
+  aspectRatio: '16:9',
+  seed: 42,
+  watermark: false,
+}, { idempotencyKey });
+
+const completed = await niu.video.jobs.wait(job.id, {
+  intervalMs: 5_000,
+  timeoutMs: 600_000,
+});
+
+if (completed.status === 'succeeded') {
+  const availability = await niu.video.jobs.results.status(job.id);
+  if (availability.video === 'available') {
+    const response = await niu.video.jobs.results.retrieve(job.id, 'video');
+    const bytes = await response.arrayBuffer();
+    // Save bytes in your application's durable storage, or stream the response.
+  }
+}
+```
+
+`video.generate()` maps `durationSeconds` to `duration`, `aspectRatio` to `ratio`,
+and the other named fields to the Niu request contract. Extra model-specific
+fields use `controls`, for example `omni_reference_task_type` when the model
+explicitly declares it. Named fields cannot be overridden through `controls`.
+No universal Seedance ranges or prices are assumed. `video.jobs.create()` also
+accepts the lower-level Niu `VideoCreateRequest` document.
+
+### Recovery and uncertain state
+
+Niu stores the task, original submission identity and observations in its backend.
+Use `jobs.list()` and `jobs.retrieve()` to recover authorized saved tasks after
+restart or browser-cache loss. `jobs.refresh()` makes an explicit query for an
+already bound upstream task. `jobs.wait()` reads and refreshes saved state; it
+never submits another generation.
+
+| Status | Client action |
+| --- | --- |
+| `queued`, `running` | Continue waiting or retrieve saved state later. |
+| `succeeded` | Check result availability before downloading. |
+| `failed` | Read observations and timings; do not treat failure as a successful result. |
+| `submission_unknown`, `reconciliation_required` | Preserve the original identity and inspect diagnostics; waiting returns this state without an automatic resubmission. |
+| `unknown` | The wait helper permits one refresh of the initially unknown saved job, then returns unresolved unknown state. |
+
+Replay the exact creation document with its original idempotency key to recover
+the saved attempt. Changed input with that key conflicts. A 202 response does not
+prove upstream completion; an uncertain request must not be replaced with a new
+key to make it run again. Aborting the wait cancels local waiting and HTTP requests,
+not the upstream video task. There is no upstream task-cancellation API here.
+
+## Generation and result endpoints
+
+Paths below are relative to the Niu origin; SDK paths already include the `/v1`
+base. Result downloads return a binary `Response`; other methods return typed JSON.
+
+| HTTP endpoint | JavaScript SDK |
+| --- | --- |
+| `GET /v1/video/models` | `video.models.list()` |
+| `POST /v1/video/estimate` | `video.estimate(request)` |
+| `POST /v1/video/jobs` | `video.generate(input, options)` or `video.jobs.create(request, options)` |
+| `GET /v1/video/jobs` | `video.jobs.list({ before, limit })` |
+| `GET /v1/video/jobs/{id}` | `video.jobs.retrieve(id)` |
+| `POST /v1/video/jobs/{id}/refresh` | `video.jobs.refresh(id)` |
+| Saved-state read/refresh helper | `video.jobs.wait(id, options)` |
+| `GET /v1/video/jobs/{id}/results` | `video.jobs.results.status(id)` |
+| `GET /v1/video/jobs/{id}/results/video` | `video.jobs.results.retrieve(id, 'video')` |
+| `GET /v1/video/jobs/{id}/results/last_frame` | `video.jobs.results.retrieve(id, 'last_frame')` |
+| `DELETE /v1/video/jobs/{id}/results` | `video.jobs.results.delete(id)` |
+| `GET /v1/video/jobs/{id}/billing` | `video.jobs.billing(id)` |
+| `GET /v1/video/jobs/{id}/timings` | `video.jobs.timings(id)` |
+| `GET /v1/video/jobs/{id}/observations` | `video.jobs.observations(id, query)` |
+
+Deleting results removes retained result access, not the task's financial or
+diagnostic history. Last-frame availability depends on the actual returned result.
+Callbacks/webhook delivery are currently unsupported.
+
+## Provider asset management
+
+`niu.media` manages upstream-backed assets through Niu-scoped references. It is
+separate from workspace library uploads. The selected model must enable the
+supported Provider asset channel, and upstream operation permissions still apply.
+Reads and explicit refreshes require the model alias. Mutations support a canonical
+UUID idempotency key; updates/deletes may use the current decimal-string revision.
+
+```ts
+const model = 'fastrouter/seedance-2.5';
+const groups = await niu.media.groups.list({ model, limit: 20 });
+const assets = await niu.media.assets.list({ model, limit: 20 });
+
+// Creating a group/asset is a one-shot upstream operation.
+const groupOperation = await niu.media.groups.create({
+  model, name: 'Reference videos',
+}, { idempotencyKey: crypto.randomUUID() });
+
+if (groupOperation.group?.status === 'ready') {
+  const assetOperation = await niu.media.assets.create({
+    model,
+    group_id: groupOperation.group.id,
+    kind: 'video',
+    name: 'Approved reference clip',
+    url: process.env.APPROVED_REFERENCE_VIDEO_URL!,
+  }, { idempotencyKey: crypto.randomUUID() });
+  if (assetOperation.asset) {
+    const saved = await niu.media.assets.refresh(assetOperation.asset.id, model);
+    // Wait for actual status "active" before considering it as a reference.
+  }
+}
+```
+
+The source URL must satisfy the channel's accepted HTTPS and media rules and be
+fetchable by the upstream service. An authenticated Niu library URL is not
+implicitly a public Provider upload URL. A pending/unknown mutation is not an
+acknowledgement; recover its saved operation without resending it.
+
+| HTTP endpoint | JavaScript SDK |
+| --- | --- |
+| `GET`, `POST /v1/media/asset-groups` | `media.groups.list()`, `media.groups.create()` |
+| `GET`, `PATCH`, `DELETE /v1/media/asset-groups/{id}` | `media.groups.retrieve()`, `.update()`, `.delete()` |
+| `POST /v1/media/asset-groups/{id}/refresh` | `media.groups.refresh()` |
+| `GET`, `POST /v1/media/assets` | `media.assets.list()`, `media.assets.create()` |
+| `GET`, `PATCH`, `DELETE /v1/media/assets/{id}` | `media.assets.retrieve()`, `.update()`, `.delete()` |
+| `POST /v1/media/assets/{id}/refresh` | `media.assets.refresh()` |
+| `GET /v1/media/asset-operations/{id}` | `media.operations.retrieve()` |
+
+### Use an asset as a generation reference
+
+```ts
+// Only when discovery declares this reference kind, role and control.
+const activeAsset = assets.data.find(asset => asset.status === 'active' && asset.kind === 'video');
+if (!activeAsset) throw new Error('An authorized active video asset is required');
+const referenceJob = await niu.video.generate({
+  model,
+  prompt: 'Continue the motion in the approved reference clip.',
+  references: [{ assetId: activeAsset.id, role: 'reference_video' }],
+  controls: { omni_reference_task_type: 'reference' },
+}, { idempotencyKey: crypto.randomUUID() });
+```
+
+Here `activeAsset` is the returned Niu asset record with status `active`. The
+backend checks scope, acknowledgement, parent group, current account/model,
+key grants and policy again before dispatch. Do not pass an upstream asset ID
+or an `asset://` URI. Ordinary URL references use `{ kind, url, role }`; inline
+images, optional inspected/library references and their constraints retain their
+separate model/authorization contracts. The local enabled text-only preset does
+not enable reference generation merely because asset management is available.
+
+## Verification-session handoff
+
+This is an upstream human-verification session, not local face recognition.
+Ordinary text generation does not require it. Create a session only when your
+selected upstream workflow needs it and the caller is authorized.
+
+```ts
+const created = await niu.media.verification.create({
+  model,
+  subjectName: 'Your authorized subject name',
+}, { idempotencyKey: crypto.randomUUID() });
+const session = created.data;
+const handoff = await niu.media.verification.link(session.id, model);
+// Present handoff.verification_url only to the authorized user; keep it private.
+// After the user finishes, make an explicit observation:
+const observed = await niu.media.verification.refresh(session.id, model);
+```
+
+Metadata reads omit the private upstream token and link. The link endpoint uses
+no-store/no-referrer handling; expired sessions do not regain a valid link after
+restart or encryption rotation. This implementation does not assert that the
+human flow has been completed or that an account obtained additional entitlement.
+
+| HTTP endpoint | JavaScript SDK |
+| --- | --- |
+| `POST`, `GET /v1/media/verification-sessions` | `media.verification.create()`, `.list()` |
+| `GET /v1/media/verification-sessions/{id}` | `media.verification.retrieve()` |
+| `GET /v1/media/verification-sessions/{id}/link` | `media.verification.link()` |
+| `POST /v1/media/verification-sessions/{id}/refresh` | `media.verification.refresh()` |
+
+## Billing and diagnostics
+
+`jobs.observations()` exposes explicitly reported quantities and query observations.
+`jobs.timings()` exposes available transport timing observations. `jobs.billing()`
+keeps estimates, maximum liability, actual usage and customer charge separate.
+An absent price, estimator or quantity remains unknown; it is not free usage.
+`video.estimate()` can return 501 when no effective estimator is configured, even
+though an owner-funded generation is permitted. Quantity is not inferred from
+file duration or dimensions. Positive customer-priced video settlement has not
+been actually verified by the personal FastRouter tests.
+
+See [all implemented handler schemas](/docs/reference/handler-operations/) and the
+[published OpenAPI JSON](/docs/openapi/handler-operations.json) for exact request
+and response schemas. The [finite video acceptance matrix](https://github.com/niu-io/niu/blob/main/docs/reference/video-integration-acceptance-matrix.md)
+and [SDK source](https://github.com/niu-io/niu/tree/main/sdks/javascript) record the
+implementation and qualification details.
