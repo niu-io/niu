@@ -194,8 +194,13 @@ pub use media_rates::{CustomerMediaRateCard, SelectedCustomerMediaRate};
 pub use niu_metered_cost::Dimensions as MediaBillingDimensions;
 pub use supplier_media::SupplierMediaRateCard;
 pub use supplier_media_offers::SupplierMediaOfferInput;
+mod generations_artifact_captures;
 mod generations_inventory;
 mod generations_task_actions;
+pub use generations_artifact_captures::{
+    GenerationArtifactCapture, GenerationArtifactCaptureClaim, GenerationArtifactCaptureLease,
+    GenerationArtifactCaptureRequest,
+};
 mod media_jobs;
 pub use generations_inventory::GenerationsInventoryQuery;
 mod generations_chat_sessions;

@@ -148,6 +148,23 @@ impl Store {
     where
         F: FnOnce(&[u8], &[u8]) -> Result<Vec<u8>, StoreError>,
     {
+        let mut tx = self.begin_bounded_recording().await?;
+        let asset = Self::create_workspace_asset_in_tx(&mut tx, scope, input, limits, seal).await?;
+        tx.commit().await?;
+        Ok(asset)
+    }
+
+    /// Reuse the asset quota, encryption and audit write in an owning transaction.
+    pub(crate) async fn create_workspace_asset_in_tx<F>(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: TenantScope,
+        input: AssetLibraryCreate<'_>,
+        limits: AssetLibraryLimits,
+        seal: F,
+    ) -> Result<AssetLibraryAsset, StoreError>
+    where
+        F: FnOnce(&[u8], &[u8]) -> Result<Vec<u8>, StoreError>,
+    {
         let name = checked_name(input.name)?;
         checked_actor(input.actor)?;
         if limits.max_asset_bytes == 0
@@ -164,21 +181,20 @@ impl Store {
         }
         let digest = format!("{:x}", Sha256::digest(input.bytes));
         let aad = workspace_asset_content_aad(scope, input.id);
-        let mut tx = self.begin_bounded_recording().await?;
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('niu:workspace-asset-library:'||$1::text||':'||$2::text,0))")
-            .bind(scope.organization_id).bind(scope.project_id).execute(&mut *tx).await?;
+            .bind(scope.organization_id).bind(scope.project_id).execute(&mut **tx).await?;
         let present: Option<Uuid> = sqlx::query_scalar(
             "SELECT id FROM projects WHERE organization_id=$1 AND id=$2 FOR SHARE",
         )
         .bind(scope.organization_id)
         .bind(scope.project_id)
-        .fetch_optional(&mut *tx)
+        .fetch_optional(&mut **tx)
         .await?;
         if present.is_none() {
             return Err(StoreError::Conflict);
         }
         let (count,bytes):(i64,i64)=sqlx::query_as("SELECT count(*),COALESCE(sum(byte_length),0)::bigint FROM workspace_asset_library WHERE organization_id=$1 AND project_id=$2 AND deleted_at IS NULL")
-            .bind(scope.organization_id).bind(scope.project_id).fetch_one(&mut *tx).await?;
+            .bind(scope.organization_id).bind(scope.project_id).fetch_one(&mut **tx).await?;
         if count >= i64::from(limits.max_workspace_assets)
             || bytes as u64 > limits.max_workspace_bytes - input.bytes.len() as u64
         {
@@ -189,7 +205,7 @@ impl Store {
             return Err(StoreError::InvalidObservation);
         }
         let inserted=sqlx::query("INSERT INTO workspace_asset_library(id,organization_id,project_id,name,media_kind,content_type,content_sha256,byte_length) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(id) DO NOTHING")
-            .bind(input.id).bind(scope.organization_id).bind(scope.project_id).bind(name).bind(input.kind.as_str()).bind(input.content_type).bind(digest).bind(input.bytes.len() as i64).execute(&mut *tx).await?.rows_affected();
+            .bind(input.id).bind(scope.organization_id).bind(scope.project_id).bind(name).bind(input.kind.as_str()).bind(input.content_type).bind(digest).bind(input.bytes.len() as i64).execute(&mut **tx).await?.rows_affected();
         if inserted != 1 {
             return Err(StoreError::Conflict);
         }
@@ -198,14 +214,13 @@ impl Store {
         )
         .bind(input.id)
         .bind(ciphertext)
-        .execute(&mut *tx)
+        .execute(&mut **tx)
         .await?;
         sqlx::query("INSERT INTO workspace_asset_library_events(asset_id,revision,actor,operation,name) VALUES($1,1,$2,'created',$3)")
-            .bind(input.id).bind(input.actor).bind(name).execute(&mut *tx).await?;
-        let asset = Self::workspace_asset_using(&mut tx, scope, input.id)
+            .bind(input.id).bind(input.actor).bind(name).execute(&mut **tx).await?;
+        let asset = Self::workspace_asset_using(tx, scope, input.id)
             .await?
             .ok_or(StoreError::Conflict)?;
-        tx.commit().await?;
         Ok(asset)
     }
 

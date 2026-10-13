@@ -70,7 +70,7 @@ pub(super) async fn retrieve_as(
         None,
         id,
         result_kind,
-        None,
+        DeliveryOptions::default(),
     )
     .await
 }
@@ -82,9 +82,18 @@ pub(super) async fn retrieve_history(
     id: Uuid,
     result_kind: &str,
 ) -> Result<Response, ApiError> {
-    retrieve_authorized(state, scope, None, Some(owner), id, result_kind, None).await
+    retrieve_authorized(
+        state,
+        scope,
+        None,
+        Some(owner),
+        id,
+        result_kind,
+        DeliveryOptions::default(),
+    )
+    .await
 }
-async fn authorize_delivery(
+pub(super) async fn authorize_delivery(
     state: &AppState,
     scope: niu_storage::TenantScope,
     principal: Option<&Principal>,
@@ -92,7 +101,10 @@ async fn authorize_delivery(
     id: Uuid,
 ) -> Result<(), ApiError> {
     if let Some(principal) = principal {
-        return authorize(state, principal, id).await;
+        authorize(state, principal, id).await?;
+    }
+    if owner.is_none() && principal.is_some() {
+        return Ok(());
     }
     state
         .store
@@ -102,6 +114,12 @@ async fn authorize_delivery(
         .ok_or_else(ApiError::not_found)?;
     Ok(())
 }
+#[derive(Default)]
+struct DeliveryOptions {
+    fresh: Option<Vec<u8>>,
+    maximum_bytes: Option<usize>,
+}
+
 async fn retrieve_authorized(
     state: &AppState,
     scope: niu_storage::TenantScope,
@@ -109,8 +127,12 @@ async fn retrieve_authorized(
     owner: Option<&str>,
     id: Uuid,
     result_kind: &str,
-    fresh: Option<Vec<u8>>,
+    options: DeliveryOptions,
 ) -> Result<Response, ApiError> {
+    let DeliveryOptions {
+        fresh,
+        maximum_bytes: capture_limit,
+    } = options;
     let kind = kind(result_kind)?;
     authorize_delivery(state, scope, principal, owner, id).await?;
     let is_fresh = fresh.is_some();
@@ -139,6 +161,7 @@ async fn retrieve_authorized(
         MediaResultKind::Video => (niu_media::result::ResultKind::Video, 64 * 1024 * 1024),
         MediaResultKind::LastFrame => (niu_media::result::ResultKind::LastFrame, 10 * 1024 * 1024),
     };
+    let maximum_bytes = capture_limit.map_or(maximum_bytes, |limit| limit.min(maximum_bytes));
     let route = state
         .store
         .media_recovery_route(scope, id)
@@ -323,7 +346,50 @@ pub(super) async fn retrieve_fresh_as(
         None,
         id,
         result_kind,
-        Some(encrypted),
+        DeliveryOptions {
+            fresh: Some(encrypted),
+            maximum_bytes: None,
+        },
+    )
+    .await
+}
+
+/// Bounded byte capture shares original result transport and enforces actor
+/// privacy both before querying and after download. A selected current key
+/// authorizes fresh recovery only; Provider/model/channel always remain pinned.
+pub(super) async fn retrieve_capture(
+    state: &AppState,
+    scope: niu_storage::TenantScope,
+    owner: &str,
+    principal: Option<&Principal>,
+    id: Uuid,
+    result_kind: &str,
+) -> Result<Response, ApiError> {
+    let requested = kind(result_kind)?;
+    authorize_delivery(state, scope, principal, Some(owner), id).await?;
+    let fresh = if let Some(principal) = principal {
+        let (_, results) = super::video::refresh_with_results(state, principal, id).await?;
+        Some(
+            results
+                .into_iter()
+                .find(|(kind, _)| *kind == requested)
+                .map(|(_, bytes)| bytes)
+                .ok_or_else(ApiError::not_found)?,
+        )
+    } else {
+        None
+    };
+    retrieve_authorized(
+        state,
+        scope,
+        principal,
+        Some(owner),
+        id,
+        result_kind,
+        DeliveryOptions {
+            fresh,
+            maximum_bytes: Some(niu_media::workspace_asset_validation::MAX_ASSET_BYTES),
+        },
     )
     .await
 }

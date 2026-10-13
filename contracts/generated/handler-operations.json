@@ -17647,6 +17647,387 @@
         }
       }
     },
+    "/admin/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/capture": {
+      "get": {
+        "operationId": "retrieveGenerationsArtifactCapture",
+        "summary": "Read saved artifact capture status",
+        "description": "Current dashboard workspace Read permission and actor-visible original task required. Task/output identity is scoped; no Provider URLs, private references, credentials or costs are returned. Saved claim metadata only; no download, refresh, retry, generation or ledger mutation. Source lookup returns the stored/active outcome or newest failed request; missing/private task or missing capture404.",
+        "x-niu-implementation": "implemented",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "task",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "video",
+                "last_frame"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved capture metadata; retained means actual encrypted library bytes were committed, independent of Supplier URL expiry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "task_id",
+                        "kind",
+                        "status",
+                        "asset_id",
+                        "availability",
+                        "failure_code",
+                        "created_at",
+                        "updated_at"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "task_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "kind": {
+                          "enum": [
+                            "video",
+                            "last_frame"
+                          ]
+                        },
+                        "status": {
+                          "enum": [
+                            "preparing",
+                            "stored",
+                            "failed"
+                          ]
+                        },
+                        "asset_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "uuid"
+                        },
+                        "availability": {
+                          "enum": [
+                            "retained",
+                            "deleted",
+                            "not_stored"
+                          ]
+                        },
+                        "failure_code": {
+                          "enum": [
+                            null,
+                            "delivery_failed",
+                            "authorization_changed",
+                            "invalid_media",
+                            "capacity_exceeded",
+                            "storage_unavailable",
+                            "encryption_unavailable"
+                          ]
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updated_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid capture request or media bytes"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Workspace or current key authority denied"
+          },
+          "404": {
+            "description": "Missing/private task, capture, or unavailable source"
+          },
+          "409": {
+            "description": "Active lease, changed replay, quota exceeded or binding/visibility conflict"
+          },
+          "413": {
+            "description": "Source bytes exceed8MiB"
+          },
+          "502": {
+            "description": "Upstream query or delivery failed"
+          },
+          "503": {
+            "description": "Capture capacity, configuration or storage unavailable"
+          },
+          "504": {
+            "description": "Upstream query or delivery timeout"
+          }
+        }
+      },
+      "post": {
+        "operationId": "captureGenerationsArtifact",
+        "summary": "Explicitly save a generated output into workspace materials",
+        "description": "Current dashboard workspace Write permission and actor-visible original task required. Task/output identity is scoped; no Provider URLs, private references, credentials or costs are returned. Explicit bounded copy into the existing encrypted workspace material library, not Provider registration or generation. Cached mode uses unexpired saved references under historical access; fresh mode explicitly queries the original task then retrieves output, using optional selected current workspace key or original-key fallback. The selected key cannot replace the immutable Provider/account/model/channel. Original expired keys without explicit current authority refuse fresh actions. Upstream operations never retry automatically. Two process capture slots; transport and format validation limited to8MiB; existing256asset/256MiB workspace quotas remain. A durable2minute preparing lease is committed before retrieval. Only an explicit repeated POST recovers failed/expired claims. Same requestid with changed fields409; a NEW requestid may change mode after failure; source identity prevents duplicate active/stored captures. Stored source replay returns canonical retained/deleted outcome without network; deleted retained bytes are never resurrected. Asset bytes, source provenance, quota and audit commit atomically after rechecking visibility under the source task lock. Failed delivery returns its error and retains a safe failed claim when storage is available; ambiguous failure-record writes leave preparing, not false availability. Cached expiry/deletion and original task/pricing identity are not rewritten. Fresh status queries may append diagnosis and settle an original pending liability through existing recovery, never create a new generation or reprice it. Saving shares copied bytes with authorized workspace members through the existing library; Provider readiness and verified identity remain separate.",
+        "x-niu-implementation": "implemented",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "task",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "video",
+                "last_frame"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved capture metadata; retained means actual encrypted library bytes were committed, independent of Supplier URL expiry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "task_id",
+                        "kind",
+                        "status",
+                        "asset_id",
+                        "availability",
+                        "failure_code",
+                        "created_at",
+                        "updated_at"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "task_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "kind": {
+                          "enum": [
+                            "video",
+                            "last_frame"
+                          ]
+                        },
+                        "status": {
+                          "enum": [
+                            "preparing",
+                            "stored",
+                            "failed"
+                          ]
+                        },
+                        "asset_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "uuid"
+                        },
+                        "availability": {
+                          "enum": [
+                            "retained",
+                            "deleted",
+                            "not_stored"
+                          ]
+                        },
+                        "failure_code": {
+                          "enum": [
+                            null,
+                            "delivery_failed",
+                            "authorization_changed",
+                            "invalid_media",
+                            "capacity_exceeded",
+                            "storage_unavailable",
+                            "encryption_unavailable"
+                          ]
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updated_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid capture request or media bytes"
+          },
+          "401": {
+            "description": "Sign-in required"
+          },
+          "403": {
+            "description": "Workspace or current key authority denied"
+          },
+          "404": {
+            "description": "Missing/private task, capture, or unavailable source"
+          },
+          "409": {
+            "description": "Active lease, changed replay, quota exceeded or binding/visibility conflict"
+          },
+          "413": {
+            "description": "Source bytes exceed8MiB"
+          },
+          "502": {
+            "description": "Upstream query or delivery failed"
+          },
+          "503": {
+            "description": "Capture capacity, configuration or storage unavailable"
+          },
+          "504": {
+            "description": "Upstream query or delivery timeout"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "name",
+                  "mode"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Canonical nonnil request identity retained before sending."
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "Exact trimmed UTF8 name, at most200 bytes, no control characters."
+                  },
+                  "mode": {
+                    "enum": [
+                      "cached",
+                      "fresh"
+                    ]
+                  },
+                  "key_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "uuid",
+                    "description": "Only fresh: explicit current workspace key authority; original Provider binding never changes."
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/admin/v1/organizations/{organization}/projects/{project}/generations/tasks": {
       "get": {
         "operationId": "generationsInventoryTasks",

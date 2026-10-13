@@ -152,6 +152,14 @@ impl Store {
         let Some((current, archived)) = current else {
             return Err(StoreError::Conflict);
         };
+        // Serialize a newly private association with artifact capture's final
+        // visibility check and byte commit on the same source attempt.
+        let locked: Option<Uuid> = sqlx::query_scalar("SELECT id FROM attempts WHERE organization_id=$1 AND project_id=$2 AND id=$3 FOR UPDATE")
+            .bind(scope.organization_id).bind(scope.project_id).bind(task)
+            .fetch_optional(&mut *tx).await?;
+        if locked.is_none() {
+            return Err(StoreError::Unauthorized);
+        }
         let existing: Option<(Uuid, Uuid, String, Uuid, Uuid)> = sqlx::query_as(
             "SELECT organization_id,project_id,owner,session_id,turn_id FROM generations_turn_tasks WHERE task_id=$1",
         )

@@ -157,3 +157,32 @@ if (context?.module === 'volcengine') {
 `GET /keys/{key}/media/capabilities?model={alias}` returns authorized native contexts, safe labels, distinct video/management channels, material support and configured reference limits. Without `model`, it returns all admitted contexts rather than silently choosing one account. Discovery makes no upstream call. An authorized OpenRouter video model returns `complete: true` with no native modules. Unknown/unauthorized models and storage/configuration failures remain errors.
 
 Volcengine tools require explicitly configured `fastrouter-actions-v1` management and a matching validated `ark-direct-v1` video schema. Capability support does not prove material Active status, verified identity or generation permission. Those conditions remain independent. Every operation rechecks workspace membership, current grants and the exact account/model/channel binding. The dashboard media bridge uses `/keys/{key}/media/*`; its SDK preserves the existing media domain types and uncertainty behavior.
+
+
+## Save an output as a workspace material
+
+`POST /generations/artifacts/{task}/{kind}/capture` explicitly copies authorized actual output bytes into the existing encrypted workspace material library. `GET` on the same path reads the saved capture state without retrieval, refresh or inference. The SDK exposes `artifacts.capture` and `artifacts.captureStatus`.
+
+```ts
+const artifacts = admin.generations(scope).artifacts;
+const request = {
+  id: crypto.randomUUID(), // Retain before sending; reuse only for the same request.
+  name: 'Saved video',
+  mode: 'fresh' as const,
+  key_id: selectedWorkspaceKey,
+};
+const saved = await artifacts.capture(task, 'video', request);
+const restored = await artifacts.captureStatus(task, 'video');
+```
+
+`cached` mode requires retained, unexpired saved output references and workspace Write permission. `fresh` deliberately queries the original task before retrieving bytes; its optional `key_id` supplies current authorized workspace key grants. It never selects a replacement Provider, upstream model or channel. Without that key, fresh actions use the original key and refuse revoked/expired authority. Already stored source replay needs no upstream call or renewed upstream authority.
+
+A capture has `preparing`, `stored` or `failed` state. `retained` means actual encrypted bytes were committed, `deleted` means those copied library bytes were erased, and `not_stored` means no retained asset was committed. The capture and material share a stable server-authorized reference; names remain user-facing labels. No private URL, Provider resource reference, lease token, credential or procurement field is returned.
+
+A two-minute lease protects each active source copy; it is not an automatic job or retry. An explicit repeated request can recover a failed or interrupted lease. Changing fields under the same request reference conflicts. After a failure, a new request reference may deliberately change delivery mode or key without erasing the failed request. The source task/kind admits one active or stored copy; completed replay returns its canonical outcome without another download or duplicate material. Concurrent requests conflict while a copy is active.
+
+Capture transport and format validation retain the library's 8 MiB per-file limit, 256 active materials and 256 MiB workspace quota. Two process capture slots bound preparation. Quota, authenticated encrypted bytes, source association, material audit and stored state commit in one transaction. Actor visibility is checked again under the same task lock used by private session association. Cached retention is locked and rechecked at the final write; deleted or expired sources cannot become false availability during preparation.
+
+Copying explicitly shares the resulting material with authorized workspace members under the existing library policy. It does not register a Provider asset, prove approval or verified identity, grant reference-generation rights, or create a public upload URL. Original task evidence and financial identity remain intact. Fresh queries may append diagnosis or settle an original pending liability through the existing recovery contract, without generating or repricing a task. Active cached signed references may refresh through that existing query path; their original expiry/deletion policy is not extended or resurrected.
+
+Copied library bytes persist independently of Supplier signed-URL expiry and remain until explicit library deletion. Deletion preserves the capture/source record and prevents automatic resurrection. Starting another generation, registering a Provider asset and saving an output are separate explicit operations.

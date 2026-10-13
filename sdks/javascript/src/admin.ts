@@ -8,6 +8,8 @@ import { assetBinaryRequest, type WorkspaceAsset, type WorkspaceAssetPage, type 
 import { nativeCapabilityQuery, type NativeProviderCapabilities } from './provider-capabilities.js';
 export type { NativeProviderCapabilities, NativeProviderModule } from './provider-capabilities.js';
 import { createDashboardMediaClient } from './dashboard-media.js';
+import { createGenerationArtifactCaptureClient, type GenerationArtifactCaptureInput } from './generation-artifact-capture.js';
+export type { GenerationArtifactCapture, GenerationArtifactCaptureInput, GenerationArtifactCaptureFailureCode, GenerationArtifactCaptureClient, GenerationArtifactCaptureSender } from './generation-artifact-capture.js';
 import { createGenerationTaskActionsClient } from './generation-task-actions.js';
 export type { DashboardMediaClient, DashboardMediaSender } from './dashboard-media.js';
 export type { GenerationTaskActionsClient, GenerationTaskActionSender, GenerationTaskActionBinarySender } from './generation-task-actions.js';
@@ -1017,6 +1019,10 @@ export class NiuAdminClient {
 
   /** Actor-private saved timelines; explicit task actions query existing work only. */
   generations(scope: TenantScope) {
+    const captures = createGenerationArtifactCaptureClient(
+      <T>(path: string, method: 'GET' | 'POST', body: GenerationArtifactCaptureInput | undefined, options?: RequestOptions) => this.request<T>(path, body, options, method),
+      scope.organizationId, scope.projectId,
+    );
     const actions = createGenerationTaskActionsClient(
       <T>(path: string, method: 'POST', body: undefined, options?: RequestOptions) => this.request<T>(path, body, options, method),
       (path, method, body, options) => this.raw(path, body, options ?? {}, method, 'video/mp4,video/webm,image/png,image/jpeg'),
@@ -1037,6 +1043,7 @@ export class NiuAdminClient {
         retrieve: (task: string, options?: RequestOptions) => inventory.tasks.retrieve(scope.organizationId, scope.projectId, task, options),
       },
       artifacts: {
+        ...captures,
         list: (query?: GenerationInventoryQuery, options?: RequestOptions) => inventory.artifacts.list(scope.organizationId, scope.projectId, query, options),
         retrieve: (task: string, kind: GenerationArtifactKind, options?: RequestOptions) => inventory.artifacts.retrieve(scope.organizationId, scope.projectId, task, kind, options),
         content: (task: string, kind: GenerationArtifactKind, options?: RequestOptions) => inventory.artifacts.content(scope.organizationId, scope.projectId, task, kind, options),
