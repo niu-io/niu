@@ -131,10 +131,11 @@ export default function VideoView({context}:{context:DashboardContext}) {
     identity:composerIdentity,contextIdentity:JSON.stringify([composerIdentity,keyId,modelId]),enabled:Boolean(token&&workspace&&mutableComposer),canWrite,edited:composerEdited,paused:loading||Boolean(busy)||restoringIntent,value:composerValue,
     restore:saved=>{
       const selectedKey=search.get('key')??saved?.keyId??'';
-      restoredComposer.current=saved?{identity:composerIdentity,keyId:selectedKey||null,model:saved.model}:null;
+      const selectedModel=search.get('model')??saved?.model??'';
+      restoredComposer.current=saved?{identity:composerIdentity,keyId:selectedKey||null,model:selectedModel===saved.model?saved.model:null}:null;
       setComposerEdited(false);setPrompt(saved?.prompt??'');setDraftSessionId(saved?.sessionId??null);setDraftReferences(saved?.references??[]);setImages([]);
-      setKeyId(selectedKey);setModelId(saved?.model??'');
-      setControls(Object.fromEntries(Object.entries(saved?.controls??{}).map(([name,value])=>[name,typeof value==='number'?String(value):value])) as ControlValues);
+      setKeyId(selectedKey);setModelId(selectedModel);
+      setControls(Object.fromEntries(Object.entries(selectedModel===saved?.model?saved.controls:{}).map(([name,value])=>[name,typeof value==='number'?String(value):value])) as ControlValues);
     }});
   const composerReady=!mutableComposer||draft.ready;
   const draftBlocked=mutableComposer&&(!draft.ready||Boolean(draft.error));
@@ -201,11 +202,28 @@ export default function VideoView({context}:{context:DashboardContext}) {
       request<VideoModelList>(token,`${base}/models`,undefined,controller.signal),
     ]).then(([catalog])=>{
       if(controller.signal.aborted)return;
-      if(catalog.status === 'fulfilled') {const restored=mutableComposer&&restoredComposer.current?.identity===composerIdentity&&restoredComposer.current.keyId===keyId&&restoredComposer.current.model;const selectedModel=catalog.value.data.find(model=>model.id === modelId) ?? (restored?undefined:catalog.value.data.find(model=>model.id === 'fastrouter/seedance-2.0-mini') ?? catalog.value.data[0]);const reset=changedScope || selectedModel?.id !== modelId;setModels(catalog.value.data);if(!intentId&&!restored)setModelId(selectedModel?.id ?? '');if(reset && !intentId&&!restored)setControls(selectedModel ? initialControls(selectedModel):{});loadedBase.current=base;}
+      if(catalog.status === 'fulfilled') {
+        const restored=mutableComposer&&restoredComposer.current?.identity===composerIdentity&&restoredComposer.current.keyId===keyId&&restoredComposer.current.model===modelId;
+        const requested=mutableComposer?search.get('model'):null;
+        const selectedModel=requested?catalog.value.data.find(model=>model.id===requested):catalog.value.data.find(model=>model.id===modelId)??(restored?undefined:catalog.value.data.find(model=>model.id==='fastrouter/seedance-2.0-mini')??catalog.value.data[0]);
+        const reset=changedScope||selectedModel?.id!==modelId;
+        setModels(catalog.value.data);
+        if(!intentId&&!restored)setModelId(selectedModel?.id??requested??'');
+        if(reset&&!intentId&&!restored)setControls(selectedModel?initialControls(selectedModel):{});
+        loadedBase.current=base;
+      }
       else setError(message(catalog.reason));
     }).finally(()=>{if(!controller.signal.aborted)setLoading(false);});
     return()=>controller.abort();
   },[token,base,revision,composerReady]);
+  const requestedModel=search.get('model');
+  useEffect(()=>{
+    if(!mutableComposer||!composerReady||!requestedModel||requestedModel===modelId)return;
+    restoredComposer.current=null;
+    setModelId(requestedModel);
+    const requested=models.find(model=>model.id===requestedModel);
+    setControls(requested?initialControls(requested):{});
+  },[requestedModel,mutableComposer,composerReady,models,modelId]);
   useEffect(()=>{estimateController.current?.abort();setQuote(null);return()=>estimateController.current?.abort();},[prompt,controls,images,base,modelId]);
   useEffect(()=>{
     const controller=new AbortController();
@@ -388,7 +406,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
             <div className="video-composer-toolbar"><div className="video-composer-options">
 
 
-              {models.length>0&&<DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="video-model-choice" aria-label="Video model" disabled={Boolean(busy) || draftBlocked || Boolean(intentId && !intentDocument?.job)}><span className="truncate">{model?.id||modelId||'Choose video model'}</span><ChevronDown size={14}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={modelId} onValueChange={id=>{restoredComposer.current=null;setComposerEdited(true);setModelId(id);const next=models.find(model=>model.id === id);setControls(next ? initialControls(next):{});}}>{models.map(item=><DropdownMenuRadioItem key={item.id} value={item.id}>{item.id}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>}
+              {models.length>0&&<DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="video-model-choice" aria-label="Video model" disabled={Boolean(busy) || draftBlocked || Boolean(intentId && !intentDocument?.job)}><span className="truncate">{model?.id||modelId||'Choose video model'}</span><ChevronDown size={14}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={modelId} onValueChange={id=>{restoredComposer.current=null;setComposerEdited(true);setModelId(id);const query=new URLSearchParams(search);query.set('model',id);setSearch(query);const next=models.find(model=>model.id === id);setControls(next ? initialControls(next):{});}}>{models.map(item=><DropdownMenuRadioItem key={item.id} value={item.id}>{item.id}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>}
 
               {model&&<>
                 <Popover><PopoverTrigger asChild><Button type="button" variant="ghost" size="icon" aria-label="Additional settings"><Settings size={18}/></Button></PopoverTrigger><PopoverContent side="top" align="end" className="video-settings-popover"><h2>Video settings</h2><div className="video-controls">

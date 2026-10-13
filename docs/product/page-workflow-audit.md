@@ -27,8 +27,8 @@ Baseline: current `main` at `534c07ee`, 2026-10-13. This audit covers rendered p
 | P11 | Guardrails | `/workspaces/:workspace/guardrails/:section?` | Every supported section, preview, activation, conflicts, roles | Not checked |
 | P12 | Workspace Logs | `/workspaces/:workspace/executions` | Filters, details, exports, timing, unknown usage, customer charges | Not checked |
 | P13 | Global Gateway Activity | `/activity/:section?` and `/workspaces/:workspace/usage` | Global/workspace scope, coverage, drilldowns; excludes external Agent Observability | Not checked |
-| P14 | Model list | `/models` | Global catalog, selected workspace context, filters, prices, eligibility | Not checked |
-| P15 | Model detail | `/models/*` | Capabilities, qualified access, setup and request examples | Not checked |
+| P14 | Model list | `/models` | Global catalog, selected workspace context, filters, prices, eligibility | In review: actual workspace list/filter/sort and Video destinations at desktop/narrow; full access/pricing boundaries pending |
+| P15 | Model detail | `/models/*` | Capabilities, qualified access, setup and request examples | In review: actual Video guidance corrected; explicit different-model restoration checked; inference admission pending |
 | P16 | Generations Chat | `/generations` | Model/key selection, messages, branches, cancellation, attachments, persistence | Not checked |
 | P17 | Generations Video | `/generations?new=video` | Drafts, references, async tasks, original recovery, preview/download | In review: native tools, durable draft restore/conflicts and historical preview verified; references/submission/shared-output actions pending |
 | P18 | Writing entry points | `/generations` | Existing writing templates and supported Chat flow; no new editor | Not checked |
@@ -43,7 +43,7 @@ Baseline: current `main` at `534c07ee`, 2026-10-13. This audit covers rendered p
 | P27 | Admin audit logs | `/admin/audit-logs` | Filters, pagination, readable actors/actions, platform authorization | Not checked |
 | P28 | Admin branding | `/admin/branding` | Preview, validation, save, conflict recovery and shared shell consistency | Not checked |
 | P29 | Supplier member portal | `/suppliers/:supplier/:section?` | Own offers/models/consumption/settlements and permissions | Not checked |
-| P30 | Global Settings | `/settings/:section?` | Account, Appearance, Billing, Payments, About; underlying-page return | In review: actual profile save observed; remaining settings/conflict states pending |
+| P30 | Global Settings | `/settings/:section?` | Account, Appearance, Billing, Payments, About; underlying-page return | In review: profile save and all five sections inspected; password expansion, appearance menu and empty funding/payment states checked; writes/conflicts pending |
 | P31 | Help and documentation | `/help/* and /docs/*` | Actual destinations, navigation, truthful API/SDK capabilities | In review: current Generations guide served in dashboard iframe at desktop/narrow; full navigation/link coverage pending |
 | P32 | Public model catalog | `Public catalog model routes` | Anonymous routes and dashboard handoff; separate marketing ownership | Not checked |
 | P33 | Compatibility and not-found routes | `Legacy redirects and unknown URLs` | Destination/query preservation and useful recovery | Not checked |
@@ -137,3 +137,13 @@ A newly issued key's first-request example selected Mini but incorrectly sent it
 ### Key spending-role controls
 
 A genuine workspace administrator signed in through the normal password form could open spending-limit editing; saving was refused by the backend role check. Key spending controls now follow Owner/installation authority while other key write controls retain their existing permissions. Actual administrator desktop/narrow reads retained limit history and throughput editing, with spending editing absent. Actual Owner sign-in retained the spending edit dialog. Independent PostgreSQL confirmed the rejected save created no limit. Full monetary enforcement and remaining key-role branches are not established by this UI check.
+
+### Model setup and explicit Video selection
+
+Actual Seedance model cards/details offered Chat and generated a Chat-completions payload. Video models now open the Video composer with the exact workspace/model, and offer a read-only Video schema-discovery command instead of guessed parameters. A text-model detail retained its existing Chat guidance. Actual workspace filtering and sorting, open sort menu, detail guidance and Video destination were checked at desktop and 390px.
+
+A separate current-input run requested Seedance 2.5 while Mini was saved; the composer incorrectly restored Mini. It now honors explicit model selection while retaining the prompt and initializing the selected model's controls. Actual different-model reload and another menu selection/reload retained their exact models and prompt. No estimate or generation was submitted. Generic protocol qualification and shared reference selection remain open.
+
+### Settings read scope
+
+Actual Account, Appearance, Billing, Payments and About pages were inspected. Password expansion displayed current/new/confirmation fields and session-revocation guidance; no password change was submitted. The existing theme menu was checked open at 390px without changing preferences. Empty account balance/history, unavailable top-ups, build/license and documentation destinations were visible. These are read/interaction scopes, not payment activation or complete settings-write acceptance.

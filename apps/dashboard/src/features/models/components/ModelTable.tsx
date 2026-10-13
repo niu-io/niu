@@ -34,8 +34,18 @@ function apiBaseUrl() {
   return `${window.location.origin}${base}/v1`;
 }
 
-function requestExample(baseUrl: string, model: string) {
-  const body = JSON.stringify({ model, messages: [{ role: 'user', content: 'Hello' }] });
+function isVideoModel(model: Model) {
+  return model.catalog?.output_modalities?.includes('video') === true;
+}
+
+function requestExample(baseUrl: string, model: Model) {
+  if (isVideoModel(model)) {
+    return [
+      `curl "${baseUrl}/video/models"`,
+      '  -H "Authorization: Bearer $NIU_API_KEY"',
+    ].join(` ${String.fromCharCode(92)}\n`);
+  }
+  const body = JSON.stringify({ model: model.id, messages: [{ role: 'user', content: 'Hello' }] });
   return [
     `curl "${baseUrl}/chat/completions"`,
     '  -H "Authorization: Bearer $NIU_API_KEY"',
@@ -63,8 +73,11 @@ export default function ModelTable({ models, header }: { models: Model[]; header
   const selectedId = params['*'] || null;
   const catalogPath = '/models';
   const catalogSearch = workspace ? `?workspace=${encodeURIComponent(workspacePathSegment(workspace, workspaces))}` : '';
-  const chatSearch = new URLSearchParams({ new: '1' });
-  if (workspace) chatSearch.set('workspace', workspace.id);
+  function generationHref(model: Model) {
+    const query = new URLSearchParams({new: isVideoModel(model) ? 'video' : '1', model: model.id});
+    if (workspace) query.set('workspace', workspace.id);
+    return `/generations?${query}`;
+  }
   const [copyFeedback, setCopyFeedback] = useState<{model:string; error:string; copied:boolean} | null>(null);
   const copyRevision = useRef(0);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -116,7 +129,7 @@ export default function ModelTable({ models, header }: { models: Model[]; header
     if (copyTimer.current) clearTimeout(copyTimer.current);
     setCopyFeedback(null);
     try {
-      await navigator.clipboard.writeText(requestExample(baseUrl, selected.id));
+      await navigator.clipboard.writeText(requestExample(baseUrl, selected));
       if (copyRevision.current !== revision) return;
       setCopyFeedback({model:selected.id,error:'',copied:true});
       copyTimer.current=window.setTimeout(() => {
@@ -179,7 +192,7 @@ export default function ModelTable({ models, header }: { models: Model[]; header
           {visible.map(model => <article className="models-card" key={model.id}>
             <div className="models-card-heading"><ProviderLogo provider={modelIdentity(model)} size="small" /><Link to={`${catalogPath}/${model.id.split('/').map(encodeURIComponent).join('/')}${catalogSearch}`}>{model.catalog?.name || model.id}</Link></div>
             {model.catalog?.description && <p className="models-description">{model.catalog.description}</p>}
-            <div className="models-card-meta"><span>by {modelIdentity(model).name}</span>{model.catalog?.context_length != null && <span>{new Intl.NumberFormat('en', { notation: 'compact' }).format(model.catalog.context_length)} context</span>}{model.customer_pricing != null && <span>{money(model.customer_pricing.prompt_rate, model.customer_pricing.currency)}/M input tokens</span>}{model.customer_pricing != null && <span>{money(model.customer_pricing.completion_rate, model.customer_pricing.currency)}/M output tokens</span>}{model.provider && <span>via {model.provider}</span>}<Link to={`/generations?${chatSearch.toString()}${chatSearch.size ? '&' : ''}model=${encodeURIComponent(model.id)}`}>Try in Chat<ArrowUpRight size={13} /></Link></div>
+            <div className="models-card-meta"><span>by {modelIdentity(model).name}</span>{model.catalog?.context_length != null && <span>{new Intl.NumberFormat('en', { notation: 'compact' }).format(model.catalog.context_length)} context</span>}{model.customer_pricing != null && <span>{money(model.customer_pricing.prompt_rate, model.customer_pricing.currency)}/M input tokens</span>}{model.customer_pricing != null && <span>{money(model.customer_pricing.completion_rate, model.customer_pricing.currency)}/M output tokens</span>}{model.provider && <span>via {model.provider}</span>}<Link to={generationHref(model)}>{isVideoModel(model) ? 'Try in Video' : 'Try in Chat'}<ArrowUpRight size={13} /></Link></div>
           </article>)}
         </div>}
         {visible.length < filtered.length && <div className="models-load-more"><Button variant="outline" onClick={() => setLimit(value => value + 20)}>Show more models</Button><span>{visible.length} of {filtered.length}</span></div>}
@@ -204,13 +217,13 @@ export default function ModelTable({ models, header }: { models: Model[]; header
         {selected.upstream_model && selected.upstream_model !== selected.id && <div><dt>Upstream model</dt><dd>{selected.upstream_model}</dd></div>}
       </dl>
       <div className="model-route-cta">
-        <Button asChild><Link to={`/generations?${chatSearch.toString()}${chatSearch.size ? '&' : ''}model=${encodeURIComponent(selected.id)}`}>Try in Chat<ArrowUpRight size={15} /></Link></Button>
+        <Button asChild><Link to={generationHref(selected)}>{isVideoModel(selected) ? 'Try in Video' : 'Try in Chat'}<ArrowUpRight size={15} /></Link></Button>
         <Button asChild variant="outline"><Link to={`${workspacePath}/keys/new`}>Create an API key<KeyRound size={15} /></Link></Button>
       </div>
-      <div className="model-route-example-heading"><strong>Make your first request</strong><Button type="button" variant="ghost" size="sm" onClick={() => void copyExample()}><Clipboard size={14} />{copied ? <><Check size={14} />Copied</> : 'Copy'}</Button></div>
+      <div className="model-route-example-heading"><strong>{isVideoModel(selected) ? 'Discover supported video parameters' : 'Make your first request'}</strong><Button type="button" variant="ghost" size="sm" onClick={() => void copyExample()}><Clipboard size={14} />{copied ? <><Check size={14} />Copied</> : 'Copy'}</Button></div>
       {copyError && <p role="alert" className="error-text">{copyError}</p>}
-      <pre className="model-route-example"><code>{requestExample(baseUrl, selected.id)}</code></pre>
-      <p className="model-route-example-note">Create a workspace API key and set <code>NIU_API_KEY</code> before running this command.</p>
+      <pre className="model-route-example"><code>{requestExample(baseUrl, selected)}</code></pre>
+      <p className="model-route-example-note">Create a workspace API key and set <code>NIU_API_KEY</code> before running this command.{isVideoModel(selected) && <> Find <code>{selected.id}</code> in the authorized response and use its configured parameter schema. Video input varies by model; this read does not generate a video or estimate a charge.</>}</p>
       <Link className="model-activity-link" to={`${workspacePath}/executions?modelAlias=${encodeURIComponent(selected.id)}`}>View requests for this model<ArrowUpRight size={14} /></Link>
     </aside> : selectedId ? <Empty className="models-empty"><EmptyHeader><EmptyMedia variant="icon"><Boxes aria-hidden="true"/></EmptyMedia><EmptyTitle>Model unavailable</EmptyTitle><EmptyDescription>This model is no longer in the catalog.</EmptyDescription></EmptyHeader><EmptyContent><Button asChild variant="outline"><Link to={catalogPath + catalogSearch}>Browse models</Link></Button></EmptyContent></Empty> : null}
   </div>;
