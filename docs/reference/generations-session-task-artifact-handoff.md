@@ -158,7 +158,7 @@ promised reusable across platforms. General original-file storage remains a
 separate optional platform facility; it does not normalize Provider registries.
 
 Provider resources belong to an authorized workspace, never to the customer-facing
-Supplier directory. Primary entry: **Workspace → Provider capabilities → Volcengine**,
+Supplier directory. Primary entry: **Workspace → Video → Volcengine**,
 with Materials and Human verification sections. Generations offers a contextual
 shortcut carrying the selected workspace, model and return draft. Admin → Suppliers
 continues to manage supply configuration and credentials; it is not a customer
@@ -177,7 +177,7 @@ prerequisite or replacement for Niu authorization.
 | --- | --- |
 | Original file | Existing workspace material library, if needed; independent of Provider registration. |
 | Provider material/group | Workspace-scoped Volcengine module; retain its native concepts and actual states. |
-| Person material/verification | Workspace-scoped Volcengine module only; no universal Person entity. |
+| Person material/verification | Workspace-scoped Volcengine module only; no universal Person entity. Seedance remains the model family, not a Provider. |
 | Accepted generation task | Shared platform task capability, associated with its workspace/session. |
 | Generated artifact | Shared platform output capability with authorized retrieval and retention state. |
 
@@ -207,7 +207,7 @@ authenticated library downloads by assumption.
 
 ### P4: minimum human-verification entry and recovery
 
-Primary entry: **Workspace → Provider capabilities → Volcengine → Human verification**.
+Primary entry: **Workspace → Video → Volcengine → Human verification**.
 Secondary entry: a contextual action beside selected person/reference inputs in
 Generations when the chosen model/channel actually requires it. Restore the
 original draft after returning; switching a model preserves materials and outputs
@@ -316,9 +316,17 @@ destinations or browser-only indexes should stand in for the backend work above.
 
 ## Implemented frontend review flow
 
-- `/workspaces/:workspace/provider-capabilities/volcengine` contains Provider-native Materials and Human verification sections. Materials uses Groups and Materials tabs.
+- `/workspaces/:workspace/video/volcengine` uses one horizontal tab row for Materials and Human verification. Materials uses a group DropdownMenu and the selected group’s files; the workspace sidebar contains only Video, with no child navigation. The legacy provider-capabilities route redirects here. Video visibility currently uses authorized video model discovery through active workspace key metadata and session-authenticated model reads. This discovers Video availability, not Volcengine-specific support; the backend capability contract must distinguish Provider modules.
 - The Video composer opens the same module in a dialog without navigating away or unmounting its draft. Closing restores the composer.
 - New material group and verification forms expose their intended context and name fields. Submission is disabled until session-authenticated integration is supplied. No generation, registration or verification call is issued by this review implementation.
-- Missing integration is represented as unavailable records, never an empty successful inventory or invented verification state. This is a review flow, not completed backend integration.
+- This is a frontend review flow, not completed backend integration. Product surfaces contain no implementation-status notices; they make no claims of empty successful inventories or verified state. Submit controls remain disabled and no upstream mutation occurs. Integration limitations belong in this handoff only.
 - Replace the temporary fixed module entry with server-discovered authorized capabilities. The selected generation model is context, not proof that Volcengine capabilities are supported.
 - Supply workspace-scoped group/material/session inventory, safe display context, compatible reference resolution and the module-to-platform associations described above. Preserve the current workspace member authorization boundary.
+
+### Video frontend information hierarchy
+
+The Video management canvas is fluid and has no fixed maximum page width. Only Generations chat retains a readable column width. The top-right choice is the model family (currently Seedance), not the Supplier or Provider. Provider-specific binding and credential/channel isolation remain authoritative when resolving groups, material references and verification sessions. Materials uses a group DropdownMenu and files in one tab; New group and Edit group open dialogs, with no persistent folder tree; Human verification is the other tab. Do not expose implementation pending notices in product UI.
+
+### Next frontend scope: top-level Assets
+
+After the Video management flow, design a top-level Assets area for generated outputs. It must consume shared authorized output/task capabilities rather than provider-native material registries. Define the screen flow before implementing the backend inventory contract. Do not add an empty navigation destination or fabricate persisted outputs. Preserve source task/session associations, result availability, retrieval authorization, expiry and retention semantics. This requested placement updates the earlier assumption that generated artifacts are only reachable inside Generations.

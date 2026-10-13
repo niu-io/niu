@@ -40,6 +40,8 @@ import { useGatewayConnection } from './useGatewayConnection';
 import { resolveWorkspacePathSegment, workspacePathSegment, workspaceDisplayName } from './workspace-route';
 import { useBranding } from './branding';
 
+import { useWorkspaceVideo } from '@/features/provider-modules/useWorkspaceVideo';
+
 const sidebarBreakpoint = 960;
 
 function WorkspaceNav({
@@ -56,7 +58,9 @@ function WorkspaceNav({
   onCreateWorkspace: () => void;
 }) {
   const { isMobile, setOpenMobile } = useSidebar();
+  const videoAvailable = useWorkspaceVideo(context);
   const navItems = navigation.filter(item => item.destination === 'Workspace'
+    && (item.to !== 'video' || videoAvailable)
     && (item.to !== 'costs' || context.session?.kind === 'installation'));
 
   return <>
@@ -75,6 +79,7 @@ function WorkspaceNav({
                   {item.to === 'models' && models.length > 0 && <span className="nav-count">{models.length}</span>}
                 </NavLink>
               </SidebarMenuButton>
+
             </SidebarMenuItem>;
           })}
         </SidebarMenu>

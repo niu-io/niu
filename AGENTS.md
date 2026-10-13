@@ -50,6 +50,8 @@ For a feature that needs two navigation levels, use sidebar items for the first-
 
 ## Surface styling
 
+Dashboard management pages use the full available content width between navigation and canvas padding. Never add a fixed page width, centered bounded canvas, or page-level max-width. Only the Generations chat reading column may retain a readable maximum width. Dialogs and individual form controls may use appropriate bounded widths. Apply this rule to Stitch design briefs and the shared design system.
+
 Model lists use a directly visible filter field in the first toolbar row, alongside list actions; they are exempt from the secondary-search popover rule. Search is a secondary action outside Logs. Show a compact search icon that opens an installed shadcn Popover search panel; do not leave large search fields permanently visible in page or sidebar layouts. Keep active filters apparent on the trigger, preserve the query when closing, and support keyboard focus and dismissal. Logs may retain a directly visible search field. Search fields inside an already opened choice menu or dialog remain appropriate.
 
 Use Manus as the reference for the shared visual treatment of agent-product surfaces. Prefer subtle solid background tones and spacing to separate navigation, content, and sections. Avoid repeated bordered cards and decorative shadows. Reserve elevation for floating panels, menus, and dialogs; retain meaningful input, focus, selection, and data-table affordances. Preserve Niu branding and use shared theme rules rather than page-by-page overrides.

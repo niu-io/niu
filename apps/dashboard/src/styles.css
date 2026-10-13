@@ -1920,7 +1920,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px soli
 
 .gateway-recovery { width: min(100%, 480px); margin: clamp(32px, 10vh, 100px) auto; box-shadow: none; }
 
-.agent-connect-page { max-width: 1280px; }
+.agent-connect-page { width: 100%; max-width: none; }
 .agent-connect-scope { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; color: var(--muted-foreground); font-size: 14px; }
 .agent-connect-scope strong { color: var(--foreground); font-weight: 600; }
 .agent-scope-project { margin-left: auto; }
@@ -2711,7 +2711,7 @@ body:has(.niu-workspace-sidebar-mobile[data-state="open"]) .app-rail { z-index: 
   }
 }
 
-.guardrails-page { max-width: 1040px; }
+.guardrails-page { width: 100%; max-width: none; }
 .guardrails-intro { color: var(--muted-foreground); margin: 0 0 24px; }
 .guardrails-muted { color: var(--muted-foreground); font-size: 13px; margin: 6px 0; overflow-wrap: anywhere; }
 .guardrails-section { display: grid; gap: 12px; padding: 24px 0; border-bottom: 1px solid var(--border); justify-items: start; }

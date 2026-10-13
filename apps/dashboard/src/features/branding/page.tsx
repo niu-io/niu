@@ -62,7 +62,7 @@ export default function BrandingPage() {
     finally {setBusy(false);}
   }
   const previewColors = previewPalette(draft,palette) as CSSProperties;
-  return <section className="max-w-4xl py-5">
+  return <section className="w-full min-w-0 py-5">
     {!saved ? <>{error ? <div role="alert"><p>{error}</p><Button className="mt-3" variant="outline" onClick={()=>setAttempt(value=>value+1)}>Retry</Button></div>:<p role="status">Loading branding settings…</p>}</> : <form onSubmit={event=>void save(event)}>
       <Tabs value={tab} onValueChange={value=>{const next=new URLSearchParams(search);value === 'theme' ? next.set('tab','theme'):next.delete('tab');setSearch(next,{replace:true});}}>
         <div className="flex flex-wrap items-center justify-between gap-3"><TabsList><TabsTrigger value="branding">Branding</TabsTrigger><TabsTrigger value="theme">Theme</TabsTrigger></TabsList><Button type="button" variant="outline" onClick={()=>setPreview(true)}><IconPalette/>Preview</Button></div>
