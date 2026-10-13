@@ -94,7 +94,7 @@ async fn restored(
         None => ("saved",None),
     };
     Ok(
-        json!({"data":{"id":intent.id,"revision":intent.revision,"original_key_id":intent.key_id,"key_id":key_id,"model":intent.model,"funding_mode":if intent.owner_funded {"owner_funded"} else {"customer"},"request":intent.request,"content_state":if intent.expired {"expired"} else if intent.deleted {"deleted"} else {"retained"},"expires_at_ms":intent.expires_at_ms,"submission_state":submission_state,"job":job}}),
+        json!({"data":{"id":intent.id,"revision":intent.revision,"original_key_id":intent.key_id,"key_id":key_id,"model":intent.model,"funding_mode":if intent.owner_funded {"owner_funded"} else {"customer"},"request":intent.request,"session_binding":intent.session_binding,"content_state":if intent.expired {"expired"} else if intent.deleted {"deleted"} else {"retained"},"expires_at_ms":intent.expires_at_ms,"submission_state":submission_state,"job":job}}),
     )
 }
 
@@ -390,7 +390,8 @@ pub(in crate::web) struct SaveInput {
 ///         "content_state",
 ///         "expires_at_ms",
 ///         "submission_state",
-///         "job"
+///         "job",
+///         "session_binding"
 ///       ],
 ///       "properties": {
 ///         "id": {
@@ -461,6 +462,28 @@ pub(in crate::web) struct SaveInput {
 ///               "type": "null"
 ///             }
 ///           ]
+///         },
+///         "session_binding": {
+///           "type": [
+///             "object",
+///             "null"
+///           ],
+///           "description": "Original actor-private session and turn binding, if any. Internal routing references only; never render these IDs. Remains available after content deletion or expiry and does not authorize inference. Explicit null means no saved binding; older gateways with no field must not be interpreted as confirmed absence.",
+///           "required": [
+///             "session_id",
+///             "turn_id"
+///           ],
+///           "additionalProperties": false,
+///           "properties": {
+///             "session_id": {
+///               "type": "string",
+///               "format": "uuid"
+///             },
+///             "turn_id": {
+///               "type": "string",
+///               "format": "uuid"
+///             }
+///           }
 ///         }
 ///       }
 ///     }

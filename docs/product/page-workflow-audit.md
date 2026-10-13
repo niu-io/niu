@@ -30,9 +30,9 @@ Baseline: current `main` at `534c07ee`, 2026-10-13. This audit covers rendered p
 | P14 | Model list | `/models` | Global catalog, selected workspace context, filters, prices, eligibility | In review: actual workspace list/filter/sort and Video destinations at desktop/narrow; full access/pricing boundaries pending |
 | P15 | Model detail | `/models/*` | Capabilities, qualified access, setup and request examples | In review: actual Video guidance corrected; explicit different-model restoration checked; inference admission pending |
 | P16 | Generations Chat | `/generations` | Model/key selection, messages, branches, cancellation, attachments, persistence | In review: known Video models excluded from Chat, historical failure preserved and dispatch controls checked; actual text submission/branch workflows pending |
-| P17 | Generations Video | `/generations?new=video` | Drafts, references, async tasks, original recovery, preview/download | In review: native tools, durable draft restore/conflicts and historical preview verified; references/submission/shared-output actions pending |
+| P17 | Generations Video | `/generations?new=video` | Drafts, references, async tasks, original recovery, preview/download | In review: native tools, draft conflicts, metadata-only session save/reopen and historical preview verified; image submission/shared-output actions pending |
 | P18 | Writing entry points | `/generations` | Existing writing templates and supported Chat flow; no new editor | In review: actual Writing template prefill/focus checked at desktop and narrow widths; text generation not exercised |
-| P19 | Generation session history | `/generations` | Restoration, archived/deleted input, revoked keys, actor isolation | In review: revoked/expired-key input restoration, actor isolation and cached preview verified; full timeline pending |
+| P19 | Generation session history | `/generations` | Restoration, archived/deleted input, revoked keys, actor isolation | In review: revoked/expired-key reads, actor isolation, original session binding restore and cached preview verified; full timeline pending |
 | P20 | Native video materials | `/workspaces/:workspace/video/volcengine/:section?` | Exact account context, groups/materials, validation, uncertainty, observations | In review: explicit named key/model selection, original context reads, unsupported selection and reload qualified; durable operation recovery pending |
 | P21 | Native verification tools | `/workspaces/:workspace/video/volcengine/:section?` | Capability-gated explicit workflow; no fabricated H5 completion | In review: capability-gated entry and saved read observed; verification creation not exercised |
 | P22 | Shared task/output integration | `/generations` | Existing task/artifact inventory and durable save; UI integration gap candidate | Not checked |
@@ -60,7 +60,7 @@ These are source findings awaiting current-input reproduction, not integrated ac
 | C02 | P1 | P17, P20, P21 | Unsupported models expose native materials and verification tools before failing | Video scope fixed; standalone explicit context selection qualified; broader account/error branches pending |
 | C03 | P1 | P20 | Material validation errors remain behind dialogs; unknown operations lack explicit recovery | Inline/network-failure scope fixed; durable recovery remains open |
 | C04 | P1 | P17, P22 | Existing task/artifact/durable capture SDK is not consumed by product pages | In review |
-| C05 | P1 | P17 | Image/reference submission bypasses retained intent association | In review |
+| C05 | P1 | P17 | Image/reference submission bypasses retained intent association | Metadata session preparation qualified; backend rejects local-reference idempotent submission; dashboard image attachment integration remains open |
 | C06 | P1 | P23, P24 | Supplier adapter controls omit backend-supported Anthropic/Gemini/Ark | Fixed; verified scope below |
 | C07 | P2 | P26 | Supported unconfigured payment integrations are hidden | Fixed; inventory scope verified |
 | C08 | P2 | P30 | Profile save does not update shared account-menu session state | In review |
@@ -191,3 +191,11 @@ Writing templates now fill and focus the existing composer without sending. The 
 ### Supplier section visibility
 
 At 390px, the selected Supplier Settings tab was outside the visible horizontal strip. The existing shadcn tab strip now reveals its active tab on route changes and container resizing with nearest scrolling. Actual Settings and Portal access navigation, desktop-to-narrow resizing and narrow administration navigation were checked without changing Supplier data. All seven tabs remain visible at desktop width. Supplier configuration writes and revision conflicts remain separate acceptance scopes.
+
+### Saved Video request and original session binding
+
+Save request now uses the existing session/turn/intent SDK to retain input without estimating or generating. The helper prepares metadata only, retains client-allocated identities across failures and refuses a mismatched replay before writes. Actual genuine image-reference metadata qualification covered save, binding, repeated preparation, read-only recovery, session rename and archived read scope. Independent SQL confirmed one immutable turn/binding and no associated attempt; this is not image submission acceptance.
+
+Actual ordinary-member browser saves retained the original text and displayed an unsubmitted request at desktop and 390px. A subsequent save refreshed history immediately and cleared only its matching composer revision. Independent database counts and content digests for request, dispatch, usage and financial records were unchanged. The new saved intent, session, turn and binding each appeared once. No concurrent newer draft was introduced in this clear check, so that race branch remains unverified.
+
+Intent reads now project the original nullable session binding through the existing actor/workspace/intent index. Reopening a link with only the intent restored the exact original session/turn and retained prompt; no replacement history traversal or binding was created. The current HTTP response and independently downloaded full OpenAPI operation schema contained the binding. Generated SDK documentation rendered in Help at desktop and narrow widths. Local workspace-image submission remains blocked by the backend's current idempotency guard; the pending image attachment UI is not delivered or qualified as a working generation flow.

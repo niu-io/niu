@@ -34999,7 +34999,8 @@ Local `#/components/schemas/…` references resolve to these definitions.
     "content_state",
     "expires_at_ms",
     "submission_state",
-    "job"
+    "job",
+    "session_binding"
   ],
   "properties": {
     "id": {
@@ -35070,6 +35071,28 @@ Local `#/components/schemas/…` references resolve to these definitions.
           "type": "null"
         }
       ]
+    },
+    "session_binding": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "description": "Original actor-private session and turn binding, if any. Internal routing references only; never render these IDs. Remains available after content deletion or expiry and does not authorize inference. Explicit null means no saved binding; older gateways with no field must not be interpreted as confirmed absence.",
+      "required": [
+        "session_id",
+        "turn_id"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "turn_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
     }
   }
 }

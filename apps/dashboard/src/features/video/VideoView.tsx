@@ -8,6 +8,7 @@ import type { VideoEstimate, VideoJobBilling, VideoJobState, VideoModelList, Vid
 import { NiuAdminClient, type VideoIntentRequest, type VideoSubmissionIntent, type NativeProviderModule, type GenerationTask, type VideoComposerDraftPayload } from '../../../../../sdks/javascript/src/admin';
 import { useVideoDraft, type VideoDraftTicket } from './useVideoDraft';
 import { VideoIntent } from './intent';
+import { prepareVideoSessionIntent } from './session-intent';
 import { findVideoIntent, videoSessionTitle } from './intent-history';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyContent } from '@/components/ui/empty';
@@ -224,7 +225,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
     const requested=models.find(model=>model.id===requestedModel);
     setControls(requested?initialControls(requested):{});
   },[requestedModel,mutableComposer,composerReady,models,modelId]);
-  useEffect(()=>{estimateController.current?.abort();setQuote(null);return()=>estimateController.current?.abort();},[prompt,controls,images,base,modelId]);
+  useEffect(()=>{estimateController.current?.abort();setQuote(null);return()=>estimateController.current?.abort();},[prompt,controls,images,draftReferences,base,modelId]);
   useEffect(()=>{
     const controller=new AbortController();
     loadedIntent.current=null;setIntentDocument(null);setIntentError('');setRestoringIntent(false);setSubmittedPrompt('');
@@ -243,6 +244,9 @@ export default function VideoView({context}:{context:DashboardContext}) {
         setPrompt('');setControls({});setImages([]);setDraftReferences([]);setDraftSessionId(null);setModelId(document.model);
         if(document.request){
           setPrompt(document.job ? '' : document.request.content.flatMap(item=>item.type==='text' ? [item.text] : []).join('\n'));
+          setDraftReferences(document.request.content.filter((item):item is VideoComposerDraftPayload['references'][number]=>item.type==='workspace_asset'||item.type==='provider_asset'));
+          setDraftSessionId(document.session_binding?.session_id??search.get('session'));
+          if(document.session_binding)setSearch(previous=>{const next=new URLSearchParams(previous);next.set('session',document.session_binding!.session_id);next.set('turn',document.session_binding!.turn_id);return next;},{replace:true});
           const restored:ControlValues={};
           for(const [name,value] of Object.entries(document.request))if(name!=='model' && name!=='content' && (typeof value==='boolean' || typeof value==='string' || typeof value==='number'))restored[name]=typeof value==='boolean' ? value:String(value);
           setControls(restored);
@@ -305,8 +309,9 @@ export default function VideoView({context}:{context:DashboardContext}) {
     catch(error){if(!controller.signal.aborted)setError(message(error));}
     finally{if(estimateController.current === controller)setBusy('');}
   }
-  async function generate() {
-    if(!form.body || !quoteMatches || !base || !canWrite || lock.current || uncertain || readingImages || restoringIntent || draftBlocked)return;
+  async function saveOrSubmitRequest(action:'save'|'submit') {
+    const submit=action==='submit';
+    if(!form.body || (submit&&!quoteMatches) || !base || !canWrite || lock.current || uncertain || readingImages || restoringIntent || draftBlocked)return;
     const generation=currentGeneration();
     let ownedIntentId='';
     let draftTicket:VideoDraftTicket|null=null;
@@ -318,14 +323,26 @@ export default function VideoView({context}:{context:DashboardContext}) {
       if(form.body.content.every(item=>['text','provider_asset','workspace_asset'].includes(item.type)) && intentClient && workspace){
         const intent=retainedIntent && !intentDocument?.job ? loadedIntent.current : new VideoIntent(intentClient,{organizationId:workspace.organization_id,projectId:workspace.id},crypto.randomUUID());
         if(!intent)throw new Error('Restore the saved video request before submitting.');
+        if(retainedIntent&&intentDocument?.session_binding===undefined)throw new Error('The saved session context could not be confirmed. Reload before continuing.');
         ownedIntentId=intent.id;routeIntent.current=intent.id;
-        const next=new URLSearchParams(search);next.set('intent',intent.id);next.delete('new');next.set('workspace',workspace.id);next.set('key',keyId);setSearch(next,{replace:true});
-        if(!retainedIntent || intentDocument?.job)await intent.save(keyId,form.body as VideoIntentRequest);
+        const originalBinding=intentDocument?.id===intent.id?intentDocument.session_binding:null;
+        const sessionId=originalBinding?.session_id??search.get('session')??draftSessionId??crypto.randomUUID();
+        const turnId=originalBinding?.turn_id??search.get('turn')??crypto.randomUUID();
+        const next=new URLSearchParams(search);next.set('intent',intent.id);next.set('session',sessionId);next.set('turn',turnId);next.delete('new');next.set('workspace',workspace.id);next.set('key',keyId);setSearch(next,{replace:true});
+        await prepareVideoSessionIntent(intentClient,{organizationId:workspace.organization_id,projectId:workspace.id},{sessionId,turnId,intentId:intent.id,keyId,title:'Video request',request:form.body as VideoIntentRequest});
+        if(!currentOperation())return;
+        await intent.restore();
+        window.dispatchEvent(new Event('niu:video-intent-saved'));
+        if(!submit){
+          if(draftTicket&&!await draft.clearMatching(draftTicket))setError('The request was saved, but its unfinished draft remains. Open the saved request before submitting.');
+          setQuote(null);setRevision(value=>value+1);return;
+        }
         if(!currentOperation())return;
         result=await intent.submit();
         if(!currentOperation())return;
         next.set('job',result.id);setSearch(next,{replace:true});
       }else{
+        if(!submit)throw new Error('Inline image attachments cannot be saved as requests yet.');
         result=await request<VideoJobState>(token,`${base}/jobs`,form.body);
         if(generation !== currentGeneration())return;
         openJob(result.id);
@@ -338,7 +355,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
       if(!currentOperation())return;
       setError(message(error));
       // A lost create response may already represent a paid dispatch. Do not retry it.
-      if(!(error instanceof VideoHTTPError) || ![400,401,402,403,404,501].includes(error.status))setUncertain(true);
+      if(submit&&(!(error instanceof VideoHTTPError) || ![400,401,402,403,404,501].includes(error.status)))setUncertain(true);
     } finally {if(generation === currentGeneration()){lock.current=false;setBusy('');}}
   }
   async function refresh() {
@@ -385,7 +402,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
             </article>
           </div>}
         </div>
-        {historicalReadOnly ? <div className="video-composer"><Button asChild variant="outline"><Link to={`${workspacePath}/keys`}>Manage API keys</Link></Button></div> : <form className="video-composer" onSubmit={event=>{event.preventDefault();void (quoteMatches ? generate() : estimate());}}>
+        {historicalReadOnly ? <div className="video-composer"><Button asChild variant="outline"><Link to={`${workspacePath}/keys`}>Manage API keys</Link></Button></div> : <form className="video-composer" onSubmit={event=>{event.preventDefault();void (quoteMatches ? saveOrSubmitRequest('submit') : estimate());}}>
           <div className="video-composer-surface">
             {mutableComposer&&!draft.ready&&!draft.error&&<p role="status" className="video-muted">Loading saved Video draft…</p>}
             {mutableComposer&&draft.error&&<div role="alert" className="video-error">{draft.error}<Button type="button" variant="ghost" onClick={draft.reload} disabled={Boolean(busy)}>Load saved draft</Button></div>}
@@ -397,13 +414,14 @@ export default function VideoView({context}:{context:DashboardContext}) {
             <>
               {model&&<ImageReferences model={model} images={images} onChange={setImages} disabled={Boolean(busy) || uncertain || draftBlocked || draftReferences.length>0 || Boolean(intentId && !intentDocument?.job)} onReadingChange={reading=>{setReadingImages(reading);if(reading){estimateController.current?.abort();setQuote(null);}}}/>}
 
-              <Label htmlFor="video-prompt" className="sr-only">Prompt</Label><Textarea id="video-prompt" placeholder="Describe your video…" rows={2} value={prompt} onChange={event=>{setComposerEdited(true);setPrompt(event.target.value);}} disabled={draftBlocked || busy === 'create' || restoringIntent || Boolean(intentId && !intentDocument?.job)} onKeyDown={event=>{if(event.key==='Enter' && !event.shiftKey && !event.nativeEvent.isComposing){event.preventDefault();if(!busy && !uncertain && !draftBlocked && form.body)void (quoteMatches ? generate() : estimate());}}}/>
+              <Label htmlFor="video-prompt" className="sr-only">Prompt</Label><Textarea id="video-prompt" placeholder="Describe your video…" rows={2} value={prompt} onChange={event=>{setComposerEdited(true);setPrompt(event.target.value);}} disabled={draftBlocked || busy === 'create' || restoringIntent || Boolean(intentId && !intentDocument?.job)} onKeyDown={event=>{if(event.key==='Enter' && !event.shiftKey && !event.nativeEvent.isComposing){event.preventDefault();if(!busy && !uncertain && !draftBlocked && form.body)void (quoteMatches ? saveOrSubmitRequest('submit') : estimate());}}}/>
               {prompt && form.error && <p role="alert" className="video-error">{form.error}</p>}
               {quoteMatches && quote && <div className="video-estimate"><span>{quote.effective_output.specification.resolution} · {quote.effective_output.specification.ratio} · {quote.effective_output.duration_seconds}s{quote.effective_output.frames_per_second != null && ` · ${quote.effective_output.frames_per_second} FPS`}</span><strong>{quote.estimate.amount_nanos != null && quote.estimate.currency ? `Estimated ${money(quote.estimate.amount_nanos,quote.estimate.currency)}`:'Charged to your Supplier account'}</strong>{quote.maximum_charge_nanos != null && quote.estimate.currency && <small>Reserves up to {money(quote.maximum_charge_nanos,quote.estimate.currency)}. Final charge follows reported usage.</small>}</div>}
 
-              {uncertain && <p role="alert">{intentDocument&&intentDocument.content_state!=='retained' ? 'The saved input has expired or been deleted. Task history remains available.':'Submission may have reached the Supplier. Reload to restore the original submission before continuing.'}</p>}
+              {uncertain && <p role="alert">{intentDocument&&intentDocument.content_state!=='retained' ? 'The saved input has expired or been deleted. Task history remains available.':'Reload this saved request to confirm its input and original submission status before continuing.'}</p>}
             </>
             <div className="video-composer-toolbar"><div className="video-composer-options">
+              {!selected&&<Button type="button" variant="ghost" disabled={!base||!form.body||!canWrite||Boolean(busy)||uncertain||readingImages||draftBlocked||images.length>0||Boolean(intentDocument?.session_binding)} onClick={()=>void saveOrSubmitRequest('save')}>{intentDocument?.session_binding?'Request saved':intentId?'Save to session':'Save request'}</Button>}
 
 
               {models.length>0&&<DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="video-model-choice" aria-label="Video model" disabled={Boolean(busy) || draftBlocked || Boolean(intentId && !intentDocument?.job)}><span className="truncate">{model?.id||modelId||'Choose video model'}</span><ChevronDown size={14}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={modelId} onValueChange={id=>{restoredComposer.current=null;setComposerEdited(true);setModelId(id);const query=new URLSearchParams(search);query.set('model',id);setSearch(query);const next=models.find(model=>model.id === id);setControls(next ? initialControls(next):{});}}>{models.map(item=><DropdownMenuRadioItem key={item.id} value={item.id}>{item.id}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>}

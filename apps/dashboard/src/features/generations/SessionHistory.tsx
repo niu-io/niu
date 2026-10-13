@@ -42,6 +42,7 @@ export default function SessionHistory({context,chats, activeChat, onChat, chatA
   const [error,setError]=useState('');
   const [loading,setLoading]=useState(false);
   const [revision,setRevision]=useState(0);
+  useEffect(()=>{const refresh=()=>setRevision(value=>value+1);window.addEventListener('niu:video-intent-saved',refresh);return()=>window.removeEventListener('niu:video-intent-saved',refresh);},[]);
   const [cursors,setCursors]=useState<VideoCursor[]>([]);
   const loadedScope=useRef('');
   const scope=workspace ? `/admin/v1/organizations/${workspace.organization_id}/projects/${workspace.id}` : '';

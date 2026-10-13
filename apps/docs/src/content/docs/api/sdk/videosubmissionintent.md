@@ -10,6 +10,12 @@ Generated from the checked-in source. Do not edit this reference by hand.
 
 ```typescript
 export type VideoSubmissionIntent = VideoIntentIndexEntry & {
+    /** Original actor-private routing binding. IDs are not display labels. Missing
+     * on older gateways is unknown, never permission to create a replacement. */
+    session_binding?: {
+        session_id: string;
+        turn_id: string;
+    } | null;
     original_key_id: string;
     key_id: string;
     model: string;

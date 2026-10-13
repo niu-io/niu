@@ -161,6 +161,9 @@ export type VideoIntentIndexEntry = {
   content_state: 'retained' | 'deleted' | 'expired';
 };
 export type VideoSubmissionIntent = VideoIntentIndexEntry & {
+  /** Original actor-private routing binding. IDs are not display labels. Missing
+   * on older gateways is unknown, never permission to create a replacement. */
+  session_binding?: {session_id: string; turn_id: string} | null;
   original_key_id: string; key_id: string; model: string;
   funding_mode: 'owner_funded' | 'customer'; request: VideoIntentRequest | null;
   submission_state: 'saved' | 'not_dispatched' | 'dispatched'; job: VideoJobState | null;
