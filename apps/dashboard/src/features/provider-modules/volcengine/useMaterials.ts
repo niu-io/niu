@@ -33,7 +33,7 @@ export function useMaterials(preferredModel?:string,nativeContext?:NativeMateria
   if(!workspace){setDiscovery({identity:discoveryIdentity,loading:false,keys:[],choices:[],errors:[]});return()=>controller.abort();}
   void(async()=>{
    const page=await keyRequest<{data:ProjectKey[]}>(context.token,projectKeyPath(workspace.organization_id,workspace.id),'GET',undefined,controller.signal);
-   const keys=page.data.filter(key=>!key.revoked&&!key.expired),queue=[...keys],choices:NativeContextChoice[]=[],errors:string[]=[];
+   const keys=page.data,queue=keys.filter(key=>!key.revoked&&!key.expired),choices:NativeContextChoice[]=[],errors:string[]=[];
    await Promise.all(Array.from({length:Math.min(4,queue.length)},async()=>{
     while(queue.length&&!controller.signal.aborted){
      const key=queue.shift()!;
@@ -53,29 +53,31 @@ export function useMaterials(preferredModel?:string,nativeContext?:NativeMateria
  },[discoveryIdentity,admin,revision,Boolean(nativeContext)]);
  const discoveryPending=!nativeContext&&(discovery.identity!==discoveryIdentity||discovery.loading);
  const client=useMemo(()=>binding?.identity===identity&&workspace ? admin.dashboardMedia({organizationId:workspace.organization_id,projectId:workspace.id},binding.keyId):null,[binding,identity,admin,workspace?.organization_id,workspace?.id]);
+ const historyClient=useMemo(()=>workspace&&requested?.keyId&&requested.model&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(requested.keyId)
+  ? admin.mediaOperationHistory({organizationId:workspace.organization_id,projectId:workspace.id},{keyId:requested.keyId,model:requested.model}):null,[admin,workspace?.organization_id,workspace?.id,requested?.keyId,requested?.model]);
  const [operationHistory,setOperationHistory]=useState<{identity:string;rows:MediaAssetOperation[];complete:boolean;loading:boolean;error:string}>({identity:'',rows:[],complete:false,loading:false,error:''});
  const operationController=useRef<AbortController|null>(null);
  const reloadOperations=useCallback(async()=>{
-  if(!client||!binding||binding.identity!==identity)return;
+  if(!historyClient)return;
   operationController.current?.abort();const controller=new AbortController();operationController.current=controller;
   setOperationHistory(previous=>({identity,rows:previous.identity===identity?previous.rows:[],complete:false,loading:true,error:''}));
   try{
-   const page=await allPages(after=>client.operations.list({model:binding.model,limit:100,after},{signal:controller.signal}));
+   const page=await allPages(after=>historyClient.list({limit:100,after},{signal:controller.signal}));
    if(!controller.signal.aborted&&liveIdentity.current===identity)setOperationHistory({identity,rows:page.data,complete:true,loading:false,error:''});
   }catch(error){if(!controller.signal.aborted&&liveIdentity.current===identity)setOperationHistory(previous=>({...previous,loading:false,error:error instanceof Error?error.message:'Could not load saved operations.'}));}
- },[client,binding,identity]);
- useEffect(()=>{if(client)void reloadOperations();return()=>operationController.current?.abort();},[client,reloadOperations]);
+ },[historyClient,identity]);
+ useEffect(()=>{if(historyClient)void reloadOperations();return()=>operationController.current?.abort();},[historyClient,reloadOperations]);
  const checkOperation=useCallback(async(id:string)=>{
-  if(!client||!binding||binding.identity!==identity)return;
+  if(!historyClient)return;
   operationController.current?.abort();const controller=new AbortController();operationController.current=controller;
   setOperationHistory(previous=>({...previous,loading:true,error:''}));
   try{
-   const result=await client.operations.retrieve(id,binding.model,{signal:controller.signal});
+   const result=await historyClient.retrieve(id,{signal:controller.signal});
    if(!controller.signal.aborted&&liveIdentity.current===identity)setOperationHistory(previous=>({...previous,loading:false,rows:previous.rows.map(row=>row.id===id?result.data:row)}));
   }catch(error){if(!controller.signal.aborted&&liveIdentity.current===identity)setOperationHistory(previous=>({...previous,loading:false,error:`${error instanceof Error?error.message:'Could not check the saved operation.'} Its outcome has not been changed by this check.`}));}
- },[client,binding,identity]);
+ },[historyClient,identity]);
  const operations=operationHistory.identity===identity?operationHistory.rows:[];
- const operationsLoading=!!client&&(operationHistory.identity!==identity||operationHistory.loading);
+ const operationsLoading=!!historyClient&&(operationHistory.identity!==identity||operationHistory.loading);
  const operationsReady=operationHistory.identity===identity&&operationHistory.complete;
  const operationsError=operationHistory.identity===identity?operationHistory.error:'';
  useEffect(()=>()=>reloadController.current?.abort(),[client,group]);
@@ -84,7 +86,7 @@ export function useMaterials(preferredModel?:string,nativeContext?:NativeMateria
   void(async()=>{
    if(!requested?.keyId||!requested.model||discoveryPending)return;
    if(!nativeContext){
-    if(!discovery.keys.some(key=>key.id===requested.keyId))throw new Error('The selected API key is not active in this workspace.');
+    if(!discovery.keys.some(key=>key.id===requested.keyId&&!key.revoked&&!key.expired))throw new Error('The selected API key is not active in this workspace.');
     const choices=discovery.choices.filter(choice=>choice.keyId===requested.keyId&&choice.module.model_alias===requested.model);
     if(choices.length!==1)throw new Error(choices.length>1?'This model has ambiguous native contexts; no account was selected.':'The selected model has no discovered native tools. Check discovery errors or choose a supported model.');
    }
@@ -112,5 +114,9 @@ export function useMaterials(preferredModel?:string,nativeContext?:NativeMateria
  }
 
  useEffect(()=>{if(!client||!binding)return;const controller=new AbortController();setAssets([]);void Promise.all([allPages(after=>client.verification.list({model:binding.model,limit:100,after},{signal:controller.signal})).then(p=>{if(!controller.signal.aborted)setSessions(p.data);}),group?allPages(after=>client.assets.list({model:binding.model,group_id:group,limit:100,after},{signal:controller.signal})).then(p=>{if(!controller.signal.aborted)setAssets(p.data);}):Promise.resolve()]).catch(e=>{if(!controller.signal.aborted)setError(e.message);});return()=>controller.abort();},[client,group]);
- return {operations,operationsReady,operationsLoading,operationsError,reloadOperations,checkOperation,discoveryLoading:discoveryPending,contextKeys:discovery.identity===discoveryIdentity?discovery.keys:[],contextChoices:discovery.identity===discoveryIdentity?discovery.choices:[],discoveryErrors:discovery.identity===discoveryIdentity?discovery.errors:[],selection:requested,currentModule:binding?.identity===identity?binding.module:undefined,retry:()=>setRevision(v=>v+1),client,model:binding?.model,groups,assets,sessions,group,setGroup,error,setError,loading:loading||discoveryPending,reload,canWrite:context.session?.permissions.write===true};
+ const cancelPreparedOperation=async(id:string,model:string)=>{
+  if(!workspace||!context.session?.permissions.write)throw new Error('Workspace Write access is required.');
+  return admin.cancelPreparedMediaOperation({organizationId:workspace.organization_id,projectId:workspace.id},id,model);
+ };
+ return {historyClient,historyModel:requested?.model,historyKey:discovery.identity===discoveryIdentity?discovery.keys.find(key=>key.id===requested?.keyId):undefined,cancelPreparedOperation,operations,operationsReady,operationsLoading,operationsError,reloadOperations,checkOperation,discoveryLoading:discoveryPending,contextKeys:discovery.identity===discoveryIdentity?discovery.keys:[],contextChoices:discovery.identity===discoveryIdentity?discovery.choices:[],discoveryErrors:discovery.identity===discoveryIdentity?discovery.errors:[],selection:requested,currentModule:binding?.identity===identity?binding.module:undefined,retry:()=>setRevision(v=>v+1),client,model:binding?.model,groups,assets,sessions,group,setGroup,error,setError,loading:loading||discoveryPending,reload,canWrite:context.session?.permissions.write===true};
 }
