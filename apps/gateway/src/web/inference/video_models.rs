@@ -48,7 +48,7 @@ pub(super) async fn models_as(
         {
             continue;
         }
-        if let Some(model) = projection_with_images(
+        if let Some(mut model) = projection_with_images(
             alias,
             &route.model.upstream_model,
             &route.model.capabilities,
@@ -56,6 +56,35 @@ pub(super) async fn models_as(
             image_limits,
             text_permitted,
         ) {
+            // Durable local images do not require a detector unless the current
+            // customer policy explicitly requires one. Use real schema limits.
+            if route.model.capabilities["video_schema"]["channel"] == "ark-direct-v1"
+                && super::video::policy_permits_video_with_images(
+                    &snapshot,
+                    alias,
+                    &route.vendor.adapter,
+                    true,
+                )
+                && !super::video_images::inspection_required(&snapshot)?
+                && let Some(rule) = model.get("image_url")
+                && rule["data_mime_types"]
+                    .as_array()
+                    .is_some_and(|types| !types.is_empty())
+            {
+                let count = rule["maximum_items"].as_u64().unwrap_or(0).min(32).min(
+                    model["maximum_content_items"]
+                        .as_u64()
+                        .unwrap_or(0)
+                        .saturating_sub(1),
+                );
+                if count > 0 {
+                    model["workspace_asset"] = json!({
+                        "media_kind":"image", "requires_consent":true,
+                        "requires_current_inspection":false,
+                        "maximum_items":count, "requires_text":true
+                    });
+                }
+            }
             data.push(model);
         }
     }

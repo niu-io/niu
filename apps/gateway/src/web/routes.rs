@@ -87,6 +87,7 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/admin/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/capture", get(super::inference::generations_artifact_captures::retrieve).post(super::inference::generations_artifact_captures::capture).layer(DefaultBodyLimit::max(1024)))
         .route("/admin/v1/organizations/{organization}/projects/{project}/generations/tasks", get(super::inference::generations_inventory::tasks))
         .route("/admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}", get(super::inference::generations_inventory::task))
+        .route("/admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/diagnostics", get(super::inference::generations_task_diagnostics::retrieve))
         .route("/admin/v1/organizations/{organization}/projects/{project}/generations/artifacts", get(super::inference::generations_inventory::artifacts))
         .route("/admin/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}", get(super::inference::generations_inventory::artifact))
         .route("/admin/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/content", get(super::inference::generations_inventory::content))

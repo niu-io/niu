@@ -21116,6 +21116,88 @@ HTTP 503: Storage or bounded delivery unavailable
 
 HTTP 504: Upstream query or delivery timed out
 
+## Read saved customer billing and transport diagnostics
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/diagnostics`
+
+Current dashboard workspace Read authorizes persisted diagnostics independently of the original inference key expiry, revocation or model grants. Actor-private tasks belonging to another actor are 404. Billing is customer-only; owner-funded jobs retain null customer charges and never expose procurement costs. Billing and measured transport/lifecycle observations share one bounded read-only snapshot. This GET never contacts a Provider, polls, refreshes, retries, submits or settles a task. Errors are explicit; no successful empty result hides a storage failure.
+
+Implementation: `implemented`. Operation: `generationsTaskDiagnostics`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`task` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Persisted customer diagnostics
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "billing",
+    "timings"
+  ],
+  "properties": {
+    "billing": {
+      "$ref": "#/components/schemas/VideoJobBilling"
+    },
+    "timings": {
+      "$ref": "#/components/schemas/VideoTransportTimings"
+    }
+  }
+}
+```
+
+HTTP 401: Invalid dashboard session
+
+HTTP 403: Workspace Read denied
+
+HTTP 404: Saved Video task missing or actor-private
+
+HTTP 503: Saved diagnostics unavailable
+
 ## Create a native text Message, optionally streamed
 
 `POST /v1/messages`
@@ -22619,7 +22701,7 @@ Content type: `application/json`.
           }
         ]
       },
-      "description": "Ordered model-supported text, image data, public HTTPS image/audio/video URLs or Niu ingested_image IDs. Ingested references require current original-account Active observation, retained inspected content and unexpired original grants/consent; dispatch rechecks all bindings atomically. Ordinary URL inputs require direct Ark and exact schema support; OpenRouter remains text-only. Mixed inline/ingested input and idempotency for locally processed references are unsupported. Client asset:// URIs are never accepted. Workspace image-library references require explicit processing consent, current workspace ownership and fresh configured inspection. Local bytes are resolved privately and deletion/content identity is rechecked atomically before dispatch. Stored audio/video and mixed ingested/library input remain unsupported; canonical idempotency supports ordinary upstream URL requests."
+      "description": "Ordered model-supported text, image data, public HTTPS image/audio/video URLs or Niu ingested_image IDs. Ingested references require current original-account Active observation, retained inspected content and unexpired original grants/consent; dispatch rechecks all bindings atomically. Ordinary URL inputs require direct Ark and exact schema support; OpenRouter remains text-only. Mixed inline/ingested input and idempotency for ingested or independently inspected inline references are unsupported. Client asset:// URIs are never accepted. Workspace image-library references require explicit processing consent and current workspace ownership; fresh configured inspection is required only when the current policy requires it. Local bytes are resolved privately and deletion/content identity is rechecked atomically before dispatch. Stored audio/video and mixed ingested/library input remain unsupported; canonical idempotency supports ordinary upstream URL requests and durable workspace image references, preserving the original Niu reference identity."
     }
   },
   "additionalProperties": true
@@ -22693,7 +22775,7 @@ HTTP 409: Changed idempotent input or conflicting route/key/policy/offer revisio
 
 HTTP 429: Current key request/concurrency limit exceeded.
 
-HTTP 501: Unsupported video channel, notification contract, mixed inline/ingested inputs or image idempotency; no upstream dispatch.
+HTTP 501: Unsupported video channel, notification contract, mixed inline/ingested inputs or unsupported ingested/inspected-inline idempotency; no upstream dispatch.
 
 HTTP 503: Qualified offer, original route or storage unavailable.
 
@@ -35091,6 +35173,138 @@ Local `#/components/schemas/…` references resolve to these definitions.
         "turn_id": {
           "type": "string",
           "format": "uuid"
+        }
+      }
+    }
+  }
+}
+```
+
+### VideoTransportTimings
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data",
+    "has_more",
+    "lifecycle"
+  ],
+  "properties": {
+    "has_more": {
+      "type": "boolean"
+    },
+    "data": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "phase",
+          "started_unix_ms",
+          "elapsed_ms",
+          "outcome",
+          "upstream_http_status",
+          "upstream_error_code",
+          "upstream_request_id"
+        ],
+        "properties": {
+          "phase": {
+            "type": "string",
+            "enum": [
+              "submission",
+              "query",
+              "result"
+            ]
+          },
+          "started_unix_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "elapsed_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "received",
+              "unavailable"
+            ]
+          },
+          "upstream_http_status": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "upstream_error_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "upstream_request_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "submitted_unix_ms",
+        "observations",
+        "conflicting_terminal"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": [
+            "gateway_observation"
+          ]
+        },
+        "submitted_unix_ms": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "conflicting_terminal": {
+          "type": "boolean"
+        },
+        "observations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status",
+              "observed_unix_ms"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "queued",
+                  "running",
+                  "succeeded",
+                  "failed",
+                  "unknown"
+                ]
+              },
+              "observed_unix_ms": {
+                "type": "integer"
+              }
+            }
+          }
         }
       }
     }

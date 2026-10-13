@@ -1464,7 +1464,7 @@ pub(super) async fn estimate_as(
 ///                     }
 ///                   ]
 ///                 },
-///                 "description": "Ordered model-supported text, image data, public HTTPS image/audio/video URLs or Niu ingested_image IDs. Ingested references require current original-account Active observation, retained inspected content and unexpired original grants/consent; dispatch rechecks all bindings atomically. Ordinary URL inputs require direct Ark and exact schema support; OpenRouter remains text-only. Mixed inline/ingested input and idempotency for locally processed references are unsupported. Client asset:// URIs are never accepted. Workspace image-library references require explicit processing consent, current workspace ownership and fresh configured inspection. Local bytes are resolved privately and deletion/content identity is rechecked atomically before dispatch. Stored audio/video and mixed ingested/library input remain unsupported; canonical idempotency supports ordinary upstream URL requests."
+///                 "description": "Ordered model-supported text, image data, public HTTPS image/audio/video URLs or Niu ingested_image IDs. Ingested references require current original-account Active observation, retained inspected content and unexpired original grants/consent; dispatch rechecks all bindings atomically. Ordinary URL inputs require direct Ark and exact schema support; OpenRouter remains text-only. Mixed inline/ingested input and idempotency for ingested or independently inspected inline references are unsupported. Client asset:// URIs are never accepted. Workspace image-library references require explicit processing consent and current workspace ownership; fresh configured inspection is required only when the current policy requires it. Local bytes are resolved privately and deletion/content identity is rechecked atomically before dispatch. Stored audio/video and mixed ingested/library input remain unsupported; canonical idempotency supports ordinary upstream URL requests and durable workspace image references, preserving the original Niu reference identity."
 ///               }
 ///             },
 ///             "additionalProperties": true
@@ -1544,7 +1544,7 @@ pub(super) async fn estimate_as(
 ///         "description": "Current key request/concurrency limit exceeded."
 ///       },
 ///       "501": {
-///         "description": "Unsupported video channel, notification contract, mixed inline/ingested inputs or image idempotency; no upstream dispatch."
+///         "description": "Unsupported video channel, notification contract, mixed inline/ingested inputs or unsupported ingested/inspected-inline idempotency; no upstream dispatch."
 ///       },
 ///       "503": {
 ///         "description": "Qualified offer, original route or storage unavailable."
@@ -1651,12 +1651,9 @@ pub(super) async fn create_as(
     }
     if identity.is_some() && has_images(&body) {
         let managed_reference = body["content"].as_array().is_some_and(|items| {
-            items.iter().any(|item| {
-                matches!(
-                    item["type"].as_str(),
-                    Some("ingested_image" | "workspace_asset")
-                )
-            })
+            items
+                .iter()
+                .any(|item| matches!(item["type"].as_str(), Some("ingested_image")))
         });
         let snapshot = state
             .store
@@ -1664,7 +1661,12 @@ pub(super) async fn create_as(
             .await
             .map_err(ApiError::from_store)?
             .ok_or_else(ApiError::forbidden)?;
-        if managed_reference || super::video_images::inspection_required(&snapshot)? {
+        let workspace_reference = body["content"]
+            .as_array()
+            .is_some_and(|items| items.iter().any(|item| item["type"] == "workspace_asset"));
+        if managed_reference
+            || (!workspace_reference && super::video_images::inspection_required(&snapshot)?)
+        {
             return Err(ApiError::unsupported_message(
                 "Idempotent video submission does not support locally processed references",
             ));

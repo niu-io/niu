@@ -25,7 +25,7 @@ export type VideoModel = {
     workspace_asset?: {
         media_kind: 'image';
         requires_consent: true;
-        requires_current_inspection: true;
+        requires_current_inspection: boolean;
         maximum_items: number;
         requires_text: true;
     };

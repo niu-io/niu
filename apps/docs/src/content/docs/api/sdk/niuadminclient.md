@@ -349,6 +349,7 @@ generations(scope: TenantScope): {
         }>;
         refresh: (task: string, options?: RequestOptions) => Promise<VideoJobState>;
         refreshResult(task: string, kind: GenerationArtifactKind, options?: RequestOptions): Promise<Response>;
+        diagnostics: (task: string, options?: RequestOptions) => Promise<import("./generation-task-diagnostics.js").GenerationTaskDiagnostics>;
     };
     artifacts: {
         list: (query?: GenerationInventoryQuery, options?: RequestOptions) => Promise<import("./generations-inventory.js").GenerationInventoryPage<import("./generations-inventory.js").GenerationArtifact>>;

@@ -271,13 +271,11 @@ export default function VideoView({context}:{context:DashboardContext}) {
     const history=intentClient.generations({organizationId:workspace.organization_id,projectId:workspace.id});
     void Promise.allSettled([
       history.tasks.retrieve(selected,{signal:controller.signal}),
-      base ? request<VideoJobBilling>(token,`${base}/jobs/${encodeURIComponent(selected)}/billing`,undefined,controller.signal) : Promise.resolve(null),
-      base ? request<VideoTransportTimings>(token,`${base}/jobs/${encodeURIComponent(selected)}/timings`,undefined,controller.signal) : Promise.resolve(null),
-    ]).then(([status,charges,spans])=>{
+      history.tasks.diagnostics(selected,{signal:controller.signal}),
+    ]).then(([status,diagnostics])=>{
       if(controller.signal.aborted)return;
       if(status.status === 'fulfilled'){const task=status.value.data;setSavedTask(task);setJob({id:task.id,object:'video.job',model:task.model,status:task.state});}else setDetailError(message(status.reason));
-      if(charges.status === 'fulfilled')setBilling(charges.value);else setDetailError(message(charges.reason));
-      if(spans.status === 'fulfilled')setTimings(spans.value);else setDetailError(message(spans.reason));
+      if(diagnostics.status === 'fulfilled'){setBilling(diagnostics.value.billing);setTimings(diagnostics.value.timings);}else setDetailError(message(diagnostics.reason));
     });
     return()=>controller.abort();
   },[intentClient,token,workspace?.organization_id,workspace?.id,base,selected,revision]);
@@ -394,7 +392,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
                   <div className="video-actions"><Button variant="outline" onClick={()=>setRevision(value=>value+1)} disabled={Boolean(busy)}>Reload status</Button><Button variant="ghost" onClick={()=>void refresh()} disabled={!canWrite || !base || Boolean(busy) || job.status === 'submission_unknown'}><RefreshCw size={14}/>{busy === 'refresh' ? 'Checking…':'Check Supplier'}</Button></div>
                   {timings?.lifecycle && <VideoLifecycle timing={timings.lifecycle}/>}
                   {timings?.data.length ? <div className="video-timings"><h3>Transport time</h3><p className="video-muted">Submission and status requests; Supplier queue and generation time are not measured here.</p>{timings.data.map((span,index)=><div className="video-span" key={index}><span>{span.phase === 'submission' ? 'Submission':'Status query'}</span><div className="video-span-track"><i style={{marginLeft:`${(span.started_unix_ms-epoch)/total*100}%`,width:`${Math.max(.5,span.elapsed_ms/total*100)}%`}}/></div><small>{span.elapsed_ms} ms</small></div>)}{timings.has_more && <small>Showing the latest recorded requests.</small>}</div> : null}
-                  {!base&&<p className="video-muted">Billing and transport details require current access through the original API key.</p>}<h3>Billing</h3>{billing ? <VideoBilling billing={billing}/> : <p>Billing is unavailable.</p>}              <Button asChild variant="link"><Link to={`${workspacePath}/executions?modelAlias=${encodeURIComponent(job.model)}#gateway-attempt-${encodeURIComponent(job.id)}`}>View in Logs</Link></Button>
+                  <h3>Billing</h3>{billing ? <VideoBilling billing={billing}/> : <p>Billing is unavailable.</p>}              <Button asChild variant="link"><Link to={`${workspacePath}/executions?modelAlias=${encodeURIComponent(job.model)}#gateway-attempt-${encodeURIComponent(job.id)}`}>View in Logs</Link></Button>
               </CollapsibleContent></Collapsible>
 
             </>}

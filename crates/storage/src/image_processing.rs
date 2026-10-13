@@ -223,23 +223,8 @@ impl Store {
                 serde_json::to_vec(request.body()).map_err(|_| StoreError::InvalidObservation)?
             )
         );
-        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('niu-guardrails:'||$1::text||':'||$2::text,0))").bind(scope.organization_id).bind(scope.project_id).execute(&mut **tx).await?;
-        let active:Option<Uuid>=sqlx::query_scalar("SELECT k.id FROM api_keys k JOIN projects p ON p.organization_id=k.organization_id AND p.id=k.project_id WHERE k.id=$1 AND k.organization_id=$2 AND k.project_id=$3 AND k.revoked_at IS NULL AND k.expires_at > clock_timestamp() FOR SHARE OF k,p").bind(principal.key_id()).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut **tx).await?;
-        if active.is_none() {
-            return Err(StoreError::Unauthorized);
-        }
-        let current = Self::guardrail_snapshot_using(&mut **tx, scope, principal.key_id())
-            .await?
-            .ok_or(StoreError::Unauthorized)?;
-        if !same_policy(&current, snapshot) {
-            return Err(StoreError::Conflict);
-        }
-        let pinned:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM attempts a JOIN media_recovery_routes r ON r.attempt_id=a.id JOIN inspected_guardrail_bindings b ON b.attempt_id=a.id WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=$3 AND a.execution='not_sent' AND a.dispatched_at IS NULL AND a.resource_id=$4 AND r.upstream_model=$5 AND r.schema_revision=$6 AND b.key_id=$7)")
-            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(request.model_alias()).bind(request.body()["model"].as_str()).bind(request.schema_revision()).bind(principal.key_id()).fetch_one(&mut **tx).await?;
-        if !pinned {
-            return Err(StoreError::Conflict);
-        }
-        let required = required_image_detectors(&current)?;
+        let required =
+            Self::authorize_image_request_using(tx, principal, attempt, snapshot, request).await?;
         let mut satisfied = std::collections::BTreeSet::new();
         let mut covered = std::collections::BTreeSet::new();
         let mut detector_positions = std::collections::BTreeSet::new();
@@ -329,6 +314,33 @@ impl Store {
             }
         }
         Ok(())
+    }
+    /// Rechecks the exact policy epoch and pinned request before asset locks.
+    pub(crate) async fn authorize_image_request_using(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        principal: &Principal,
+        attempt: Uuid,
+        snapshot: &GuardrailSnapshot,
+        request: &niu_media::ValidatedVideoRequest,
+    ) -> Result<std::collections::BTreeMap<String, String>, StoreError> {
+        let scope = principal.scope();
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('niu-guardrails:'||$1::text||':'||$2::text,0))").bind(scope.organization_id).bind(scope.project_id).execute(&mut **tx).await?;
+        let active:Option<Uuid>=sqlx::query_scalar("SELECT k.id FROM api_keys k JOIN projects p ON p.organization_id=k.organization_id AND p.id=k.project_id WHERE k.id=$1 AND k.organization_id=$2 AND k.project_id=$3 AND k.revoked_at IS NULL AND k.expires_at > clock_timestamp() FOR SHARE OF k,p").bind(principal.key_id()).bind(scope.organization_id).bind(scope.project_id).fetch_optional(&mut **tx).await?;
+        if active.is_none() {
+            return Err(StoreError::Unauthorized);
+        }
+        let current = Self::guardrail_snapshot_using(&mut **tx, scope, principal.key_id())
+            .await?
+            .ok_or(StoreError::Unauthorized)?;
+        if !same_policy(&current, snapshot) {
+            return Err(StoreError::Conflict);
+        }
+        let pinned:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM attempts a JOIN media_recovery_routes r ON r.attempt_id=a.id JOIN inspected_guardrail_bindings b ON b.attempt_id=a.id WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=$3 AND a.execution='not_sent' AND a.dispatched_at IS NULL AND a.resource_id=$4 AND r.upstream_model=$5 AND r.schema_revision=$6 AND b.key_id=$7)")
+            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(request.model_alias()).bind(request.body()["model"].as_str()).bind(request.schema_revision()).bind(principal.key_id()).fetch_one(&mut **tx).await?;
+        if !pinned {
+            return Err(StoreError::Conflict);
+        }
+        required_image_detectors(&current)
     }
 }
 pub(super) fn same_policy(a: &GuardrailSnapshot, b: &GuardrailSnapshot) -> bool {

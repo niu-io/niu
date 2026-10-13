@@ -1,3 +1,5 @@
+import { createGenerationTaskDiagnosticsClient } from './generation-task-diagnostics.js';
+export type { GenerationTaskDiagnostics } from './generation-task-diagnostics.js';
 export type { GenerationsVideoIntentReference } from './generations-sessions.js';
 import { createGenerationsSessionsClient } from './generations-sessions.js';
 import { createGenerationsInventoryClient, type GenerationInventoryQuery, type GenerationArtifactKind } from './generations-inventory.js';
@@ -1060,12 +1062,17 @@ export class NiuAdminClient {
       <T>(path: string, method: 'GET', body: undefined, options?: RequestOptions) => this.request<T>(path, body, options, method),
       (path, options) => assetBinaryRequest(this.requestFetch, this.base, this.token, path, options ?? {}),
     );
+    const diagnostics = createGenerationTaskDiagnosticsClient(
+      <T>(path: string, body: undefined, options?: RequestOptions) => this.request<T>(path, body, options),
+      scope.organizationId, scope.projectId,
+    );
     return {
       sessions: createGenerationsSessionsClient(
         <T>(path: string, body?: unknown, options?: RequestOptions, method?: string) => this.request<T>(path, body, options, method),
         scope.organizationId, scope.projectId,
       ),
       tasks: {
+        diagnostics: diagnostics.retrieve,
         ...actions,
         list: (query?: GenerationInventoryQuery, options?: RequestOptions) => inventory.tasks.list(scope.organizationId, scope.projectId, query, options),
         retrieve: (task: string, options?: RequestOptions) => inventory.tasks.retrieve(scope.organizationId, scope.projectId, task, options),

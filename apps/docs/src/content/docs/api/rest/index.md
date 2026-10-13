@@ -157,6 +157,7 @@ The contract includes endpoints with explicit limitations or stub status. Read t
 - [`GET /admin/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/content` — Download an authorized retained output](/docs/api/rest/generationsinventorycontent/)
 - [`GET /admin/v1/organizations/{organization}/projects/{project}/generations/tasks` — List saved Video tasks across workspace keys](/docs/api/rest/generationsinventorytasks/)
 - [`GET /admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}` — Read a saved Video task](/docs/api/rest/generationsinventorytask/)
+- [`GET /admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/diagnostics` — Read saved customer billing and transport diagnostics](/docs/api/rest/generationstaskdiagnostics/)
 - [`POST /admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/refresh` — Explicitly refresh the original Video task](/docs/api/rest/refreshgenerationstask/)
 - [`POST /admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}/results/{kind}/refresh` — Retrieve fresh output from the original Video task](/docs/api/rest/retrievefreshgenerationstaskresult/)
 - [`GET /admin/v1/organizations/{organization}/projects/{project}/guardrails` — Read active workspace access policy](/docs/api/rest/get--admin-v1-organizations--organization--projects--project--guardrails/)

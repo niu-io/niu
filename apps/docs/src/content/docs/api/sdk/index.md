@@ -130,6 +130,7 @@ The reference is emitted from the TypeScript SDK source, including inferred retu
 - [GenerationsTurn](/docs/api/sdk/generationsturn/)
 - [GenerationsVideoIntentReference](/docs/api/sdk/generationsvideointentreference/)
 - [GenerationTask](/docs/api/sdk/generationtask/)
+- [GenerationTaskDiagnostics](/docs/api/sdk/generationtaskdiagnostics/)
 - [GenerationTaskState](/docs/api/sdk/generationtaskstate/)
 - [GuardrailAccessRule](/docs/api/sdk/guardrailaccessrule/)
 - [GuardrailDetectorDescription](/docs/api/sdk/guardraildetectordescription/)

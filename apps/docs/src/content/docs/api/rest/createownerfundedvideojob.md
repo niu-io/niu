@@ -311,7 +311,7 @@ Location: **header**. Optional. Capture the inspected Niu request and Niu creati
           }
         ]
       },
-      "description": "Ordered model-supported text, image data, public HTTPS image/audio/video URLs or Niu ingested_image IDs. Ingested references require current original-account Active observation, retained inspected content and unexpired original grants/consent; dispatch rechecks all bindings atomically. Ordinary URL inputs require direct Ark and exact schema support; OpenRouter remains text-only. Mixed inline/ingested input and idempotency for locally processed references are unsupported. Client asset:// URIs are never accepted. Workspace image-library references require explicit processing consent, current workspace ownership and fresh configured inspection. Local bytes are resolved privately and deletion/content identity is rechecked atomically before dispatch. Stored audio/video and mixed ingested/library input remain unsupported; canonical idempotency supports ordinary upstream URL requests."
+      "description": "Ordered model-supported text, image data, public HTTPS image/audio/video URLs or Niu ingested_image IDs. Ingested references require current original-account Active observation, retained inspected content and unexpired original grants/consent; dispatch rechecks all bindings atomically. Ordinary URL inputs require direct Ark and exact schema support; OpenRouter remains text-only. Mixed inline/ingested input and idempotency for ingested or independently inspected inline references are unsupported. Client asset:// URIs are never accepted. Workspace image-library references require explicit processing consent and current workspace ownership; fresh configured inspection is required only when the current policy requires it. Local bytes are resolved privately and deletion/content identity is rechecked atomically before dispatch. Stored audio/video and mixed ingested/library input remain unsupported; canonical idempotency supports ordinary upstream URL requests and durable workspace image references, preserving the original Niu reference identity."
     }
   },
   "additionalProperties": true
@@ -406,7 +406,7 @@ Current key request/concurrency limit exceeded.
 
 ### HTTP 501
 
-Unsupported video channel, notification contract, mixed inline/ingested inputs or image idempotency; no upstream dispatch.
+Unsupported video channel, notification contract, mixed inline/ingested inputs or unsupported ingested/inspected-inline idempotency; no upstream dispatch.
 
 ### HTTP 503
 

@@ -289,7 +289,7 @@ export type VideoModel = {
   object: 'video.model'; id: string; mode: 'owner_funded' | 'customer';
   input_types: ['text', ...Array<'image_url' | 'audio_url' | 'video_url'>]; text: { maximum_items: number; maximum_bytes: number };
   requires_image?: boolean;
-  workspace_asset?: { media_kind: 'image'; requires_consent: true; requires_current_inspection: true; maximum_items: number; requires_text: true };
+  workspace_asset?: { media_kind: 'image'; requires_consent: true; requires_current_inspection: boolean; maximum_items: number; requires_text: true };
   image_url?: {
     maximum_items: number; maximum_bytes: number; https: boolean;
     data_mime_types: Array<'image/png' | 'image/jpeg' | 'image/webp'>;
@@ -733,6 +733,8 @@ export type { KeyTokenRateLimit, KeyTokenRateLimitRevision } from './admin.js';
 export type { ModelRoutePool, ModelRoutePoolCandidate, ModelRoutePoolInput, ModelRoutePoolRevision } from './admin.js';
 
 export type { VideoIntentRequest, VideoIntentIndexEntry, VideoSubmissionIntent, VideoIntentIndex, VideoIntentDeletion } from './admin.js';
+
+export type { GenerationTaskDiagnostics } from './admin.js';
 
 export type { SupplierMembership } from './admin.js';
 

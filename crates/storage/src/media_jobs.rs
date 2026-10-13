@@ -94,7 +94,6 @@ impl Store {
         principal: &crate::Principal,
         attempt: Uuid,
     ) -> Result<Option<serde_json::Value>, StoreError> {
-        use serde_json::json;
         if self
             .media_job_state_for_key(principal, attempt)
             .await?
@@ -102,9 +101,21 @@ impl Store {
         {
             return Ok(None);
         }
-        let scope = principal.scope();
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        let result =
+            Self::media_billing_in_snapshot(&mut snapshot, principal.scope(), attempt).await?;
+        snapshot.commit().await?;
+        Ok(result)
+    }
+
+    async fn media_billing_in_snapshot(
+        snapshot: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: TenantScope,
+        attempt: Uuid,
+    ) -> Result<Option<serde_json::Value>, StoreError> {
+        use serde_json::json;
         let row=sqlx::query("SELECT p.snapshot,s.document AS output_snapshot,EXISTS(SELECT 1 FROM personal_attempt_routes x WHERE x.attempt_id=a.id) AS personal,r.amount_nanos AS reserved,(r.released_at IS NOT NULL) AS released,c.amount_nanos AS charged,c.explanation AS settled_receipt,c.bound_exceeded,EXISTS(SELECT 1 FROM customer_activity_charges posted WHERE posted.attempt_id=a.id AND posted.organization_id=a.organization_id AND posted.project_id=a.project_id AND posted.currency=c.currency AND posted.amount_nanos=c.amount_nanos) AS posted,EXISTS(SELECT 1 FROM media_job_observations o WHERE o.attempt_id=a.id AND o.status='failed') AS failed,EXISTS(SELECT 1 FROM media_job_observations o WHERE o.attempt_id=a.id AND o.status='succeeded') AS succeeded,COALESCE((SELECT jsonb_agg(u) FROM (SELECT DISTINCT meter,quantity FROM customer_media_usage_observations WHERE attempt_id=a.id LIMIT 2) u),'[]'::jsonb) AS usage FROM attempts a LEFT JOIN media_output_snapshots s ON s.attempt_id=a.id LEFT JOIN customer_media_attempt_pricing p ON p.attempt_id=a.id LEFT JOIN customer_balance_reservations r ON r.attempt_id=a.id LEFT JOIN customer_media_charges c ON c.attempt_id=a.id WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=$3")
-            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_one(&self.pool).await?;
+            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_one(&mut **snapshot).await?;
         let output_snapshot: Option<serde_json::Value> = row.get("output_snapshot");
         let (effective_output, mut estimate, estimated_usage) = if let Some(saved) = output_snapshot
         {
@@ -435,10 +446,21 @@ impl Store {
         {
             return Ok(None);
         }
-        let scope = principal.scope();
         let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        let result =
+            Self::media_transport_timings_in_snapshot(&mut snapshot, principal.scope(), attempt)
+                .await?;
+        snapshot.commit().await?;
+        Ok(Some(result))
+    }
+
+    async fn media_transport_timings_in_snapshot(
+        snapshot: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        scope: TenantScope,
+        attempt: Uuid,
+    ) -> Result<serde_json::Value, StoreError> {
         let mut rows: Vec<serde_json::Value> = sqlx::query_scalar("SELECT jsonb_build_object('phase',phase,'started_unix_ms',started_unix_ms,'elapsed_ms',elapsed_ms,'outcome',outcome,'upstream_http_status',upstream_http_status,'upstream_error_code',upstream_error_code,'upstream_request_id',upstream_request_id) FROM media_transport_timings WHERE organization_id=$1 AND project_id=$2 AND attempt_id=$3 ORDER BY started_unix_ms DESC,id DESC LIMIT 101")
-            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_all(&mut *snapshot).await?;
+            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_all(&mut **snapshot).await?;
         let has_more = rows.len() > 100;
         rows.truncate(100);
         rows.reverse();
@@ -446,10 +468,44 @@ impl Store {
         // gateway observation times, never claimed as exact Supplier transitions.
         let lifecycle: serde_json::Value = sqlx::query_scalar(
             "SELECT jsonb_build_object('source','gateway_observation','submitted_unix_ms',floor(extract(epoch FROM a.dispatched_at)*1000)::bigint,'observations',COALESCE((SELECT jsonb_agg(jsonb_build_object('status',o.status,'observed_unix_ms',floor(extract(epoch FROM o.created_at)*1000)::bigint) ORDER BY o.created_at,o.status) FROM media_job_observations o WHERE o.organization_id=a.organization_id AND o.project_id=a.project_id AND o.attempt_id=a.id),'[]'::jsonb),'conflicting_terminal',EXISTS(SELECT 1 FROM media_job_observations o WHERE o.attempt_id=a.id AND o.status='succeeded') AND EXISTS(SELECT 1 FROM media_job_observations o WHERE o.attempt_id=a.id AND o.status='failed')) FROM attempts a WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=$3",
-        ).bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_one(&mut *snapshot).await?;
+        ).bind(scope.organization_id).bind(scope.project_id).bind(attempt).fetch_one(&mut **snapshot).await?;
+        Ok(serde_json::json!({"data":rows,"has_more":has_more,"lifecycle":lifecycle}))
+    }
+
+    /// Workspace saved-read authority is independent of inference-key validity.
+    /// Privacy and customer-only diagnostics are evaluated in one read snapshot.
+    /// This never queries a Provider, changes accounting, or revives model grants.
+    pub async fn generation_task_diagnostics(
+        &self,
+        scope: TenantScope,
+        owner: &str,
+        attempt: Uuid,
+    ) -> Result<Option<serde_json::Value>, StoreError> {
+        let mut snapshot = self.begin_bounded_read_snapshot().await?;
+        let visible: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM attempts a
+             JOIN media_recovery_routes r ON r.attempt_id=a.id
+             WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=$3
+             AND a.dispatched_at IS NOT NULL
+             AND NOT EXISTS(SELECT 1 FROM generations_turn_tasks t WHERE t.task_id=a.id AND t.owner<>$4)
+             AND NOT EXISTS(SELECT 1 FROM video_submission_intents vi
+               JOIN media_submission_keys sk ON sk.organization_id=vi.organization_id
+                AND sk.project_id=vi.project_id
+                AND sk.key_digest=sha256(convert_to(vi.submission_key::text,'UTF8'))
+               WHERE sk.attempt_id=a.id AND vi.organization_id=a.organization_id
+                AND vi.project_id=a.project_id AND vi.owner<>$4))",
+        ).bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(owner)
+            .fetch_one(&mut *snapshot).await?;
+        if !visible {
+            snapshot.commit().await?;
+            return Ok(None);
+        }
+        let billing = Self::media_billing_in_snapshot(&mut snapshot, scope, attempt).await?;
+        let timings =
+            Self::media_transport_timings_in_snapshot(&mut snapshot, scope, attempt).await?;
         snapshot.commit().await?;
         Ok(Some(
-            serde_json::json!({"data":rows,"has_more":has_more,"lifecycle":lifecycle}),
+            serde_json::json!({"billing":billing,"timings":timings}),
         ))
     }
 

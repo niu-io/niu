@@ -56,11 +56,11 @@ These are source findings awaiting current-input reproduction, not integrated ac
 
 | Candidate | Priority | Page families | Concrete suspected gap | State |
 | --- | --- | --- | --- | --- |
-| C01 | P1 | P17, P19 | Saved Video history requires active keys instead of historical workspace/session access | Historical input/status and cached preview qualified; billing/timing still require original active key |
+| C01 | P1 | P17, P19 | Saved Video history requires active keys instead of historical workspace/session access | Historical input/status, cached preview and persisted billing/timing qualified after original-key expiry; complete shared-output workflow remains open |
 | C02 | P1 | P17, P20, P21 | Unsupported models expose native materials and verification tools before failing | Video scope fixed; standalone explicit context selection qualified; broader account/error branches pending |
 | C03 | P1 | P20 | Material validation errors remain behind dialogs; unknown operations lack explicit recovery | Inline/network-failure scope fixed; durable recovery remains open |
 | C04 | P1 | P17, P22 | Existing task/artifact/durable capture SDK is not consumed by product pages | In review |
-| C05 | P1 | P17 | Image/reference submission bypasses retained intent association | Metadata session preparation qualified; backend rejects local-reference idempotent submission; dashboard image attachment integration remains open |
+| C05 | P1 | P17 | Image/reference submission bypasses retained intent association | Metadata preparation and negative submission guards qualified; durable-image idempotency implemented; successful dispatch and dashboard attachment integration remain open |
 | C06 | P1 | P23, P24 | Supplier adapter controls omit backend-supported Anthropic/Gemini/Ark | Fixed; verified scope below |
 | C07 | P2 | P26 | Supported unconfigured payment integrations are hidden | Fixed; inventory scope verified |
 | C08 | P2 | P30 | Profile save does not update shared account-menu session state | In review |
@@ -198,8 +198,16 @@ Save request now uses the existing session/turn/intent SDK to retain input witho
 
 Actual ordinary-member browser saves retained the original text and displayed an unsubmitted request at desktop and 390px. A subsequent save refreshed history immediately and cleared only its matching composer revision. Independent database counts and content digests for request, dispatch, usage and financial records were unchanged. The new saved intent, session, turn and binding each appeared once. No concurrent newer draft was introduced in this clear check, so that race branch remains unverified.
 
-Intent reads now project the original nullable session binding through the existing actor/workspace/intent index. Reopening a link with only the intent restored the exact original session/turn and retained prompt; no replacement history traversal or binding was created. The current HTTP response and independently downloaded full OpenAPI operation schema contained the binding. Generated SDK documentation rendered in Help at desktop and narrow widths. Local workspace-image submission remains blocked by the backend's current idempotency guard; the pending image attachment UI is not delivered or qualified as a working generation flow.
+Intent reads now project the original nullable session binding through the existing actor/workspace/intent index. Reopening a link with only the intent restored the exact original session/turn and retained prompt; no replacement history traversal or binding was created. The current HTTP response and independently downloaded full OpenAPI operation schema contained the binding. Generated SDK documentation rendered in Help at desktop and narrow widths. The former workspace-image idempotency blocker is addressed below; the pending image attachment UI is not yet delivered or qualified as a working generation flow.
 
 ### Current public catalog and failure state
 
 The current catalog was built and served through the existing same-origin composition. Anonymous current API data was genuinely empty; no personal test route was published to imitate commercial availability. Desktop and 390px checks covered the empty state, the hydrated public navigation menu, Escape dismissal and the workspace API-key destination. A real blocked browser network request displayed Unavailable; restoring the connection and reloading displayed the actual empty count. Failed loading no longer reports zero known routes. Development requests now honor the configured Gateway URL, retaining the existing default. Populated route pricing, capability labels and visibility remain unverified with the current empty public inventory.
+
+### Historical Video diagnostics and workspace-image submission guard
+
+The saved-task diagnostics API and SDK now read persisted customer billing and transport evidence under current workspace Read permission and actor privacy, independently of original inference-key expiry. A genuine previously generated Mini task returned diagnostics while both legacy key-scoped reads returned 401. Independent PostgreSQL comparison matched seven transport spans and the saved lifecycle observation; absent customer charge, pricing and usage evidence remained null. Execution and financial record digests were unchanged. This qualifies the historical API read, not a new generation or complete billing acceptance.
+
+Workspace-image retained submission now preserves canonical idempotency and exact prepared request binding, including policies with no required detectors. Current discovery exposes the actual model capability rather than requiring a configured detector for all workspace images. Actual deleted-image, revoked-key and policy-denied submissions were rejected before attempt creation; independent database checks preserved request and financial records. Successful image dispatch, concurrency and the attachment UI remain unverified.
+
+The actual Mini browser opened persisted lifecycle, all seven transport records and the owner-funded customer-charge explanation at desktop and 390px without restoring the expired key. The current ordinary workspace Owner received 404 for both this installation-owned private task and its diagnostics. Generated REST documentation rendered in embedded Help at 390px. These reads did not submit or refresh upstream work.
