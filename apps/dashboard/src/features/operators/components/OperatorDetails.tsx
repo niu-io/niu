@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { formatExpiry, type NamedResource, type Operator, type OperatorAuditEvent, type OperatorSession } from '../api';
+import { AdminRequestError, formatExpiry, type NamedResource, type Operator, type OperatorAuditEvent, type OperatorSession } from '../api';
 import type { ConfirmTarget, CredentialView } from './operator-types';
 
 const expiryChoices = [
@@ -37,6 +37,7 @@ function expiryState(session: OperatorSession) {
 
 function activityLabel(action: string) {
   switch (action) {
+    case 'role_changed': return 'Role changed';
     case 'operator_created': return 'User added';
     case 'session_created': return 'Access token created';
     case 'session_revoked': return 'Session revoked';
@@ -57,6 +58,10 @@ type OperatorDetailsProps = {
   busy: boolean;
   credential: CredentialView | null;
   confirmTarget: ConfirmTarget;
+  canChangeRole: boolean;
+  roleRefreshError: string;
+  onSaveRole: (role: Operator['role'], expectedRole: Operator['role']) => Promise<Operator>;
+  onReloadRole: () => Promise<Operator>;
   onDismissCredential: () => void;
   onIssueSession: (expiresInSeconds: number) => void;
   onConfirm: (target: ConfirmTarget) => void;
@@ -65,7 +70,43 @@ type OperatorDetailsProps = {
   onLoadMoreEvents: () => void;
 };
 
-export default function OperatorDetails({ operator, organizations, projects, sessions, sessionsLoading, events, eventsLoading, hasMoreEvents, busy, credential, confirmTarget, onDismissCredential, onIssueSession, onConfirm, onRevokeSession, onRevokeOperator, onLoadMoreEvents }: OperatorDetailsProps) {
+export default function OperatorDetails({ operator, organizations, projects, sessions, sessionsLoading, events, eventsLoading, hasMoreEvents, busy, credential, confirmTarget, canChangeRole, roleRefreshError, onSaveRole, onReloadRole, onDismissCredential, onIssueSession, onConfirm, onRevokeSession, onRevokeOperator, onLoadMoreEvents }: OperatorDetailsProps) {
+  const [draftRole, setDraftRole] = useState<Operator['role']>(operator?.role ?? 'viewer');
+  const [expectedRole, setExpectedRole] = useState<Operator['role']>(operator?.role ?? 'viewer');
+  const [roleLocked, setRoleLocked] = useState(false);
+  const [roleMessage, setRoleMessage] = useState('');
+  const [roleBusy, setRoleBusy] = useState(false);
+  const roleConflict = roleLocked || Boolean(operator && operator.role !== expectedRole);
+  async function saveRole() {
+    if (busy || roleBusy || roleConflict || !canChangeRole || draftRole === expectedRole) return;
+    setRoleBusy(true);
+    setRoleMessage('');
+    try {
+      const saved = await onSaveRole(draftRole, expectedRole);
+      setExpectedRole(saved.role);
+      setDraftRole(saved.role);
+      setRoleLocked(false);
+      setRoleMessage('Role saved.');
+    } catch (reason) {
+      setRoleLocked(true);
+      setRoleMessage(reason instanceof AdminRequestError
+        ? reason.status === 409 ? 'The role could not be saved against the current state. Reload the saved role before saving again.' : reason.message
+        : 'The save could not be confirmed. Reload the saved role before saving again.');
+    } finally { setRoleBusy(false); }
+  }
+  async function reloadRole() {
+    if (busy || roleBusy) return;
+    setRoleBusy(true);
+    try {
+      const saved = await onReloadRole();
+      setExpectedRole(saved.role);
+      setRoleLocked(false);
+      setRoleMessage('Saved role reloaded. Review your choice before saving.');
+    } catch (reason) {
+      setRoleLocked(true);
+      setRoleMessage('Could not reload the saved role. Your choice is retained. ' + (reason instanceof Error ? reason.message : 'Try again.'));
+    } finally { setRoleBusy(false); }
+  }
   const [expiryDays, setExpiryDays] = useState(30);
   if (!operator) return <section className="operator-detail" aria-labelledby="operator-detail-title">
     <div className="operator-detail-empty"><span className="operator-empty-icon"><KeyRound size={18} /></span><h2 id="operator-detail-title">Select a user</h2><p>Review their role, create an access token, or revoke their access.</p></div>
@@ -78,6 +119,23 @@ export default function OperatorDetails({ operator, organizations, projects, ses
       <span className={'operator-role-chip role-' + operator.role}>{roleLabel(operator.role)}</span>
     </div>
     <p className="operator-scope-footnote px-4">{{ viewer: 'Can read workspace data. Cannot change settings or manage user access.', admin: 'Can read and change workspace data. Cannot manage user access.', owner: 'Can read and change workspace data, add users, and revoke access.' }[operator.role]}</p>
+    {canChangeRole && <div className="space-y-3 px-4 py-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <Label className="grid gap-2" htmlFor="operator-role">Role
+          <DropdownMenu><DropdownMenuTrigger asChild><Button id="operator-role" variant="outline" size="sm" className="justify-between font-normal" disabled={busy || roleBusy || roleConflict}>{roleLabel(draftRole)}<ChevronDown size={16} aria-hidden="true" /></Button></DropdownMenuTrigger>
+            <DropdownMenuContent align="start"><DropdownMenuRadioGroup value={draftRole} onValueChange={value => setDraftRole(value as Operator['role'])}>
+              <DropdownMenuRadioItem value="viewer">Viewer · read workspace data</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="admin">Admin · change workspace data</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="owner">Owner · manage user access</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup></DropdownMenuContent>
+          </DropdownMenu>
+        </Label>
+        <Button size="sm" disabled={busy || roleBusy || roleConflict || draftRole === expectedRole} onClick={() => void saveRole()}>Save role</Button>
+        {(roleConflict || roleMessage) && <Button size="sm" variant="outline" disabled={busy || roleBusy} onClick={() => void reloadRole()}>Reload saved role</Button>}
+      </div>
+      {roleRefreshError && <p className="text-sm text-muted-foreground" role="status">{roleRefreshError}</p>}
+      {(roleMessage || roleConflict) && <p className="text-sm text-muted-foreground" role={roleConflict ? 'alert' : 'status'}>{roleMessage || 'The saved role changed. Reload it before saving again.'}</p>}
+    </div>}
     {credential?.operatorId === operator.id && <section className="operator-credential" aria-labelledby="operator-credential-title" role="status">
       <div className="operator-credential-title"><span><KeyRound size={16} /></span><div><h3 id="operator-credential-title">Save this user’s access token</h3><p>Shown once · expires {formatExpiry(credential.session.expires_at_unix)}. Share it securely with this user. It grants dashboard and management API access, not model API access.</p></div></div>
       <Label htmlFor="new-operator-token">Access token<Input id="new-operator-token" className="mono operator-token-input" readOnly value={credential.token} onFocus={event => event.target.select()} /></Label>
@@ -131,7 +189,7 @@ export default function OperatorDetails({ operator, organizations, projects, ses
             : event.actor_operator_id === operator.id ? operator.name : 'Workspace user';
           return <li key={event.id}>
             <span className="operator-activity-mark" aria-hidden="true" />
-            <div className="operator-activity-copy"><strong>{activityLabel(event.action)}</strong><small>By {actor}</small></div>
+            <div className="operator-activity-copy"><strong>{activityLabel(event.action)}{event.action === 'role_changed' && event.before_role && event.after_role ? ' · ' + roleLabel(event.before_role) + ' → ' + roleLabel(event.after_role) : ''}</strong><small>By {actor}</small></div>
             <time dateTime={event.created_at}>{new Date(event.created_at).toLocaleString()}</time>
           </li>;
         })}</ol>}

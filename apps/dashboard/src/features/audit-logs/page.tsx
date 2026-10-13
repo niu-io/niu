@@ -14,7 +14,7 @@ function actionName(action: string) {
   const names: Record<string, string> = {
     password_login_succeeded: 'Password login succeeded', session_created: 'Session issued',
     session_revoked: 'Session revoked', operator_created: 'Account created', operator_revoked: 'Account revoked',
-    password_changed: 'Password changed', branding_updated: 'Branding updated',
+    role_changed: 'Role changed', password_changed: 'Password changed', branding_updated: 'Branding updated',
     payment_gateway_updated: 'Payment gateway updated', platform_access_granted: 'Platform access granted',
     platform_access_revoked: 'Platform access revoked', vendor_created: 'API configuration created',
     vendor_updated: 'API configuration updated', vendor_seeded: 'API configuration imported',
@@ -88,7 +88,7 @@ function AuditLogs({ token }: { token: string }) {
       <TableHeader><TableRow><TableHead className="w-44">Time (UTC)</TableHead><TableHead>Action</TableHead><TableHead className="hidden md:table-cell">Actor</TableHead><TableHead className="hidden md:table-cell">Target</TableHead></TableRow></TableHeader>
       <TableBody>{rows.map(event => <TableRow key={event.id}>
         <TableCell className="align-top whitespace-normal text-xs"><time dateTime={event.created_at}>{event.created_at.replace('T', ' ').replace(/\.\d+Z$/, '')}</time></TableCell>
-        <TableCell className="align-top whitespace-normal break-words"><span>{actionName(event.action)}</span><small className="mt-1 block text-muted-foreground">{categories[event.category]}{event.revision !== null ? ' · Revision ' + event.revision : ''}</small><dl className="mt-2 space-y-1 md:hidden"><div><dt className="inline text-xs text-muted-foreground">Actor: </dt><dd className="inline">{actorName(event)}</dd></div><div><dt className="inline text-xs text-muted-foreground">Target: </dt><dd className="inline">{event.target_label}</dd></div></dl></TableCell>
+        <TableCell className="align-top whitespace-normal break-words"><span>{actionName(event.action)}{event.action === 'role_changed' && event.before_role && event.after_role ? ' · ' + event.before_role[0].toUpperCase() + event.before_role.slice(1) + ' → ' + event.after_role[0].toUpperCase() + event.after_role.slice(1) : ''}</span><small className="mt-1 block text-muted-foreground">{categories[event.category]}{event.revision !== null ? ' · Revision ' + event.revision : ''}</small><dl className="mt-2 space-y-1 md:hidden"><div><dt className="inline text-xs text-muted-foreground">Actor: </dt><dd className="inline">{actorName(event)}</dd></div><div><dt className="inline text-xs text-muted-foreground">Target: </dt><dd className="inline">{event.target_label}</dd></div></dl></TableCell>
         <TableCell className="hidden align-top whitespace-normal break-words md:table-cell">{actorName(event)}</TableCell>
         <TableCell className="hidden align-top whitespace-normal break-words md:table-cell">{event.target_label}</TableCell>
       </TableRow>)}</TableBody>

@@ -45,8 +45,8 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
   const [confirmTarget, setConfirmTarget] = useState<ConfirmTarget>(null);
   const auditRevision = useRef(0);
   const auditController = useRef<AbortController | null>(null);
-  const auditContext = useRef({ operatorId: selectedOperatorId, organization, project, token });
-  auditContext.current = { operatorId: selectedOperatorId, organization, project, token };
+  const auditContext = useRef({ operatorId: selectedOperatorId, organization, project, token, actor: session.kind + ':' + (session.operator?.id ?? '') });
+  auditContext.current = { operatorId: selectedOperatorId, organization, project, token, actor: session.kind + ':' + (session.operator?.id ?? '') };
 
   const selectedOperator = operators.find(item => item.id === selectedOperatorId) ?? null;
   const visibleOperators = useMemo(() => operators.filter(item => {
@@ -55,6 +55,70 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
     return true;
   }), [operators, organization, project]);
   const [revokeTarget, setRevokeTarget] = useState<Operator | null>(null);
+
+  const roleController = useRef<AbortController | null>(null);
+  useEffect(() => () => {
+    if (roleController.current) { roleController.current.abort(); roleController.current = null; setBusy(false); }
+  }, [token, organization, project, selectedOperatorId, session.kind, session.operator?.id]);
+  useEffect(() => { setSelectedOperatorId(''); }, [token, session.kind, session.operator?.id]);
+  const canChangeRole = Boolean(canManage && (session.kind === 'installation' || session.operator?.role === 'owner')
+    && selectedOperator && !selectedOperator.revoked && selectedOperator.organization_id
+    && selectedOperator.organization_id === organization && selectedOperator.id !== session.operator?.id
+    && (!lockedProject || selectedOperator.project_id === lockedProject));
+  const roleContext = JSON.stringify([token, organization, project, selectedOperatorId, session.kind, session.operator?.id]);
+  const [openedRoleContext, setOpenedRoleContext] = useState('');
+  const [roleOpenError, setRoleOpenError] = useState('');
+  const [roleRefreshError, setRoleRefreshError] = useState('');
+  const [roleOpenRevision, setRoleOpenRevision] = useState(0);
+  useEffect(() => {
+    if (!selectedOperatorId || !canChangeRole) return;
+    const controller = new AbortController();
+    setOpenedRoleContext('');
+    setRoleOpenError('');
+    setRoleRefreshError('');
+    void request<{data: Operator[]}>(token, '/admin/v1/operators', 'GET', undefined, controller.signal)
+      .then(result => {
+        if (controller.signal.aborted) return;
+        const saved = result.data.find(item => item.id === selectedOperatorId);
+        if (!saved || saved.revoked || saved.organization_id !== organization
+          || (lockedProject && saved.project_id !== lockedProject)) throw new Error('User access is unavailable in this scope.');
+        setOperators(previous => previous.map(item => item.id === saved.id ? saved : item));
+        setOpenedRoleContext(roleContext);
+      }).catch(reason => {
+        if (!controller.signal.aborted) setRoleOpenError(reason instanceof Error ? reason.message : 'Could not load the saved role.');
+      });
+    return () => controller.abort();
+  }, [token, organization, project, selectedOperatorId, canChangeRole, lockedProject, roleContext, roleOpenRevision]);
+  async function roleRequest(nextRole?: Operator['role'], expectedRole?: Operator['role']) {
+    if (!selectedOperator || !canChangeRole || openedRoleContext !== roleContext || busy || loading) throw new Error('Role editing is unavailable in this scope.');
+    const context = { ...auditContext.current };
+    const controller = new AbortController();
+    roleController.current?.abort();
+    roleController.current = controller;
+    const current = () => !controller.signal.aborted && Object.keys(context).every(key =>
+      context[key as keyof typeof context] === auditContext.current[key as keyof typeof context]);
+    setBusy(true);
+    setRoleRefreshError('');
+    try {
+      const result = nextRole
+        ? await request<{ data: Operator }>(token, '/admin/v1/operators/' + selectedOperator.id, 'PATCH', { role: nextRole, expected_role: expectedRole }, controller.signal)
+        : await request<{ data: Operator[] }>(token, '/admin/v1/operators', 'GET', undefined, controller.signal);
+      if (!current()) throw new DOMException('Role context changed.', 'AbortError');
+      const saved = Array.isArray(result.data) ? result.data.find(item => item.id === context.operatorId) : result.data;
+      if (!saved || saved.revoked || saved.organization_id !== context.organization
+        || (lockedProject && saved.project_id !== lockedProject)) throw new Error('User access is unavailable.');
+      setOperators(previous => previous.map(item => item.id === saved.id ? saved : item));
+      // A confirmed mutation stays confirmed even if its later activity read fails.
+      if (nextRole) void loadAudit(saved.id).then(loaded => {
+        if (loaded === false && Object.keys(context).every(key => context[key as keyof typeof context] === auditContext.current[key as keyof typeof context])) {
+          setRoleRefreshError('Role saved, but recent activity could not be refreshed.');
+        }
+      });
+      return saved;
+    } finally {
+      if (roleController.current === controller) { roleController.current = null; setBusy(false); }
+    }
+  }
 
   const loadOperators = useCallback(async (signal?: AbortSignal) => {
     const result = await request<{ data: Operator[] }>(token, '/admin/v1/operators', 'GET', undefined, signal);
@@ -79,7 +143,8 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
       && auditContext.current.operatorId === operatorId
       && auditContext.current.organization === context.organization
       && auditContext.current.project === context.project
-      && auditContext.current.token === context.token;
+      && auditContext.current.token === context.token
+      && auditContext.current.actor === context.actor;
     if (!requestSignal || requestSignal.aborted || !isCurrent()) return;
     const query = cursor
       ? '?limit=50&cursor=' + encodeURIComponent(cursor)
@@ -96,6 +161,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
       if (requestSignal.aborted || !isCurrent()) return;
       setAuditEvents(previous => append ? [...previous, ...result.data] : result.data);
       setAuditCursor(result.next_cursor);
+      return true;
     } catch (reason) {
       if (requestSignal.aborted || !isCurrent()) return;
       if (reason instanceof AdminRequestError && reason.status === 401) {
@@ -128,6 +194,7 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
         }
       } else {
         setError(reason instanceof Error ? reason.message : 'Could not load operator activity.');
+        return false;
       }
     } finally {
       if (!requestSignal.aborted && isCurrent()) setAuditLoading(false);
@@ -360,6 +427,8 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
         onSelect={(id, trigger) => {
           detailTriggerRef.current = trigger ?? null;
           if (selectedOperatorId !== id) {
+            setOpenedRoleContext('');
+            setRoleRefreshError('');
             setSelectedOperatorId(id);
             setCredential(null);
             setConfirmTarget(null);
@@ -370,11 +439,18 @@ export default function OperatorsView({ token, session, refreshWorkspace, initia
         onAdd={() => setCreateOpen(true)}
       />
     </div>
-    <Dialog open={Boolean(selectedOperator)} onOpenChange={open => { if (!open && !busy) { setSelectedOperatorId(''); setCredential(null); setConfirmTarget(null); } }}>
+    <Dialog open={Boolean(selectedOperator)} onOpenChange={open => { if (!open && !busy) { setOpenedRoleContext(''); setRoleRefreshError(''); setSelectedOperatorId(''); setCredential(null); setConfirmTarget(null); } }}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl" onCloseAutoFocus={event => { if (detailTriggerRef.current?.isConnected) { event.preventDefault(); detailTriggerRef.current.focus(); } }}>
         <DialogHeader><DialogTitle>User access</DialogTitle><DialogDescription>Access sessions for {selectedOperator?.name}. Revoke a session to end that connection.</DialogDescription></DialogHeader>
-      {selectedOperator && <OperatorDetails
+      {selectedOperator && canChangeRole && openedRoleContext !== roleContext
+        ? <div className="space-y-3"><p role={roleOpenError ? 'alert' : 'status'}>{roleOpenError || 'Loading the saved role…'}</p>{roleOpenError && <Button variant="outline" onClick={() => setRoleOpenRevision(value => value + 1)}>Reload saved role</Button>}</div>
+        : selectedOperator && <OperatorDetails
+        key={[session.kind, session.operator?.id ?? '', organization, project, selectedOperator.id].join(':')}
         operator={selectedOperator}
+        canChangeRole={canChangeRole}
+        roleRefreshError={roleRefreshError}
+        onSaveRole={(role, expectedRole) => roleRequest(role, expectedRole)}
+        onReloadRole={() => roleRequest()}
         organizations={organizations}
         projects={projects}
         sessions={sessions}

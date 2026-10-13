@@ -21,6 +21,8 @@ export type OperatorAuditEvent = {
   target_session_id: string | null;
   organization_id: string;
   project_id: string | null;
+  before_role?: OperatorRole | null;
+  after_role?: OperatorRole | null;
   created_at: string;
 };
 export type IssuedSession = { session: OperatorSession; token: string };
