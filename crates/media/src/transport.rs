@@ -81,12 +81,15 @@ pub async fn query_job(
                 && url.fragment().is_none()
                 && url.path() == format!("/doubao/api/v3/contents/generations/tasks/{expected_job}")
         });
-        let observation =
-            if official_fastrouter_endpoint && expected_model == "doubao-seedance-2-5-260628" {
-                protocol.decode_fastrouter_seedance_25(&body, expected_job, expected_model)
-            } else {
-                protocol.decode(&body, expected_job, expected_model)
-            };
+        let observation = if official_fastrouter_endpoint
+            && matches!(
+                expected_model,
+                "doubao-seedance-2-5-260628" | "doubao-seedance-2-0-mini-260615"
+            ) {
+            protocol.decode_fastrouter_seedance(&body, expected_job, expected_model)
+        } else {
+            protocol.decode(&body, expected_job, expected_model)
+        };
         observation.map_err(QueryTransportError::Decode)
     };
     tokio::time::timeout(timeout, work)

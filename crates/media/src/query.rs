@@ -155,23 +155,21 @@ impl DirectQueryProtocol {
         self.decode_with_reported_model(body, expected_job, expected_model, None)
     }
 
-    /// FastRouter's observed response uses a canonical family name for this
-    /// exact version. The transport must separately pin the official endpoint.
-    pub(crate) fn decode_fastrouter_seedance_25(
+    /// FastRouter's observed responses use exact canonical names for these
+    /// qualified versions. No prefix or arbitrary family matching is permitted.
+    /// The transport must separately pin the official endpoint.
+    pub(crate) fn decode_fastrouter_seedance(
         &self,
         body: &[u8],
         expected_job: &str,
         expected_model: &str,
     ) -> Result<QueryObservation, QueryError> {
-        if expected_model != "doubao-seedance-2-5-260628" {
-            return Err(QueryError::IdentityMismatch);
-        }
-        self.decode_with_reported_model(
-            body,
-            expected_job,
-            expected_model,
-            Some("doubao-seedance-2.5"),
-        )
+        let reported_model = match expected_model {
+            "doubao-seedance-2-5-260628" => "doubao-seedance-2.5",
+            "doubao-seedance-2-0-mini-260615" => "doubao-seedance-2.0-mini",
+            _ => return Err(QueryError::IdentityMismatch),
+        };
+        self.decode_with_reported_model(body, expected_job, expected_model, Some(reported_model))
     }
 
     fn decode_with_reported_model(

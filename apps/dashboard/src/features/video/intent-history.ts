@@ -8,7 +8,7 @@ export type VideoIntentHistoryRow = VideoIntentIndexEntry & {
   keyId?: string;
 };
 export function videoSessionTitle(data: Pick<VideoSubmissionIntent, 'request' | 'model'>): string {
-  const prompt=data.request?.content.map(item=>item.text).join('\n').split('\n').find(line=>line.trim())?.trim();
+  const prompt=data.request?.content.flatMap(item=>item.type==='text' ? [item.text] : []).join('\n').split('\n').find(line=>line.trim())?.trim();
   return prompt ? `Video · ${prompt.slice(0,120)}` : data.model ? `Video · ${data.model}` : 'Video session';
 }
 type HistoryClient = Pick<NiuAdminClient, 'listVideoIntents' | 'getVideoIntent'>;

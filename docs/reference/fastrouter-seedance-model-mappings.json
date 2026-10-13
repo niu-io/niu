@@ -1,0 +1,239 @@
+[
+  {
+    "alias": "fastrouter/seedance-2.0",
+    "upstream_model": "doubao-seedance-2-0-260128",
+    "enabled": true,
+    "public_catalog": false,
+    "capabilities": {
+      "catalog": {
+        "name": "Seedance 2.0",
+        "description": "FastRouter Seedance video route. Availability and parameter configuration do not prove successful generation.",
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "video"
+        ]
+      },
+      "video_schema": {
+        "inputs": {
+          "text": {
+            "https": false,
+            "roles": [],
+            "maximum_bytes": 4096,
+            "maximum_items": 1,
+            "role_required": false,
+            "data_mime_types": []
+          }
+        },
+        "channel": "ark-direct-v1",
+        "version": 1,
+        "controls": {
+          "seed": {
+            "kind": "integer",
+            "default": 42,
+            "maximum": 42,
+            "minimum": 42
+          },
+          "ratio": {
+            "kind": "choice",
+            "values": [
+              "16:9"
+            ],
+            "default": "16:9"
+          },
+          "duration": {
+            "kind": "integer",
+            "minimum": 5,
+            "maximum": 5,
+            "default": 5
+          },
+          "watermark": {
+            "kind": "boolean",
+            "default": false
+          },
+          "resolution": {
+            "kind": "choice",
+            "values": [
+              "480p"
+            ],
+            "default": "480p"
+          }
+        },
+        "revision": "fastrouter-seedance-text-video-v1",
+        "model_alias": "fastrouter/seedance-2.0",
+        "upstream_model": "doubao-seedance-2-0-260128",
+        "required_controls": [
+          "duration",
+          "resolution",
+          "ratio",
+          "seed",
+          "watermark"
+        ],
+        "exclusive_controls": [],
+        "maximum_body_bytes": 16777216,
+        "callbacks_qualified": false,
+        "maximum_content_items": 1
+      }
+    },
+    "pricing": null
+  },
+  {
+    "alias": "fastrouter/seedance-2.0-fast",
+    "upstream_model": "doubao-seedance-2-0-fast-260128",
+    "enabled": true,
+    "public_catalog": false,
+    "capabilities": {
+      "catalog": {
+        "name": "Seedance 2.0 Fast",
+        "description": "FastRouter Seedance video route. Availability and parameter configuration do not prove successful generation.",
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "video"
+        ]
+      },
+      "video_schema": {
+        "inputs": {
+          "text": {
+            "https": false,
+            "roles": [],
+            "maximum_bytes": 4096,
+            "maximum_items": 1,
+            "role_required": false,
+            "data_mime_types": []
+          }
+        },
+        "channel": "ark-direct-v1",
+        "version": 1,
+        "controls": {
+          "seed": {
+            "kind": "integer",
+            "default": 42,
+            "maximum": 42,
+            "minimum": 42
+          },
+          "ratio": {
+            "kind": "choice",
+            "values": [
+              "16:9"
+            ],
+            "default": "16:9"
+          },
+          "duration": {
+            "kind": "integer",
+            "minimum": 5,
+            "maximum": 5,
+            "default": 5
+          },
+          "watermark": {
+            "kind": "boolean",
+            "default": false
+          },
+          "resolution": {
+            "kind": "choice",
+            "values": [
+              "480p"
+            ],
+            "default": "480p"
+          }
+        },
+        "revision": "fastrouter-seedance-text-video-v1",
+        "model_alias": "fastrouter/seedance-2.0-fast",
+        "upstream_model": "doubao-seedance-2-0-fast-260128",
+        "required_controls": [
+          "duration",
+          "resolution",
+          "ratio",
+          "seed",
+          "watermark"
+        ],
+        "exclusive_controls": [],
+        "maximum_body_bytes": 16777216,
+        "callbacks_qualified": false,
+        "maximum_content_items": 1
+      }
+    },
+    "pricing": null
+  },
+  {
+    "alias": "fastrouter/seedance-2.0-mini",
+    "upstream_model": "doubao-seedance-2-0-mini-260615",
+    "enabled": true,
+    "public_catalog": false,
+    "capabilities": {
+      "catalog": {
+        "name": "Seedance 2.0 Mini",
+        "description": "FastRouter Seedance video route. Availability and parameter configuration do not prove successful generation.",
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "video"
+        ]
+      },
+      "video_schema": {
+        "inputs": {
+          "text": {
+            "https": false,
+            "roles": [],
+            "maximum_bytes": 4096,
+            "maximum_items": 1,
+            "role_required": false,
+            "data_mime_types": []
+          }
+        },
+        "channel": "ark-direct-v1",
+        "version": 1,
+        "controls": {
+          "seed": {
+            "kind": "integer",
+            "default": 42,
+            "maximum": 42,
+            "minimum": 42
+          },
+          "ratio": {
+            "kind": "choice",
+            "values": [
+              "16:9"
+            ],
+            "default": "16:9"
+          },
+          "duration": {
+            "kind": "integer",
+            "minimum": 5,
+            "maximum": 5,
+            "default": 5
+          },
+          "watermark": {
+            "kind": "boolean",
+            "default": false
+          },
+          "resolution": {
+            "kind": "choice",
+            "values": [
+              "480p"
+            ],
+            "default": "480p"
+          }
+        },
+        "revision": "fastrouter-seedance-text-video-v1",
+        "model_alias": "fastrouter/seedance-2.0-mini",
+        "upstream_model": "doubao-seedance-2-0-mini-260615",
+        "required_controls": [
+          "duration",
+          "resolution",
+          "ratio",
+          "seed",
+          "watermark"
+        ],
+        "exclusive_controls": [],
+        "maximum_body_bytes": 16777216,
+        "callbacks_qualified": false,
+        "maximum_content_items": 1
+      }
+    },
+    "pricing": null
+  }
+]

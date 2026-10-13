@@ -1,7 +1,7 @@
 # Video integration handoff
 
 Updated 2026-10-13. Implementation checkpoint: `69fc00f8` on `main`.
-**Continue the work below; this is not release acceptance. Do not submit new generations.**
+**This is not release acceptance. The original no-new-generation restriction was superseded by explicit authorization for one Seedance Mini generation, qualified below. Additional generation requires separate authorization.**
 
 ## Already implemented
 
@@ -151,4 +151,14 @@ The five original priorities have backend implementations: saved execution conte
 
 Current-input observation isolation is now qualified: a sibling workspace with independently verified selected-model authority received 404 for both group/material reads and refreshes. Original observations stayed identical; independent SQL matched their timestamps/revisions, all mutation-operation digests and execution/financial fingerprints.
 
-Remaining backend acceptance evidence: the original submitted Dashboard intent resolving into a session/task after an explicit attachment was lost. This branch exists in the saved-session/inventory queries, but read-only inspection found no genuine existing submitted-intent association to exercise. Direct-job recovery cannot prove it, and new generations remain prohibited. Frontend native-context consumption, reload/second-browser acceptance and explicit human H5 completion remain separate. A full uncertain-write disposition mechanism is additional design work, not an unimplemented requirement of the original five-priority handoff; safe unknown state and persisted explicit observations are delivered.
+The previously missing submitted-intent recovery evidence is now qualified by the explicitly authorized Mini generation below. Before that authorization, read-only inspection found no existing submitted-intent sample; direct-job recovery was correctly insufficient. Frontend native-context consumption, reload/second-browser acceptance and explicit human H5 completion remain separate. A full uncertain-write disposition mechanism is additional design work, not an unimplemented requirement of the original five-priority handoff; safe unknown state and persisted explicit observations are delivered.
+
+## Authorized Mini generation resolves the submitted-intent blocker
+
+One actual `doubao-seedance-2-0-mini-260615` generation was explicitly authorized after the original no-new-generation handoff. The existing intent was saved, bound to a session and submitted once. No explicit turn/task attachment was called. Session retrieval and session-filtered inventory recovered the original task; canonical submit replay returned that task without another upstream submission. Gateway restart preserved the exact saved intent/session projections, and an unrelated actor received 404 for both private reads.
+
+FastRouter reported the matching original task as succeeded using the exact model name `doubao-seedance-2.0-mini`. The dated-to-reported identity compatibility is now bounded to this Mini version and the existing qualified 2.5 version on the official FastRouter endpoint. Niu fresh result retrieval delivered a nonempty MP4, independently hashed and fully decoded. Independent SQL verified the canonical request digest, one submission, one intent binding and zero explicit task attachments. Customer financial records remained unchanged for this owner-funded test; upstream monetary cost is not inferred.
+
+Four enabled, authorized FastRouter Seedance models are returned by actual model discovery on both native and isolated gateways. Video's fresh composer now prefers the authorized Mini alias while retaining selected models and restored drafts. Text extraction from retained mixed-content drafts now narrows to text parts, correcting the actual SDK union integration build error. Broader model-specific generation and parameter combinations remain separately unverified. Static checks and current-input browser evidence are recorded in the accompanying increment.
+
+Current-input browser verification used legitimate supported development login and actual workspace/model APIs. Desktop and narrow viewports showed all four choices with Mini selected by default, preserved an explicit 2.5 selection, and restored a genuinely saved text draft with its original model, title and prompt. The open menus were inspected for alignment and horizontal overflow. Gateway Clippy, dashboard build and generated API consistency checks completed; fixture tests were not executed.

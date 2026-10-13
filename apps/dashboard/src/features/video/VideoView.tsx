@@ -150,7 +150,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
       request<VideoJobHistory>(token,`${base}/jobs?limit=25`,undefined,controller.signal),
     ]).then(([catalog,history])=>{
       if(controller.signal.aborted)return;
-      if(catalog.status === 'fulfilled') {const selectedModel=catalog.value.data.find(model=>model.id === modelId) ?? catalog.value.data[0];const reset=changedScope || selectedModel?.id !== modelId;setModels(catalog.value.data);if(!intentId)setModelId(selectedModel?.id ?? '');if(reset && !intentId)setControls(selectedModel ? initialControls(selectedModel):{});loadedBase.current=base;}
+      if(catalog.status === 'fulfilled') {const selectedModel=catalog.value.data.find(model=>model.id === modelId) ?? catalog.value.data.find(model=>model.id === 'fastrouter/seedance-2.0-mini') ?? catalog.value.data[0];const reset=changedScope || selectedModel?.id !== modelId;setModels(catalog.value.data);if(!intentId)setModelId(selectedModel?.id ?? '');if(reset && !intentId)setControls(selectedModel ? initialControls(selectedModel):{});loadedBase.current=base;}
       else setError(message(catalog.reason));
       if(history.status === 'fulfilled') {setJobs(history.value.data);setNextBefore(history.value.has_more ? history.value.next_before : null);}
       else setHistoryError(message(history.reason));
@@ -170,12 +170,12 @@ export default function VideoView({context}:{context:DashboardContext}) {
       loadedIntent.current=restoring;
       setIntentDocument(document);
       const draftIdentity=JSON.stringify([token,scopePath,document.id]);
-      if(document.request)setSubmittedPrompt(document.request.content.map(item=>item.text).join('\n'));
+      if(document.request)setSubmittedPrompt(document.request.content.flatMap(item=>item.type==='text' ? [item.text] : []).join('\n'));
       if(restoredDraftIdentity.current!==draftIdentity || !document.job){
         restoredDraftIdentity.current=draftIdentity;
         setPrompt('');setControls({});setImages([]);setModelId(document.model);
         if(document.request){
-          setPrompt(document.job ? '' : document.request.content.map(item=>item.text).join('\n'));
+          setPrompt(document.job ? '' : document.request.content.flatMap(item=>item.type==='text' ? [item.text] : []).join('\n'));
           const restored:ControlValues={};
           for(const [name,value] of Object.entries(document.request))if(name!=='model' && name!=='content' && (typeof value==='boolean' || typeof value==='string' || typeof value==='number'))restored[name]=typeof value==='boolean' ? value:String(value);
           setControls(restored);
