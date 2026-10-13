@@ -1,8 +1,17 @@
 # Generations: sessions, tasks and artifacts — backend handoff
 
-Status: proposed implementation contract. Existing Video APIs remain authoritative;
-the extensions below are not implemented or advertised as available. Reviewed
-2026-10-13 against `6cd4d511` and the new Video API/SDK documentation.
+Status: implementation contract with an additive backend increment delivered. Existing Video APIs remain authoritative. The [implemented API/SDK guide](../../apps/docs/src/content/docs/reference/generations.mdx) records exact paths, verification and limitations. Reviewed 2026-10-13.
+
+| Area | Delivery state |
+| --- | --- |
+| P0 Video sessions and turn/task associations | Implemented; actual existing-task association, concurrency, deletion, archive and restart exercised |
+| P0 common typed Chat/Video read projection | Implemented; retained Chat instruction restored through the compatible bridge; positive execution-linked Chat branch recovery unverified |
+| P1 historical task inventory | Implemented for Video across saved keys, with exact states and actor privacy; complete text-execution inventory remains open |
+| P2 generated-output inventory | Implemented for video and last frame; actual expired outputs refuse download; positive unexpired delivery remains unverified in this increment |
+| General retained Video controls/references | New turns retain typed text instructions only; the original Video intent remains authoritative for validated submission input |
+| Frontend timeline and two-browser rendering | Frontend integration and acceptance remain open |
+
+This status does not mark all acceptance items complete. No fixture result supports these delivery claims, and no paid generation was initiated for this increment.
 
 ## Outcome
 

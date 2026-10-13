@@ -194,7 +194,11 @@ pub use media_rates::{CustomerMediaRateCard, SelectedCustomerMediaRate};
 pub use niu_metered_cost::Dimensions as MediaBillingDimensions;
 pub use supplier_media::SupplierMediaRateCard;
 pub use supplier_media_offers::SupplierMediaOfferInput;
+mod generations_inventory;
 mod media_jobs;
+pub use generations_inventory::GenerationsInventoryQuery;
+mod generations_chat_sessions;
+mod generations_sessions;
 mod media_query_reports;
 mod media_results;
 mod video_intents;
@@ -424,6 +428,8 @@ pub enum StoreError {
     InvalidPlatformAuditQuery,
     #[error("invalid video history cursor or page size")]
     InvalidMediaQuery,
+    #[error("invalid generations session input or page cursor")]
+    InvalidGenerationsInput,
     #[error("invalid vendor or model configuration")]
     InvalidVendor,
     #[error("database pool size must be positive")]

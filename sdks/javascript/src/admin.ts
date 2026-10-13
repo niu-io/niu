@@ -1,3 +1,7 @@
+import { createGenerationsSessionsClient } from './generations-sessions.js';
+import { createGenerationsInventoryClient, type GenerationInventoryQuery, type GenerationArtifactKind } from './generations-inventory.js';
+export type { VideoGenerationsSessionSummary, VideoGenerationsSession, VideoGenerationsSessionPage, ChatGenerationsInstruction, ChatGenerationsTaskReference, ChatGenerationsBranch, ChatGenerationsTurn, ChatGenerationsSessionSummary, ChatGenerationsSession, ChatGenerationsSessionPage, GenerationsInstruction, GenerationsTaskReference, GenerationsTurn, GenerationsSessionSummary, GenerationsSession, GenerationsSessionPage, GenerationsSessionPageOptions } from './generations-sessions.js';
+export type { GenerationTaskState, GenerationArtifactAvailability, GenerationArtifactKind, GenerationTask, GenerationArtifact, GenerationInventoryPage, GenerationInventoryQuery } from './generations-inventory.js';
 import { platformAuditQuery, type PlatformAuditQuery, type PlatformAuditPage } from './platform-audit.js';
 export type { PlatformAuditCategory, PlatformAuditSource, PlatformAuditEvent, PlatformAuditPage, PlatformAuditQuery } from './platform-audit.js';
 import { assetBinaryRequest, type WorkspaceAsset, type WorkspaceAssetPage, type WorkspaceAssetPageOptions } from './workspace-assets.js';
@@ -1003,6 +1007,29 @@ export class NiuAdminClient {
   /** Platform-only durable operation metadata. Reads never modify configuration. */
   listPlatformAuditEvents(query: PlatformAuditQuery = {}, options?: RequestOptions): Promise<PlatformAuditPage> {
     return this.request('/platform/audit-events' + platformAuditQuery(query), undefined, options);
+  }
+
+  /** Actor-private timelines and saved histories; no method initiates inference. */
+  generations(scope: TenantScope) {
+    const inventory = createGenerationsInventoryClient(
+      <T>(path: string, method: 'GET', body: undefined, options?: RequestOptions) => this.request<T>(path, body, options, method),
+      (path, options) => assetBinaryRequest(this.requestFetch, this.base, this.token, path, options ?? {}),
+    );
+    return {
+      sessions: createGenerationsSessionsClient(
+        <T>(path: string, body?: unknown, options?: RequestOptions, method?: string) => this.request<T>(path, body, options, method),
+        scope.organizationId, scope.projectId,
+      ),
+      tasks: {
+        list: (query?: GenerationInventoryQuery, options?: RequestOptions) => inventory.tasks.list(scope.organizationId, scope.projectId, query, options),
+        retrieve: (task: string, options?: RequestOptions) => inventory.tasks.retrieve(scope.organizationId, scope.projectId, task, options),
+      },
+      artifacts: {
+        list: (query?: GenerationInventoryQuery, options?: RequestOptions) => inventory.artifacts.list(scope.organizationId, scope.projectId, query, options),
+        retrieve: (task: string, kind: GenerationArtifactKind, options?: RequestOptions) => inventory.artifacts.retrieve(scope.organizationId, scope.projectId, task, kind, options),
+        content: (task: string, kind: GenerationArtifactKind, options?: RequestOptions) => inventory.artifacts.content(scope.organizationId, scope.projectId, task, kind, options),
+      },
+    };
   }
 
   getBranding(options?: RequestOptions): Promise<BrandingConfiguration> {

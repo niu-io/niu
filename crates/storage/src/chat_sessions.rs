@@ -253,7 +253,7 @@ impl Store {
         Ok(serde_json::json!({"data":data,"next_cursor":next}))
     }
 
-    async fn load_chat_payloads(
+    pub(crate) async fn load_chat_payloads(
         connection: &mut sqlx::PgConnection,
         scope: TenantScope,
         owner: &str,
@@ -268,7 +268,7 @@ impl Store {
             .fetch_all(connection).await?)
     }
 
-    async fn hydrate_chat_charges(
+    pub(crate) async fn hydrate_chat_charges(
         connection: &mut sqlx::PgConnection,
         scope: TenantScope,
         mut sessions: Vec<Value>,

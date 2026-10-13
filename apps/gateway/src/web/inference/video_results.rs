@@ -63,9 +63,54 @@ pub(super) async fn retrieve_as(
     id: Uuid,
     result_kind: &str,
 ) -> Result<Response, ApiError> {
+    retrieve_authorized(
+        state,
+        principal.scope(),
+        Some(principal),
+        None,
+        id,
+        result_kind,
+    )
+    .await
+}
+/// Saved result delivery uses current dashboard visibility, not inference-key authority.
+pub(super) async fn retrieve_history(
+    state: &AppState,
+    scope: niu_storage::TenantScope,
+    owner: &str,
+    id: Uuid,
+    result_kind: &str,
+) -> Result<Response, ApiError> {
+    retrieve_authorized(state, scope, None, Some(owner), id, result_kind).await
+}
+async fn authorize_delivery(
+    state: &AppState,
+    scope: niu_storage::TenantScope,
+    principal: Option<&Principal>,
+    owner: Option<&str>,
+    id: Uuid,
+) -> Result<(), ApiError> {
+    if let Some(principal) = principal {
+        return authorize(state, principal, id).await;
+    }
+    state
+        .store
+        .generation_task(scope, owner.ok_or_else(ApiError::forbidden)?, id)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    Ok(())
+}
+async fn retrieve_authorized(
+    state: &AppState,
+    scope: niu_storage::TenantScope,
+    principal: Option<&Principal>,
+    owner: Option<&str>,
+    id: Uuid,
+    result_kind: &str,
+) -> Result<Response, ApiError> {
     let kind = kind(result_kind)?;
-    authorize(state, principal, id).await?;
-    let scope = principal.scope();
+    authorize_delivery(state, scope, principal, owner, id).await?;
     let encrypted = state
         .store
         .media_result_reference(scope, id, kind)
@@ -136,7 +181,7 @@ pub(super) async fn retrieve_as(
     let media = media.map_err(ApiError::from_media_result)?;
     // Recheck after network work: expiry, deletion and current grants can change
     // while a large result is downloading. Do not deliver that stale access.
-    authorize(state, principal, id).await?;
+    authorize_delivery(state, scope, principal, owner, id).await?;
     if state
         .store
         .media_result_reference(scope, id, kind)

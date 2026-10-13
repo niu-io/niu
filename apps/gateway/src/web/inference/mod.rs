@@ -31,3 +31,7 @@ pub(super) mod video_models;
 
 pub(super) mod video_observations;
 pub(super) mod video_results;
+
+pub(super) mod generations_inventory;
+
+pub(super) mod generations_sessions;

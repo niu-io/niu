@@ -9,6 +9,13 @@ pub(crate) fn spawn(store: Store, content_store: Store) -> [JoinHandle<()>; 2] {
         let mut interval = interval();
         loop {
             interval.tick().await;
+            if recovery_store
+                .purge_expired_generations_instructions()
+                .await
+                .is_err()
+            {
+                tracing::warn!("Expired generations instruction cleanup requires retry");
+            }
             if recovery_store.purge_expired_video_intents().await.is_err() {
                 tracing::warn!("Expired video intent cleanup requires retry");
             }

@@ -465,19 +465,42 @@ impl Store {
         before: Option<Uuid>,
         limit: i64,
     ) -> Result<serde_json::Value, StoreError> {
+        self.media_jobs_for_key_owner(principal, before, limit, None)
+            .await
+    }
+
+    /// Dashboard pages filter actor-private tasks before cursor validation and LIMIT.
+    pub async fn dashboard_media_jobs_for_key(
+        &self,
+        principal: &crate::Principal,
+        owner: &str,
+        before: Option<Uuid>,
+        limit: i64,
+    ) -> Result<serde_json::Value, StoreError> {
+        self.media_jobs_for_key_owner(principal, before, limit, Some(owner))
+            .await
+    }
+
+    async fn media_jobs_for_key_owner(
+        &self,
+        principal: &crate::Principal,
+        before: Option<Uuid>,
+        limit: i64,
+        owner: Option<&str>,
+    ) -> Result<serde_json::Value, StoreError> {
         if !(1..=100).contains(&limit) {
             return Err(StoreError::InvalidMediaQuery);
         }
         let scope = principal.scope();
         if let Some(cursor) = before {
-            let accessible: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM attempts a JOIN media_recovery_routes r ON r.attempt_id=a.id JOIN api_keys k ON k.id=$4 AND k.organization_id=a.organization_id AND k.project_id=a.project_id WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=$3 AND a.dispatched_at IS NOT NULL AND k.revoked_at IS NULL AND k.expires_at>clock_timestamp() AND ('*'=ANY(k.allowed_models) OR a.resource_id=ANY(k.allowed_models)))")
-                .bind(scope.organization_id).bind(scope.project_id).bind(cursor).bind(principal.key_id()).fetch_one(&self.pool).await?;
+            let accessible: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM attempts a JOIN media_recovery_routes r ON r.attempt_id=a.id JOIN api_keys k ON k.id=$4 AND k.organization_id=a.organization_id AND k.project_id=a.project_id WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=$3 AND a.dispatched_at IS NOT NULL AND k.revoked_at IS NULL AND k.expires_at>clock_timestamp() AND ('*'=ANY(k.allowed_models) OR a.resource_id=ANY(k.allowed_models)) AND ($5::text IS NULL OR (NOT EXISTS(SELECT 1 FROM generations_turn_tasks t WHERE t.task_id=a.id AND t.owner<>$5) AND NOT EXISTS(SELECT 1 FROM video_submission_intents vi JOIN media_submission_keys sk ON sk.organization_id=vi.organization_id AND sk.project_id=vi.project_id AND sk.key_digest=sha256(convert_to(vi.submission_key::text,'UTF8')) WHERE sk.attempt_id=a.id AND vi.organization_id=a.organization_id AND vi.project_id=a.project_id AND vi.owner<>$5))))")
+                .bind(scope.organization_id).bind(scope.project_id).bind(cursor).bind(principal.key_id()).bind(owner).fetch_one(&self.pool).await?;
             if !accessible {
                 return Err(StoreError::InvalidMediaQuery);
             }
         }
-        let mut rows: Vec<serde_json::Value> = sqlx::query_scalar("SELECT jsonb_build_object('id',a.id,'object','video.job','model',a.resource_id,'created_at_ms',floor(extract(epoch FROM a.created_at)*1000)::bigint::text,'status',CASE WHEN j.attempt_id IS NULL THEN 'submission_unknown' WHEN 'succeeded'=ANY(o.statuses) AND 'failed'=ANY(o.statuses) THEN 'reconciliation_required' WHEN 'succeeded'=ANY(o.statuses) THEN 'succeeded' WHEN 'failed'=ANY(o.statuses) THEN 'failed' WHEN 'unknown'=ANY(o.statuses) OR cardinality(o.statuses)=0 THEN 'unknown' WHEN 'running'=ANY(o.statuses) THEN 'running' ELSE 'queued' END) FROM attempts a JOIN media_recovery_routes r ON r.attempt_id=a.id JOIN api_keys k ON k.id=$3 AND k.organization_id=a.organization_id AND k.project_id=a.project_id LEFT JOIN media_jobs j ON j.attempt_id=a.id LEFT JOIN LATERAL (SELECT ARRAY(SELECT status FROM media_job_observations WHERE attempt_id=a.id) AS statuses) o ON true WHERE a.organization_id=$1 AND a.project_id=$2 AND a.dispatched_at IS NOT NULL AND k.revoked_at IS NULL AND k.expires_at>clock_timestamp() AND ('*'=ANY(k.allowed_models) OR a.resource_id=ANY(k.allowed_models)) AND ($4::uuid IS NULL OR (a.created_at,a.id)<(SELECT created_at,id FROM attempts WHERE id=$4)) ORDER BY a.created_at DESC,a.id DESC LIMIT $5")
-            .bind(scope.organization_id).bind(scope.project_id).bind(principal.key_id()).bind(before).bind(limit+1).fetch_all(&self.pool).await?;
+        let mut rows: Vec<serde_json::Value> = sqlx::query_scalar("SELECT jsonb_build_object('id',a.id,'object','video.job','model',a.resource_id,'created_at_ms',floor(extract(epoch FROM a.created_at)*1000)::bigint::text,'status',CASE WHEN j.attempt_id IS NULL THEN 'submission_unknown' WHEN 'succeeded'=ANY(o.statuses) AND 'failed'=ANY(o.statuses) THEN 'reconciliation_required' WHEN 'succeeded'=ANY(o.statuses) THEN 'succeeded' WHEN 'failed'=ANY(o.statuses) THEN 'failed' WHEN 'unknown'=ANY(o.statuses) OR cardinality(o.statuses)=0 THEN 'unknown' WHEN 'running'=ANY(o.statuses) THEN 'running' ELSE 'queued' END) FROM attempts a JOIN media_recovery_routes r ON r.attempt_id=a.id JOIN api_keys k ON k.id=$3 AND k.organization_id=a.organization_id AND k.project_id=a.project_id LEFT JOIN media_jobs j ON j.attempt_id=a.id LEFT JOIN LATERAL (SELECT ARRAY(SELECT status FROM media_job_observations WHERE attempt_id=a.id) AS statuses) o ON true WHERE a.organization_id=$1 AND a.project_id=$2 AND a.dispatched_at IS NOT NULL AND k.revoked_at IS NULL AND k.expires_at>clock_timestamp() AND ('*'=ANY(k.allowed_models) OR a.resource_id=ANY(k.allowed_models)) AND ($6::text IS NULL OR (NOT EXISTS(SELECT 1 FROM generations_turn_tasks t WHERE t.task_id=a.id AND t.owner<>$6) AND NOT EXISTS(SELECT 1 FROM video_submission_intents vi JOIN media_submission_keys sk ON sk.organization_id=vi.organization_id AND sk.project_id=vi.project_id AND sk.key_digest=sha256(convert_to(vi.submission_key::text,'UTF8')) WHERE sk.attempt_id=a.id AND vi.organization_id=a.organization_id AND vi.project_id=a.project_id AND vi.owner<>$6))) AND ($4::uuid IS NULL OR (a.created_at,a.id)<(SELECT created_at,id FROM attempts WHERE id=$4)) ORDER BY a.created_at DESC,a.id DESC LIMIT $5")
+            .bind(scope.organization_id).bind(scope.project_id).bind(principal.key_id()).bind(before).bind(limit+1).bind(owner).fetch_all(&self.pool).await?;
         let more = rows.len() > limit as usize;
         rows.truncate(limit as usize);
         let next = if more {
@@ -488,6 +511,19 @@ impl Store {
             None
         };
         Ok(serde_json::json!({"data":rows,"has_more":more,"next_before":next}))
+    }
+
+    /// Actor ownership check for legacy dashboard routes, including prepared intents.
+    /// Existing selected-key grants and each route's original eligibility still apply.
+    pub async fn dashboard_media_job_visible(
+        &self,
+        scope: TenantScope,
+        owner: &str,
+        attempt: Uuid,
+    ) -> Result<bool, StoreError> {
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM attempts a WHERE a.organization_id=$1 AND a.project_id=$2 AND a.id=$3 AND NOT EXISTS(SELECT 1 FROM generations_turn_tasks t WHERE t.task_id=a.id AND t.owner<>$4) AND NOT EXISTS(SELECT 1 FROM video_submission_intents vi JOIN media_submission_keys sk ON sk.organization_id=vi.organization_id AND sk.project_id=vi.project_id AND sk.key_digest=sha256(convert_to(vi.submission_key::text,'UTF8')) WHERE sk.attempt_id=a.id AND vi.organization_id=a.organization_id AND vi.project_id=a.project_id AND vi.owner<>$4))")
+            .bind(scope.organization_id).bind(scope.project_id).bind(attempt).bind(owner)
+            .fetch_one(&self.pool).await.map_err(StoreError::from)
     }
 
     pub async fn media_job_state_for_key(

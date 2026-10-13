@@ -160,6 +160,9 @@ impl ApiError {
             niu_storage::StoreError::InvalidOperatorAuditQuery => {
                 Self::invalid_request("Invalid operator audit cursor or page size")
             }
+            niu_storage::StoreError::InvalidGenerationsInput => {
+                Self::invalid_request("Invalid Generations session input or page cursor")
+            }
             niu_storage::StoreError::InvalidMediaQuery => {
                 Self::invalid_request("Invalid video history cursor or page size")
             }

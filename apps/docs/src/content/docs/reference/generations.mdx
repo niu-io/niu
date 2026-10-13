@@ -1,0 +1,121 @@
+---
+title: Generations sessions, tasks and artifacts
+description: Persist private video timelines and inspect saved tasks and outputs across workspace API keys.
+---
+
+Niu provides an additive dashboard API for durable video sessions, existing-task association, task history and generated-output history. Use a current dashboard session, not an inference key. All paths below share the prefix `/admin/v1/organizations/{organization}/projects/{project}`; `project` is the existing workspace route contract.
+
+The JavaScript SDK exposes `admin.generations(scope).sessions`, `.tasks` and `.artifacts`. Existing Chat sessions, comparison branches, Video job APIs, dashboard key-scoped bridges and submission intents remain compatible. Session reads provide a discriminated `chat`/`video` timeline projection. Use `sessions.listChat` / `sessions.retrieveChat` for the read-only Chat bridge (`category=chat`); the default reads and new mutations use `video`. Chat writes continue through the existing guarded save methods. Storage remains compatible, categories remain separate, and Tasks/Artifacts inventory currently covers video rather than all text executions.
+
+## Implemented paths
+
+| Method and path after the workspace prefix | SDK method |
+| --- | --- |
+| `GET /generations-sessions` | `sessions.list` |
+| `PUT /generations-sessions/{session}` | `sessions.create` |
+| `GET /generations-sessions/{session}` | `sessions.retrieve` |
+| `GET /generations-sessions?category=chat` | `sessions.listChat` |
+| `GET /generations-sessions/{session}?category=chat` | `sessions.retrieveChat` |
+| `PATCH /generations-sessions/{session}` | `sessions.update` |
+| `PUT /generations-sessions/{session}/turns/{turn}` | `sessions.appendTurn` |
+| `DELETE /generations-sessions/{session}/turns/{turn}` | `sessions.deleteInstruction` |
+| `PUT /generations-sessions/{session}/turns/{turn}/task` | `sessions.attachTask` |
+| `GET /generations/tasks` | `tasks.list` |
+| `GET /generations/tasks/{task}` | `tasks.retrieve` |
+| `GET /generations/artifacts` | `artifacts.list` |
+| `GET /generations/artifacts/{task}/{kind}` | `artifacts.retrieve` |
+| `GET /generations/artifacts/{task}/{kind}/content` | `artifacts.content` |
+
+No method submits, retries or refreshes inference. Output delivery can fetch an already saved result through the existing bounded transport. Explicit task creation and upstream refresh remain the [Video API's operations](/docs/reference/video/); historical access does not grant those permissions.
+
+## Private timelines and revisions
+
+Sessions belong to one workspace and one authenticated actor. Operator sessions are isolated from each other; installation credentials share the installation actor. Read permission is required for reads, and workspace Write permission for mutations. An installation credential does not override another actor's private conversation ownership.
+
+Each video session has a stable reference, title, workspace, internal owner reference, creation/update timestamps, archive flag and decimal-string revision. Never render internal references as names. Turns have stable references, monotonically increasing decimal-string sequences, created time, content state and task projections. The initial instruction schema is `{ kind: "video", prompt: string }`, up to 60 KiB; it does not retain arbitrary model controls, attachments or reference inputs. Keep existing Video submission intents for the original validated request and dispatch identity.
+
+Clients choose canonical UUID session/turn references and retain them before sending writes. Session creation requires `expected_revision: "0"`. Later writes require the last read positive decimal-string revision. Two concurrent writes cannot consume the same revision: one commits and the other conflicts with 409. A turn retry with the same reference and instruction digest returns the saved session; a changed instruction conflicts. Identical initial session creation can be replayed until its revision advances; read the chosen session reference to recover afterward. Appending a changed instruction creates another turn, never overwrites the original task request or idempotency identity. A session is bounded to 100 turns.
+
+Attachment accepts only an existing dispatched video attempt within the workspace. Current workspace writers can attach API-created jobs unless another actor's private Video intent or existing association protects them. Each job belongs to at most one turn, and each turn to at most one job. The association is immutable; an identical retry remains idempotent after the session revision advances. Clients cannot submit a success state, upstream job identity or output URL. Attaching an old job does not assert that a new retained instruction was its original generation prompt.
+
+Create/associate recover independently: after a Video submission response is lost, recover its original saved intent/task identity and attach that task. A failed session write is never permission to send another paid request. Read the session to recover a lost association response. Archive hides the session from the default directory without cancelling tasks or deleting their outputs, history or billing.
+
+## Existing Chat timelines
+
+The Chat bridge reads the existing actor-private saved sessions without replacing their storage or writes. Session timestamps come from database metadata; missing titles remain null. It preserves retained prompts, attachments and comparison branches, and uses the existing customer-charge hydration. Branch fields are filtered to declared scalar metadata; a saved comparison `phase` is content, not authoritative execution evidence. An execution reference appears only after its workspace and model match a real saved attempt. A Chat conversation is never presented as one running task.
+
+Legacy Chat has no persistent per-turn identity or per-turn clock. The bridge exposes a read-only `chat-turn:<digest>` derived from scoped session identity, sequence and retained instruction. Updating comparison output preserves it; changing instruction or order changes it. Never display the digest. Per-turn timestamps and expiry remain null, and absent retained input is marked `missing`. Common SDK types discriminate `ChatGenerationsSession` and `VideoGenerationsSession`; they do not invent mixed-category write semantics or general Chat output-download artifacts.
+
+## Historical task and output access
+
+Task reads span saved keys under current workspace dashboard Read permission. Revoked/expired keys and changed model grants do not remove saved task metadata or revive inference authority. Jobs protected by another actor's session or private Video intent are excluded; direct access returns 404. API-created jobs without sessions remain visible when authorized. Customer projections exclude procurement amounts, Provider credentials, upstream task IDs and result URLs. The legacy dashboard key-scoped Video routes enforce the same actor privacy before paging or returning task data, and recheck it after downloading results. Direct `/v1` inference-key routes retain their existing key-holder contract.
+
+Tasks preserve `submission_unknown`, `queued`, `running`, `succeeded`, `failed`, `unknown` and `reconciliation_required`. State derives from existing job/query evidence rather than a second mutable status copy. The model display name is nullable; never replace a missing name with an internal task reference. `source` is `generations` when a saved association or Video intent establishes that origin, and `unknown` when historical origin was not recorded. An absent association is not proof of API origin.
+
+Video and last frame are separate artifacts identified by `(task_id, kind)`, where `kind` is `video` or `last_frame`. Artifact names are meaningful, and availability is independent of task success: `available`, `expired`, `deleted` or `unavailable`. Natural expiration takes precedence over deletion by retention maintenance. Missing output rows are absent from the artifact inventory; task artifact summaries can be empty. Saved-reference availability does not prove the remote bytes are still retrievable. Content type, dimensions, duration and size are not invented from missing metadata.
+
+Downloads use the saved encrypted reference, transport restrictions and current actor visibility. Expired/deleted/missing references return 404. If delivery still requires an original Provider binding that has become invalid, it explicitly refuses with 409; transport failures return an error rather than fabricate output. No active inference key secret is required for historical reads. Existing Video result deletion preserves task evidence, original dispatch identity, billing and diagnostics.
+
+## Pagination and retention
+
+| Read | Filters and cursor |
+| --- | --- |
+| Sessions | `archived` defaults false; `limit` 1–100, default 20; `before` from `next_before`; ordered by immutable `(created_at, id)` descending |
+| Tasks | `kind=video`, exact `state`, `session_id`; `limit` 1–100, default 25; opaque `cursor` from `next_cursor`; ordered by `(created_at, id)` descending |
+| Artifacts | Same task filters; ordered by `(output created_at, task_id, kind)` descending; use its own `next_cursor` |
+
+Cursor lookup is scoped to currently visible saved records, independent of mutable task-state/session filters and session archival. Completing a task or archiving a cursor session does not alter the ordering key. Invalid/out-of-scope cursor references return 400. Changing filters should start a new traversal. Inventory responses declare `supported_kinds: ["video"]`; `complete: true` describes the returned supported, authorized page, not text-history coverage. Follow the continuation cursor to finish traversal. Database errors fail the request; never label that failure an empty inventory. Reads and session payload responses use `Cache-Control: no-store`.
+
+Instructions follow the existing Chat/intents JSON persistence pattern and are **not application-encrypted at rest**. They expire after 30 days, are hidden immediately upon expiry, and are cleared by bounded content maintenance. Explicit instruction deletion clears content and preserves the turn/task association. A null deleted/expired instruction must not become a fabricated prompt. Instruction, result and task retention are separate: result expiry comes from the existing Video result policy; these APIs do not promise permanent media storage or erase financial history.
+
+## Read existing work with the SDK
+
+```ts
+import { NiuAdminClient } from '@niu-io/sdk';
+
+const admin = new NiuAdminClient({
+  baseURL: process.env.NIU_ADMIN_BASE_URL,
+  adminToken: process.env.NIU_ADMIN_TOKEN!,
+});
+const generations = admin.generations({
+  organizationId: process.env.NIU_ORGANIZATION_ID!,
+  projectId: process.env.NIU_WORKSPACE_ID!,
+});
+const tasks = await generations.tasks.list({ kind: 'video', limit: 25 });
+const artifacts = await generations.artifacts.list({ limit: 25 });
+const saved = await generations.sessions.retrieve(process.env.NIU_SESSION_ID!);
+// Restore saved.turns in sequence; use content_state before displaying input.
+for (const artifact of artifacts.data) {
+  if (artifact.availability !== 'available') continue;
+  const response = await generations.artifacts.content(
+    artifact.task_id, artifact.kind,
+  );
+  const bytes = await response.arrayBuffer();
+}
+```
+
+To associate **an already existing authorized task**, without generating one:
+
+```ts
+const sessionRef = crypto.randomUUID();
+const turnRef = crypto.randomUUID();
+const created = await generations.sessions.create(sessionRef, {
+  title: 'Review an existing video',
+});
+const appended = await generations.sessions.appendTurn(sessionRef, turnRef, {
+  expected_revision: created.data.revision,
+  instruction: { kind: 'video', prompt: 'Review the previously generated video.' },
+});
+const associated = await generations.sessions.attachTask(sessionRef, turnRef, {
+  expected_revision: appended.data.revision,
+  task_id: process.env.NIU_EXISTING_TASK_ID!,
+});
+```
+
+Persist the references before writes. Keep session credentials private; do not embed them in frontend builds. No cancellation, callbacks, percent progress or automatic retry is added.
+
+## Verification scope
+
+Actual current-input verification used a private copy of existing data and already generated jobs. Two existing tasks were associated to successive video turns; same-input replay, conflicting edits, concurrent revision writes, actor/workspace isolation, deletion, archive, SDK recovery and server restart were exercised. Task/job/query/submission/financial records and existing Chat rows were independently compared before and after. Historical inventory included existing revoked and expired keys. No generation, asset creation or verification session was started.
+
+All available historical result references in that run had naturally expired and returned 404. Positive playback/download of an unexpired output, two-browser frontend rendering, and positive execution-linked legacy Chat branch recovery are **not verified by this increment**. A current retained Chat instruction was saved through the old guarded API before serving the bridge, then independently restored after upgrade/restart with its old payload unchanged. The existing Video engine's earlier positive generation evidence is separate. See [generated handler schemas](/docs/reference/handler-operations/) for the implemented response contracts.

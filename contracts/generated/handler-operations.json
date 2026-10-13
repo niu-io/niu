@@ -16493,7 +16493,7 @@
       "get": {
         "operationId": "retrieveDashboardVideoBilling",
         "summary": "Read saved customer video billing through a workspace session",
-        "description": "Workspace session and current selected-key/model authorization required; no API key secret is needed. Performs no upstream query or settlement. Exact amounts are decimal nanounit strings. Only a posted customer debit is a charge; unresolved liability remains explicit. Owner-funded jobs have no Niu customer price or charge. Procurement terms and internal price revision identifiers are excluded.",
+        "description": "Workspace session, actor-private task visibility and current selected-key/model authorization required; no API key secret is needed. Performs no upstream query or settlement. Exact amounts are decimal nanounit strings. Only a posted customer debit is a charge; unresolved liability remains explicit. Owner-funded jobs have no Niu customer price or charge. Procurement terms and internal price revision identifiers are excluded.",
         "x-niu-implementation": "implemented",
         "security": [
           {
@@ -16564,7 +16564,7 @@
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/video/jobs/{job}/observations": {
       "get": {
         "summary": "Read saved video query observations",
-        "description": "Workspace read access through the selected key; no key secret is returned. Reads immutable, content-free saved query receipts in descending observation-time/receipt order. Reported quantity is not a customer charge or settled usage. Missing/invalid quantities remain explicit; provider timestamps are epoch seconds, not measured transport spans. Does not poll upstream, submit work, reserve funds or mutate financial state. No upstream identity, URL, credential, raw error, cost, procurement price or protocol configuration is returned. Cursor and receipt page share a bounded read-only snapshot (250 ms lock / 2 s statement limits); authorization and whole-request deadlines are separate. Separate pages are live views. Cache-Control no-store.",
+        "description": "Workspace read access through the selected key and actor-private task visibility; no key secret is returned. Reads immutable, content-free saved query receipts in descending observation-time/receipt order. Reported quantity is not a customer charge or settled usage. Missing/invalid quantities remain explicit; provider timestamps are epoch seconds, not measured transport spans. Does not poll upstream, submit work, reserve funds or mutate financial state. No upstream identity, URL, credential, raw error, cost, procurement price or protocol configuration is returned. Cursor and receipt page share a bounded read-only snapshot (250 ms lock / 2 s statement limits); authorization and whole-request deadlines are separate. Separate pages are live views. Cache-Control no-store.",
         "security": [
           {
             "bearerAuth": []
@@ -17523,6 +17523,1628 @@
                     }
                   }
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/v1/organizations/{organization}/projects/{project}/generations/tasks": {
+      "get": {
+        "operationId": "generationsInventoryTasks",
+        "summary": "List saved Video tasks across workspace keys",
+        "description": "Current dashboard workspace Read authorizes saved history even when its inference key is revoked, expired, or its model grants changed. No active key secret is needed. Actor-private session/intent tasks belonging to another actor are excluded. API-created tasks without a private association are workspace-readable. No prompt, upstream URL, asset URI, credential or procurement field is returned. This GET never dispatches, refreshes, retries or settles inference. Task pages use immutable created_at/id DESC; artifacts use immutable output created_at/task_id/kind DESC. A cursor resolves in current authorized workspace independently of mutable state filters; malformed, missing or out-of-scope cursor is 400. Changing filters starts a new live view. No partial successful empty result: storage errors return 503. Artifact reference availability is retention evidence, not a guarantee the upstream bytes still exist. Content delivery performs only bounded result retrieval, rechecking dashboard access and retention after download. Content remains explicitly refused with 409 if its original Provider account/model binding is no longer current; historical read access never restores routing or credential authority. Existing key-scoped APIs and explicit refresh authorization remain unchanged. Chat stays in typed saved sessions; only Video execution inventory is supported.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "enum": [
+                "video"
+              ]
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "schema": {
+              "enum": [
+                "queued",
+                "running",
+                "succeeded",
+                "failed",
+                "unknown",
+                "submission_unknown",
+                "reconciliation_required"
+              ]
+            }
+          },
+          {
+            "name": "session_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved projection; complete true means this supported Video inventory read completed, not all task kinds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "kind": {
+                            "const": "video"
+                          },
+                          "model": {
+                            "type": "string"
+                          },
+                          "model_display_name": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updated_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "state": {
+                            "enum": [
+                              "queued",
+                              "running",
+                              "succeeded",
+                              "failed",
+                              "unknown",
+                              "submission_unknown",
+                              "reconciliation_required"
+                            ]
+                          },
+                          "source": {
+                            "enum": [
+                              "api",
+                              "generations",
+                              "unknown"
+                            ]
+                          },
+                          "session_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "uuid"
+                          },
+                          "turn_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "uuid"
+                          },
+                          "artifacts": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "enum": [
+                                    "video",
+                                    "last_frame"
+                                  ]
+                                },
+                                "availability": {
+                                  "enum": [
+                                    "available",
+                                    "deleted",
+                                    "expired",
+                                    "unavailable"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "availability"
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "kind",
+                          "model",
+                          "model_display_name",
+                          "created_at",
+                          "updated_at",
+                          "state",
+                          "source",
+                          "session_id",
+                          "turn_id",
+                          "artifacts"
+                        ]
+                      }
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    },
+                    "next_cursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "supported_kinds": {
+                      "type": "array",
+                      "items": {
+                        "const": "video"
+                      }
+                    },
+                    "complete": {
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "has_more",
+                    "next_cursor",
+                    "supported_kinds",
+                    "complete"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query, unsupported kind or inaccessible cursor"
+          },
+          "401": {
+            "description": "Session invalid or expired"
+          },
+          "403": {
+            "description": "Current workspace permission denied"
+          },
+          "404": {
+            "description": "Record missing or actor-inaccessible"
+          },
+          "409": {
+            "description": "Original Provider delivery binding is no longer current; metadata history remains readable."
+          },
+          "503": {
+            "description": "Saved read unavailable; never presented as empty inventory"
+          }
+        },
+        "x-niu-implementation": "implemented"
+      }
+    },
+    "/admin/v1/organizations/{organization}/projects/{project}/generations/artifacts": {
+      "get": {
+        "operationId": "generationsInventoryArtifacts",
+        "summary": "List actual saved output references",
+        "description": "Current dashboard workspace Read authorizes saved history even when its inference key is revoked, expired, or its model grants changed. No active key secret is needed. Actor-private session/intent tasks belonging to another actor are excluded. API-created tasks without a private association are workspace-readable. No prompt, upstream URL, asset URI, credential or procurement field is returned. This GET never dispatches, refreshes, retries or settles inference. Task pages use immutable created_at/id DESC; artifacts use immutable output created_at/task_id/kind DESC. A cursor resolves in current authorized workspace independently of mutable state filters; malformed, missing or out-of-scope cursor is 400. Changing filters starts a new live view. No partial successful empty result: storage errors return 503. Artifact reference availability is retention evidence, not a guarantee the upstream bytes still exist. Content delivery performs only bounded result retrieval, rechecking dashboard access and retention after download. Content remains explicitly refused with 409 if its original Provider account/model binding is no longer current; historical read access never restores routing or credential authority. Existing key-scoped APIs and explicit refresh authorization remain unchanged. Chat stays in typed saved sessions; only Video execution inventory is supported.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "enum": [
+                "video"
+              ]
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "schema": {
+              "enum": [
+                "queued",
+                "running",
+                "succeeded",
+                "failed",
+                "unknown",
+                "submission_unknown",
+                "reconciliation_required"
+              ]
+            }
+          },
+          {
+            "name": "session_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved projection; complete true means this supported Video inventory read completed, not all task kinds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "task_id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "kind": {
+                            "enum": [
+                              "video",
+                              "last_frame"
+                            ]
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "content_type": {
+                            "type": "null"
+                          },
+                          "availability": {
+                            "enum": [
+                              "available",
+                              "deleted",
+                              "expired",
+                              "unavailable"
+                            ]
+                          },
+                          "session_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "uuid"
+                          },
+                          "turn_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "uuid"
+                          },
+                          "workspace_id": {
+                            "type": "string",
+                            "format": "uuid"
+                          }
+                        },
+                        "required": [
+                          "task_id",
+                          "kind",
+                          "name",
+                          "created_at",
+                          "content_type",
+                          "availability",
+                          "session_id",
+                          "turn_id",
+                          "workspace_id"
+                        ]
+                      }
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    },
+                    "next_cursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "supported_kinds": {
+                      "type": "array",
+                      "items": {
+                        "const": "video"
+                      }
+                    },
+                    "complete": {
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "has_more",
+                    "next_cursor",
+                    "supported_kinds",
+                    "complete"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query, unsupported kind or inaccessible cursor"
+          },
+          "401": {
+            "description": "Session invalid or expired"
+          },
+          "403": {
+            "description": "Current workspace permission denied"
+          },
+          "404": {
+            "description": "Record missing or actor-inaccessible"
+          },
+          "409": {
+            "description": "Original Provider delivery binding is no longer current; metadata history remains readable."
+          },
+          "503": {
+            "description": "Saved read unavailable; never presented as empty inventory"
+          }
+        },
+        "x-niu-implementation": "implemented"
+      }
+    },
+    "/admin/v1/organizations/{organization}/projects/{project}/generations/tasks/{task}": {
+      "get": {
+        "operationId": "generationsInventoryTask",
+        "summary": "Read a saved Video task",
+        "description": "Current dashboard workspace Read authorizes saved history even when its inference key is revoked, expired, or its model grants changed. No active key secret is needed. Actor-private session/intent tasks belonging to another actor are excluded. API-created tasks without a private association are workspace-readable. No prompt, upstream URL, asset URI, credential or procurement field is returned. This GET never dispatches, refreshes, retries or settles inference. Task pages use immutable created_at/id DESC; artifacts use immutable output created_at/task_id/kind DESC. A cursor resolves in current authorized workspace independently of mutable state filters; malformed, missing or out-of-scope cursor is 400. Changing filters starts a new live view. No partial successful empty result: storage errors return 503. Artifact reference availability is retention evidence, not a guarantee the upstream bytes still exist. Content delivery performs only bounded result retrieval, rechecking dashboard access and retention after download. Content remains explicitly refused with 409 if its original Provider account/model binding is no longer current; historical read access never restores routing or credential authority. Existing key-scoped APIs and explicit refresh authorization remain unchanged. Chat stays in typed saved sessions; only Video execution inventory is supported.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "task",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved projection; complete true means this supported Video inventory read completed, not all task kinds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "kind": {
+                          "const": "video"
+                        },
+                        "model": {
+                          "type": "string"
+                        },
+                        "model_display_name": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updated_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "state": {
+                          "enum": [
+                            "queued",
+                            "running",
+                            "succeeded",
+                            "failed",
+                            "unknown",
+                            "submission_unknown",
+                            "reconciliation_required"
+                          ]
+                        },
+                        "source": {
+                          "enum": [
+                            "api",
+                            "generations",
+                            "unknown"
+                          ]
+                        },
+                        "session_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "uuid"
+                        },
+                        "turn_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "uuid"
+                        },
+                        "artifacts": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "enum": [
+                                  "video",
+                                  "last_frame"
+                                ]
+                              },
+                              "availability": {
+                                "enum": [
+                                  "available",
+                                  "deleted",
+                                  "expired",
+                                  "unavailable"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "availability"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "kind",
+                        "model",
+                        "model_display_name",
+                        "created_at",
+                        "updated_at",
+                        "state",
+                        "source",
+                        "session_id",
+                        "turn_id",
+                        "artifacts"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query, unsupported kind or inaccessible cursor"
+          },
+          "401": {
+            "description": "Session invalid or expired"
+          },
+          "403": {
+            "description": "Current workspace permission denied"
+          },
+          "404": {
+            "description": "Record missing or actor-inaccessible"
+          },
+          "409": {
+            "description": "Original Provider delivery binding is no longer current; metadata history remains readable."
+          },
+          "503": {
+            "description": "Saved read unavailable; never presented as empty inventory"
+          }
+        },
+        "x-niu-implementation": "implemented"
+      }
+    },
+    "/admin/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}": {
+      "get": {
+        "operationId": "generationsInventoryArtifact",
+        "summary": "Read an output availability record",
+        "description": "Current dashboard workspace Read authorizes saved history even when its inference key is revoked, expired, or its model grants changed. No active key secret is needed. Actor-private session/intent tasks belonging to another actor are excluded. API-created tasks without a private association are workspace-readable. No prompt, upstream URL, asset URI, credential or procurement field is returned. This GET never dispatches, refreshes, retries or settles inference. Task pages use immutable created_at/id DESC; artifacts use immutable output created_at/task_id/kind DESC. A cursor resolves in current authorized workspace independently of mutable state filters; malformed, missing or out-of-scope cursor is 400. Changing filters starts a new live view. No partial successful empty result: storage errors return 503. Artifact reference availability is retention evidence, not a guarantee the upstream bytes still exist. Content delivery performs only bounded result retrieval, rechecking dashboard access and retention after download. Content remains explicitly refused with 409 if its original Provider account/model binding is no longer current; historical read access never restores routing or credential authority. Existing key-scoped APIs and explicit refresh authorization remain unchanged. Chat stays in typed saved sessions; only Video execution inventory is supported.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "task",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "video",
+                "last_frame"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved projection; complete true means this supported Video inventory read completed, not all task kinds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "task_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "kind": {
+                          "enum": [
+                            "video",
+                            "last_frame"
+                          ]
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "content_type": {
+                          "type": "null"
+                        },
+                        "availability": {
+                          "enum": [
+                            "available",
+                            "deleted",
+                            "expired",
+                            "unavailable"
+                          ]
+                        },
+                        "session_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "uuid"
+                        },
+                        "turn_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "uuid"
+                        },
+                        "workspace_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      },
+                      "required": [
+                        "task_id",
+                        "kind",
+                        "name",
+                        "created_at",
+                        "content_type",
+                        "availability",
+                        "session_id",
+                        "turn_id",
+                        "workspace_id"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query, unsupported kind or inaccessible cursor"
+          },
+          "401": {
+            "description": "Session invalid or expired"
+          },
+          "403": {
+            "description": "Current workspace permission denied"
+          },
+          "404": {
+            "description": "Record missing or actor-inaccessible"
+          },
+          "409": {
+            "description": "Original Provider delivery binding is no longer current; metadata history remains readable."
+          },
+          "503": {
+            "description": "Saved read unavailable; never presented as empty inventory"
+          }
+        },
+        "x-niu-implementation": "implemented"
+      }
+    },
+    "/admin/v1/organizations/{organization}/projects/{project}/generations/artifacts/{task}/{kind}/content": {
+      "get": {
+        "operationId": "generationsInventoryContent",
+        "summary": "Download an authorized retained output",
+        "description": "Current dashboard workspace Read authorizes saved history even when its inference key is revoked, expired, or its model grants changed. No active key secret is needed. Actor-private session/intent tasks belonging to another actor are excluded. API-created tasks without a private association are workspace-readable. No prompt, upstream URL, asset URI, credential or procurement field is returned. This GET never dispatches, refreshes, retries or settles inference. Task pages use immutable created_at/id DESC; artifacts use immutable output created_at/task_id/kind DESC. A cursor resolves in current authorized workspace independently of mutable state filters; malformed, missing or out-of-scope cursor is 400. Changing filters starts a new live view. No partial successful empty result: storage errors return 503. Artifact reference availability is retention evidence, not a guarantee the upstream bytes still exist. Content delivery performs only bounded result retrieval, rechecking dashboard access and retention after download. Content remains explicitly refused with 409 if its original Provider account/model binding is no longer current; historical read access never restores routing or credential authority. Existing key-scoped APIs and explicit refresh authorization remain unchanged. Chat stays in typed saved sessions; only Video execution inventory is supported.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "task",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "video",
+                "last_frame"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saved projection; complete true means this supported Video inventory read completed, not all task kinds.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query, unsupported kind or inaccessible cursor"
+          },
+          "401": {
+            "description": "Session invalid or expired"
+          },
+          "403": {
+            "description": "Current workspace permission denied"
+          },
+          "404": {
+            "description": "Record missing or actor-inaccessible"
+          },
+          "409": {
+            "description": "Original Provider delivery binding is no longer current; metadata history remains readable."
+          },
+          "503": {
+            "description": "Saved read unavailable; never presented as empty inventory"
+          }
+        },
+        "x-niu-implementation": "implemented"
+      }
+    },
+    "/admin/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}": {
+      "put": {
+        "operationId": "generationsSessionCreate",
+        "summary": "Create a private video generations session",
+        "description": "Actor-private within one workspace: installation credentials share the installation actor; each operator has an isolated owner. Current workspace Read is required for reads and Write for mutations; API-key inference credentials alone do not authorize these administrator routes. Saved-state reads and all writes never dispatch, refresh or replay inference. New writes use video category only; legacy Chat writes remain unchanged, while category=chat reads use a compatible projection. Revisions and sequences are decimal strings. Instructions follow existing Chat/intents JSON storage (not application-encrypted at rest); content expires after 30 days and is hidden immediately, then cleared by retention maintenance. Task identity and history remain. Archive does not cancel tasks or remove outputs/billing. Client chooses stable UUID; expected_revision must be zero. Identical initial retry returns same session; changed title or an already advanced session conflicts.",
+        "x-niu-implementation": "implemented",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "session",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Create a private video generations session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/GenerationsVideoSession"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or cursor"
+          },
+          "401": {
+            "description": "Invalid administrator session or unauthorized historical task"
+          },
+          "403": {
+            "description": "Current workspace permission denied"
+          },
+          "404": {
+            "description": "Actor-owned session is absent"
+          },
+          "409": {
+            "description": "Stale revision, changed idempotent identity, archive or task association conflict"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "expected_revision": {
+                    "type": "string",
+                    "const": "0"
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 800
+                  }
+                },
+                "required": [
+                  "expected_revision",
+                  "title"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "generationsSessionGet",
+        "summary": "Read a private saved generations timeline",
+        "description": "Actor-private within one workspace: installation credentials share the installation actor; each operator has an isolated owner. Current workspace Read is required for reads and Write for mutations; API-key inference credentials alone do not authorize these administrator routes. Saved-state reads and all writes never dispatch, refresh or replay inference. Read categories are video (default) and chat; legacy Chat write APIs remain unchanged. Revisions and sequences are decimal strings. Video instructions follow existing Chat/intents JSON storage (not application-encrypted at rest); Video content expires after 30 days and is hidden immediately, then cleared by retention maintenance. Task identity and history remain. Archive does not cancel tasks or remove outputs/billing.  Set category=chat for a read-only bridge over the existing actor-private Chat record. The same route defaults to video; IDs are scoped independently by category. Chat metadata uses database clocks and current guarded-write revision. Missing Chat title is null, never replaced by an internal ID. Chat turns preserve comparison branches, not one running conversation task. Per-turn creation/expiry clocks are unknown and null; missing retained prompt yields missing state and null instruction. Turn references are read-only scoped identity/sequence/instruction digests and cannot be used with Video writes. Branch phase/output are exact saved conversation content; actual execution references require a current workspace attempt and matching model. Customer charges are hydrated from the existing ledger projection; no saved procurement fields are returned. Chat retention and writes stay under the legacy Chat contract; Video 30-day instruction retention does not apply to this bridge.",
+        "x-niu-implementation": "implemented",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "session",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "video",
+                "chat"
+              ],
+              "default": "video"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Read a private saved video timeline",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "oneOf": [
+                        {
+                          "$ref": "#/components/schemas/GenerationsVideoSession"
+                        },
+                        {
+                          "$ref": "#/components/schemas/GenerationsChatSession"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or cursor"
+          },
+          "401": {
+            "description": "Invalid administrator session or unauthorized historical task"
+          },
+          "403": {
+            "description": "Current workspace permission denied"
+          },
+          "404": {
+            "description": "Actor-owned session is absent"
+          },
+          "409": {
+            "description": "Stale revision, changed idempotent identity, archive or task association conflict"
+          },
+          "413": {
+            "description": "Saved Chat payload exceeds the bounded 32 MiB materialization budget."
+          }
+        }
+      },
+      "patch": {
+        "operationId": "generationsSessionUpdate",
+        "summary": "Rename or archive a private video session",
+        "description": "Actor-private within one workspace: installation credentials share the installation actor; each operator has an isolated owner. Current workspace Read is required for reads and Write for mutations; API-key inference credentials alone do not authorize these administrator routes. Saved-state reads and all writes never dispatch, refresh or replay inference. New writes use video category only; legacy Chat writes remain unchanged, while category=chat reads use a compatible projection. Revisions and sequences are decimal strings. Instructions follow existing Chat/intents JSON storage (not application-encrypted at rest); content expires after 30 days and is hidden immediately, then cleared by retention maintenance. Task identity and history remain. Archive does not cancel tasks or remove outputs/billing.",
+        "x-niu-implementation": "implemented",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "session",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rename or archive a private video session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/GenerationsVideoSession"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or cursor"
+          },
+          "401": {
+            "description": "Invalid administrator session or unauthorized historical task"
+          },
+          "403": {
+            "description": "Current workspace permission denied"
+          },
+          "404": {
+            "description": "Actor-owned session is absent"
+          },
+          "409": {
+            "description": "Stale revision, changed idempotent identity, archive or task association conflict"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "expected_revision": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "archived": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "expected_revision",
+                  "title",
+                  "archived"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/v1/organizations/{organization}/projects/{project}/generations-sessions": {
+      "get": {
+        "operationId": "generationsSessionList",
+        "summary": "List private generations sessions",
+        "description": "Actor-private within one workspace: installation credentials share the installation actor; each operator has an isolated owner. Current workspace Read is required for reads and Write for mutations; API-key inference credentials alone do not authorize these administrator routes. Saved-state reads and all writes never dispatch, refresh or replay inference. Read categories are video (default) and chat; legacy Chat write APIs remain unchanged. Revisions and sequences are decimal strings. Video instructions follow existing Chat/intents JSON storage (not application-encrypted at rest); Video content expires after 30 days and is hidden immediately, then cleared by retention maintenance. Task identity and history remain. Archive does not cancel tasks or remove outputs/billing. Stable descending creation time then UUID pagination; before refers to an actor-visible record independently of its current archive state; archiving a prior page cursor does not invalidate traversal. Invalid cursor returns 400, never an empty page. Limit 1..100; next_before is null when exhausted. Set category=chat for a read-only bridge over the existing actor-private Chat record. The same route defaults to video; IDs are scoped independently by category. Chat metadata uses database clocks and current guarded-write revision. Missing Chat title is null, never replaced by an internal ID. Chat turns preserve comparison branches, not one running conversation task. Per-turn creation/expiry clocks are unknown and null; missing retained prompt yields missing state and null instruction. Turn references are read-only scoped identity/sequence/instruction digests and cannot be used with Video writes. Branch phase/output are exact saved conversation content; actual execution references require a current workspace attempt and matching model. Customer charges are hydrated from the existing ledger projection; no saved procurement fields are returned. Chat retention and writes stay under the legacy Chat contract; Video 30-day instruction retention does not apply to this bridge.",
+        "x-niu-implementation": "implemented",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "archived",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "video",
+                "chat"
+              ],
+              "default": "video"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List private video generations sessions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "$ref": "#/components/schemas/GenerationsVideoSessionSummary"
+                          },
+                          {
+                            "$ref": "#/components/schemas/GenerationsChatSessionSummary"
+                          }
+                        ]
+                      }
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    },
+                    "next_before": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uuid"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "has_more",
+                    "next_before"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or cursor"
+          },
+          "401": {
+            "description": "Invalid administrator session or unauthorized historical task"
+          },
+          "403": {
+            "description": "Current workspace permission denied"
+          },
+          "404": {
+            "description": "Actor-owned session is absent"
+          },
+          "409": {
+            "description": "Stale revision, changed idempotent identity, archive or task association conflict"
+          }
+        }
+      }
+    },
+    "/admin/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}": {
+      "put": {
+        "operationId": "generationsSessionAppend",
+        "summary": "Append one retained video instruction",
+        "description": "Actor-private within one workspace: installation credentials share the installation actor; each operator has an isolated owner. Current workspace Read is required for reads and Write for mutations; API-key inference credentials alone do not authorize these administrator routes. Saved-state reads and all writes never dispatch, refresh or replay inference. New writes use video category only; legacy Chat writes remain unchanged, while category=chat reads use a compatible projection. Revisions and sequences are decimal strings. Instructions follow existing Chat/intents JSON storage (not application-encrypted at rest); content expires after 30 days and is hidden immediately, then cleared by retention maintenance. Task identity and history remain. Archive does not cancel tasks or remove outputs/billing. At most 100 turns per session and 60 KiB prompt. Changed instruction creates a new client-generated turn UUID. Identical UUID/instruction retry is idempotent even after a lost response or content expiry; a changed instruction conflicts. No client execution state, output URL or arbitrary input object is accepted.",
+        "x-niu-implementation": "implemented",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "session",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "turn",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Append one retained video instruction",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/GenerationsVideoSession"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or cursor"
+          },
+          "401": {
+            "description": "Invalid administrator session or unauthorized historical task"
+          },
+          "403": {
+            "description": "Current workspace permission denied"
+          },
+          "404": {
+            "description": "Actor-owned session is absent"
+          },
+          "409": {
+            "description": "Stale revision, changed idempotent identity, archive or task association conflict"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "expected_revision": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$"
+                  },
+                  "instruction": {
+                    "$ref": "#/components/schemas/GenerationsVideoInstruction"
+                  }
+                },
+                "required": [
+                  "expected_revision",
+                  "instruction"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "generationsSessionDeleteInstruction",
+        "summary": "Delete retained instruction content",
+        "description": "Actor-private within one workspace: installation credentials share the installation actor; each operator has an isolated owner. Current workspace Read is required for reads and Write for mutations; API-key inference credentials alone do not authorize these administrator routes. Saved-state reads and all writes never dispatch, refresh or replay inference. New writes use video category only; legacy Chat writes remain unchanged, while category=chat reads use a compatible projection. Revisions and sequences are decimal strings. Instructions follow existing Chat/intents JSON storage (not application-encrypted at rest); content expires after 30 days and is hidden immediately, then cleared by retention maintenance. Task identity and history remain. Archive does not cancel tasks or remove outputs/billing. Expected session revision is required; deletes only instruction content, retaining turn identity and immutable task association.",
+        "x-niu-implementation": "implemented",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "session",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "turn",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Delete retained instruction content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/GenerationsVideoSession"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or cursor"
+          },
+          "401": {
+            "description": "Invalid administrator session or unauthorized historical task"
+          },
+          "403": {
+            "description": "Current workspace permission denied"
+          },
+          "404": {
+            "description": "Actor-owned session is absent"
+          },
+          "409": {
+            "description": "Stale revision, changed idempotent identity, archive or task association conflict"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "expected_revision": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$"
+                  }
+                },
+                "required": [
+                  "expected_revision"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/v1/organizations/{organization}/projects/{project}/generations-sessions/{session}/turns/{turn}/task": {
+      "put": {
+        "operationId": "generationsSessionAttach",
+        "summary": "Attach an existing authorized video task",
+        "description": "Actor-private within one workspace: installation credentials share the installation actor; each operator has an isolated owner. Current workspace Read is required for reads and Write for mutations; API-key inference credentials alone do not authorize these administrator routes. Saved-state reads and all writes never dispatch, refresh or replay inference. New writes use video category only; legacy Chat writes remain unchanged, while category=chat reads use a compatible projection. Revisions and sequences are decimal strings. Instructions follow existing Chat/intents JSON storage (not application-encrypted at rest); content expires after 30 days and is hidden immediately, then cleared by retention maintenance. Task identity and history remain. Archive does not cancel tasks or remove outputs/billing. API-created dispatched video tasks with an original recovery route in the same workspace may be attached by a current workspace writer without an active key secret. An original actor-owned submission intent belonging to another actor is forbidden. One task belongs to one turn and one turn has one task. Existing association retries are idempotent; a different association conflicts. Current revision is required for fresh association. Revoked keys gain no dispatch or refresh authority.",
+        "x-niu-implementation": "implemented",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "session",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "turn",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Attach an existing authorized video task",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/GenerationsVideoSession"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or cursor"
+          },
+          "401": {
+            "description": "Invalid administrator session or unauthorized historical task"
+          },
+          "403": {
+            "description": "Current workspace permission denied"
+          },
+          "404": {
+            "description": "Actor-owned session is absent"
+          },
+          "409": {
+            "description": "Stale revision, changed idempotent identity, archive or task association conflict"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "expected_revision": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$"
+                  },
+                  "task_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "expected_revision",
+                  "task_id"
+                ]
               }
             }
           }
@@ -26288,6 +27910,603 @@
           "object",
           "model",
           "choices"
+        ]
+      },
+      "GenerationsVideoInstruction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "video"
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 61440
+          }
+        },
+        "required": [
+          "kind",
+          "prompt"
+        ]
+      },
+      "GenerationsVideoTaskReference": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "const": "video"
+          },
+          "model": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "submission_unknown",
+              "queued",
+              "running",
+              "succeeded",
+              "failed",
+              "unknown",
+              "reconciliation_required"
+            ]
+          },
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "task_id",
+                "kind",
+                "availability"
+              ],
+              "properties": {
+                "task_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "video",
+                    "last_frame"
+                  ]
+                },
+                "availability": {
+                  "type": "string",
+                  "enum": [
+                    "available",
+                    "expired",
+                    "deleted",
+                    "unavailable"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "model",
+          "status",
+          "artifacts"
+        ]
+      },
+      "GenerationsVideoTurn": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sequence": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "content_state": {
+            "type": "string",
+            "enum": [
+              "retained",
+              "deleted",
+              "expired"
+            ]
+          },
+          "instruction": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/GenerationsVideoInstruction"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "content_expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "task_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "task": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/GenerationsVideoTaskReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "sequence",
+          "created_at",
+          "content_state",
+          "instruction",
+          "content_expires_at",
+          "task_id",
+          "task"
+        ]
+      },
+      "GenerationsVideoSessionSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "category": {
+            "type": "string",
+            "const": "video"
+          },
+          "title": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "owner": {
+            "type": "string",
+            "description": "Internal authenticated actor reference; never a product display label."
+          }
+        },
+        "required": [
+          "id",
+          "workspace_id",
+          "category",
+          "title",
+          "revision",
+          "archived",
+          "created_at",
+          "updated_at",
+          "owner"
+        ]
+      },
+      "GenerationsVideoSession": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "category": {
+            "type": "string",
+            "const": "video"
+          },
+          "title": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "turns": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/GenerationsVideoTurn"
+            }
+          },
+          "owner": {
+            "type": "string",
+            "description": "Internal authenticated actor reference; never a product display label."
+          }
+        },
+        "required": [
+          "id",
+          "workspace_id",
+          "category",
+          "title",
+          "revision",
+          "archived",
+          "created_at",
+          "updated_at",
+          "turns",
+          "owner"
+        ]
+      },
+      "GenerationsChatInstruction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "chat"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "content": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "type",
+                "content"
+              ]
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "prompt"
+        ]
+      },
+      "GenerationsChatTaskReference": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "const": "chat"
+          },
+          "model": {
+            "type": "string"
+          },
+          "execution": {
+            "type": "string",
+            "enum": [
+              "not_sent",
+              "may_have_executed",
+              "confirmed_completed",
+              "confirmed_not_executed"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "model",
+          "execution"
+        ]
+      },
+      "GenerationsChatBranch": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "model": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "elapsedMs": {
+            "type": "number"
+          },
+          "phase": {
+            "type": "string",
+            "enum": [
+              "connecting",
+              "streaming",
+              "complete",
+              "failed",
+              "cancelled"
+            ],
+            "description": "Saved client comparison phase, never authoritative task state or upstream cancellation."
+          },
+          "promptTokens": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "completionTokens": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "totalTokens": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "customerChargeNanos": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "customerChargeCurrency": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "customerChargeStatus": {
+            "type": "string",
+            "enum": [
+              "charged",
+              "owner_funded",
+              "pending",
+              "unpriced",
+              "not_charged",
+              "unknown"
+            ]
+          },
+          "task": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/GenerationsChatTaskReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "task"
+        ]
+      },
+      "GenerationsChatTurn": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^chat-turn:[0-9a-f]{64}$",
+            "description": "Read-only derived reference from scoped session identity, sequence and retained instruction digest. Changing legacy instruction/order changes the reference; comparison output updates do not."
+          },
+          "kind": {
+            "type": "string",
+            "const": "chat"
+          },
+          "sequence": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "created_at": {
+            "type": "null"
+          },
+          "content_state": {
+            "type": "string",
+            "enum": [
+              "retained",
+              "missing"
+            ]
+          },
+          "instruction": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/GenerationsChatInstruction"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "content_expires_at": {
+            "type": "null"
+          },
+          "branches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GenerationsChatBranch"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "sequence",
+          "created_at",
+          "content_state",
+          "instruction",
+          "content_expires_at",
+          "branches"
+        ]
+      },
+      "GenerationsChatSessionSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "category": {
+            "type": "string",
+            "const": "chat"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "owner": {
+            "type": "string",
+            "description": "Internal authenticated actor reference; never a product display label."
+          }
+        },
+        "required": [
+          "id",
+          "workspace_id",
+          "category",
+          "title",
+          "revision",
+          "archived",
+          "created_at",
+          "updated_at",
+          "owner"
+        ]
+      },
+      "GenerationsChatSession": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "category": {
+            "type": "string",
+            "const": "chat"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "owner": {
+            "type": "string",
+            "description": "Internal authenticated actor reference; never a product display label."
+          },
+          "turns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GenerationsChatTurn"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "workspace_id",
+          "category",
+          "title",
+          "revision",
+          "archived",
+          "created_at",
+          "updated_at",
+          "owner",
+          "turns"
         ]
       },
       "VideoJobBilling": {

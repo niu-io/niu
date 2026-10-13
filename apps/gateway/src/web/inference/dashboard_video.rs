@@ -1,6 +1,9 @@
 //! Dashboard session bridge; reuse selected-key inference and saved evidence.
 use super::video;
-use crate::{error::ApiError, state::AppState};
+use crate::{
+    error::ApiError,
+    state::{AdminAuthorization, AppState},
+};
 use axum::{
     Json,
     extract::{Path, State},
@@ -31,6 +34,41 @@ async fn principal(
         )
         .await
 }
+async fn actor(
+    state: &AppState,
+    headers: &HeaderMap,
+    scope: TenantScope,
+    permission: AdminPermission,
+) -> Result<String, ApiError> {
+    let authorization = state.authorize_admin_headers(headers, permission).await?;
+    if !authorization.permits_project(scope) {
+        return Err(ApiError::forbidden());
+    }
+    Ok(match authorization {
+        AdminAuthorization::Installation => "installation".to_owned(),
+        AdminAuthorization::Operator(operator) => format!("operator:{}", operator.id),
+    })
+}
+/// A dashboard key is inference authority, not another actor's conversation visibility.
+async fn job_principal(
+    state: &AppState,
+    headers: &HeaderMap,
+    path: KeyPath,
+    permission: AdminPermission,
+    job: Uuid,
+) -> Result<Principal, ApiError> {
+    let principal = principal(state, headers, path, permission).await?;
+    let owner = actor(state, headers, principal.scope(), permission).await?;
+    if !state
+        .store
+        .dashboard_media_job_visible(principal.scope(), &owner, job)
+        .await
+        .map_err(ApiError::from_store)?
+    {
+        return Err(ApiError::not_found());
+    }
+    Ok(principal)
+}
 fn saved(value: Option<Value>) -> Result<Json<Value>, ApiError> {
     value.map(Json).ok_or_else(ApiError::not_found)
 }
@@ -45,11 +83,12 @@ pub(in crate::web) async fn history(
     >,
 ) -> Result<Json<Value>, ApiError> {
     let principal = principal(&state, &headers, path, AdminPermission::Read).await?;
+    let owner = actor(&state, &headers, principal.scope(), AdminPermission::Read).await?;
     let axum::extract::Query(query) = query
         .map_err(|_| ApiError::invalid_request("Invalid video history cursor or page size"))?;
     state
         .store
-        .media_jobs_for_key(&principal, query.before, query.limit.unwrap_or(25))
+        .dashboard_media_jobs_for_key(&principal, &owner, query.before, query.limit.unwrap_or(25))
         .await
         .map(Json)
         .map_err(ApiError::from_store)
@@ -82,11 +121,12 @@ pub(in crate::web) async fn status(
     Path((organization, workspace, key, job)): Path<JobPath>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
-    let principal = principal(
+    let principal = job_principal(
         &state,
         &headers,
         (organization, workspace, key),
         AdminPermission::Read,
+        job,
     )
     .await?;
     saved(
@@ -105,7 +145,7 @@ pub(in crate::web) async fn status(
 ///   "operation": {
 ///     "operationId": "retrieveDashboardVideoBilling",
 ///     "summary": "Read saved customer video billing through a workspace session",
-///     "description": "Workspace session and current selected-key/model authorization required; no API key secret is needed. Performs no upstream query or settlement. Exact amounts are decimal nanounit strings. Only a posted customer debit is a charge; unresolved liability remains explicit. Owner-funded jobs have no Niu customer price or charge. Procurement terms and internal price revision identifiers are excluded.",
+///     "description": "Workspace session, actor-private task visibility and current selected-key/model authorization required; no API key secret is needed. Performs no upstream query or settlement. Exact amounts are decimal nanounit strings. Only a posted customer debit is a charge; unresolved liability remains explicit. Owner-funded jobs have no Niu customer price or charge. Procurement terms and internal price revision identifiers are excluded.",
 ///     "x-niu-implementation": "implemented",
 ///     "security": [
 ///       {
@@ -179,11 +219,12 @@ pub(in crate::web) async fn billing(
     Path((organization, workspace, key, job)): Path<JobPath>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
-    let principal = principal(
+    let principal = job_principal(
         &state,
         &headers,
         (organization, workspace, key),
         AdminPermission::Read,
+        job,
     )
     .await?;
     saved(
@@ -200,11 +241,12 @@ pub(in crate::web) async fn timings(
     Path((organization, workspace, key, job)): Path<JobPath>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
-    let principal = principal(
+    let principal = job_principal(
         &state,
         &headers,
         (organization, workspace, key),
         AdminPermission::Read,
+        job,
     )
     .await?;
     saved(
@@ -222,11 +264,12 @@ pub(in crate::web) async fn refresh(
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
     let _in_flight = state.track_inference();
-    let principal = principal(
+    let principal = job_principal(
         &state,
         &headers,
         (organization, workspace, key),
         AdminPermission::Write,
+        job,
     )
     .await?;
     video::refresh_for_principal(&state, &principal, job)
@@ -248,25 +291,37 @@ pub(in crate::web) async fn result(
     Path((organization, workspace, key, job, kind)): Path<(Uuid, Uuid, Uuid, Uuid, String)>,
     headers: HeaderMap,
 ) -> Result<axum::response::Response, ApiError> {
-    let principal = principal(
+    let principal = job_principal(
         &state,
         &headers,
         (organization, workspace, key),
         AdminPermission::Read,
+        job,
     )
     .await?;
-    super::video_results::retrieve_as(&state, &principal, job, &kind).await
+    let response = super::video_results::retrieve_as(&state, &principal, job, &kind).await?;
+    // Account access and actor ownership may change during a bounded download.
+    job_principal(
+        &state,
+        &headers,
+        (organization, workspace, key),
+        AdminPermission::Read,
+        job,
+    )
+    .await?;
+    Ok(response)
 }
 pub(in crate::web) async fn delete_results(
     State(state): State<AppState>,
     Path((organization, workspace, key, job)): Path<JobPath>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
-    let principal = principal(
+    let principal = job_principal(
         &state,
         &headers,
         (organization, workspace, key),
         AdminPermission::Write,
+        job,
     )
     .await?;
     super::video_results::delete_as(&state, &principal, job).await
@@ -277,11 +332,12 @@ pub(in crate::web) async fn results_status(
     Path((organization, workspace, key, job)): Path<JobPath>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
-    let principal = principal(
+    let principal = job_principal(
         &state,
         &headers,
         (organization, workspace, key),
         AdminPermission::Read,
+        job,
     )
     .await?;
     super::video_results::availability_as(&state, &principal, job).await
@@ -293,7 +349,7 @@ pub(in crate::web) async fn results_status(
 ///   "method": "get",
 ///   "operation": {
 ///     "summary": "Read saved video query observations",
-///     "description": "Workspace read access through the selected key; no key secret is returned. Reads immutable, content-free saved query receipts in descending observation-time/receipt order. Reported quantity is not a customer charge or settled usage. Missing/invalid quantities remain explicit; provider timestamps are epoch seconds, not measured transport spans. Does not poll upstream, submit work, reserve funds or mutate financial state. No upstream identity, URL, credential, raw error, cost, procurement price or protocol configuration is returned. Cursor and receipt page share a bounded read-only snapshot (250 ms lock / 2 s statement limits); authorization and whole-request deadlines are separate. Separate pages are live views. Cache-Control no-store.",
+///     "description": "Workspace read access through the selected key and actor-private task visibility; no key secret is returned. Reads immutable, content-free saved query receipts in descending observation-time/receipt order. Reported quantity is not a customer charge or settled usage. Missing/invalid quantities remain explicit; provider timestamps are epoch seconds, not measured transport spans. Does not poll upstream, submit work, reserve funds or mutate financial state. No upstream identity, URL, credential, raw error, cost, procurement price or protocol configuration is returned. Cursor and receipt page share a bounded read-only snapshot (250 ms lock / 2 s statement limits); authorization and whole-request deadlines are separate. Separate pages are live views. Cache-Control no-store.",
 ///     "security": [
 ///       {
 ///         "bearerAuth": []
@@ -399,11 +455,12 @@ pub(in crate::web) async fn observations(
         axum::extract::rejection::QueryRejection,
     >,
 ) -> Result<([(String, String); 1], Json<Value>), ApiError> {
-    let principal = principal(
+    let principal = job_principal(
         &state,
         &headers,
         (organization, workspace, key),
         AdminPermission::Read,
+        job,
     )
     .await?;
     let query = super::video_observations::ObservationQuery::parse(query)?;
