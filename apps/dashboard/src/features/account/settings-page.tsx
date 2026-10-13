@@ -32,7 +32,7 @@ function SettingsContent({context, section}: {context: DashboardContext; section
   return <div className={`settings-page w-full min-w-0 space-y-8${section === 'payments' ? ' settings-payments-page' : ''}`}>
     {personal ? <div hidden={section !== 'account'}>
       <AccountProfile key={'profile-' + identity} token={context.token} initialProfile={profile} onSaved={value => {setProfileState({identity,value});context.updateProfile?.(value);}}/>
-      <PasswordSettings key={'password-' + identity} token={context.token} onChanged={async () => { await context.signOut(); navigate('/login', {replace:true,state:{passwordChanged:true}}); }}/>
+      <PasswordSettings key={'password-' + identity} token={context.token} hasPassword={Boolean(profile?.email)} onChanged={async () => { await context.signOut(); navigate('/login', {replace:true,state:{passwordChanged:true}}); }}/>
     </div> : null}
     {section === 'about' && <section aria-label="About Niu" className="space-y-8">
       <header className="flex items-center gap-4">

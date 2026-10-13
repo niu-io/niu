@@ -73,6 +73,7 @@ These are source findings awaiting current-input reproduction, not integrated ac
 | C15 | P2 | P35 | Text statement details omit saved reasoning, cache-write and selected context-tier fields provided by the backend/SDK | Source candidate only; retained nonempty statement qualified with null category/tier fields, so positive category omission remains unverified |
 | C16 | P2 | P30 | Appearance save response loss is reported as restored even after backend commit | Fixed; actual own-member HTTP 200 response loss freezes both appearance controls until GET-only authoritative reload, with original Owner inheritance preserved |
 | C17 | P1 | P10, P35 | Workspace limit response loss allows another save after the original update committed | Fixed; actual HTTP 200 response loss freezes editing until a validated GET, including a failed recovery read and GET-only retry at desktop/390px; exact saved revision independently qualified |
+| C18 | P2 | P30 | Token-only members see a password-change action despite having no current password credential | Fixed; actual token-only member and independent absent-credential state qualified, with truthful unavailable copy at desktop/390px; self-service password-change verification remains open |
 
 ## Delivery order
 
@@ -376,6 +377,12 @@ A real successful PUT response was then lost after commit. Independent API and P
 The constrained Stitch review supported the recovery wording and states in the existing Spending layout. The public OpenRouter keys page redirected to sign-in, so its authenticated limit editor was not inspected or claimed as a reproduced reference. This functional fix reuses Niu's established editor and Reload pattern without a visual redesign.
 
 This qualifies the exercised save, persistence and recovery paths. It does not establish model-request enforcement, remaining conflict cases or all role boundaries. Workspace Settings retains its existing name/delete actions; monetary limits belong to Billing. Original records remained unchanged and no inference or financial transaction was created.
+
+### Password sign-in eligibility
+
+A newly issued token-only member could open Change password even though the current self-profile returned null email and independent PostgreSQL confirmed no password credential. The action requires proof of an existing current password, so it cannot initialize credentials. Password Settings now follows the authenticated profile's existing credential availability in addition to the deployment password-login capability. Desktop and 390px checks confirmed the truthful unavailable explanation and absence of the unsupported action in the established Settings layout. A constrained Stitch review introduced no new layout or setup flow.
+
+Only this verification member subsequently received a credential through the existing authorized provisioning API. Independent reads confirmed its first credential revision, revocation of its token-only session and a new normal password-login session; original Owner credentials and profile were unchanged. This qualifies credential eligibility, not all self-service password-change or profile-recovery branches. TypeScript and the production build completed as static checks.
 
 ### Low-balance warning with approved credit
 

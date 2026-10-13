@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
-export default function PasswordSettings({ token, onChanged }: {token: string; onChanged: () => Promise<void>}) {
+export default function PasswordSettings({ token, hasPassword, onChanged }: {token: string; hasPassword: boolean; onChanged: () => Promise<void>}) {
   const saveController = useRef<AbortController | null>(null);
   useEffect(() => () => saveController.current?.abort(), [token]);
   const [enabled, setEnabled] = useState(false);
@@ -37,6 +37,7 @@ export default function PasswordSettings({ token, onChanged }: {token: string; o
   if (capabilityError) return <div className="mt-6 grid justify-items-start gap-2"><p role="alert" className="text-sm text-destructive">Could not load password settings.</p><Button variant="secondary" onClick={() => setCapabilityRevision(value => value + 1)}>Retry password settings</Button></div>;
   if (!loaded) return <p role="status" className="mt-6 text-sm text-muted-foreground">Loading password settings…</p>;
   if (!enabled) return null;
+  if (!hasPassword) return <p className="mt-6 text-sm text-muted-foreground">Password sign-in is not configured for this account.</p>;
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (saving) return;
     setError('');
