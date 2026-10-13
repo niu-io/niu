@@ -22,10 +22,11 @@ No OpenAPI security scheme is required. Other request validation still applies.
 
 ## HTTP request
 
-Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
+Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path and required-header placeholders with the values required by this operation. Use the credential scope described above.
 
 ```sh
 curl --fail-with-body -X POST "$NIU_ORIGIN/payments/stripe/notify" \
+  -H 'stripe-signature: <STRIPE_SIGNATURE>' \
   -H 'Content-Type: application/json' \
   --data @request.json
 ```

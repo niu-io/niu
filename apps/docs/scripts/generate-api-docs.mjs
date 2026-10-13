@@ -94,11 +94,27 @@ for (const [route,item] of Object.entries(spec.paths)) for (const [method,operat
   const body = operation.requestBody?.$ref ? pointer(spec, operation.requestBody.$ref.slice(1)) : operation.requestBody;
   const mediaType = Object.keys(body?.content || {})[0];
   const authName = route.startsWith('/admin/') ? 'NIU_ADMIN_TOKEN' : 'NIU_API_KEY';
+  const parameters = new Map();
+  for (const raw of [...(item.parameters || []), ...(operation.parameters || [])]) {
+    const parameter = raw.$ref ? pointer(spec, raw.$ref.slice(1)) : raw;
+    const name = parameter.in === 'header' ? parameter.name.toLowerCase() : parameter.name;
+    parameters.set(parameter.in + ':' + name, parameter);
+  }
+  const params = [...(item.parameters || []), ...(operation.parameters || [])].map(p => p.$ref ? pointer(spec, p.$ref.slice(1)) : p);
   const command = ['curl --fail-with-body -X '+method.toUpperCase()+' \"$NIU_ORIGIN'+route+'\"'];
   if (security.length) command.push('  -H \"Authorization: Bearer $'+authName+'\"');
+  const requiredHeaders = [...parameters.values()].filter(p => p.in === 'header' && p.required);
+  for (const parameter of requiredHeaders) {
+    const name = parameter.name.toLowerCase();
+    if ((name === 'authorization' && security.length) || (name === 'content-type' && mediaType)) continue;
+    if (!/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(parameter.name)) throw new Error('Invalid header parameter name');
+    // Never embed schema examples: required headers may carry credentials or private origins.
+    const placeholder = parameter.name.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+    const header = parameter.name + ': <' + placeholder + '>';
+    command.push("  -H '" + header.replaceAll("'", "'\"'\"'") + "'");
+  }
   if (mediaType) command.push("  -H 'Content-Type: "+mediaType+"'", mediaType === 'application/json' ? '  --data @request.json' : '  --data-binary @request-body');
-  lines.push('## HTTP request', '', 'Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.', '', ...block('sh', command.join(' \\\n')));
-  const params = [...(item.parameters || []),...(operation.parameters || [])].map(p=>p.$ref ? pointer(spec,p.$ref.slice(1)) : p);
+  lines.push('## HTTP request', '', 'Set `NIU_ORIGIN` to your installation origin (without `/v1`). ' + (requiredHeaders.length ? 'Replace path and required-header placeholders with the values required by this operation.' : 'Replace path placeholders with the references required by this operation.') + ' Use the credential scope described above.', '', ...block('sh', command.join(' \\\n')));
   lines.push('## Parameters', '');
   if (!params.length) lines.push('No path, query, or header parameters are declared.', '');
   for (const p of params) lines.push(`### ${p.name}`, '', `Location: **${p.in}**. ${p.required ? '**Required.**' : 'Optional.'} ${p.description || ''}`, '', ...block('json', JSON.stringify(resolveSchema(p.schema || {}),null,2)));

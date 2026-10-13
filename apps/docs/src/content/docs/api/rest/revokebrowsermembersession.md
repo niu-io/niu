@@ -26,11 +26,12 @@ Use the credential and permission scope described above. Each object below is an
 
 ## HTTP request
 
-Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path placeholders with the references required by this operation. Use the credential scope described above.
+Set `NIU_ORIGIN` to your installation origin (without `/v1`). Replace path and required-header placeholders with the values required by this operation. Use the credential scope described above.
 
 ```sh
 curl --fail-with-body -X POST "$NIU_ORIGIN/admin/v1/auth/browser/logout" \
-  -H "Authorization: Bearer $NIU_ADMIN_TOKEN"
+  -H "Authorization: Bearer $NIU_ADMIN_TOKEN" \
+  -H 'Origin: <ORIGIN>'
 ```
 
 ## Parameters
