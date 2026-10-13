@@ -29,6 +29,14 @@ Dashboard and gateway static checks were executed at the checkpoint. Fixture out
 - Priority 4 genuine existing FastRouter Seedance recovery is verified in an isolated copy: saved-channel query HTTP 200/succeeded, fresh video HTTP 200, independent full decode, unchanged generation-submission and financial records. Changing the live model mapping through the management API did not change saved context or reroute the original query. OpenRouter evidence remains separate.
 - Priority 3 frontend consumption and Priority 5 durable capture/promotion and multi-browser acceptance remain open. A result URL is not retained storage.
 
+## Frontend integration for the delivered SDK
+
+- Video passes both its selected workspace key and exact model to `admin.dashboardMedia(scope, keyId).capabilities(model, { signal })`. An empty native-module result does not authorize fallback to another model/account. Hide native tools when the selected model has no supported module.
+- The standalone workspace module may collect authorized contexts across active workspace keys, but must show an explicit choice rather than select the first successful group read. Display saved key names plus the server `context_label`; keep key/context identities internal. A failed discovery must remain an explicit failure or incomplete discovery, not an empty successful list.
+- Once chosen, reuse that client's `groups`, `assets` and `verification` operations with the returned exact `model_alias`. Preserve mutation idempotency identities. Use `materials.kinds`, `human_verification` and `reference_inputs`; do not infer support from an alias or a UI family label.
+- Shared saved history uses `admin.generations(scope).tasks.retrieve` and `artifacts.content`. Explicit task actions use `tasks.refresh` and `tasks.refreshResult`; key-scoped fresh compatibility uses `refreshDashboardVideoResult`. No recovery call accepts composer model/Provider overrides.
+- Abort and discard stale results when token/workspace/key/model context changes. Preserve the originating draft when the module closes. Frontend implementation and browser acceptance remain separate from the verified backend/SDK increment.
+
 ## Contracts to preserve
 
 - The backend already pins dispatch identity in `media_recovery_routes`. Use it for recovery; clients must not choose a replacement Provider/model when reading an existing task.
