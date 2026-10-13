@@ -15,7 +15,6 @@ function GenerationsSidebar({ content, toggle }: { content: Content | null; togg
   const { isMobile, setOpenMobile } = useSidebar();
   const workspace = content?.history.context.workspace?.id;
   const workspaceQuery = workspace ? `&workspace=${encodeURIComponent(workspace)}` : '';
-  const [searchTarget, setSearchTarget] = useState<HTMLDivElement | null>(null);
   const [listTarget, setListTarget] = useState<HTMLDivElement | null>(null);
   const scrollNode = useRef<HTMLDivElement | null>(null);
   const scrollTop = useRef(0);
@@ -28,7 +27,7 @@ function GenerationsSidebar({ content, toggle }: { content: Content | null; togg
   return <><Sidebar id="generation-history" className="niu-workspace-sidebar playground-history generations-history" mobileClassName="niu-workspace-sidebar-mobile generations-history"
     mobileStyle={{ left: 'var(--rail)', top: 0, bottom: 0, height: '100dvh', width: 'min(var(--context), calc(100vw - var(--rail)))' }}
     mobileContentProps={{ onCloseAutoFocus: event => { const trigger = toggle.current; if (trigger?.isConnected) { event.preventDefault(); trigger.focus(); } }, onInteractOutside: event => { const target = event.detail.originalEvent.target; if (target instanceof Element && target.closest('.app-rail, .account-menu, [data-slot="dropdown-menu-sub-content"], [data-slot="popover-content"], [data-slot="dropdown-menu-content"], [data-slot="dialog-content"]')) event.preventDefault(); } }} aria-label="Generation history">
-    <SidebarHeader className="sidebar-heading generations-history-heading"><h2 className="sidebar-heading-row">Generations</h2><div ref={setSearchTarget} /></SidebarHeader>
+    <SidebarHeader className="sidebar-heading generations-history-heading"><h2 className="sidebar-heading-row">Generations</h2></SidebarHeader>
     <SidebarContent className="playground-history-list" aria-label="Saved sessions">
       <div className="playground-history-controls"><Button variant="outline" className="generations-new-generation" disabled={content?.history.disabled} onClick={() => { content?.onNewSession?.(); navigate(`/generations?new=1${workspaceQuery}`); if(isMobile)setOpenMobile(false); }}><IconPlus size={16} />New generation</Button></div>
       {content?.notice}
@@ -37,7 +36,7 @@ function GenerationsSidebar({ content, toggle }: { content: Content | null; togg
     </SidebarContent>
     <SidebarFooter><Button variant="ghost" className="justify-start" onClick={event => { if(content?.onArchive)content.onArchive(event); else navigate(`/generations?archived=1${workspaceQuery}`); if(isMobile)setOpenMobile(false); }}><IconArchive size={15} />Archived chats</Button></SidebarFooter>
   </Sidebar>
-    {content && <SessionHistory {...content.history} searchTarget={searchTarget} listTarget={listTarget} key={JSON.stringify([content.history.context.token, content.history.context.workspace?.id])} />}
+    {content && <SessionHistory {...content.history} listTarget={listTarget} key={JSON.stringify([content.history.context.token, content.history.context.workspace?.id])} />}
   </>;
 }
 
