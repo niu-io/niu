@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import type { CustomerInvoiceLine, CustomerInvoiceMediaLine } from '../../../../../sdks/javascript/src/admin';
+import { Fragment, useEffect, useRef, useState } from 'react';
+import type { CustomerTariff, CustomerInvoiceLine, CustomerInvoiceMediaLine } from '../../../../../sdks/javascript/src/admin';
 import { useSearchParams } from 'react-router';
 import { IconReceipt, IconCurrencyDollar } from '@tabler/icons-react';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
@@ -15,7 +15,9 @@ import { money } from '@/lib/money';
 import { request } from '@/features/vendors/api';
 import WorkspaceSpendingLimits from './WorkspaceSpendingLimits';
 
-type Tariff = { model_alias: string; revision: string; currency: string; prompt_rate: string; cached_prompt_rate?: string | null; completion_rate: string; request_fee_nanos?: string; minimum_charge_nanos?: string };
+type Tariff = CustomerTariff;
+// An absent category rate is neither a zero price nor an inherited tier rate.
+const categoryRate = (rate: string | null | undefined, currency: string) => rate === undefined ? 'Unknown' : rate === null ? 'Not configured' : money(rate, currency);
 type Invoice = { id: string; from_ms: number; to_ms: number; currency: string; amount_nanos: string; status: string };
 type InvoicePage = { data: Invoice[]; next_cursor: string | null };
 function checkedInvoices(page: InvoicePage) {
@@ -176,8 +178,31 @@ function BillingView({ token, organization, project, canConfigure }: { token: st
       <TabsContent value="rates">
         <section className="panel billing-rates">
           <div className="provider-panel-heading"><h2>Model rates</h2>{data.tariffs.length > 0 && <p className="provider-intro billing-description">Token rates per million · fees per request</p>}</div>
-          {data.tariffs.length ? <div className="table-wrap"><Table className="provider-ledger"><TableHeader><TableRow><TableHead>Model</TableHead><TableHead>Input</TableHead><TableHead>Cache read</TableHead><TableHead>Output</TableHead><TableHead>Fixed fee / request</TableHead><TableHead>Minimum / request</TableHead></TableRow></TableHeader>
-            <TableBody>{data.tariffs.map(tariff => <TableRow key={tariff.model_alias}><TableCell>{tariff.model_alias}</TableCell><TableCell>{money(tariff.prompt_rate, tariff.currency)}</TableCell><TableCell>{tariff.cached_prompt_rate != null ? money(tariff.cached_prompt_rate, tariff.currency) : "Input rate"}</TableCell><TableCell>{money(tariff.completion_rate, tariff.currency)}</TableCell><TableCell>{tariff.request_fee_nanos != null ? money(tariff.request_fee_nanos, tariff.currency) : "Unknown"}</TableCell><TableCell>{tariff.minimum_charge_nanos != null ? money(tariff.minimum_charge_nanos, tariff.currency) : "Unknown"}</TableCell></TableRow>)}</TableBody>
+          {data.tariffs.length > 0 && <p className="mb-4 px-6 text-sm text-muted-foreground">Context tiers price the whole request. The highest matching input-token threshold applies, including the threshold itself. Not configured means no separate category rate is saved.</p>}
+          {data.tariffs.length ? <div className="table-wrap"><Table className="provider-ledger" aria-label="Customer model rates" style={{minWidth:"70rem",tableLayout:"auto"}}>
+            <TableHeader><TableRow><TableHead style={{width:"18rem"}}>Model</TableHead><TableHead>Input</TableHead><TableHead>Cache read</TableHead><TableHead>Cache write</TableHead><TableHead>Output</TableHead><TableHead>Reasoning</TableHead><TableHead>Fixed fee / request</TableHead><TableHead>Minimum / request</TableHead></TableRow></TableHeader>
+            <TableBody>{data.tariffs.map(tariff => <Fragment key={tariff.model_alias}>
+              <TableRow>
+                <TableCell>{tariff.model_alias}{Boolean(tariff.context_tiers?.length) && <p className="mt-1 text-xs text-muted-foreground">Base rate</p>}{tariff.context_tiers === undefined && <p className="mt-1 text-xs text-muted-foreground">Context tiers unavailable</p>}</TableCell>
+                <TableCell>{money(tariff.prompt_rate, tariff.currency)}</TableCell>
+                <TableCell>{categoryRate(tariff.cached_prompt_rate, tariff.currency)}</TableCell>
+                <TableCell>{categoryRate(tariff.cache_write_prompt_rate, tariff.currency)}</TableCell>
+                <TableCell>{money(tariff.completion_rate, tariff.currency)}</TableCell>
+                <TableCell>{categoryRate(tariff.reasoning_completion_rate, tariff.currency)}</TableCell>
+                <TableCell>{tariff.request_fee_nanos != null ? money(tariff.request_fee_nanos, tariff.currency) : 'Unknown'}</TableCell>
+                <TableCell>{tariff.minimum_charge_nanos != null ? money(tariff.minimum_charge_nanos, tariff.currency) : 'Unknown'}</TableCell>
+              </TableRow>
+              {tariff.context_tiers?.map(tier => <TableRow key={tier.minimum_input_tokens}>
+                <TableCell>{tariff.model_alias}<p className="mt-1 text-xs text-muted-foreground">From {BigInt(tier.minimum_input_tokens).toLocaleString()} input tokens (inclusive)</p></TableCell>
+                <TableCell>{money(tier.prompt_rate, tariff.currency)}</TableCell>
+                <TableCell>{categoryRate(tier.cached_prompt_rate, tariff.currency)}</TableCell>
+                <TableCell>{categoryRate(tier.cache_write_prompt_rate, tariff.currency)}</TableCell>
+                <TableCell>{money(tier.completion_rate, tariff.currency)}</TableCell>
+                <TableCell>{categoryRate(tier.reasoning_completion_rate, tariff.currency)}</TableCell>
+                <TableCell>{tariff.request_fee_nanos != null ? money(tariff.request_fee_nanos, tariff.currency) : 'Unknown'}</TableCell>
+                <TableCell>{tariff.minimum_charge_nanos != null ? money(tariff.minimum_charge_nanos, tariff.currency) : 'Unknown'}</TableCell>
+              </TableRow>)}
+            </Fragment>)}</TableBody>
           </Table></div> : <Empty className="billing-empty"><EmptyHeader><EmptyMedia variant="icon"><IconCurrencyDollar aria-hidden="true"/></EmptyMedia><EmptyTitle>No rates published</EmptyTitle><EmptyDescription>Published customer prices appear here.</EmptyDescription></EmptyHeader></Empty>}
         </section>
       </TabsContent>
