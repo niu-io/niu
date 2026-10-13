@@ -1,3 +1,4 @@
+import { NiuAPIError } from '../../../../../sdks/javascript/src/index';
 export class ResultReadError extends Error {constructor(message:string,readonly status?:number){super(message);}}
 const resultFailures: Record<string,{status:number;message:string}> = {
   media_result_gone:{status:502,message:'The Supplier download endpoint reports that this video is no longer available.'},
@@ -28,6 +29,10 @@ async function failureMessage(response:Response,signal:AbortSignal):Promise<stri
 }
 export async function fetchVideoResult(token:string,path:string,kind:'video'|'last_frame',signal:AbortSignal,fresh=false):Promise<Blob> {
   const response=await fetch(`${path}/${kind}${fresh?'/refresh':''}`,{method:fresh?'POST':'GET',headers:{authorization:`Bearer ${token}`,accept:kind === 'video' ? 'video/mp4,video/webm':'image/png,image/jpeg'},signal,redirect:'error'});
+  return readVideoResultResponse(response,kind,signal);
+}
+/** Keep SDK binary delivery under the same type, size and abort bounds. */
+export async function readVideoResultResponse(response:Response,kind:'video'|'last_frame',signal:AbortSignal):Promise<Blob> {
   if(!response.ok) {
     if(response.status === 404){await response.body?.cancel();throw new ResultReadError('No downloadable result was returned.',404);}
     if(response.status === 401 || response.status === 403){await response.body?.cancel();throw new ResultReadError('You no longer have access to this result.',response.status);}
@@ -48,4 +53,17 @@ export async function fetchVideoResult(token:string,path:string,kind:'video'|'la
     if(!size)throw new ResultReadError('The result body is empty.');
     return new Blob(chunks,{type});
   } catch(error) {await reader.cancel().catch(()=>{});throw error;} finally {reader.releaseLock();}
+}
+
+/** SDK HTTP failures keep the existing safe, actionable result diagnostics. */
+export function videoResultError(error:unknown):ResultReadError {
+  if(error instanceof ResultReadError)return error;
+  if(error instanceof NiuAPIError){
+    if(error.status===404)return new ResultReadError('No downloadable result was returned.',404);
+    if(error.status===401||error.status===403)return new ResultReadError('You no longer have access to this result.',error.status);
+    const type=(error.responseBody as {error?:{type?:unknown}})?.error?.type;
+    const known=typeof type==='string'&&Object.hasOwn(resultFailures,type)?resultFailures[type]:undefined;
+    return new ResultReadError(known?.status===error.status?known.message:'This result could not be safely retrieved.',error.status);
+  }
+  return new ResultReadError('The result could not be loaded.');
 }

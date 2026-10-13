@@ -469,6 +469,27 @@ export type ChatDraftPayload = {
   attachments: Array<{ name: string; type: 'image' | 'text'; content: string }>;
   settings: { systemPrompt: string; maxTokens: number; temperature: number; logPayloads: boolean };
 };
+/** Mutable actor-private composition only. Partial controls are saved verbatim;
+ * current model/key eligibility and media inspection remain explicit-submit work.
+ * Raw URLs, inline media and short-lived ingestion references are not supported. */
+export type VideoComposerDraftPayload = {
+  keyId: string | null;
+  sessionId: string | null;
+  model: string | null;
+  prompt: string;
+  controls: Partial<{
+    duration: string | number; seed: string | number; frames_per_second: string | number;
+    resolution: string; ratio: string; omni_reference_task_type: string;
+    watermark: boolean; camera_fixed: boolean; return_last_frame: boolean;
+  }>;
+  references: Array<Extract<VideoIntentRequest['content'][number], {type:'provider_asset'|'workspace_asset'}>>;
+};
+export type VideoComposerDraftState = {data:{
+  payload: VideoComposerDraftPayload | null;
+  revision: number;
+  expires_at_ms: string | null;
+  content_state: 'empty' | 'retained' | 'expired';
+}};
 export type ChatDraftState = { data: { payload: ChatDraftPayload | null; revision: number } };
 export type ChatSessionPage = { data: ChatSession[]; next_cursor: string | null };
 export type ChatSessionPageQuery = { archived?: boolean; limit?: number; after?: string };
@@ -2032,6 +2053,18 @@ export class NiuAdminClient {
 
   private guardrailsPath(scope: TenantScope): string {
     return `/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/guardrails`;
+  }
+
+  /** Read the actor's mutable Video composer; unavailable saved keys confer no action grant. */
+  getVideoComposerDraft(scope: TenantScope, options?: RequestOptions): Promise<VideoComposerDraftState> {
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/video-draft`, undefined, options);
+  }
+
+  /** Revision-checked partial save or null clear, with a 30-day inactivity TTL.
+   * Never estimates, inspects, reserves funds or submits inference. */
+  saveVideoComposerDraft(scope: TenantScope, payload: VideoComposerDraftPayload | null, expectedRevision: number, options?: RequestOptions): Promise<VideoComposerDraftState> {
+    if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0 || expectedRevision >= Number.MAX_SAFE_INTEGER - 1) throw new TypeError('Invalid Video composer draft revision');
+    return this.request(`/organizations/${uuid(scope.organizationId)}/projects/${uuid(scope.projectId)}/video-draft`, {expected_revision: expectedRevision, payload}, options, 'PUT');
   }
 
   /** Load the saved workspace draft; browser storage is only a disposable cache. */

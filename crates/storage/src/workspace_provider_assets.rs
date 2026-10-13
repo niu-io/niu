@@ -453,6 +453,82 @@ impl Store {
         tx.commit().await?;
         Ok(v)
     }
+    /// Saved operations only: absence is not proof that a request was not sent.
+    pub async fn workspace_provider_asset_operation_by_idempotency(
+        &self,
+        p: &Principal,
+        idempotency: Uuid,
+    ) -> Result<Option<WorkspaceProviderAssetOperation>, StoreError> {
+        if idempotency.is_nil() {
+            return Err(StoreError::InvalidObservation);
+        }
+        let mut tx = self.begin_bounded_read_snapshot().await?;
+        let scope = p.scope();
+        let sql = format!(
+            "SELECT {OP_COLUMNS} FROM workspace_provider_asset_operations o JOIN workspace_provider_asset_groups g ON g.id=o.group_id WHERE o.organization_id=$1 AND o.project_id=$2 AND o.idempotency_key=$3"
+        );
+        let data: Option<WorkspaceProviderAssetOperation> = sqlx::query_as(&sql)
+            .bind(scope.organization_id)
+            .bind(scope.project_id)
+            .bind(idempotency)
+            .fetch_optional(&mut *tx)
+            .await?;
+        if let Some(value) = &data {
+            Self::provider_asset_key_using(&mut tx, p, &value.model, false).await?;
+        }
+        tx.commit().await?;
+        Ok(data)
+    }
+
+    pub async fn workspace_provider_asset_operations(
+        &self,
+        p: &Principal,
+        route: &WorkspaceProviderAssetRoute,
+        after: Option<Uuid>,
+        limit: i64,
+    ) -> Result<WorkspaceProviderAssetPage<WorkspaceProviderAssetOperation>, StoreError> {
+        if !(1..=100).contains(&limit) || after.is_some_and(|id| id.is_nil()) {
+            return Err(StoreError::InvalidObservation);
+        }
+        let mut tx = self.begin_bounded_read_snapshot().await?;
+        Self::provider_asset_key_using(&mut tx, p, &route.model_alias, false).await?;
+        let scope = p.scope();
+        if let Some(id) = after {
+            let cursor = Self::provider_operation_using(&mut tx, scope, id)
+                .await?
+                .ok_or(StoreError::InvalidObservation)?;
+            if cursor.model != route.model_alias
+                || cursor.vendor_id != route.vendor_id
+                || cursor.vendor_revision != route.vendor_revision
+                || cursor.upstream_model != route.upstream_model
+            {
+                return Err(StoreError::InvalidObservation);
+            }
+        }
+        let sql = format!(
+            "SELECT {OP_COLUMNS} FROM workspace_provider_asset_operations o JOIN workspace_provider_asset_groups g ON g.id=o.group_id WHERE o.organization_id=$1 AND o.project_id=$2 AND g.model_alias=$3 AND g.vendor_id=$4 AND g.vendor_revision=$5 AND g.upstream_model=$6 AND ($7::uuid IS NULL OR (o.created_at,o.id)<(SELECT c.created_at,c.id FROM workspace_provider_asset_operations c WHERE c.organization_id=$1 AND c.project_id=$2 AND c.id=$7)) ORDER BY o.created_at DESC,o.id DESC LIMIT $8"
+        );
+        let mut data: Vec<WorkspaceProviderAssetOperation> = sqlx::query_as(&sql)
+            .bind(scope.organization_id)
+            .bind(scope.project_id)
+            .bind(&route.model_alias)
+            .bind(route.vendor_id)
+            .bind(route.vendor_revision)
+            .bind(&route.upstream_model)
+            .bind(after)
+            .bind(limit + 1)
+            .fetch_all(&mut *tx)
+            .await?;
+        let next_cursor = if data.len() > limit as usize {
+            data.truncate(limit as usize);
+            data.last().map(|value| value.id)
+        } else {
+            None
+        };
+        tx.commit().await?;
+        Ok(WorkspaceProviderAssetPage { data, next_cursor })
+    }
+
     pub async fn workspace_provider_asset_groups(
         &self,
         p: &Principal,

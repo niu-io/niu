@@ -82,7 +82,7 @@ fn sanitize_attachments(payload: &mut Value) -> Result<(), ApiError> {
     Ok(())
 }
 
-async fn owner(
+pub(super) async fn owner(
     state: &AppState,
     headers: &HeaderMap,
     scope: TenantScope,

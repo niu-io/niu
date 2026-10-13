@@ -4,7 +4,7 @@ Baseline: current `main` at `534c07ee`, 2026-10-13. This audit covers rendered p
 
 ## Progress and verification rules
 
-- Source/navigation inventory: complete for the 34 page families below. Dynamic sections, dialogs and interaction states are included within their family.
+- Source/navigation inventory: complete for the 35 page families below. Dynamic sections, dialogs and interaction states are included within their family.
 - Browser qualification: in progress. A loaded page or passing static build does not complete a workflow.
 - Fixes: prioritize blocked business flows and persistence/authorization defects, then usability and visual consistency.
 - A verified scope requires actual current-input browser/API behavior and independent saved artifacts where applicable. Fixture outcomes have zero acceptance signal.
@@ -30,9 +30,9 @@ Baseline: current `main` at `534c07ee`, 2026-10-13. This audit covers rendered p
 | P14 | Model list | `/models` | Global catalog, selected workspace context, filters, prices, eligibility | Not checked |
 | P15 | Model detail | `/models/*` | Capabilities, qualified access, setup and request examples | Not checked |
 | P16 | Generations Chat | `/generations` | Model/key selection, messages, branches, cancellation, attachments, persistence | Not checked |
-| P17 | Generations Video | `/generations?new=video` | Drafts, references, async tasks, original recovery, preview/download | Fix needed: native tools corrected; drafts/reference/task integration remain open |
+| P17 | Generations Video | `/generations?new=video` | Drafts, references, async tasks, original recovery, preview/download | In review: native tools, durable draft restore/conflicts and historical preview verified; references/submission/shared-output actions pending |
 | P18 | Writing entry points | `/generations` | Existing writing templates and supported Chat flow; no new editor | Not checked |
-| P19 | Generation session history | `/generations` | Restoration, archived/deleted input, revoked keys, actor isolation | In review: revoked/expired-key input restoration and actor isolation verified; output integration pending |
+| P19 | Generation session history | `/generations` | Restoration, archived/deleted input, revoked keys, actor isolation | In review: revoked/expired-key input restoration, actor isolation and cached preview verified; full timeline pending |
 | P20 | Native video materials | `/workspaces/:workspace/video/volcengine/:section?` | Exact account context, groups/materials, validation, uncertainty, observations | Fix needed: Video exact context corrected; standalone selection/recovery pending |
 | P21 | Native verification tools | `/workspaces/:workspace/video/volcengine/:section?` | Capability-gated explicit workflow; no fabricated H5 completion | In review: capability-gated entry and saved read observed; verification creation not exercised |
 | P22 | Shared task/output integration | `/generations` | Existing task/artifact inventory and durable save; UI integration gap candidate | Not checked |
@@ -48,6 +48,7 @@ Baseline: current `main` at `534c07ee`, 2026-10-13. This audit covers rendered p
 | P32 | Public model catalog | `Public catalog model routes` | Anonymous routes and dashboard handoff; separate marketing ownership | Not checked |
 | P33 | Compatibility and not-found routes | `Legacy redirects and unknown URLs` | Destination/query preservation and useful recovery | Not checked |
 | P34 | Deferred legacy surfaces | `/benchmarks` and legacy redirects | Check product boundary and entry points; do not revive excluded orchestration | Not checked |
+| P35 | Workspace Billing | `/workspaces/:workspace/billing` | Customer charges, rates, statement details/pagination, workspace spending limits and confidential-data boundaries | Not checked |
 
 ## Prioritized source candidates
 
@@ -55,7 +56,7 @@ These are source findings awaiting current-input reproduction, not integrated ac
 
 | Candidate | Priority | Page families | Concrete suspected gap | State |
 | --- | --- | --- | --- | --- |
-| C01 | P1 | P17, P19 | Saved Video history requires active keys instead of historical workspace/session access | Historical input/status scope fixed; results integration remains open |
+| C01 | P1 | P17, P19 | Saved Video history requires active keys instead of historical workspace/session access | Historical input/status and cached preview qualified; billing/timing still require original active key |
 | C02 | P1 | P17, P20, P21 | Unsupported models expose native materials and verification tools before failing | Video scope fixed; standalone gap remains |
 | C03 | P1 | P20 | Material validation errors remain behind dialogs; unknown operations lack explicit recovery | Inline/network-failure scope fixed; durable recovery remains open |
 | C04 | P1 | P17, P22 | Existing task/artifact/durable capture SDK is not consumed by product pages | In review |
@@ -66,7 +67,7 @@ These are source findings awaiting current-input reproduction, not integrated ac
 | C09 | P2 | P11 | A stale revision conflict does not lock repeated saves until reload | In review |
 | C10 | P2 | P13 | Known token totals omit reported-usage coverage | In review |
 | C11 | P2 | P25 | Backend-supported reasoning customer prices lack an editor | Fixed; publication scope verified |
-| C12 | P2 | P17 | Unsubmitted Video drafts exist only in component memory | In review |
+| C12 | P2 | P17 | Unsubmitted Video drafts exist only in component memory | Draft restore/conflict scope verified; submission clear and reference picker pending |
 
 ## Delivery order
 
@@ -97,7 +98,7 @@ The existing customer-price form now exposes the backend reasoning-output rate a
 
 ### Historical Video reads after key revocation and expiry
 
-An actual newly saved, unsubmitted draft became unreadable after its key was revoked. The historical intent read now checks workspace permission and original actor ownership without requiring current inference authority. Current-input revocation and finite-expiry runs restored the identical saved requests; explicit submissions remained denied. A different authenticated member received 404 for the private draft. The existing paid video's intent returned the same original successful job after restart without a new generation. Desktop and 390px checks verified retained input/status and the correct API-key recovery link. Sidebar task history uses the existing workspace Tasks SDK rather than enumerating active keys. Historical preview, billing/timing panels and complete shared-output integration remain open.
+An actual newly saved, unsubmitted draft became unreadable after its key was revoked. The historical intent read now checks workspace permission and original actor ownership without requiring current inference authority. Current-input revocation and finite-expiry runs restored the identical saved requests; explicit submissions remained denied. A different authenticated member received 404 for the private draft. The existing paid video's intent returned the same original successful job after restart without a new generation. Desktop and 390px checks verified retained input/status and the correct API-key recovery link. Sidebar task history uses the existing workspace Tasks SDK rather than enumerating active keys. Historical cached preview is now qualified below; billing/timing panels and complete shared-output integration remain open.
 
 ### Native material form failures
 
@@ -110,3 +111,17 @@ An actual member created a new workspace, renamed it, reloaded the resulting set
 ### Current documentation rendering
 
 The current docs artifact was built and served by the isolated Gateway at the real `/docs` path. Browser checks at `/help/reference/generations/` confirmed the embedded guide's heading, updated historical-read explanation and explicit remaining dashboard limitations at desktop and 390px width. The full documentation link/menu inventory remains pending.
+
+### Historical cached Video preview
+
+The original successful paid Mini task was opened with its expired original API key. An explicit cached preview loaded through the workspace Tasks/Artifacts SDK at desktop and 390px width. Browser-decoded duration was 5.088 seconds; the downloaded 792,757 bytes matched the independently retained original file by SHA-256. This produced no new generation. Retained library-copy preview, fresh-result actions and key-independent billing/timing remain unverified.
+
+### Mutable Video composition
+
+The new backend-owned Video draft stores unfinished text, typed controls and Niu references with revision checks and a 30-day edit retention period. Actual API writes were independently read from PostgreSQL; stale writes were rejected, inline/base64 references were rejected, and retained drafts blocked workspace deletion. Clearing a confirmed revision retained a tombstone against stale recreation. A different signed-in actor read an independent empty draft.
+
+Actual browser edits saved the prompt and watermark. Refresh and a second tab restored the same composition; independent PostgreSQL reads matched both fields. A two-tab conflict preserved the losing tab's input and required explicit loading of the saved draft. Desktop and 390px checks covered this state. Inline attachments are explicitly unsaved and must be reattached. No submission was made; post-submission clearing, typed reference selection and full expiry/restart UI qualification remain pending.
+
+### Native operation inventory API
+
+Bounded saved-operation listing and exact idempotency lookup now exist in both workspace-key and customer API paths. An actual configured model returned saved operations, nonoverlapping continuation pages and no-store responses. Independent SQL supplied the original idempotency reference; lookup returned the same safe operation representation. These reads made no upstream mutations. Dashboard recovery integration and remaining denied/invalid-query branches remain pending.

@@ -51,8 +51,16 @@ Create/associate recover independently: after a Video submission response is los
 
 The dashboard can restore retained Video input and saved task state after its original inference key is revoked or expires. Historical reads still require current workspace Read permission and the original actor-owned intent. Returned key references are context, not authorization to generate, estimate or query a Supplier. An unavailable key leads to API-key management rather than Supplier configuration.
 
-Historical preview, billing/timing panels and complete shared-output controls remain dashboard integration work; the SDK contracts below expose their supported operations independently.
+The dashboard loads saved previews through workspace Tasks/Artifacts independently of active inference keys. Billing/transport panels still require current original-key access. Complete shared-output controls remain dashboard integration work; the SDK contracts below expose their supported operations independently.
 
+
+## Unsubmitted Video composition
+
+The dashboard saves fresh Video composition in an actor-private backend draft, separately from immutable submission intents and task history. It restores the saved key/model, prompt, typed controls and Niu material references before applying defaults. Inline image bytes are not saved; the composer asks you to reattach them after reload. Saved references do not bypass current access, readiness, consent or submission inspection.
+
+Use `admin.getVideoComposerDraft(scope)` and `admin.saveVideoComposerDraft(scope, payload, expectedRevision)`, backed by `GET`/`PUT /video-draft` under the workspace prefix. The payload contains `keyId`, `sessionId`, `model`, `prompt`, `controls` and `references`; nullable selections and unfinished control strings are supported. Raw URLs, inline bytes, secrets and ingestion references are rejected. The response reports `revision`, `payload`, `content_state` and `expires_at_ms`. Retention lasts 30 days after a confirmed edit.
+
+Revision conflicts preserve local input and require explicitly loading the saved draft. An uncertain write is not permission to overwrite with another revision. Clearing uses the confirmed revision and keeps a tombstone against stale recreation. Retained drafts protect their workspace against deletion. Draft saving never generates, estimates, uploads or reserves funds.
 
 ## Existing Chat timelines
 

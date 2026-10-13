@@ -4793,6 +4793,144 @@ HTTP 409: Stale revision on policy update.
 
 HTTP 503: Storage unavailable or bounded storage wait exceeded; no empty-success policy/history fallback.
 
+## Read a mutable personal Video composer
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/video-draft`
+
+One mutable actor-private Video composer per workspace. Operators are isolated; installation credentials share the installation actor. Read requires workspace Read permission. Absent state returns null payload and revision zero. Retention is 30 days after the last confirmed edit; expired content is hidden immediately and background maintenance erases it. Reads expose the expiry tombstone revision before maintenance. Saved key/model/reference identities are context only, including unavailable historical resources; they confer no current access or readiness. No inference, Supplier calls, reservation, media reads or inspection occur.
+
+Implementation: `implemented`. Operation: `getVideoComposerDraft`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Responses
+
+HTTP 200: Actor-private composer state.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/VideoComposerDraftResponse"
+}
+```
+
+HTTP 401: Missing or invalid administration/member authentication.
+
+HTTP 403: Insufficient workspace permission or scope.
+
+HTTP 500: Internal storage failure.
+
+HTTP 503: Storage unavailable.
+
+## Save or clear a mutable personal Video composer
+
+`PUT /admin/v1/organizations/{organization}/projects/{project}/video-draft`
+
+One mutable actor-private Video composer per workspace. Operators are isolated; installation credentials share the installation actor. Read requires workspace Read permission. Absent state returns null payload and revision zero. Retention is 30 days after the last confirmed edit; expired content is hidden immediately and background maintenance erases it. Reads expose the expiry tombstone revision before maintenance. Saved key/model/reference identities are context only, including unavailable historical resources; they confer no current access or readiness. No inference, Supplier calls, reservation, media reads or inspection occur. Write requires workspace Write permission and allowed browser Origin. Typed bounded partial composition may omit model/key/session and required model controls. Only the nine existing non-URL VideoSchema scalar control names are accepted; integer edits may remain strings. References use exact provider_asset/workspace_asset shapes, canonical nonnil Niu IDs and explicit workspace processing consent. No raw URL, inline media, short-lived ingestion, credential or billing fields are accepted. Key/reference metadata must belong to the workspace; session context must belong to the actor. Saving does not require an active historical key or grant action access. Full current schema, key/model eligibility, reference binding, consent and inspection remain explicit estimate/submission requirements. Null or omitted payload clears content while retaining the CAS revision. Stale revisions, including revisions predating expiry or clear, return 409. Workspace deletion refuses retained drafts; cleared/expired tombstones alone do not prevent empty-workspace deletion.
+
+Implementation: `implemented`. Operation: `saveVideoComposerDraft`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+### Request body
+
+Required.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/VideoComposerDraftUpdate"
+}
+```
+
+### Responses
+
+HTTP 200: Actor-private composer state.
+
+Content type: `application/json`.
+
+```json
+{
+  "$ref": "#/components/schemas/VideoComposerDraftResponse"
+}
+```
+
+HTTP 401: Missing or invalid administration/member authentication.
+
+HTTP 403: Insufficient permission, cross-workspace key/reference, unavailable actor session, or missing/disallowed browser Origin.
+
+HTTP 500: Internal storage failure.
+
+HTTP 503: Storage unavailable.
+
+HTTP 400: Malformed or unknown fields, invalid bounds, control type, reference role, consent or canonical ID.
+
+HTTP 409: Invalid or stale revision; no overwrite.
+
+HTTP 413: Body exceeds 64 KiB.
+
 ## Rename a workspace by identity
 
 `PATCH /admin/v1/workspaces/{workspace}`
@@ -25905,6 +26043,420 @@ HTTP 502: Provider read failed safely
 
 HTTP 503: Credential, capacity or bounded storage unavailable
 
+## List saved Provider mutation operations
+
+`GET /v1/media/asset-operations`
+
+Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation. This read never calls the Provider or retries a mutation. Records are workspace-shared under current selected-key authority and exact model/account binding. Unknown remains uncertain; prepared is a persisted state, not permission to retry. A missing record is not proof that the original request was never sent. Newest-first immutable creation time and UUID tie-breaker ordering. Resource deletion does not remove operation history. limit defaults to 50.
+
+Implementation: `implemented`. Operation: `list_operationsProviderAsset`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`model` (query, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+`after` (query, optional)
+
+Cursor from this exact authorized model/account; invalid or mismatched cursor is rejected.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Bounded saved operation page
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "next_cursor"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "$ref": "#/components/schemas/MediaAssetOperation"
+      }
+    },
+    "next_cursor": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid model, UUID, limit or cursor
+
+HTTP 401: Missing, expired or revoked API key
+
+HTTP 403: Workspace or key policy refuses access
+
+HTTP 404: Owned object or model unavailable
+
+HTTP 409: Changed input, stale revision, unresolved identity or route conflict
+
+HTTP 413: Request exceeds its bounded size
+
+HTTP 501: Selected channel does not support asset management
+
+HTTP 502: Provider read failed safely
+
+HTTP 503: Credential, capacity or bounded storage unavailable
+
+## List saved Provider mutation operations
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-operations`
+
+Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation. This read never calls the Provider or retries a mutation. Records are workspace-shared under current selected-key authority and exact model/account binding. Unknown remains uncertain; prepared is a persisted state, not permission to retry. A missing record is not proof that the original request was never sent. Newest-first immutable creation time and UUID tie-breaker ordering. Resource deletion does not remove operation history. limit defaults to 50.
+
+Implementation: `implemented`. Operation: `dashboardlist_operationsProviderAsset`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`model` (query, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+`after` (query, optional)
+
+Cursor from this exact authorized model/account; invalid or mismatched cursor is rejected.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`limit` (query, optional)
+
+```json
+{
+  "type": "integer",
+  "minimum": 1,
+  "maximum": 100,
+  "default": 50
+}
+```
+
+### Responses
+
+HTTP 200: Bounded saved operation page
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data",
+    "next_cursor"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "items": {
+        "$ref": "#/components/schemas/MediaAssetOperation"
+      }
+    },
+    "next_cursor": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid model, UUID, limit or cursor
+
+HTTP 401: Missing, expired or revoked API key
+
+HTTP 403: Workspace or key policy refuses access
+
+HTTP 404: Owned object or model unavailable
+
+HTTP 409: Changed input, stale revision, unresolved identity or route conflict
+
+HTTP 413: Request exceeds its bounded size
+
+HTTP 501: Selected channel does not support asset management
+
+HTTP 502: Provider read failed safely
+
+HTTP 503: Credential, capacity or bounded storage unavailable
+
+## Read a saved Provider operation by request idempotency UUID
+
+`GET /v1/media/asset-operations/by-idempotency/{id}`
+
+Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation. This read never calls the Provider or retries a mutation. Records are workspace-shared under current selected-key authority and exact model/account binding. Unknown remains uncertain; prepared is a persisted state, not permission to retry. A missing record is not proof that the original request was never sent.
+
+Implementation: `implemented`. Operation: `get_operation_by_idempotencyProviderAsset`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`id` (path, required)
+
+Original canonical nonnil Idempotency-Key UUID, not the operation ID.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`model` (query, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+### Responses
+
+HTTP 200: Owned metadata
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/MediaAssetOperation"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid model, UUID, limit or cursor
+
+HTTP 401: Missing, expired or revoked API key
+
+HTTP 403: Workspace or key policy refuses access
+
+HTTP 404: Owned object or model unavailable
+
+HTTP 409: Changed input, stale revision, unresolved identity or route conflict
+
+HTTP 413: Request exceeds its bounded size
+
+HTTP 501: Selected channel does not support asset management
+
+HTTP 502: Provider read failed safely
+
+HTTP 503: Credential, capacity or bounded storage unavailable
+
+## Read a saved Provider operation by request idempotency UUID
+
+`GET /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-operations/by-idempotency/{id}`
+
+Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation. This read never calls the Provider or retries a mutation. Records are workspace-shared under current selected-key authority and exact model/account binding. Unknown remains uncertain; prepared is a persisted state, not permission to retry. A missing record is not proof that the original request was never sent.
+
+Implementation: `implemented`. Operation: `dashboardget_operation_by_idempotencyProviderAsset`.
+
+### Authentication
+
+Each array entry is an alternative; schemes within one entry are required together.
+
+```json
+[
+  {
+    "bearerAuth": []
+  }
+]
+```
+
+### Parameters
+
+`organization` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`project` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`key` (path, required)
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`id` (path, required)
+
+Original canonical nonnil Idempotency-Key UUID, not the operation ID.
+
+```json
+{
+  "type": "string",
+  "format": "uuid"
+}
+```
+
+`model` (query, required)
+
+```json
+{
+  "type": "string"
+}
+```
+
+### Responses
+
+HTTP 200: Owned metadata
+
+Content type: `application/json`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/MediaAssetOperation"
+    }
+  }
+}
+```
+
+HTTP 400: Invalid model, UUID, limit or cursor
+
+HTTP 401: Missing, expired or revoked API key
+
+HTTP 403: Workspace or key policy refuses access
+
+HTTP 404: Owned object or model unavailable
+
+HTTP 409: Changed input, stale revision, unresolved identity or route conflict
+
+HTTP 413: Request exceeds its bounded size
+
+HTTP 501: Selected channel does not support asset management
+
+HTTP 502: Provider read failed safely
+
+HTTP 503: Credential, capacity or bounded storage unavailable
+
 ## Discover authorized model-specific native Provider tools
 
 `GET /admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/capabilities`
@@ -33150,6 +33702,296 @@ Local `#/components/schemas/…` references resolve to these definitions.
       "type": [
         "string",
         "null"
+      ]
+    }
+  }
+}
+```
+
+### VideoComposerDraftPayload
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "prompt",
+    "controls",
+    "references"
+  ],
+  "properties": {
+    "keyId": {
+      "oneOf": [
+        {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "sessionId": {
+      "oneOf": [
+        {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "model": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "prompt": {
+      "type": "string",
+      "maxLength": 12000
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "duration": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "string",
+              "maxLength": 256
+            }
+          ]
+        },
+        "seed": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "string",
+              "maxLength": 256
+            }
+          ]
+        },
+        "frames_per_second": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "string",
+              "maxLength": 256
+            }
+          ]
+        },
+        "resolution": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "ratio": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "omni_reference_task_type": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "watermark": {
+          "type": "boolean"
+        },
+        "camera_fixed": {
+          "type": "boolean"
+        },
+        "return_last_frame": {
+          "type": "boolean"
+        }
+      }
+    },
+    "references": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "provider_asset"
+            ],
+            "properties": {
+              "type": {
+                "const": "provider_asset"
+              },
+              "provider_asset": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                  }
+                }
+              },
+              "role": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256,
+                "description": "Optional nonempty role matching the existing VideoIntent reference grammar; explicit null is rejected."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "workspace_asset"
+            ],
+            "properties": {
+              "type": {
+                "const": "workspace_asset"
+              },
+              "workspace_asset": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "asset_id",
+                  "consent_to_process"
+                ],
+                "properties": {
+                  "asset_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                  },
+                  "consent_to_process": {
+                    "const": true
+                  }
+                }
+              },
+              "role": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256,
+                "description": "Optional nonempty role matching the existing VideoIntent reference grammar; explicit null is rejected."
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+### VideoComposerDraftResponse
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/VideoComposerDraftState"
+    }
+  }
+}
+```
+
+### VideoComposerDraftState
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "payload",
+    "revision",
+    "expires_at_ms",
+    "content_state"
+  ],
+  "properties": {
+    "payload": {
+      "oneOf": [
+        {
+          "$ref": "#/components/schemas/VideoComposerDraftPayload"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "expires_at_ms": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]+$"
+    },
+    "content_state": {
+      "type": "string",
+      "enum": [
+        "empty",
+        "retained",
+        "expired"
+      ]
+    }
+  }
+}
+```
+
+### VideoComposerDraftUpdate
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "expected_revision"
+  ],
+  "properties": {
+    "expected_revision": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740989
+    },
+    "payload": {
+      "oneOf": [
+        {
+          "$ref": "#/components/schemas/VideoComposerDraftPayload"
+        },
+        {
+          "type": "null"
+        }
       ]
     }
   }

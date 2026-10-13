@@ -88,6 +88,10 @@ export function createMediaAssetsClient(send: MediaAssetSender) {
       refresh: (id: string, model: string, options?: RequestOptions) => send<{ data: MediaAsset }>(`/media/assets/${reference(id)}/refresh${query({ model })}`, 'POST', undefined, options),
     },
     operations: {
+      /** Read persisted operations newest first. Never retries a mutation. */
+      list: (input: PageQuery, options?: RequestOptions) => send<MediaAssetPage<MediaAssetOperation>>(`/media/asset-operations${query(input)}`, 'GET', undefined, options),
+      /** A 404 does not establish that the original request was never sent. */
+      retrieveByIdempotency: (idempotencyKey: string, model: string, options?: RequestOptions) => send<{ data: MediaAssetOperation }>(`/media/asset-operations/by-idempotency/${reference(idempotencyKey)}${query({ model })}`, 'GET', undefined, options),
       retrieve: (id: string, model: string, options?: RequestOptions) => send<{ data: MediaAssetOperation }>(`/media/asset-operations/${reference(id)}${query({ model })}`, 'GET', undefined, options),
     },
   };

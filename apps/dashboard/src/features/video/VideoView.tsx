@@ -5,7 +5,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router';
 import { IconChevronDown as ChevronDown, IconArrowUp as ArrowUp, IconAdjustmentsHorizontal as Settings, IconKey as KeyIcon, IconRefresh as RefreshCw } from '@tabler/icons-react';
 import type { VideoEstimate, VideoJobBilling, VideoJobState, VideoModelList, VideoTransportTimings } from '../../../../../sdks/javascript/src/index';
-import { NiuAdminClient, type VideoIntentRequest, type VideoSubmissionIntent, type NativeProviderModule, type GenerationTask } from '../../../../../sdks/javascript/src/admin';
+import { NiuAdminClient, type VideoIntentRequest, type VideoSubmissionIntent, type NativeProviderModule, type GenerationTask, type VideoComposerDraftPayload } from '../../../../../sdks/javascript/src/admin';
+import { useVideoDraft, type VideoDraftTicket } from './useVideoDraft';
 import { VideoIntent } from './intent';
 import { findVideoIntent, videoSessionTitle } from './intent-history';
 import { Button } from '@/components/ui/button';
@@ -44,6 +45,7 @@ async function request<T>(token:string,path:string,body?:unknown,signal?:AbortSi
 export default function VideoView({context}:{context:DashboardContext}) {
   const {settings:branding} = useBranding();
   const {token,workspace,workspaces,session}=context;
+  const canWrite=Boolean(session?.permissions.write);
   const [keyPickerOpen,setKeyPickerOpen]=useState(false);
   const [providerToolsOpen,setProviderToolsOpen]=useState(false);
   const availableKeys=useGenerationKeys(context,keyPickerOpen);
@@ -60,6 +62,10 @@ export default function VideoView({context}:{context:DashboardContext}) {
   const [controls,setControls]=useState<ControlValues>({});
   const [prompt,setPrompt]=useState('');
   const [images,setImages]=useState<NamedImageReference[]>([]);
+  const [draftReferences,setDraftReferences]=useState<VideoComposerDraftPayload['references']>([]);
+  const [draftSessionId,setDraftSessionId]=useState<string|null>(null);
+  const [composerEdited,setComposerEdited]=useState(false);
+  const restoredComposer=useRef<{identity:string;keyId:string|null;model:string|null}|null>(null);
   const [readingImages,setReadingImages]=useState(false);
   const [job,setJob]=useState<VideoJobState|null>(null);
   const [savedTask,setSavedTask]=useState<GenerationTask|null>(null);
@@ -117,7 +123,21 @@ export default function VideoView({context}:{context:DashboardContext}) {
     return()=>request.abort();
   },[intentClient,workspace?.organization_id,workspace?.id,selected,intentId,busy==='create',revision]);
   const scopePath=workspace ? projectKeyPath(workspace.organization_id,workspace.id) : '';
-  useEffect(()=>{setSubmittedPrompt('');setPrompt('');},[token,scopePath]);
+  const composerIdentity=JSON.stringify([token,scopePath,session?.operator?.id??session?.kind]);
+  const mutableComposer=!selected&&!intentId;
+  const composerControls=Object.fromEntries(Object.entries(controls).filter(([name])=>['duration','seed','frames_per_second','resolution','ratio','omni_reference_task_type','watermark','camera_fixed','return_last_frame'].includes(name))) as VideoComposerDraftPayload['controls'];
+  const composerValue:VideoComposerDraftPayload={keyId:keyId||null,sessionId:draftSessionId,model:modelId||null,prompt,controls:composerControls,references:draftReferences};
+  const draft=useVideoDraft({client:intentClient,scope:workspace?{organizationId:workspace.organization_id,projectId:workspace.id}:null,
+    identity:composerIdentity,contextIdentity:JSON.stringify([composerIdentity,keyId,modelId]),enabled:Boolean(token&&workspace&&mutableComposer),canWrite,edited:composerEdited,paused:loading||Boolean(busy)||restoringIntent,value:composerValue,
+    restore:saved=>{
+      restoredComposer.current=saved?{identity:composerIdentity,keyId:saved.keyId,model:saved.model}:null;
+      setComposerEdited(false);setPrompt(saved?.prompt??'');setDraftSessionId(saved?.sessionId??null);setDraftReferences(saved?.references??[]);setImages([]);
+      setKeyId(saved?.keyId??'');setModelId(saved?.model??'');
+      setControls(Object.fromEntries(Object.entries(saved?.controls??{}).map(([name,value])=>[name,typeof value==='number'?String(value):value])) as ControlValues);
+    }});
+  const composerReady=!mutableComposer||draft.ready;
+  const draftBlocked=mutableComposer&&(!draft.ready||Boolean(draft.error));
+  useEffect(()=>{setSubmittedPrompt('');setPrompt('');setDraftReferences([]);setDraftSessionId(null);setComposerEdited(false);restoredComposer.current=null;},[composerIdentity]);
   const keyScopeIdentity=JSON.stringify([token,scopePath]);
   const savedModel=intentDocument?.model??savedTask?.model;
   const originalKey=allKeys.find(key=>key.id===keyId);
@@ -133,10 +153,14 @@ export default function VideoView({context}:{context:DashboardContext}) {
     return () => { responseScope.current.generation += 1; };
   }, [token, base]);
   const model=models.find(item=>item.id === modelId);
-  const canWrite=Boolean(session?.permissions.write);
   const canManageSuppliers=session?.kind === 'installation' || Boolean(session?.permissions.platform_admin);
   const workspacePath=workspace ? `/workspaces/${workspacePathSegment(workspace,workspaces)}` : '/workspaces/default';
-  const form=useMemo(()=>{if(intentId && !intentDocument?.job)return {body:intentDocument?.request ?? null,error:''};try{return {body:model ? videoRequest(model,prompt,controls,images):null,error:''};}catch(error){return {body:null,error:message(error)};}},[model,prompt,controls,images,intentId,intentDocument]);
+  const form=useMemo(()=>{if(intentId && !intentDocument?.job)return {body:intentDocument?.request ?? null,error:''};try{
+    if(images.length&&draftReferences.length)throw new Error('Inline images cannot be combined with saved material references in this composer.');
+    const body=model?videoRequest(draftReferences.length?{...model,requires_image:false}:model,prompt,controls,images):null;
+    if(body&&draftReferences.length)body.content.push(...draftReferences);
+    return {body,error:''};
+  }catch(error){return {body:null,error:message(error)};}},[model,prompt,controls,images,draftReferences,intentId,intentDocument]);
   useEffect(()=>{setImages([]);},[base,modelId]);
 
   const quoteMatches = Boolean(quote && quotedBody === JSON.stringify(form.body));
@@ -146,34 +170,34 @@ export default function VideoView({context}:{context:DashboardContext}) {
   useEffect(()=>{
     const controller=new AbortController();
     setLoading(true); setKeysError('');setKeys([]);setAllKeys([]);setKeysScope('');
-    if (!scopePath) {setLoading(false);return;}
+    if (!scopePath || !composerReady) {setLoading(false);return;}
     void keyRequest<{data:ProjectKey[]}>(token,scopePath,'GET',undefined,controller.signal).then(payload=>{
       if(controller.signal.aborted)return;
       const active=payload.data.filter(key=>!key.revoked && !key.expired); setKeys(active);setAllKeys(payload.data);setKeysScope(keyScopeIdentity);
-      setKeyId(current=>(search.get('job')||search.get('intent')) ? search.get('key')??current : active.some(key=>key.id === current) ? current : active.find(key=>key.id === search.get('key'))?.id ?? active[0]?.id ?? '');
+      setKeyId(current=>restoredComposer.current?.identity===composerIdentity&&restoredComposer.current.keyId ? restoredComposer.current.keyId : (search.get('job')||search.get('intent')) ? search.get('key')??current : active.some(key=>key.id === current) ? current : active.find(key=>key.id === search.get('key'))?.id ?? active[0]?.id ?? '');
     }).catch(error=>{if(!controller.signal.aborted)setKeysError(message(error));}).finally(()=>{if(!controller.signal.aborted)setLoading(false);});
     return()=>controller.abort();
     // URL key restoration applies only when loading this workspace.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[token,scopePath,keysRevision]);
+  },[token,scopePath,keysRevision,composerReady,composerIdentity]);
 
   const requestedKey=search.get('key');
-  useEffect(()=>{if(requestedKey && (selected||intentId||keys.some(key=>key.id===requestedKey)))setKeyId(requestedKey);},[requestedKey,keys,selected,intentId]);
+  useEffect(()=>{if(requestedKey && (selected||intentId||(!restoredComposer.current&&composerReady&&keys.some(key=>key.id===requestedKey))))setKeyId(requestedKey);},[requestedKey,keys,selected,intentId,composerReady]);
   useEffect(()=>{
     const controller=new AbortController(); const changedScope=loadedBase.current !== base;
     if(changedScope)setModels([]);
     setQuote(null);
-    if (!base) return;
+    if (!base || !composerReady) return;
     setLoading(changedScope);setError('');
     void Promise.allSettled([
       request<VideoModelList>(token,`${base}/models`,undefined,controller.signal),
     ]).then(([catalog])=>{
       if(controller.signal.aborted)return;
-      if(catalog.status === 'fulfilled') {const selectedModel=catalog.value.data.find(model=>model.id === modelId) ?? catalog.value.data.find(model=>model.id === 'fastrouter/seedance-2.0-mini') ?? catalog.value.data[0];const reset=changedScope || selectedModel?.id !== modelId;setModels(catalog.value.data);if(!intentId)setModelId(selectedModel?.id ?? '');if(reset && !intentId)setControls(selectedModel ? initialControls(selectedModel):{});loadedBase.current=base;}
+      if(catalog.status === 'fulfilled') {const restored=mutableComposer&&restoredComposer.current?.identity===composerIdentity&&restoredComposer.current.keyId===keyId&&restoredComposer.current.model;const selectedModel=catalog.value.data.find(model=>model.id === modelId) ?? (restored?undefined:catalog.value.data.find(model=>model.id === 'fastrouter/seedance-2.0-mini') ?? catalog.value.data[0]);const reset=changedScope || selectedModel?.id !== modelId;setModels(catalog.value.data);if(!intentId&&!restored)setModelId(selectedModel?.id ?? '');if(reset && !intentId&&!restored)setControls(selectedModel ? initialControls(selectedModel):{});loadedBase.current=base;}
       else setError(message(catalog.reason));
     }).finally(()=>{if(!controller.signal.aborted)setLoading(false);});
     return()=>controller.abort();
-  },[token,base,revision]);
+  },[token,base,revision,composerReady]);
   useEffect(()=>{estimateController.current?.abort();setQuote(null);return()=>estimateController.current?.abort();},[prompt,controls,images,base,modelId]);
   useEffect(()=>{
     const controller=new AbortController();
@@ -190,7 +214,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
       setSubmittedPrompt(document.request ? document.request.content.flatMap(item=>item.type==='text' ? [item.text] : []).join('\n'):'');
       if(restoredDraftIdentity.current!==draftIdentity || !document.job){
         restoredDraftIdentity.current=draftIdentity;
-        setPrompt('');setControls({});setImages([]);setModelId(document.model);
+        setPrompt('');setControls({});setImages([]);setDraftReferences([]);setDraftSessionId(null);setModelId(document.model);
         if(document.request){
           setPrompt(document.job ? '' : document.request.content.flatMap(item=>item.type==='text' ? [item.text] : []).join('\n'));
           const restored:ControlValues={};
@@ -246,24 +270,26 @@ export default function VideoView({context}:{context:DashboardContext}) {
 
   function openJob(id:string) {const next=new URLSearchParams(search);next.set('job',id);next.set('key',keyId);setSearch(next);if(isMobile)setOpenMobile(false);}
 
-  function chooseKey(id:string) {setKeyId(id);const next=new URLSearchParams(search);next.set('key',id);next.delete('job');next.delete('intent');next.set('new','video');setSearch(next);setPrompt('');setQuote(null);setUncertain(false);}
+  function chooseKey(id:string) {restoredComposer.current=null;setComposerEdited(true);setKeyId(id);const next=new URLSearchParams(search);next.set('key',id);next.delete('job');next.delete('intent');next.set('new','video');setSearch(next);setQuote(null);setUncertain(false);}
   async function estimate() {
-    if(!form.body || !base || lock.current || readingImages)return;
+    if(!form.body || !base || lock.current || readingImages || draftBlocked)return;
     const controller=new AbortController();estimateController.current?.abort();estimateController.current=controller;
     setBusy('estimate');setError('');
-    try {const result=await request<VideoEstimate>(token,`${base}/estimate`,form.body,controller.signal);if(!controller.signal.aborted){setQuote(result);setQuotedBody(JSON.stringify(form.body));}}
+    try {if(mutableComposer&&canWrite&&!await draft.flush())return;const result=await request<VideoEstimate>(token,`${base}/estimate`,form.body,controller.signal);if(!controller.signal.aborted){setQuote(result);setQuotedBody(JSON.stringify(form.body));}}
     catch(error){if(!controller.signal.aborted)setError(message(error));}
     finally{if(estimateController.current === controller)setBusy('');}
   }
   async function generate() {
-    if(!form.body || !quoteMatches || !base || !canWrite || lock.current || uncertain || readingImages || restoringIntent)return;
+    if(!form.body || !quoteMatches || !base || !canWrite || lock.current || uncertain || readingImages || restoringIntent || draftBlocked)return;
     const generation=currentGeneration();
     let ownedIntentId='';
+    let draftTicket:VideoDraftTicket|null=null;
     const currentOperation=()=>generation===currentGeneration() && (!ownedIntentId || routeIntent.current===ownedIntentId);
     lock.current=true;setBusy('create');setSubmittedPrompt(prompt);setError('');
     try {
+      if(mutableComposer){draftTicket=await draft.flush();if(!draftTicket||!currentOperation())return;}
       let result:VideoJobState;
-      if(form.body.content.every(item=>item.type==='text') && intentClient && workspace){
+      if(form.body.content.every(item=>['text','provider_asset','workspace_asset'].includes(item.type)) && intentClient && workspace){
         const intent=retainedIntent && !intentDocument?.job ? loadedIntent.current : new VideoIntent(intentClient,{organizationId:workspace.organization_id,projectId:workspace.id},crypto.randomUUID());
         if(!intent)throw new Error('Restore the saved video request before submitting.');
         ownedIntentId=intent.id;routeIntent.current=intent.id;
@@ -279,7 +305,9 @@ export default function VideoView({context}:{context:DashboardContext}) {
         openJob(result.id);
       }
       if(!currentOperation())return;
-      setSubmittedPrompt(prompt);setPrompt('');setImages([]);setQuote(null);setRevision(value=>value+1);
+      if(draftTicket&&!await draft.clearMatching(draftTicket))setError('Video submission was confirmed, but its draft could not be cleared. The saved draft may remain; do not resubmit it.');
+      if(!currentOperation())return;
+      setSubmittedPrompt(prompt);setPrompt('');setImages([]);setDraftReferences([]);setComposerEdited(false);setQuote(null);setRevision(value=>value+1);
     } catch(error) {
       if(!currentOperation())return;
       setError(message(error));
@@ -300,7 +328,7 @@ export default function VideoView({context}:{context:DashboardContext}) {
   const epoch=timings?.data[0]?.started_unix_ms ?? 0;
   const total=Math.max(1,...(timings?.data.map(span=>span.started_unix_ms-epoch+span.elapsed_ms) ?? []));
   return <div className="video-shell">
-    <GenerationSessionBindings trigger={historyTriggerRef} title={intentDocument?.id===intentId ? videoSessionTitle(intentDocument) : selected ? job?.model ? `Video · ${job.model}` : 'Video session' : 'New generation'} actions={<DropdownMenu open={keyPickerOpen} onOpenChange={setKeyPickerOpen}><DropdownMenuTrigger asChild><Button variant="outline" className="video-key-choice" aria-label="Video API key" disabled={Boolean(busy) || loading || Boolean(intentId && !intentDocument?.job)}><KeyIcon size={16}/><span className="truncate">{originalKey ? `${originalKey.name}${originalKey.revoked ? ' · Revoked':originalKey.expired ? ' · Expired':''}` : (loading ? 'Loading keys…':'No active API key')}</span></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={keyId} onValueChange={id=>{const chosen=availableKeys.keys.find(key=>key.id===id);if(chosen&&chosen.workspace.id!==workspace?.id){navigate(`/generations?new=video&workspace=${encodeURIComponent(chosen.workspace.id)}&key=${encodeURIComponent(id)}`);}else chooseKey(id);}}>{(availableKeys.keys.length?availableKeys.keys:keys.map(key=>({...key,workspace}))).map(key=><DropdownMenuRadioItem key={key.id} value={key.id}>{key.name}{key.workspace && key.workspace.id!==workspace?.id ? ` · ${key.workspace.name}`:''}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>} history={{context: (context), currentKeys: (keys), videoKeyId: (keyId), activeVideo: (selected), activeIntent: (intentId), onIntentDeleted: (id=>{if(id===intentId)setRevision(value=>value+1);}), disabled: (Boolean(busy))}} />
+    <GenerationSessionBindings trigger={historyTriggerRef} title={intentDocument?.id===intentId ? videoSessionTitle(intentDocument) : selected ? job?.model ? `Video · ${job.model}` : 'Video session' : 'New generation'} actions={<DropdownMenu open={keyPickerOpen} onOpenChange={setKeyPickerOpen}><DropdownMenuTrigger asChild><Button variant="outline" className="video-key-choice" aria-label="Video API key" disabled={Boolean(busy) || loading || draftBlocked || Boolean(intentId && !intentDocument?.job)}><KeyIcon size={16}/><span className="truncate">{originalKey ? `${originalKey.name}${originalKey.revoked ? ' · Revoked':originalKey.expired ? ' · Expired':''}` : (loading ? 'Loading keys…':'No active API key')}</span></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuRadioGroup value={keyId} onValueChange={id=>{const chosen=availableKeys.keys.find(key=>key.id===id);if(chosen&&chosen.workspace.id!==workspace?.id){navigate(`/generations?new=video&workspace=${encodeURIComponent(chosen.workspace.id)}&key=${encodeURIComponent(id)}`);}else chooseKey(id);}}>{(availableKeys.keys.length?availableKeys.keys:keys.map(key=>({...key,workspace}))).map(key=><DropdownMenuRadioItem key={key.id} value={key.id}>{key.name}{key.workspace && key.workspace.id!==workspace?.id ? ` · ${key.workspace.name}`:''}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>} history={{context: (context), currentKeys: (keys), videoKeyId: (keyId), activeVideo: (selected), activeIntent: (intentId), onIntentDeleted: (id=>{if(id===intentId)setRevision(value=>value+1);}), disabled: (Boolean(busy))}} />
     <section className="video-main" aria-label="Video generation">
 
       <div className="video-content">
@@ -316,14 +344,14 @@ export default function VideoView({context}:{context:DashboardContext}) {
             {historicalReadOnly&&<p role="status" className="video-muted">Saved history is available. The original API key is revoked, expired, missing or no longer grants this model; generation and Supplier checks are disabled.</p>}
             {!selected ? <p className="video-muted">{intentDocument?.submission_state==='saved' ? 'This saved request has not been submitted.':'Submit a video or select a saved job.'}</p> : !job && !detailError ? <p role="status">Loading saved video…</p> : job && <>
               {(job.status === 'submission_unknown' || job.status === 'reconciliation_required') && <p>The outcome is unresolved. Do not resubmit this generation.</p>}
-                  {job.status === 'succeeded' && base && <VideoResult key={`${base}/${selected}`} token={token} path={`${base}/jobs/${encodeURIComponent(selected)}/results`} canWrite={canWrite}/>}
-              {job.status==='succeeded'&&!base&&savedTask?.artifacts.map(artifact=><p className="video-muted" key={artifact.kind}>{artifact.kind==='video'?'Video':'Last frame'} reference: {artifact.availability}{artifact.capture ? ` · Workspace copy: ${artifact.capture.availability}`:''}</p>)}
+                  {job.status === 'succeeded' && intentClient && workspace && <VideoResult key={`${workspace.id}/${selected}`} client={intentClient} scope={{organizationId:workspace.organization_id,projectId:workspace.id}} task={selected} keyId={base ? keyId:undefined} canWrite={canWrite}/>}
+
               {job.status !== 'succeeded' && <p role="status" className="video-muted">{job.status === 'queued' ? 'Your video is queued.' : job.status === 'running' ? 'Generating your video…' : job.status === 'failed' ? 'Video generation failed. Open generation details for the recorded status.' : 'Waiting for a confirmed generation status.'}</p>}
               <Collapsible className="video-generation-details"><CollapsibleTrigger asChild><Button variant="ghost" size="sm">Generation details<ChevronDown size={14}/></Button></CollapsibleTrigger><CollapsibleContent className="video-details">
                   <div className="video-actions"><Button variant="outline" onClick={()=>setRevision(value=>value+1)} disabled={Boolean(busy)}>Reload status</Button><Button variant="ghost" onClick={()=>void refresh()} disabled={!canWrite || !base || Boolean(busy) || job.status === 'submission_unknown'}><RefreshCw size={14}/>{busy === 'refresh' ? 'Checking…':'Check Supplier'}</Button></div>
                   {timings?.lifecycle && <VideoLifecycle timing={timings.lifecycle}/>}
                   {timings?.data.length ? <div className="video-timings"><h3>Transport time</h3><p className="video-muted">Submission and status requests; Supplier queue and generation time are not measured here.</p>{timings.data.map((span,index)=><div className="video-span" key={index}><span>{span.phase === 'submission' ? 'Submission':'Status query'}</span><div className="video-span-track"><i style={{marginLeft:`${(span.started_unix_ms-epoch)/total*100}%`,width:`${Math.max(.5,span.elapsed_ms/total*100)}%`}}/></div><small>{span.elapsed_ms} ms</small></div>)}{timings.has_more && <small>Showing the latest recorded requests.</small>}</div> : null}
-                  <h3>Billing</h3>{billing ? <VideoBilling billing={billing}/> : <p>Billing is unavailable.</p>}              <Button asChild variant="link"><Link to={`${workspacePath}/executions?modelAlias=${encodeURIComponent(job.model)}#gateway-attempt-${encodeURIComponent(job.id)}`}>View in Logs</Link></Button>
+                  {!base&&<p className="video-muted">Billing and transport details require current access through the original API key.</p>}<h3>Billing</h3>{billing ? <VideoBilling billing={billing}/> : <p>Billing is unavailable.</p>}              <Button asChild variant="link"><Link to={`${workspacePath}/executions?modelAlias=${encodeURIComponent(job.model)}#gateway-attempt-${encodeURIComponent(job.id)}`}>View in Logs</Link></Button>
               </CollapsibleContent></Collapsible>
 
             </>}
@@ -333,33 +361,39 @@ export default function VideoView({context}:{context:DashboardContext}) {
         </div>
         {historicalReadOnly ? <div className="video-composer"><Button asChild variant="outline"><Link to={`${workspacePath}/keys`}>Manage API keys</Link></Button></div> : <form className="video-composer" onSubmit={event=>{event.preventDefault();void (quoteMatches ? generate() : estimate());}}>
           <div className="video-composer-surface">
+            {mutableComposer&&!draft.ready&&!draft.error&&<p role="status" className="video-muted">Loading saved Video draft…</p>}
+            {mutableComposer&&draft.error&&<div role="alert" className="video-error">{draft.error}<Button type="button" variant="ghost" onClick={draft.reload} disabled={Boolean(busy)}>Load saved draft</Button></div>}
+            {mutableComposer&&draft.ready&&<p role="status" className="video-muted">{draft.saving?'Saving draft…':draft.dirty?canWrite?'Unsaved changes':'Your changes are not saved with read access.':composerEdited||draft.confirmed?'Draft saved':''}</p>}
+            {images.length>0&&<p className="video-muted">Inline image attachments are not saved in your draft. Reattach them after reloading.</p>}
+            {draftReferences.length>0&&<p className="video-muted">{draftReferences.length} saved material reference{draftReferences.length===1?'':'s'}. Current access and inspection are checked when submitting.</p>}
+            {mutableComposer&&draft.ready&&restoredComposer.current&&!base&&!loading&&<p className="video-muted">The saved API key is unavailable for generation. Your draft is retained. Choose an active API key to continue.</p>}
             {loading ? <p role="status" className="video-muted">Loading video models…</p> : keys.length > 0 && !model && !error && !keysError ? <Empty className="min-h-40"><EmptyHeader><EmptyTitle>No video model available</EmptyTitle><EmptyDescription>This API key has no supported video route.</EmptyDescription></EmptyHeader><EmptyContent><Button asChild variant="outline"><Link to={canManageSuppliers ? '/admin/suppliers':'/models'}>{canManageSuppliers ? 'Manage Suppliers':'View models'}</Link></Button></EmptyContent></Empty> : null}
-            {model && <>
-              <ImageReferences model={model} images={images} onChange={setImages} disabled={Boolean(busy) || uncertain || Boolean(intentId && !intentDocument?.job)} onReadingChange={reading=>{setReadingImages(reading);if(reading){estimateController.current?.abort();setQuote(null);}}}/>
+            <>
+              {model&&<ImageReferences model={model} images={images} onChange={setImages} disabled={Boolean(busy) || uncertain || draftBlocked || draftReferences.length>0 || Boolean(intentId && !intentDocument?.job)} onReadingChange={reading=>{setReadingImages(reading);if(reading){estimateController.current?.abort();setQuote(null);}}}/>}
 
-              <Label htmlFor="video-prompt" className="sr-only">Prompt</Label><Textarea id="video-prompt" placeholder="Describe your video…" rows={2} value={prompt} onChange={event=>setPrompt(event.target.value)} disabled={busy === 'create' || restoringIntent || Boolean(intentId && !intentDocument?.job)} onKeyDown={event=>{if(event.key==='Enter' && !event.shiftKey && !event.nativeEvent.isComposing){event.preventDefault();if(!busy && !uncertain && form.body)void (quoteMatches ? generate() : estimate());}}}/>
+              <Label htmlFor="video-prompt" className="sr-only">Prompt</Label><Textarea id="video-prompt" placeholder="Describe your video…" rows={2} value={prompt} onChange={event=>{setComposerEdited(true);setPrompt(event.target.value);}} disabled={draftBlocked || busy === 'create' || restoringIntent || Boolean(intentId && !intentDocument?.job)} onKeyDown={event=>{if(event.key==='Enter' && !event.shiftKey && !event.nativeEvent.isComposing){event.preventDefault();if(!busy && !uncertain && !draftBlocked && form.body)void (quoteMatches ? generate() : estimate());}}}/>
               {prompt && form.error && <p role="alert" className="video-error">{form.error}</p>}
               {quoteMatches && quote && <div className="video-estimate"><span>{quote.effective_output.specification.resolution} · {quote.effective_output.specification.ratio} · {quote.effective_output.duration_seconds}s{quote.effective_output.frames_per_second != null && ` · ${quote.effective_output.frames_per_second} FPS`}</span><strong>{quote.estimate.amount_nanos != null && quote.estimate.currency ? `Estimated ${money(quote.estimate.amount_nanos,quote.estimate.currency)}`:'Charged to your Supplier account'}</strong>{quote.maximum_charge_nanos != null && quote.estimate.currency && <small>Reserves up to {money(quote.maximum_charge_nanos,quote.estimate.currency)}. Final charge follows reported usage.</small>}</div>}
 
               {uncertain && <p role="alert">{intentDocument&&intentDocument.content_state!=='retained' ? 'The saved input has expired or been deleted. Task history remains available.':'Submission may have reached the Supplier. Reload to restore the original submission before continuing.'}</p>}
-            </>}
+            </>
             <div className="video-composer-toolbar"><div className="video-composer-options">
 
 
-              {model && <>
-              <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="video-model-choice" aria-label="Video model" disabled={Boolean(busy) || Boolean(intentId && !intentDocument?.job)}><span className="truncate">{model.id}</span><ChevronDown size={14}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={modelId} onValueChange={id=>{setModelId(id);const next=models.find(model=>model.id === id);setControls(next ? initialControls(next):{});}}>{models.map(item=><DropdownMenuRadioItem key={item.id} value={item.id}>{item.id}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
+              {models.length>0&&<DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="video-model-choice" aria-label="Video model" disabled={Boolean(busy) || draftBlocked || Boolean(intentId && !intentDocument?.job)}><span className="truncate">{model?.id||modelId||'Choose video model'}</span><ChevronDown size={14}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={modelId} onValueChange={id=>{restoredComposer.current=null;setComposerEdited(true);setModelId(id);const next=models.find(model=>model.id === id);setControls(next ? initialControls(next):{});}}>{models.map(item=><DropdownMenuRadioItem key={item.id} value={item.id}>{item.id}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>}
 
+              {model&&<>
                 <Popover><PopoverTrigger asChild><Button type="button" variant="ghost" size="icon" aria-label="Additional settings"><Settings size={18}/></Button></PopoverTrigger><PopoverContent side="top" align="end" className="video-settings-popover"><h2>Video settings</h2><div className="video-controls">
                 {Object.entries(model.controls).map(([name,rule])=><div key={name} className="video-field"><Label htmlFor={`video-${name}`}>{controlLabels[name] ?? name}</Label>
-                  {rule.kind === 'choice' ? <DropdownMenu><DropdownMenuTrigger asChild><Button id={`video-${name}`} variant="outline" className="video-choice" disabled={busy === 'create' || Boolean(intentId && !intentDocument?.job)}>{String(controls[name] ?? 'Choose…')}<ChevronDown size={14}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={String(controls[name] ?? '')} onValueChange={value=>setControls(current=>{const next={...current,[name]:value};if(name === 'resolution' && model.output && !model.output.specifications.some(spec=>spec.resolution === value && spec.ratio === current.ratio)){const spec=model.output.specifications.find(spec=>spec.resolution === value);if(spec)next.ratio=spec.ratio;}return next;})}>{rule.values.filter(value=>name !== 'ratio' || !model.output || model.output.specifications.some(spec=>spec.resolution === controls.resolution && spec.ratio === value)).map(value=><DropdownMenuRadioItem key={value} value={value}>{value}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
-                  : rule.kind === 'integer' ? <><Input id={`video-${name}`} type="number" min={rule.minimum} max={rule.maximum} step={1} value={String(controls[name] ?? '')} onChange={event=>setControls(current=>({...current,[name]:event.target.value}))} disabled={busy === 'create' || Boolean(intentId && !intentDocument?.job)}/><small className="video-muted">{rule.minimum}–{rule.maximum}</small></>
-                  : <Checkbox id={`video-${name}`} checked={controls[name] === true} onCheckedChange={checked=>setControls(current=>({...current,[name]:checked === true}))} disabled={busy === 'create' || Boolean(intentId && !intentDocument?.job)}/>}</div>)}
-              <Button type="button" variant="ghost" onClick={()=>setControls(initialControls(model))} disabled={busy === 'create' || Boolean(intentId && !intentDocument?.job)}>Reset settings</Button>
+                  {rule.kind === 'choice' ? <DropdownMenu><DropdownMenuTrigger asChild><Button id={`video-${name}`} variant="outline" className="video-choice" disabled={draftBlocked || busy === 'create' || Boolean(intentId && !intentDocument?.job)}>{String(controls[name] ?? 'Choose…')}<ChevronDown size={14}/></Button></DropdownMenuTrigger><DropdownMenuContent align="start"><DropdownMenuRadioGroup value={String(controls[name] ?? '')} onValueChange={value=>{setComposerEdited(true);setControls(current=>{const next={...current,[name]:value};if(name === 'resolution' && model.output && !model.output.specifications.some(spec=>spec.resolution === value && spec.ratio === current.ratio)){const spec=model.output.specifications.find(spec=>spec.resolution === value);if(spec)next.ratio=spec.ratio;}return next;});}}>{rule.values.filter(value=>name !== 'ratio' || !model.output || model.output.specifications.some(spec=>spec.resolution === controls.resolution && spec.ratio === value)).map(value=><DropdownMenuRadioItem key={value} value={value}>{value}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
+                  : rule.kind === 'integer' ? <><Input id={`video-${name}`} type="number" min={rule.minimum} max={rule.maximum} step={1} value={String(controls[name] ?? '')} onChange={event=>{setComposerEdited(true);setControls(current=>({...current,[name]:event.target.value}));}} disabled={draftBlocked || busy === 'create' || Boolean(intentId && !intentDocument?.job)}/><small className="video-muted">{rule.minimum}–{rule.maximum}</small></>
+                  : <Checkbox id={`video-${name}`} checked={controls[name] === true} onCheckedChange={checked=>{setComposerEdited(true);setControls(current=>({...current,[name]:checked === true}));}} disabled={draftBlocked || busy === 'create' || Boolean(intentId && !intentDocument?.job)}/>}</div>)}
+              <Button type="button" variant="ghost" onClick={()=>{setComposerEdited(true);setControls(initialControls(model));}} disabled={draftBlocked || busy === 'create' || Boolean(intentId && !intentDocument?.job)}>Reset settings</Button>
 
                 </div><Button type="button" variant="ghost" disabled={toolsState==='loading'||toolsState==='unsupported'} onClick={()=>toolsState==='error' ? setToolsRevision(value=>value+1) : setProviderToolsOpen(true)}>{toolsState==='loading'?'Checking Supplier tools…':toolsState==='error'?'Retry Supplier tools':'Supplier tools'}</Button>{toolsState==='unsupported'&&<p className="video-muted">This model has no native Supplier tools.</p>}{toolsState==='error'&&<p role="alert" className="video-error">{nativeTools.error}</p>}</PopoverContent></Popover>
               </>}
             </div>
-            {model && <Button type="submit" size="icon" aria-label={quoteMatches ? 'Generate video':'Estimate'} title={quoteMatches ? 'Generate video':'Estimate generation cost'} disabled={!base || !form.body || Boolean(busy) || uncertain || readingImages || restoringIntent || (quoteMatches && !canWrite)}><ArrowUp size={20}/></Button>}
+            {model && <Button type="submit" size="icon" aria-label={quoteMatches ? 'Generate video':'Estimate'} title={quoteMatches ? 'Generate video':'Estimate generation cost'} disabled={!base || !form.body || Boolean(busy) || uncertain || readingImages || restoringIntent || draftBlocked || (quoteMatches && !canWrite)}><ArrowUp size={20}/></Button>}
             </div>
             {!loading && !keys.length && <Button asChild variant="outline"><Link to={`${workspacePath}/keys`}>Manage API keys</Link></Button>}
             {!canWrite && <small className="video-muted">Read access can estimate; generation needs write access.</small>}

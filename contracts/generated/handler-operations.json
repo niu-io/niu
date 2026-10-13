@@ -4607,6 +4607,137 @@
         "x-niu-implementation": "implemented"
       }
     },
+    "/admin/v1/organizations/{organization}/projects/{project}/video-draft": {
+      "get": {
+        "operationId": "getVideoComposerDraft",
+        "x-niu-implementation": "implemented",
+        "summary": "Read a mutable personal Video composer",
+        "description": "One mutable actor-private Video composer per workspace. Operators are isolated; installation credentials share the installation actor. Read requires workspace Read permission. Absent state returns null payload and revision zero. Retention is 30 days after the last confirmed edit; expired content is hidden immediately and background maintenance erases it. Reads expose the expiry tombstone revision before maintenance. Saved key/model/reference identities are context only, including unavailable historical resources; they confer no current access or readiness. No inference, Supplier calls, reservation, media reads or inspection occur.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Actor-private composer state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VideoComposerDraftResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid administration/member authentication."
+          },
+          "403": {
+            "description": "Insufficient workspace permission or scope."
+          },
+          "500": {
+            "description": "Internal storage failure."
+          },
+          "503": {
+            "description": "Storage unavailable."
+          }
+        }
+      },
+      "put": {
+        "operationId": "saveVideoComposerDraft",
+        "x-niu-implementation": "implemented",
+        "summary": "Save or clear a mutable personal Video composer",
+        "description": "One mutable actor-private Video composer per workspace. Operators are isolated; installation credentials share the installation actor. Read requires workspace Read permission. Absent state returns null payload and revision zero. Retention is 30 days after the last confirmed edit; expired content is hidden immediately and background maintenance erases it. Reads expose the expiry tombstone revision before maintenance. Saved key/model/reference identities are context only, including unavailable historical resources; they confer no current access or readiness. No inference, Supplier calls, reservation, media reads or inspection occur. Write requires workspace Write permission and allowed browser Origin. Typed bounded partial composition may omit model/key/session and required model controls. Only the nine existing non-URL VideoSchema scalar control names are accepted; integer edits may remain strings. References use exact provider_asset/workspace_asset shapes, canonical nonnil Niu IDs and explicit workspace processing consent. No raw URL, inline media, short-lived ingestion, credential or billing fields are accepted. Key/reference metadata must belong to the workspace; session context must belong to the actor. Saving does not require an active historical key or grant action access. Full current schema, key/model eligibility, reference binding, consent and inspection remain explicit estimate/submission requirements. Null or omitted payload clears content while retaining the CAS revision. Stale revisions, including revisions predating expiry or clear, return 409. Workspace deletion refuses retained drafts; cleared/expired tombstones alone do not prevent empty-workspace deletion.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Actor-private composer state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VideoComposerDraftResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid administration/member authentication."
+          },
+          "403": {
+            "description": "Insufficient permission, cross-workspace key/reference, unavailable actor session, or missing/disallowed browser Origin."
+          },
+          "500": {
+            "description": "Internal storage failure."
+          },
+          "503": {
+            "description": "Storage unavailable."
+          },
+          "400": {
+            "description": "Malformed or unknown fields, invalid bounds, control type, reference role, consent or canonical ID."
+          },
+          "409": {
+            "description": "Invalid or stale revision; no overwrite."
+          },
+          "413": {
+            "description": "Body exceeds 64 KiB."
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VideoComposerDraftUpdate"
+              }
+            }
+          }
+        }
+      }
+    },
     "/admin/v1/workspaces/{workspace}": {
       "patch": {
         "operationId": "renameWorkspaceById",
@@ -25132,6 +25263,436 @@
         "x-niu-implementation": "implemented"
       }
     },
+    "/v1/media/asset-operations": {
+      "get": {
+        "operationId": "list_operationsProviderAsset",
+        "summary": "List saved Provider mutation operations",
+        "description": "Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation. This read never calls the Provider or retries a mutation. Records are workspace-shared under current selected-key authority and exact model/account binding. Unknown remains uncertain; prepared is a persisted state, not permission to retry. A missing record is not proof that the original request was never sent. Newest-first immutable creation time and UUID tie-breaker ordering. Resource deletion does not remove operation history. limit defaults to 50.",
+        "tags": [
+          "Media"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "model",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Cursor from this exact authorized model/account; invalid or mismatched cursor is rejected."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bounded saved operation page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "next_cursor"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/MediaAssetOperation"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid model, UUID, limit or cursor"
+          },
+          "401": {
+            "description": "Missing, expired or revoked API key"
+          },
+          "403": {
+            "description": "Workspace or key policy refuses access"
+          },
+          "404": {
+            "description": "Owned object or model unavailable"
+          },
+          "409": {
+            "description": "Changed input, stale revision, unresolved identity or route conflict"
+          },
+          "413": {
+            "description": "Request exceeds its bounded size"
+          },
+          "501": {
+            "description": "Selected channel does not support asset management"
+          },
+          "502": {
+            "description": "Provider read failed safely"
+          },
+          "503": {
+            "description": "Credential, capacity or bounded storage unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented"
+      }
+    },
+    "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-operations": {
+      "get": {
+        "operationId": "dashboardlist_operationsProviderAsset",
+        "summary": "List saved Provider mutation operations",
+        "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation. This read never calls the Provider or retries a mutation. Records are workspace-shared under current selected-key authority and exact model/account binding. Unknown remains uncertain; prepared is a persisted state, not permission to retry. A missing record is not proof that the original request was never sent. Newest-first immutable creation time and UUID tie-breaker ordering. Resource deletion does not remove operation history. limit defaults to 50.",
+        "tags": [
+          "Media"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "model",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Cursor from this exact authorized model/account; invalid or mismatched cursor is rejected."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bounded saved operation page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "next_cursor"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/MediaAssetOperation"
+                      }
+                    },
+                    "next_cursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid model, UUID, limit or cursor"
+          },
+          "401": {
+            "description": "Missing, expired or revoked API key"
+          },
+          "403": {
+            "description": "Workspace or key policy refuses access"
+          },
+          "404": {
+            "description": "Owned object or model unavailable"
+          },
+          "409": {
+            "description": "Changed input, stale revision, unresolved identity or route conflict"
+          },
+          "413": {
+            "description": "Request exceeds its bounded size"
+          },
+          "501": {
+            "description": "Selected channel does not support asset management"
+          },
+          "502": {
+            "description": "Provider read failed safely"
+          },
+          "503": {
+            "description": "Credential, capacity or bounded storage unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented"
+      }
+    },
+    "/v1/media/asset-operations/by-idempotency/{id}": {
+      "get": {
+        "operationId": "get_operation_by_idempotencyProviderAsset",
+        "summary": "Read a saved Provider operation by request idempotency UUID",
+        "description": "Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation. This read never calls the Provider or retries a mutation. Records are workspace-shared under current selected-key authority and exact model/account binding. Unknown remains uncertain; prepared is a persisted state, not permission to retry. A missing record is not proof that the original request was never sent.",
+        "tags": [
+          "Media"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Original canonical nonnil Idempotency-Key UUID, not the operation ID."
+          },
+          {
+            "name": "model",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owned metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/MediaAssetOperation"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid model, UUID, limit or cursor"
+          },
+          "401": {
+            "description": "Missing, expired or revoked API key"
+          },
+          "403": {
+            "description": "Workspace or key policy refuses access"
+          },
+          "404": {
+            "description": "Owned object or model unavailable"
+          },
+          "409": {
+            "description": "Changed input, stale revision, unresolved identity or route conflict"
+          },
+          "413": {
+            "description": "Request exceeds its bounded size"
+          },
+          "501": {
+            "description": "Selected channel does not support asset management"
+          },
+          "502": {
+            "description": "Provider read failed safely"
+          },
+          "503": {
+            "description": "Credential, capacity or bounded storage unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented"
+      }
+    },
+    "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-operations/by-idempotency/{id}": {
+      "get": {
+        "operationId": "dashboardget_operation_by_idempotencyProviderAsset",
+        "summary": "Read a saved Provider operation by request idempotency UUID",
+        "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation. This read never calls the Provider or retries a mutation. Records are workspace-shared under current selected-key authority and exact model/account binding. Unknown remains uncertain; prepared is a persisted state, not permission to retry. A missing record is not proof that the original request was never sent.",
+        "tags": [
+          "Media"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Original canonical nonnil Idempotency-Key UUID, not the operation ID."
+          },
+          {
+            "name": "model",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owned metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/MediaAssetOperation"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid model, UUID, limit or cursor"
+          },
+          "401": {
+            "description": "Missing, expired or revoked API key"
+          },
+          "403": {
+            "description": "Workspace or key policy refuses access"
+          },
+          "404": {
+            "description": "Owned object or model unavailable"
+          },
+          "409": {
+            "description": "Changed input, stale revision, unresolved identity or route conflict"
+          },
+          "413": {
+            "description": "Request exceeds its bounded size"
+          },
+          "501": {
+            "description": "Selected channel does not support asset management"
+          },
+          "502": {
+            "description": "Provider read failed safely"
+          },
+          "503": {
+            "description": "Credential, capacity or bounded storage unavailable"
+          }
+        },
+        "x-niu-implementation": "implemented"
+      }
+    },
     "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/capabilities": {
       "get": {
         "operationId": "discoverDashboardNativeProviderCapabilities",
@@ -27721,6 +28282,276 @@
           },
           "actor_name": {
             "type": "string"
+          }
+        }
+      },
+      "VideoComposerDraftPayload": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "prompt",
+          "controls",
+          "references"
+        ],
+        "properties": {
+          "keyId": {
+            "oneOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sessionId": {
+            "oneOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "prompt": {
+            "type": "string",
+            "maxLength": 12000
+          },
+          "controls": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [],
+            "properties": {
+              "duration": {
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "string",
+                    "maxLength": 256
+                  }
+                ]
+              },
+              "seed": {
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "string",
+                    "maxLength": 256
+                  }
+                ]
+              },
+              "frames_per_second": {
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "string",
+                    "maxLength": 256
+                  }
+                ]
+              },
+              "resolution": {
+                "type": "string",
+                "maxLength": 256
+              },
+              "ratio": {
+                "type": "string",
+                "maxLength": 256
+              },
+              "omni_reference_task_type": {
+                "type": "string",
+                "maxLength": 256
+              },
+              "watermark": {
+                "type": "boolean"
+              },
+              "camera_fixed": {
+                "type": "boolean"
+              },
+              "return_last_frame": {
+                "type": "boolean"
+              }
+            }
+          },
+          "references": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "provider_asset"
+                  ],
+                  "properties": {
+                    "type": {
+                      "const": "provider_asset"
+                    },
+                    "provider_asset": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                        }
+                      }
+                    },
+                    "role": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256,
+                      "description": "Optional nonempty role matching the existing VideoIntent reference grammar; explicit null is rejected."
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "workspace_asset"
+                  ],
+                  "properties": {
+                    "type": {
+                      "const": "workspace_asset"
+                    },
+                    "workspace_asset": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "asset_id",
+                        "consent_to_process"
+                      ],
+                      "properties": {
+                        "asset_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                        },
+                        "consent_to_process": {
+                          "const": true
+                        }
+                      }
+                    },
+                    "role": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256,
+                      "description": "Optional nonempty role matching the existing VideoIntent reference grammar; explicit null is rejected."
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "VideoComposerDraftState": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "payload",
+          "revision",
+          "expires_at_ms",
+          "content_state"
+        ],
+        "properties": {
+          "payload": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/VideoComposerDraftPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "expires_at_ms": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "content_state": {
+            "type": "string",
+            "enum": [
+              "empty",
+              "retained",
+              "expired"
+            ]
+          }
+        }
+      },
+      "VideoComposerDraftResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/VideoComposerDraftState"
+          }
+        }
+      },
+      "VideoComposerDraftUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected_revision"
+        ],
+        "properties": {
+          "expected_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740989
+          },
+          "payload": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/VideoComposerDraftPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },

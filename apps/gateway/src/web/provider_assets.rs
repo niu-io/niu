@@ -4037,3 +4037,504 @@ pub(super) async fn refresh_asset(
         .map_err(ApiError::from_store)?;
     Ok(Json(json!({"data":data})))
 }
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct OperationListQuery {
+    model: String,
+    after: Option<Uuid>,
+    limit: Option<u32>,
+}
+/// ```openapi
+/// {
+///   "path": "/v1/media/asset-operations",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "list_operationsProviderAsset",
+///     "summary": "List saved Provider mutation operations",
+///     "description": "Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation. This read never calls the Provider or retries a mutation. Records are workspace-shared under current selected-key authority and exact model/account binding. Unknown remains uncertain; prepared is a persisted state, not permission to retry. A missing record is not proof that the original request was never sent. Newest-first immutable creation time and UUID tie-breaker ordering. Resource deletion does not remove operation history. limit defaults to 50.",
+///     "tags": [
+///       "Media"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "model",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string"
+///         }
+///       },
+///       {
+///         "name": "after",
+///         "in": "query",
+///         "required": false,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "description": "Cursor from this exact authorized model/account; invalid or mismatched cursor is rejected."
+///       },
+///       {
+///         "name": "limit",
+///         "in": "query",
+///         "required": false,
+///         "schema": {
+///           "type": "integer",
+///           "minimum": 1,
+///           "maximum": 100,
+///           "default": 50
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Bounded saved operation page",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data",
+///                 "next_cursor"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "items": {
+///                     "$ref": "#/components/schemas/MediaAssetOperation"
+///                   }
+///                 },
+///                 "next_cursor": {
+///                   "type": ["string", "null"],
+///                   "format": "uuid"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid model, UUID, limit or cursor"
+///       },
+///       "401": {
+///         "description": "Missing, expired or revoked API key"
+///       },
+///       "403": {
+///         "description": "Workspace or key policy refuses access"
+///       },
+///       "404": {
+///         "description": "Owned object or model unavailable"
+///       },
+///       "409": {
+///         "description": "Changed input, stale revision, unresolved identity or route conflict"
+///       },
+///       "413": {
+///         "description": "Request exceeds its bounded size"
+///       },
+///       "501": {
+///         "description": "Selected channel does not support asset management"
+///       },
+///       "502": {
+///         "description": "Provider read failed safely"
+///       },
+///       "503": {
+///         "description": "Credential, capacity or bounded storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-operations",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "dashboardlist_operationsProviderAsset",
+///     "summary": "List saved Provider mutation operations",
+///     "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation. This read never calls the Provider or retries a mutation. Records are workspace-shared under current selected-key authority and exact model/account binding. Unknown remains uncertain; prepared is a persisted state, not permission to retry. A missing record is not proof that the original request was never sent. Newest-first immutable creation time and UUID tie-breaker ordering. Resource deletion does not remove operation history. limit defaults to 50.",
+///     "tags": [
+///       "Media"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "model",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string"
+///         }
+///       },
+///       {
+///         "name": "after",
+///         "in": "query",
+///         "required": false,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "description": "Cursor from this exact authorized model/account; invalid or mismatched cursor is rejected."
+///       },
+///       {
+///         "name": "limit",
+///         "in": "query",
+///         "required": false,
+///         "schema": {
+///           "type": "integer",
+///           "minimum": 1,
+///           "maximum": 100,
+///           "default": 50
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Bounded saved operation page",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data",
+///                 "next_cursor"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "type": "array",
+///                   "items": {
+///                     "$ref": "#/components/schemas/MediaAssetOperation"
+///                   }
+///                 },
+///                 "next_cursor": {
+///                   "type": ["string", "null"],
+///                   "format": "uuid"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid model, UUID, limit or cursor"
+///       },
+///       "401": {
+///         "description": "Missing, expired or revoked API key"
+///       },
+///       "403": {
+///         "description": "Workspace or key policy refuses access"
+///       },
+///       "404": {
+///         "description": "Owned object or model unavailable"
+///       },
+///       "409": {
+///         "description": "Changed input, stale revision, unresolved identity or route conflict"
+///       },
+///       "413": {
+///         "description": "Request exceeds its bounded size"
+///       },
+///       "501": {
+///         "description": "Selected channel does not support asset management"
+///       },
+///       "502": {
+///         "description": "Provider read failed safely"
+///       },
+///       "503": {
+///         "description": "Credential, capacity or bounded storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+pub(super) async fn list_operations(
+    State(state): State<AppState>,
+    MediaPrincipal(principal): MediaPrincipal,
+    input: Result<Query<OperationListQuery>, QueryRejection>,
+) -> Result<(HeaderMap, Json<Value>), ApiError> {
+    let input = query(input)?;
+    let route = admit(&state, &principal, &input.model).await?;
+    let data = state
+        .store
+        .workspace_provider_asset_operations(
+            &principal,
+            &route,
+            input.after,
+            page_limit(input.limit)?,
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok((operation_read_headers(), Json(json!(data))))
+}
+/// ```openapi
+/// {
+///   "path": "/v1/media/asset-operations/by-idempotency/{id}",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "get_operation_by_idempotencyProviderAsset",
+///     "summary": "Read a saved Provider operation by request idempotency UUID",
+///     "description": "Requires a workspace inference API key, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation. This read never calls the Provider or retries a mutation. Records are workspace-shared under current selected-key authority and exact model/account binding. Unknown remains uncertain; prepared is a persisted state, not permission to retry. A missing record is not proof that the original request was never sent.",
+///     "tags": [
+///       "Media"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "description": "Original canonical nonnil Idempotency-Key UUID, not the operation ID."
+///       },
+///       {
+///         "name": "model",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Owned metadata",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "$ref": "#/components/schemas/MediaAssetOperation"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid model, UUID, limit or cursor"
+///       },
+///       "401": {
+///         "description": "Missing, expired or revoked API key"
+///       },
+///       "403": {
+///         "description": "Workspace or key policy refuses access"
+///       },
+///       "404": {
+///         "description": "Owned object or model unavailable"
+///       },
+///       "409": {
+///         "description": "Changed input, stale revision, unresolved identity or route conflict"
+///       },
+///       "413": {
+///         "description": "Request exceeds its bounded size"
+///       },
+///       "501": {
+///         "description": "Selected channel does not support asset management"
+///       },
+///       "502": {
+///         "description": "Provider read failed safely"
+///       },
+///       "503": {
+///         "description": "Credential, capacity or bounded storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+/// ```openapi
+/// {
+///   "path": "/admin/v1/organizations/{organization}/projects/{project}/keys/{key}/media/asset-operations/by-idempotency/{id}",
+///   "method": "get",
+///   "operation": {
+///     "operationId": "dashboardget_operation_by_idempotencyProviderAsset",
+///     "summary": "Read a saved Provider operation by request idempotency UUID",
+///     "description": "Session-authenticated workspace bridge. GET requires Read; mutations require Write. The selected workspace key, model grants, exact account/channel binding and member authorization are independently enforced; credentials remain server-side. Requires current selected workspace key authority, current model permissions, composed workspace/key model and Provider grants, an enabled selectable credential and eligible Supplier or matching personal owner. Only the explicitly configured fastrouter-actions-v1 model channel is supported. Opaque Provider references, credentials, private source URLs and upstream raw responses are never returned. Reads locally saved metadata only; unknown operation states require explicit reconciliation. This read never calls the Provider or retries a mutation. Records are workspace-shared under current selected-key authority and exact model/account binding. Unknown remains uncertain; prepared is a persisted state, not permission to retry. A missing record is not proof that the original request was never sent.",
+///     "tags": [
+///       "Media"
+///     ],
+///     "security": [
+///       {
+///         "bearerAuth": []
+///       }
+///     ],
+///     "parameters": [
+///       {
+///         "name": "organization",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "project",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "key",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         }
+///       },
+///       {
+///         "name": "id",
+///         "in": "path",
+///         "required": true,
+///         "schema": {
+///           "type": "string",
+///           "format": "uuid"
+///         },
+///         "description": "Original canonical nonnil Idempotency-Key UUID, not the operation ID."
+///       },
+///       {
+///         "name": "model",
+///         "in": "query",
+///         "required": true,
+///         "schema": {
+///           "type": "string"
+///         }
+///       }
+///     ],
+///     "responses": {
+///       "200": {
+///         "description": "Owned metadata",
+///         "content": {
+///           "application/json": {
+///             "schema": {
+///               "type": "object",
+///               "required": [
+///                 "data"
+///               ],
+///               "properties": {
+///                 "data": {
+///                   "$ref": "#/components/schemas/MediaAssetOperation"
+///                 }
+///               }
+///             }
+///           }
+///         }
+///       },
+///       "400": {
+///         "description": "Invalid model, UUID, limit or cursor"
+///       },
+///       "401": {
+///         "description": "Missing, expired or revoked API key"
+///       },
+///       "403": {
+///         "description": "Workspace or key policy refuses access"
+///       },
+///       "404": {
+///         "description": "Owned object or model unavailable"
+///       },
+///       "409": {
+///         "description": "Changed input, stale revision, unresolved identity or route conflict"
+///       },
+///       "413": {
+///         "description": "Request exceeds its bounded size"
+///       },
+///       "501": {
+///         "description": "Selected channel does not support asset management"
+///       },
+///       "502": {
+///         "description": "Provider read failed safely"
+///       },
+///       "503": {
+///         "description": "Credential, capacity or bounded storage unavailable"
+///       }
+///     },
+///     "x-niu-implementation": "implemented"
+///   }
+/// }
+/// ```
+pub(super) async fn get_operation_by_idempotency(
+    State(state): State<AppState>,
+    MediaPrincipal(principal): MediaPrincipal,
+    MediaId(id): MediaId,
+    input: Result<Query<ModelQuery>, QueryRejection>,
+) -> Result<(HeaderMap, Json<Value>), ApiError> {
+    if id.is_nil() {
+        return Err(ApiError::invalid_request("Invalid idempotency UUID"));
+    }
+    let input = query(input)?;
+    let route = admit(&state, &principal, &input.model).await?;
+    let data = state
+        .store
+        .workspace_provider_asset_operation_by_idempotency(&principal, id)
+        .await
+        .map_err(ApiError::from_store)?
+        .ok_or_else(ApiError::not_found)?;
+    if data.model != input.model
+        || data.vendor_id() != route.vendor_id()
+        || data.vendor_revision() != route.vendor_revision()
+        || data.private_upstream_model() != route.upstream_model()
+    {
+        return Err(ApiError::not_found());
+    }
+    Ok((operation_read_headers(), Json(json!({"data":data}))))
+}
+fn operation_read_headers() -> HeaderMap {
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        axum::http::header::CACHE_CONTROL,
+        axum::http::HeaderValue::from_static("no-store"),
+    );
+    headers
+}
