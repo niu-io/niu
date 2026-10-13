@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { request, VendorRequestError } from '@/features/vendors/api';
+import { request, VendorRequestError, writeMayHaveCommitted } from '@/features/vendors/api';
 import type { MemberProfile } from '@/app/dashboard-context';
 
 function validProfile(profile:MemberProfile) {
@@ -19,6 +19,9 @@ export default function AccountProfile({token, initialProfile, onSaved}: {token:
   const [loading,setLoading]=useState(true);
   const [loadFailed,setLoadFailed]=useState(false);
   const [conflict,setConflict]=useState(false);
+  const [unconfirmed,setUnconfirmed]=useState(false);
+  const onSavedRef=useRef(onSaved);
+  onSavedRef.current=onSaved;
   const [saving,setSaving]=useState(false);
   const [processing,setProcessing]=useState(false);
   const [error,setError]=useState('');
@@ -35,7 +38,7 @@ export default function AccountProfile({token, initialProfile, onSaved}: {token:
       if (read.signal.aborted) return;
       if (!validProfile(result.data)) throw new Error('Invalid profile response');
       setProfile(result.data);setName(result.data.name);setAvatar(result.data.avatar_data_url);
-      setConflict(false);
+      setConflict(false);setUnconfirmed(false);onSavedRef.current(result.data);
     }).catch(()=>{if (!read.signal.aborted) {setLoadFailed(true);setError('Could not load your profile. Try again.');}})
       .finally(()=>{if (!read.signal.aborted) setLoading(false);});
     return ()=>{read.abort();controller.current?.abort();};
@@ -65,7 +68,7 @@ export default function AccountProfile({token, initialProfile, onSaved}: {token:
     finally {if (requestId === photoRequest.current) {setProcessing(false);if (input.current) input.current.value='';}}
   }
   async function save(event:FormEvent<HTMLFormElement>) {
-    event.preventDefault();if (!profile || loading || loadFailed || conflict || saving || processing) return;
+    event.preventDefault();if (!profile || loading || loadFailed || conflict || unconfirmed || saving || processing) return;
     const pending=new AbortController();controller.current=pending;setSaving(true);setError('');setSaved(false);
     try {
       const result=await request<{data:MemberProfile}>(token,'/admin/v1/auth/profile','PUT',{name:name.trim(),avatar_data_url:avatar,expected_revision:profile.revision},pending.signal);
@@ -75,11 +78,13 @@ export default function AccountProfile({token, initialProfile, onSaved}: {token:
       if (!pending.signal.aborted) {
         const stale = failure instanceof VendorRequestError && failure.status===409;
         setConflict(stale);
-        setError(stale ? 'Your profile changed elsewhere. Reload before saving.' : 'Could not save your profile. Your changes are still here.');
+        const uncertain = !stale && writeMayHaveCommitted(failure);
+        setUnconfirmed(uncertain);
+        setError(stale ? 'Your profile changed elsewhere. Reload before saving.' : uncertain ? 'Could not confirm your saved profile. Reload before making further changes.' : 'Could not save your profile. Your changes are still here.');
       }
     } finally {if (!pending.signal.aborted) setSaving(false);}
   }
-  const disabled=loading || loadFailed || saving || processing;
+  const disabled=loading || loadFailed || unconfirmed || saving || processing;
   const retryDisabled=loading || saving || processing;
   return <form onSubmit={save} className="grid gap-5" aria-label="Profile">
     <div className="flex flex-wrap items-center gap-4">
@@ -90,7 +95,7 @@ export default function AccountProfile({token, initialProfile, onSaved}: {token:
     <div className="grid min-w-0 gap-2"><Label htmlFor="account-profile-name">Display name</Label><Input ref={nameInput} id="account-profile-name" autoComplete="name" required maxLength={100} value={name} disabled={disabled} onChange={event=>{setName(event.target.value);setSaved(false);}}/></div>
     {profile?.email && <div className="grid min-w-0 gap-2"><Label htmlFor="account-profile-email">Email</Label><Input id="account-profile-email" type="email" autoComplete="email" value={profile.email} readOnly/></div>}
     {loading && <p role="status" className="text-sm text-muted-foreground">Loading profile…</p>}
-    {(error || conflict) && <div className="grid justify-items-start gap-2"><p role="alert" className="text-sm text-destructive">{error || 'Your profile changed elsewhere. Reload before saving.'}</p>{(!profile || conflict || loadFailed) && <Button type="button" variant="outline" disabled={retryDisabled} onClick={()=>setRevision(value=>value+1)}>Reload profile</Button>}</div>}
+    {(error || conflict) && <div className="grid justify-items-start gap-2"><p role="alert" className="text-sm text-destructive">{error || 'Your profile changed elsewhere. Reload before saving.'}</p>{(!profile || conflict || unconfirmed || loadFailed) && <Button type="button" variant="outline" disabled={retryDisabled} onClick={()=>setRevision(value=>value+1)}>Reload profile</Button>}</div>}
     {saved && <p role="status" className="text-sm text-muted-foreground">Profile saved.</p>}
     <div className="flex justify-end gap-2">{profile && (name !== profile.name || avatar !== profile.avatar_data_url) && <Button type="button" variant="ghost" disabled={disabled} onClick={()=>{setName(profile.name);setAvatar(profile.avatar_data_url);setError('');setSaved(false);nameInput.current?.focus();}}>Cancel</Button>}<Button type="submit" disabled={disabled || conflict || !profile || !name.trim() || (name.trim()===profile.name && avatar===profile.avatar_data_url)}>{saving ? 'Saving…' : 'Save changes'}</Button></div>
   </form>;
