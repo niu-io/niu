@@ -568,7 +568,9 @@ export default function GatewayActivity({ token, models, initialScope, compact =
     : tokenMetric === 'reasoning' ? categories?.reasoning_output_tokens
     : tokenMetric === 'input' ? summary?.prompt_tokens
     : tokenMetric === 'output' ? summary?.completion_tokens : undefined;
-  const tokenDisplay = !summary ? '—' : tokenMetric === 'total' ? aggregateTokens
+  const tokenDisplay = !summary ? '—'
+    : !categoryMetric && aggregate.request_count > 0 && aggregate.usage_count === 0 ? 'Unknown'
+    : tokenMetric === 'total' ? aggregateTokens
     : tokenValue == null ? '—' : BigInt(tokenValue).toLocaleString();
   const categoryReported = tokenMetric === 'cached' ? categories?.cached_input_requests : categories?.reasoning_output_requests;
   const categoryUnknown = tokenMetric === 'cached' ? categories?.cached_input_unknown_requests : categories?.reasoning_output_unknown_requests;
@@ -577,7 +579,7 @@ export default function GatewayActivity({ token, models, initialScope, compact =
       ? `${categoryReported?.toLocaleString()} reported · ${categoryUnknown?.toLocaleString()} unknown · included in ${tokenMetric === 'cached' ? 'input' : 'output'}`
       : 'Category reporting unavailable'
     : tokenMetric === 'total'
-      ? `${BigInt(aggregate.prompt_tokens).toLocaleString()} prompt · ${BigInt(aggregate.completion_tokens).toLocaleString()} output · ${aggregate.usage_count} with reported usage`
+      ? `${aggregate.usage_count.toLocaleString()} reported · ${(aggregate.request_count - aggregate.usage_count).toLocaleString()} unknown${aggregate.usage_count ? ` · ${BigInt(aggregate.prompt_tokens).toLocaleString()} prompt · ${BigInt(aggregate.completion_tokens).toLocaleString()} output` : ''}`
       : `${aggregate.usage_count.toLocaleString()} reported · ${(aggregate.request_count - aggregate.usage_count).toLocaleString()} unknown`;
   const customerTotals = customerChargeTotals(aggregate);
   const chargeCoverage = [

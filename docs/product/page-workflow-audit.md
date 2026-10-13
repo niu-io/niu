@@ -65,9 +65,10 @@ These are source findings awaiting current-input reproduction, not integrated ac
 | C07 | P2 | P26 | Supported unconfigured payment integrations are hidden | Fixed; inventory scope verified |
 | C08 | P2 | P30 | Profile save does not update shared account-menu session state | Fixed; immediate saved-name synchronization and independent restoration qualified |
 | C09 | P2 | P11 | A stale revision conflict does not lock repeated saves until reload | Fixed; actual conflict/reload/publication scope verified |
-| C10 | P2 | P13 | Known token totals omit reported-usage coverage | In review |
+| C10 | P2 | P13 | Known token totals omit reported-usage coverage | Fixed; actual unknown/empty and mixed known-subtotal display qualified |
 | C11 | P2 | P25 | Backend-supported reasoning customer prices lack an editor | Fixed; publication scope verified |
 | C12 | P2 | P17 | Unsubmitted Video drafts exist only in component memory | Draft restore/conflict, scoped save-clear and saved-image picker qualified; concurrent newer-draft clear and submission recovery remain open |
+| C13 | P1 | P23, P24 | Editing an existing ordinary text offer omits configured reasoning, cache-write and context-tier rates | Actual current editor payload rejected with 409; preservation fix awaits rendered save/readback |
 
 ## Delivery order
 
@@ -262,10 +263,22 @@ Current-input Viewer and Admin exchanges returned empty 204 responses with prote
 
 Authentication now publishes a verified session before the separate model-catalog read. A real blocked catalog request no longer prevents normal Admin sign-in or permitted workspace navigation. Models retains an explicit loading error, and restoring the connection followed by Retry recovers discovery. These checks establish browser transport and the exercised permission boundaries; they do not establish all user lifecycle, deployed HTTPS, model invocation or financial enforcement workflows.
 
-The new browser-token operation reference and updated security overview were independently fetched from the running documentation mount. Both complete HTTP responses exactly matched their built HTML artifacts. This establishes delivery of these two documents; their embedded Help visual/interaction review remains a separate qualification.
+The new browser-token operation reference and updated security overview were independently fetched from the running documentation mount. Both complete HTTP responses exactly matched their built HTML artifacts. This establishes delivery of these two documents. Their embedded Help pages were subsequently inspected at desktop and 390px: the operation retains readable required-Origin/body/cookie guidance, with bounded horizontal code scrolling and no page overflow. The curl example omitted the required Origin header despite the correct parameter table; the generator now includes required-header placeholders without embedding credentials or configured origins. Actual HTTP delivery of all four affected operation pages matched their independently built HTML and contained the declared required headers; final changed-example browser checks are pending.
 
 ### Temporary workspace-user lifecycle
 
 A genuine workspace Owner created one verification Viewer through the normal Users form, selected its seven-day lifetime, received the one-time credential and explicitly revoked the user through the UI. The revoked credential then failed authentication. Independent PostgreSQL matched the role, workspace scope, single original session, lifetime and Owner-attributed create/revoke audit records. The additional temporary Viewer/Admin credentials used for browser-transport checks were also revoked; all five original temporary sessions were inactive, and the GUI-created credential was separately revoked. Signing out one Viewer session had revoked that session while its second original session remained valid until the whole user was revoked. The original Owner identity and normal browser session were preserved.
 
 Independent request and financial content digests across thirteen organization tables remained unchanged throughout these metadata workflows. Empty-workspace deletion returned 409 because durable audit/user history remained; the zero-funded verification workspace was retained rather than deleting history directly. This qualifies the exercised temporary-user creation, browser access, session sign-out and revocation paths. Role changes, production HTTPS transport and broader organization ownership workflows remain unverified.
+
+### Supplier multi-key metadata and text-offer blocker
+
+One isolated verification Supplier was configured with two independently named disabled credentials and three private, disabled model mappings. Actual API creation and independent persisted rows agreed. An inactive text offer with explicit reasoning-output, cache-write and long-context rates was published. Replaying the existing editor’s ordinary-rate payload against its exact current revision returned 409 because it omitted those configured categories. The rejected update did not advance the saved offer revision. The functional fix preserves the existing typed advanced categories while editing ordinary rates; its rendered save/readback qualification is still pending.
+
+All preexisting Supplier, credential, mapping and offer records remained unchanged. These own configurations stay disabled and unqualified, with no Provider call or public catalog publication. The verification Supplier remains in the isolated database because its saved credential/history relationships prevent empty deletion; no direct database deletion was performed. This is metadata/configuration evidence, not model invocation or commercial supply acceptance.
+
+### Unknown token usage and known-subtotal coverage
+
+Two genuine saved Video requests had unknown token usage. The scoped API and independent PostgreSQL agreed on two requests, zero reported-usage requests and no known token contribution; model/key group coverage also matched. The prior Activity total rendered zero without the unknown count. Total, input and output now display Unknown when requests exist but none report token usage. Every ordinary total includes reported/unknown coverage; genuinely empty scopes retain zero, and nullable cached/reasoning category semantics are unchanged.
+
+Actual desktop and 390px checks covered the unknown workspace, metric-menu selections, an unused key scope, and the Owner’s global Activity with mixed reported/unknown usage. The unknown workspace row remains Unknown while the global number represents the known subtotal with explicit coverage. No request, estimate or upstream call was sent. This qualifies the exercised display and saved-summary agreement; it does not establish completeness of upstream usage reporting or financial accounting.
