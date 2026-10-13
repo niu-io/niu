@@ -174,6 +174,13 @@ Frontend entry points must follow the shared product hierarchy:
 - **Generations** is the shared customer history and detail surface. Video is a task category. Authorized asynchronous jobs must be discoverable, including API-created jobs where the backend inventory supports them; opening a task restores its saved input, observed status and available preview/download. Do not infer progress percentages or recreate a job when checking status.
 - **Logs** links asynchronous requests to their task details; task details link back to diagnosis. Preserve account/workspace authorization, unresolved outcomes and expired/unavailable artifacts. Unsupported inventory contracts remain explicit dependencies, not fabricated history.
 
+The approved Generations structure uses durable sessions and turns, with Tasks
+and Artifacts as first-level sidebar views inside Generations. Video instruction,
+execution state and output belong in the conversation timeline, not parallel
+input/result panels. See the [backend handoff](../reference/generations-session-task-artifact-handoff.md)
+for missing associations and inventories. Verify with existing generated results;
+do not dispatch or replay generation for this frontend work.
+
 | Priority | Work package | Required coverage | Ready to proceed when |
 | --- | --- | --- | --- |
 | 1 | Supplier capability and pricing administration | V01, V04; M01–M04 | Independent credentials, protocol-aware model capabilities, meters and separate purchase/selling rates can be configured, reviewed and qualified. |

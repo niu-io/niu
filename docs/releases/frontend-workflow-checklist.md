@@ -48,6 +48,13 @@ Every row remains partial. Verified subsets below do not establish the entire fl
 
 ## Next work in dependency order
 
+Generations now follows the approved session/task/artifact hierarchy. Backend
+dependencies and read-only acceptance are specified in the
+[Generations handoff](../reference/generations-session-task-artifact-handoff.md).
+Restore the conversation timeline first; Tasks and Artifacts are sidebar views
+inside Generations and require authoritative inventories before delivery.
+Use existing generated videos; do not submit or replay generation for this work.
+
 1. Complete the actual independent Supplier credential/model-subset lifecycle and configuration-error recovery. Make model configuration directly discoverable, including declared Video settings.
 2. Qualify populated customer pricing and customer-only Rates/statement display using authorized real test data; keep commercial qualification and procurement separate.
 3. Complete ordinary-role/key/session boundary workflows and stable workspace route handling using the available backend contract.
