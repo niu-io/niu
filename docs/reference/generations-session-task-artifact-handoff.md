@@ -9,7 +9,7 @@ Status: implementation contract with an additive backend increment delivered. Ex
 | P1 historical task inventory | Implemented for Video across saved keys, with exact states and actor privacy; complete text-execution inventory remains open |
 | P2 generated-output inventory | Implemented for video and last frame; actual expired outputs refuse download; positive unexpired delivery remains unverified in this increment |
 | General retained Video controls/references | New turns retain typed text instructions only; the original Video intent remains authoritative for validated submission input |
-| P3 Assets and Person references | Newly added handoff scope; Generations-level inventory, binding and SDK integration remain pending |
+| P3 workspace-scoped Provider modules and shared platform capabilities | Latest handoff scope; workspace module backend/SDK integration and shared asset bindings remain pending; no universal Person entity |
 | P4 human verification | Newly added handoff scope; the required Generations-level workflow remains pending |
 | Frontend timeline and two-browser rendering | Frontend integration and acceptance remain open |
 
