@@ -60,14 +60,14 @@ These are source findings awaiting current-input reproduction, not integrated ac
 | C02 | P1 | P17, P20, P21 | Unsupported models expose native materials and verification tools before failing | Video scope fixed; standalone explicit context selection qualified; broader account/error branches pending |
 | C03 | P1 | P20 | Material validation errors remain behind dialogs; unknown operations lack explicit recovery | Inline failure and persisted operation history/reload qualified; pre-persistence uncertainty after unload remains open |
 | C04 | P1 | P17, P22 | Existing task/artifact/durable capture SDK is not consumed by product pages | In review |
-| C05 | P1 | P17 | Image/reference submission bypasses retained intent association | Metadata preparation and negative submission guards qualified; durable-image idempotency implemented; successful dispatch and dashboard attachment integration remain open |
+| C05 | P1 | P17 | Image/reference submission bypasses retained intent association | Metadata save/reload, attachment consent/role/removal and negative submission guards qualified; durable-image idempotency implemented; successful dispatch remains open |
 | C06 | P1 | P23, P24 | Supplier adapter controls omit backend-supported Anthropic/Gemini/Ark | Fixed; verified scope below |
 | C07 | P2 | P26 | Supported unconfigured payment integrations are hidden | Fixed; inventory scope verified |
 | C08 | P2 | P30 | Profile save does not update shared account-menu session state | Fixed; immediate saved-name synchronization and independent restoration qualified |
 | C09 | P2 | P11 | A stale revision conflict does not lock repeated saves until reload | Fixed; actual conflict/reload/publication scope verified |
 | C10 | P2 | P13 | Known token totals omit reported-usage coverage | In review |
 | C11 | P2 | P25 | Backend-supported reasoning customer prices lack an editor | Fixed; publication scope verified |
-| C12 | P2 | P17 | Unsubmitted Video drafts exist only in component memory | Draft restore/conflict scope verified; submission clear and reference picker pending |
+| C12 | P2 | P17 | Unsubmitted Video drafts exist only in component memory | Draft restore/conflict, scoped save-clear and saved-image picker qualified; concurrent newer-draft clear and submission recovery remain open |
 
 ## Delivery order
 
@@ -198,7 +198,7 @@ Save request now uses the existing session/turn/intent SDK to retain input witho
 
 Actual ordinary-member browser saves retained the original text and displayed an unsubmitted request at desktop and 390px. A subsequent save refreshed history immediately and cleared only its matching composer revision. Independent database counts and content digests for request, dispatch, usage and financial records were unchanged. The new saved intent, session, turn and binding each appeared once. No concurrent newer draft was introduced in this clear check, so that race branch remains unverified.
 
-Intent reads now project the original nullable session binding through the existing actor/workspace/intent index. Reopening a link with only the intent restored the exact original session/turn and retained prompt; no replacement history traversal or binding was created. The current HTTP response and independently downloaded full OpenAPI operation schema contained the binding. Generated SDK documentation rendered in Help at desktop and narrow widths. The former workspace-image idempotency blocker is addressed below; the pending image attachment UI is not yet delivered or qualified as a working generation flow.
+Intent reads now project the original nullable session binding through the existing actor/workspace/intent index. Reopening a link with only the intent restored the exact original session/turn and retained prompt; no replacement history traversal or binding was created. The current HTTP response and independently downloaded full OpenAPI operation schema contained the binding. Generated SDK documentation rendered in Help at desktop and narrow widths. The former workspace-image idempotency blocker is addressed below; the attachment save/restore workflow is qualified below, while successful image generation remains unverified.
 
 ### Current public catalog and failure state
 
@@ -225,3 +225,9 @@ Actual desktop and 390px saves immediately displayed the saved name in the exist
 The Materials page now reads saved operation history through the existing typed SDK under the explicitly selected workspace/key/model context. It restores authoritative prepared and unknown records after unloading the page, keeps new material/group mutations disabled while outcomes remain unconfirmed, and offers read-only saved-status checks. Acknowledged requests do not establish material readiness; absent records never establish that a request was not sent.
 
 The existing Stitch project was used for this history section after inspecting the current page and the mature Stripe Workbench operation-history reference. The implementation retains the existing navigation, theme and shadcn Table. Actual API data and independent PostgreSQL matched all 24 scoped operations, including six unknown outcomes. Reload restored the same records and mutation freeze; a saved-status check preserved its unconfirmed outcome. A real network failure retained history with an explicit error, and recovery cleared only the read error. Desktop and 390px checks covered visible status/actions and horizontal table access. Independent before/after saved-operation content digests were unchanged. No Provider mutation or inference was sent. Transport uncertainty before any durable record exists still cannot be recovered after component unload and remains open.
+
+### Saved workspace-image attachments in Video
+
+The Video composer now uses the model-discovered workspace-image capability and existing encrypted workspace library, retaining typed references as the saved request source of truth. Uploading stores an image but does not grant model-processing consent. The user must explicitly allow processing and choose a required model role before the reference enters the request. Pending input blocks Save, Estimate and key/model switches. Existing models without this capability retain their direct-input contract.
+
+The existing OpenRouter attachment reference and NIU.IO Stitch design were used within the established composer. Actual desktop and 390px checks covered upload, unchecked consent, both consent/role orders, preview, open role and saved-library menus, draft reload and session-backed Save request/reload. The authentic retained image download matched the original bytes independently. PostgreSQL confirmed the original workspace reference, explicit consent, role and immutable session binding with no associated submission. Removing a reference persisted across reload without deleting shared library bytes or changing the original retained intent. Request/execution/customer financial records were unchanged. No estimate or generation was submitted. Lost-upload response recovery and successful inspected upstream image dispatch remain unverified.

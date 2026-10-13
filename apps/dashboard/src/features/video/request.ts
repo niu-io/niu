@@ -1,3 +1,4 @@
+import type { VideoComposerDraftPayload } from '../../../../../sdks/javascript/src/admin';
 import type { VideoCreateRequest, VideoModel } from '../../../../../sdks/javascript/src/index';
 export type ControlValues = Record<string, string | boolean>;
 export type ImageReference = { url: string; role?: string };
@@ -45,4 +46,23 @@ export function videoRequest(model: VideoModel, prompt: string, controls: Contro
   if (model.output && !model.output.specifications.some(spec=>spec.resolution === effective.resolution && spec.ratio === effective.ratio)) throw new Error('Choose a supported resolution and aspect ratio together.');
   if (new TextEncoder().encode(JSON.stringify(request)).length > model.maximum_body_bytes) throw new Error('The request exceeds this model’s size limit.');
   return request;
+}
+
+/** Saved IDs and explicit consent are the dashboard reference source of truth. */
+export type SavedVideoReferences = VideoComposerDraftPayload['references'];
+export function validateSavedVideoReferences(model:VideoModel,references:SavedVideoReferences):void {
+  if(model.requires_image&&!references.length)throw new Error('This model requires a reference image.');
+  if(references.length+1>model.maximum_content_items)throw new Error('Too many references for this model.');
+  const workspace=references.filter(reference=>reference.type==='workspace_asset');
+  if(workspace.length&&workspace.length!==references.length)throw new Error('Workspace images and Provider materials cannot be mixed.');
+  if(workspace.length&&(!model.workspace_asset||workspace.length>model.workspace_asset.maximum_items))throw new Error('This model does not support these saved workspace images.');
+  for(const reference of references){
+    const id=reference.type==='workspace_asset'?reference.workspace_asset.asset_id:reference.provider_asset.id;
+    if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)||id==='00000000-0000-0000-0000-000000000000')throw new Error('A saved material reference is required.');
+    if(reference.type==='workspace_asset'){
+      if(reference.workspace_asset.consent_to_process!==true)throw new Error('Allow image processing before adding this reference.');
+      const rule=model.image_url;
+      if(!rule||(rule.role_required&&!reference.role)||(reference.role&&!rule.roles.includes(reference.role)))throw new Error('Choose a supported role for each saved image.');
+    }
+  }
 }
