@@ -83,6 +83,7 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
   const [saving, setSaving] = useState(false);
   const [reload, setReload] = useState(0);
   const [saved, setSaved] = useState(false);
+  const [conflicted, setConflicted] = useState(false);
   const [search, setSearch] = useState("");
   const modelSearchRef = useRef<HTMLInputElement>(null);
   const endpoint = workspace
@@ -106,6 +107,7 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
         setHead(data);
         setDraft(data?.policy ?? emptyPolicy());
         setLoaded(true);
+        setConflicted(false);
       })
       .catch((cause) => {
         if (!controller.signal.aborted)
@@ -127,7 +129,7 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
     setDraft((current) => ({ ...current, [field]: rule }));
   }
   async function save() {
-    if (!endpoint || !canWrite || saving || loading || !loaded) return;
+    if (!endpoint || !canWrite || saving || loading || !loaded || conflicted) return;
     setSaving(true);
     setError("");
     setSaved(false);
@@ -141,6 +143,7 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
       setHead({ revision: result.revision, policy: draft });
       setSaved(true);
     } catch (cause) {
+      if (cause instanceof VendorRequestError && cause.status === 409) setConflicted(true);
       setError(
         cause instanceof VendorRequestError && cause.status === 409
           ? "This policy changed elsewhere. Reload it before saving your changes."
@@ -185,6 +188,7 @@ function Guardrails({ token, canWrite }: { token: string; canWrite: boolean }) {
     contentRulesError(draft.output?.rules ?? []) ||
     (draft.output && !draft.output.rules.length ? "Add an output rule or remove output inspection." : "");
   const disabledSave =
+    conflicted ||
     !canWrite ||
     saving ||
     !changed ||

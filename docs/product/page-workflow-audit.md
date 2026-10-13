@@ -21,10 +21,10 @@ Baseline: current `main` at `534c07ee`, 2026-10-13. This audit covers rendered p
 | P05 | API key list | `/workspaces/:workspace/keys` | Filter, grants, expiry, status, navigation | In review: actual list/detail navigation and nullable expiry inspected; filters/full grants pending |
 | P06 | API key creation | `/workspaces/:workspace/keys/new` | Validation, permissions, one-time secret, persistence | In review: actual nonexpiring creation/null API expiry and independent database persistence; protocol example fix pending |
 | P07 | API key detail | `/workspaces/:workspace/keys/:key` | Limits, rotation, revocation, history, conflict recovery | In review: actual detail/expiry and own verification-key revocation/reload; limits/rotation/conflicts pending |
-| P08 | Workspace members | `/workspaces/:workspace/users` | Invite/manage roles and scope enforcement | Not checked |
-| P09 | Organization management | `/workspaces/:workspace/organization` | Company/workspace ownership and supported actions | Not checked |
+| P08 | Workspace members | `/workspaces/:workspace/users` | Invite/manage roles and scope enforcement | In review: actual member list/search/create form and role/TTL menus; writes/role changes pending |
+| P09 | Organization management | `/workspaces/:workspace/organization` | Company/workspace ownership and supported actions | In review: actual workspace links and create dialog desktop/narrow; full ownership boundaries pending |
 | P10 | Workspace settings | `/workspaces/:workspace/settings` | Saved scope settings and limits | In review: rename/reload and guarded empty-workspace deletion verified; limits/boundaries pending |
-| P11 | Guardrails | `/workspaces/:workspace/guardrails/:section?` | Every supported section, preview, activation, conflicts, roles | Not checked |
+| P11 | Guardrails | `/workspaces/:workspace/guardrails/:section?` | Every supported section, preview, activation, conflicts, roles | In review: all sections/menu states checked; actual save/conflict/reload and independent versions verified; enforcement pending |
 | P12 | Workspace Logs | `/workspaces/:workspace/executions` | Filters, details, exports, timing, unknown usage, customer charges | Not checked |
 | P13 | Global Gateway Activity | `/activity/:section?` and `/workspaces/:workspace/usage` | Global/workspace scope, coverage, drilldowns; excludes external Agent Observability | Not checked |
 | P14 | Model list | `/models` | Global catalog, selected workspace context, filters, prices, eligibility | In review: actual workspace list/filter/sort and Video destinations at desktop/narrow; full access/pricing boundaries pending |
@@ -64,7 +64,7 @@ These are source findings awaiting current-input reproduction, not integrated ac
 | C06 | P1 | P23, P24 | Supplier adapter controls omit backend-supported Anthropic/Gemini/Ark | Fixed; verified scope below |
 | C07 | P2 | P26 | Supported unconfigured payment integrations are hidden | Fixed; inventory scope verified |
 | C08 | P2 | P30 | Profile save does not update shared account-menu session state | In review |
-| C09 | P2 | P11 | A stale revision conflict does not lock repeated saves until reload | In review |
+| C09 | P2 | P11 | A stale revision conflict does not lock repeated saves until reload | Fixed; actual conflict/reload/publication scope verified |
 | C10 | P2 | P13 | Known token totals omit reported-usage coverage | In review |
 | C11 | P2 | P25 | Backend-supported reasoning customer prices lack an editor | Fixed; publication scope verified |
 | C12 | P2 | P17 | Unsubmitted Video drafts exist only in component memory | Draft restore/conflict scope verified; submission clear and reference picker pending |
@@ -147,3 +147,15 @@ A separate current-input run requested Seedance 2.5 while Mini was saved; the co
 ### Settings read scope
 
 Actual Account, Appearance, Billing, Payments and About pages were inspected. Password expansion displayed current/new/confirmation fields and session-revocation guidance; no password change was submitted. The existing theme menu was checked open at 390px without changing preferences. Empty account balance/history, unavailable top-ups, build/license and documentation destinations were visible. These are read/interaction scopes, not payment activation or complete settings-write acceptance.
+
+### Members, organization and Guardrails
+
+Actual member search/create controls and role/lifetime menus were inspected at desktop and 390px. The current creation flow explains temporary token issuance rather than promising email invitations. Organization workspace links and the create dialog were inspected without modifying existing members. All seven Guardrails sections were navigable; unconfigured detectors and empty history/denials reported their actual limitations.
+
+On a new zero-funded workspace, an actual policy save persisted. A concurrent authorized publication made the browser revision stale; the UI received 409 but left Save enabled. The fix holds Save disabled through further edits until an explicit successful reload. A new current-input conflict reproduced the hold; reload restored the exact published revision and another save succeeded. Independent PostgreSQL confirmed the immutable versions and final saved policy, with no model requests. Existing workspace policies were untouched. This qualifies policy persistence/conflict recovery, not detector or inference enforcement.
+
+### Native request recovery without a receipt
+
+Standalone material requests now use the same typed dashboard SDK as the Video dialog, preserving structured failures and saved operation references. Exact model capability discovery precedes native group reads. A transient real 503 during model discovery recovered with explicit Retry; this does not establish its underlying cause.
+
+A deliberate interruption of only the isolated Gateway caused a real unconfirmed group-form request before any Supplier contact. The form kept its name and blocked resubmission. After service readiness returned, an explicit saved-status read used the original idempotency reference and received 404. The dialog accurately states that this does not prove the request was never sent, and remains frozen. Independent PostgreSQL confirmed no operation for this actual request reference. Desktop and 390px dialog checks covered this recovery branch. Existing saved-operation lookup was separately qualified at the API level; successful browser receipt recovery, verification without a receipt, component-unload recovery inventory and explicit standalone account selection remain open.

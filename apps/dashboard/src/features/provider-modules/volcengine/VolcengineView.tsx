@@ -54,21 +54,23 @@ export default function VolcengineView({workspaceName, model:preferredModel, nat
       if(e instanceof NiuAPIError && !e.operationId && [400,401,403,404,422].includes(e.status))setDialogError(message);
       else{
         setPendingOperation({id:e instanceof NiuAPIError?e.operationId??null:null,verification:dialog==='verification',status:'unknown',form:dialog??'material'});
-        setDialogError(`${message} The outcome is unconfirmed. Your draft is preserved; do not submit another attempt.${e instanceof NiuAPIError&&e.operationId?' Check the saved operation status.':' A saved operation reference was not returned, so status recovery is unavailable here.'}`);
+        setDialogError(`${message} The outcome is unconfirmed. Your draft is preserved; do not submit another attempt.${e instanceof NiuAPIError&&e.operationId?' Check the saved operation status.':dialog==='verification'?' A saved verification reference was not returned, so status recovery is unavailable here.':' Check the saved operation using its original request reference.'}`);
       }
     }finally{setBusy(false);}
   }
   async function checkSavedOperation(){
-    if(!data.client||!data.model||!pendingOperation?.id||busy)return;
+    if(!data.client||!data.model||!pendingOperation||busy||(pendingOperation.verification&&!pendingOperation.id))return;
     setBusy(true);setDialogError('');
     try{
       const result=pendingOperation.verification
-        ? await data.client.verification.retrieve(pendingOperation.id,data.model)
-        : await data.client.operations.retrieve(pendingOperation.id,data.model);
+        ? await data.client.verification.retrieve(pendingOperation.id!,data.model)
+        : pendingOperation.id?await data.client.operations.retrieve(pendingOperation.id,data.model):await data.client.operations.retrieveByIdempotency(attempt,data.model);
       const status=result.data.status;
       const confirmed=pendingOperation.verification?['waiting_user','processing','verified'].includes(status):status==='acknowledged';
-      if(confirmed)await complete();else savedStatus(pendingOperation.id,pendingOperation.verification,status);
-    }catch(e){setDialogError(`${e instanceof Error?e.message:'Could not check the saved operation.'} The outcome remains unconfirmed. Try checking again.`);}
+      if(confirmed)await complete();else savedStatus(result.data.id,pendingOperation.verification,status);
+    }catch(e){setDialogError(e instanceof NiuAPIError&&e.status===404&&!pendingOperation.id&&!pendingOperation.verification
+      ? 'No saved operation was found for this request. This does not confirm that it was never sent. Do not submit another attempt.'
+      : `${e instanceof Error?e.message:'Could not check the saved operation.'} The outcome remains unconfirmed. Try checking again.`);}
     finally{setBusy(false);}
   }
   async function openVerification(id:string){await act(async()=>{const link=await data.client!.verification.link(id,data.model!);const target=new URL(link.verification_url);if(target.protocol!=='https:')throw new Error('Invalid verification link');window.open(target.href,'_blank','noopener,noreferrer');});}
@@ -87,7 +89,7 @@ export default function VolcengineView({workspaceName, model:preferredModel, nat
     <Dialog open={dialog!==null} onOpenChange={value=>{if(!value&&!busy){setDialog(null);if(!unresolved)setPendingOperation(null);}}}><DialogContent><DialogHeader><DialogTitle>{dialog==='group'?'New material group':dialog==='edit'?'Edit group':dialog==='material'?'Add material':'Human verification'}</DialogTitle><DialogDescription>{dialog==='verification'?'The person completes verification on Volcengine’s page. Niu then checks the result.':'Manage materials in this workspace.'}</DialogDescription></DialogHeader>
       <div className="space-y-4"><div className="space-y-2"><Label htmlFor="volcengine-name">{dialog==='verification'?'Person name':dialog==='material'?'Material name':'Group name'}</Label><Input id="volcengine-name" disabled={busy||!!pendingOperation} value={name} onChange={e=>setName(e.target.value)} maxLength={64}/></div>{dialog==='material'&&<><Label htmlFor="material-url">Material URL</Label><Input id="material-url" aria-invalid={dialogError==='Use a public HTTPS material URL.'} aria-describedby={dialogError?'volcengine-dialog-error':undefined} disabled={busy||!!pendingOperation} type="url" value={url} onChange={e=>setUrl(e.target.value)}/><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" disabled={busy||!!pendingOperation}>{kind}<IconChevronDown size={16}/></Button></DropdownMenuTrigger><DropdownMenuContent><DropdownMenuRadioGroup value={kind} onValueChange={v=>setKind(v as typeof kind)}>{['image','video','audio'].map(k=><DropdownMenuRadioItem key={k} value={k}>{k}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu></>}<p className="text-sm text-muted-foreground">Workspace: {workspaceName}</p></div>
       {dialogError&&<p id="volcengine-dialog-error" role="alert" className="text-sm text-destructive">{dialogError}</p>}
-      <DialogFooter><Button variant="ghost" disabled={busy} onClick={()=>{setDialog(null);if(!unresolved)setPendingOperation(null);}}>{pendingOperation?'Close':'Cancel'}</Button>{pendingOperation?.id&&<Button variant="outline" disabled={busy} onClick={()=>void checkSavedOperation()}>{busy?'Checking…':'Check saved operation status'}</Button>}<Button disabled={busy||!!pendingOperation||!name.trim()||(dialog==='material'&&!url.trim())} onClick={()=>void save()}>{busy?'Saving…':dialog==='verification'?'Start verification':dialog==='group'?'Create group':'Save'}</Button></DialogFooter>
+      <DialogFooter><Button variant="ghost" disabled={busy} onClick={()=>{setDialog(null);if(!unresolved)setPendingOperation(null);}}>{pendingOperation?'Close':'Cancel'}</Button>{pendingOperation&&(pendingOperation.id||!pendingOperation.verification)&&<Button variant="outline" disabled={busy} onClick={()=>void checkSavedOperation()}>{busy?'Checking…':'Check saved operation status'}</Button>}<Button disabled={busy||!!pendingOperation||!name.trim()||(dialog==='material'&&!url.trim())} onClick={()=>void save()}>{busy?'Saving…':dialog==='verification'?'Start verification':dialog==='group'?'Create group':'Save'}</Button></DialogFooter>
     </DialogContent></Dialog>
   </div>;
 }
